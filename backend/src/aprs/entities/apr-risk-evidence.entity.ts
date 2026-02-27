@@ -31,7 +31,7 @@ export class AprRiskEvidence {
   @JoinColumn({ name: 'apr_risk_item_id' })
   apr_risk_item: AprRiskItem;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   uploaded_by_id: string | null;
 
   @ManyToOne(() => User, { nullable: true })

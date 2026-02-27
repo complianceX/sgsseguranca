@@ -102,7 +102,7 @@ export class Apr {
   @JoinColumn({ name: 'auditado_por_id' })
   auditado_por: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   auditado_por_id: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
@@ -126,7 +126,7 @@ export class Apr {
   @Column({ type: 'int', default: 1 })
   versao: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   parent_apr_id: string | null;
 
   @ManyToOne(() => Apr, { nullable: true })
@@ -137,7 +137,7 @@ export class Apr {
   @JoinColumn({ name: 'aprovado_por_id' })
   aprovado_por: User;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   aprovado_por_id: string | null;
 
   @Column({ type: 'timestamp', nullable: true })

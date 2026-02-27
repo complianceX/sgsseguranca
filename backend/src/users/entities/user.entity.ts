@@ -20,13 +20,13 @@ export class User {
   @Column()
   nome: string;
 
-  @Column({ unique: true, nullable: true })
+  @Column({ type: 'varchar', unique: true, nullable: true })
   cpf: string | null;
 
   @Column({ unique: true, nullable: true })
   email: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   funcao: string | null;
 
   @Column({ select: false, nullable: true })
