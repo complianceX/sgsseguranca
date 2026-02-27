@@ -1,0 +1,264 @@
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
+import * as puppeteer from 'puppeteer';
+import { Browser, Page } from 'puppeteer';
+
+interface PooledBrowser {
+  id: number;
+  browser: Browser;
+  inUse: boolean;
+  lastUsed: Date;
+  useCount: number;
+}
+
+@Injectable()
+export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(PuppeteerPoolService.name);
+  private browserPool: PooledBrowser[] = [];
+  private readonly poolSize = 3;
+  private readonly maxPageTimeout = 30000; // 30 segundos
+  private readonly maxUsesPerBrowser = 50; // Limite de usos antes de reciclar (evita memory leaks)
+  private cleanupInterval?: NodeJS.Timeout;
+
+  async onModuleInit() {
+    this.logger.log(`Inicializando pool de Puppeteer em modo lazy`);
+
+    // Cleanup e manutenção a cada 1 minuto
+    this.cleanupInterval = setInterval(() => {
+      this.maintenance();
+    }, 60 * 1000);
+  }
+
+  async onModuleDestroy() {
+    this.logger.log('Fechando pool de Puppeteer');
+
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+
+    await Promise.all(
+      this.browserPool.map((b) => this.closeBrowserInstance(b)),
+    );
+
+    this.browserPool = [];
+  }
+
+  async getPage(): Promise<Page> {
+    // Tentar obter um browser disponível
+    let pooledBrowser = this.browserPool.find((b) => !b.inUse);
+
+    if (!pooledBrowser) {
+      if (this.browserPool.length < this.poolSize) {
+        const nextId =
+          this.browserPool.length === 0
+            ? 0
+            : Math.max(...this.browserPool.map((b) => b.id)) + 1;
+        await this.addBrowserToPool(nextId);
+        pooledBrowser = this.browserPool.find((b) => !b.inUse);
+      }
+      if (!pooledBrowser) {
+        for (let i = 0; i < 10; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          pooledBrowser = this.browserPool.find((b) => !b.inUse);
+          if (pooledBrowser) break;
+        }
+      }
+      if (!pooledBrowser) {
+        throw new Error('Timeout aguardando browser disponível no pool');
+      }
+    }
+
+    // Verificar saúde do browser
+    if (!pooledBrowser.browser.isConnected()) {
+      this.logger.warn(
+        `Browser ${pooledBrowser.id} desconectado. Reiniciando...`,
+      );
+      await this.recycleBrowser(pooledBrowser);
+    }
+
+    // Verificar rotação por uso (evita memory leak do Chromium)
+    if (pooledBrowser.useCount >= this.maxUsesPerBrowser) {
+      this.logger.log(
+        `Browser ${pooledBrowser.id} atingiu limite de uso (${pooledBrowser.useCount}). Reciclando...`,
+      );
+      await this.recycleBrowser(pooledBrowser);
+    }
+
+    pooledBrowser.inUse = true;
+    pooledBrowser.lastUsed = new Date();
+    pooledBrowser.useCount++;
+
+    try {
+      const page = await pooledBrowser.browser.newPage();
+
+      // Configurar timeout da página
+      page.setDefaultTimeout(this.maxPageTimeout);
+      page.setDefaultNavigationTimeout(this.maxPageTimeout);
+
+      // Limpar listeners ao fechar página
+      page.on('error', (error) => {
+        this.logger.error('Erro na página:', error);
+      });
+
+      return page;
+    } catch (error) {
+      pooledBrowser.inUse = false;
+      this.logger.error(
+        `Erro ao criar página no browser ${pooledBrowser.id}:`,
+        error,
+      );
+      if (!pooledBrowser.browser.isConnected()) {
+        await this.recycleBrowser(pooledBrowser);
+      }
+      throw error;
+    }
+  }
+
+  async releasePage(page: Page): Promise<void> {
+    try {
+      await page.close();
+    } catch (error) {
+      this.logger.error('Erro ao fechar página:', error);
+    }
+
+    // Identificar corretamente o browser dono da página
+    const browser = page.browser();
+    const pooledBrowser = this.browserPool.find((b) => b.browser === browser);
+
+    if (pooledBrowser) {
+      pooledBrowser.inUse = false;
+    } else {
+      this.logger.warn(
+        'Não foi possível identificar o browser pool para a página liberada.',
+      );
+    }
+  }
+
+  private async launchBrowser(): Promise<Browser> {
+    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    const launchOptions: puppeteer.LaunchOptions & { executablePath?: string } =
+      {
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--no-first-run',
+          '--no-zygote',
+          '--disable-extensions',
+          '--mute-audio',
+          '--disable-background-networking',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-breakpad',
+          '--disable-component-extensions-with-background-pages',
+          '--disable-features=TranslateUI,BlinkGenPropertyTrees',
+          '--disable-ipc-flooding-protection',
+          '--disable-renderer-backgrounding',
+          '--enable-features=NetworkService,NetworkServiceInProcess',
+        ],
+        headless: true,
+      };
+    if (executablePath) {
+      launchOptions.executablePath = executablePath;
+    }
+    return puppeteer.launch(launchOptions);
+  }
+
+  private async addBrowserToPool(id: number): Promise<void> {
+    try {
+      const browser = await this.launchBrowser();
+      this.browserPool.push({
+        id,
+        browser,
+        inUse: false,
+        lastUsed: new Date(),
+        useCount: 0,
+      });
+      this.logger.log(
+        `Browser ${id} iniciado (PID: ${browser.process()?.pid})`,
+      );
+    } catch (error) {
+      this.logger.error(`Erro ao inicializar browser ${id}:`, error);
+    }
+  }
+
+  private async closeBrowserInstance(
+    pooledBrowser: PooledBrowser,
+  ): Promise<void> {
+    try {
+      const pid = pooledBrowser.browser.process()?.pid;
+      await pooledBrowser.browser.close();
+      this.logger.debug(`Browser ${pooledBrowser.id} (PID: ${pid}) fechado.`);
+    } catch (error) {
+      this.logger.warn(
+        `Erro ao fechar browser ${pooledBrowser.id}, forçando kill...`,
+        error,
+      );
+      try {
+        pooledBrowser.browser.process()?.kill('SIGKILL');
+      } catch (killError) {
+        this.logger.error(
+          `Falha fatal ao matar processo do browser ${pooledBrowser.id}`,
+          killError,
+        );
+      }
+    }
+  }
+
+  private async recycleBrowser(pooledBrowser: PooledBrowser): Promise<void> {
+    await this.closeBrowserInstance(pooledBrowser);
+    try {
+      const newBrowser = await this.launchBrowser();
+      pooledBrowser.browser = newBrowser;
+      pooledBrowser.inUse = false;
+      pooledBrowser.lastUsed = new Date();
+      pooledBrowser.useCount = 0;
+      this.logger.log(
+        `Browser ${pooledBrowser.id} reciclado (Novo PID: ${newBrowser.process()?.pid})`,
+      );
+    } catch (error) {
+      this.logger.error(`Falha ao reciclar browser ${pooledBrowser.id}`, error);
+      // Remove do pool se falhar na recriação para evitar uso de objeto morto
+      this.browserPool = this.browserPool.filter(
+        (b) => b.id !== pooledBrowser.id,
+      );
+    }
+  }
+
+  private async maintenance(): Promise<void> {
+    const now = new Date();
+    const maxInactiveTime = 5 * 60 * 1000; // 5 minutos
+
+    for (const pooledBrowser of this.browserPool) {
+      if (!pooledBrowser.browser.isConnected()) {
+        await this.recycleBrowser(pooledBrowser);
+        continue;
+      }
+
+      if (
+        !pooledBrowser.inUse &&
+        now.getTime() - pooledBrowser.lastUsed.getTime() > maxInactiveTime
+      ) {
+        this.logger.log(`Limpando browser ${pooledBrowser.id} inativo`);
+        await this.recycleBrowser(pooledBrowser);
+      }
+    }
+  }
+
+  getPoolStats() {
+    const inUse = this.browserPool.filter((b) => b.inUse).length;
+    const available = this.browserPool.filter((b) => !b.inUse).length;
+
+    return {
+      total: this.browserPool.length,
+      inUse,
+      available,
+      poolSize: this.poolSize,
+    };
+  }
+}

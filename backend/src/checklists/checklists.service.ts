@@ -1,0 +1,417 @@
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  forwardRef,
+  Scope,
+  Logger,
+  BadRequestException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
+import { plainToClass } from 'class-transformer';
+import { Checklist } from './entities/checklist.entity';
+import { ChecklistResponseDto } from './dto/checklist-response.dto';
+import { TenantService } from '../common/tenant/tenant.service';
+import { CreateChecklistDto } from './dto/create-checklist.dto';
+import { UpdateChecklistDto } from './dto/update-checklist.dto';
+import { MailService } from '../mail/mail.service';
+import { SignaturesService } from '../signatures/signatures.service';
+import { StorageService } from '../common/services/storage.service';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { UsersService } from '../users/users.service';
+import { SitesService } from '../sites/sites.service';
+
+import { NotificationsGateway } from '../notifications/notifications.gateway';
+
+@Injectable({ scope: Scope.REQUEST })
+export class ChecklistsService {
+  private readonly logger = new Logger(ChecklistsService.name);
+
+  constructor(
+    @InjectRepository(Checklist)
+    private checklistsRepository: Repository<Checklist>,
+    private tenantService: TenantService,
+    private dataSource: DataSource,
+    @Inject(forwardRef(() => MailService))
+    private mailService: MailService,
+    private signaturesService: SignaturesService,
+    private notificationsGateway: NotificationsGateway,
+    private storageService: StorageService,
+    private usersService: UsersService,
+    private sitesService: SitesService,
+  ) {}
+
+  async create(
+    createChecklistDto: CreateChecklistDto,
+  ): Promise<ChecklistResponseDto> {
+    const tenantId = this.tenantService.getTenantId();
+    this.logger.log(`Criando checklist para empresa: ${tenantId}`);
+
+    const checklist = this.checklistsRepository.create({
+      ...createChecklistDto,
+      company_id: tenantId || createChecklistDto.company_id,
+    });
+    const saved = await this.checklistsRepository.save(checklist);
+    this.logger.log(`Checklist salvo: ${saved.id}`);
+    return plainToClass(ChecklistResponseDto, saved);
+  }
+
+  async findAll(options?: {
+    onlyTemplates?: boolean;
+    excludeTemplates?: boolean;
+  }): Promise<ChecklistResponseDto[]> {
+    const tenantId = this.tenantService.getTenantId();
+    this.logger.debug(`Buscando checklists para empresa: ${tenantId}`);
+
+    const filter: { company_id?: string; is_modelo?: boolean } = {};
+    if (tenantId) {
+      filter.company_id = tenantId;
+    }
+    if (options?.onlyTemplates) {
+      filter.is_modelo = true;
+    } else if (options?.excludeTemplates) {
+      filter.is_modelo = false;
+    }
+
+    const results = await this.checklistsRepository.find({
+      where: filter,
+      relations: ['site', 'inspetor'],
+      order: { created_at: 'DESC' },
+    });
+    return results.map((c) => plainToClass(ChecklistResponseDto, c));
+  }
+
+  async findOne(id: string): Promise<ChecklistResponseDto> {
+    const checklist = await this.findOneEntity(id);
+    return plainToClass(ChecklistResponseDto, checklist);
+  }
+
+  async findOneEntity(id: string): Promise<Checklist> {
+    const tenantId = this.tenantService.getTenantId();
+    const checklist = await this.checklistsRepository.findOne({
+      where: tenantId ? { id, company_id: tenantId } : { id },
+      relations: ['site', 'inspetor'],
+    });
+    if (!checklist) {
+      throw new NotFoundException(`Checklist com ID ${id} não encontrado`);
+    }
+    return checklist;
+  }
+
+  async update(
+    id: string,
+    updateChecklistDto: UpdateChecklistDto,
+  ): Promise<ChecklistResponseDto> {
+    const checklist = await this.findOneEntity(id);
+    Object.assign(checklist, updateChecklistDto);
+    const saved = await this.checklistsRepository.save(checklist);
+
+    try {
+      this.notificationsGateway.sendToCompany(
+        checklist.company_id,
+        'checklist:updated',
+        { id: checklist.id },
+      );
+    } catch (e) {
+      this.logger.error(
+        'Falha ao enviar notificação de checklist atualizado',
+        e,
+      );
+    }
+
+    return plainToClass(ChecklistResponseDto, saved);
+  }
+
+  async remove(id: string): Promise<void> {
+    const checklist = await this.findOneEntity(id);
+    await this.checklistsRepository.remove(checklist);
+  }
+
+  async sendEmail(id: string, to: string) {
+    // CORREÇÃO: `sendMailWithAttachment` não existe. Usando `sendMailSimple` que aceita anexos.
+    const checklist = await this.findOneEntity(id);
+    const pdfBuffer = await this.generatePdf(checklist);
+
+    await this.mailService.sendMailSimple(
+      to,
+      `Checklist: ${checklist.titulo}`,
+      `Segue em anexo o checklist "${checklist.titulo}" realizado em ${new Date(checklist.data).toLocaleDateString('pt-BR')}.`,
+      { companyId: checklist.company_id },
+      [
+        {
+          filename: `checklist-${id}.pdf`,
+          content: pdfBuffer,
+        },
+      ],
+    );
+
+    return { success: true };
+  }
+
+  async generatePdf(checklist: Checklist): Promise<Buffer> {
+    // ALERTA DE PERFORMANCE: A geração de PDFs é uma tarefa síncrona e intensiva em CPU.
+    // Em um ambiente com alta concorrência, isso pode bloquear o event loop do Node.js
+    // e degradar a performance da aplicação.
+    // RECOMENDAÇÃO: Mover esta lógica para um job em background (ex: usando BullMQ)
+    // para não impactar a responsividade da API.
+    const doc = new jsPDF();
+
+    doc.setFontSize(18);
+    doc.text('COMPLIANCE X', 14, 20);
+    doc.setFontSize(14);
+    doc.text(checklist.titulo, 14, 30);
+    doc.setFontSize(10);
+    doc.text(
+      `Data: ${new Date(checklist.data).toLocaleDateString('pt-BR')}`,
+      14,
+      38,
+    );
+    doc.text(`Inspetor: ${checklist.inspetor?.nome || 'N/A'}`, 14, 44);
+    doc.text(`Obra/Setor: ${checklist.site?.nome || 'N/A'}`, 14, 50);
+    if (checklist.equipamento)
+      doc.text(`Equipamento: ${checklist.equipamento}`, 14, 56);
+    if (checklist.maquina) doc.text(`Máquina: ${checklist.maquina}`, 14, 62);
+
+    interface ChecklistItem {
+      item: string;
+      status: string | boolean;
+      observacao?: string;
+    }
+    const tableData = ((checklist.itens as ChecklistItem[]) || []).map(
+      (item) => [
+        item.item,
+        item.status === 'ok' || item.status === 'sim'
+          ? 'Conforme'
+          : item.status === 'nok' || item.status === 'nao'
+            ? 'Não Conforme'
+            : 'N/A',
+        item.observacao || '',
+      ],
+    );
+
+    let currentY = 70;
+    if (checklist.foto_equipamento) {
+      try {
+        const imgData =
+          checklist.foto_equipamento.split(',')[1] ||
+          checklist.foto_equipamento;
+        doc.addImage(imgData, 'PNG', 14, currentY, 60, 60);
+        currentY += 70;
+      } catch (e) {
+        this.logger.error('Erro ao adicionar imagem do equipamento:', e);
+      }
+    }
+
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Item', 'Status', 'Observação']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    const signatures = await this.signaturesService.findByDocument(
+      checklist.id,
+      'CHECKLIST',
+    );
+    if (signatures.length > 0) {
+      const finalY = (doc as any).lastAutoTable?.finalY || 150;
+      let currentSigY = finalY + 20;
+
+      if (currentSigY > 250) {
+        doc.addPage();
+        currentSigY = 20;
+      }
+      doc.setFontSize(12);
+      doc.text('Assinaturas', 14, currentSigY);
+      currentSigY += 10;
+
+      for (const sig of signatures) {
+        if (currentSigY + 40 > 280) {
+          doc.addPage();
+          currentSigY = 20;
+        }
+        doc.setFontSize(10);
+        doc.text(
+          `Assinado por: ${sig.user?.nome || 'Usuário'} em ${new Date(sig.created_at).toLocaleString('pt-BR')}`,
+          14,
+          currentSigY,
+        );
+        currentSigY += 5;
+        if (sig.signature_data) {
+          try {
+            const imgData =
+              sig.signature_data.split(',')[1] || sig.signature_data;
+            doc.addImage(imgData, 'PNG', 14, currentSigY, 50, 20);
+            currentSigY += 25;
+          } catch (e) {
+            this.logger.error('Erro ao adicionar imagem de assinatura:', e);
+            currentSigY += 10;
+          }
+        } else {
+          currentSigY += 10;
+        }
+      }
+    }
+
+    return Buffer.from(doc.output('arraybuffer'));
+  }
+
+  async createWeldingMachineTemplate() {
+    const title = 'Checklist de Máquina de Solda';
+    const companyId = this.tenantService.getTenantId();
+    if (!companyId) {
+      throw new BadRequestException(
+        'Não foi possível identificar a empresa para criar o template.',
+      );
+    }
+
+    const existing = await this.checklistsRepository.findOne({
+      where: { titulo: title, is_modelo: true, company_id: companyId },
+    });
+    if (existing) {
+      this.logger.warn(
+        `Template "${title}" já existe para a empresa ${companyId}.`,
+      );
+      return existing;
+    }
+
+    const items = [
+      {
+        item: '1. CONDIÇÕES GERAIS: Carcaça da máquina íntegra',
+        tipo_resposta: 'sim_nao_na',
+        obrigatorio: true,
+      },
+      {
+        item: '1. CONDIÇÕES GERAIS: Cabos de alimentação sem cortes ou emendas',
+        tipo_resposta: 'sim_nao_na',
+        obrigatorio: true,
+      },
+      {
+        item: '2. SEGURANÇA ELÉTRICA: Aterramento adequado',
+        tipo_resposta: 'sim_nao_na',
+        obrigatorio: true,
+      },
+      {
+        item: '3. SEGURANÇA OPERACIONAL: Porta-eletrodo em bom estado',
+        tipo_resposta: 'sim_nao_na',
+        obrigatorio: true,
+      },
+      {
+        item: '3. SEGURANÇA OPERACIONAL: Área livre de materiais inflamáveis',
+        tipo_resposta: 'sim_nao_na',
+        obrigatorio: true,
+      },
+      {
+        item: '4. EPI DO OPERADOR: Máscara de solda adequada',
+        tipo_resposta: 'sim_nao_na',
+        obrigatorio: true,
+      },
+      {
+        item: '4. EPI DO OPERADOR: Luvas de raspa',
+        tipo_resposta: 'sim_nao_na',
+        obrigatorio: true,
+      },
+      {
+        item: '5. ORGANIZAÇÃO E AMBIENTE: Cabos organizados (sem risco de tropeço)',
+        tipo_resposta: 'sim_nao_na',
+        obrigatorio: true,
+      },
+    ];
+
+    // CORREÇÃO: Removida a lógica de fallback com queries SQL. A criação de templates agora depende do contexto do tenant.
+    // Para templates globais, uma estratégia diferente (ex: company_id nulo) deveria ser implementada.
+    const checklist = this.checklistsRepository.create({
+      titulo: title,
+      descricao: 'Inspeção de segurança e operacional para máquina de solda.',
+      equipamento: 'Máquina de Solda',
+      data: new Date(),
+      status: 'Pendente',
+      company_id: companyId,
+      itens: items,
+      is_modelo: true,
+      categoria: 'Equipamento',
+      periodicidade: 'Diário',
+      nivel_risco_padrao: 'Alto',
+      ativo: true,
+    });
+
+    return this.checklistsRepository.save(checklist);
+  }
+
+  async fillFromTemplate(
+    templateId: string,
+    fillData: UpdateChecklistDto,
+  ): Promise<ChecklistResponseDto> {
+    const template = await this.findOneEntity(templateId);
+    if (!template.is_modelo) {
+      throw new BadRequestException(
+        'O checklist especificado não é um template',
+      );
+    }
+
+    const newChecklist = this.checklistsRepository.create({
+      ...template,
+      id: undefined,
+      template_id: templateId,
+      is_modelo: false,
+      ...fillData,
+      created_at: undefined,
+      updated_at: undefined,
+    });
+    const saved = await this.checklistsRepository.save(newChecklist);
+
+    try {
+      this.notificationsGateway.sendToCompany(
+        saved.company_id,
+        'checklist:created',
+        { id: saved.id, titulo: saved.titulo },
+      );
+    } catch (e) {
+      this.logger.error('Falha ao enviar notificação de checklist criado', e);
+    }
+
+    return plainToClass(ChecklistResponseDto, saved);
+  }
+
+  async savePdfToStorage(
+    id: string,
+  ): Promise<{ fileKey: string; folderPath: string; fileUrl: string }> {
+    const checklist = await this.findOneEntity(id);
+    const pdfBuffer = await this.generatePdf(checklist);
+
+    const date = new Date(checklist.data);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const firstDayOfYear = new Date(year, 0, 1);
+    const pastDaysOfYear =
+      (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+    const weekNumber = Math.ceil(
+      (pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7,
+    );
+
+    const folderPath = `documents/${checklist.company_id}/checklists/${year}/${month}/semana-${String(weekNumber).padStart(2, '0')}`;
+    const fileName = `checklist-${checklist.id}.pdf`;
+    const fileKey = `${folderPath}/${fileName}`;
+
+    await this.storageService.uploadFile(fileKey, pdfBuffer, 'application/pdf');
+    const fileUrl = await this.storageService.getPresignedDownloadUrl(fileKey);
+
+    checklist.pdf_file_key = fileKey;
+    checklist.pdf_folder_path = folderPath;
+    checklist.pdf_original_name = fileName;
+    await this.checklistsRepository.save(checklist);
+
+    return { fileKey, folderPath, fileUrl };
+  }
+
+  async count(options?: any): Promise<number> {
+    const tenantId = this.tenantService.getTenantId();
+    const where = options?.where || {};
+    return this.checklistsRepository.count({
+      where: tenantId ? { ...where, company_id: tenantId } : where,
+    });
+  }
+}

@@ -1,0 +1,282 @@
+
+> backend@0.0.1 lint
+> eslint "{src,apps,libs,test}/**/*.ts" --fix
+
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\ai\ai.controller.ts
+  26:46  warning  Unsafe argument of type `any` assigned to a parameter of type `ChatContext`           @typescript-eslint/no-unsafe-argument
+  41:37  warning  Unsafe argument of type `any` assigned to a parameter of type `AnalyzePtDto`          @typescript-eslint/no-unsafe-argument
+  56:45  warning  Unsafe argument of type `any` assigned to a parameter of type `GenerateChecklistDto`  @typescript-eslint/no-unsafe-argument
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\auth\dto\login.dto.ts
+  7:29  error  Unsafe return of a value of type `any`           @typescript-eslint/no-unsafe-return
+  7:29  error  Unsafe call of an `any` typed value              @typescript-eslint/no-unsafe-call
+  7:35  error  Unsafe member access .replace on an `any` value  @typescript-eslint/no-unsafe-member-access
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\auth\jwt-auth.guard.ts
+   7:11  error  Unsafe assignment of an `any` value              @typescript-eslint/no-unsafe-assignment
+   8:11  error  Unsafe assignment of an `any` value              @typescript-eslint/no-unsafe-assignment
+   8:27  error  Unsafe member access .cookies on an `any` value  @typescript-eslint/no-unsafe-member-access
+  10:15  error  Unsafe member access .headers on an `any` value  @typescript-eslint/no-unsafe-member-access
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\common\decorators\audit.decorator.ts
+   1:10  error  'Inject' is defined but never used                                                                                                                                                                        @typescript-eslint/no-unused-vars
+  11:11  error  Unsafe assignment of an `any` value                                                                                                                                                                       @typescript-eslint/no-unsafe-assignment
+  14:13  error  Unsafe assignment of an `any` value                                                                                                                                                                       @typescript-eslint/no-unsafe-assignment
+  14:28  error  Unsafe call of an `any` typed value                                                                                                                                                                       @typescript-eslint/no-unsafe-call
+  14:43  error  Unsafe member access .apply on an `any` value                                                                                                                                                             @typescript-eslint/no-unsafe-member-access
+  18:33  error  Unsafe member access .auditService on an `any` value. `this` is typed as `any`.
+You can try to fix this by turning on the `noImplicitThis` compiler option, or adding a `this` parameter to the function  @typescript-eslint/no-unsafe-member-access
+  30:15  error  Unsafe assignment of an `any` value                                                                                                                                                                       @typescript-eslint/no-unsafe-assignment
+  30:33  error  Unsafe member access .id on an `any` value                                                                                                                                                                @typescript-eslint/no-unsafe-member-access
+  31:15  error  Unsafe assignment of an `any` value                                                                                                                                                                       @typescript-eslint/no-unsafe-assignment
+  42:47  error  Unsafe member access .constructor on an `any` value                                                                                                                                                       @typescript-eslint/no-unsafe-member-access
+  46:7   error  Unsafe return of a value of type `any`                                                                                                                                                                    @typescript-eslint/no-unsafe-return
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\common\interceptors\logging.interceptor.spec.ts
+   1:10  error  'Test' is defined but never used                @typescript-eslint/no-unused-vars
+   1:16  error  'TestingModule' is defined but never used       @typescript-eslint/no-unused-vars
+   3:41  error  'Logger' is defined but never used              @typescript-eslint/no-unused-vars
+  19:5   error  Unsafe assignment of an `any` value             @typescript-eslint/no-unsafe-assignment
+  19:26  error  Unsafe member access .logger on an `any` value  @typescript-eslint/no-unsafe-member-access
+  44:27  error  Unsafe member access .log on an `any` value     @typescript-eslint/no-unsafe-member-access
+  47:27  error  Unsafe member access .log on an `any` value     @typescript-eslint/no-unsafe-member-access
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\common\interceptors\logging.interceptor.ts
+  17:11  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  18:11  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  19:11  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  19:31  error  Unsafe member access ['user-agent'] on an `any` value  @typescript-eslint/no-unsafe-member-access
+  23:13  error  Unsafe member access .requestId on an `any` value      @typescript-eslint/no-unsafe-member-access
+  31:7   error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  32:7   error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  33:7   error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  34:7   error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  35:7   error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  35:23  error  Unsafe member access .user on an `any` value           @typescript-eslint/no-unsafe-member-access
+  36:7   error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  36:26  error  Unsafe member access .user on an `any` value           @typescript-eslint/no-unsafe-member-access
+  37:7   error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  42:16  error  'data' is defined but never used                       @typescript-eslint/no-unused-vars
+  44:17  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  49:13  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  50:13  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  51:13  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  51:34  error  Unsafe member access .statusCode on an `any` value     @typescript-eslint/no-unsafe-member-access
+  53:13  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  53:29  error  Unsafe member access .user on an `any` value           @typescript-eslint/no-unsafe-member-access
+  62:13  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  63:13  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  65:13  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  65:26  error  Unsafe member access .message on an `any` value        @typescript-eslint/no-unsafe-member-access
+  66:13  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  66:26  error  Unsafe member access .stack on an `any` value          @typescript-eslint/no-unsafe-member-access
+  67:13  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  67:29  error  Unsafe member access .user on an `any` value           @typescript-eslint/no-unsafe-member-access
+  77:11  error  Unsafe assignment of an `any` value                    @typescript-eslint/no-unsafe-assignment
+  81:21  error  Unsafe member access [field] on an `any` value         @typescript-eslint/no-unsafe-member-access
+  82:19  error  Unsafe member access [field] on an `any` value         @typescript-eslint/no-unsafe-member-access
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\common\interceptors\query-performance.interceptor.ts
+  16:11  error  Unsafe assignment of an `any` value  @typescript-eslint/no-unsafe-assignment
+  17:11  error  Unsafe assignment of an `any` value  @typescript-eslint/no-unsafe-assignment
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\common\logging\database.logger.ts
+   7:12  error  'query' is defined but never used        @typescript-eslint/no-unused-vars
+   7:27  error  'parameters' is defined but never used   @typescript-eslint/no-unused-vars
+   7:47  error  'queryRunner' is defined but never used  @typescript-eslint/no-unused-vars
+  15:5   error  'queryRunner' is defined but never used  @typescript-eslint/no-unused-vars
+  29:5   error  'queryRunner' is defined but never used  @typescript-eslint/no-unused-vars
+  39:35  error  'queryRunner' is defined but never used  @typescript-eslint/no-unused-vars
+  43:33  error  'queryRunner' is defined but never used  @typescript-eslint/no-unused-vars
+  47:53  error  'queryRunner' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\common\middleware\request-context.middleware.ts
+  37:31  warning  Unsafe argument of type `Map<any, any>` assigned to a parameter of type `Map<string, any>`  @typescript-eslint/no-unsafe-argument
+  46:5   error    Unsafe return of a value of type `any`                                                      @typescript-eslint/no-unsafe-return
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\common\services\storage.service.ts
+  11:5  warning  Promises must be awaited, end with a call to .catch, end with a call to .then with a rejection handler or be explicitly marked as ignored with the `void` operator  @typescript-eslint/no-floating-promises
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\epis\dto\create-epi.dto.ts
+  15:29  error  Unsafe return of a value of type `any`           @typescript-eslint/no-unsafe-return
+  15:29  error  Unsafe call of an `any` typed value              @typescript-eslint/no-unsafe-call
+  15:35  error  Unsafe member access .replace on an `any` value  @typescript-eslint/no-unsafe-member-access
+  21:29  error  Unsafe return of a value of type `any`           @typescript-eslint/no-unsafe-return
+  21:29  error  Unsafe call of an `any` typed value              @typescript-eslint/no-unsafe-call
+  21:35  error  Unsafe member access .replace on an `any` value  @typescript-eslint/no-unsafe-member-access
+  31:29  error  Unsafe return of a value of type `any`           @typescript-eslint/no-unsafe-return
+  31:29  error  Unsafe call of an `any` typed value              @typescript-eslint/no-unsafe-call
+  31:35  error  Unsafe member access .replace on an `any` value  @typescript-eslint/no-unsafe-member-access
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\mail\dto\dispatch-alerts.dto.ts
+  1:42  error  'IsString' is defined but never used   @typescript-eslint/no-unused-vars
+  2:10  error  'Transform' is defined but never used  @typescript-eslint/no-unused-vars
+  3:10  error  'Trim' is defined but never used       @typescript-eslint/no-unused-vars
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\mail\dto\send-document.dto.ts
+   2:3   error  'IsBoolean' is defined but never used            @typescript-eslint/no-unused-vars
+   5:3   error  'IsOptional' is defined but never used           @typescript-eslint/no-unused-vars
+  18:29  error  Unsafe return of a value of type `any`           @typescript-eslint/no-unsafe-return
+  18:29  error  Unsafe call of an `any` typed value              @typescript-eslint/no-unsafe-call
+  18:35  error  Unsafe member access .replace on an `any` value  @typescript-eslint/no-unsafe-member-access
+  24:29  error  Unsafe return of a value of type `any`           @typescript-eslint/no-unsafe-return
+  24:29  error  Unsafe call of an `any` typed value              @typescript-eslint/no-unsafe-call
+  24:35  error  Unsafe member access .replace on an `any` value  @typescript-eslint/no-unsafe-member-access
+  30:29  error  Unsafe return of a value of type `any`           @typescript-eslint/no-unsafe-return
+  30:29  error  Unsafe call of an `any` typed value              @typescript-eslint/no-unsafe-call
+  30:35  error  Unsafe member access .replace on an `any` value  @typescript-eslint/no-unsafe-member-access
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\modules\document-import\services\document-classifier.service.ts
+  226:5  error  Unsafe return of a value of type error  @typescript-eslint/no-unsafe-return
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\notifications\notifications.controller.ts
+   4:3   error    'Post' is defined but never used                                        @typescript-eslint/no-unused-vars
+  25:46  warning  Unsafe argument of type `any` assigned to a parameter of type `string`  @typescript-eslint/no-unsafe-argument
+  25:50  error    Unsafe member access .user on an `any` value                            @typescript-eslint/no-unsafe-member-access
+  30:53  warning  Unsafe argument of type `any` assigned to a parameter of type `string`  @typescript-eslint/no-unsafe-argument
+  30:57  error    Unsafe member access .user on an `any` value                            @typescript-eslint/no-unsafe-member-access
+  35:53  warning  Unsafe argument of type `any` assigned to a parameter of type `string`  @typescript-eslint/no-unsafe-argument
+  35:57  error    Unsafe member access .user on an `any` value                            @typescript-eslint/no-unsafe-member-access
+  40:52  warning  Unsafe argument of type `any` assigned to a parameter of type `string`  @typescript-eslint/no-unsafe-argument
+  40:56  error    Unsafe member access .user on an `any` value                            @typescript-eslint/no-unsafe-member-access
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\profiles\profiles.service.spec.ts
+  33:5   error  Unsafe assignment of an `any` value           @typescript-eslint/no-unsafe-assignment
+  34:5   error  Unsafe assignment of an `any` value           @typescript-eslint/no-unsafe-assignment
+  39:7   error  Unsafe call of an `any` typed value           @typescript-eslint/no-unsafe-call
+  39:20  error  Unsafe member access .get on an `any` value   @typescript-eslint/no-unsafe-member-access
+  42:19  error  Unsafe member access .find on an `any` value  @typescript-eslint/no-unsafe-member-access
+  46:7   error  Unsafe call of an `any` typed value           @typescript-eslint/no-unsafe-call
+  46:20  error  Unsafe member access .get on an `any` value   @typescript-eslint/no-unsafe-member-access
+  47:7   error  Unsafe call of an `any` typed value           @typescript-eslint/no-unsafe-call
+  47:12  error  Unsafe member access .find on an `any` value  @typescript-eslint/no-unsafe-member-access
+  49:27  error  Unsafe member access .set on an `any` value   @typescript-eslint/no-unsafe-member-access
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\push\push.controller.ts
+  25:44  warning  Unsafe argument of type `any` assigned to a parameter of type `string`  @typescript-eslint/no-unsafe-argument
+  25:48  error    Unsafe member access .user on an `any` value                            @typescript-eslint/no-unsafe-member-access
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\push\push.service.ts
+  28:16  error  Unsafe assignment of an `any` value                 @typescript-eslint/no-unsafe-assignment
+  28:39  error  Unsafe member access .endpoint on an `any` value    @typescript-eslint/no-unsafe-member-access
+  34:9   error  Unsafe assignment of an `any` value                 @typescript-eslint/no-unsafe-assignment
+  34:32  error  Unsafe member access .endpoint on an `any` value    @typescript-eslint/no-unsafe-member-access
+  35:9   error  Unsafe assignment of an `any` value                 @typescript-eslint/no-unsafe-assignment
+  35:28  error  Unsafe member access .keys on an `any` value        @typescript-eslint/no-unsafe-member-access
+  60:11  error  Unsafe assignment of an `any` value                 @typescript-eslint/no-unsafe-assignment
+  60:34  error  Unsafe member access .endpoint on an `any` value    @typescript-eslint/no-unsafe-member-access
+  61:11  error  Unsafe assignment of an `any` value                 @typescript-eslint/no-unsafe-assignment
+  61:30  error  Unsafe member access .keys on an `any` value        @typescript-eslint/no-unsafe-member-access
+  66:17  error  Unsafe member access .statusCode on an `any` value  @typescript-eslint/no-unsafe-member-access
+  66:45  error  Unsafe member access .statusCode on an `any` value  @typescript-eslint/no-unsafe-member-access
+  68:46  error  Unsafe assignment of an `any` value                 @typescript-eslint/no-unsafe-assignment
+  68:69  error  Unsafe member access .endpoint on an `any` value    @typescript-eslint/no-unsafe-member-access
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\risks\dto\create-risk.dto.ts
+  14:29  error  Unsafe return of a value of type `any`           @typescript-eslint/no-unsafe-return
+  14:29  error  Unsafe call of an `any` typed value              @typescript-eslint/no-unsafe-call
+  14:35  error  Unsafe member access .replace on an `any` value  @typescript-eslint/no-unsafe-member-access
+  20:29  error  Unsafe return of a value of type `any`           @typescript-eslint/no-unsafe-return
+  20:29  error  Unsafe call of an `any` typed value              @typescript-eslint/no-unsafe-call
+  20:35  error  Unsafe member access .replace on an `any` value  @typescript-eslint/no-unsafe-member-access
+  26:29  error  Unsafe return of a value of type `any`           @typescript-eslint/no-unsafe-return
+  26:29  error  Unsafe call of an `any` typed value              @typescript-eslint/no-unsafe-call
+  26:35  error  Unsafe member access .replace on an `any` value  @typescript-eslint/no-unsafe-member-access
+  32:29  error  Unsafe return of a value of type `any`           @typescript-eslint/no-unsafe-return
+  32:29  error  Unsafe call of an `any` typed value              @typescript-eslint/no-unsafe-call
+  32:35  error  Unsafe member access .replace on an `any` value  @typescript-eslint/no-unsafe-member-access
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\tasks\cleanup.task.ts
+  39:3  error  Async method 'generateWeeklyReports' has no 'await' expression  @typescript-eslint/require-await
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\src\users\users.service.ts
+   14:3   error  'USER_BASE_FIELDS' is defined but never used      @typescript-eslint/no-unused-vars
+  142:21  error  Unsafe member access .password on an `any` value  @typescript-eslint/no-unsafe-member-access
+
+C:\Users\User\Documents\trae_projects\wanderson-gandra\backend\test\auth.e2e-spec.ts
+   20:7   error    Unsafe return of a value of type error                                                   @typescript-eslint/no-unsafe-return
+   20:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   20:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   20:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   20:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   21:10  error    Unsafe member access .post on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+   22:10  error    Unsafe member access .send on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+   26:10  error    Unsafe member access .expect on a type that cannot be resolved                           @typescript-eslint/no-unsafe-member-access
+   27:10  error    Unsafe member access .expect on a type that cannot be resolved                           @typescript-eslint/no-unsafe-member-access
+   28:22  error    Unsafe member access .body on an `any` value                                             @typescript-eslint/no-unsafe-member-access
+   29:22  error    Unsafe member access .headers on an `any` value                                          @typescript-eslint/no-unsafe-member-access
+   30:22  error    Unsafe member access .headers on an `any` value                                          @typescript-eslint/no-unsafe-member-access
+   35:7   error    Unsafe return of a value of type error                                                   @typescript-eslint/no-unsafe-return
+   35:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   35:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   35:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   35:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   36:10  error    Unsafe member access .post on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+   37:10  error    Unsafe member access .send on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+   41:10  error    Unsafe member access .expect on a type that cannot be resolved                           @typescript-eslint/no-unsafe-member-access
+   42:10  error    Unsafe member access .expect on a type that cannot be resolved                           @typescript-eslint/no-unsafe-member-access
+   45:22  error    Unsafe member access .body on an `any` value                                             @typescript-eslint/no-unsafe-member-access
+   50:7   error    Unsafe return of a value of type error                                                   @typescript-eslint/no-unsafe-return
+   50:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   50:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   50:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   51:10  error    Unsafe member access .post on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+   52:10  error    Unsafe member access .send on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+   56:10  error    Unsafe member access .expect on a type that cannot be resolved                           @typescript-eslint/no-unsafe-member-access
+   68:11  warning  Unsafe argument of type error typed assigned to a parameter of type `never`              @typescript-eslint/no-unsafe-argument
+   68:11  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   68:11  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   69:14  error    Unsafe member access .post on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+   70:14  error    Unsafe member access .send on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+   74:25  error    Unexpected iterable of non-Promise (non-"Thenable") values passed to promise aggregator  @typescript-eslint/await-thenable
+   76:7   error    Unsafe return of a value of type error                                                   @typescript-eslint/no-unsafe-return
+   76:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   76:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   76:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   77:10  error    Unsafe member access .post on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+   78:10  error    Unsafe member access .send on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+   79:10  error    Unsafe member access .expect on a type that cannot be resolved                           @typescript-eslint/no-unsafe-member-access
+   86:13  error    Unsafe assignment of an error typed value                                                @typescript-eslint/no-unsafe-assignment
+   86:30  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   86:30  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   87:10  error    Unsafe member access .post on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+   88:10  error    Unsafe member access .send on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+   90:13  error    Unsafe assignment of an error typed value                                                @typescript-eslint/no-unsafe-assignment
+   90:32  error    Unsafe member access .headers on a type that cannot be resolved                          @typescript-eslint/no-unsafe-member-access
+   92:7   error    Unsafe return of a value of type error                                                   @typescript-eslint/no-unsafe-return
+   92:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   92:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   92:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   92:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+   93:10  error    Unsafe member access .post on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+   94:10  error    Unsafe member access .set on a type that cannot be resolved                              @typescript-eslint/no-unsafe-member-access
+   95:10  error    Unsafe member access .expect on a type that cannot be resolved                           @typescript-eslint/no-unsafe-member-access
+   96:10  error    Unsafe member access .expect on a type that cannot be resolved                           @typescript-eslint/no-unsafe-member-access
+   97:22  error    Unsafe member access .headers on an `any` value                                          @typescript-eslint/no-unsafe-member-access
+  105:13  error    Unsafe assignment of an error typed value                                                @typescript-eslint/no-unsafe-assignment
+  105:30  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+  105:30  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+  106:10  error    Unsafe member access .post on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+  107:10  error    Unsafe member access .send on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+  109:13  error    Unsafe assignment of an error typed value                                                @typescript-eslint/no-unsafe-assignment
+  109:32  error    Unsafe member access .headers on a type that cannot be resolved                          @typescript-eslint/no-unsafe-member-access
+  111:7   error    Unsafe return of a value of type error                                                   @typescript-eslint/no-unsafe-return
+  111:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+  111:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+  111:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+  111:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+  112:10  error    Unsafe member access .post on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+  113:10  error    Unsafe member access .set on a type that cannot be resolved                              @typescript-eslint/no-unsafe-member-access
+  114:10  error    Unsafe member access .send on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+  118:10  error    Unsafe member access .expect on a type that cannot be resolved                           @typescript-eslint/no-unsafe-member-access
+  122:7   error    Unsafe return of a value of type error                                                   @typescript-eslint/no-unsafe-return
+  122:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+  122:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+  122:14  error    Unsafe call of a type that could not be resolved                                         @typescript-eslint/no-unsafe-call
+  123:10  error    Unsafe member access .post on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+  124:10  error    Unsafe member access .send on a type that cannot be resolved                             @typescript-eslint/no-unsafe-member-access
+  128:10  error    Unsafe member access .expect on a type that cannot be resolved                           @typescript-eslint/no-unsafe-member-access
+
+Ô£û 230 problems (219 errors, 11 warnings)
+

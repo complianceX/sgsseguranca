@@ -1,0 +1,251 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f3f4f6;
+  --foreground: #374151;
+  --card: #ffffff;
+  --card-foreground: #374151;
+  --muted: #e5e7eb;
+  --muted-foreground: #6b7280;
+  --popover: #ffffff;
+  --popover-foreground: #374151;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #e5e7eb;
+  --secondary-foreground: #374151;
+  --accent: #1e3a8a;
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #2563eb;
+  --surface-1: #ffffff;
+  --surface-2: #f9fafb;
+  --sidebar: #1e293b;
+  --sidebar-foreground: #ffffff;
+  --sidebar-accent: #334155;
+  --sidebar-muted: #cbd5e1;
+  --success: #16a34a;
+  --success-hover: #15803d;
+  --warning: #facc15;
+  --warning-hover: #eab308;
+  --warning-foreground: #111827;
+  --danger-hover: #b91c1c;
+  --primary-dark: #1e3a8a;
+  --primary-hover: #1e40af;
+  --risk-acceptable: #22c55e;
+  --risk-attention: #3b82f6;
+  --risk-substantial: #f97316;
+  --risk-critical: #ef4444;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a1224;
+    --foreground: #e5edff;
+    --card: #0f1a33;
+    --card-foreground: #e5edff;
+    --muted: #1a2746;
+    --muted-foreground: #b8c7eb;
+    --popover: #0f1a33;
+    --popover-foreground: #e5edff;
+    --primary: #3b82f6;
+    --primary-foreground: #eaf2ff;
+    --secondary: #172742;
+    --secondary-foreground: #d7e5ff;
+    --accent: #1f3a66;
+    --accent-foreground: #d6e5ff;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffe4e6;
+    --border: #2a3b61;
+    --input: #2a3b61;
+    --ring: #60a5fa;
+    --surface-1: #101c37;
+    --surface-2: #0b162f;
+    --sidebar: #060d1f;
+    --sidebar-foreground: #c4d5ff;
+    --sidebar-accent: #3b82f6;
+    --sidebar-muted: #86a0d8;
+  }
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), "Segoe UI", "Noto Sans", sans-serif;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    color: #0b1a38;
+    letter-spacing: -0.01em;
+  }
+
+  p,
+  span,
+  li,
+  td {
+    color: #1f2f4a;
+  }
+
+  label {
+    color: #12233f !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.01em;
+  }
+
+  table thead th {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    background: #1e3a8a !important;
+    border-bottom: 1px solid #1e3a8a !important;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+  }
+
+  table tbody td {
+    color: #1f2f4a !important;
+    border-bottom: 1px solid #d7e2f1;
+    background-color: #ffffff;
+  }
+
+  table tbody tr:nth-child(even) td {
+    background-color: #f9fafb;
+  }
+
+  table tbody tr:hover td {
+    background-color: #eef2ff !important;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    border-color: #e5e7eb !important;
+    background-color: #ffffff !important;
+    color: #12233f !important;
+    font-weight: 600 !important;
+    border-radius: 0.5rem !important;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #6b7f9f !important;
+    opacity: 1 !important;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):focus,
+  select:focus,
+  textarea:focus {
+    border-color: #2563eb !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+    outline: none !important;
+  }
+}
+
+@layer components {
+  .sst-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  }
+
+  .risk-badge-acceptable {
+    background: var(--risk-acceptable);
+    color: #ffffff;
+  }
+
+  .risk-badge-attention {
+    background: var(--risk-attention);
+    color: #ffffff;
+  }
+
+  .risk-badge-substantial {
+    background: var(--risk-substantial);
+    color: #ffffff;
+  }
+
+  .risk-badge-critical {
+    background: var(--risk-critical);
+    color: #ffffff;
+  }
+
+  .apr-sheet thead th {
+    border: 1px solid #111827 !important;
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
+    padding-top: 0.55rem !important;
+    padding-bottom: 0.55rem !important;
+  }
+
+  .apr-sheet tbody td {
+    border: 1px solid #1f2937 !important;
+    background: #ffffff !important;
+    vertical-align: top;
+    padding-top: 0.4rem !important;
+    padding-bottom: 0.4rem !important;
+  }
+
+  .apr-sheet tbody tr:nth-child(even) td {
+    background: #f8fafc !important;
+  }
+
+  .apr-sheet tbody tr:hover td {
+    background: #e2e8f0 !important;
+  }
+
+  .apr-tech-table thead th {
+    border: 1px solid #111827 !important;
+    background: #e5e7eb !important;
+    color: #111827 !important;
+    font-weight: 800 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    font-size: 0.68rem;
+    padding-top: 0.45rem !important;
+    padding-bottom: 0.45rem !important;
+  }
+
+  .apr-tech-table tbody td {
+    border: 1px solid #111827 !important;
+    color: #111827 !important;
+    background: #ffffff !important;
+    padding: 0.45rem 0.5rem !important;
+    line-height: 1.25;
+  }
+}

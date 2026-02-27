@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: sst_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: REDACTED
+      POSTGRES_DB: sst
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: sst_redis
+    ports:
+      - "6379:6379"
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sst_api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/sst
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_TLS: "false"
+      NODE_ENV: production
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    container_name: sst_worker
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/sst
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_TLS: "false"
+      NODE_ENV: production
+
+volumes:
+  postgres_data:

@@ -1,0 +1,172 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { StorageService } from './storage.service';
+import { ConfigService } from '@nestjs/config';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+// Mock das dependências do AWS SDK
+const mockS3ClientSend = jest.fn();
+jest.mock('@aws-sdk/client-s3', () => {
+  // Mock dos construtores dos comandos
+  return {
+    S3Client: jest.fn().mockImplementation(function () {
+      // instancia real do mock (this) recebe o método send
+      this.send = mockS3ClientSend;
+    }),
+    PutObjectCommand: jest.fn(),
+    GetObjectCommand: jest.fn(),
+    DeleteObjectCommand: jest.fn(),
+  };
+});
+
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: jest.fn(),
+}));
+
+// Mocks com tipos para melhor autocompletar e segurança
+const mockedS3Client = S3Client as jest.MockedClass<typeof S3Client>;
+const mockedPutObjectCommand = PutObjectCommand as jest.Mock;
+const mockedGetObjectCommand = GetObjectCommand as jest.Mock;
+const mockedDeleteObjectCommand = DeleteObjectCommand as jest.Mock;
+const mockedGetSignedUrl = getSignedUrl as jest.Mock;
+
+describe('StorageService', () => {
+  let service: StorageService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        StorageService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              const config = {
+                AWS_BUCKET_NAME: 'test-bucket',
+                AWS_REGION: 'us-east-1',
+                AWS_ENDPOINT: 'http://localhost:4566',
+                AWS_ACCESS_KEY_ID: REDACTED
+                AWS_SECRET_ACCESS_KEY: REDACTED
+              };
+              return config[key];
+            }),
+          },
+        },
+      ],
+    }).compile();
+    service = module.get<StorageService>(StorageService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('deve estar definido', () => {
+    expect(service).toBeDefined();
+  });
+
+  it('deve inicializar o S3Client com as configurações corretas', () => {
+    // Acessa a instância criada no construtor do serviço
+    expect(mockedS3Client).toHaveBeenCalledWith({
+      region: 'us-east-1',
+      endpoint: 'http://localhost:4566',
+      credentials: {
+        accessKeyId: 'test-key',
+        secretAccessKey: 'test-secret',
+      },
+      forcePathStyle: true,
+    });
+  });
+
+  describe('getPresignedUploadUrl', () => {
+    it('deve gerar uma URL pré-assinada de upload (PUT) e chamar os comandos corretos', async () => {
+      const key = 'uploads/teste.pdf';
+      const contentType = 'application/pdf';
+      const mockUrl = 'https://s3.amazonaws.com/presigned-url-mock-put';
+      mockedGetSignedUrl.mockResolvedValue(mockUrl);
+
+      const url = await service.getPresignedUploadUrl(key, contentType);
+
+      expect(mockedPutObjectCommand).toHaveBeenCalledWith({
+        Bucket: 'test-bucket',
+        Key: key,
+        ContentType: contentType,
+      });
+      const commandInstance = mockedPutObjectCommand.mock.instances[0];
+      expect(mockedGetSignedUrl).toHaveBeenCalledWith(
+        mockedS3Client.mock.instances[0],
+        commandInstance,
+        { expiresIn: 3600 },
+      );
+      expect(url).toBe(mockUrl);
+    });
+
+    it('deve lançar um erro se a geração da URL falhar', async () => {
+      const error = new Error('AWS SDK error');
+      mockedGetSignedUrl.mockRejectedValue(error);
+
+      await expect(
+        service.getPresignedUploadUrl('key', 'type'),
+      ).rejects.toThrow(error);
+    });
+  });
+
+  describe('getPresignedDownloadUrl', () => {
+    it('deve gerar uma URL pré-assinada de download (GET) e chamar os comandos corretos', async () => {
+      const key = 'uploads/teste.pdf';
+      const mockUrl = 'https://s3.amazonaws.com/presigned-url-mock-get';
+      mockedGetSignedUrl.mockResolvedValue(mockUrl);
+
+      const url = await service.getPresignedDownloadUrl(key);
+
+      expect(mockedGetObjectCommand).toHaveBeenCalledWith({
+        Bucket: 'test-bucket',
+        Key: key,
+      });
+      const commandInstance = mockedGetObjectCommand.mock.instances[0];
+      expect(mockedGetSignedUrl).toHaveBeenCalledWith(
+        mockedS3Client.mock.instances[0],
+        commandInstance,
+        { expiresIn: 604800 },
+      );
+      expect(url).toBe(mockUrl);
+    });
+
+    it('deve lançar um erro se a geração da URL falhar', async () => {
+      const error = new Error('AWS SDK error');
+      mockedGetSignedUrl.mockRejectedValue(error);
+
+      await expect(service.getPresignedDownloadUrl('key')).rejects.toThrow(
+        error,
+      );
+    });
+  });
+
+  describe('deleteFile', () => {
+    it('deve chamar o comando de deletar objeto com a chave correta', async () => {
+      const key = 'uploads/arquivo-para-deletar.txt';
+      mockS3ClientSend.mockResolvedValue({}); // Simula uma resposta de sucesso do S3
+
+      await service.deleteFile(key);
+
+      expect(mockedDeleteObjectCommand).toHaveBeenCalledWith({
+        Bucket: 'test-bucket',
+        Key: key,
+      });
+      const commandInstance = mockedDeleteObjectCommand.mock.instances[0];
+      expect(mockS3ClientSend).toHaveBeenCalledWith(commandInstance);
+    });
+
+    it('deve lançar um erro se a deleção do arquivo falhar', async () => {
+      const error = new Error('AWS SDK error on delete');
+      mockS3ClientSend.mockRejectedValue(error);
+
+      await expect(service.deleteFile('key')).rejects.toThrow(error);
+    });
+  });
+});

@@ -1,0 +1,713 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { auditsService } from '@/services/auditsService';
+import { sitesService, Site } from '@/services/sitesService';
+import { usersService, User } from '@/services/usersService';
+import { useForm, useFieldArray, Control, FieldValues } from 'react-hook-form';
+import type { FieldErrors } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Save, Plus, Trash2, Loader2, ClipboardCheck } from 'lucide-react';
+import Link from 'next/link';
+import { toast } from 'sonner';
+import { getFormErrorMessage } from '@/lib/error-handler';
+import { attachPdfIfProvided } from '@/lib/document-upload';
+
+const auditSchema = z.object({
+  titulo: z.string().min(5, 'O título deve ter pelo menos 5 caracteres'),
+  data_auditoria: z.string(),
+  tipo_auditoria: z.string().min(1, 'O tipo de auditoria é obrigatório'),
+  site_id: z.string().min(1, 'Selecione um site'),
+  auditor_id: z.string().min(1, 'Selecione um auditor'),
+  representantes_empresa: z.string().optional(),
+  objetivo: z.string().optional(),
+  escopo: z.string().optional(),
+  referencias: z.array(z.string()).optional(),
+  metodologia: z.string().optional(),
+  caracterizacao: z.object({
+    cnae: z.string().optional(),
+    grau_risco: z.string().optional(),
+    num_trabalhadores: z.number().optional(),
+    turnos: z.string().optional(),
+    atividades_principais: z.string().optional(),
+  }).optional(),
+  documentos_avaliados: z.array(z.string()).optional(),
+  resultados_conformidades: z.array(z.string()).optional(),
+  resultados_nao_conformidades: z.array(z.object({
+    descricao: z.string(),
+    requisito: z.string(),
+    evidencia: z.string(),
+    classificacao: z.enum(['Leve', 'Moderada', 'Grave', 'Crítica']),
+  })).optional(),
+  resultados_observacoes: z.array(z.string()).optional(),
+  resultados_oportunidades: z.array(z.string()).optional(),
+  avaliacao_riscos: z.array(z.object({
+    perigo: z.string(),
+    classificacao: z.string(),
+    impactos: z.string(),
+    medidas_controle: z.string(),
+  })).optional(),
+  plano_acao: z.array(z.object({
+    item: z.string(),
+    acao: z.string(),
+    responsavel: z.string(),
+    prazo: z.string(),
+    status: z.string(),
+  })).optional(),
+  conclusao: z.string().optional(),
+});
+
+type AuditFormData = z.infer<typeof auditSchema>;
+
+interface AuditFormProps {
+  id?: string;
+}
+
+export function AuditForm({ id }: AuditFormProps) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(true);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    setFocus,
+    formState: { errors, isValid, isSubmitting },
+  } = useForm<AuditFormData>({
+    resolver: zodResolver(auditSchema),
+    mode: 'onBlur',
+    reValidateMode: 'onBlur',
+    defaultValues: {
+      titulo: 'Relatório de Auditoria HSE',
+      data_auditoria: new Date().toISOString().split('T')[0],
+      tipo_auditoria: 'Interna',
+      referencias: [''],
+      documentos_avaliados: [''],
+      resultados_conformidades: [''],
+      resultados_nao_conformidades: [],
+      resultados_observacoes: [''],
+      resultados_oportunidades: [''],
+      avaliacao_riscos: [],
+      plano_acao: [],
+    },
+  });
+
+  // Field Arrays
+  const fieldArrayControl = control as unknown as Control<FieldValues>;
+  const { fields: refFields, append: appendRef, remove: removeRef } = useFieldArray({ control: fieldArrayControl, name: 'referencias' });
+  const { fields: docFields, append: appendDoc, remove: removeDoc } = useFieldArray({ control: fieldArrayControl, name: 'documentos_avaliados' });
+  const { fields: confFields, append: appendConf, remove: removeConf } = useFieldArray({ control: fieldArrayControl, name: 'resultados_conformidades' });
+  const { fields: ncFields, append: appendNC, remove: removeNC } = useFieldArray({ control, name: 'resultados_nao_conformidades' });
+  const { fields: obsFields, append: appendObs, remove: removeObs } = useFieldArray({ control: fieldArrayControl, name: 'resultados_observacoes' });
+  const { fields: opFields, append: appendOp, remove: removeOp } = useFieldArray({ control: fieldArrayControl, name: 'resultados_oportunidades' });
+  const { fields: riskFields, append: appendRisk, remove: removeRisk } = useFieldArray({ control, name: 'avaliacao_riscos' });
+  const { fields: actionFields, append: appendAction, remove: removeAction } = useFieldArray({ control, name: 'plano_acao' });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [sitesData, usersData] = await Promise.all([
+          sitesService.findAll(),
+          usersService.findAll(),
+        ]);
+        setSites(sitesData);
+        setUsers(usersData);
+
+        if (id) {
+          const audit = await auditsService.findOne(id);
+          reset({
+            ...audit,
+            data_auditoria: new Date(audit.data_auditoria).toISOString().split('T')[0],
+          });
+        }
+      } catch {
+        toast.error('Erro ao carregar dados');
+      } finally {
+        setFetching(false);
+      }
+    };
+
+    fetchData();
+  }, [id, reset]);
+
+  const onSubmit = async (data: AuditFormData) => {
+    setLoading(true);
+    try {
+      setSubmitError(null);
+      if (id) {
+        const updated = await auditsService.update(id, data);
+        await attachPdfIfProvided(updated.id, pdfFile, auditsService.attachFile);
+        toast.success('Auditoria atualizada com sucesso');
+      } else {
+        const created = await auditsService.create(data);
+        await attachPdfIfProvided(created.id, pdfFile, auditsService.attachFile);
+        toast.success('Auditoria criada com sucesso');
+      }
+      router.push('/dashboard/audits');
+    } catch (error) {
+      const errorMessage = getFormErrorMessage(error, {
+        badRequest: 'Dados inválidos. Revise os campos obrigatórios.',
+        unauthorized: 'Sessão expirada. Faça login novamente.',
+        forbidden: 'Você não tem permissão para salvar auditorias.',
+        server: 'Erro interno do servidor ao salvar auditoria.',
+        fallback: 'Erro ao salvar auditoria. Tente novamente.',
+      });
+      setSubmitError(errorMessage);
+      toast.error('Erro ao salvar auditoria');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onInvalid = (formErrors: FieldErrors<AuditFormData>) => {
+    if (formErrors.titulo) {
+      setFocus('titulo');
+    } else if (formErrors.site_id) {
+      setFocus('site_id');
+    } else if (formErrors.tipo_auditoria) {
+      setFocus('tipo_auditoria');
+    } else if (formErrors.auditor_id) {
+      setFocus('auditor_id');
+    }
+    toast.error('Revise os campos obrigatórios antes de salvar.');
+  };
+
+  if (fetching) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#2563EB]" />
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-8 pb-12">
+      {submitError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {submitError}
+        </div>
+      )}
+      {/* 1. Identificação */}
+      <div className="sst-card p-6">
+        <h2 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">
+          <ClipboardCheck className="h-5 w-5 text-blue-600" />
+          1. Identificação do Documento
+        </h2>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="md:col-span-2">
+            <label className="mb-2 block text-sm font-bold text-gray-700">Título</label>
+            <input
+              {...register('titulo')}
+              className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
+                errors.titulo ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+              }`}
+              aria-invalid={Boolean(errors.titulo)}
+            />
+            {errors.titulo && <p className="mt-1 text-xs text-red-500">{errors.titulo.message}</p>}
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-bold text-gray-700">Unidade/Site</label>
+            <select
+              {...register('site_id')}
+              className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
+                errors.site_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+              }`}
+              aria-invalid={Boolean(errors.site_id)}
+            >
+              <option value="">Selecione um site</option>
+              {sites.map((site) => (
+                <option key={site.id} value={site.id}>{site.nome}</option>
+              ))}
+            </select>
+            {errors.site_id && <p className="mt-1 text-xs text-red-500">{errors.site_id.message}</p>}
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-bold text-gray-700">Data da Auditoria</label>
+            <input
+              type="date"
+              {...register('data_auditoria')}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-bold text-gray-700">Tipo de Auditoria</label>
+            <select
+              {...register('tipo_auditoria')}
+              className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
+                errors.tipo_auditoria ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+              }`}
+              aria-invalid={Boolean(errors.tipo_auditoria)}
+            >
+              <option value="Interna">Interna</option>
+              <option value="Externa">Externa</option>
+              <option value="Cliente">Cliente</option>
+              <option value="Legal">Legal</option>
+              <option value="Sistema de Gestão">Sistema de Gestão</option>
+            </select>
+            {errors.tipo_auditoria && <p className="mt-1 text-xs text-red-500">{errors.tipo_auditoria.message}</p>}
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-bold text-gray-700">Auditor Responsável</label>
+            <select
+              {...register('auditor_id')}
+              className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
+                errors.auditor_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+              }`}
+              aria-invalid={Boolean(errors.auditor_id)}
+            >
+              <option value="">Selecione o auditor</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>{user.nome}</option>
+              ))}
+            </select>
+            {errors.auditor_id && <p className="mt-1 text-xs text-red-500">{errors.auditor_id.message}</p>}
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="mb-2 block text-sm font-bold text-gray-700">Representantes da Empresa</label>
+            <textarea
+              {...register('representantes_empresa')}
+              rows={2}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              placeholder="Nomes dos representantes que acompanharam a auditoria"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="mb-2 block text-sm font-bold text-gray-700">Anexar PDF da Auditoria (opcional)</label>
+            <input
+              type="file"
+              accept="application/pdf"
+              onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 2 & 3. Objetivo e Escopo */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-bold text-gray-900">2. Objetivo</h2>
+          <textarea
+            {...register('objetivo')}
+            rows={4}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-bold text-gray-900">3. Escopo</h2>
+          <textarea
+            {...register('escopo')}
+            rows={4}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+      </div>
+
+      {/* 4 & 5. Referências e Metodologia */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-900">4. Referências</h2>
+            <button
+              type="button"
+              onClick={() => appendRef('')}
+              className="text-blue-600 hover:text-blue-700"
+              title="Adicionar Referência"
+              aria-label="Adicionar Referência"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          </div>
+          {refFields.map((field, index) => (
+            <div key={field.id} className="mb-2 flex gap-2">
+              <input
+                {...register(`referencias.${index}` as const)}
+                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => removeRef(index)}
+                className="text-red-500"
+                title="Remover Referência"
+                aria-label="Remover Referência"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-bold text-gray-900">5. Metodologia</h2>
+          <textarea
+            {...register('metodologia')}
+            rows={4}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          />
+        </div>
+      </div>
+
+      {/* 6. Caracterização */}
+      <div className="sst-card p-6">
+        <h2 className="mb-4 text-lg font-bold text-gray-900">6. Caracterização da Empresa</h2>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-xs font-bold text-gray-500">CNAE</label>
+            <input {...register('caracterizacao.cnae')} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-bold text-gray-500">Grau de Risco</label>
+            <input {...register('caracterizacao.grau_risco')} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-bold text-gray-500">Nº Trabalhadores</label>
+            <input type="number" {...register('caracterizacao.num_trabalhadores', { valueAsNumber: true })} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+          </div>
+          <div className="md:col-span-3">
+            <label className="mb-1 block text-xs font-bold text-gray-500">Atividades Principais</label>
+            <textarea {...register('caracterizacao.atividades_principais')} rows={2} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+          </div>
+        </div>
+      </div>
+
+      {/* 7. Documentos Avaliados */}
+      <div className="sst-card p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900">7. Documentos Avaliados</h2>
+          <button
+            type="button"
+            onClick={() => appendDoc('')}
+            className="text-blue-600 hover:text-blue-700"
+            title="Adicionar Documento"
+            aria-label="Adicionar Documento"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          {docFields.map((field, index) => (
+            <div key={field.id} className="flex gap-2">
+              <input
+                {...register(`documentos_avaliados.${index}` as const)}
+                className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => removeDoc(index)}
+                className="text-red-500"
+                title="Remover Documento"
+                aria-label="Remover Documento"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 8. Resultados */}
+      <div className="space-y-6">
+        <h2 className="text-xl font-bold text-gray-900 border-b pb-2">8. Resultados da Auditoria</h2>
+        
+        {/* Conformidades */}
+        <div className="rounded-xl border border-green-200 bg-green-50/30 p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-bold text-green-800">8.1 Conformidades</h3>
+            <button
+              type="button"
+              onClick={() => appendConf('')}
+              className="text-green-600 hover:text-green-700"
+              title="Adicionar Conformidade"
+              aria-label="Adicionar Conformidade"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          </div>
+          {confFields.map((field, index) => (
+            <div key={field.id} className="mb-2 flex gap-2">
+              <input
+                {...register(`resultados_conformidades.${index}` as const)}
+                className="flex-1 rounded-md border border-green-200 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => removeConf(index)}
+                className="text-red-500"
+                title="Remover Conformidade"
+                aria-label="Remover Conformidade"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Não Conformidades */}
+        <div className="rounded-xl border border-red-200 bg-red-50/30 p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-bold text-red-800">8.2 Não Conformidades</h3>
+            <button
+              type="button"
+              onClick={() => appendNC({ descricao: '', requisito: '', evidencia: '', classificacao: 'Moderada' })}
+              className="bg-red-600 text-white px-3 py-1 rounded-md text-sm flex items-center gap-1"
+              title="Adicionar Não Conformidade"
+              aria-label="Adicionar Não Conformidade"
+            >
+              <Plus className="h-4 w-4" /> Adicionar NC
+            </button>
+          </div>
+          <div className="space-y-4">
+            {ncFields.map((field, index) => (
+              <div key={field.id} className="relative rounded-lg border border-red-200 bg-white p-4 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => removeNC(index)}
+                  className="absolute top-2 right-2 text-red-400 hover:text-red-600"
+                  title="Remover Não Conformidade"
+                  aria-label="Remover Não Conformidade"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <label className="mb-1 block text-xs font-bold text-gray-500">Descrição do Desvio</label>
+                    <textarea {...register(`resultados_nao_conformidades.${index}.descricao` as const)} rows={2} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-bold text-gray-500">Requisito Legal/Normativo</label>
+                    <input {...register(`resultados_nao_conformidades.${index}.requisito` as const)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-bold text-gray-500">Evidência Observada</label>
+                    <input {...register(`resultados_nao_conformidades.${index}.evidencia` as const)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-bold text-gray-500">Classificação</label>
+                    <select {...register(`resultados_nao_conformidades.${index}.classificacao` as const)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+                      <option value="Leve">Leve</option>
+                      <option value="Moderada">Moderada</option>
+                      <option value="Grave">Grave</option>
+                      <option value="Crítica">Crítica</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Observações e Oportunidades */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div className="rounded-xl border border-yellow-200 bg-yellow-50/30 p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-bold text-yellow-800">8.3 Observações</h3>
+              <button
+                type="button"
+                onClick={() => appendObs('')}
+                className="text-yellow-600 hover:text-yellow-700"
+                title="Adicionar Observação"
+                aria-label="Adicionar Observação"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            </div>
+            {obsFields.map((field, index) => (
+              <div key={field.id} className="mb-2 flex gap-2">
+                <input {...register(`resultados_observacoes.${index}` as const)} className="flex-1 rounded-md border border-yellow-200 px-3 py-2 text-sm" />
+                <button
+                  type="button"
+                  onClick={() => removeObs(index)}
+                  className="text-red-500"
+                  title="Remover Observação"
+                  aria-label="Remover Observação"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-xl border border-blue-200 bg-blue-50/30 p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-bold text-blue-800">8.4 Oportunidades de Melhoria</h3>
+              <button
+                type="button"
+                onClick={() => appendOp('')}
+                className="text-blue-600 hover:text-blue-700"
+                title="Adicionar Oportunidade"
+                aria-label="Adicionar Oportunidade"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            </div>
+            {opFields.map((field, index) => (
+              <div key={field.id} className="mb-2 flex gap-2">
+                <input {...register(`resultados_oportunidades.${index}` as const)} className="flex-1 rounded-md border border-blue-200 px-3 py-2 text-sm" />
+                <button
+                  type="button"
+                  onClick={() => removeOp(index)}
+                  className="text-red-500"
+                  title="Remover Oportunidade"
+                  aria-label="Remover Oportunidade"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 9. Avaliação de Riscos */}
+      <div className="sst-card p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900">9. Avaliação de Riscos Identificados</h2>
+          <button
+            type="button"
+            onClick={() => appendRisk({ perigo: '', classificacao: '', impactos: '', medidas_controle: '' })}
+            className="flex items-center gap-1 rounded-md bg-[#2563EB] px-3 py-1 text-sm text-white hover:bg-[#1E40AF]"
+            title="Adicionar Avaliação de Risco"
+            aria-label="Adicionar Avaliação de Risco"
+          >
+            <Plus className="h-4 w-4" /> Adicionar Risco
+          </button>
+        </div>
+        <div className="space-y-4">
+          {riskFields.map((field, index) => (
+            <div key={field.id} className="rounded-lg border border-gray-200 p-4 relative">
+              <button
+                type="button"
+                onClick={() => removeRisk(index)}
+                className="absolute top-2 right-2 text-red-400"
+                title="Remover Avaliação de Risco"
+                aria-label="Remover Avaliação de Risco"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-gray-500">Perigo/Risco</label>
+                  <input {...register(`avaliacao_riscos.${index}.perigo` as const)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-gray-500">Classificação</label>
+                  <input {...register(`avaliacao_riscos.${index}.classificacao` as const)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-gray-500">Impactos</label>
+                  <input {...register(`avaliacao_riscos.${index}.impactos` as const)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-gray-500">Medidas de Controle</label>
+                  <input {...register(`avaliacao_riscos.${index}.medidas_controle` as const)} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 10. Plano de Ação */}
+      <div className="sst-card p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900">10. Plano de Ação</h2>
+          <button
+            type="button"
+            onClick={() => appendAction({ item: '', acao: '', responsavel: '', prazo: '', status: 'Pendente' })}
+            className="flex items-center gap-1 rounded-md bg-[#2563EB] px-3 py-1 text-sm text-white hover:bg-[#1E40AF]"
+            title="Adicionar Ação ao Plano de Ação"
+            aria-label="Adicionar Ação ao Plano de Ação"
+          >
+            <Plus className="h-4 w-4" /> Adicionar Ação
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 text-gray-700 font-bold">
+              <tr>
+                <th className="px-3 py-2">NC/Oportunidade</th>
+                <th className="px-3 py-2">Ação</th>
+                <th className="px-3 py-2">Responsável</th>
+                <th className="px-3 py-2">Prazo</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {actionFields.map((field, index) => (
+                <tr key={field.id} className="border-t">
+                  <td className="p-2"><input {...register(`plano_acao.${index}.item` as const)} className="w-full border rounded px-2 py-1" /></td>
+                  <td className="p-2"><input {...register(`plano_acao.${index}.acao` as const)} className="w-full border rounded px-2 py-1" /></td>
+                  <td className="p-2"><input {...register(`plano_acao.${index}.responsavel` as const)} className="w-full border rounded px-2 py-1" /></td>
+                  <td className="p-2"><input {...register(`plano_acao.${index}.prazo` as const)} className="w-full border rounded px-2 py-1" /></td>
+                  <td className="p-2">
+                    <select {...register(`plano_acao.${index}.status` as const)} className="w-full border rounded px-2 py-1">
+                      <option value="Pendente">Pendente</option>
+                      <option value="Em Andamento">Em Andamento</option>
+                      <option value="Concluído">Concluído</option>
+                    </select>
+                  </td>
+                  <td className="p-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => removeAction(index)}
+                      className="text-red-500"
+                      title="Remover Ação"
+                      aria-label="Remover Ação"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 11. Conclusão */}
+      <div className="sst-card p-6">
+        <h2 className="mb-4 text-lg font-bold text-gray-900">11. Conclusão da Auditoria</h2>
+        <textarea
+          {...register('conclusao')}
+          rows={6}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          placeholder="Síntese geral do nível de conformidade HSE, principais pontos críticos e grau de maturidade..."
+        />
+      </div>
+
+      {/* Ações do Formulário */}
+      <div className="flex justify-end space-x-4 border-t pt-6">
+        <Link
+          href="/dashboard/audits"
+          className="rounded-lg border border-[#E5E7EB] px-6 py-2 text-sm font-medium text-[#374151] hover:bg-[#E5E7EB]"
+        >
+          Cancelar
+        </Link>
+        <button
+          type="submit"
+          disabled={loading || isSubmitting || !isValid}
+          className="flex items-center space-x-2 rounded-lg bg-[#2563EB] px-10 py-2 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#1E40AF] disabled:opacity-50 active:scale-95"
+        >
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          <span>{id ? 'Salvar Alterações' : 'Criar Relatório de Auditoria'}</span>
+        </button>
+      </div>
+    </form>
+  );
+}

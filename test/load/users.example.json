@@ -1,0 +1,13 @@
+[
+  {
+    "cpf": "15082302698",
+    "password": "GANDRA2026",
+    "companyId": "empresa-1"
+  },
+  {
+    "cpf": "00000000000",
+    "password": "admin",
+    "companyId": "empresa-2"
+  }
+]
+

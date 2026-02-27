@@ -1,0 +1,48 @@
+# Dependencias Node
+node_modules
+
+#Build  frontend
+.next
+dist
+out
+
+# Variaveis de ambiente (senhas)
+.env
+.env.local
+.env.development
+.env.production
+
+# Logs 
+npm-debug.log 
+yarn-error.log 
+pnpm-debug.log 
+*.log
+*.log.*
+backend_logs.txt
+backend_v2.log
+mail-logs*.csv
+mail-logs*.txt
+
+# Sistema operacional
+.DS_Store
+Thumbs.db 
+
+# Logs directory
+logs/
+
+# IDE and editor directories
+.vscode/
+.idea/
+
+# Sensitive files
+*.pem
+*.key
+
+# Uploads de usuários (nunca versionar arquivos enviados)
+uploads/
+
+# Env de produção com configurações reais ou templates que podem confundir
+.env.production.optimized
+
+# Arquivos de build local do backend
+backend/dist/

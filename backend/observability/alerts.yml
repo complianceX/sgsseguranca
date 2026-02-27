@@ -1,0 +1,143 @@
+groups:
+  - name: wanderson_gandra_alerts
+    interval: 30s
+    rules:
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(api_error_total[5m])) 
+            / 
+            sum(rate(api_request_total[5m]))
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: high
+          category: availability
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 1%)"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/high-error-rate.md"
+
+      # High Latency Alert
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(api_request_duration_ms_bucket[5m])) by (le)
+          ) > 500
+        for: 5m
+        labels:
+          severity: medium
+          category: performance
+        annotations:
+          summary: "High API latency detected"
+          description: "P95 latency is {{ $value }}ms (threshold: 500ms)"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/high-latency.md"
+
+      # Low Uptime Alert
+      - alert: LowUptime
+        expr: |
+          (
+            sum(rate(api_request_total[1h])) 
+            / 
+            (sum(rate(api_request_total[1h])) + sum(rate(api_error_total[1h])))
+          ) < 0.99
+        for: 10m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "System uptime below SLA"
+          description: "Uptime is {{ $value | humanizePercentage }} (threshold: 99%)"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/low-uptime.md"
+
+      # High Memory Usage Alert
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            process_resident_memory_bytes 
+            / 
+            node_memory_MemTotal_bytes
+          ) > 0.80
+        for: 5m
+        labels:
+          severity: medium
+          category: resources
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value | humanizePercentage }} (threshold: 80%)"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/high-memory.md"
+
+      # High Disk Usage Alert
+      - alert: HighDiskUsage
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/"} 
+            / 
+            node_filesystem_size_bytes{mountpoint="/"}
+          ) < 0.15
+        for: 5m
+        labels:
+          severity: high
+          category: resources
+        annotations:
+          summary: "High disk usage detected"
+          description: "Disk usage is {{ $value | humanizePercentage }} free (threshold: 15%)"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/high-disk.md"
+
+      # High Database Connections Alert
+      - alert: HighDatabaseConnections
+        expr: |
+          active_connections{type="database"} > 80
+        for: 5m
+        labels:
+          severity: medium
+          category: resources
+        annotations:
+          summary: "High database connections detected"
+          description: "Active connections: {{ $value }} (threshold: 80)"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/high-db-connections.md"
+
+      # Service Down Alert
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Service is down"
+          description: "{{ $labels.job }} on {{ $labels.instance }} is down"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/service-down.md"
+
+      # High PDF Generation Errors
+      - alert: HighPdfErrors
+        expr: |
+          (
+            sum(rate(pdf_error_total[5m])) 
+            / 
+            sum(rate(pdf_generated_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: medium
+          category: functionality
+        annotations:
+          summary: "High PDF generation error rate"
+          description: "PDF error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/pdf-errors.md"
+
+      # Slow Database Queries
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(db_query_duration_ms_bucket[5m])) by (le)
+          ) > 100
+        for: 5m
+        labels:
+          severity: medium
+          category: performance
+        annotations:
+          summary: "Slow database queries detected"
+          description: "P95 query duration is {{ $value }}ms (threshold: 100ms)"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/slow-queries.md"

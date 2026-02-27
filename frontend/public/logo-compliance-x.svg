@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="352" height="80" viewBox="0 0 352 80" fill="none">
+  <!-- Fundo do ícone (opcional, para visualização em fundo escuro) -->
+  <defs>
+    <filter id="shadow" x="0" y="0" width="200%" height="200%">
+      <feOffset result="offOut" in="SourceAlpha" dx="2" dy="2" />
+      <feGaussianBlur result="blurOut" in="offOut" stdDeviation="2" />
+      <feBlend in="SourceGraphic" in2="blurOut" mode="normal" />
+    </filter>
+  </defs>
+
+  <!-- Grupo do Ícone (Escudo) -->
+  <g transform="translate(10, 10)">
+    <!-- Metade esquerda do escudo (Azul Escuro) -->
+    <path d="M30 6 C15 6 5 16 5 26 V36 C5 56 20 71 30 76" stroke="#1B365D" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    
+    <!-- Metade direita do escudo (Azul Escuro) -->
+    <path d="M30 76 C40 71 55 56 55 36 V26 C55 16 45 6 30 6" stroke="#1B365D" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    
+    <!-- Preenchimento suave (cinza azulado claro) -->
+    <path d="M30 6 C45 6 55 16 55 26 V36 C55 56 40 71 30 76 C20 71 5 56 5 36 V26 C5 16 15 6 30 6 Z" fill="#F3F4F6" opacity="0.5"/>
+
+    <!-- O "X" Verde Central -->
+    <path d="M20 28 L40 48 M40 28 L20 48" stroke="#10B981" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Texto "Compliance X" -->
+  <text x="80" y="52" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-weight="800" font-size="38" fill="#1B365D" letter-spacing="-0.5">Compliance X</text>
+</svg>

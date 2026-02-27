@@ -1,0 +1,19 @@
+import { Controller } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+import { ToolsService } from './tools.service';
+import { BaseController } from '../common/base/base.controller';
+import { Tool } from './entities/tool.entity';
+import { CreateToolDto } from './dto/create-tool.dto';
+import { UpdateToolDto } from './dto/update-tool.dto';
+
+@ApiTags('tools')
+@Controller('tools')
+export class ToolsController extends BaseController<
+  Tool,
+  CreateToolDto,
+  UpdateToolDto
+> {
+  constructor(private readonly toolsService: ToolsService) {
+    super(toolsService, 'Ferramenta');
+  }
+}

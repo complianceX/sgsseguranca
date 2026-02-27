@@ -1,0 +1,41 @@
+# ===============================
+# 🏗 STAGE 1 — BUILD
+# ===============================
+FROM node:20-bullseye AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# ===============================
+# 🚀 STAGE 2 — RUNTIME
+# ===============================
+FROM node:20-bullseye-slim
+
+# MESMAS dependências da API (evita erro de PDF no worker)
+RUN apt-get update && apt-get install -y \
+  chromium \
+  fonts-liberation \
+  libatk-bridge2.0-0 \
+  libgtk-3-0 \
+  libnss3 \
+  libxss1 \
+  libasound2 \
+  --no-install-recommends \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_ENV=production
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
+WORKDIR /app
+
+COPY --from=builder /app/package*.json ./
+RUN npm ci --omit=dev
+
+COPY --from=builder /app/dist ./dist
+
+CMD ["node", "dist/worker.js"]

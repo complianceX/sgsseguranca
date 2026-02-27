@@ -1,0 +1,14 @@
+# Nixpacks configuration for Backend with Puppeteer support
+providers = ["node"]
+
+[phases.setup]
+nixPkgs = ["nodejs-20_x", "chromium", "git"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run start:prod"

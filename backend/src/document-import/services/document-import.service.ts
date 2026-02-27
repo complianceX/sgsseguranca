@@ -1,0 +1,237 @@
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { DocumentImport } from '../entities/document-import.entity';
+import { DocumentImportStatus } from '../entities/document-import-status.enum';
+import {
+  DocumentImportResponseDto,
+  DocumentAnalysisDto,
+  DocumentValidationResultDto,
+} from '../dto/document-analysis.dto';
+import { FileParserService } from './file-parser.service';
+import { DocumentClassifierService } from './document-classifier.service';
+import { DocumentInterpreterService } from './document-interpreter.service';
+import { DocumentValidationService } from './document-validation.service';
+import { DdsService } from '../../dds/dds.service';
+
+@Injectable()
+export class DocumentImportService {
+  private readonly logger = new Logger(DocumentImportService.name);
+
+  constructor(
+    @InjectRepository(DocumentImport)
+    private readonly documentImportRepository: Repository<DocumentImport>,
+    private readonly fileParserService: FileParserService,
+    private readonly documentClassifierService: DocumentClassifierService,
+    private readonly documentInterpreterService: DocumentInterpreterService,
+    private readonly documentValidationService: DocumentValidationService,
+    private readonly ddsService: DdsService,
+  ) {}
+
+  async processDocument(
+    fileBuffer: Buffer,
+    empresaId: string,
+    tipoDocumentoManual?: string,
+    mimetype: string = 'application/pdf',
+    originalname: string = 'document.pdf',
+  ): Promise<DocumentImportResponseDto> {
+    this.logger.log(`Processando novo documento para empresa: ${empresaId}`);
+
+    const hash = this.fileParserService.generateFileHash(fileBuffer);
+    const existingDocument = await this.documentImportRepository.findOne({
+      where: { hash, empresaId },
+    });
+
+    if (existingDocument) {
+      // CORREÇÃO: Lançar uma exceção específica do NestJS melhora a consistência e o tratamento de erros no controller.
+      throw new BadRequestException(
+        'Este documento já foi importado anteriormente.',
+      );
+    }
+
+    const documentImport = this.documentImportRepository.create();
+    documentImport.empresaId = empresaId;
+    documentImport.hash = hash;
+    documentImport.status = DocumentImportStatus.PROCESSING;
+    documentImport.nomeArquivo = originalname || `upload_${Date.now()}.pdf`;
+    documentImport.tipoDocumento = tipoDocumentoManual || 'DESCONHECIDO';
+
+    await this.documentImportRepository.save(documentImport);
+
+    try {
+      const textoExtraido = await this.fileParserService.extractText(
+        fileBuffer,
+        mimetype,
+        originalname,
+      );
+      const classification =
+        await this.documentClassifierService.classifyDocument(textoExtraido);
+
+      const tipoDocumentoFinal =
+        tipoDocumentoManual || classification.tipoDocumento;
+
+      await this.updateRecordWithClassification(
+        documentImport.id,
+        tipoDocumentoFinal,
+        classification.score,
+      );
+
+      const analysis = await this.documentInterpreterService.interpretDocument(
+        textoExtraido,
+        tipoDocumentoFinal,
+      );
+
+      const validation =
+        this.documentValidationService.validateDocument(analysis);
+
+      await this.updateRecordWithAnalysis(
+        documentImport.id,
+        analysis,
+        validation,
+        textoExtraido.length,
+      );
+
+      // RECOMENDAÇÃO: Esta lógica está acoplada. No futuro, refatorar para um padrão (ex: Factory ou Strategy)
+      // que delega a criação para um "handler" específico do tipo de documento,
+      // tornando o sistema mais extensível para novos tipos.
+      if (tipoDocumentoFinal === 'DDS') {
+        try {
+          const dataString =
+            analysis.data instanceof Date
+              ? analysis.data.toISOString()
+              : analysis.data || new Date().toISOString();
+
+          const autoCreatedEntity = await this.ddsService.create({
+            tema: analysis.tema || `Importado: ${originalname}`,
+            conteudo:
+              analysis.conteudo ||
+              analysis.resumo ||
+              textoExtraido.substring(0, 500),
+            data: dataString,
+            company_id: empresaId,
+            site_id: analysis.site_id || '', // Pode precisar ser preenchido manualmente depois
+            facilitador_id: analysis.facilitador_id || '',
+          });
+          this.logger.log(
+            `DDS auto-criado com sucesso: ${autoCreatedEntity?.id}`,
+          );
+        } catch (err: any) {
+          this.logger.warn(
+            `Falha ao auto-criar DDS: ${(err as Error).message}`,
+          );
+        }
+      }
+
+      this.logger.log('Processamento concluído com sucesso');
+
+      return {
+        success: true,
+        documentId: documentImport.id,
+        tipoDocumento: tipoDocumentoFinal,
+        tipoDocumentoDescricao: tipoDocumentoFinal,
+        analysis,
+        validation,
+        metadata: {
+          tamanhoArquivo: fileBuffer.length,
+          quantidadeTexto: textoExtraido.length,
+          hash,
+          timestamp: new Date(),
+          scoreClassificacao: analysis.scoreConfianca || 0,
+        },
+      };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erro desconhecido';
+      await this.markAsFailed(documentImport.id, errorMessage);
+      throw error;
+    }
+  }
+
+  private async updateRecordWithClassification(
+    documentId: string,
+    tipoDocumento: string,
+    scoreClassificacao: number,
+  ): Promise<void> {
+    // CORREÇÃO: Ler o registro existente antes de atualizar para evitar sobrescrever metadados.
+    const record = await this.documentImportRepository.findOne({
+      where: { id: documentId },
+    });
+
+    const existingMetadata = record?.metadata || {};
+
+    await this.documentImportRepository.update(documentId, {
+      tipoDocumento: tipoDocumento,
+      status: DocumentImportStatus.PROCESSING,
+      metadata: {
+        ...existingMetadata,
+        scoreClassificacao,
+      } as Record<string, any>,
+    });
+  }
+
+  private async updateRecordWithAnalysis(
+    documentId: string,
+    analysis: DocumentAnalysisDto,
+    validation: DocumentValidationResultDto,
+    textoExtraidoLength: number,
+  ): Promise<void> {
+    const record = await this.documentImportRepository.findOne({
+      where: { id: documentId },
+    });
+
+    const existingMetadata = record?.metadata || {};
+
+    await this.documentImportRepository.update(documentId, {
+      jsonEstruturado: analysis as Record<string, any>, // jsonb column remains any for now
+      status: DocumentImportStatus.COMPLETED,
+      metadata: {
+        ...existingMetadata,
+        quantidadeTexto: textoExtraidoLength,
+        validacao: validation as Record<string, any>,
+        timestampFinalizacao: new Date().toISOString(),
+      } as Record<string, any>,
+    });
+  }
+
+  private async markAsFailed(
+    documentId: string,
+    errorMessage: string,
+  ): Promise<void> {
+    const record = await this.documentImportRepository.findOne({
+      where: { id: documentId },
+    });
+
+    const existingMetadata = record?.metadata || {};
+
+    await this.documentImportRepository.update(documentId, {
+      status: DocumentImportStatus.FAILED,
+      metadata: {
+        ...existingMetadata,
+        erro: errorMessage,
+        timestampFalha: new Date().toISOString(),
+      } as Record<string, any>,
+    });
+  }
+
+  async getDocumentStatus(documentId: string): Promise<DocumentImport | null> {
+    return await this.documentImportRepository.findOne({
+      where: { id: documentId },
+    });
+  }
+
+  async getDocumentsByEmpresa(empresaId: string): Promise<DocumentImport[]> {
+    return await this.documentImportRepository.find({
+      where: { empresaId: empresaId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getDocumentsByStatus(
+    status: DocumentImportStatus,
+  ): Promise<DocumentImport[]> {
+    return await this.documentImportRepository.find({
+      where: { status: status },
+      order: { createdAt: 'DESC' },
+    });
+  }
+}

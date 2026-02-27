@@ -1,0 +1,65 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  UseGuards,
+  Query,
+  Request,
+} from '@nestjs/common';
+import { SignaturesService } from './signatures.service';
+import { CreateSignatureDto } from './dto/create-signature.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { RequestWithUser } from '../auth/interfaces/request-with-user.interface';
+
+@Controller('signatures')
+@UseGuards(JwtAuthGuard)
+export class SignaturesController {
+  constructor(private readonly signaturesService: SignaturesService) {}
+
+  @Post()
+  create(
+    @Body() createSignatureDto: CreateSignatureDto,
+    @Request() req: RequestWithUser,
+  ) {
+    return this.signaturesService.create(createSignatureDto, req.user.userId);
+  }
+
+  @Get()
+  findByDocument(
+    @Query('document_id') document_id: string,
+    @Query('document_type') document_type: string,
+  ) {
+    return this.signaturesService.findByDocument(document_id, document_type);
+  }
+
+  @Get('verify/:id')
+  verifyById(@Param('id') id: string) {
+    return this.signaturesService.verifyById(id);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string, @Request() req: RequestWithUser) {
+    return this.signaturesService.remove(
+      id,
+      req.user.userId,
+      req.user.profile?.nome,
+    );
+  }
+
+  @Delete('document/:document_id')
+  removeByDocument(
+    @Param('document_id') document_id: string,
+    @Query('document_type') document_type: string,
+    @Request() req: RequestWithUser,
+  ) {
+    return this.signaturesService.removeByDocument(
+      document_id,
+      document_type,
+      req.user.userId,
+      req.user.profile?.nome,
+    );
+  }
+}

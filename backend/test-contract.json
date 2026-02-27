@@ -1,0 +1,18 @@
+{
+  "title": "Contrato de Teste",
+  "content": "Este é um contrato de teste para validar a API",
+  "parties": [
+    {
+      "name": "João Silva",
+      "email": "joao@example.com",
+      "cpf": "123.456.789-00",
+      "role": "contractor"
+    },
+    {
+      "name": "Maria Santos",
+      "email": "maria@example.com",
+      "cpf": "987.654.321-00",
+      "role": "client"
+    }
+  ]
+}
