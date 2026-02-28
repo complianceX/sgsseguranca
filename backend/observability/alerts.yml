@@ -172,6 +172,19 @@ groups:
           description: "PDF quota hits > 0.1/sec (6/min) for 10m"
           runbook_url: "https://github.com/your-org/runbooks/blob/main/quota-hits-pdf.md"
 
+      # Tenant quota hits (PDF) critical
+      - alert: TenantQuotaPdfHitsCritical
+        expr: |
+          sum(rate(quota_hit_pdf_total[5m])) > 0.3
+        for: 10m
+        labels:
+          severity: high
+          category: capacity
+        annotations:
+          summary: "Critical PDF quota hits"
+          description: "PDF quota hits > 0.3/sec (18/min) for 10m"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/quota-hits-pdf.md"
+
       # Tenant quota hits (Mail)
       - alert: TenantQuotaMailHitsHigh
         expr: |
@@ -183,6 +196,19 @@ groups:
         annotations:
           summary: "High mail quota hits"
           description: "Mail quota hits > 0.5/sec (30/min) for 10m"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/quota-hits-mail.md"
+
+      # Tenant quota hits (Mail) critical
+      - alert: TenantQuotaMailHitsCritical
+        expr: |
+          sum(rate(quota_hit_mail_total[5m])) > 1.5
+        for: 10m
+        labels:
+          severity: medium
+          category: capacity
+        annotations:
+          summary: "Critical mail quota hits"
+          description: "Mail quota hits > 1.5/sec (90/min) for 10m"
           runbook_url: "https://github.com/your-org/runbooks/blob/main/quota-hits-mail.md"
 
       # Slow Database Queries
