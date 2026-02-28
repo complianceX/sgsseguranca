@@ -1,6 +1,7 @@
 import { Module, Global } from '@nestjs/common';
 import { RedisModule } from './redis/redis.module';
 import { TenantService } from './tenant/tenant.service';
+import { TenantDbContextService } from './database/tenant-db-context.service';
 import { PasswordService } from './services/password.service';
 import { CacheService } from './cache/cache.service';
 import { StorageService } from './services/storage.service';
@@ -14,6 +15,7 @@ import { SignatureTimestampService } from './services/signature-timestamp.servic
   imports: [RedisModule],
   providers: [
     TenantService,
+    TenantDbContextService,
     PasswordService,
     CacheService,
     StorageService,
@@ -25,6 +27,7 @@ import { SignatureTimestampService } from './services/signature-timestamp.servic
   exports: [
     RedisModule,
     TenantService,
+    TenantDbContextService,
     PasswordService,
     CacheService,
     StorageService,

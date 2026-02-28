@@ -67,7 +67,6 @@ import { RedisModule } from './common/redis/redis.module';
 // Guards, Interceptors & Middleware
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 import { TenantRequiredGuard } from './common/guards/tenant-required.guard';
-import { TenantInterceptor } from './common/tenant/tenant.interceptor';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { DatabaseLogger } from './common/logging/database.logger';
@@ -321,10 +320,6 @@ const validationSchema = Joi.object({
     {
       provide: APP_GUARD,
       useClass: TenantRequiredGuard,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: TenantInterceptor,
     },
     {
       provide: APP_INTERCEPTOR,

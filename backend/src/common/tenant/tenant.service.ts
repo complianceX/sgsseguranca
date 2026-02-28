@@ -1,23 +1,43 @@
-import { Injectable, Scope } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { AsyncLocalStorage } from 'async_hooks';
 
-@Injectable({ scope: Scope.DEFAULT })
-export class TenantService {
-  // SECURITY: Armazena o contexto por requisição; impede que o tenant vaze entre requisições
-  private static readonly storage = new AsyncLocalStorage<string>();
+export interface TenantContext {
+  companyId: string | undefined;
+  isSuperAdmin: boolean;
+}
 
-  // SECURITY: Usa run() para criar um contexto ISOLADO por callback, evitando Tenant Bleeding
-  setTenantId<T>(tenantId: string, callback: () => T): T {
-    return TenantService.storage.run(tenantId, callback);
+@Injectable()
+export class TenantService {
+  private static readonly storage = new AsyncLocalStorage<TenantContext>();
+
+  /** Executa callback dentro de um contexto de tenant isolado (anti-bleeding). */
+  run<T>(ctx: TenantContext, callback: () => T): T {
+    return TenantService.storage.run(ctx, callback);
   }
 
-  // SECURITY: Recupera o tenant da AsyncLocalStorage, garantindo leitura do contexto correto
-  getTenantId(): string | undefined {
+  /** Retorna o contexto completo do tenant atual. */
+  getContext(): TenantContext | undefined {
     return TenantService.storage.getStore();
   }
 
-  // SECURITY: Método explícito para uso direto; executa handler dentro do contexto isolado
-  run<T>(tenantId: string, callback: () => T): T {
-    return TenantService.storage.run(tenantId, callback);
+  /** Retorna apenas o company_id do tenant atual. */
+  getTenantId(): string | undefined {
+    return TenantService.storage.getStore()?.companyId;
+  }
+
+  /** Retorna se o usuário atual é super-admin. */
+  isSuperAdmin(): boolean {
+    return TenantService.storage.getStore()?.isSuperAdmin ?? false;
+  }
+
+  /**
+   * @deprecated Use run({ companyId, isSuperAdmin }, callback) em vez disso.
+   * Mantido para compatibilidade com código legado.
+   */
+  setTenantId<T>(tenantId: string, callback: () => T): T {
+    return TenantService.storage.run(
+      { companyId: tenantId, isSuperAdmin: false },
+      callback,
+    );
   }
 }

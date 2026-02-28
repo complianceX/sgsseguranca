@@ -3,9 +3,13 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
+import { USER_WITH_PASSWORD_FIELDS } from '../users/constants/user-fields.constant';
+import { CpfUtil } from '../common/utils/cpf.util';
 import { PasswordService } from '../common/services/password.service';
 import { RedisService } from '../common/redis/redis.service';
 import * as crypto from 'crypto';
@@ -30,6 +34,7 @@ export class AuthService {
     '$2b$10$NotARealHashForTimingAttackPrevention Purposes';
 
   constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
     private usersService: UsersService,
     private jwtService: JwtService,
     private passwordService: PasswordService,
@@ -40,7 +45,30 @@ export class AuthService {
     if (!cpf || !pass) {
       return null;
     }
-    const user = await this.usersService.findOneByCpf(cpf);
+
+    const normalizedCpf = CpfUtil.normalize(cpf);
+
+    // Login é uma rota pública: não há JWT ainda, portanto AsyncLocalStorage não
+    // tem contexto de tenant. Com FORCE ROW LEVEL SECURITY ativo, a policy RLS
+    // bloquearia a busca por usuário (company_id = current_company() é NULL).
+    //
+    // Solução: executamos a busca dentro de uma transação explícita e aplicamos
+    // SET LOCAL app.is_super_admin = 'true' SOMENTE no escopo dessa transação.
+    // Assim is_super_admin() retorna true → RLS permite acesso cross-tenant
+    // → encontramos o usuário pelo CPF independente de empresa.
+    //
+    // SET LOCAL garante que o bypass expira ao fim da transação; a conexão
+    // retorna ao pool com as configurações originais.
+    const user = await this.dataSource.transaction(async (manager) => {
+      await manager.query("SET LOCAL app.is_super_admin = 'true'");
+      const found = await manager.findOne(User, {
+        where: { cpf: normalizedCpf },
+        select: [...USER_WITH_PASSWORD_FIELDS],
+        relations: ['company', 'profile'],
+      });
+      if (found && found.status === false) return null;
+      return found;
+    });
 
     // Se o usuário não existir ou não tiver senha, usamos um hash falso para a comparação.
     // Isso garante um tempo de execução semelhante, prevenindo ataques de temporização (timing attacks)

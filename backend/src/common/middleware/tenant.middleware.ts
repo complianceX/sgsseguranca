@@ -1,92 +1,99 @@
-import { Injectable, NestMiddleware, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NestMiddleware,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { TenantService } from '../tenant/tenant.service';
 import { JwtService } from '@nestjs/jwt';
+import { TenantService } from '../tenant/tenant.service';
 import { Role } from '../../auth/enums/roles.enum';
-import { DataSource } from 'typeorm';
-import { tenantStorage } from '../tenant/tenant-context';
 
+interface JwtPayload {
+  company_id?: string;
+  profile?: { nome?: string } | string;
+}
+
+/**
+ * Extrai o contexto de tenant do JWT e o armazena na AsyncLocalStorage.
+ *
+ * Responsabilidades (apenas):
+ *  1. Decodificar o JWT (cookie httpOnly ou Authorization header).
+ *  2. Extrair company_id e isSuperAdmin.
+ *  3. Validar que o header x-company-id não diverge do JWT (anti-spoofing).
+ *  4. Chamar tenantService.run() para isolar o contexto nesta requisição.
+ *
+ * O que este middleware NÃO faz mais:
+ *  - Abrir queryRunners ou transações (gerava conexão extra por request).
+ *  - Chamar SET/RESET no banco (responsabilidade do TenantDbContextService).
+ *  - Validar autenticação (responsabilidade do JwtAuthGuard).
+ */
 @Injectable()
 export class TenantMiddleware implements NestMiddleware {
   constructor(
-    private tenantService: TenantService,
-    private jwtService: JwtService, // SECURITY: Usado para validar token e extrair company_id criptograficamente
-    private dataSource: DataSource,
+    private readonly tenantService: TenantService,
+    private readonly jwtService: JwtService,
   ) {}
 
-  async use(req: Request, res: Response, next: NextFunction) {
-    // SECURITY: Extrai possível token do cookie httpOnly ou do header Authorization
-    const bearer = req.headers['authorization'] || undefined;
-    const cookieToken = (req.cookies as Record<string, string> | undefined)?.[
-      'access_token'
-    ];
-    const token =
-      cookieToken ||
-      (bearer && bearer.startsWith('Bearer ') ? bearer.slice(7) : undefined);
+  use(req: Request, _res: Response, next: NextFunction): void {
+    const token = this.extractToken(req);
 
-    // SECURITY: Valida que o header não foi forjado pelo cliente
-    const headerCompanyId = req.headers['x-company-id'] as string | undefined;
-
-    let jwtCompanyId: string | undefined;
-    let isAdminGlobal = false;
+    let companyId: string | undefined;
+    let isSuperAdmin = false;
 
     if (token) {
       try {
-        const payload = this.jwtService.verify<{
-          company_id?: string;
-          profile?: { nome?: string };
-        }>(token);
-        // SECURITY: company_id do JWT é a fonte de verdade do tenant do usuário autenticado
-        jwtCompanyId = payload.company_id;
-        // SECURITY: Admin Geral tem privilégios globais; não força vinculação a tenant
-        isAdminGlobal = payload.profile?.nome === Role.ADMIN_GERAL;
-      } catch {
-        // SECURITY: Token inválido → não define contexto; não derruba rota pública
-        jwtCompanyId = undefined;
+        const payload = this.jwtService.verify<JwtPayload>(token);
+
+        companyId = payload.company_id;
+
+        // Profile pode ser objeto {nome} ou string dependendo da versão do JWT
+        const profileNome =
+          typeof payload.profile === 'object'
+            ? payload.profile?.nome
+            : payload.profile;
+
+        isSuperAdmin = profileNome === Role.ADMIN_GERAL;
+
+        // SECURITY: JWT tem company_id mas header diverge → 403 sem detalhes.
+        const headerCompanyId = req.headers['x-company-id'] as
+          | string
+          | undefined;
+
+        if (companyId && headerCompanyId && headerCompanyId !== companyId) {
+          throw new ForbiddenException();
+        }
+
+        // Admin Geral pode operar em tenant específico via header.
+        if (isSuperAdmin && headerCompanyId) {
+          companyId = headerCompanyId;
+        }
+
+        // Admin Geral sem header → sem company_id (acesso cross-tenant via is_super_admin).
+        if (isSuperAdmin && !headerCompanyId) {
+          companyId = undefined;
+        }
+      } catch (err) {
+        if (err instanceof ForbiddenException) throw err;
+        // Token inválido/expirado → sem contexto. JwtAuthGuard bloqueará rotas protegidas.
+        companyId = undefined;
+        isSuperAdmin = false;
       }
     }
 
-    // SECURITY: Se JWT possui company_id e header diverge → 403 sem detalhes
-    if (jwtCompanyId && headerCompanyId && headerCompanyId !== jwtCompanyId) {
-      throw new ForbiddenException(); // SECURITY: não vazar qual campo falhou
-    }
+    // Propaga o contexto para toda a cadeia async desta requisição via Node.js
+    // AsyncLocalStorage. O TenantDbContextService lê este contexto no
+    // pool.connect() e injeta app.current_company_id/app.is_super_admin.
+    this.tenantService.run({ companyId, isSuperAdmin }, () => next());
+  }
 
-    // SECURITY: Regra clara quando JWT não tem company_id
-    // - Admin Geral: permitido sem header, contexto só se header for fornecido
-    // - Usuário sem company_id e com header: rejeita para evitar elevação indevida
-    if (!jwtCompanyId && headerCompanyId && !isAdminGlobal) {
-      throw new ForbiddenException(); // SECURITY: impede forja de tenant via header
-    }
-
-    // SECURITY: Determina tenant efetivo: prioriza JWT; para Admin Geral, usa header se presente
-    const tenantId =
-      jwtCompanyId || (isAdminGlobal ? headerCompanyId : undefined);
-
-    if (tenantId) {
-      const queryRunner = this.dataSource.createQueryRunner();
-      await queryRunner.connect();
-      await queryRunner.startTransaction();
-      await queryRunner.query('SET LOCAL app.current_company_id = $1', [
-        tenantId,
-      ]);
-
-      return this.tenantService.run(tenantId, () =>
-        tenantStorage.run({ manager: queryRunner.manager }, () => {
-          res.on('finish', async () => {
-            try {
-              await queryRunner.commitTransaction();
-            } catch {
-              await queryRunner.rollbackTransaction();
-            } finally {
-              await queryRunner.release();
-            }
-          });
-          next();
-        }),
-      );
-    }
-
-    // SECURITY: Sem tenant, segue sem contexto para evitar atribuição indevida
-    return next();
+  private extractToken(req: Request): string | undefined {
+    const cookieToken = (req.cookies as Record<string, string> | undefined)?.[
+      'access_token'
+    ];
+    const bearer = req.headers['authorization'];
+    return (
+      cookieToken ??
+      (bearer?.startsWith('Bearer ') ? bearer.slice(7) : undefined)
+    );
   }
 }
