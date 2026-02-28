@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { PdfRateLimitService } from './services/pdf-rate-limit.service';
 
 @Module({
   imports: [
@@ -27,8 +28,8 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
       inject: [ConfigService],
     }),
   ],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy],
+  providers: [AuthService, JwtStrategy, JwtRefreshStrategy, PdfRateLimitService],
   controllers: [AuthController],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, JwtModule, PdfRateLimitService],
 })
 export class AuthModule {}
