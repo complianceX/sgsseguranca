@@ -43,4 +43,4 @@ COPY --from=builder /app/dist ./dist
 EXPOSE 3000
 
 # Executa migrations antes de subir
-CMD ["sh", "-c", "npm run migration:run && node dist/main.js"]
+CMD ["node", "dist/main.js"]
