@@ -19,7 +19,7 @@ export class UpdateRlsPoliciesSuperAdmin1709000000021 implements MigrationInterf
 
     const tables = [
       'users',
-      'sites', 
+      'sites',
       'activities',
       'risks',
       'epis',
@@ -43,7 +43,8 @@ export class UpdateRlsPoliciesSuperAdmin1709000000021 implements MigrationInterf
       if (!hasTable) continue;
 
       // Atualizar a policy tenant_isolation_policy para incluir bypass de super admin
-      await queryRunner.query(`
+      await queryRunner.query(
+        `
         DO $$ BEGIN
           IF EXISTS (
             SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = $1 AND policyname = 'tenant_isolation_policy'
@@ -56,10 +57,13 @@ export class UpdateRlsPoliciesSuperAdmin1709000000021 implements MigrationInterf
             );
           END IF;
         END $$;
-      `, [table]);
+      `,
+        [table],
+      );
 
       // Atualizar a policy deny_without_tenant para incluir bypass de super admin
-      await queryRunner.query(`
+      await queryRunner.query(
+        `
         DO $$ BEGIN
           IF EXISTS (
             SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = $1 AND policyname = 'deny_without_tenant'
@@ -72,7 +76,9 @@ export class UpdateRlsPoliciesSuperAdmin1709000000021 implements MigrationInterf
             );
           END IF;
         END $$;
-      `, [table]);
+      `,
+        [table],
+      );
     }
   }
 
@@ -80,7 +86,7 @@ export class UpdateRlsPoliciesSuperAdmin1709000000021 implements MigrationInterf
     const tables = [
       'users',
       'sites',
-      'activities', 
+      'activities',
       'risks',
       'epis',
       'tools',
@@ -103,7 +109,8 @@ export class UpdateRlsPoliciesSuperAdmin1709000000021 implements MigrationInterf
       if (!hasTable) continue;
 
       // Reverter as policies para a versão original sem super admin
-      await queryRunner.query(`
+      await queryRunner.query(
+        `
         DO $$ BEGIN
           IF EXISTS (
             SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = $1 AND policyname = 'tenant_isolation_policy'
@@ -116,9 +123,12 @@ export class UpdateRlsPoliciesSuperAdmin1709000000021 implements MigrationInterf
             );
           END IF;
         END $$;
-      `, [table]);
+      `,
+        [table],
+      );
 
-      await queryRunner.query(`
+      await queryRunner.query(
+        `
         DO $$ BEGIN
           IF EXISTS (
             SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = $1 AND policyname = 'deny_without_tenant'
@@ -131,7 +141,9 @@ export class UpdateRlsPoliciesSuperAdmin1709000000021 implements MigrationInterf
             );
           END IF;
         END $$;
-      `, [table]);
+      `,
+        [table],
+      );
     }
   }
 }

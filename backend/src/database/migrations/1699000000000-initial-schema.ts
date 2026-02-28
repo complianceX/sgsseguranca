@@ -191,7 +191,7 @@ export class InitialSchema1699000000000 implements MigrationInterface {
         "company_id" uuid NOT NULL,
         "site_id" uuid NOT NULL,
         "elaborador_id" uuid NOT NULL,
-        "auditado_por_id" varchar NULL,
+        "auditado_por_id" uuid NULL,
         "data_auditoria" timestamp NULL,
         "resultado_auditoria" varchar NULL,
         "notas_auditoria" text NULL,
@@ -219,8 +219,12 @@ export class InitialSchema1699000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_aprs_parent_apr_id" ON "aprs" ("parent_apr_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_aprs_aprovado_por_id" ON "aprs" ("aprovado_por_id")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_aprs_parent_apr_id" ON "aprs" ("parent_apr_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_aprs_aprovado_por_id" ON "aprs" ("aprovado_por_id")`,
+    );
 
     // -------------------------------------------------------------------------
     // 11. apr_risk_items (refs aprs; ON DELETE CASCADE)
@@ -262,8 +266,12 @@ export class InitialSchema1699000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_apr_logs_apr_id" ON "apr_logs" ("apr_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_apr_logs_usuario_id" ON "apr_logs" ("usuario_id")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_apr_logs_apr_id" ON "apr_logs" ("apr_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_apr_logs_usuario_id" ON "apr_logs" ("usuario_id")`,
+    );
 
     // -------------------------------------------------------------------------
     // 13. apr_risk_evidences (refs aprs, apr_risk_items, users)
@@ -569,9 +577,15 @@ export class InitialSchema1699000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_epi_assignments_company_status" ON "epi_assignments" ("company_id", "status")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_epi_assignments_company_user" ON "epi_assignments" ("company_id", "user_id")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_epi_assignments_company_created_at" ON "epi_assignments" ("company_id", "created_at")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_epi_assignments_company_status" ON "epi_assignments" ("company_id", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_epi_assignments_company_user" ON "epi_assignments" ("company_id", "user_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_epi_assignments_company_created_at" ON "epi_assignments" ("company_id", "created_at")`,
+    );
 
     // -------------------------------------------------------------------------
     // 22. notifications (no FK constraints; userId stored as plain string)
@@ -771,9 +785,15 @@ export class InitialSchema1699000000000 implements MigrationInterface {
       )
     `);
 
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cats_company_status" ON "cats" ("company_id", "status")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cats_company_created_at" ON "cats" ("company_id", "created_at")`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_cats_company_worker" ON "cats" ("company_id", "worker_id")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cats_company_status" ON "cats" ("company_id", "status")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cats_company_created_at" ON "cats" ("company_id", "created_at")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_cats_company_worker" ON "cats" ("company_id", "worker_id")`,
+    );
 
     // -------------------------------------------------------------------------
     // 28. mail_logs (refs companies, users; both nullable)

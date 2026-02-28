@@ -49,8 +49,12 @@ export class PrepareRlsPolicies1709000000020 implements MigrationInterface {
       const hasTable = await queryRunner.hasTable(table);
       if (!hasTable) continue;
 
-      await queryRunner.query(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`);
-      await queryRunner.query(`ALTER TABLE "${table}" FORCE ROW LEVEL SECURITY`);
+      await queryRunner.query(
+        `ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "${table}" FORCE ROW LEVEL SECURITY`,
+      );
 
       await queryRunner.query(
         `DO $$ BEGIN
@@ -119,8 +123,12 @@ export class PrepareRlsPolicies1709000000020 implements MigrationInterface {
         [table],
       );
 
-      await queryRunner.query(`ALTER TABLE "${table}" DISABLE ROW LEVEL SECURITY`);
-      await queryRunner.query(`ALTER TABLE "${table}" NO FORCE ROW LEVEL SECURITY`);
+      await queryRunner.query(
+        `ALTER TABLE "${table}" DISABLE ROW LEVEL SECURITY`,
+      );
+      await queryRunner.query(
+        `ALTER TABLE "${table}" NO FORCE ROW LEVEL SECURITY`,
+      );
 
       await queryRunner.query(
         `DO $$ BEGIN

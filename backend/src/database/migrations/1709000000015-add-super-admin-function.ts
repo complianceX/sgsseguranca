@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddSuperAdminFunction1709000000015 implements MigrationInterface {
   name = 'AddSuperAdminFunction1709000000015';

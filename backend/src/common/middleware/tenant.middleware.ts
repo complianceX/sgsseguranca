@@ -70,21 +70,19 @@ export class TenantMiddleware implements NestMiddleware {
         tenantId,
       ]);
 
-      return this.tenantService.run(
-        tenantId,
-        () =>
-          tenantStorage.run({ manager: queryRunner.manager }, () => {
-            res.on('finish', async () => {
-              try {
-                await queryRunner.commitTransaction();
-              } catch {
-                await queryRunner.rollbackTransaction();
-              } finally {
-                await queryRunner.release();
-              }
-            });
-            next();
-          }),
+      return this.tenantService.run(tenantId, () =>
+        tenantStorage.run({ manager: queryRunner.manager }, () => {
+          res.on('finish', async () => {
+            try {
+              await queryRunner.commitTransaction();
+            } catch {
+              await queryRunner.rollbackTransaction();
+            } finally {
+              await queryRunner.release();
+            }
+          });
+          next();
+        }),
       );
     }
 

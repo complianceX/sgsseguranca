@@ -54,9 +54,7 @@ export class TenantInterceptor implements NestInterceptor {
     }
 
     // Setar variável de super admin
-    await this.dataSource.query('SET app.is_super_admin = $1', [
-      isSuperAdmin,
-    ]);
+    await this.dataSource.query('SET app.is_super_admin = $1', [isSuperAdmin]);
 
     if (tenantId) {
       return this.tenantService.run(tenantId, () => next.handle());

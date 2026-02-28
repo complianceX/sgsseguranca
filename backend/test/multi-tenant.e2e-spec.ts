@@ -122,7 +122,9 @@ describe('Multi-Tenant Isolation (APR) (e2e)', () => {
     const loginSuper = await request(app.getHttpServer() as App)
       .post('/auth/login')
       .send({ cpf: '11111111111', password: 'password123' });
-    cookieSuper = (loginSuper.headers['set-cookie'] as unknown as string[]).join('; ');
+    cookieSuper = (
+      loginSuper.headers['set-cookie'] as unknown as string[]
+    ).join('; ');
   });
 
   afterAll(async () => {
