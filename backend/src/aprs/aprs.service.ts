@@ -108,6 +108,8 @@ export class AprsService {
         data_fim: true,
         status: true,
         versao: true,
+        is_modelo: true,
+        is_modelo_padrao: true,
         company_id: true,
         classificacao_resumo: true,
       } as any,

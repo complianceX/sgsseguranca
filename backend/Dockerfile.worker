@@ -5,6 +5,8 @@ FROM node:20-bullseye AS builder
 
 WORKDIR /app
 
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+
 COPY package*.json ./
 RUN npm ci
 
@@ -17,19 +19,28 @@ RUN npm run build
 FROM node:20-bullseye-slim
 
 # MESMAS dependências da API (evita erro de PDF no worker)
-RUN apt-get update && apt-get install -y \
-  chromium \
-  fonts-liberation \
-  libatk-bridge2.0-0 \
-  libgtk-3-0 \
-  libnss3 \
-  libxss1 \
-  libasound2 \
-  --no-install-recommends \
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    chromium \
+    fonts-liberation \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    libnss3 \
+    libxss1 \
+    libasound2 \
+  || (apt-get update --fix-missing && apt-get install -y --no-install-recommends \
+    chromium \
+    fonts-liberation \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    libnss3 \
+    libxss1 \
+    libasound2) \
   && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 WORKDIR /app
 

@@ -540,8 +540,9 @@ export function AprForm({ id }: AprFormProps) {
 
         if (!id) {
           const aprData = await aprsService.findAll();
-          const defaultApr = aprData.find((apr) => apr.is_modelo_padrao);
-          if (defaultApr) {
+          const defaultAprItem = aprData.find((apr) => apr.is_modelo_padrao);
+          if (defaultAprItem) {
+            const defaultApr = await aprsService.findOne(defaultAprItem.id);
             setValue('company_id', defaultApr.company_id);
             setValue('titulo', defaultApr.titulo);
             setValue('descricao', defaultApr.descricao || '');

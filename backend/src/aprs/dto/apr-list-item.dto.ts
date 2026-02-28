@@ -27,6 +27,12 @@ export class AprListItemDto {
   versao: number;
 
   @Expose()
+  is_modelo: boolean;
+
+  @Expose()
+  is_modelo_padrao: boolean;
+
+  @Expose()
   company_id: string;
 
   @Expose()
@@ -38,4 +44,3 @@ export class AprListItemDto {
     critico: number;
   };
 }
-
