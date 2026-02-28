@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Body,
   UnauthorizedException,
@@ -17,12 +18,16 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { Throttle } from '@nestjs/throttler';
+import { UsersService } from '../users/users.service';
 
 @Controller('auth')
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private usersService: UsersService,
+  ) {}
 
   @Public()
   @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 tentativas/min
@@ -44,14 +49,6 @@ export class AuthController {
 
     const result = await this.authService.login(user);
 
-    // Access token - curta duração
-    response.cookie('access_token', result.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000, // 15 minutos
-    });
-
     // Refresh token - longa duração
     response.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
@@ -61,7 +58,8 @@ export class AuthController {
       path: '/auth/refresh',
     });
 
-    return { user: result.user };
+    // Modelo oficial: access token em Authorization Bearer (não em cookie).
+    return { accessToken: result.accessToken, user: result.user };
   }
 
   @Public()
@@ -78,13 +76,6 @@ export class AuthController {
     }
     const result = await this.authService.refresh(refreshToken);
 
-    res.cookie('access_token', result.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000, // 15 minutos
-    });
-
     if (result.refreshToken) {
       res.cookie('refresh_token', result.refreshToken, {
         httpOnly: true,
@@ -95,7 +86,7 @@ export class AuthController {
       });
     }
 
-    return { success: true };
+    return { accessToken: result.accessToken };
   }
 
   @Public()
@@ -110,7 +101,6 @@ export class AuthController {
     if (refreshToken) {
       await this.authService.logout(refreshToken);
     }
-    response.clearCookie('access_token');
     response.clearCookie('refresh_token', { path: '/auth/refresh' });
     return { success: true };
   }
@@ -132,5 +122,15 @@ export class AuthController {
     );
     this.logger.log({ event: 'password_changed', userId: req.user.userId });
     return result;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  async me(@Request() req: { user?: { userId?: string } }) {
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('Usuário não autenticado');
+    }
+    const user = await this.usersService.findOne(req.user.userId);
+    return { user };
   }
 }

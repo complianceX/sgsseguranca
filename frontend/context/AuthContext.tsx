@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
+import { storage } from '@/lib/storage';
 
 import { User } from '@/services/usersService';
 
@@ -29,6 +30,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const bootstrapSession = async () => {
       try {
+        const token = storage.getItem('token');
+        if (!token) {
+          if (mounted) {
+            setUser(null);
+          }
+          return;
+        }
         const response = await api.get<AuthMeResponse>('/auth/me');
         const data = response.data;
         if (mounted) {
@@ -57,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await api.post('/auth/login', { cpf, password });
       const data = response.data as {
         user?: User;
+        accessToken?: string;
         requires2FA?: boolean;
         requires2FASetup?: boolean;
       };
@@ -77,6 +86,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Resposta de login invalida do servidor.');
       }
 
+      if (!data.accessToken) {
+        throw new Error('Access token ausente na resposta de login.');
+      }
+
+      storage.setItem('token', data.accessToken);
+      storage.setItem('user', JSON.stringify(authenticatedUser));
+      storage.setItem('companyId', authenticatedUser.company_id);
+
       setUser(authenticatedUser);
       router.push('/dashboard');
     } catch (error) {
@@ -92,6 +109,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Ignora falhas de rede no logout e limpa estado local mesmo assim.
     }
 
+    storage.removeItem('token');
+    storage.removeItem('user');
+    storage.removeItem('companyId');
     setUser(null);
     router.push('/login');
   };

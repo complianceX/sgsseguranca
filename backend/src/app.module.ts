@@ -79,7 +79,6 @@ import { IdempotencyService } from './common/idempotency/idempotency.service';
 import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
-import { CsrfMiddleware } from './common/middleware/csrf.middleware';
 
 /**
  * 🔒 CONFIGURAÇÃO DE SEGURANÇA E VALIDAÇÃO DE VARIÁVEIS DE AMBIENTE
@@ -506,7 +505,9 @@ export class AppModule implements OnModuleInit {
     consumer.apply(BullBoardAuthMiddleware).forRoutes('/admin/queues*');
 
     consumer
-      .apply(RequestContextMiddleware, TenantMiddleware, CsrfMiddleware)
+      // CSRF: removido. Modelo oficial: Authorization Bearer (access token) + refresh token httpOnly cookie.
+      // Sem cookie de auth principal, CSRF não se aplica ao fluxo principal.
+      .apply(RequestContextMiddleware, TenantMiddleware)
       .forRoutes('*');
   }
 }

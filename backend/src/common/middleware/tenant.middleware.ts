@@ -87,13 +87,9 @@ export class TenantMiddleware implements NestMiddleware {
   }
 
   private extractToken(req: Request): string | undefined {
-    const cookieToken = (req.cookies as Record<string, string> | undefined)?.[
-      'access_token'
-    ];
     const bearer = req.headers['authorization'];
     return (
-      cookieToken ??
-      (bearer?.startsWith('Bearer ') ? bearer.slice(7) : undefined)
+      bearer?.startsWith('Bearer ') ? bearer.slice(7) : undefined
     );
   }
 }

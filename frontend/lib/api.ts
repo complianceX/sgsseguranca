@@ -12,6 +12,31 @@ const getBaseUrl = () => {
 };
 
 type RetryConfig = AxiosRequestConfig & { __retryCount?: number };
+type AuthRetryConfig = RetryConfig & { __authRetry?: boolean };
+
+const refreshClient = axios.create({
+  baseURL: getBaseUrl(),
+  timeout: 45000,
+  withCredentials: true,
+});
+
+let refreshInFlight: Promise<string> | null = null;
+async function refreshAccessToken(): Promise<string> {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      const res = await refreshClient.post<{ accessToken: string }>('/auth/refresh');
+      const token = res.data?.accessToken;
+      if (!token) {
+        throw new Error('Refresh não retornou accessToken.');
+      }
+      storage.setItem('token', token);
+      return token;
+    })().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
 
 const api = axios.create({
   baseURL: getBaseUrl(),
@@ -59,13 +84,36 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const config = error.config as RetryConfig | undefined;
+    const config = error.config as AuthRetryConfig | undefined;
     if (!config) {
       return Promise.reject(error);
     }
-    const method = (config.method || 'get').toLowerCase();
-    const isIdempotent = method === 'get' || method === 'head' || method === 'options';
+
+    // 401 → tenta refresh via cookie httpOnly e refaz a request uma única vez
     const status = error.response?.status;
+    const url = String(config.url || '');
+    const method = (config.method || 'get').toLowerCase();
+    const isAuthEndpoint =
+      url.includes('/auth/login') ||
+      url.includes('/auth/refresh') ||
+      url.includes('/auth/logout');
+
+    if (status === 401 && !config.__authRetry && !isAuthEndpoint) {
+      config.__authRetry = true;
+      try {
+        const newToken = await refreshAccessToken();
+        config.headers = config.headers || {};
+        (config.headers as any).Authorization = `Bearer ${newToken}`;
+        return api.request(config);
+      } catch {
+        storage.removeItem('token');
+        storage.removeItem('user');
+        storage.removeItem('companyId');
+        return Promise.reject(error);
+      }
+    }
+
+    const isIdempotent = method === 'get' || method === 'head' || method === 'options';
     const shouldRetry =
       isIdempotent &&
       (error.code === 'ECONNABORTED' ||
