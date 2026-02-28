@@ -9,6 +9,7 @@ import { PtsInsights } from './components/PtsInsights';
 import { SendMailModal } from '@/components/SendMailModal';
 import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { ptsService } from '@/services/ptsService';
+import { PaginationControls } from '@/components/PaginationControls';
 
 export default function PtsPage() {
   const {
@@ -16,6 +17,10 @@ export default function PtsPage() {
     searchTerm,
     setSearchTerm,
     insights,
+    page,
+    setPage,
+    total,
+    lastPage,
     isMailModalOpen,
     setIsMailModalOpen,
     selectedDoc,
@@ -71,6 +76,16 @@ export default function PtsPage() {
           onApprove={handleApprove}
           onReject={handleReject}
         />
+
+        {!loading && (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+          />
+        )}
       </div>
 
       <StoredFilesPanel

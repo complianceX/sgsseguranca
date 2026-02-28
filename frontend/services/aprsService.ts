@@ -9,6 +9,7 @@ import { User } from './usersService';
 
 import { Site } from './sitesService';
 import { Company } from './companiesService';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export interface Apr {
   id: string;
@@ -125,9 +126,19 @@ export interface CreateAprDto {
 }
 
 export const aprsService = {
-  findAll: async () => {
-    const response = await api.get<Apr[]>('/aprs');
+  findPaginated: async (opts?: { page?: number; limit?: number }) => {
+    const response = await api.get<PaginatedResponse<Apr>>('/aprs', {
+      params: { page: opts?.page ?? 1, limit: opts?.limit ?? 20 },
+    });
     return response.data;
+  },
+
+  findAll: async () => {
+    return fetchAllPages({
+      fetchPage: (page, limit) => aprsService.findPaginated({ page, limit }),
+      limit: 100,
+      maxPages: 20,
+    });
   },
 
   findOne: async (id: string) => {

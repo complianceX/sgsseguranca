@@ -24,6 +24,11 @@ import { UsersService } from '../users/users.service';
 import { SitesService } from '../sites/sites.service';
 
 import { NotificationsGateway } from '../notifications/notifications.gateway';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
 
 @Injectable({ scope: Scope.REQUEST })
 export class ChecklistsService {
@@ -81,6 +86,42 @@ export class ChecklistsService {
       order: { created_at: 'DESC' },
     });
     return results.map((c) => plainToClass(ChecklistResponseDto, c));
+  }
+
+  async findPaginated(options?: {
+    onlyTemplates?: boolean;
+    excludeTemplates?: boolean;
+    page?: number;
+    limit?: number;
+  }): Promise<OffsetPage<ChecklistResponseDto>> {
+    const tenantId = this.tenantService.getTenantId();
+    this.logger.debug(`Buscando checklists paginados para empresa: ${tenantId}`);
+
+    const filter: { company_id?: string; is_modelo?: boolean } = {};
+    if (tenantId) {
+      filter.company_id = tenantId;
+    }
+    if (options?.onlyTemplates) {
+      filter.is_modelo = true;
+    } else if (options?.excludeTemplates) {
+      filter.is_modelo = false;
+    }
+
+    const { page, limit, skip } = normalizeOffsetPagination(
+      { page: options?.page, limit: options?.limit },
+      { defaultLimit: 20, maxLimit: 100 },
+    );
+
+    const [rows, total] = await this.checklistsRepository.findAndCount({
+      where: filter,
+      relations: ['site', 'inspetor'],
+      order: { created_at: 'DESC' },
+      skip,
+      take: limit,
+    });
+
+    const data = rows.map((c) => plainToClass(ChecklistResponseDto, c));
+    return toOffsetPage(data, total, page, limit);
   }
 
   async findOne(id: string): Promise<ChecklistResponseDto> {

@@ -32,8 +32,14 @@ export class TrainingsController {
   }
 
   @Get()
-  findAll() {
-    return this.trainingsService.findAll();
+  findPaginated(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
+  ) {
+    return this.trainingsService.findPaginated({
+      page: Number(page),
+      limit: Number(limit),
+    });
   }
 
   @Get('user/:userId')

@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import { User } from './usersService';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export interface Pt {
   id: string;
@@ -89,9 +90,19 @@ export interface Pt {
 }
 
 export const ptsService = {
-  findAll: async () => {
-    const response = await api.get<Pt[]>('/pts');
+  findPaginated: async (opts?: { page?: number; limit?: number }) => {
+    const response = await api.get<PaginatedResponse<Pt>>('/pts', {
+      params: { page: opts?.page ?? 1, limit: opts?.limit ?? 20 },
+    });
     return response.data;
+  },
+
+  findAll: async () => {
+    return fetchAllPages({
+      fetchPage: (page, limit) => ptsService.findPaginated({ page, limit }),
+      limit: 100,
+      maxPages: 20,
+    });
   },
 
   findOne: async (id: string) => {

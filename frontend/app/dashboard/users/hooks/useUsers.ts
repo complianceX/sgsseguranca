@@ -7,18 +7,24 @@ export function useUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
 
   const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await usersService.findAll();
-      setUsers(data);
+      const res = await usersService.findPaginated({ page, limit });
+      setUsers(res.data);
+      setTotal(res.total);
+      setLastPage(res.lastPage);
     } catch (error) {
       handleApiError(error, 'Usuários');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, limit]);
 
   useEffect(() => {
     loadUsers();
@@ -51,6 +57,11 @@ export function useUsers() {
     filteredUsers,
     searchTerm,
     setSearchTerm,
+    page,
+    setPage,
+    limit,
+    total,
+    lastPage,
     deleteUser,
     loadUsers,
   };

@@ -83,7 +83,7 @@ export class UsersController {
     description: 'Lista de usuários retornada com sucesso',
     schema: {
       example: {
-        items: [
+        data: [
           {
             id: '123e4567-e89b-12d3-a456-426614174000',
             nome: 'João da Silva',
@@ -92,22 +92,19 @@ export class UsersController {
             status: true,
           },
         ],
-        meta: {
-          total: 1,
-          page: 1,
-          limit: 20,
-          totalPages: 1,
-        },
+        total: 1,
+        page: 1,
+        lastPage: 1,
       },
     },
   })
   @ApiResponse({ status: 401, description: 'Não autenticado' })
   @ApiResponse({ status: 403, description: 'Sem permissão' })
-  findAll(
+  findPaginated(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
-  ): Promise<{ items: UserResponseDto[]; meta: Record<string, any> }> {
-    return this.usersService.findAll(Number(page), Number(limit));
+  ) {
+    return this.usersService.findPaginated({ page: Number(page), limit: Number(limit) });
   }
 
   @Get(':id')

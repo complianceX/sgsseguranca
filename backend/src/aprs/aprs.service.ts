@@ -11,6 +11,11 @@ import { Epi } from '../epis/entities/epi.entity';
 import { Tool } from '../tools/entities/tool.entity';
 import { Machine } from '../machines/entities/machine.entity';
 import { User } from '../users/entities/user.entity';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
 
 @Injectable()
 export class AprsService {
@@ -77,6 +82,38 @@ export class AprsService {
         'auditado_por',
       ],
     });
+  }
+
+  async findPaginated(opts?: {
+    page?: number;
+    limit?: number;
+  }): Promise<OffsetPage<Apr>> {
+    const tenantId = this.tenantService.getTenantId();
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const [data, total] = await this.aprsRepository.findAndCount({
+      where: tenantId ? { company_id: tenantId } : {},
+      relations: [
+        'company',
+        'site',
+        'elaborador',
+        'activities',
+        'risks',
+        'epis',
+        'tools',
+        'machines',
+        'participants',
+        'auditado_por',
+      ],
+      order: { created_at: 'DESC' },
+      skip,
+      take: limit,
+    });
+
+    return toOffsetPage(data, total, page, limit);
   }
 
   async findOne(id: string): Promise<Apr> {

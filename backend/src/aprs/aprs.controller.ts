@@ -9,6 +9,7 @@ import {
   UseGuards,
   UseInterceptors,
   Req,
+  Query,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AprsService } from './aprs.service';
@@ -37,8 +38,14 @@ export class AprsController {
   }
 
   @Get()
-  findAll() {
-    return this.aprsService.findAll();
+  findPaginated(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
+  ) {
+    return this.aprsService.findPaginated({
+      page: Number(page),
+      limit: Number(limit),
+    });
   }
 
   @Get(':id')

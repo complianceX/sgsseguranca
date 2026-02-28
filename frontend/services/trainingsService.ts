@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export interface Training {
   id: string;
@@ -43,9 +44,19 @@ export interface TrainingBlockingUser {
 }
 
 export const trainingsService = {
-  findAll: async (): Promise<Training[]> => {
-    const response = await api.get('/trainings');
+  findPaginated: async (opts?: { page?: number; limit?: number }): Promise<PaginatedResponse<Training>> => {
+    const response = await api.get<PaginatedResponse<Training>>('/trainings', {
+      params: { page: opts?.page ?? 1, limit: opts?.limit ?? 20 },
+    });
     return response.data;
+  },
+
+  findAll: async (): Promise<Training[]> => {
+    return fetchAllPages({
+      fetchPage: (page, limit) => trainingsService.findPaginated({ page, limit }),
+      limit: 100,
+      maxPages: 50,
+    });
   },
 
   findOne: async (id: string): Promise<Training> => {

@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export interface ChecklistItem {
   id?: string;
@@ -46,22 +47,38 @@ export interface Checklist {
 }
 
 export const checklistsService = {
-  findAll: async (options?: { onlyTemplates?: boolean; excludeTemplates?: boolean }) => {
-    const params = new URLSearchParams();
-    if (options?.onlyTemplates) {
-      params.set('onlyTemplates', 'true');
-    }
-    if (options?.excludeTemplates) {
-      params.set('excludeTemplates', 'true');
-    }
-    const query = params.toString();
-    const response = await api.get<Checklist[]>(`/checklists${query ? `?${query}` : ''}`);
+  findPaginated: async (params?: {
+    onlyTemplates?: boolean;
+    excludeTemplates?: boolean;
+    page?: number;
+    limit?: number;
+  }) => {
+    const response = await api.get<PaginatedResponse<Checklist>>('/checklists', {
+      params: {
+        onlyTemplates: params?.onlyTemplates ? 'true' : undefined,
+        excludeTemplates: params?.excludeTemplates ? 'true' : undefined,
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 20,
+      },
+    });
     return response.data;
   },
 
+  findAll: async (options?: { onlyTemplates?: boolean; excludeTemplates?: boolean }) => {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        checklistsService.findPaginated({
+          ...options,
+          page,
+          limit,
+        }),
+      limit: 100,
+      maxPages: 50,
+    });
+  },
+
   findTemplates: async () => {
-    const response = await api.get<Checklist[]>('/checklists?onlyTemplates=true');
-    return response.data;
+    return checklistsService.findAll({ onlyTemplates: true });
   },
 
   findOne: async (id: string) => {
@@ -122,13 +139,11 @@ export const checklistsService = {
 
   // Novos métodos para fluxo de templates
   getTemplates: async (): Promise<Checklist[]> => {
-    const response = await api.get<Checklist[]>('/checklists?onlyTemplates=true');
-    return response.data;
+    return checklistsService.findAll({ onlyTemplates: true });
   },
 
   getFilled: async (): Promise<Checklist[]> => {
-    const response = await api.get<Checklist[]>('/checklists?excludeTemplates=true');
-    return response.data;
+    return checklistsService.findAll({ excludeTemplates: true });
   },
 
   fillFromTemplate: async (templateId: string, data: Partial<Checklist>): Promise<Checklist> => {

@@ -9,6 +9,7 @@ import { ChecklistsTable } from './components/ChecklistsTable';
 import { ChecklistInsights } from './components/ChecklistInsights';
 import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { checklistsService } from '@/services/checklistsService';
+import { PaginationControls } from '@/components/PaginationControls';
 
 export default function ChecklistsPage() {
   const {
@@ -17,6 +18,10 @@ export default function ChecklistsPage() {
     setSearchTerm,
     modelFilter,
     setModelFilter,
+    page,
+    setPage,
+    total,
+    lastPage,
     analyzingId,
     printingId,
     isMailModalOpen,
@@ -82,6 +87,16 @@ export default function ChecklistsPage() {
           onSendEmail={handleSendEmail}
           onDelete={handleDelete}
         />
+
+        {!loading && (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+          />
+        )}
       </div>
 
       <StoredFilesPanel

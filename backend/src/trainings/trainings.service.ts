@@ -5,6 +5,11 @@ import { Training } from './entities/training.entity';
 import { CreateTrainingDto } from './dto/create-training.dto';
 import { UpdateTrainingDto } from './dto/update-training.dto';
 import { TenantService } from '../common/tenant/tenant.service';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
 
 @Injectable()
 export class TrainingsService {
@@ -25,6 +30,27 @@ export class TrainingsService {
       where: tenantId ? { company_id: tenantId } : {},
       relations: ['user'],
     });
+  }
+
+  async findPaginated(opts?: {
+    page?: number;
+    limit?: number;
+  }): Promise<OffsetPage<Training>> {
+    const tenantId = this.tenantService.getTenantId();
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const [data, total] = await this.trainingsRepository.findAndCount({
+      where: tenantId ? { company_id: tenantId } : {},
+      relations: ['user'],
+      order: { data_vencimento: 'ASC' },
+      skip,
+      take: limit,
+    });
+
+    return toOffsetPage(data, total, page, limit);
   }
 
   async findOne(id: string): Promise<Training> {

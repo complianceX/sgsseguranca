@@ -20,6 +20,10 @@ export function usePts() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [insights, setInsights] = useState<Insight[]>([]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
 
   // Estados para o modal de e-mail
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
@@ -28,14 +32,16 @@ export function usePts() {
   const loadPts = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await ptsService.findAll();
-      setPts(data);
+      const res = await ptsService.findPaginated({ page, limit });
+      setPts(res.data);
+      setTotal(res.total);
+      setLastPage(res.lastPage);
     } catch (error) {
       handleApiError(error, 'PTs');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, limit]);
 
   const loadInsights = useCallback(async () => {
     try {
@@ -167,6 +173,11 @@ export function usePts() {
     searchTerm,
     setSearchTerm,
     insights,
+    page,
+    setPage,
+    limit,
+    total,
+    lastPage,
     isMailModalOpen,
     setIsMailModalOpen,
     selectedDoc,

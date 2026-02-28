@@ -16,6 +16,11 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { RequestContext } from '../common/middleware/request-context.middleware';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
 
 @Injectable()
 export class UsersService {
@@ -59,29 +64,30 @@ export class UsersService {
     return plainToClass(UserResponseDto, saved);
   }
 
-  async findAll(
-    page = 1,
-    limit = 20,
-  ): Promise<{ items: UserResponseDto[]; meta: any }> {
+  async findPaginated(opts?: {
+    page?: number;
+    limit?: number;
+  }): Promise<OffsetPage<UserResponseDto>> {
     const tenantId = this.tenantService.getTenantId();
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
 
     const [users, total] = await this.usersRepository.findAndCount({
       where: tenantId ? { company_id: tenantId } : {},
       relations: ['profile', 'site', 'company'],
-      skip: (page - 1) * limit,
+      skip,
       take: limit,
       order: { nome: 'ASC' },
     });
 
-    return {
-      items: users.map((user) => plainToClass(UserResponseDto, user)),
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    const data = users.map((user) => plainToClass(UserResponseDto, user));
+    return toOffsetPage(data, total, page, limit);
+  }
+
+  async findAll(page = 1, limit = 20): Promise<OffsetPage<UserResponseDto>> {
+    return this.findPaginated({ page, limit });
   }
 
   async findOne(id: string): Promise<UserResponseDto> {

@@ -38,13 +38,17 @@ export class ChecklistsController {
   }
 
   @Get()
-  findAll(
+  findPaginated(
     @Query('onlyTemplates') onlyTemplates?: string,
     @Query('excludeTemplates') excludeTemplates?: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
   ) {
-    return this.checklistsService.findAll({
+    return this.checklistsService.findPaginated({
       onlyTemplates: onlyTemplates === 'true',
       excludeTemplates: excludeTemplates === 'true',
+      page: Number(page),
+      limit: Number(limit),
     });
   }
 

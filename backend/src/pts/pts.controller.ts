@@ -9,6 +9,7 @@ import {
   UseGuards,
   UseInterceptors,
   Req,
+  Query,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PtsService } from './pts.service';
@@ -43,8 +44,14 @@ export class PtsController {
   }
 
   @Get()
-  findAll() {
-    return this.ptsService.findAll();
+  findPaginated(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20,
+  ) {
+    return this.ptsService.findPaginated({
+      page: Number(page),
+      limit: Number(limit),
+    });
   }
 
   @Get(':id')

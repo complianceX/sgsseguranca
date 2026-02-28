@@ -9,6 +9,7 @@ import { AprInsights } from './components/AprInsights';
 import { AprFilters } from './components/AprFilters';
 import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { aprsService } from '@/services/aprsService';
+import { PaginationControls } from '@/components/PaginationControls';
 
 export default function AprsPage() {
   const {
@@ -17,6 +18,10 @@ export default function AprsPage() {
     setSearchTerm,
     insights,
     overviewMetrics,
+    page,
+    setPage,
+    total,
+    lastPage,
     isMailModalOpen,
     setIsMailModalOpen,
     selectedDoc,
@@ -63,9 +68,9 @@ export default function AprsPage() {
       {overviewMetrics && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <MetricCard label="Total APRs" value={overviewMetrics.totalAprs} />
-          <MetricCard label="Aprovadas" value={overviewMetrics.aprovadas} />
-          <MetricCard label="Pendentes" value={overviewMetrics.pendentes} />
-          <MetricCard label="Riscos Críticos" value={overviewMetrics.riscosCriticos} />
+          <MetricCard label="Aprovadas (pág.)" value={overviewMetrics.aprovadas} />
+          <MetricCard label="Pendentes (pág.)" value={overviewMetrics.pendentes} />
+          <MetricCard label="Riscos Críticos (pág.)" value={overviewMetrics.riscosCriticos} />
           <MetricCard
             label="Média Score"
             value={overviewMetrics.mediaScoreRisco.toFixed(2)}
@@ -106,6 +111,16 @@ export default function AprsPage() {
             ))
           )}
         </div>
+
+        {!loading && (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+          />
+        )}
       </div>
 
       <StoredFilesPanel

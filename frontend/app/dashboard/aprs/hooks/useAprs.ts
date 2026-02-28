@@ -28,6 +28,10 @@ export function useAprs() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [insights, setInsights] = useState<Insight[]>([]);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
 
   // Estados para o modal de e-mail
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
@@ -36,14 +40,16 @@ export function useAprs() {
   const loadAprs = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await aprsService.findAll();
-      setAprs(data);
+      const res = await aprsService.findPaginated({ page, limit });
+      setAprs(res.data);
+      setTotal(res.total);
+      setLastPage(res.lastPage);
     } catch (error) {
       handleApiError(error, 'APRs');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, limit]);
 
   const loadInsights = useCallback(async () => {
     try {
@@ -146,7 +152,7 @@ export function useAprs() {
     const list = filteredAprs;
     if (!list) return null;
 
-    const totalAprs = list.length;
+    const totalAprs = total;
     const aprovadas = list.filter((a) => a.status === 'Aprovada').length;
     const pendentes = list.filter((a) => a.status === 'Pendente').length;
     const riscosCriticos = list.filter((a) => (a.classificacao_resumo?.critico || 0) > 0).length;
@@ -164,7 +170,7 @@ export function useAprs() {
 
     const mediaScoreRisco = scoreCount > 0 ? scoreSum / scoreCount : 0;
     return { totalAprs, aprovadas, pendentes, riscosCriticos, mediaScoreRisco };
-  }, [filteredAprs]);
+  }, [filteredAprs, total]);
 
   const handleFinalize = useCallback(async (id: string) => {
     if (!confirm('Deseja aprovar esta APR?')) return;
@@ -207,6 +213,11 @@ export function useAprs() {
     setSearchTerm,
     insights,
     overviewMetrics,
+    page,
+    setPage,
+    limit,
+    total,
+    lastPage,
     isMailModalOpen,
     setIsMailModalOpen,
     selectedDoc,

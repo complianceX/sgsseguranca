@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   trainingsService,
@@ -24,11 +24,16 @@ import {
 import { toast } from 'sonner';
 import { SendMailModal } from '@/components/SendMailModal';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PaginationControls } from '@/components/PaginationControls';
 
 export default function TrainingsPage() {
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
@@ -40,17 +45,15 @@ export default function TrainingsPage() {
   });
   const [blockingUsers, setBlockingUsers] = useState<TrainingBlockingUser[]>([]);
 
-  useEffect(() => {
-    loadTrainings();
-  }, []);
-
-  const loadTrainings = async () => {
+  const loadTrainings = useCallback(async () => {
     try {
-      const [data, summary] = await Promise.all([
-        trainingsService.findAll(),
+      const [paged, summary] = await Promise.all([
+        trainingsService.findPaginated({ page, limit }),
         trainingsService.getExpirySummary(),
       ]);
-      setTrainings(data);
+      setTrainings(paged.data);
+      setTotal(paged.total);
+      setLastPage(paged.lastPage);
       setExpirySummary(summary);
       const pendingUsers = await trainingsService.getBlockingUsers();
       setBlockingUsers(pendingUsers);
@@ -60,7 +63,11 @@ export default function TrainingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit]);
+
+  useEffect(() => {
+    loadTrainings();
+  }, [loadTrainings]);
 
   const handleNotifyExpiring = async () => {
     try {
@@ -368,6 +375,16 @@ export default function TrainingsPage() {
             )}
           </TableBody>
         </Table>
+
+        {!loading && (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+          />
+        )}
       </div>
 
       {selectedDoc && (

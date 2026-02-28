@@ -14,6 +14,10 @@ export function useChecklists() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [modelFilter, setModelFilter] = useState<'all' | 'model' | 'regular'>('regular');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
@@ -22,15 +26,29 @@ export function useChecklists() {
   const loadChecklists = useCallback(async () => {
     try {
       setLoading(true);
-      // Carregar apenas checklists preenchidos (excluir templates)
-      const data = await checklistsService.findAll({ excludeTemplates: true });
-      setChecklists(data);
+      const res = await checklistsService.findPaginated({
+        onlyTemplates: modelFilter === 'model',
+        excludeTemplates: modelFilter === 'regular',
+        page,
+        limit,
+      });
+      setChecklists(res.data);
+      setTotal(res.total);
+      setLastPage(res.lastPage);
     } catch (error) {
       handleApiError(error, 'Checklists');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [modelFilter, page, limit]);
+
+  const setModelFilterAndReset = useCallback(
+    (value: 'all' | 'model' | 'regular') => {
+      setPage(1);
+      setModelFilter(value);
+    },
+    [],
+  );
 
   useEffect(() => {
     loadChecklists();
@@ -154,12 +172,12 @@ export function useChecklists() {
 
   const insights = useMemo(() => {
     return {
-      total: checklists.length,
+      total,
       conforme: checklists.filter(c => c.status === 'Conforme').length,
       pendente: checklists.filter(c => c.status === 'Pendente').length,
       naoConforme: checklists.filter(c => c.status === 'Não Conforme').length,
     };
-  }, [checklists]);
+  }, [checklists, total]);
 
   const handleExportCsv = useCallback(() => {
     const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
@@ -185,7 +203,12 @@ export function useChecklists() {
     searchTerm,
     setSearchTerm,
     modelFilter,
-    setModelFilter,
+    setModelFilter: setModelFilterAndReset,
+    page,
+    setPage,
+    limit,
+    total,
+    lastPage,
     analyzingId,
     printingId,
     isMailModalOpen,

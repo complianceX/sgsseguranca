@@ -4,6 +4,7 @@ import { useUsers } from './hooks/useUsers';
 import { UsersHeader } from './components/UsersHeader';
 import { UsersFilters } from './components/UsersFilters';
 import { UsersTable } from './components/UsersTable';
+import { PaginationControls } from '@/components/PaginationControls';
 
 export default function UsersPage() {
   const {
@@ -11,6 +12,10 @@ export default function UsersPage() {
     filteredUsers,
     searchTerm,
     setSearchTerm,
+    page,
+    setPage,
+    total,
+    lastPage,
     deleteUser,
   } = useUsers();
 
@@ -29,6 +34,16 @@ export default function UsersPage() {
           loading={loading}
           onDelete={deleteUser}
         />
+
+        {!loading && (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+          />
+        )}
       </div>
     </div>
   );
