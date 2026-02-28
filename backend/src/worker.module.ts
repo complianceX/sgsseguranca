@@ -25,6 +25,10 @@ const validationSchema = Joi.object({
   DATABASE_NAME: Joi.string().optional(),
   DATABASE_SSL: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
+  DB_POOL_MAX: Joi.number().default(5),
+  DB_POOL_MIN: Joi.number().default(1),
+  DB_IDLE_TIMEOUT_MS: Joi.number().default(30000),
+  DB_CONNECTION_TIMEOUT_MS: Joi.number().default(2000),
 });
 
 @Module({
@@ -65,10 +69,13 @@ const validationSchema = Joi.object({
             : (['error', 'warn'] as const),
           maxQueryExecutionTime: 1000,
           extra: {
-            max: 20,
-            min: 5,
-            idleTimeoutMillis: 30000,
-            connectionTimeoutMillis: 2000,
+            max: config.get<number>('DB_POOL_MAX', 5),
+            min: config.get<number>('DB_POOL_MIN', 1),
+            idleTimeoutMillis: config.get<number>('DB_IDLE_TIMEOUT_MS', 30000),
+            connectionTimeoutMillis: config.get<number>(
+              'DB_CONNECTION_TIMEOUT_MS',
+              2000,
+            ),
             // SECURITY: compatível com PgBouncer em modo transaction
             prepareThreshold: 0,
           },

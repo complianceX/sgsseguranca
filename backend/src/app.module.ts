@@ -135,6 +135,12 @@ const validationSchema = Joi.object({
   AWS_S3_ENDPOINT: Joi.string().optional(),
   THROTTLE_TTL: Joi.number().default(60000),
   THROTTLE_LIMIT: Joi.number().default(100),
+  // Connection pool — ajuste por ambiente/instância
+  // Regra: DB_POOL_MAX * nº_de_instâncias < max_connections do PostgreSQL
+  DB_POOL_MAX: Joi.number().default(10),
+  DB_POOL_MIN: Joi.number().default(2),
+  DB_IDLE_TIMEOUT_MS: Joi.number().default(30000),
+  DB_CONNECTION_TIMEOUT_MS: Joi.number().default(2000),
   JAEGER_AGENT_HOST: Joi.string().optional(),
   JAEGER_AGENT_PORT: Joi.number().optional(),
   PROMETHEUS_PORT: Joi.number().optional(),
@@ -236,12 +242,16 @@ const validationSchema = Joi.object({
             : (['error', 'warn', 'query'] as const),
           maxQueryExecutionTime: 1000, // Log queries > 1s
 
-          // Connection pooling otimizado
+          // Connection pooling configurável via env
+          // Railway: DB_POOL_MAX=10 por instância (ajuste conforme plano PG)
           extra: {
-            max: 20, // Máximo de conexões
-            min: 5, // Mínimo de conexões
-            idleTimeoutMillis: 30000, // 30s
-            connectionTimeoutMillis: 2000, // 2s timeout
+            max: config.get<number>('DB_POOL_MAX', 10),
+            min: config.get<number>('DB_POOL_MIN', 2),
+            idleTimeoutMillis: config.get<number>('DB_IDLE_TIMEOUT_MS', 30000),
+            connectionTimeoutMillis: config.get<number>(
+              'DB_CONNECTION_TIMEOUT_MS',
+              2000,
+            ),
             // SECURITY: compatível com PgBouncer em modo transaction
             prepareThreshold: 0,
           },
