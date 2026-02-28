@@ -7,6 +7,7 @@ import {
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bull';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -14,6 +15,15 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
 import * as redisStore from 'cache-manager-redis-store';
 import type { RedisClientOptions } from 'redis';
+interface RedisCacheConfig {
+  store: unknown;
+  host: string;
+  port: number;
+  password?: string;
+  ttl: number;
+  max: number;
+  tls?: Record<string, unknown>;
+}
 
 // Controllers & Services
 import { AppController } from './app.controller';
@@ -161,17 +171,17 @@ const validationSchema = Joi.object({
     CacheModule.registerAsync<RedisClientOptions>({
       isGlobal: true,
       inject: [ConfigService],
-      useFactory: async (config: ConfigService) => {
+      useFactory: (config: ConfigService) => {
         const isProduction = config.get('NODE_ENV') === 'production';
         const logger = new Logger('CacheModule');
 
         if (isProduction) {
           logger.log('🔴 Configurando Redis Cache para PRODUÇÃO');
 
-          const redisConfig = {
-            store: redisStore as any,
-            host: config.get<string>('REDIS_HOST'),
-            port: config.get<number>('REDIS_PORT'),
+          const redisConfig: RedisCacheConfig = {
+            store: redisStore as unknown,
+            host: config.get<string>('REDIS_HOST')!,
+            port: config.get<number>('REDIS_PORT')!,
             password: config.get<string>('REDIS_PASSWORD'),
             ttl: 300, // 5 minutos default
             max: 1000, // Máximo de itens no cache
@@ -180,10 +190,10 @@ const validationSchema = Joi.object({
           // TLS para Redis em produção (se configurado)
           if (config.get<boolean>('REDIS_TLS')) {
             logger.log('🔒 Redis TLS habilitado');
-            (redisConfig as any).tls = {};
+            redisConfig.tls = {};
           }
 
-          return redisConfig;
+          return redisConfig as unknown as RedisClientOptions;
         }
 
         logger.log('💾 Configurando Memory Cache para DESENVOLVIMENTO');
@@ -216,7 +226,7 @@ const validationSchema = Joi.object({
         const url = config.get<string>('DATABASE_URL');
 
         // Configuração base
-        const baseConfig = {
+        const baseConfig: TypeOrmModuleOptions = {
           type: 'postgres' as const,
           autoLoadEntities: true,
           synchronize: false, // NUNCA true em produção
@@ -245,7 +255,7 @@ const validationSchema = Joi.object({
             ...baseConfig,
             url,
             ssl: AppModule.getSSLConfig(config, isProduction, logger),
-          } as any;
+          };
         }
 
         // Conexão via variáveis individuais
@@ -262,7 +272,7 @@ const validationSchema = Joi.object({
           password: config.get<string>('DATABASE_PASSWORD'),
           database: config.get<string>('DATABASE_NAME'),
           ssl: AppModule.getSSLConfig(config, isProduction, logger),
-        } as any;
+        };
       },
     }),
 
@@ -332,7 +342,7 @@ export class AppModule implements OnModuleInit {
    *
    * Verifica configurações críticas de segurança antes da aplicação iniciar.
    */
-  async onModuleInit() {
+  onModuleInit() {
     const isProduction = this.configService.get('NODE_ENV') === 'production';
 
     this.logger.log('🚀 Inicializando AppModule...');
@@ -359,9 +369,7 @@ export class AppModule implements OnModuleInit {
     const railwaySelfSigned =
       this.configService.get<string>('BANCO_DE_DADOS_SSL') === 'true';
     const redisHost = this.configService.get<string>('REDIS_HOST');
-    const mailHost = this.configService.get<string>('MAIL_HOST');
-    const mailUser = this.configService.get<string>('MAIL_USER');
-    const mailPass = this.configService.get<string>('MAIL_PASS');
+    //
 
     const checks = [
       {
