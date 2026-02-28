@@ -8,6 +8,7 @@ import {
 } from '@aws-sdk/client-s3';
 import type { PutObjectCommandInput } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { CircuitBreakerService } from '../resilience/circuit-breaker.service';
 
 @Injectable()
 export class StorageService {
@@ -15,7 +16,10 @@ export class StorageService {
   private bucketName: string;
   private readonly logger = new Logger(StorageService.name);
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private circuitBreaker: CircuitBreakerService,
+  ) {
     this.bucketName = this.configService.get<string>('AWS_BUCKET_NAME') || '';
 
     this.s3Client = new S3Client({
@@ -35,20 +39,20 @@ export class StorageService {
     body: PutObjectCommandInput['Body'],
     contentType: string,
   ): Promise<void> {
-    try {
-      const command = new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-        Body: body,
-        ContentType: contentType,
-      });
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    });
 
-      await this.s3Client.send(command);
-      this.logger.log(`Arquivo enviado com sucesso: ${key}`);
-    } catch (error) {
-      this.logger.error(`Erro ao enviar arquivo ${key}:`, error);
-      throw error;
-    }
+    await this.circuitBreaker.execute(
+      's3',
+      () => this.s3Client.send(command),
+      { failureThreshold: 3, resetTimeout: 30000, timeout: 30000 },
+    );
+
+    this.logger.log(`Arquivo enviado com sucesso: ${key}`);
   }
 
   async uploadFile(
@@ -74,57 +78,50 @@ export class StorageService {
     contentType: string,
     expiresIn = 3600,
   ): Promise<string> {
-    try {
-      const command = new PutObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-        ContentType: contentType,
-      });
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      ContentType: contentType,
+    });
 
-      const url = await getSignedUrl(this.s3Client, command, { expiresIn });
-      this.logger.log(`Presigned Upload URL gerada para: ${key}`);
-      return url;
-    } catch (error) {
-      this.logger.error(
-        `Erro ao gerar presigned upload URL para ${key}:`,
-        error,
-      );
-      throw error;
-    }
+    const url = await this.circuitBreaker.execute(
+      's3',
+      () => getSignedUrl(this.s3Client, command, { expiresIn }),
+      { failureThreshold: 3, resetTimeout: 30000, timeout: 10000 },
+    );
+
+    this.logger.log(`Presigned Upload URL gerada para: ${key}`);
+    return url;
   }
 
   async getPresignedDownloadUrl(
     key: string,
     expiresIn = 604800,
   ): Promise<string> {
-    try {
-      const command = new GetObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-      });
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
 
-      const url = await getSignedUrl(this.s3Client, command, { expiresIn });
-      return url;
-    } catch (error) {
-      this.logger.error(
-        `Erro ao gerar presigned download URL para ${key}:`,
-        error,
-      );
-      throw error;
-    }
+    return this.circuitBreaker.execute(
+      's3',
+      () => getSignedUrl(this.s3Client, command, { expiresIn }),
+      { failureThreshold: 3, resetTimeout: 30000, timeout: 10000 },
+    );
   }
 
   async deleteFile(key: string): Promise<void> {
-    try {
-      const command = new DeleteObjectCommand({
-        Bucket: this.bucketName,
-        Key: key,
-      });
-      await this.s3Client.send(command);
-      this.logger.log(`Arquivo deletado: ${key}`);
-    } catch (error) {
-      this.logger.error(`Erro ao deletar arquivo ${key}:`, error);
-      throw error;
-    }
+    const command = new DeleteObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    await this.circuitBreaker.execute(
+      's3',
+      () => this.s3Client.send(command),
+      { failureThreshold: 3, resetTimeout: 30000, timeout: 10000 },
+    );
+
+    this.logger.log(`Arquivo deletado: ${key}`);
   }
 }

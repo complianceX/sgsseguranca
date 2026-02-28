@@ -25,6 +25,7 @@ import { AuditsService } from '../audits/audits.service';
 import { CompaniesService } from '../companies/companies.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { StorageService } from '../common/services/storage.service';
+import { CircuitBreakerService } from '../common/resilience/circuit-breaker.service';
 import { ReportsService } from '../reports/reports.service';
 import { InspectionResponseDto } from '../inspections/dto/inspection-response.dto';
 import { Audit } from '../audits/entities/audit.entity';
@@ -55,6 +56,7 @@ export class MailService {
     private tenantService: TenantService,
     private storageService: StorageService,
     private reportsService: ReportsService,
+    private circuitBreaker: CircuitBreakerService,
   ) {
     this.resend = new Resend(this.configService.get<string>('RESEND_API_KEY'));
   }
@@ -219,13 +221,18 @@ export class MailService {
       this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() ||
       'onboarding@resend.dev';
 
-    await this.resend.emails.send({
-      from: `${fromName} <${fromEmail}>`,
-      to,
-      subject,
-      text,
-      html: html || text,
-    });
+    await this.circuitBreaker.execute(
+      'resend-email',
+      () =>
+        this.resend.emails.send({
+          from: `${fromName} <${fromEmail}>`,
+          to,
+          subject,
+          text,
+          html: html || text,
+        }),
+      { failureThreshold: 5, resetTimeout: 60000, timeout: 10000 },
+    );
   }
 
   async sendMailSimple(
@@ -254,14 +261,19 @@ export class MailService {
       : undefined;
 
     try {
-      const data = await this.resend.emails.send({
-        from: `${fromName} <${fromEmail}>`,
-        to,
-        subject,
-        text,
-        html,
-        attachments,
-      });
+      const data = await this.circuitBreaker.execute(
+        'resend-email',
+        () =>
+          this.resend.emails.send({
+            from: `${fromName} <${fromEmail}>`,
+            to,
+            subject,
+            text,
+            html,
+            attachments,
+          }),
+        { failureThreshold: 5, resetTimeout: 60000, timeout: 10000 },
+      );
 
       if (data.error) {
         throw new Error(`Resend Error: ${data.error.message}`);
@@ -397,9 +409,10 @@ export class MailService {
       );
     }
 
-    const summary = await this.tenantService.run(resolvedCompanyId, () => {
-      return this.buildAlertSummary();
-    });
+    const summary = await this.tenantService.run(
+      { companyId: resolvedCompanyId, isSuperAdmin: false },
+      () => this.buildAlertSummary(),
+    );
 
     const company = await this.findCompany(resolvedCompanyId);
     const subject = `Alertas de conformidade${
