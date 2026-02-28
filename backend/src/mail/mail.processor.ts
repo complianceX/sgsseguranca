@@ -1,13 +1,20 @@
-import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
+import {
+  Processor,
+  WorkerHost,
+  OnWorkerEvent,
+  Process,
+} from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import type { Job } from 'bull';
+import type { Job } from 'bullmq';
 import { MailService } from './mail.service';
 
 @Processor('mail')
-export class MailProcessor {
+export class MailProcessor extends WorkerHost {
   private readonly logger = new Logger(MailProcessor.name);
 
-  constructor(private readonly mailService: MailService) {}
+  constructor(private readonly mailService: MailService) {
+    super();
+  }
 
   @Process('send-document')
   async handleSendDocument(
@@ -36,7 +43,7 @@ export class MailProcessor {
         `[Job ${job.id}] Falha ao enviar e-mail: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      // Lançar o erro faz com que o Bull acione o mecanismo de retry (attempts: 3)
+      // Lançar o erro faz com que o BullMQ acione o mecanismo de retry (attempts: 3)
       throw error;
     }
   }
@@ -72,10 +79,10 @@ export class MailProcessor {
     }
   }
 
-  @OnQueueFailed()
-  onFailed(job: Job, error: Error) {
+  @OnWorkerEvent('failed')
+  onFailed(job: Job | undefined, error: Error) {
     this.logger.error(
-      `[Job ${job.id}] Falhou definitivamente após todas as tentativas. Tipo: ${job.name}. Erro: ${error.message}`,
+      `[Job ${job?.id}] Falhou definitivamente após todas as tentativas. Tipo: ${job?.name}. Erro: ${error.message}`,
       error.stack,
     );
   }

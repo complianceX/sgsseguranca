@@ -1,18 +1,19 @@
-import { Process, Processor } from '@nestjs/bull';
-import type { Job } from 'bull';
-import { Injectable, Logger } from '@nestjs/common';
+import { Processor, WorkerHost, Process } from '@nestjs/bullmq';
+import type { Job } from 'bullmq';
+import { Logger } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { StorageService } from '../common/services/storage.service';
 
 @Processor('pdf-generation')
-@Injectable()
-export class PdfProcessor {
+export class PdfProcessor extends WorkerHost {
   private readonly logger = new Logger(PdfProcessor.name);
 
   constructor(
     private readonly reportsService: ReportsService,
     private readonly storageService: StorageService,
-  ) {}
+  ) {
+    super();
+  }
 
   @Process('generate')
   async handleGenerate(

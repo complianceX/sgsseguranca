@@ -11,8 +11,8 @@ import {
   BadRequestException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bull';
-import type { Queue } from 'bull';
+import { InjectQueue } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
 import type { Response } from 'express';
 import { createReadStream } from 'fs';
 import { unlink } from 'fs/promises';

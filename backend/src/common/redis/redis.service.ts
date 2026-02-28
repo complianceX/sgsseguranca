@@ -17,4 +17,13 @@ export class RedisService {
       await this.client.del(...keys);
     }
   }
+
+  /** Invalida todos os refresh tokens de um usuário (ex: troca de senha). */
+  async clearAllRefreshTokens(userId: string): Promise<void> {
+    const pattern = `refresh:${userId}:*`;
+    const keys = await this.client.keys(pattern);
+    if (keys.length > 0) {
+      await this.client.del(...keys);
+    }
+  }
 }

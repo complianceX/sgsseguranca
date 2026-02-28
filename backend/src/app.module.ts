@@ -9,7 +9,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
-import { BullModule } from '@nestjs/bull';
+import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
@@ -57,6 +57,7 @@ import { InspectionsModule } from './inspections/inspections.module';
 import { NonConformitiesModule } from './nonconformities/nonconformities.module';
 // import { DocumentImportModule } from './document-import/document-import.module';
 import { AuditModule } from './audit/audit.module';
+import { ContractsModule } from './contracts/contracts.module';
 import { TasksModule } from './tasks/tasks.module';
 // import { NotificationsModule } from './notifications/notifications.module';
 import { PushModule } from './push/push.module';
@@ -203,9 +204,9 @@ const validationSchema = Joi.object({
       },
     }),
 
-    // 5. BullModule para filas com Redis (Railway-safe)
+    // 5. BullModule (BullMQ) para filas com Redis (Railway-safe)
     BullModule.forRoot({
-      redis: {
+      connection: {
         host: process.env.REDIS_HOST,
         port: Number(process.env.REDIS_PORT),
         password: process.env.REDIS_PASSWORD,
@@ -305,6 +306,7 @@ const validationSchema = Joi.object({
     NonConformitiesModule,
     // DocumentImportModule,
     AuditModule,
+    ContractsModule,
     DataLoaderModule,
     MathModule,
   ],

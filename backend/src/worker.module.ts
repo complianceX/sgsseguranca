@@ -1,6 +1,6 @@
 import { Module, Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { BullModule } from '@nestjs/bull';
+import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import * as Joi from 'joi';
@@ -39,7 +39,7 @@ const validationSchema = Joi.object({
     }),
     ScheduleModule.forRoot(),
     BullModule.forRoot({
-      redis: {
+      connection: {
         host: process.env.REDIS_HOST,
         port: Number(process.env.REDIS_PORT),
         password: process.env.REDIS_PASSWORD,

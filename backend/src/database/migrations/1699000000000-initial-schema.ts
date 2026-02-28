@@ -60,7 +60,17 @@ export class InitialSchema1699000000000 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "contracts" (
-        "id" uuid DEFAULT uuid_generate_v4() PRIMARY KEY
+        "id"              uuid         DEFAULT uuid_generate_v4() PRIMARY KEY,
+        "company_id"      uuid         NOT NULL,
+        "number"          varchar(100) NULL,
+        "contractor_name" varchar(255) NULL,
+        "description"     text         NULL,
+        "start_date"      date         NULL,
+        "end_date"        date         NULL,
+        "status"          varchar(20)  NOT NULL DEFAULT 'active',
+        "created_at"      timestamp    DEFAULT now() NOT NULL,
+        "updated_at"      timestamp    DEFAULT now() NOT NULL,
+        CONSTRAINT "FK_contracts_company_id" FOREIGN KEY ("company_id") REFERENCES "companies"("id")
       )
     `);
 

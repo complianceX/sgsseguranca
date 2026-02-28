@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bull';
-import type { Queue } from 'bull';
+import { InjectQueue } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
@@ -20,8 +20,19 @@ export class QueueMonitorService {
 
   private async logQueueStats() {
     try {
-      const pdfStats = await this.pdfQueue.getJobCounts();
-      const mailStats = await this.mailQueue.getJobCounts();
+      // BullMQ usa 'wait' em vez de 'waiting' para jobs na fila
+      const pdfStats = await this.pdfQueue.getJobCounts(
+        'active',
+        'wait',
+        'completed',
+        'failed',
+      );
+      const mailStats = await this.mailQueue.getJobCounts(
+        'active',
+        'wait',
+        'completed',
+        'failed',
+      );
 
       const pdfTotal = Object.values(pdfStats).reduce(
         (a: number, b: number) => a + b,
@@ -33,11 +44,11 @@ export class QueueMonitorService {
       );
 
       this.logger.log(
-        `📊 FILA PDF: ${pdfStats.active || 0} ativo, ${pdfStats.waiting || 0} aguardando, ${pdfStats.completed || 0} completo, ${pdfStats.failed || 0} falhou (Total: ${pdfTotal})`,
+        `📊 FILA PDF: ${pdfStats.active || 0} ativo, ${pdfStats.wait || 0} aguardando, ${pdfStats.completed || 0} completo, ${pdfStats.failed || 0} falhou (Total: ${pdfTotal})`,
       );
 
       this.logger.log(
-        `📧 FILA MAIL: ${mailStats.active || 0} ativo, ${mailStats.waiting || 0} aguardando, ${mailStats.completed || 0} completo, ${mailStats.failed || 0} falhou (Total: ${mailTotal})`,
+        `📧 FILA MAIL: ${mailStats.active || 0} ativo, ${mailStats.wait || 0} aguardando, ${mailStats.completed || 0} completo, ${mailStats.failed || 0} falhou (Total: ${mailTotal})`,
       );
 
       // Alertas
@@ -51,15 +62,15 @@ export class QueueMonitorService {
         );
       }
 
-      if ((pdfStats.waiting || 0) > 20) {
+      if ((pdfStats.wait || 0) > 20) {
         this.logger.warn(
-          `⚠️ ALERTA: ${pdfStats.waiting} jobs de PDF aguardando (possível gargalo)!`,
+          `⚠️ ALERTA: ${pdfStats.wait} jobs de PDF aguardando (possível gargalo)!`,
         );
       }
 
-      if ((mailStats.waiting || 0) > 20) {
+      if ((mailStats.wait || 0) > 20) {
         this.logger.warn(
-          `⚠️ ALERTA: ${mailStats.waiting} jobs de email aguardando (possível gargalo)!`,
+          `⚠️ ALERTA: ${mailStats.wait} jobs de email aguardando (possível gargalo)!`,
         );
       }
     } catch (error) {
@@ -68,13 +79,23 @@ export class QueueMonitorService {
   }
 
   async getQueueStats() {
-    const pdfStats = await this.pdfQueue.getJobCounts();
-    const mailStats = await this.mailQueue.getJobCounts();
+    const pdfStats = await this.pdfQueue.getJobCounts(
+      'active',
+      'wait',
+      'completed',
+      'failed',
+    );
+    const mailStats = await this.mailQueue.getJobCounts(
+      'active',
+      'wait',
+      'completed',
+      'failed',
+    );
 
     return {
       pdf: {
         active: pdfStats.active || 0,
-        waiting: pdfStats.waiting || 0,
+        waiting: pdfStats.wait || 0,
         completed: pdfStats.completed || 0,
         failed: pdfStats.failed || 0,
         total: Object.values(pdfStats).reduce(
@@ -84,7 +105,7 @@ export class QueueMonitorService {
       },
       mail: {
         active: mailStats.active || 0,
-        waiting: mailStats.waiting || 0,
+        waiting: mailStats.wait || 0,
         completed: mailStats.completed || 0,
         failed: mailStats.failed || 0,
         total: Object.values(mailStats).reduce(

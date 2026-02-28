@@ -1,7 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { BullModule } from '@nestjs/bull';
+import { BullModule } from '@nestjs/bullmq';
 import { MailService } from './mail.service';
 import { MailProcessor } from './mail.processor';
 import { MailController } from './mail.controller';
@@ -22,18 +21,7 @@ import { ReportsModule } from '../reports/reports.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([MailLog]),
-    BullModule.registerQueueAsync({
-      name: 'mail',
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        redis: {
-          host: configService.get('REDIS_HOST'),
-          port: Number(configService.get('REDIS_PORT')),
-          password: configService.get('REDIS_PASSWORD'),
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    BullModule.registerQueue({ name: 'mail' }),
     EpisModule,
     TrainingsModule,
     PtsModule,

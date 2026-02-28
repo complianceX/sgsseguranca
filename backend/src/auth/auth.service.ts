@@ -205,6 +205,12 @@ export class AuthService {
     }
 
     await this.usersService.update(userId, { password: newPassword });
+
+    // Rotation: ao trocar a senha, todos os refresh tokens do usuário são
+    // invalidados. O usuário precisará fazer login novamente em todos os
+    // dispositivos — comportamento de segurança esperado.
+    await this.redisService.clearAllRefreshTokens(userId);
+
     return { message: 'Senha atualizada com sucesso' };
   }
 
