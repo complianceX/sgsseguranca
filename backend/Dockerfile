@@ -39,8 +39,11 @@ RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 
+# Entrypoint com retry de migrations
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
 # Porta dinâmica Railway
 EXPOSE 3000
 
-# Executa migrations antes de subir
-CMD ["sh", "-c", "npm run migration:run && node dist/main.js"]
+ENTRYPOINT ["./entrypoint.sh"]

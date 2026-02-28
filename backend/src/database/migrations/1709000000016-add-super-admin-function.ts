@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddSuperAdminFunction1709000000015 implements MigrationInterface {
-  name = 'AddSuperAdminFunction1709000000015';
+export class AddSuperAdminFunction1709000000016 implements MigrationInterface {
+  name = 'AddSuperAdminFunction1709000000016';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Função para verificar se é super admin

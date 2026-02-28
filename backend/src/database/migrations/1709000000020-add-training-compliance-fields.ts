@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddTrainingComplianceFields1709000000017 implements MigrationInterface {
-  name = 'AddTrainingComplianceFields1709000000017';
+export class AddTrainingComplianceFields1709000000020 implements MigrationInterface {
+  name = 'AddTrainingComplianceFields1709000000020';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddSignatureTimestampFields1709000000016 implements MigrationInterface {
-  name = 'AddSignatureTimestampFields1709000000016';
+export class AddSignatureTimestampFields1709000000019 implements MigrationInterface {
+  name = 'AddSignatureTimestampFields1709000000019';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateEpiAssignmentsTable1709000000015 implements MigrationInterface {
-  name = 'CreateEpiAssignmentsTable1709000000015';
+export class CreateEpiAssignmentsTable1709000000017 implements MigrationInterface {
+  name = 'CreateEpiAssignmentsTable1709000000017';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

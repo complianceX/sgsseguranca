@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class MakeUserCpfFuncaoNullable1709000000015 implements MigrationInterface {
-  name = 'MakeUserCpfFuncaoNullable1709000000015';
+export class MakeUserCpfFuncaoNullable1709000000018 implements MigrationInterface {
+  name = 'MakeUserCpfFuncaoNullable1709000000018';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
