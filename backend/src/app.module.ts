@@ -194,48 +194,16 @@ const validationSchema = Joi.object({
       },
     }),
 
-    // 5. BullModule para filas com Redis
-    BullModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const logger = new Logger('BullModule');
-        const isProduction = config.get('NODE_ENV') === 'production';
-
-        const redisConfig = {
-          host: config.get<string>('REDIS_HOST'),
-          port: config.get<number>('REDIS_PORT'),
-          password: config.get<string>('REDIS_PASSWORD'),
-          maxRetriesPerRequest: 3,
-          enableReadyCheck: true,
-          retryStrategy: (times: number) => {
-            const delay = Math.min(times * 50, 2000);
-            logger.warn(`Redis reconnect attempt ${times}, delay: ${delay}ms`);
-            return delay;
-          },
-        };
-
-        // TLS para Redis em produção
-        if (isProduction && config.get<boolean>('REDIS_TLS')) {
-          logger.log('🔒 Bull Redis TLS habilitado');
-          (redisConfig as any).tls = {};
-        }
-
-        logger.log(
-          `📬 Bull conectando ao Redis: ${redisConfig.host}:${redisConfig.port}`,
-        );
-
-        return {
-          redis: redisConfig,
-          defaultJobOptions: {
-            attempts: 3,
-            backoff: {
-              type: 'exponential',
-              delay: 1000,
-            },
-            removeOnComplete: 100, // Manter últimos 100 jobs completos
-            removeOnFail: 500, // Manter últimos 500 jobs falhados
-          },
-        };
+    // 5. BullModule para filas com Redis (Railway-safe)
+    BullModule.forRoot({
+      redis: {
+        host: process.env.REDIS_HOST,
+        port: Number(process.env.REDIS_PORT),
+        password: process.env.REDIS_PASSWORD,
+        tls:
+          process.env.REDIS_TLS === 'true'
+            ? { rejectUnauthorized: false }
+            : undefined,
       },
     }),
 

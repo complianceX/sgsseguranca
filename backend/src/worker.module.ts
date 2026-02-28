@@ -38,27 +38,15 @@ const validationSchema = Joi.object({
       },
     }),
     ScheduleModule.forRoot(),
-    BullModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const logger = new Logger('WorkerBullModule');
-        const isProduction = config.get('NODE_ENV') === 'production';
-        const redisConfig = {
-          host: config.get<string>('REDIS_HOST'),
-          port: config.get<number>('REDIS_PORT'),
-          password: config.get<string>('REDIS_PASSWORD'),
-          maxRetriesPerRequest: 3,
-          enableReadyCheck: true,
-          retryStrategy: (times: number) => {
-            const delay = Math.min(times * 50, 2000);
-            logger.warn(`Redis reconnect attempt ${times}, delay: ${delay}ms`);
-            return delay;
-          },
-        };
-        if (isProduction && config.get<boolean>('REDIS_TLS')) {
-          (redisConfig as any).tls = {};
-        }
-        return { redis: redisConfig };
+    BullModule.forRoot({
+      redis: {
+        host: process.env.REDIS_HOST,
+        port: Number(process.env.REDIS_PORT),
+        password: process.env.REDIS_PASSWORD,
+        tls:
+          process.env.REDIS_TLS === 'true'
+            ? { rejectUnauthorized: false }
+            : undefined,
       },
     }),
     TypeOrmModule.forRootAsync({
