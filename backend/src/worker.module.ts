@@ -60,13 +60,13 @@ const validationSchema = Joi.object({
 
   // Worker quota por tenant
   WORKER_TENANT_QUOTA_DELAY_MS: Joi.number().default(10000),
-  WORKER_TENANT_QUOTA_TTL_SECONDS: Joi.number().default(180),
+  WORKER_TENANT_QUOTA_TTL_SECONDS: Joi.number().default(120),
   WORKER_TENANT_QUOTA_PDF_MAX_ACTIVE: Joi.number().default(1),
-  WORKER_TENANT_QUOTA_MAIL_MAX_ACTIVE: Joi.number().default(2),
+  WORKER_TENANT_QUOTA_MAIL_MAX_ACTIVE: Joi.number().default(3),
   WORKER_TENANT_QUOTA_PDF_DELAY_MS: Joi.number().default(10000),
-  WORKER_TENANT_QUOTA_MAIL_DELAY_MS: Joi.number().default(10000),
-  WORKER_TENANT_QUOTA_PDF_TTL_SECONDS: Joi.number().default(180),
-  WORKER_TENANT_QUOTA_MAIL_TTL_SECONDS: Joi.number().default(120),
+  WORKER_TENANT_QUOTA_MAIL_DELAY_MS: Joi.number().default(5000),
+  WORKER_TENANT_QUOTA_PDF_TTL_SECONDS: Joi.number().default(120),
+  WORKER_TENANT_QUOTA_MAIL_TTL_SECONDS: Joi.number().default(60),
 });
 
 @Module({

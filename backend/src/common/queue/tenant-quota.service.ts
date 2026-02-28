@@ -95,7 +95,7 @@ return current
     const base =
       this.getNumberEnv(`WORKER_TENANT_QUOTA_${resource.toUpperCase()}_DELAY_MS`) ??
       this.getNumberEnv('WORKER_TENANT_QUOTA_DELAY_MS') ??
-      10_000;
+      (resource === 'pdf' ? 10_000 : 5_000);
     return Math.max(1000, Math.floor(base));
   }
 
@@ -107,7 +107,7 @@ return current
     const raw =
       this.getNumberEnv(
         `WORKER_TENANT_QUOTA_${resource.toUpperCase()}_MAX_ACTIVE`,
-      ) ?? (resource === 'pdf' ? 1 : 2);
+      ) ?? (resource === 'pdf' ? 1 : 3);
     return Math.max(0, Math.floor(raw));
   }
 
@@ -117,7 +117,7 @@ return current
         `WORKER_TENANT_QUOTA_${resource.toUpperCase()}_TTL_SECONDS`,
       ) ??
       this.getNumberEnv('WORKER_TENANT_QUOTA_TTL_SECONDS') ??
-      (resource === 'pdf' ? 180 : 120);
+      (resource === 'pdf' ? 120 : 60);
     return Math.max(10, Math.floor(raw));
   }
 
@@ -127,4 +127,3 @@ return current
     return Number.isFinite(n) ? n : null;
   }
 }
-
