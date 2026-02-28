@@ -22,10 +22,21 @@ import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { initializeTelemetry } from './common/observability/opentelemetry.config';
 
 async function bootstrap() {
   if (process.env.NEW_RELIC_ENABLED === 'true') {
     await import('newrelic');
+  }
+
+  if (process.env.OTEL_ENABLED === 'true') {
+    await initializeTelemetry({
+      serviceName: process.env.OTEL_SERVICE_NAME || 'wanderson-gandra-backend',
+      serviceVersion: process.env.OTEL_SERVICE_VERSION || '1.0.0',
+      prometheusPort: process.env.PROMETHEUS_PORT
+        ? Number(process.env.PROMETHEUS_PORT)
+        : 9464,
+    });
   }
   if (!('DOMMatrix' in globalThis)) {
     Object.defineProperty(globalThis, 'DOMMatrix', {

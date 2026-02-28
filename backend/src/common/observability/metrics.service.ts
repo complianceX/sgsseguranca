@@ -11,11 +11,17 @@ export class MetricsService {
   private httpRequestsTotal: Counter;
   private httpRequestDuration: Histogram;
   private httpRequestsInFlight: Gauge;
+  private httpInFlightCount = 0;
 
   // Business Metrics
   private pdfGenerationsTotal: Counter;
   private pdfGenerationDuration: Histogram;
   private pdfGenerationErrors: Counter;
+
+  // Queue Metrics
+  private queueJobsTotal: Counter;
+  private queueJobDuration: Histogram;
+  private queueJobErrors: Counter;
 
   // Database Metrics
   private dbQueriesTotal: Counter;
@@ -63,6 +69,19 @@ export class MetricsService {
       },
     );
 
+    // Initialize queue metrics
+    this.queueJobsTotal = this.meter.createCounter('queue_jobs_total', {
+      description: 'Total number of jobs processed',
+    });
+
+    this.queueJobDuration = this.meter.createHistogram('queue_job_duration_ms', {
+      description: 'Queue job duration in milliseconds',
+    });
+
+    this.queueJobErrors = this.meter.createCounter('queue_job_errors_total', {
+      description: 'Total number of queue job errors',
+    });
+
     // Initialize database metrics
     this.dbQueriesTotal = this.meter.createCounter('db_queries_total', {
       description: 'Total number of database queries',
@@ -95,11 +114,13 @@ export class MetricsService {
   }
 
   incrementHttpRequestsInFlight() {
-    this.httpRequestsInFlight.record(1);
+    this.httpInFlightCount += 1;
+    this.httpRequestsInFlight.record(this.httpInFlightCount);
   }
 
   decrementHttpRequestsInFlight() {
-    this.httpRequestsInFlight.record(-1);
+    this.httpInFlightCount = Math.max(0, this.httpInFlightCount - 1);
+    this.httpRequestsInFlight.record(this.httpInFlightCount);
   }
 
   // Business Metrics Methods
@@ -113,6 +134,29 @@ export class MetricsService {
       company_id: companyId,
       error_type: errorType,
     });
+  }
+
+  // Queue Metrics Methods
+  recordQueueJob(
+    queue: string,
+    jobName: string,
+    duration: number,
+    status: 'success' | 'error',
+    companyId?: string,
+  ) {
+    const labels: Record<string, string> = {
+      queue,
+      job: jobName,
+      status,
+    };
+    const tenantId = companyId ?? TenantService.currentTenantId();
+    if (tenantId) labels['company_id'] = tenantId;
+
+    this.queueJobsTotal.add(1, labels);
+    this.queueJobDuration.record(duration, labels);
+    if (status === 'error') {
+      this.queueJobErrors.add(1, labels);
+    }
   }
 
   // Database Metrics Methods

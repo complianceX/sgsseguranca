@@ -2,25 +2,64 @@ import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { MailService } from './mail.service';
+import { MetricsService } from '../common/observability/metrics.service';
 
 // concurrency: 5 — envio de e-mail é I/O-bound (SMTP), suporta mais paralelos.
 @Processor('mail', { concurrency: 5 })
 export class MailProcessor extends WorkerHost {
   private readonly logger = new Logger(MailProcessor.name);
 
-  constructor(private readonly mailService: MailService) {
+  constructor(
+    private readonly mailService: MailService,
+    private readonly metricsService: MetricsService,
+  ) {
     super();
   }
 
   // BullMQ v5+: @Process() foi removido. Implementar process() e rotear por job.name.
   async process(job: Job): Promise<any> {
-    switch (job.name) {
-      case 'send-document':
-        return this.handleSendDocument(job);
-      case 'send-file-key':
-        return this.handleSendFileKey(job);
-      default:
-        this.logger.warn(`[Job ${job.id}] Tipo desconhecido: ${job.name}`);
+    const start = Date.now();
+    try {
+      switch (job.name) {
+        case 'send-document': {
+          const result = await this.handleSendDocument(job);
+          this.metricsService.recordQueueJob(
+            'mail',
+            job.name,
+            Date.now() - start,
+            'success',
+            (job.data as any)?.companyId,
+          );
+          return result;
+        }
+        case 'send-file-key': {
+          const result = await this.handleSendFileKey(job);
+          this.metricsService.recordQueueJob(
+            'mail',
+            job.name,
+            Date.now() - start,
+            'success',
+          );
+          return result;
+        }
+        default:
+          this.logger.warn(`[Job ${job.id}] Tipo desconhecido: ${job.name}`);
+          this.metricsService.recordQueueJob(
+            'mail',
+            job.name,
+            Date.now() - start,
+            'error',
+          );
+      }
+    } catch (err) {
+      this.metricsService.recordQueueJob(
+        'mail',
+        job.name,
+        Date.now() - start,
+        'error',
+        (job.data as any)?.companyId,
+      );
+      throw err;
     }
   }
 

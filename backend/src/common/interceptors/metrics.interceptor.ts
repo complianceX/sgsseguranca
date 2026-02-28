@@ -5,7 +5,7 @@ import {
   CallHandler,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { finalize, tap } from 'rxjs/operators';
 import { MetricsService } from '../observability/metrics.service';
 
 @Injectable()
@@ -18,7 +18,13 @@ export class MetricsInterceptor implements NestInterceptor {
     const startTime = Date.now();
 
     const method = request.method;
-    const path = request.route?.path || request.url;
+    const routePath =
+      typeof request.baseUrl === 'string' && request.route?.path
+        ? `${request.baseUrl}${request.route.path}`
+        : request.route?.path || request.path || request.url;
+    const path = typeof routePath === 'string' ? routePath.split('?')[0] : '';
+
+    this.metricsService.incrementHttpRequestsInFlight();
 
     return next.handle().pipe(
       tap({
@@ -42,6 +48,9 @@ export class MetricsInterceptor implements NestInterceptor {
             duration,
           );
         },
+      }),
+      finalize(() => {
+        this.metricsService.decrementHttpRequestsInFlight();
       }),
     );
   }

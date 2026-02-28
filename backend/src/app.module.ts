@@ -77,6 +77,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { IdempotencyInterceptor } from './common/idempotency/idempotency.interceptor';
 import { IdempotencyService } from './common/idempotency/idempotency.service';
 import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
+import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 
@@ -148,6 +149,10 @@ const validationSchema = Joi.object({
   DB_IDLE_TIMEOUT_MS: Joi.number().default(30000),
   DB_CONNECTION_TIMEOUT_MS: Joi.number().default(2000),
   DB_TIMINGS_ENABLED: Joi.boolean().default(false),
+  OTEL_ENABLED: Joi.boolean().default(false),
+  OTEL_SERVICE_NAME: Joi.string().optional(),
+  OTEL_SERVICE_VERSION: Joi.string().optional(),
+  JAEGER_ENDPOINT: Joi.string().optional(),
   JAEGER_AGENT_HOST: Joi.string().optional(),
   JAEGER_AGENT_PORT: Joi.number().optional(),
   PROMETHEUS_PORT: Joi.number().optional(),
@@ -345,6 +350,10 @@ const validationSchema = Joi.object({
     {
       provide: APP_GUARD,
       useClass: TenantRateLimitGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: MetricsInterceptor,
     },
     {
       provide: APP_INTERCEPTOR,

@@ -6,20 +6,26 @@ import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
 // Resource is imported differently to be used as a value
 const { Resource } = require('@opentelemetry/resources');
 
-export function initializeOpenTelemetry() {
+export async function initializeTelemetry(opts?: {
+  serviceName?: string;
+  serviceVersion?: string;
+  prometheusPort?: number;
+}) {
   const jaegerExporter = new JaegerExporter({
     endpoint:
       process.env.JAEGER_ENDPOINT || 'http://localhost:14268/api/traces',
   });
 
   const prometheusExporter = new PrometheusExporter({
-    port: parseInt(process.env.PROMETHEUS_PORT || '9464', 10),
+    port: Number(
+      opts?.prometheusPort ?? process.env.PROMETHEUS_PORT ?? 9464,
+    ),
   });
 
   const sdk = new NodeSDK({
     resource: new Resource({
-      'service.name': 'wanderson-gandra-backend',
-      'service.version': '1.0.0',
+      'service.name': opts?.serviceName ?? 'wanderson-gandra-backend',
+      'service.version': opts?.serviceVersion ?? '1.0.0',
     }),
     traceExporter: jaegerExporter,
     metricReader: prometheusExporter,
@@ -32,7 +38,7 @@ export function initializeOpenTelemetry() {
     ],
   });
 
-  sdk.start();
+  await sdk.start();
 
   process.on('SIGTERM', () => {
     sdk
@@ -43,4 +49,9 @@ export function initializeOpenTelemetry() {
   });
 
   return sdk;
+}
+
+// Backwards-compatible alias (older code)
+export function initializeOpenTelemetry() {
+  return initializeTelemetry();
 }

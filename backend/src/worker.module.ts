@@ -8,6 +8,7 @@ import { DatabaseLogger } from './common/logging/database.logger';
 import { MailModule } from './mail/mail.module';
 import { ReportsModule } from './reports/reports.module';
 import { QueueServicesModule } from './queue/queue-services.module';
+import { ObservabilityModule } from './common/observability/observability.module';
 
 const validationSchema = Joi.object({
   NODE_ENV: Joi.string()
@@ -30,6 +31,11 @@ const validationSchema = Joi.object({
   DB_IDLE_TIMEOUT_MS: Joi.number().default(30000),
   DB_CONNECTION_TIMEOUT_MS: Joi.number().default(2000),
   DB_TIMINGS_ENABLED: Joi.boolean().default(false),
+  OTEL_ENABLED: Joi.boolean().default(false),
+  OTEL_SERVICE_NAME: Joi.string().optional(),
+  OTEL_SERVICE_VERSION: Joi.string().optional(),
+  JAEGER_ENDPOINT: Joi.string().optional(),
+  PROMETHEUS_PORT: Joi.number().optional(),
 });
 
 @Module({
@@ -100,6 +106,7 @@ const validationSchema = Joi.object({
       },
     }),
     // Apenas módulos relacionados a filas/processamento
+    ObservabilityModule,
     MailModule,
     ReportsModule,
     QueueServicesModule,
