@@ -15,7 +15,7 @@
         "type": "graph",
         "targets": [
           {
-            "expr": "sum(rate(api_request_total[5m]))",
+            "expr": "sum(rate(http_requests_total[5m]))",
             "legendFormat": "Total Requests/sec",
             "refId": "A"
           }
@@ -32,7 +32,7 @@
         "type": "graph",
         "targets": [
           {
-            "expr": "(sum(rate(api_error_total[5m])) / sum(rate(api_request_total[5m]))) * 100",
+            "expr": "(sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))) * 100",
             "legendFormat": "Error Rate %",
             "refId": "A"
           }
@@ -66,17 +66,17 @@
         "type": "graph",
         "targets": [
           {
-            "expr": "histogram_quantile(0.50, sum(rate(api_request_duration_ms_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_ms_bucket[5m])) by (le))",
             "legendFormat": "P50",
             "refId": "A"
           },
           {
-            "expr": "histogram_quantile(0.95, sum(rate(api_request_duration_ms_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_ms_bucket[5m])) by (le))",
             "legendFormat": "P95",
             "refId": "B"
           },
           {
-            "expr": "histogram_quantile(0.99, sum(rate(api_request_duration_ms_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_ms_bucket[5m])) by (le))",
             "legendFormat": "P99",
             "refId": "C"
           }
@@ -120,12 +120,12 @@
         "type": "graph",
         "targets": [
           {
-            "expr": "sum(rate(pdf_generated_total[5m]))",
+            "expr": "sum(rate(pdf_generations_total[5m]))",
             "legendFormat": "PDFs Generated/sec",
             "refId": "A"
           },
           {
-            "expr": "sum(rate(pdf_error_total[5m]))",
+            "expr": "sum(rate(pdf_generation_errors_total[5m]))",
             "legendFormat": "PDF Errors/sec",
             "refId": "B"
           }
@@ -159,14 +159,9 @@
         "type": "graph",
         "targets": [
           {
-            "expr": "sum(rate(db_query_total{success=\"true\"}[5m]))",
-            "legendFormat": "Successful Queries/sec",
+            "expr": "sum(rate(db_queries_total[5m]))",
+            "legendFormat": "Queries/sec",
             "refId": "A"
-          },
-          {
-            "expr": "sum(rate(db_query_total{success=\"false\"}[5m]))",
-            "legendFormat": "Failed Queries/sec",
-            "refId": "B"
           }
         ],
         "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
@@ -198,7 +193,7 @@
         "type": "stat",
         "targets": [
           {
-            "expr": "(sum(rate(api_request_total[1h])) / (sum(rate(api_request_total[1h])) + sum(rate(api_error_total[1h])))) * 100",
+            "expr": "(1 - (sum(rate(http_requests_total{status=~\"5..\"}[1h])) / sum(rate(http_requests_total[1h])))) * 100",
             "refId": "A"
           }
         ],
@@ -235,7 +230,7 @@
         "type": "stat",
         "targets": [
           {
-            "expr": "sum(increase(api_request_total[1h]))",
+            "expr": "sum(increase(http_requests_total[1h]))",
             "refId": "A"
           }
         ],
@@ -264,7 +259,7 @@
         "type": "stat",
         "targets": [
           {
-            "expr": "sum(increase(api_error_total[1h]))",
+            "expr": "sum(increase(http_requests_total{status=~\"5..\"}[1h]))",
             "refId": "A"
           }
         ],
@@ -301,7 +296,7 @@
         "type": "stat",
         "targets": [
           {
-            "expr": "sum(increase(pdf_generated_total[1h]))",
+            "expr": "sum(increase(pdf_generations_total[1h]))",
             "refId": "A"
           }
         ],
@@ -323,6 +318,28 @@
             "unit": "short"
           }
         }
+      },
+      {
+        "id": 13,
+        "title": "Tenant Quota Hits (per sec)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate(quota_hit_pdf_total[5m]))",
+            "legendFormat": "PDF Quota Hits/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(quota_hit_mail_total[5m]))",
+            "legendFormat": "Mail Quota Hits/sec",
+            "refId": "B"
+          }
+        ],
+        "gridPos": {"h": 6, "w": 24, "x": 0, "y": 36},
+        "yaxes": [
+          {"format": "ops", "label": "Hits/sec"},
+          {"format": "short"}
+        ]
       }
     ],
     "schemaVersion": 36,

@@ -30,6 +30,15 @@ scrape_configs:
           service: 'backend'
           environment: 'production'
 
+  # Worker metrics
+  - job_name: 'wanderson-gandra-worker'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['host.docker.internal:9465']
+        labels:
+          service: 'worker'
+          environment: 'production'
+
   # Node exporter (if available)
   - job_name: 'node-exporter'
     static_configs:

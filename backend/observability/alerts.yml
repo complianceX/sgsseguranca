@@ -6,9 +6,9 @@ groups:
       - alert: HighErrorRate
         expr: |
           (
-            sum(rate(api_error_total[5m])) 
-            / 
-            sum(rate(api_request_total[5m]))
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
           ) > 0.01
         for: 5m
         labels:
@@ -23,7 +23,7 @@ groups:
       - alert: HighLatency
         expr: |
           histogram_quantile(0.95, 
-            sum(rate(api_request_duration_ms_bucket[5m])) by (le)
+            sum(rate(http_request_duration_ms_bucket[5m])) by (le)
           ) > 500
         for: 5m
         labels:
@@ -38,9 +38,11 @@ groups:
       - alert: LowUptime
         expr: |
           (
-            sum(rate(api_request_total[1h])) 
-            / 
-            (sum(rate(api_request_total[1h])) + sum(rate(api_error_total[1h])))
+            1 - (
+              sum(rate(http_requests_total{status=~"5.."}[1h]))
+              /
+              sum(rate(http_requests_total[1h]))
+            )
           ) < 0.99
         for: 10m
         labels:
@@ -114,9 +116,9 @@ groups:
       - alert: HighPdfErrors
         expr: |
           (
-            sum(rate(pdf_error_total[5m])) 
+            sum(rate(pdf_generation_errors_total[5m])) 
             / 
-            sum(rate(pdf_generated_total[5m]))
+            sum(rate(pdf_generations_total[5m]))
           ) > 0.05
         for: 5m
         labels:
@@ -126,6 +128,47 @@ groups:
           summary: "High PDF generation error rate"
           description: "PDF error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
           runbook_url: "https://github.com/your-org/runbooks/blob/main/pdf-errors.md"
+
+      # PDF P95 close to TTL
+      - alert: PdfGenerationP95High
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(pdf_generation_duration_ms_bucket[5m])) by (le)
+          ) > 90000
+        for: 5m
+        labels:
+          severity: medium
+          category: performance
+        annotations:
+          summary: "PDF P95 duration is high"
+          description: "PDF P95 > 90s, review WORKER_TENANT_QUOTA_PDF_TTL_SECONDS"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/pdf-p95-high.md"
+
+      # Tenant quota hits (PDF)
+      - alert: TenantQuotaPdfHitsHigh
+        expr: |
+          sum(rate(quota_hit_pdf_total[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: medium
+          category: capacity
+        annotations:
+          summary: "High PDF quota hits"
+          description: "PDF quota hits > 0.1/sec (6/min) for 10m"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/quota-hits-pdf.md"
+
+      # Tenant quota hits (Mail)
+      - alert: TenantQuotaMailHitsHigh
+        expr: |
+          sum(rate(quota_hit_mail_total[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: low
+          category: capacity
+        annotations:
+          summary: "High mail quota hits"
+          description: "Mail quota hits > 0.5/sec (30/min) for 10m"
+          runbook_url: "https://github.com/your-org/runbooks/blob/main/quota-hits-mail.md"
 
       # Slow Database Queries
       - alert: SlowDatabaseQueries

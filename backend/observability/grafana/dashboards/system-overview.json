@@ -10,7 +10,7 @@
         "type": "graph",
         "targets": [
           {
-            "expr": "sum(rate(api_request_total[5m]))",
+            "expr": "sum(rate(http_requests_total[5m]))",
             "legendFormat": "Requests/sec"
           }
         ],
@@ -22,7 +22,7 @@
         "type": "graph",
         "targets": [
           {
-            "expr": "sum(rate(api_error_total[5m])) / sum(rate(api_request_total[5m]))",
+            "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
             "legendFormat": "Error Rate"
           }
         ],
@@ -34,7 +34,7 @@
         "type": "graph",
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, sum(rate(api_request_duration_ms_bucket[5m])) by (le))",
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_ms_bucket[5m])) by (le))",
             "legendFormat": "P95 Latency"
           }
         ],
