@@ -1,9 +1,4 @@
-import {
-  Processor,
-  WorkerHost,
-  OnWorkerEvent,
-  Process,
-} from '@nestjs/bullmq';
+import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { MailService } from './mail.service';
@@ -17,8 +12,19 @@ export class MailProcessor extends WorkerHost {
     super();
   }
 
-  @Process('send-document')
-  async handleSendDocument(
+  // BullMQ v5+: @Process() foi removido. Implementar process() e rotear por job.name.
+  async process(job: Job): Promise<any> {
+    switch (job.name) {
+      case 'send-document':
+        return this.handleSendDocument(job);
+      case 'send-file-key':
+        return this.handleSendFileKey(job);
+      default:
+        this.logger.warn(`[Job ${job.id}] Tipo desconhecido: ${job.name}`);
+    }
+  }
+
+  private async handleSendDocument(
     job: Job<{
       documentId: string;
       documentType: string;
@@ -44,13 +50,11 @@ export class MailProcessor extends WorkerHost {
         `[Job ${job.id}] Falha ao enviar e-mail: ${error instanceof Error ? error.message : String(error)}`,
         error instanceof Error ? error.stack : undefined,
       );
-      // Lançar o erro faz com que o BullMQ acione o mecanismo de retry (attempts: 3)
       throw error;
     }
   }
 
-  @Process('send-file-key')
-  async handleSendFileKey(
+  private async handleSendFileKey(
     job: Job<{
       fileKey: string;
       email: string;

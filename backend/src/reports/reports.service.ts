@@ -44,7 +44,9 @@ export class ReportsService {
 
     const company = await this.companiesService.findOne(companyId);
 
-    const reportData = await this.tenantService.run(companyId, async () => {
+    const reportData = await this.tenantService.run(
+      { companyId, isSuperAdmin: false },
+      async () => {
       const epis = await this.episService.findAll();
       const trainings = await this.trainingsService.findAll();
 
