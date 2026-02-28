@@ -65,15 +65,18 @@ import { DataLoaderModule } from './common/dataloader/dataloader.module';
 import { MathModule } from './math/math.module';
 import { RedisModule } from './common/redis/redis.module';
 import { ObservabilityModule } from './common/observability/observability.module';
+import { BullBoardAppModule } from './queue/bull-board.module';
 
 // Guards, Interceptors & Middleware
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 import { TenantRequiredGuard } from './common/guards/tenant-required.guard';
 import { TenantRateLimitGuard } from './common/guards/tenant-rate-limit.guard';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
+import { BullBoardAuthMiddleware } from './common/middleware/bull-board-auth.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { IdempotencyInterceptor } from './common/idempotency/idempotency.interceptor';
 import { IdempotencyService } from './common/idempotency/idempotency.service';
+import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
@@ -324,6 +327,7 @@ const validationSchema = Joi.object({
     DataLoaderModule,
     MathModule,
     ObservabilityModule,
+    BullBoardAppModule,
   ],
   controllers: [AppController],
   providers: [
@@ -349,6 +353,10 @@ const validationSchema = Joi.object({
     {
       provide: APP_INTERCEPTOR,
       useClass: IdempotencyInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TimeoutInterceptor,
     },
     IdempotencyService,
   ],
@@ -494,6 +502,9 @@ export class AppModule implements OnModuleInit {
    * Configuração de middlewares
    */
   configure(consumer: MiddlewareConsumer) {
+    // Basic Auth para o dashboard de filas (proteger /admin/queues)
+    consumer.apply(BullBoardAuthMiddleware).forRoutes('/admin/queues*');
+
     consumer
       .apply(RequestContextMiddleware, TenantMiddleware, CsrfMiddleware)
       .forRoutes('*');
