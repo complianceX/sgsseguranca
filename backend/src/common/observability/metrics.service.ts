@@ -23,6 +23,10 @@ export class MetricsService {
   private queueJobDuration: Histogram;
   private queueJobErrors: Counter;
 
+  // Quota Metrics
+  private quotaHitPdfTotal: Counter;
+  private quotaHitMailTotal: Counter;
+
   // Database Metrics
   private dbQueriesTotal: Counter;
   private dbQueryDuration: Histogram;
@@ -40,6 +44,13 @@ export class MetricsService {
     errorCount: 0,
     sumDurationMs: 0,
     maxDurationMs: 0,
+  };
+
+  private pdfWindow = {
+    count: 0,
+    sumDurationMs: 0,
+    maxDurationMs: 0,
+    samples: [] as number[],
   };
 
   constructor() {
@@ -97,6 +108,15 @@ export class MetricsService {
       description: 'Total number of queue job errors',
     });
 
+    // Initialize quota metrics
+    this.quotaHitPdfTotal = this.meter.createCounter('quota_hit_pdf_total', {
+      description: 'Total number of tenant quota hits for PDF jobs',
+    });
+
+    this.quotaHitMailTotal = this.meter.createCounter('quota_hit_mail_total', {
+      description: 'Total number of tenant quota hits for mail jobs',
+    });
+
     // Initialize database metrics
     this.dbQueriesTotal = this.meter.createCounter('db_queries_total', {
       description: 'Total number of database queries',
@@ -150,6 +170,17 @@ export class MetricsService {
   recordPdfGeneration(companyId: string, duration: number) {
     this.pdfGenerationsTotal.add(1, { company_id: companyId });
     this.pdfGenerationDuration.record(duration, { company_id: companyId });
+
+    this.pdfWindow.count += 1;
+    this.pdfWindow.sumDurationMs += duration;
+    this.pdfWindow.maxDurationMs = Math.max(
+      this.pdfWindow.maxDurationMs,
+      duration,
+    );
+    if (this.pdfWindow.samples.length >= 500) {
+      this.pdfWindow.samples.shift();
+    }
+    this.pdfWindow.samples.push(duration);
   }
 
   recordPdfError(companyId: string, errorType: string) {
@@ -188,6 +219,18 @@ export class MetricsService {
       this.queueWindow.maxDurationMs,
       duration,
     );
+  }
+
+  recordQuotaHit(resource: 'pdf' | 'mail', companyId?: string) {
+    const tenantId = companyId ?? TenantService.currentTenantId();
+    const labels: Record<string, string> = {};
+    if (tenantId) labels['company_id'] = tenantId;
+
+    if (resource === 'pdf') {
+      this.quotaHitPdfTotal.add(1, labels);
+    } else {
+      this.quotaHitMailTotal.add(1, labels);
+    }
   }
 
   snapshotAndResetHttpWindow(): {
@@ -234,6 +277,36 @@ export class MetricsService {
     };
 
     return { count, errorCount, errorRate, avgDurationMs, maxDurationMs };
+  }
+
+  snapshotAndResetPdfWindow(): {
+    count: number;
+    avgDurationMs: number | null;
+    p95DurationMs: number | null;
+    maxDurationMs: number;
+  } {
+    const count = this.pdfWindow.count;
+    const avgDurationMs = count ? this.pdfWindow.sumDurationMs / count : null;
+    const maxDurationMs = this.pdfWindow.maxDurationMs;
+
+    let p95DurationMs: number | null = null;
+    if (this.pdfWindow.samples.length) {
+      const sorted = [...this.pdfWindow.samples].sort((a, b) => a - b);
+      const index = Math.min(
+        sorted.length - 1,
+        Math.floor(sorted.length * 0.95),
+      );
+      p95DurationMs = sorted[index];
+    }
+
+    this.pdfWindow = {
+      count: 0,
+      sumDurationMs: 0,
+      maxDurationMs: 0,
+      samples: [],
+    };
+
+    return { count, avgDurationMs, p95DurationMs, maxDurationMs };
   }
 
   // Database Metrics Methods

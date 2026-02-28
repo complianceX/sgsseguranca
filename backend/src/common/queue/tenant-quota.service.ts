@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../redis/redis.service';
+import { MetricsService } from '../observability/metrics.service';
 
 export type QuotaResource = 'pdf' | 'mail';
 
@@ -42,6 +43,7 @@ return current
   constructor(
     private readonly configService: ConfigService,
     private readonly redisService: RedisService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   async tryAcquire(resource: QuotaResource, companyId?: string | null): Promise<{
@@ -75,6 +77,7 @@ return current
         companyId: cid,
         limit,
       });
+      this.metricsService.recordQuotaHit(resource, cid);
     }
 
     return { acquired, key, limit };
@@ -96,7 +99,9 @@ return current
       this.getNumberEnv(`WORKER_TENANT_QUOTA_${resource.toUpperCase()}_DELAY_MS`) ??
       this.getNumberEnv('WORKER_TENANT_QUOTA_DELAY_MS') ??
       (resource === 'pdf' ? 10_000 : 5_000);
-    return Math.max(1000, Math.floor(base));
+    const jitterMs = this.getJitterMs(resource);
+    const jitter = jitterMs > 0 ? Math.floor(Math.random() * jitterMs) : 0;
+    return Math.max(1000, Math.floor(base + jitter));
   }
 
   private getKey(resource: QuotaResource, companyId: string): string {
@@ -119,6 +124,16 @@ return current
       this.getNumberEnv('WORKER_TENANT_QUOTA_TTL_SECONDS') ??
       (resource === 'pdf' ? 120 : 60);
     return Math.max(10, Math.floor(raw));
+  }
+
+  private getJitterMs(resource: QuotaResource): number {
+    const raw =
+      this.getNumberEnv(
+        `WORKER_TENANT_QUOTA_${resource.toUpperCase()}_JITTER_MS`,
+      ) ??
+      this.getNumberEnv('WORKER_TENANT_QUOTA_JITTER_MS') ??
+      2000;
+    return Math.max(0, Math.floor(raw));
   }
 
   private getNumberEnv(name: string): number | null {

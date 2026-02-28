@@ -124,5 +124,19 @@ export class AlertsService {
         runbook: 'backend/OPERATIONS_RUNBOOK.md',
       });
     }
+
+    // 4) PDF generation timing (avg + p95)
+    const pdfStats = this.metricsService.snapshotAndResetPdfWindow();
+    if (pdfStats.count > 0) {
+      this.logger.log({
+        event: 'PDF_GEN_STATS_1M',
+        samples: pdfStats.count,
+        avgMs: pdfStats.avgDurationMs,
+        p95Ms: pdfStats.p95DurationMs,
+        maxMs: pdfStats.maxDurationMs,
+        action:
+          'Ajustar WORKER_TENANT_QUOTA_PDF_TTL_SECONDS se p95 se aproximar do TTL.',
+      });
+    }
   }
 }
