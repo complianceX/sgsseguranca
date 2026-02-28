@@ -17,6 +17,7 @@ import { json, urlencoded } from 'express';
 import type { RequestHandler } from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import compression from 'compression';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
@@ -98,6 +99,10 @@ async function bootstrap() {
       }
     ).set('trust proxy', 1);
   }
+
+  // Compressão gzip/brotli — reduz ~70% o payload JSON enviado ao cliente
+  // Threshold padrão: 1KB (responses menores não compensam o overhead de CPU)
+  app.use(compression());
 
   app.use(
     helmet({
