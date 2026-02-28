@@ -360,6 +360,8 @@ export class AppModule implements OnModuleInit {
       this.configService.get<string>('BANCO_DE_DADOS_SSL') === 'true';
     const redisHost = this.configService.get<string>('REDIS_HOST');
     const mailHost = this.configService.get<string>('MAIL_HOST');
+    const mailUser = this.configService.get<string>('MAIL_USER');
+    const mailPass = this.configService.get<string>('MAIL_PASS');
 
     const checks = [
       {
@@ -378,19 +380,30 @@ export class AppModule implements OnModuleInit {
         valid: !!redisHost,
         message: 'REDIS_HOST é obrigatório em produção',
       },
-      {
-        name: 'MAIL_HOST',
-        valid: !!mailHost,
-        message: 'MAIL_HOST é obrigatório',
-      },
     ];
 
     const failures = checks.filter((check) => !check.valid);
+    const errors: string[] = [];
+    const mailEnabled = process.env.MAIL_ENABLED === 'true';
+    if (mailEnabled) {
+      if (!process.env.MAIL_HOST) {
+        errors.push('MAIL_HOST é obrigatório');
+      }
+      if (!process.env.MAIL_USER) {
+        errors.push('MAIL_USER é obrigatório');
+      }
+      if (!process.env.MAIL_PASS) {
+        errors.push('MAIL_PASS é obrigatório');
+      }
+    }
 
-    if (failures.length > 0) {
+    if (failures.length > 0 || errors.length > 0) {
       this.logger.error('❌ FALHAS DE SEGURANÇA DETECTADAS:');
       failures.forEach((failure) => {
         this.logger.error(`   - ${failure.name}: ${failure.message}`);
+      });
+      errors.forEach((err) => {
+        this.logger.error(`   - ${err}`);
       });
       throw new Error('Configuração de segurança inválida em produção');
     }
