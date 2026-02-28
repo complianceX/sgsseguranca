@@ -220,6 +220,10 @@ async function bootstrap() {
     );
   }
 
+  // Graceful shutdown: NestJS intercepta SIGTERM/SIGINT e drena conexões abertas
+  // Railway envia SIGTERM no redeploy → aguarda até 10s → SIGKILL
+  app.enableShutdownHooks();
+
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
 
