@@ -560,6 +560,7 @@ export class InitialSchema1699000000000 implements MigrationInterface {
         "epi_id" uuid NOT NULL,
         "user_id" uuid NOT NULL,
         "site_id" uuid NULL,
+        "contract_id" uuid NULL,
         "ca" varchar NULL,
         "validade_ca" date NULL,
         "quantidade" integer NOT NULL DEFAULT 1,
@@ -578,6 +579,7 @@ export class InitialSchema1699000000000 implements MigrationInterface {
         CONSTRAINT "FK_epi_assignments_epi_id" FOREIGN KEY ("epi_id") REFERENCES "epis"("id"),
         CONSTRAINT "FK_epi_assignments_user_id" FOREIGN KEY ("user_id") REFERENCES "users"("id"),
         CONSTRAINT "FK_epi_assignments_site_id" FOREIGN KEY ("site_id") REFERENCES "sites"("id"),
+        CONSTRAINT "FK_epi_assignments_contract_id" FOREIGN KEY ("contract_id") REFERENCES "contracts"("id"),
         CONSTRAINT "FK_epi_assignments_created_by_id" FOREIGN KEY ("created_by_id") REFERENCES "users"("id"),
         CONSTRAINT "FK_epi_assignments_updated_by_id" FOREIGN KEY ("updated_by_id") REFERENCES "users"("id")
       )
