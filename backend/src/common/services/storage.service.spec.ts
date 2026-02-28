@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { StorageService } from './storage.service';
 import { ConfigService } from '@nestjs/config';
+import { CircuitBreakerService } from '../resilience/circuit-breaker.service';
+import { RetryService } from '../resilience/retry.service';
+import { IntegrationResilienceService } from '../resilience/integration-resilience.service';
 import {
   S3Client,
   PutObjectCommand,
@@ -42,6 +45,9 @@ describe('StorageService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         StorageService,
+        CircuitBreakerService,
+        RetryService,
+        IntegrationResilienceService,
         {
           provide: ConfigService,
           useValue: {
@@ -72,15 +78,18 @@ describe('StorageService', () => {
 
   it('deve inicializar o S3Client com as configurações corretas', () => {
     // Acessa a instância criada no construtor do serviço
-    expect(mockedS3Client).toHaveBeenCalledWith({
-      region: 'us-east-1',
-      endpoint: 'http://localhost:4566',
-      credentials: {
-        accessKeyId: 'test-key',
-        secretAccessKey: 'test-secret',
-      },
-      forcePathStyle: true,
-    });
+    expect(mockedS3Client).toHaveBeenCalledWith(
+      expect.objectContaining({
+        region: 'us-east-1',
+        endpoint: 'http://localhost:4566',
+        credentials: {
+          accessKeyId: 'test-key',
+          secretAccessKey: 'test-secret',
+        },
+        forcePathStyle: true,
+        maxAttempts: 3,
+      }),
+    );
   });
 
   describe('getPresignedUploadUrl', () => {

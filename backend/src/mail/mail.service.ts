@@ -25,7 +25,7 @@ import { AuditsService } from '../audits/audits.service';
 import { CompaniesService } from '../companies/companies.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { StorageService } from '../common/services/storage.service';
-import { CircuitBreakerService } from '../common/resilience/circuit-breaker.service';
+import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { ReportsService } from '../reports/reports.service';
 import { InspectionResponseDto } from '../inspections/dto/inspection-response.dto';
 import { Audit } from '../audits/entities/audit.entity';
@@ -56,7 +56,7 @@ export class MailService {
     private tenantService: TenantService,
     private storageService: StorageService,
     private reportsService: ReportsService,
-    private circuitBreaker: CircuitBreakerService,
+    private readonly integration: IntegrationResilienceService,
   ) {
     this.resend = new Resend(this.configService.get<string>('RESEND_API_KEY'));
   }
@@ -221,8 +221,8 @@ export class MailService {
       this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() ||
       'onboarding@resend.dev';
 
-    await this.circuitBreaker.execute(
-      'resend-email',
+    await this.integration.execute(
+      'resend_email',
       () =>
         this.resend.emails.send({
           from: `${fromName} <${fromEmail}>`,
@@ -231,7 +231,10 @@ export class MailService {
           text,
           html: html || text,
         }),
-      { failureThreshold: 5, resetTimeout: 60000, timeout: 10000 },
+      {
+        timeoutMs: 10_000,
+        retry: { attempts: 2, mode: 'safe' },
+      },
     );
   }
 
@@ -261,8 +264,8 @@ export class MailService {
       : undefined;
 
     try {
-      const data = await this.circuitBreaker.execute(
-        'resend-email',
+      const data = await this.integration.execute(
+        'resend_email',
         () =>
           this.resend.emails.send({
             from: `${fromName} <${fromEmail}>`,
@@ -272,7 +275,10 @@ export class MailService {
             html,
             attachments,
           }),
-        { failureThreshold: 5, resetTimeout: 60000, timeout: 10000 },
+        {
+          timeoutMs: 10_000,
+          retry: { attempts: 2, mode: 'safe' },
+        },
       );
 
       if (data.error) {
@@ -599,12 +605,17 @@ export class MailService {
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
+      const response = await this.integration.execute(
+        'whatsapp_webhook',
+        () =>
+          fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          }),
+        { timeoutMs, retry: { attempts: 2, mode: 'safe' } },
+      );
       const sent = response.ok;
       if (!sent) {
         this.logger.warn({

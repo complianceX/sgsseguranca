@@ -21,7 +21,7 @@ import { ReportsModule } from '../reports/reports.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([MailLog]),
-    BullModule.registerQueue({ name: 'mail' }),
+    BullModule.registerQueue({ name: 'mail' }, { name: 'mail-dlq' }),
     EpisModule,
     TrainingsModule,
     PtsModule,

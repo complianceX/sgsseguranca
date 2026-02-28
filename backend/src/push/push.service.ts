@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as webpush from 'web-push';
 import { PushSubscription } from './entities/push-subscription.entity';
+import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 
 @Injectable()
 export class PushService {
@@ -11,6 +12,7 @@ export class PushService {
   constructor(
     @InjectRepository(PushSubscription)
     private subscriptionRepo: Repository<PushSubscription>,
+    private readonly integration: IntegrationResilienceService,
   ) {
     const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
     const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
@@ -58,12 +60,20 @@ export class PushService {
 
   async sendNotification(subscription: PushSubscription, payload: unknown) {
     try {
-      await webpush.sendNotification(
+      await this.integration.execute(
+        'webpush',
+        () =>
+          webpush.sendNotification(
+            {
+              endpoint: subscription.endpoint,
+              keys: subscription.keys,
+            },
+            JSON.stringify(payload),
+          ),
         {
-          endpoint: subscription.endpoint,
-          keys: subscription.keys,
+          timeoutMs: 10_000,
+          retry: { attempts: 2, mode: 'safe' },
         },
-        JSON.stringify(payload),
       );
     } catch (error: unknown) {
       const pushError = error as { statusCode?: number };

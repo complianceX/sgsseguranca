@@ -75,6 +75,9 @@ export class AlertsService {
         threshold: errorRateThreshold,
         errorRate: http.errorRate,
         samples: http.count,
+        action:
+          'Verificar logs/traces (5xx), estado de circuit breakers e dependências externas; considerar rollback/scale.',
+        runbook: 'backend/OPERATIONS_RUNBOOK.md',
       });
     }
 
@@ -94,6 +97,9 @@ export class AlertsService {
         avgMs: http.avgDurationMs,
         maxMs: http.maxDurationMs,
         samples: http.count,
+        action:
+          'Checar DB pool, queries lentas e fila; aumentar DB_POOL_MAX/instâncias e investigar endpoints mais lentos.',
+        runbook: 'backend/OPERATIONS_RUNBOOK.md',
       });
     }
 
@@ -113,8 +119,10 @@ export class AlertsService {
         idle: pool.idle,
         waiting: pool.waiting,
         max: pool.max,
+        action:
+          'Aumentar DB_POOL_MAX com cuidado (limite do Postgres) ou escalar instâncias; investigar leaks/requests longas.',
+        runbook: 'backend/OPERATIONS_RUNBOOK.md',
       });
     }
   }
 }
-

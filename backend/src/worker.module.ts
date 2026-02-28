@@ -42,6 +42,31 @@ const validationSchema = Joi.object({
   ALERTS_HTTP_AVG_LATENCY_MS_THRESHOLD: Joi.number().default(2000),
   ALERTS_POOL_USAGE_THRESHOLD: Joi.number().default(0.8),
   ALERTS_QUEUE_WAITING_THRESHOLD: Joi.number().default(20),
+
+  // Integrações externas (timeout/retry/circuit breaker padrão)
+  INTEGRATION_TIMEOUT_MS: Joi.number().default(10000),
+  INTEGRATION_RETRY_ATTEMPTS: Joi.number().default(3),
+  INTEGRATION_RETRY_BASE_DELAY_MS: Joi.number().default(200),
+  INTEGRATION_RETRY_MAX_DELAY_MS: Joi.number().default(2000),
+  INTEGRATION_RETRY_JITTER_RATIO: Joi.number().min(0).max(1).default(0.2),
+  INTEGRATION_CB_FAILURE_THRESHOLD: Joi.number().default(5),
+  INTEGRATION_CB_SUCCESS_THRESHOLD: Joi.number().default(2),
+  INTEGRATION_CB_RESET_TIMEOUT_MS: Joi.number().default(30000),
+
+  // S3/AWS timeouts
+  S3_SOCKET_TIMEOUT_MS: Joi.number().default(10000),
+  S3_CONNECTION_TIMEOUT_MS: Joi.number().default(2000),
+  S3_MAX_ATTEMPTS: Joi.number().default(3),
+
+  // Worker quota por tenant
+  WORKER_TENANT_QUOTA_DELAY_MS: Joi.number().default(10000),
+  WORKER_TENANT_QUOTA_TTL_SECONDS: Joi.number().default(180),
+  WORKER_TENANT_QUOTA_PDF_MAX_ACTIVE: Joi.number().default(1),
+  WORKER_TENANT_QUOTA_MAIL_MAX_ACTIVE: Joi.number().default(2),
+  WORKER_TENANT_QUOTA_PDF_DELAY_MS: Joi.number().default(10000),
+  WORKER_TENANT_QUOTA_MAIL_DELAY_MS: Joi.number().default(10000),
+  WORKER_TENANT_QUOTA_PDF_TTL_SECONDS: Joi.number().default(180),
+  WORKER_TENANT_QUOTA_MAIL_TTL_SECONDS: Joi.number().default(120),
 });
 
 @Module({

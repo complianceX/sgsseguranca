@@ -28,7 +28,15 @@ import { ExpressAdapter } from '@bull-board/express';
       adapter: BullMQAdapter,
     }),
     BullBoardModule.forFeature({
+      name: 'mail-dlq',
+      adapter: BullMQAdapter,
+    }),
+    BullBoardModule.forFeature({
       name: 'pdf-generation',
+      adapter: BullMQAdapter,
+    }),
+    BullBoardModule.forFeature({
+      name: 'pdf-generation-dlq',
       adapter: BullMQAdapter,
     }),
   ],

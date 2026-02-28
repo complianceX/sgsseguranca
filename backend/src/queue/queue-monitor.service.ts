@@ -15,6 +15,8 @@ export class QueueMonitorService {
   constructor(
     @InjectQueue('pdf-generation') private pdfQueue: Queue,
     @InjectQueue('mail') private mailQueue: Queue,
+    @InjectQueue('pdf-generation-dlq') private pdfDlqQueue: Queue,
+    @InjectQueue('mail-dlq') private mailDlqQueue: Queue,
   ) {}
 
   // SECURITY: monitoramento periódico das filas sem bloquear o servidor HTTP
@@ -38,6 +40,8 @@ export class QueueMonitorService {
         'completed',
         'failed',
       );
+      const pdfDlqStats = await this.pdfDlqQueue.getJobCounts('wait', 'failed');
+      const mailDlqStats = await this.mailDlqQueue.getJobCounts('wait', 'failed');
 
       const pdfTotal = Object.values(pdfStats).reduce(
         (a: number, b: number) => a + b,
@@ -54,6 +58,13 @@ export class QueueMonitorService {
 
       this.logger.log(
         `📧 FILA MAIL: ${mailStats.active || 0} ativo, ${mailStats.wait || 0} aguardando, ${mailStats.completed || 0} completo, ${mailStats.failed || 0} falhou (Total: ${mailTotal})`,
+      );
+
+      this.logger.log(
+        `🧯 DLQ PDF: ${pdfDlqStats.wait || 0} aguardando, ${pdfDlqStats.failed || 0} falhou`,
+      );
+      this.logger.log(
+        `🧯 DLQ MAIL: ${mailDlqStats.wait || 0} aguardando, ${mailDlqStats.failed || 0} falhou`,
       );
 
       // Alertas
@@ -74,6 +85,9 @@ export class QueueMonitorService {
           queue: 'pdf-generation',
           waiting: pdfStats.wait || 0,
           threshold,
+          action:
+            'Escalar worker e/ou reduzir concorrência; verificar gargalos (PDF/DB) e DLQ.',
+          runbook: 'backend/OPERATIONS_RUNBOOK.md',
         });
       }
 
@@ -83,6 +97,31 @@ export class QueueMonitorService {
           queue: 'mail',
           waiting: mailStats.wait || 0,
           threshold,
+          action:
+            'Escalar worker e/ou reduzir concorrência; verificar provedor de e-mail e DLQ.',
+          runbook: 'backend/OPERATIONS_RUNBOOK.md',
+        });
+      }
+
+      if ((pdfDlqStats.wait || 0) > 0) {
+        this.logger.warn({
+          alert: 'DLQ_NOT_EMPTY',
+          queue: 'pdf-generation-dlq',
+          waiting: pdfDlqStats.wait || 0,
+          action:
+            'Inspecionar jobs no Bull Board, corrigir causa raiz e reprocessar manualmente se necessário.',
+          runbook: 'backend/OPERATIONS_RUNBOOK.md',
+        });
+      }
+
+      if ((mailDlqStats.wait || 0) > 0) {
+        this.logger.warn({
+          alert: 'DLQ_NOT_EMPTY',
+          queue: 'mail-dlq',
+          waiting: mailDlqStats.wait || 0,
+          action:
+            'Inspecionar jobs no Bull Board, corrigir causa raiz e reprocessar manualmente se necessário.',
+          runbook: 'backend/OPERATIONS_RUNBOOK.md',
         });
       }
     } catch (error) {
@@ -103,6 +142,8 @@ export class QueueMonitorService {
       'completed',
       'failed',
     );
+    const pdfDlqStats = await this.pdfDlqQueue.getJobCounts('wait', 'failed');
+    const mailDlqStats = await this.mailDlqQueue.getJobCounts('wait', 'failed');
 
     return {
       pdf: {
@@ -124,6 +165,16 @@ export class QueueMonitorService {
           (a: number, b: number) => a + b,
           0,
         ),
+      },
+      dlq: {
+        pdf: {
+          waiting: pdfDlqStats.wait || 0,
+          failed: pdfDlqStats.failed || 0,
+        },
+        mail: {
+          waiting: mailDlqStats.wait || 0,
+          failed: mailDlqStats.failed || 0,
+        },
       },
     };
   }

@@ -1,8 +1,9 @@
-import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
+import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import type { Job } from 'bullmq';
+import { DelayedError, type Job, type Queue } from 'bullmq';
 import { MailService } from './mail.service';
 import { MetricsService } from '../common/observability/metrics.service';
+import { TenantQuotaService } from '../common/queue/tenant-quota.service';
 
 // concurrency: 5 — envio de e-mail é I/O-bound (SMTP), suporta mais paralelos.
 @Processor('mail', { concurrency: 5 })
@@ -12,6 +13,8 @@ export class MailProcessor extends WorkerHost {
   constructor(
     private readonly mailService: MailService,
     private readonly metricsService: MetricsService,
+    private readonly tenantQuota: TenantQuotaService,
+    @InjectQueue('mail-dlq') private readonly mailDlq: Queue,
   ) {
     super();
   }
@@ -19,6 +22,20 @@ export class MailProcessor extends WorkerHost {
   // BullMQ v5+: @Process() foi removido. Implementar process() e rotear por job.name.
   async process(job: Job): Promise<any> {
     const start = Date.now();
+    const companyId = (job.data as any)?.companyId as string | undefined;
+    const quota = await this.tenantQuota.tryAcquire('mail', companyId);
+    if (!quota.acquired) {
+      const delayMs = this.tenantQuota.getDelayMs('mail');
+      await job.moveToDelayed(Date.now() + delayMs, job.token);
+      this.metricsService.recordQueueJob(
+        'mail',
+        job.name,
+        Date.now() - start,
+        'delayed',
+        companyId,
+      );
+      throw new DelayedError();
+    }
     try {
       switch (job.name) {
         case 'send-document': {
@@ -39,6 +56,7 @@ export class MailProcessor extends WorkerHost {
             job.name,
             Date.now() - start,
             'success',
+            companyId,
           );
           return result;
         }
@@ -57,9 +75,11 @@ export class MailProcessor extends WorkerHost {
         job.name,
         Date.now() - start,
         'error',
-        (job.data as any)?.companyId,
+        companyId,
       );
       throw err;
+    } finally {
+      await this.tenantQuota.release('mail', companyId);
     }
   }
 
@@ -100,6 +120,7 @@ export class MailProcessor extends WorkerHost {
       subject?: string;
       docName?: string;
       expiresInSeconds?: number;
+      companyId?: string;
     }>,
   ) {
     const { fileKey, email, subject, docName, expiresInSeconds } = job.data;
@@ -124,10 +145,44 @@ export class MailProcessor extends WorkerHost {
   }
 
   @OnWorkerEvent('failed')
-  onFailed(job: Job | undefined, error: Error) {
+  async onFailed(job: Job | undefined, error: Error) {
+    if (!job) return;
+
+    const maxAttempts = job.opts.attempts ?? 1;
+    const isFinal = job.attemptsMade >= maxAttempts;
+
     this.logger.error(
-      `[Job ${job?.id}] Falhou definitivamente após todas as tentativas. Tipo: ${job?.name}. Erro: ${error.message}`,
+      `[Job ${job.id}] Falhou${isFinal ? ' definitivamente' : ''}. Tipo: ${job.name}. Erro: ${error.message}`,
       error.stack,
     );
+
+    if (!isFinal) return;
+
+    try {
+      await this.mailDlq.add(
+        'dead-letter',
+        {
+          originalQueue: 'mail',
+          originalJobId: job.id,
+          originalJobName: job.name,
+          attemptsMade: job.attemptsMade,
+          companyId: (job.data as any)?.companyId,
+          data: job.data,
+          error: { message: error.message, stack: error.stack },
+          failedAt: new Date().toISOString(),
+        },
+        {
+          attempts: 1,
+          backoff: undefined,
+          removeOnComplete: false,
+          removeOnFail: false,
+        },
+      );
+    } catch (dlqErr) {
+      this.logger.error(
+        `[Job ${job.id}] Falha ao publicar no DLQ: ${dlqErr instanceof Error ? dlqErr.message : String(dlqErr)}`,
+        dlqErr instanceof Error ? dlqErr.stack : undefined,
+      );
+    }
   }
 }

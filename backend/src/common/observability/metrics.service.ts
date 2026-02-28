@@ -164,7 +164,7 @@ export class MetricsService {
     queue: string,
     jobName: string,
     duration: number,
-    status: 'success' | 'error',
+    status: 'success' | 'error' | 'delayed',
     companyId?: string,
   ) {
     const labels: Record<string, string> = {

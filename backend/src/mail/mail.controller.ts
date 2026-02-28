@@ -203,6 +203,7 @@ export class MailController {
         subject: body.subject,
         docName: body.docName || file.originalname,
         expiresInSeconds: 604800,
+        companyId,
       },
       defaultJobOptions,
     );

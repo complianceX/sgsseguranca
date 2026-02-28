@@ -5,7 +5,12 @@ import { TempCleanupService } from '../common/services/temp-cleanup.service';
 
 @Module({
   imports: [
-    BullModule.registerQueue({ name: 'pdf-generation' }, { name: 'mail' }),
+    BullModule.registerQueue(
+      { name: 'pdf-generation' },
+      { name: 'mail' },
+      { name: 'pdf-generation-dlq' },
+      { name: 'mail-dlq' },
+    ),
   ],
   providers: [QueueMonitorService, TempCleanupService],
   exports: [QueueMonitorService, TempCleanupService],

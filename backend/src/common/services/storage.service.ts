@@ -8,7 +8,8 @@ import {
 } from '@aws-sdk/client-s3';
 import type { PutObjectCommandInput } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { CircuitBreakerService } from '../resilience/circuit-breaker.service';
+import { IntegrationResilienceService } from '../resilience/integration-resilience.service';
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 
 @Injectable()
 export class StorageService {
@@ -18,9 +19,19 @@ export class StorageService {
 
   constructor(
     private configService: ConfigService,
-    private circuitBreaker: CircuitBreakerService,
+    private readonly integration: IntegrationResilienceService,
   ) {
     this.bucketName = this.configService.get<string>('AWS_BUCKET_NAME') || '';
+
+    const socketTimeoutMs = Number(
+      this.configService.get<string>('S3_SOCKET_TIMEOUT_MS') || 10000,
+    );
+    const connectionTimeoutMs = Number(
+      this.configService.get<string>('S3_CONNECTION_TIMEOUT_MS') || 2000,
+    );
+    const maxAttempts = Number(
+      this.configService.get<string>('S3_MAX_ATTEMPTS') || 3,
+    );
 
     this.s3Client = new S3Client({
       region: this.configService.get<string>('AWS_REGION') || 'us-east-1',
@@ -31,6 +42,11 @@ export class StorageService {
           this.configService.get<string>('AWS_SECRET_ACCESS_KEY') || '',
       },
       forcePathStyle: true,
+      requestHandler: new NodeHttpHandler({
+        connectionTimeout: connectionTimeoutMs,
+        socketTimeout: socketTimeoutMs,
+      }),
+      maxAttempts: Number.isFinite(maxAttempts) ? maxAttempts : 3,
     });
   }
 
@@ -46,11 +62,9 @@ export class StorageService {
       ContentType: contentType,
     });
 
-    await this.circuitBreaker.execute(
-      's3',
-      () => this.s3Client.send(command),
-      { failureThreshold: 3, resetTimeout: 30000, timeout: 30000 },
-    );
+    await this.integration.execute('s3', () => this.s3Client.send(command), {
+      timeoutMs: 30_000,
+    });
 
     this.logger.log(`Arquivo enviado com sucesso: ${key}`);
   }
@@ -84,10 +98,10 @@ export class StorageService {
       ContentType: contentType,
     });
 
-    const url = await this.circuitBreaker.execute(
-      's3',
+    const url = await this.integration.execute(
+      's3_presign_put',
       () => getSignedUrl(this.s3Client, command, { expiresIn }),
-      { failureThreshold: 3, resetTimeout: 30000, timeout: 10000 },
+      { timeoutMs: 10_000 },
     );
 
     this.logger.log(`Presigned Upload URL gerada para: ${key}`);
@@ -103,10 +117,10 @@ export class StorageService {
       Key: key,
     });
 
-    return this.circuitBreaker.execute(
-      's3',
+    return this.integration.execute(
+      's3_presign_get',
       () => getSignedUrl(this.s3Client, command, { expiresIn }),
-      { failureThreshold: 3, resetTimeout: 30000, timeout: 10000 },
+      { timeoutMs: 10_000 },
     );
   }
 
@@ -116,11 +130,9 @@ export class StorageService {
       Key: key,
     });
 
-    await this.circuitBreaker.execute(
-      's3',
-      () => this.s3Client.send(command),
-      { failureThreshold: 3, resetTimeout: 30000, timeout: 10000 },
-    );
+    await this.integration.execute('s3_delete', () => this.s3Client.send(command), {
+      timeoutMs: 10_000,
+    });
 
     this.logger.log(`Arquivo deletado: ${key}`);
   }

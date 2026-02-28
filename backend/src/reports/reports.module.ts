@@ -16,6 +16,9 @@ import { PdfProcessor } from './pdf.processor';
     BullModule.registerQueue({
       name: 'pdf-generation',
     }),
+    BullModule.registerQueue({
+      name: 'pdf-generation-dlq',
+    }),
   ],
   controllers: [ReportsController],
   providers: [ReportsService, PdfProcessor],
