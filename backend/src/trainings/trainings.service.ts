@@ -44,7 +44,27 @@ export class TrainingsService {
 
     const [data, total] = await this.trainingsRepository.findAndCount({
       where: tenantId ? { company_id: tenantId } : {},
+      // LISTING: manter apenas user (para nome) e evitar relations adicionais.
       relations: ['user'],
+      select: {
+        id: true,
+        nome: true,
+        nr_codigo: true,
+        carga_horaria: true,
+        obrigatorio_para_funcao: true,
+        bloqueia_operacao_quando_vencido: true,
+        data_conclusao: true,
+        data_vencimento: true,
+        certificado_url: true,
+        user_id: true,
+        company_id: true,
+        auditado_por_id: true,
+        data_auditoria: true,
+        resultado_auditoria: true,
+        notas_auditoria: true,
+        created_at: true,
+        updated_at: true,
+      } as any,
       order: { data_vencimento: 'ASC' },
       skip,
       take: limit,

@@ -13,6 +13,9 @@ export class UserResponseDto {
   cpf: string;
 
   @Expose()
+  email: string;
+
+  @Expose()
   funcao: string;
 
   @Expose()

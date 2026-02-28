@@ -76,7 +76,25 @@ export class UsersService {
 
     const [users, total] = await this.usersRepository.findAndCount({
       where: tenantId ? { company_id: tenantId } : {},
-      relations: ['profile', 'site', 'company'],
+      // LISTING: carregar apenas o necessário (profile para nome no frontend).
+      relations: ['profile'],
+      select: {
+        id: true,
+        nome: true,
+        cpf: true,
+        email: true,
+        funcao: true,
+        company_id: true,
+        site_id: true,
+        profile_id: true,
+        status: true,
+        created_at: true,
+        updated_at: true,
+        profile: {
+          id: true,
+          nome: true,
+        } as any,
+      } as any,
       skip,
       take: limit,
       order: { nome: 'ASC' },

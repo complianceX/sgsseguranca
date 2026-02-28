@@ -21,6 +21,7 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { CreateAprDto } from './dto/create-apr.dto';
 import { UpdateAprDto } from './dto/update-apr.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
+import { AprListItemDto } from './dto/apr-list-item.dto';
 
 @Controller('aprs')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -41,7 +42,12 @@ export class AprsController {
   findPaginated(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
-  ) {
+  ): Promise<{
+    data: AprListItemDto[];
+    total: number;
+    page: number;
+    lastPage: number;
+  }> {
     return this.aprsService.findPaginated({
       page: Number(page),
       limit: Number(limit),

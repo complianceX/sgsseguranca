@@ -114,7 +114,22 @@ export class ChecklistsService {
 
     const [rows, total] = await this.checklistsRepository.findAndCount({
       where: filter,
-      relations: ['site', 'inspetor'],
+      // LISTING: evitar relations pesadas no endpoint de listagem.
+      select: {
+        id: true,
+        titulo: true,
+        descricao: true,
+        equipamento: true,
+        maquina: true,
+        data: true,
+        status: true,
+        company_id: true,
+        site_id: true,
+        inspetor_id: true,
+        is_modelo: true,
+        created_at: true,
+        updated_at: true,
+      } as any,
       order: { created_at: 'DESC' },
       skip,
       take: limit,

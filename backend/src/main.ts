@@ -84,6 +84,9 @@ async function bootstrap() {
         new winston.transports.File({
           filename: 'logs/error.log',
           level: 'error',
+          maxsize: 20 * 1024 * 1024,
+          maxFiles: 90,
+          tailable: true,
           format: winston.format.combine(
             winston.format.timestamp(),
             winston.format.json(),
@@ -93,6 +96,9 @@ async function bootstrap() {
         // Arquivo geral
         new winston.transports.File({
           filename: 'logs/combined.log',
+          maxsize: 20 * 1024 * 1024,
+          maxFiles: 90,
+          tailable: true,
           format: winston.format.combine(
             winston.format.timestamp(),
             winston.format.json(),

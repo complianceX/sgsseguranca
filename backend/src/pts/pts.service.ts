@@ -60,7 +60,22 @@ export class PtsService {
 
     const [data, total] = await this.ptsRepository.findAndCount({
       where: tenantId ? { company_id: tenantId } : {},
-      relations: ['site', 'apr', 'responsavel', 'executantes', 'auditado_por'],
+      // LISTING: evitar relations pesadas (executantes etc) no endpoint de listagem.
+      select: {
+        id: true,
+        numero: true,
+        titulo: true,
+        descricao: true,
+        data_hora_inicio: true,
+        data_hora_fim: true,
+        status: true,
+        company_id: true,
+        site_id: true,
+        apr_id: true,
+        responsavel_id: true,
+        created_at: true,
+        updated_at: true,
+      } as any,
       order: { created_at: 'DESC' },
       skip,
       take: limit,

@@ -16,6 +16,8 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import { plainToClass } from 'class-transformer';
+import { AprListItemDto } from './dto/apr-list-item.dto';
 
 @Injectable()
 export class AprsService {
@@ -87,32 +89,34 @@ export class AprsService {
   async findPaginated(opts?: {
     page?: number;
     limit?: number;
-  }): Promise<OffsetPage<Apr>> {
+  }): Promise<OffsetPage<AprListItemDto>> {
     const tenantId = this.tenantService.getTenantId();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
     });
 
-    const [data, total] = await this.aprsRepository.findAndCount({
+    const [rows, total] = await this.aprsRepository.findAndCount({
       where: tenantId ? { company_id: tenantId } : {},
-      relations: [
-        'company',
-        'site',
-        'elaborador',
-        'activities',
-        'risks',
-        'epis',
-        'tools',
-        'machines',
-        'participants',
-        'auditado_por',
-      ],
+      // LISTING DTO: evitar relations pesadas no endpoint de listagem.
+      select: {
+        id: true,
+        numero: true,
+        titulo: true,
+        descricao: true,
+        data_inicio: true,
+        data_fim: true,
+        status: true,
+        versao: true,
+        company_id: true,
+        classificacao_resumo: true,
+      } as any,
       order: { created_at: 'DESC' },
       skip,
       take: limit,
     });
 
+    const data = rows.map((r) => plainToClass(AprListItemDto, r));
     return toOffsetPage(data, total, page, limit);
   }
 

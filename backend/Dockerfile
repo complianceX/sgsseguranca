@@ -39,7 +39,7 @@ RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 
-# Entrypoint com retry de migrations
+# Entrypoint (sem migrations no boot)
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
