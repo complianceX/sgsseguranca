@@ -147,6 +147,7 @@ const validationSchema = Joi.object({
   DB_POOL_MIN: Joi.number().default(2),
   DB_IDLE_TIMEOUT_MS: Joi.number().default(30000),
   DB_CONNECTION_TIMEOUT_MS: Joi.number().default(2000),
+  DB_TIMINGS_ENABLED: Joi.boolean().default(false),
   JAEGER_AGENT_HOST: Joi.string().optional(),
   JAEGER_AGENT_PORT: Joi.number().optional(),
   PROMETHEUS_PORT: Joi.number().optional(),

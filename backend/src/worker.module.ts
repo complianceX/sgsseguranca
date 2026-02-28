@@ -29,6 +29,7 @@ const validationSchema = Joi.object({
   DB_POOL_MIN: Joi.number().default(1),
   DB_IDLE_TIMEOUT_MS: Joi.number().default(30000),
   DB_CONNECTION_TIMEOUT_MS: Joi.number().default(2000),
+  DB_TIMINGS_ENABLED: Joi.boolean().default(false),
 });
 
 @Module({

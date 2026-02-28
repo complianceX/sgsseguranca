@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TenantService } from '../tenant/tenant.service';
+import { DbTimingsService } from './db-timings.service';
 
 /**
  * Injeção automática de contexto RLS no pool de conexões PostgreSQL.
@@ -43,10 +44,12 @@ import { TenantService } from '../tenant/tenant.service';
 export class TenantDbContextService implements OnApplicationBootstrap {
   private readonly logger = new Logger(TenantDbContextService.name);
   private patched = false;
+  private readonly patchedQuerySymbol = Symbol.for('db_timings_patched_query');
 
   constructor(
     private readonly dataSource: DataSource,
     private readonly tenantService: TenantService,
+    private readonly dbTimings: DbTimingsService,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -79,7 +82,10 @@ export class TenantDbContextService implements OnApplicationBootstrap {
     const originalConnect = pool.connect.bind(pool);
 
     pool.connect = async (): Promise<PgClient> => {
+      const borrowStart = process.hrtime.bigint();
       const client = await originalConnect();
+      const borrowMs = Number(process.hrtime.bigint() - borrowStart) / 1_000_000;
+      this.dbTimings.recordBorrowWait(borrowMs);
       const ctx = tenantService.getContext();
 
       try {
@@ -93,6 +99,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
          * empty string → current_company() lança exceção → capturada → retorna NULL
          * → RLS bloqueia. Isso é o comportamento correto para rotas sem tenant.
          */
+        const setStart = process.hrtime.bigint();
         await client.query(
           `SELECT
              set_config('app.current_company_id', $1, false),
@@ -102,6 +109,8 @@ export class TenantDbContextService implements OnApplicationBootstrap {
             String(ctx?.isSuperAdmin ?? false),
           ],
         );
+        const setMs = Number(process.hrtime.bigint() - setStart) / 1_000_000;
+        this.dbTimings.recordRlsContextSet(setMs);
       } catch (err) {
         logger.warn(
           'TenantDbContextService: falha ao injetar contexto RLS na conexão',
@@ -109,6 +118,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
         );
       }
 
+      this.patchClientQuery(client);
       return client;
     };
 
@@ -117,6 +127,25 @@ export class TenantDbContextService implements OnApplicationBootstrap {
       '✅ pg Pool patcheado — app.current_company_id e app.is_super_admin ' +
         'serão injetados automaticamente em cada conexão adquirida do pool.',
     );
+  }
+
+  private patchClientQuery(client: PgClient): void {
+    if (!this.dbTimings.isEnabled()) return;
+
+    const anyClient = client as unknown as Record<string | symbol, unknown>;
+    if (anyClient[this.patchedQuerySymbol]) return;
+    anyClient[this.patchedQuerySymbol] = true;
+
+    const originalQuery = client.query.bind(client);
+    client.query = (async (sql: string, params?: unknown[]) => {
+      const start = process.hrtime.bigint();
+      try {
+        return await originalQuery(sql, params);
+      } finally {
+        const ms = Number(process.hrtime.bigint() - start) / 1_000_000;
+        this.dbTimings.recordQuery(ms);
+      }
+    }) as PgClient['query'];
   }
 }
 
