@@ -1,6 +1,3 @@
-if (process.env.NEW_RELIC_ENABLED === 'true') {
-  require('newrelic');
-}
 import * as crypto from 'crypto';
 
 // Polyfill para crypto.randomUUID() executado no nível do módulo
@@ -17,6 +14,7 @@ import { NestFactory } from '@nestjs/core';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { json, urlencoded } from 'express';
+import type { RequestHandler } from 'express';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { WinstonModule } from 'nest-winston';
@@ -25,6 +23,9 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap() {
+  if (process.env.NEW_RELIC_ENABLED === 'true') {
+    await import('newrelic');
+  }
   if (!('DOMMatrix' in globalThis)) {
     Object.defineProperty(globalThis, 'DOMMatrix', {
       value: class DOMMatrix {
@@ -119,7 +120,8 @@ async function bootstrap() {
       hsts: { maxAge: 31536000, includeSubDomains: true },
     }),
   );
-  app.use(cookieParser());
+  const cookieParserMw = cookieParser() as unknown as RequestHandler;
+  app.use(cookieParserMw);
 
   // RISCO: O limite de 20MB para o corpo da requisição é muito grande e deve ser aplicado apenas em rotas específicas (ex: upload de arquivos).
   // CORREÇÃO: Reduzido para 2MB globalmente para mitigar ataques de DoS. Rotas que precisam de mais devem usar um middleware específico.
@@ -160,7 +162,10 @@ async function bootstrap() {
     : ['http://localhost:3000', 'http://localhost:3001'];
 
   app.enableCors({
-    origin: (origin, callback) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       if (!origin) {
         return callback(null, true);
       }
