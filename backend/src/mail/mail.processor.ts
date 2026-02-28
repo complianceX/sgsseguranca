@@ -8,7 +8,8 @@ import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { MailService } from './mail.service';
 
-@Processor('mail')
+// concurrency: 5 — envio de e-mail é I/O-bound (SMTP), suporta mais paralelos.
+@Processor('mail', { concurrency: 5 })
 export class MailProcessor extends WorkerHost {
   private readonly logger = new Logger(MailProcessor.name);
 

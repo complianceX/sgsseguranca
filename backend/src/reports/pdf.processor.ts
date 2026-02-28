@@ -4,7 +4,9 @@ import { Logger } from '@nestjs/common';
 import { ReportsService } from './reports.service';
 import { StorageService } from '../common/services/storage.service';
 
-@Processor('pdf-generation')
+// concurrency: 3 — Puppeteer é memory-intensive (~200-400 MB por instância).
+// Não ultrapasse 3 por container; ajuste para 1 se o plano Railway for small.
+@Processor('pdf-generation', { concurrency: 3 })
 export class PdfProcessor extends WorkerHost {
   private readonly logger = new Logger(PdfProcessor.name);
 
