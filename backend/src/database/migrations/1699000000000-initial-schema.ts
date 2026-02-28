@@ -623,7 +623,7 @@ export class InitialSchema1699000000000 implements MigrationInterface {
         "document_type" varchar NOT NULL,
         "signature_data" text NOT NULL,
         "type" varchar NOT NULL,
-        "company_id" varchar NULL,
+        "company_id" uuid NULL,
         "signature_hash" varchar NULL,
         "timestamp_token" varchar NULL,
         "timestamp_authority" varchar NULL,
