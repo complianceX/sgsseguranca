@@ -72,6 +72,8 @@ import { TenantRequiredGuard } from './common/guards/tenant-required.guard';
 import { TenantRateLimitGuard } from './common/guards/tenant-rate-limit.guard';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { IdempotencyInterceptor } from './common/idempotency/idempotency.interceptor';
+import { IdempotencyService } from './common/idempotency/idempotency.service';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
@@ -344,6 +346,11 @@ const validationSchema = Joi.object({
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
     },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: IdempotencyInterceptor,
+    },
+    IdempotencyService,
   ],
 })
 export class AppModule implements OnModuleInit {
