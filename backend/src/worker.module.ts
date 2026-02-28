@@ -36,6 +36,12 @@ const validationSchema = Joi.object({
   OTEL_SERVICE_VERSION: Joi.string().optional(),
   JAEGER_ENDPOINT: Joi.string().optional(),
   PROMETHEUS_PORT: Joi.number().optional(),
+  ALERTS_ENABLED: Joi.boolean().default(false),
+  ALERTS_MIN_REQUESTS: Joi.number().default(20),
+  ALERTS_ERROR_RATE_THRESHOLD: Joi.number().default(0.05),
+  ALERTS_HTTP_AVG_LATENCY_MS_THRESHOLD: Joi.number().default(2000),
+  ALERTS_POOL_USAGE_THRESHOLD: Joi.number().default(0.8),
+  ALERTS_QUEUE_WAITING_THRESHOLD: Joi.number().default(20),
 });
 
 @Module({

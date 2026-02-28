@@ -27,6 +27,21 @@ export class MetricsService {
   private dbQueriesTotal: Counter;
   private dbQueryDuration: Histogram;
 
+  // In-memory rolling windows (for alerts/logging; not exported automatically)
+  private httpWindow = {
+    count: 0,
+    errorCount: 0,
+    sumDurationMs: 0,
+    maxDurationMs: 0,
+  };
+
+  private queueWindow = {
+    count: 0,
+    errorCount: 0,
+    sumDurationMs: 0,
+    maxDurationMs: 0,
+  };
+
   constructor() {
     // Initialize HTTP metrics
     this.httpRequestsTotal = this.meter.createCounter('http_requests_total', {
@@ -111,6 +126,14 @@ export class MetricsService {
 
     this.httpRequestsTotal.add(1, labels);
     this.httpRequestDuration.record(duration, labels);
+
+    this.httpWindow.count += 1;
+    if (statusCode >= 500) this.httpWindow.errorCount += 1;
+    this.httpWindow.sumDurationMs += duration;
+    this.httpWindow.maxDurationMs = Math.max(
+      this.httpWindow.maxDurationMs,
+      duration,
+    );
   }
 
   incrementHttpRequestsInFlight() {
@@ -157,6 +180,60 @@ export class MetricsService {
     if (status === 'error') {
       this.queueJobErrors.add(1, labels);
     }
+
+    this.queueWindow.count += 1;
+    if (status === 'error') this.queueWindow.errorCount += 1;
+    this.queueWindow.sumDurationMs += duration;
+    this.queueWindow.maxDurationMs = Math.max(
+      this.queueWindow.maxDurationMs,
+      duration,
+    );
+  }
+
+  snapshotAndResetHttpWindow(): {
+    count: number;
+    errorCount: number;
+    errorRate: number | null;
+    avgDurationMs: number | null;
+    maxDurationMs: number;
+  } {
+    const count = this.httpWindow.count;
+    const errorCount = this.httpWindow.errorCount;
+    const avgDurationMs = count ? this.httpWindow.sumDurationMs / count : null;
+    const errorRate = count ? errorCount / count : null;
+    const maxDurationMs = this.httpWindow.maxDurationMs;
+
+    this.httpWindow = {
+      count: 0,
+      errorCount: 0,
+      sumDurationMs: 0,
+      maxDurationMs: 0,
+    };
+
+    return { count, errorCount, errorRate, avgDurationMs, maxDurationMs };
+  }
+
+  snapshotAndResetQueueWindow(): {
+    count: number;
+    errorCount: number;
+    errorRate: number | null;
+    avgDurationMs: number | null;
+    maxDurationMs: number;
+  } {
+    const count = this.queueWindow.count;
+    const errorCount = this.queueWindow.errorCount;
+    const avgDurationMs = count ? this.queueWindow.sumDurationMs / count : null;
+    const errorRate = count ? errorCount / count : null;
+    const maxDurationMs = this.queueWindow.maxDurationMs;
+
+    this.queueWindow = {
+      count: 0,
+      errorCount: 0,
+      sumDurationMs: 0,
+      maxDurationMs: 0,
+    };
+
+    return { count, errorCount, errorRate, avgDurationMs, maxDurationMs };
   }
 
   // Database Metrics Methods

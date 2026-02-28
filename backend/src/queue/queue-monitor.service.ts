@@ -6,6 +6,11 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 @Injectable()
 export class QueueMonitorService {
   private readonly logger = new Logger(QueueMonitorService.name);
+  private getQueueWaitingThreshold(): number {
+    const raw = process.env.ALERTS_QUEUE_WAITING_THRESHOLD;
+    const n = raw ? Number(raw) : NaN;
+    return Number.isFinite(n) ? n : 20;
+  }
 
   constructor(
     @InjectQueue('pdf-generation') private pdfQueue: Queue,
@@ -62,16 +67,23 @@ export class QueueMonitorService {
         );
       }
 
-      if ((pdfStats.wait || 0) > 20) {
-        this.logger.warn(
-          `⚠️ ALERTA: ${pdfStats.wait} jobs de PDF aguardando (possível gargalo)!`,
-        );
+      const threshold = this.getQueueWaitingThreshold();
+      if ((pdfStats.wait || 0) > threshold) {
+        this.logger.warn({
+          alert: 'QUEUE_WAITING_HIGH',
+          queue: 'pdf-generation',
+          waiting: pdfStats.wait || 0,
+          threshold,
+        });
       }
 
-      if ((mailStats.wait || 0) > 20) {
-        this.logger.warn(
-          `⚠️ ALERTA: ${mailStats.wait} jobs de email aguardando (possível gargalo)!`,
-        );
+      if ((mailStats.wait || 0) > threshold) {
+        this.logger.warn({
+          alert: 'QUEUE_WAITING_HIGH',
+          queue: 'mail',
+          waiting: mailStats.wait || 0,
+          threshold,
+        });
       }
     } catch (error) {
       this.logger.error('Erro ao monitorar filas:', error);
