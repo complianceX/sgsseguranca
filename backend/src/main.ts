@@ -1,7 +1,4 @@
-const newRelicEnabled =
-  process.env.NEW_RELIC_ENABLED === 'true' ||
-  process.env.NODE_ENV === 'production';
-if (newRelicEnabled) {
+if (process.env.NEW_RELIC_ENABLED === 'true') {
   require('newrelic');
 }
 import * as crypto from 'crypto';

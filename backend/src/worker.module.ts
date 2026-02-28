@@ -117,8 +117,16 @@ export class WorkerModule {
   ) {
     const sslEnabled = config.get<boolean>('DATABASE_SSL');
     const sslCA = config.get<string>('DATABASE_SSL_CA');
+    const railwaySelfSigned =
+      config.get<string>('BANCO_DE_DADOS_SSL') === 'true';
     if (!isProduction) {
       return false;
+    }
+    if (railwaySelfSigned) {
+      logger.warn(
+        'SSL com rejectUnauthorized:false habilitado (Railway self-signed) para Worker',
+      );
+      return { rejectUnauthorized: false };
     }
     if (!sslEnabled) {
       logger.warn('SSL desabilitado em PRODUÇÃO para Worker - NÃO RECOMENDADO');

@@ -388,6 +388,8 @@ export class AppModule implements OnModuleInit {
   private validateProductionSecurity() {
     const jwtSecret = this.configService.get<string>('JWT_SECRET');
     const databaseSSL = this.configService.get<boolean>('DATABASE_SSL');
+    const railwaySelfSigned =
+      this.configService.get<string>('BANCO_DE_DADOS_SSL') === 'true';
     const redisHost = this.configService.get<string>('REDIS_HOST');
     const mailHost = this.configService.get<string>('MAIL_HOST');
 
@@ -399,8 +401,9 @@ export class AppModule implements OnModuleInit {
       },
       {
         name: 'DATABASE_SSL',
-        valid: databaseSSL === true,
-        message: 'DATABASE_SSL deve estar habilitado em produção',
+        valid: databaseSSL === true || railwaySelfSigned === true,
+        message:
+          'Habilite DATABASE_SSL ou BANCO_DE_DADOS_SSL (Railway self-signed) em produção',
       },
       {
         name: 'REDIS_HOST',
@@ -440,10 +443,20 @@ export class AppModule implements OnModuleInit {
   ) {
     const sslEnabled = config.get<boolean>('DATABASE_SSL');
     const sslCA = config.get<string>('DATABASE_SSL_CA');
+    const railwaySelfSigned =
+      config.get<string>('BANCO_DE_DADOS_SSL') === 'true';
 
     if (!isProduction) {
       logger.log('🔓 SSL desabilitado (desenvolvimento)');
       return false;
+    }
+
+    // Railway: certificado self-signed interno
+    if (railwaySelfSigned) {
+      logger.warn(
+        '⚠️  SSL com rejectUnauthorized:false habilitado (Railway self-signed)',
+      );
+      return { rejectUnauthorized: false };
     }
 
     if (!sslEnabled) {
