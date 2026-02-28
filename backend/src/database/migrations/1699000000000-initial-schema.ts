@@ -281,7 +281,7 @@ export class InitialSchema1699000000000 implements MigrationInterface {
         "id" uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
         "apr_id" uuid NOT NULL,
         "apr_risk_item_id" uuid NOT NULL,
-        "uploaded_by_id" varchar NULL,
+        "uploaded_by_id" uuid NULL,
         "file_key" text NOT NULL,
         "original_name" text NULL,
         "mime_type" varchar(100) NOT NULL,
