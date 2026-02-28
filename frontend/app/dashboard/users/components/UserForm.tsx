@@ -14,7 +14,7 @@ import * as z from 'zod';
 import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 
 const userSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),

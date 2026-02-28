@@ -36,6 +36,7 @@ export default function EpiFichasPage() {
     observacoes: '',
   });
   const [deliverySignature, setDeliverySignature] = useState('');
+  const [deliverySignatureType, setDeliverySignatureType] = useState<'digital' | 'upload' | 'facial'>('digital');
   const [signatureTarget, setSignatureTarget] = useState<SignatureTarget | null>(
     null,
   );
@@ -93,13 +94,14 @@ export default function EpiFichasPage() {
         observacoes: form.observacoes || undefined,
         assinatura_entrega: {
           signature_data: deliverySignature,
-          signature_type: 'digital',
+          signature_type: deliverySignatureType,
           signer_name: usersMap.get(form.user_id),
         },
       });
       toast.success('Ficha de EPI registrada.');
       setForm({ epi_id: '', user_id: '', quantidade: 1, observacoes: '' });
       setDeliverySignature('');
+      setDeliverySignatureType('digital');
       await loadData();
     } catch (error) {
       console.error('Erro ao criar ficha EPI:', error);
@@ -109,13 +111,13 @@ export default function EpiFichasPage() {
     }
   };
 
-  const handleReturn = async (assignment: EpiAssignment, signatureData: string) => {
+  const handleReturn = async (assignment: EpiAssignment, signatureData: string, signatureType: string) => {
     const reason = window.prompt('Motivo da devolucao (opcional):', '');
     try {
       await epiAssignmentsService.returnAssignment(assignment.id, {
         assinatura_devolucao: {
           signature_data: signatureData,
-          signature_type: 'digital',
+          signature_type: signatureType,
           signer_name: assignment.user?.nome || usersMap.get(assignment.user_id),
         },
         motivo_devolucao: reason || undefined,
@@ -325,13 +327,24 @@ export default function EpiFichasPage() {
       <SignatureModal
         isOpen={Boolean(signatureTarget)}
         onClose={() => setSignatureTarget(null)}
-        title="Assinatura da ficha EPI"
-        onSave={(signatureData) => {
+        userName={
+          signatureTarget?.mode === 'create'
+            ? usersMap.get(form.user_id) || 'Colaborador'
+            : signatureTarget?.mode === 'return'
+              ? assignments.find((item) => item.id === signatureTarget.assignmentId)?.user?.nome ||
+                usersMap.get(assignments.find((item) => item.id === signatureTarget.assignmentId)?.user_id || '') ||
+                'Colaborador'
+              : 'Colaborador'
+        }
+        onSave={(signatureData, type) => {
           if (!signatureTarget) {
             return;
           }
           if (signatureTarget.mode === 'create') {
             setDeliverySignature(signatureData);
+            const normalizedType =
+              type === 'upload' || type === 'facial' ? type : 'digital';
+            setDeliverySignatureType(normalizedType);
             toast.success('Assinatura de entrega capturada.');
             return;
           }
@@ -342,7 +355,7 @@ export default function EpiFichasPage() {
             toast.error('Ficha nao encontrada para devolucao.');
             return;
           }
-          void handleReturn(assignment, signatureData);
+          void handleReturn(assignment, signatureData, type);
         }}
       />
     </div>

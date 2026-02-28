@@ -11,7 +11,7 @@ import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 
 const riskSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),

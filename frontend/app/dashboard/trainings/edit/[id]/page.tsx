@@ -1,5 +1,6 @@
 import { TrainingForm } from '@/components/TrainingForm';
 
-export default function EditTrainingPage({ params }: { params: { id: string } }) {
-  return <TrainingForm id={params.id} />;
+export default async function EditTrainingPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <TrainingForm id={id} />;
 }

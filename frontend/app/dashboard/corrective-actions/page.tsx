@@ -286,33 +286,12 @@ export default function CorrectiveActionsPage() {
                     </select>
                     <span className="ml-2 text-xs text-gray-500">{statusLabel(action.status)}</span>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <button
-                      onClick={() => handleSendEmail(action)}
-                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                      title="Enviar por e-mail"
-                    >
-                      <Mail className="h-4 w-4" />
-                    </button>
-                  </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
       </div>
-
-      {selectedAction && (
-        <DocumentEmailModal
-          isOpen={isMailModalOpen}
-          onClose={() => {
-            setIsMailModalOpen(false);
-            setSelectedAction(null);
-          }}
-          documentName={`Plano de Ação: ${selectedAction.title}`}
-          onSend={(to) => correctiveActionsService.sendEmail(selectedAction.id, to)}
-        />
-      )}
 
       <div className="rounded-xl border bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">

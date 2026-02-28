@@ -20,7 +20,7 @@ import { companiesService, Company } from '@/services/companiesService';
 import { useAuth } from '@/context/AuthContext';
 import { aiService } from '@/services/aiService';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 
 interface ChecklistFormProps {
   id?: string;
@@ -211,6 +211,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
           // Carregar assinaturas
           const sigsMap: Record<string, { data: string, type: string }> = {};
           sigs.forEach(sig => {
+            if (!sig.user_id) return;
             sigsMap[sig.user_id] = { data: sig.signature_data, type: 'digital' };
           });
           setSignatures(sigsMap);

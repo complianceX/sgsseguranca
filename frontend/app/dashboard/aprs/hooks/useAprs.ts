@@ -15,6 +15,14 @@ interface Insight {
   action: string;
 }
 
+type AprOverviewMetrics = {
+  totalAprs: number;
+  aprovadas: number;
+  pendentes: number;
+  riscosCriticos: number;
+  mediaScoreRisco: number;
+};
+
 export function useAprs() {
   const [aprs, setAprs] = useState<Apr[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,12 +142,71 @@ export function useAprs() {
     );
   }, [aprs, searchTerm]);
 
+  const overviewMetrics: AprOverviewMetrics | null = useMemo(() => {
+    const list = filteredAprs;
+    if (!list) return null;
+
+    const totalAprs = list.length;
+    const aprovadas = list.filter((a) => a.status === 'Aprovada').length;
+    const pendentes = list.filter((a) => a.status === 'Pendente').length;
+    const riscosCriticos = list.filter((a) => (a.classificacao_resumo?.critico || 0) > 0).length;
+
+    let scoreSum = 0;
+    let scoreCount = 0;
+    list.forEach((a) => {
+      (a.risk_items || []).forEach((ri) => {
+        if (typeof ri.score_risco === 'number') {
+          scoreSum += ri.score_risco;
+          scoreCount += 1;
+        }
+      });
+    });
+
+    const mediaScoreRisco = scoreCount > 0 ? scoreSum / scoreCount : 0;
+    return { totalAprs, aprovadas, pendentes, riscosCriticos, mediaScoreRisco };
+  }, [filteredAprs]);
+
+  const handleFinalize = useCallback(async (id: string) => {
+    if (!confirm('Deseja aprovar esta APR?')) return;
+    try {
+      const updated = await aprsService.approve(id);
+      setAprs((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+      toast.success('APR aprovada com sucesso!');
+    } catch (error) {
+      handleApiError(error, 'APR');
+    }
+  }, []);
+
+  const handleReject = useCallback(async (id: string) => {
+    const reason = prompt('Motivo da reprovação:');
+    if (!reason) return;
+    try {
+      const updated = await aprsService.reject(id, reason);
+      setAprs((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+      toast.success('APR reprovada.');
+    } catch (error) {
+      handleApiError(error, 'APR');
+    }
+  }, []);
+
+  const handleCreateNewVersion = useCallback(async (id: string) => {
+    if (!confirm('Criar uma nova versão desta APR?')) return;
+    try {
+      await aprsService.createNewVersion(id);
+      toast.success('Nova versão criada.');
+      await loadAprs();
+    } catch (error) {
+      handleApiError(error, 'APR');
+    }
+  }, [loadAprs]);
+
   return {
     aprs,
     loading,
     searchTerm,
     setSearchTerm,
     insights,
+    overviewMetrics,
     isMailModalOpen,
     setIsMailModalOpen,
     selectedDoc,
@@ -149,6 +216,9 @@ export function useAprs() {
     handleDownloadPdf,
     handlePrint,
     handleSendEmail,
+    handleFinalize,
+    handleReject,
+    handleCreateNewVersion,
     loadAprs,
   };
 }

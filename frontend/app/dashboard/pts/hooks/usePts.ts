@@ -131,6 +131,29 @@ export function usePts() {
     }
   }, []);
 
+  const handleApprove = useCallback(async (id: string) => {
+    if (!confirm('Deseja aprovar esta PT?')) return;
+    try {
+      const updated = await ptsService.approve(id);
+      setPts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      toast.success('PT aprovada com sucesso!');
+    } catch (error) {
+      handleApiError(error, 'PT');
+    }
+  }, []);
+
+  const handleReject = useCallback(async (id: string) => {
+    const reason = prompt('Motivo da reprovação:');
+    if (!reason) return;
+    try {
+      const updated = await ptsService.reject(id, reason);
+      setPts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      toast.success('PT reprovada.');
+    } catch (error) {
+      handleApiError(error, 'PT');
+    }
+  }, []);
+
   const filteredPts = useMemo(() => {
     return pts.filter(pt =>
       pt.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -153,6 +176,8 @@ export function usePts() {
     handleDownloadPdf,
     handleSendEmail,
     handlePrint,
+    handleApprove,
+    handleReject,
     loadPts,
   };
 }

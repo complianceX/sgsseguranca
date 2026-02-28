@@ -53,9 +53,11 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
 
     try {
       const response = await aiService.chat(input, {
-        companyName: user?.company?.razao_social || 'Empresa',
-        userName: user?.nome || 'Usuário',
-        currentPath: window.location.pathname,
+        context: {
+          companyName: user?.company?.razao_social || 'Empresa',
+          userName: user?.nome || 'Usuário',
+          currentPath: window.location.pathname,
+        },
       });
 
       const assistantMessage: Message = {

@@ -167,6 +167,7 @@ export function PtForm({ id }: PtFormProps) {
           // Pre-populate signatures state from backend
           const sigMap: Record<string, { data: string; type: string }> = {};
           sigs.forEach(s => {
+            if (!s.user_id) return;
             sigMap[s.user_id] = { data: s.signature_data, type: s.type };
           });
           setSignatures(sigMap);
@@ -400,6 +401,7 @@ export function PtForm({ id }: PtFormProps) {
                 companies={companies}
                 filteredSites={filteredSites}
                 filteredAprs={filteredAprs}
+                filteredUsers={filteredUsers}
                 analyzing={analyzing}
                 onAiAnalysis={handleAiAnalysis}
                 onPdfUploaded={(key) => setPdfKey(key)}

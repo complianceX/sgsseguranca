@@ -56,4 +56,8 @@ export const usersService = {
   gdprErasure: async (id: string) => {
     await api.patch(`/users/${id}/gdpr-erasure`);
   },
+
+  delete: async (id: string) => {
+    await api.delete(`/users/${id}`);
+  },
 };

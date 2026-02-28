@@ -126,7 +126,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
       }
 
       // Criar checklist baseado no template
-      const checklistData = {
+      const checklistData: Partial<Checklist> = {
         titulo,
         descricao,
         equipamento,
@@ -166,6 +166,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
         document_id: checklistId,
         document_type: 'CHECKLIST',
         signature_data: signatureData,
+        type: 'digital',
         user_id: user?.id || '',
       });
       

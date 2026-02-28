@@ -105,6 +105,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
           // Carregar assinaturas existentes
           const sigs: Record<string, { data: string, type: string }> = {};
           docSignatures.forEach(sig => {
+            if (!sig.user_id) return;
             const data = sig.signature_data.startsWith('data:image') 
               ? sig.signature_data 
               : `data:image/png;base64,${sig.signature_data}`;
