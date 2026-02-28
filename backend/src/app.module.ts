@@ -3,6 +3,7 @@ import {
   MiddlewareConsumer,
   Logger,
   OnModuleInit,
+  RequestMethod,
 } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -518,7 +519,9 @@ export class AppModule implements OnModuleInit {
    */
   configure(consumer: MiddlewareConsumer) {
     // Basic Auth para o dashboard de filas (proteger /admin/queues)
-    consumer.apply(BullBoardAuthMiddleware).forRoutes('/admin/queues*');
+    consumer
+      .apply(BullBoardAuthMiddleware)
+      .forRoutes({ path: '/admin/queues/:path(*)', method: RequestMethod.ALL });
 
     consumer
       // CSRF: removido. Modelo oficial: Authorization Bearer (access token) + refresh token httpOnly cookie.
