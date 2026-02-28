@@ -90,10 +90,20 @@ export class TenantRateLimitService {
 
   async resetTenant(companyId: string): Promise<void> {
     const pattern = `ratelimit:${companyId}:*`;
-    const keys = await this.redis.keys(pattern);
-    if (keys.length > 0) {
-      await this.redis.del(...keys);
-    }
+    let cursor = '0';
+    do {
+      const [nextCursor, keys] = await this.redis.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        500,
+      );
+      cursor = nextCursor;
+      if (keys.length) {
+        await this.redis.unlink(...keys);
+      }
+    } while (cursor !== '0');
   }
 
   async getTenantStats(companyId: string): Promise<{

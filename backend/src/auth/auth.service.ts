@@ -89,10 +89,6 @@ export class AuthService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  private refreshKey(userId: string, tokenHash: string): string {
-    return `refresh:${userId}:${tokenHash}`;
-  }
-
   async login(user: User) {
     const payload = {
       sub: user.id,
@@ -104,10 +100,9 @@ export class AuthService {
     const refreshToken = this.jwtService.sign(payload, {
       expiresIn: getRefreshTokenTtl(),
     });
-    const client = this.redisService.getClient();
     const tokenHash = this.hashToken(refreshToken);
     const ttlSeconds = getRefreshTokenTtlDays() * 24 * 3600;
-    await client.setex(this.refreshKey(user.id, tokenHash), ttlSeconds, '1');
+    await this.redisService.storeRefreshToken(user.id, tokenHash, ttlSeconds);
     return {
       accessToken,
       refreshToken,
@@ -150,14 +145,13 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException('Refresh token inválido');
     }
-    const client = this.redisService.getClient();
     const oldHash = this.hashToken(refreshToken);
-    const key = this.refreshKey(payload.sub, oldHash);
-    const exists = await client.get(key);
+    const key = this.redisService.getRefreshTokenKey(payload.sub, oldHash);
+    const exists = await this.redisService.getClient().get(key);
     if (!exists) {
       throw new UnauthorizedException('Refresh token revogado ou já utilizado');
     }
-    await client.del(key);
+    // Rotação: invalida token antigo e registra o novo.
     const newPayload = {
       sub: payload.sub,
       cpf: payload.cpf,
@@ -170,7 +164,12 @@ export class AuthService {
     });
     const newHash = this.hashToken(newRefreshToken);
     const ttlSeconds = getRefreshTokenTtlDays() * 24 * 3600;
-    await client.setex(this.refreshKey(payload.sub, newHash), ttlSeconds, '1');
+    await this.redisService.rotateRefreshToken(
+      payload.sub,
+      oldHash,
+      newHash,
+      ttlSeconds,
+    );
     return {
       accessToken,
       refreshToken: newRefreshToken,
@@ -221,9 +220,8 @@ export class AuthService {
     } catch {
       return { success: true };
     }
-    const client = this.redisService.getClient();
     const tokenHash = this.hashToken(refreshToken);
-    await client.del(this.refreshKey(payload.sub, tokenHash));
+    await this.redisService.revokeRefreshToken(payload.sub, tokenHash);
     return { success: true };
   }
 }

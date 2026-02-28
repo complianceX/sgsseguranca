@@ -64,12 +64,7 @@ export class CacheService {
    * Invalidate cache by pattern (requires Redis)
    */
   async invalidatePattern(pattern: string): Promise<void> {
-    const redis = this.redisService.getClient();
-    const keys = await redis.keys(pattern);
-
-    if (keys.length > 0) {
-      await redis.del(...keys);
-    }
+    await this.redisService.deleteByPattern(pattern);
   }
 
   /**

@@ -38,7 +38,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
   ) {
     const client = this.redisService.getClient();
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const key = `refresh:${payload.sub}:${tokenHash}`;
+    const key = this.redisService.getRefreshTokenKey(payload.sub, tokenHash);
     const exists = await client.get(key);
     if (!exists) {
       throw new UnauthorizedException();
