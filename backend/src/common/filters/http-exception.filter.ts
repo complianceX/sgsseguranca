@@ -81,14 +81,27 @@ export class AllExceptionsFilter implements ExceptionFilter {
       },
     };
 
-    // Log do erro
+    // Rotas de browser/crawler sem rota registrada — ignorar completamente
+    const SILENT_PATHS = ['/favicon.ico', '/robots.txt', '/apple-touch-icon.png'];
+    if (SILENT_PATHS.includes(request.url) && status === HttpStatus.NOT_FOUND) {
+      response.status(status).json(errorResponse);
+      return;
+    }
+
+    // Log proporcional à gravidade: 4xx → warn, 5xx → error
     const user = request.user;
-    this.logger.error({
+    const logMeta = {
       ...errorResponse.error,
       method: request.method,
       userId: user?.id || user?.userId,
       stack: exception instanceof Error ? exception.stack : undefined,
-    });
+    };
+
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.logger.error(logMeta);
+    } else {
+      this.logger.warn(logMeta);
+    }
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       captureException(exception, {

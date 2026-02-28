@@ -64,10 +64,12 @@ import { PushModule } from './push/push.module';
 import { DataLoaderModule } from './common/dataloader/dataloader.module';
 import { MathModule } from './math/math.module';
 import { RedisModule } from './common/redis/redis.module';
+import { ObservabilityModule } from './common/observability/observability.module';
 
 // Guards, Interceptors & Middleware
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 import { TenantRequiredGuard } from './common/guards/tenant-required.guard';
+import { TenantRateLimitGuard } from './common/guards/tenant-rate-limit.guard';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { DatabaseLogger } from './common/logging/database.logger';
@@ -319,6 +321,7 @@ const validationSchema = Joi.object({
     ContractsModule,
     DataLoaderModule,
     MathModule,
+    ObservabilityModule,
   ],
   controllers: [AppController],
   providers: [
@@ -332,6 +335,10 @@ const validationSchema = Joi.object({
     {
       provide: APP_GUARD,
       useClass: TenantRequiredGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: TenantRateLimitGuard,
     },
     {
       provide: APP_INTERCEPTOR,

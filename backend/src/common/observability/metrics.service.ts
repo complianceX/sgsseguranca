@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Counter, Histogram, Gauge } from '@opentelemetry/api';
 import { metrics } from '@opentelemetry/api';
+import { TenantService } from '../tenant/tenant.service';
 
 @Injectable()
 export class MetricsService {
@@ -78,17 +79,19 @@ export class MetricsService {
     path: string,
     statusCode: number,
     duration: number,
+    companyId?: string,
   ) {
-    this.httpRequestsTotal.add(1, {
+    // Fallback para AsyncLocalStorage se companyId não for passado explicitamente
+    const tenantId = companyId ?? TenantService.currentTenantId();
+    const labels: Record<string, string> = {
       method,
       path,
       status: statusCode.toString(),
-    });
-    this.httpRequestDuration.record(duration, {
-      method,
-      path,
-      status: statusCode.toString(),
-    });
+    };
+    if (tenantId) labels['company_id'] = tenantId;
+
+    this.httpRequestsTotal.add(1, labels);
+    this.httpRequestDuration.record(duration, labels);
   }
 
   incrementHttpRequestsInFlight() {
