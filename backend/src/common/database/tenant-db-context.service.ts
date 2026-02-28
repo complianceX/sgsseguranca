@@ -112,10 +112,27 @@ export class TenantDbContextService implements OnApplicationBootstrap {
         const setMs = Number(process.hrtime.bigint() - setStart) / 1_000_000;
         this.dbTimings.recordRlsContextSet(setMs);
       } catch (err) {
-        logger.warn(
-          'TenantDbContextService: falha ao injetar contexto RLS na conexão',
+        // Fail-closed: se não conseguir setar o contexto, zera o tenant para
+        // evitar vazamento cross-tenant em conexões reaproveitadas do pool.
+        logger.error(
+          'TenantDbContextService: falha ao injetar contexto RLS na conexão (fail-closed)',
           err,
         );
+        try {
+          await client.query(
+            `SELECT
+               set_config('app.current_company_id', $1, false),
+               set_config('app.is_super_admin',     $2, false)`,
+            ['', 'false'],
+          );
+        } catch (resetErr) {
+          try {
+            client.release(resetErr as Error);
+          } catch {
+            // ignore
+          }
+          throw resetErr;
+        }
       }
 
       this.patchClientQuery(client);
