@@ -27,6 +27,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { DispatchAlertsDto } from './dto/dispatch-alerts.dto';
 import { StorageService } from '../common/services/storage.service';
+import { defaultJobOptions } from '../queue/default-job-options';
 
 type RequestWithUser = {
   user?: { company_id?: string; companyId?: string; userId?: string };
@@ -129,11 +130,7 @@ export class MailController {
         email,
         companyId: req.user?.company_id || req.user?.companyId,
       },
-      {
-        attempts: 3, // Tenta 3 vezes em caso de falha
-        backoff: 5000, // Espera 5 segundos entre tentativas
-        removeOnComplete: true, // Limpa o Redis após sucesso
-      },
+      defaultJobOptions,
     );
 
     return {
@@ -207,11 +204,7 @@ export class MailController {
         docName: body.docName || file.originalname,
         expiresInSeconds: 604800,
       },
-      {
-        attempts: 3,
-        backoff: 5000,
-        removeOnComplete: true,
-      },
+      defaultJobOptions,
     );
 
     return {

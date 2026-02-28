@@ -14,6 +14,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { defaultJobOptions } from '../queue/default-job-options';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard)
@@ -42,7 +43,7 @@ export class ReportsController {
       params: { companyId, year, month },
       userId,
       companyId,
-    });
+    }, defaultJobOptions);
     return { jobId: job.id, statusUrl: `/reports/status/${job.id}` };
   }
 
