@@ -58,6 +58,12 @@ export class InitialSchema1699000000000 implements MigrationInterface {
       )
     `);
 
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS "contracts" (
+        "id" uuid DEFAULT uuid_generate_v4() PRIMARY KEY
+      )
+    `);
+
     // -------------------------------------------------------------------------
     // 4. users (refs companies, sites, profiles)
     //    cpf and funcao are nullable per migration 1709000000015
