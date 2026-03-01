@@ -294,9 +294,13 @@ async function bootstrap() {
   // Railway envia SIGTERM no redeploy → aguarda até 10s → SIGKILL
   app.enableShutdownHooks();
 
+  console.log('🔥 ENV PORT:', process.env.PORT);
+
   const port = process.env.PORT || 8080;
   await app.listen(port, '0.0.0.0');
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  console.log('🔥 ADDRESS:', (app.getHttpServer() as any).address());
   console.log(`🚀 Server running on port ${port}`);
 }
 
