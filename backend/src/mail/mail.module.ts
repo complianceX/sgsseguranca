@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bullmq';
 import { MailService } from './mail.service';
 import { MailController } from './mail.controller';
 import { MailLog } from './entities/mail-log.entity';
@@ -19,6 +20,7 @@ import { ReportsModule } from '../reports/reports.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([MailLog]),
+    BullModule.registerQueue({ name: 'mail' }),
     EpisModule,
     TrainingsModule,
     PtsModule,

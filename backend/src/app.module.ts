@@ -10,7 +10,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
-// import { BullModule } from '@nestjs/bullmq'; // TESTE: desabilitado
+import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
@@ -66,6 +66,7 @@ import { DataLoaderModule } from './common/dataloader/dataloader.module';
 import { MathModule } from './math/math.module';
 import { RedisModule } from './common/redis/redis.module';
 import { ObservabilityModule } from './common/observability/observability.module';
+import { QueueServicesModule } from './queue/queue-services.module';
 
 // Guards, Interceptors & Middleware
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
@@ -256,18 +257,17 @@ const validationSchema = Joi.object({
     }),
 
     // 5. BullModule (BullMQ) para filas com Redis (Railway-safe)
-    // TESTE: comentado temporariamente para isolar causa do 502
-    // BullModule.forRoot({
-    //   connection: {
-    //     host: process.env.REDIS_HOST,
-    //     port: Number(process.env.REDIS_PORT),
-    //     password: process.env.REDIS_PASSWORD,
-    //     tls:
-    //       process.env.REDIS_TLS === 'true'
-    //         ? { rejectUnauthorized: false }
-    //         : undefined,
-    //   },
-    // }),
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST,
+        port: Number(process.env.REDIS_PORT),
+        password: process.env.REDIS_PASSWORD,
+        tls:
+          process.env.REDIS_TLS === 'true'
+            ? { rejectUnauthorized: false }
+            : undefined,
+      },
+    }),
 
     // 6. TypeORM com configuração segura de SSL
     TypeOrmModule.forRootAsync({
@@ -402,6 +402,7 @@ const validationSchema = Joi.object({
     DataLoaderModule,
     MathModule,
     ObservabilityModule,
+    QueueServicesModule,
   ],
   controllers: [AppController],
   providers: [
