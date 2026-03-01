@@ -6,7 +6,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import * as Joi from 'joi';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { MailModule } from './mail/mail.module';
-import { ReportsModule } from './reports/reports.module';
+import { ReportsWorkerModule } from './reports/reports.worker.module';
 import { QueueServicesModule } from './queue/queue-services.module';
 import { ObservabilityModule } from './common/observability/observability.module';
 import { SlaEscalationWorkerModule } from './sla-escalation-worker.module';
@@ -143,7 +143,7 @@ const validationSchema = Joi.object({
     // Apenas módulos relacionados a filas/processamento
     ObservabilityModule,
     MailModule,
-    ReportsModule,
+    ReportsWorkerModule,
     QueueServicesModule,
     SlaEscalationWorkerModule,
   ],
