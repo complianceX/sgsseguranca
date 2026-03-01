@@ -45,10 +45,11 @@ export class CleanupTask {
 
   @Cron(CronExpression.EVERY_HOUR)
   async runCorrectiveActionsSlaEscalation() {
-    const result = await this.correctiveActionsService.runSlaEscalationSweep();
+    const result =
+      await this.correctiveActionsService.runSlaEscalationSweepAllTenants();
     if (result.overdueActions > 0 || result.notificationsCreated > 0) {
       this.logger.log(
-        `CAPA SLA escalation sweep: overdue=${result.overdueActions}, notifications=${result.notificationsCreated}`,
+        `CAPA SLA escalation sweep: tenants=${result.tenantsProcessed}, overdue=${result.overdueActions}, notifications=${result.notificationsCreated}`,
       );
     }
   }

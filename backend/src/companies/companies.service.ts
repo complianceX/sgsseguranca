@@ -32,6 +32,14 @@ export class CompaniesService {
     return plainToClass(CompanyResponseDto, saved);
   }
 
+  /** Retorna apenas os IDs das empresas ativas — para uso interno em cron jobs. */
+  async findAllActive(): Promise<{ id: string }[]> {
+    return this.companiesRepository.find({
+      select: ['id'],
+      where: { status: true },
+    });
+  }
+
   async findAll(): Promise<CompanyResponseDto[]> {
     const cached =
       await this.cacheManager.get<CompanyResponseDto[]>('companies:all');

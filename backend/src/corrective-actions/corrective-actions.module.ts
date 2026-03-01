@@ -9,6 +9,7 @@ import { CommonModule } from '../common/common.module';
 import { User } from '../users/entities/user.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { CompaniesModule } from '../companies/companies.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     AuditsModule,
     CommonModule,
     NotificationsModule,
+    CompaniesModule,
   ],
   controllers: [CorrectiveActionsController],
   providers: [CorrectiveActionsService],

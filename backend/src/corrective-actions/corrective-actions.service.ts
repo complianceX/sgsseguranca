@@ -13,6 +13,7 @@ import {
 } from './dto/create-corrective-action.dto';
 import { UpdateCorrectiveActionDto } from './dto/update-corrective-action.dto';
 import { TenantService } from '../common/tenant/tenant.service';
+import { CompaniesService } from '../companies/companies.service';
 import { BaseService } from '../common/base/base.service';
 import { NonConformitiesService } from '../nonconformities/nonconformities.service';
 import { AuditsService } from '../audits/audits.service';
@@ -43,6 +44,7 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
     private readonly auditsService: AuditsService,
     private readonly notificationsService: NotificationsService,
     tenantService: TenantService,
+    private readonly companiesService: CompaniesService,
   ) {
     super(correctiveActionsRepository, tenantService, 'Ação Corretiva');
   }
@@ -238,6 +240,32 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
 
   async runSlaEscalationSweep() {
     return this.refreshOverdueActions();
+  }
+
+  /**
+   * Versão multi-tenant do sweep: itera todos os tenants ativos e executa
+   * o escalation de SLA para cada um dentro do contexto correto.
+   * Deve ser chamado exclusivamente por cron jobs.
+   */
+  async runSlaEscalationSweepAllTenants(): Promise<{
+    tenantsProcessed: number;
+    overdueActions: number;
+    notificationsCreated: number;
+  }> {
+    const tenants = await this.companiesService.findAllActive();
+    let overdueActions = 0;
+    let notificationsCreated = 0;
+
+    for (const tenant of tenants) {
+      const result = await this.tenantService.run(
+        { companyId: tenant.id, isSuperAdmin: false },
+        () => this.refreshOverdueActions(),
+      );
+      overdueActions += result.overdueActions;
+      notificationsCreated += result.notificationsCreated;
+    }
+
+    return { tenantsProcessed: tenants.length, overdueActions, notificationsCreated };
   }
 
   async createFromAudit(auditId: string) {
