@@ -10,7 +10,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
-import { BullModule } from '@nestjs/bullmq';
+// import { BullModule } from '@nestjs/bullmq'; // TESTE: desabilitado
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import * as Joi from 'joi';
@@ -256,17 +256,18 @@ const validationSchema = Joi.object({
     }),
 
     // 5. BullModule (BullMQ) para filas com Redis (Railway-safe)
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST,
-        port: Number(process.env.REDIS_PORT),
-        password: process.env.REDIS_PASSWORD,
-        tls:
-          process.env.REDIS_TLS === 'true'
-            ? { rejectUnauthorized: false }
-            : undefined,
-      },
-    }),
+    // TESTE: comentado temporariamente para isolar causa do 502
+    // BullModule.forRoot({
+    //   connection: {
+    //     host: process.env.REDIS_HOST,
+    //     port: Number(process.env.REDIS_PORT),
+    //     password: process.env.REDIS_PASSWORD,
+    //     tls:
+    //       process.env.REDIS_TLS === 'true'
+    //         ? { rejectUnauthorized: false }
+    //         : undefined,
+    //   },
+    // }),
 
     // 6. TypeORM com configuração segura de SSL
     TypeOrmModule.forRootAsync({

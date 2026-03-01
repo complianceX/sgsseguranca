@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { BullModule } from '@nestjs/bullmq';
+// import { BullModule } from '@nestjs/bullmq'; // TESTE: desabilitado
 import { ReportsService } from './reports.service';
 import { ReportsController } from './reports.controller';
 import { CompaniesModule } from '../companies/companies.module';
@@ -13,12 +13,8 @@ import { PdfProcessor } from './pdf.processor';
     EpisModule,
     TrainingsModule,
     // Adicione aqui outros módulos necessários para buscar dados para os relatórios
-    BullModule.registerQueue({
-      name: 'pdf-generation',
-    }),
-    BullModule.registerQueue({
-      name: 'pdf-generation-dlq',
-    }),
+    // BullModule.registerQueue({ name: 'pdf-generation' }),    // TESTE
+    // BullModule.registerQueue({ name: 'pdf-generation-dlq' }), // TESTE
   ],
   controllers: [ReportsController],
   providers: [ReportsService, PdfProcessor],
