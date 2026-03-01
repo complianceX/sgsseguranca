@@ -28,9 +28,9 @@ const validationSchema = Joi.object({
   DATABASE_SSL: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
   DB_POOL_MAX: Joi.number().default(5),
-  DB_POOL_MIN: Joi.number().default(1),
+  DB_POOL_MIN: Joi.number().default(0),
   DB_IDLE_TIMEOUT_MS: Joi.number().default(30000),
-  DB_CONNECTION_TIMEOUT_MS: Joi.number().default(2000),
+  DB_CONNECTION_TIMEOUT_MS: Joi.number().default(10000),
   DB_TIMINGS_ENABLED: Joi.boolean().default(false),
   OTEL_ENABLED: Joi.boolean().default(false),
   OTEL_SERVICE_NAME: Joi.string().optional(),
@@ -112,11 +112,11 @@ const validationSchema = Joi.object({
           maxQueryExecutionTime: 1000,
           extra: {
             max: config.get<number>('DB_POOL_MAX', 5),
-            min: config.get<number>('DB_POOL_MIN', 1),
+            min: config.get<number>('DB_POOL_MIN', 0),
             idleTimeoutMillis: config.get<number>('DB_IDLE_TIMEOUT_MS', 30000),
             connectionTimeoutMillis: config.get<number>(
               'DB_CONNECTION_TIMEOUT_MS',
-              2000,
+              10000,
             ),
             // SECURITY: compatível com PgBouncer em modo transaction
             prepareThreshold: 0,

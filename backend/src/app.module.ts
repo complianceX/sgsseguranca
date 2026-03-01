@@ -143,9 +143,9 @@ const validationSchema = Joi.object({
   // Connection pool — ajuste por ambiente/instância
   // Regra: DB_POOL_MAX * nº_de_instâncias < max_connections do PostgreSQL
   DB_POOL_MAX: Joi.number().default(10),
-  DB_POOL_MIN: Joi.number().default(2),
+  DB_POOL_MIN: Joi.number().default(0),
   DB_IDLE_TIMEOUT_MS: Joi.number().default(30000),
-  DB_CONNECTION_TIMEOUT_MS: Joi.number().default(2000),
+  DB_CONNECTION_TIMEOUT_MS: Joi.number().default(10000),
   DB_TIMINGS_ENABLED: Joi.boolean().default(false),
   OTEL_ENABLED: Joi.boolean().default(false),
   OTEL_SERVICE_NAME: Joi.string().optional(),
@@ -290,11 +290,11 @@ const validationSchema = Joi.object({
           // Railway: DB_POOL_MAX=10 por instância (ajuste conforme plano PG)
           extra: {
             max: config.get<number>('DB_POOL_MAX', 10),
-            min: config.get<number>('DB_POOL_MIN', 2),
+            min: config.get<number>('DB_POOL_MIN', 0),
             idleTimeoutMillis: config.get<number>('DB_IDLE_TIMEOUT_MS', 30000),
             connectionTimeoutMillis: config.get<number>(
               'DB_CONNECTION_TIMEOUT_MS',
-              2000,
+              10000,
             ),
             // SECURITY: compatível com PgBouncer em modo transaction
             prepareThreshold: 0,
