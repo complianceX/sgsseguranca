@@ -51,65 +51,69 @@ async function bootstrap() {
     });
   }
 
-  const app = await NestFactory.create(AppModule, {
-    logger: WinstonModule.createLogger({
-      transports: [
-        // Console com cores
-        new winston.transports.Console({
-          format: winston.format.combine(
-            winston.format.timestamp(),
-            winston.format.colorize(),
-            winston.format.printf(
-              ({
-                timestamp,
-                level,
-                message,
-                context,
-                ...meta
-              }: {
-                timestamp: string;
-                level: string;
-                message: string;
-                context?: string;
-                [key: string]: any;
-              }) => {
-                return `${timestamp} [${context || 'Application'}] ${level}: ${message} ${
-                  Object.keys(meta).length ? JSON.stringify(meta) : ''
-                }`;
-              },
-            ),
-          ),
-        }),
+  const isProductionEnv = process.env.NODE_ENV === 'production';
 
-        // Arquivo de erros
-        new winston.transports.File({
-          filename: 'logs/error.log',
-          level: 'error',
-          maxsize: 20 * 1024 * 1024,
-          maxFiles: 90,
-          tailable: true,
-          format: winston.format.combine(
-            winston.format.timestamp(),
-            winston.format.json(),
-          ),
-        }),
-
-        // Arquivo geral
-        new winston.transports.File({
-          filename: 'logs/combined.log',
-          maxsize: 20 * 1024 * 1024,
-          maxFiles: 90,
-          tailable: true,
-          format: winston.format.combine(
-            winston.format.timestamp(),
-            winston.format.json(),
-          ),
-        }),
-      ],
+  const logTransports: winston.transport[] = [
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.colorize(),
+        winston.format.printf(
+          ({
+            timestamp,
+            level,
+            message,
+            context,
+            ...meta
+          }: {
+            timestamp: string;
+            level: string;
+            message: string;
+            context?: string;
+            [key: string]: any;
+          }) => {
+            return `${timestamp} [${context || 'Application'}] ${level}: ${message} ${
+              Object.keys(meta).length ? JSON.stringify(meta) : ''
+            }`;
+          },
+        ),
+      ),
     }),
+  ];
+
+  // File transports apenas fora de produção — containers efêmeros não têm
+  // o diretório logs/ e Railway já captura stdout/stderr nativamente.
+  if (!isProductionEnv) {
+    logTransports.push(
+      new winston.transports.File({
+        filename: 'logs/error.log',
+        level: 'error',
+        maxsize: 20 * 1024 * 1024,
+        maxFiles: 90,
+        tailable: true,
+        format: winston.format.combine(
+          winston.format.timestamp(),
+          winston.format.json(),
+        ),
+      }),
+      new winston.transports.File({
+        filename: 'logs/combined.log',
+        maxsize: 20 * 1024 * 1024,
+        maxFiles: 90,
+        tailable: true,
+        format: winston.format.combine(
+          winston.format.timestamp(),
+          winston.format.json(),
+        ),
+      }),
+    );
+  }
+
+  const app = await NestFactory.create(AppModule, {
+    logger: WinstonModule.createLogger({ transports: logTransports }),
   });
 
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isProduction = isProductionEnv;
   if (isProduction) {
     (
       app.getHttpAdapter().getInstance() as {
@@ -253,4 +257,7 @@ async function bootstrap() {
   console.log(`🚀 Server running on port ${port}`);
 }
 
-void bootstrap();
+bootstrap().catch((err) => {
+  console.error('Bootstrap failed:', err);
+  process.exit(1);
+});
