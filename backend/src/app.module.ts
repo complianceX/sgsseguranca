@@ -8,6 +8,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -327,6 +328,42 @@ const validationSchema = Joi.object({
           database: config.get<string>('DATABASE_NAME'),
           ssl: AppModule.getSSLConfig(config, isProduction, logger),
         };
+      },
+
+      /**
+       * Lazy DataSource: HTTP sobe imediatamente mesmo se DB estiver indisponível.
+       * A conexão é estabelecida em background com retry exponencial.
+       * Requests que precisam do DB recebem erro até a conexão estar pronta.
+       */
+      dataSourceFactory: async (options) => {
+        const dsLogger = new Logger('LazyDataSource');
+        const dataSource = new DataSource(options!);
+
+        const connectWithRetry = async () => {
+          let attempt = 0;
+          while (true) {
+            try {
+              await dataSource.initialize();
+              dsLogger.log('✅ PostgreSQL connected');
+              return;
+            } catch (err: unknown) {
+              attempt++;
+              const delay = Math.min(
+                1_000 * 2 ** Math.min(attempt - 1, 5),
+                30_000,
+              );
+              dsLogger.warn(
+                `DB connect attempt ${attempt} failed (${
+                  err instanceof Error ? err.message : String(err)
+                }) — retrying in ${delay}ms`,
+              );
+              await new Promise<void>((resolve) => setTimeout(resolve, delay));
+            }
+          }
+        };
+
+        void connectWithRetry();
+        return dataSource;
       },
     }),
 

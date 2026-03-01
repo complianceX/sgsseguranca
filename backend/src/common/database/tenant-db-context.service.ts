@@ -53,7 +53,17 @@ export class TenantDbContextService implements OnApplicationBootstrap {
   ) {}
 
   onApplicationBootstrap(): void {
-    this.patchPool();
+    if (this.dataSource.isInitialized) {
+      this.patchPool();
+      return;
+    }
+    // DataSource ainda não inicializado (boot lazy). Aguarda em background.
+    const interval = setInterval(() => {
+      if (this.dataSource.isInitialized) {
+        clearInterval(interval);
+        this.patchPool();
+      }
+    }, 500);
   }
 
   private patchPool(): void {
