@@ -549,7 +549,7 @@ export class AppModule implements OnModuleInit {
     // Basic Auth para o dashboard de filas (proteger /admin/queues)
     consumer
       .apply(BullBoardAuthMiddleware)
-      .forRoutes({ path: '/admin/queues/*', method: RequestMethod.ALL });
+      .forRoutes({ path: '/admin/queues', method: RequestMethod.ALL });
 
     consumer
       // CSRF: removido. Modelo oficial: Authorization Bearer (access token) + refresh token httpOnly cookie.
