@@ -9,6 +9,7 @@ import { MailModule } from './mail/mail.module';
 import { ReportsModule } from './reports/reports.module';
 import { QueueServicesModule } from './queue/queue-services.module';
 import { ObservabilityModule } from './common/observability/observability.module';
+import { SlaEscalationWorkerModule } from './sla-escalation-worker.module';
 
 const validationSchema = Joi.object({
   NODE_ENV: Joi.string()
@@ -144,6 +145,7 @@ const validationSchema = Joi.object({
     MailModule,
     ReportsModule,
     QueueServicesModule,
+    SlaEscalationWorkerModule,
   ],
 })
 export class WorkerModule {
