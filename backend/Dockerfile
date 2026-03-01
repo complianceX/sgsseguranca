@@ -33,7 +33,7 @@ COPY --from=builder /app/dist ./dist
 COPY entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
-# Porta dinâmica Railway
-EXPOSE 3000
+# Porta dinâmica Railway (process.env.PORT em runtime)
+EXPOSE 8080
 
 ENTRYPOINT ["./entrypoint.sh"]
