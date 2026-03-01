@@ -1,3 +1,4 @@
+console.log('🔥 MAIN.TS REAL EXECUTANDO');
 import * as crypto from 'crypto';
 
 // Polyfill para crypto.randomUUID() executado no nível do módulo
@@ -15,6 +16,11 @@ import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { json, urlencoded } from 'express';
 import type { RequestHandler } from 'express';
+import { createBullBoard } from '@bull-board/api';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { ExpressAdapter as BullBoardExpressAdapter } from '@bull-board/express';
+import { getQueueToken } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
@@ -112,6 +118,43 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: WinstonModule.createLogger({ transports: logTransports }),
   });
+
+  // BullBoard — montado diretamente via Express (sem NestJS BullBoardModule).
+  // app.use(path, router) usa prefix matching nativo do Express, sem wildcards.
+  const bullBoardAdapter = new BullBoardExpressAdapter();
+  bullBoardAdapter.setBasePath('/admin/queues');
+  createBullBoard({
+    queues: [
+      new BullMQAdapter(app.get<Queue>(getQueueToken('mail'))),
+      new BullMQAdapter(app.get<Queue>(getQueueToken('mail-dlq'))),
+      new BullMQAdapter(app.get<Queue>(getQueueToken('pdf-generation'))),
+      new BullMQAdapter(app.get<Queue>(getQueueToken('pdf-generation-dlq'))),
+      new BullMQAdapter(app.get<Queue>(getQueueToken('sla-escalation'))),
+    ],
+    serverAdapter: bullBoardAdapter,
+  });
+  const bullBoardAuth: RequestHandler = (req, res, next) => {
+    const password = process.env.BULL_BOARD_PASS;
+    if (isProductionEnv && !password) {
+      res.status(503).json({ error: 'Bull Board desabilitado: configure BULL_BOARD_PASS' });
+      return;
+    }
+    if (!password) { next(); return; }
+    const authHeader = req.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Basic ')) {
+      res.setHeader('WWW-Authenticate', 'Basic realm="Bull Board"');
+      res.status(401).json({ error: 'Autenticação necessária' });
+      return;
+    }
+    const [user, pass] = Buffer.from(authHeader.slice(6), 'base64').toString('utf-8').split(':');
+    if (user !== (process.env.BULL_BOARD_USER || 'admin') || pass !== password) {
+      res.setHeader('WWW-Authenticate', 'Basic realm="Bull Board"');
+      res.status(401).json({ error: 'Credenciais inválidas' });
+      return;
+    }
+    next();
+  };
+  app.use('/admin/queues', bullBoardAuth, bullBoardAdapter.getRouter());
 
   const isProduction = isProductionEnv;
   if (isProduction) {

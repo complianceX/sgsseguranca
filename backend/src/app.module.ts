@@ -3,7 +3,6 @@ import {
   MiddlewareConsumer,
   Logger,
   OnModuleInit,
-  RequestMethod,
 } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -66,14 +65,12 @@ import { DataLoaderModule } from './common/dataloader/dataloader.module';
 import { MathModule } from './math/math.module';
 import { RedisModule } from './common/redis/redis.module';
 import { ObservabilityModule } from './common/observability/observability.module';
-import { BullBoardAppModule } from './queue/bull-board.module';
 
 // Guards, Interceptors & Middleware
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 import { TenantRequiredGuard } from './common/guards/tenant-required.guard';
 import { TenantRateLimitGuard } from './common/guards/tenant-rate-limit.guard';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
-import { BullBoardAuthMiddleware } from './common/middleware/bull-board-auth.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { IdempotencyInterceptor } from './common/idempotency/idempotency.interceptor';
 import { IdempotencyService } from './common/idempotency/idempotency.service';
@@ -367,7 +364,6 @@ const validationSchema = Joi.object({
     DataLoaderModule,
     MathModule,
     ObservabilityModule,
-    BullBoardAppModule,
   ],
   controllers: [AppController],
   providers: [
@@ -546,11 +542,6 @@ export class AppModule implements OnModuleInit {
    * Configuração de middlewares
    */
   configure(consumer: MiddlewareConsumer) {
-    // Basic Auth para o dashboard de filas (proteger /admin/queues)
-    consumer
-      .apply(BullBoardAuthMiddleware)
-      .forRoutes({ path: '/admin/queues', method: RequestMethod.ALL });
-
     consumer
       // CSRF: removido. Modelo oficial: Authorization Bearer (access token) + refresh token httpOnly cookie.
       // Sem cookie de auth principal, CSRF não se aplica ao fluxo principal.
