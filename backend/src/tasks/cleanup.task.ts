@@ -1,9 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
+import { InjectQueue } from '@nestjs/bullmq';
 import { Repository, LessThan } from 'typeorm';
+import type { Queue } from 'bullmq';
 import { AuditLog } from '../audit/entities/audit-log.entity';
-import { CorrectiveActionsService } from '../corrective-actions/corrective-actions.service';
+import { CompaniesService } from '../companies/companies.service';
 
 @Injectable()
 export class CleanupTask {
@@ -12,7 +14,8 @@ export class CleanupTask {
   constructor(
     @InjectRepository(AuditLog)
     private auditLogRepo: Repository<AuditLog>,
-    private correctiveActionsService: CorrectiveActionsService,
+    @InjectQueue('sla-escalation') private readonly slaQueue: Queue,
+    private readonly companiesService: CompaniesService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -27,16 +30,6 @@ export class CleanupTask {
     this.logger.log(`Old audit logs cleaned up: ${result.affected} rows`);
   }
 
-  // Comentado pois RefreshToken entity não existe no código lido
-  /*
-  @Cron('0 * /6 * * *') // A cada 6 horas
-  async cleanupExpiredTokens() {
-    await this.refreshTokenRepo.delete({
-      expiresAt: LessThan(new Date())
-    });
-  }
-  */
-
   @Cron(CronExpression.EVERY_WEEK)
   generateWeeklyReports() {
     this.logger.log('Starting weekly reports generation...');
@@ -45,12 +38,19 @@ export class CleanupTask {
 
   @Cron(CronExpression.EVERY_HOUR)
   async runCorrectiveActionsSlaEscalation() {
-    const result =
-      await this.correctiveActionsService.runSlaEscalationSweepAllTenants();
-    if (result.overdueActions > 0 || result.notificationsCreated > 0) {
-      this.logger.log(
-        `CAPA SLA escalation sweep: tenants=${result.tenantsProcessed}, overdue=${result.overdueActions}, notifications=${result.notificationsCreated}`,
+    const tenants = await this.companiesService.findAllActive();
+    for (const tenant of tenants) {
+      await this.slaQueue.add(
+        'run-sla-sweep',
+        { tenantId: tenant.id },
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: true,
+          removeOnFail: false,
+        },
       );
     }
+    this.logger.log(`SLA sweep enqueued for ${tenants.length} tenants`);
   }
 }
