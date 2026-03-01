@@ -1,8 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-// import { BullModule } from '@nestjs/bullmq'; // TESTE: desabilitado
 import { MailService } from './mail.service';
-import { MailProcessor } from './mail.processor';
 import { MailController } from './mail.controller';
 import { MailLog } from './entities/mail-log.entity';
 import { EpisModule } from '../epis/epis.module';
@@ -21,7 +19,6 @@ import { ReportsModule } from '../reports/reports.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([MailLog]),
-    // BullModule.registerQueue({ name: 'mail' }, { name: 'mail-dlq' }), // TESTE
     EpisModule,
     TrainingsModule,
     PtsModule,
@@ -35,8 +32,8 @@ import { ReportsModule } from '../reports/reports.module';
     StorageModule,
     ReportsModule,
   ],
-  providers: [MailService, MailProcessor],
+  providers: [MailService],
   controllers: [MailController],
-  exports: [MailService], // BullModule removido do export (TESTE)
+  exports: [MailService],
 })
 export class MailModule {}
