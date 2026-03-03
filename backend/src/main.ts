@@ -121,40 +121,59 @@ async function bootstrap() {
 
   // BullBoard — montado diretamente via Express (sem NestJS BullBoardModule).
   // app.use(path, router) usa prefix matching nativo do Express, sem wildcards.
-  const bullBoardAdapter = new BullBoardExpressAdapter();
-  bullBoardAdapter.setBasePath('/admin/queues');
-  createBullBoard({
-    queues: [
-      new BullMQAdapter(app.get<Queue>(getQueueToken('mail'))),
-      new BullMQAdapter(app.get<Queue>(getQueueToken('mail-dlq'))),
-      new BullMQAdapter(app.get<Queue>(getQueueToken('pdf-generation'))),
-      new BullMQAdapter(app.get<Queue>(getQueueToken('pdf-generation-dlq'))),
-      new BullMQAdapter(app.get<Queue>(getQueueToken('sla-escalation'))),
-    ],
-    serverAdapter: bullBoardAdapter,
-  });
-  const bullBoardAuth: RequestHandler = (req, res, next) => {
+  if (process.env.REDIS_DISABLED === 'true') {
+    console.warn('⚠️ Redis desabilitado — Bull Board não será inicializado');
+  } else {
+    const bullBoardAdapter = new BullBoardExpressAdapter();
+    bullBoardAdapter.setBasePath('/admin/queues');
+    try {
+      createBullBoard({
+        queues: [
+          new BullMQAdapter(app.get<Queue>(getQueueToken('mail'))),
+          new BullMQAdapter(app.get<Queue>(getQueueToken('pdf-generation'))),
+          new BullMQAdapter(app.get<Queue>(getQueueToken('sla-escalation'))),
+        ],
+        serverAdapter: bullBoardAdapter,
+      });
+    } catch (err) {
+      console.warn(
+        '⚠️ Bull Board não pôde ser inicializado (provavelmente sem Redis):',
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+    const bullBoardAuth: RequestHandler = (req, res, next) => {
     const password = process.env.BULL_BOARD_PASS;
     if (isProductionEnv && !password) {
-      res.status(503).json({ error: 'Bull Board desabilitado: configure BULL_BOARD_PASS' });
+      res
+        .status(503)
+        .json({ error: 'Bull Board desabilitado: configure BULL_BOARD_PASS' });
       return;
     }
-    if (!password) { next(); return; }
+    if (!password) {
+      next();
+      return;
+    }
     const authHeader = req.headers['authorization'];
     if (!authHeader || !authHeader.startsWith('Basic ')) {
       res.setHeader('WWW-Authenticate', 'Basic realm="Bull Board"');
       res.status(401).json({ error: 'Autenticação necessária' });
       return;
     }
-    const [user, pass] = Buffer.from(authHeader.slice(6), 'base64').toString('utf-8').split(':');
-    if (user !== (process.env.BULL_BOARD_USER || 'admin') || pass !== password) {
+    const [user, pass] = Buffer.from(authHeader.slice(6), 'base64')
+      .toString('utf-8')
+      .split(':');
+    if (
+      user !== (process.env.BULL_BOARD_USER || 'admin') ||
+      pass !== password
+    ) {
       res.setHeader('WWW-Authenticate', 'Basic realm="Bull Board"');
       res.status(401).json({ error: 'Credenciais inválidas' });
       return;
     }
     next();
-  };
-  app.use('/admin/queues', bullBoardAuth, bullBoardAdapter.getRouter());
+    };
+    app.use('/admin/queues', bullBoardAuth, bullBoardAdapter.getRouter());
+  }
 
   const isProduction = isProductionEnv;
   if (isProduction) {
@@ -299,8 +318,7 @@ async function bootstrap() {
   const port = process.env.PORT || 8080;
   await app.listen(port, '0.0.0.0');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  console.log('🔥 ADDRESS:', (app.getHttpServer() as any).address());
+  console.log('🔥 ADDRESS:', app.getHttpServer().address());
   console.log(`🚀 Server running on port ${port}`);
 }
 

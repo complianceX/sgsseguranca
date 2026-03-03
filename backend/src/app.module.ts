@@ -66,7 +66,9 @@ import { DataLoaderModule } from './common/dataloader/dataloader.module';
 import { MathModule } from './math/math.module';
 import { RedisModule } from './common/redis/redis.module';
 import { ObservabilityModule } from './common/observability/observability.module';
-import { QueueServicesModule } from './queue/queue-services.module';
+// QueueServicesModule removido do AppModule — registra as mesmas filas que
+// MailModule/ReportsModule/TasksModule, causando conflito de DI no NestJS.
+// Fica apenas no WorkerModule onde tem acesso completo a todas as filas.
 
 // Guards, Interceptors & Middleware
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
@@ -402,7 +404,6 @@ const validationSchema = Joi.object({
     DataLoaderModule,
     MathModule,
     ObservabilityModule,
-    QueueServicesModule,
   ],
   controllers: [AppController],
   providers: [

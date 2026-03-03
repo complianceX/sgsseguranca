@@ -15,9 +15,15 @@ export class SeedService implements OnApplicationBootstrap {
     private usersService: UsersService,
   ) {}
 
-  async onApplicationBootstrap() {
+  onApplicationBootstrap() {
+    // Não bloquear o bootstrap — seed roda em background (como CacheWarmingService).
+    setImmediate(() => {
+      void this.runSeed();
+    });
+  }
+
+  private async runSeed() {
     try {
-      // Garantir que as tabelas básicas existam antes de semear
       await this.seedProfiles();
       await this.seedAdmin();
     } catch (error) {

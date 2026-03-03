@@ -94,7 +94,8 @@ export class TenantDbContextService implements OnApplicationBootstrap {
     pool.connect = async (): Promise<PgClient> => {
       const borrowStart = process.hrtime.bigint();
       const client = await originalConnect();
-      const borrowMs = Number(process.hrtime.bigint() - borrowStart) / 1_000_000;
+      const borrowMs =
+        Number(process.hrtime.bigint() - borrowStart) / 1_000_000;
       this.dbTimings.recordBorrowWait(borrowMs);
       const ctx = tenantService.getContext();
 
@@ -114,10 +115,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
           `SELECT
              set_config('app.current_company_id', $1, false),
              set_config('app.is_super_admin',     $2, false)`,
-          [
-            ctx?.companyId ?? '',
-            String(ctx?.isSuperAdmin ?? false),
-          ],
+          [ctx?.companyId ?? '', String(ctx?.isSuperAdmin ?? false)],
         );
         const setMs = Number(process.hrtime.bigint() - setStart) / 1_000_000;
         this.dbTimings.recordRlsContextSet(setMs);
