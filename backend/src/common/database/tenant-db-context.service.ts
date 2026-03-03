@@ -90,13 +90,17 @@ export class TenantDbContextService implements OnApplicationBootstrap {
     const tenantService = this.tenantService;
     const logger = this.logger;
     const originalConnect = pool.connect.bind(pool);
+    const self = this;
 
-    pool.connect = async (): Promise<PgClient> => {
-      const borrowStart = process.hrtime.bigint();
+    /**
+     * Injeta o contexto RLS em uma conexão adquirida do pool (lógica comum
+     * entre o path de callback e o path de Promise).
+     */
+    const injectRlsContext = async (borrowStart: bigint): Promise<PgClient> => {
       const client = await originalConnect();
       const borrowMs =
         Number(process.hrtime.bigint() - borrowStart) / 1_000_000;
-      this.dbTimings.recordBorrowWait(borrowMs);
+      self.dbTimings.recordBorrowWait(borrowMs);
       const ctx = tenantService.getContext();
 
       try {
@@ -118,7 +122,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
           [ctx?.companyId ?? '', String(ctx?.isSuperAdmin ?? false)],
         );
         const setMs = Number(process.hrtime.bigint() - setStart) / 1_000_000;
-        this.dbTimings.recordRlsContextSet(setMs);
+        self.dbTimings.recordRlsContextSet(setMs);
       } catch (err) {
         // Fail-closed: se não conseguir setar o contexto, zera o tenant para
         // evitar vazamento cross-tenant em conexões reaproveitadas do pool.
@@ -143,8 +147,41 @@ export class TenantDbContextService implements OnApplicationBootstrap {
         }
       }
 
-      this.patchClientQuery(client);
+      self.patchClientQuery(client);
       return client;
+    };
+
+    /**
+     * IMPORTANTE: TypeORM (v0.3.x) usa a forma CALLBACK de pool.connect():
+     *   pool.connect((err, client, release) => { ... })
+     *
+     * Precisamos suportar AMBAS as formas para não quebrar o TypeORM:
+     *  - Callback: pool.connect(fn) → chama fn(null, client, release)
+     *  - Promise:  pool.connect()   → retorna Promise<PgClient>
+     */
+    (pool as unknown as Record<string, unknown>).connect = function (
+      callback?: (
+        err: Error | null,
+        client?: PgClient,
+        release?: (err?: Error) => void,
+      ) => void,
+    ): Promise<PgClient> | void {
+      const borrowStart = process.hrtime.bigint();
+
+      if (typeof callback === 'function') {
+        // Forma callback — usada pelo TypeORM para adquirir conexões de pool
+        injectRlsContext(borrowStart)
+          .then((client) => {
+            callback(null, client, (err?: Error) => client.release(err));
+          })
+          .catch((err: Error) => {
+            callback(err);
+          });
+        return;
+      }
+
+      // Forma Promise — usada quando pool.connect() é chamado sem callback
+      return injectRlsContext(borrowStart);
     };
 
     this.patched = true;

@@ -248,7 +248,7 @@ async function bootstrap() {
         .split(',')
         .map((origin) => origin.trim())
         .filter(Boolean)
-    : ['http://localhost:3000', 'http://localhost:3001'];
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'];
 
   app.enableCors({
     origin: (
@@ -261,8 +261,10 @@ async function bootstrap() {
       const isExplicitAllowed = allowedOrigins.includes(origin);
       const isDevNetworkAllowed =
         !isProduction &&
-        (/^http:\/\/(?:localhost|127\.0\.0\.1):(?:3000|3001)$/i.test(origin) ||
-          /^http:\/\/(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}):(?:3000|3001)$/i.test(
+        (/^http:\/\/(?:localhost|127\.0\.0\.1):(?:3000|3001|3002)$/i.test(
+          origin,
+        ) ||
+          /^http:\/\/(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}):(?:3000|3001|3002)$/i.test(
             origin,
           ));
       if (isExplicitAllowed || isDevNetworkAllowed) {

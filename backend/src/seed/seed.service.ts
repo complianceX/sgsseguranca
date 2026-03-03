@@ -92,12 +92,12 @@ export class SeedService implements OnApplicationBootstrap {
         return;
       }
 
-      const adminUser = await this.usersService.findOneByCpf('00000000000');
+      const adminUser = await this.usersService.findOneByCpf('00000000191');
 
       if (!adminUser) {
         await this.usersService.create({
           nome: 'Administrador Geral',
-          cpf: '00000000000',
+          cpf: '00000000191',
           funcao: 'Admin',
           password: 'admin', // Will be hashed in service
           company_id: company.id,
