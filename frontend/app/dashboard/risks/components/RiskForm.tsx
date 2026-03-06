@@ -32,7 +32,8 @@ const riskSchema = z.object({
   company_id: z.string().min(1, 'Selecione uma empresa'),
 });
 
-type RiskFormData = z.infer<typeof riskSchema>;
+type RiskFormInput = z.input<typeof riskSchema>;
+type RiskFormData = z.output<typeof riskSchema>;
 
 interface RiskFormProps {
   id?: string;
@@ -48,7 +49,7 @@ export function RiskForm({ id }: RiskFormProps) {
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<RiskFormData>({
+  } = useForm<RiskFormInput, unknown, RiskFormData>({
     resolver: zodResolver(riskSchema),
     defaultValues: {
       nome: '',
