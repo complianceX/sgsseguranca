@@ -160,33 +160,22 @@ export const redisProvider: Provider = {
   useFactory: async () => {
     const redisDisabled = /^true$/i.test(process.env.REDIS_DISABLED || '');
     if (redisDisabled) {
+      logger.warn('Redis disabled (REDIS_DISABLED=true). Using in-memory fallback.');
       return new InMemoryRedis() as unknown as Redis;
     }
-    console.log('REDIS: Connecting via URL_REDIS');
-    const redisUrlFrom =
-      process.env.REDIS_URL
-        ? 'REDIS_URL'
-        : process.env.URL_REDIS
-          ? 'URL_REDIS'
-          : process.env.REDIS_PUBLIC_URL
-            ? 'REDIS_PUBLIC_URL'
-            : null;
-
-    let redisUrl =
+    const redisUrlFrom = process.env.REDIS_URL
+      ? 'REDIS_URL'
+      : process.env.URL_REDIS
+        ? 'URL_REDIS'
+        : process.env.REDIS_PUBLIC_URL
+          ? 'REDIS_PUBLIC_URL'
+          : null;
+    const redisUrl =
       process.env.REDIS_URL ||
       process.env.URL_REDIS ||
       process.env.REDIS_PUBLIC_URL;
-    if (!redisUrl && process.env.REDIS_HOST) {
-      const redisUser = process.env.REDIS_USER || 'default';
-      const redisPort = process.env.REDIS_PORT || '6379';
-      const auth = process.env.REDIS_PASSWORD
-        ? `${encodeURIComponent(redisUser)}:${encodeURIComponent(process.env.REDIS_PASSWORD)}@`
-        : '';
-      redisUrl = `redis://${auth}${process.env.REDIS_HOST}:${redisPort}`;
-    }
-
     if (!redisUrl) {
-      throw new Error('REDIS_URL or URL_REDIS must be defined');
+      throw new Error('REDIS_URL must be defined when REDIS_DISABLED is false');
     }
     assertValidRedisUrl(redisUrl);
 
