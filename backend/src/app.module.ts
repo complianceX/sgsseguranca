@@ -88,6 +88,11 @@ import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 
+const isRedisDisabled = process.env.REDIS_DISABLED === 'true';
+const queueBackedModules = isRedisDisabled
+  ? []
+  : [TasksModule, ReportsModule, MailModule];
+
 /**
  * 🔒 CONFIGURAÇÃO DE SEGURANÇA E VALIDAÇÃO DE VARIÁVEIS DE AMBIENTE
  *
@@ -474,7 +479,7 @@ const validationSchema = Joi.object({
     }),
 
     // Feature Modules
-    TasksModule,
+    ...queueBackedModules,
     // NotificationsModule,
     PushModule,
     CompaniesModule,
@@ -495,8 +500,6 @@ const validationSchema = Joi.object({
     AuthModule,
     AiModule,
     TrainingsModule,
-    ReportsModule,
-    MailModule,
     SignaturesModule,
     AuditsModule,
     InspectionsModule,
@@ -570,6 +573,12 @@ export class AppModule implements OnModuleInit {
       this.validateProductionSecurity();
     } else {
       this.logger.warn('⚠️  Ambiente de DESENVOLVIMENTO detectado');
+    }
+
+    if (process.env.REDIS_DISABLED === 'true') {
+      this.logger.warn(
+        '⚠️ REDIS_DISABLED=true: módulos de fila (mail/reports/tasks) estão desabilitados neste runtime.',
+      );
     }
 
     this.logger.log('✅ AppModule inicializado com sucesso');
