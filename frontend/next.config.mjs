@@ -5,8 +5,10 @@ function buildCsp() {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   const connectSrc = [
     "'self'",
-    // Permite API configurada por env (quando o frontend e backend estão em origens diferentes)
-    apiUrl ? apiUrl : null,
+    // Em builds Docker no Railway, vars públicas podem não estar disponíveis no build stage.
+    // Mantemos fallback explícito + wildcard de domínios Railway para evitar bloqueio por CSP.
+    apiUrl || 'https://keen-smile-production.up.railway.app',
+    isProd ? 'https://*.up.railway.app' : null,
     // Dev local
     !isProd ? 'http://localhost:3011' : null,
     !isProd ? 'ws://localhost:3000' : null,
