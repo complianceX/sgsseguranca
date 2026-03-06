@@ -7,6 +7,12 @@ const getBaseUrl = () => {
     return process.env.NEXT_PUBLIC_API_URL;
   }
   if (typeof window !== 'undefined') {
+    if (window.location.hostname.endsWith('.up.railway.app')) {
+      return (
+        process.env.NEXT_PUBLIC_API_FALLBACK_URL ||
+        'https://keen-smile-production.up.railway.app'
+      );
+    }
     // Padrão local: backend roda em 3011 (run-local.ps1 / LOCAL_SETUP.md)
     return `${window.location.protocol}//${window.location.hostname}:3011`;
   }
