@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { ProfilesService } from '../../profiles/profiles.service';
 import { CompaniesService } from '../../companies/companies.service';
 
@@ -7,6 +8,7 @@ export class CacheWarmingService implements OnApplicationBootstrap {
   private readonly logger = new Logger(CacheWarmingService.name);
 
   constructor(
+    private dataSource: DataSource,
     private profilesService: ProfilesService,
     private companiesService: CompaniesService,
   ) {}
@@ -34,11 +36,39 @@ export class CacheWarmingService implements OnApplicationBootstrap {
       timeoutMs,
     });
 
+    const schemaReady = await this.ensureBaseTablesExist();
+    if (!schemaReady) {
+      this.logger.warn(
+        'Cache warming ignorado: tabelas base ainda não existem (migrations pendentes).',
+      );
+      return;
+    }
+
     // Pré-carregar dados estáticos (best-effort).
     await withTimeout(this.profilesService.findAll(), timeoutMs, 'profiles');
     await withTimeout(this.companiesService.findAll(), timeoutMs, 'companies');
 
     this.logger.log({ event: 'cache_warming_finished' });
+  }
+
+  private async ensureBaseTablesExist(): Promise<boolean> {
+    if (!this.dataSource.isInitialized) {
+      return false;
+    }
+
+    const requiredTables = ['profiles', 'companies'];
+    const rows = (await this.dataSource.query(
+      `
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = current_schema()
+          AND table_name = ANY($1)
+      `,
+      [requiredTables],
+    )) as Array<{ table_name: string }>;
+
+    const existing = new Set(rows.map((row) => row.table_name));
+    return requiredTables.every((table) => existing.has(table));
   }
 }
 

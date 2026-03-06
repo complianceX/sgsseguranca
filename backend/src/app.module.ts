@@ -314,6 +314,10 @@ const validationSchema = Joi.object({
                 parsed.protocol === 'rediss:'
                   ? { rejectUnauthorized: false }
                   : undefined,
+              connectTimeout: 10_000,
+              enableReadyCheck: false,
+              maxRetriesPerRequest: 1,
+              retryStrategy: () => undefined,
             },
           };
         }
@@ -327,6 +331,10 @@ const validationSchema = Joi.object({
               process.env.REDIS_TLS === 'true'
                 ? { rejectUnauthorized: false }
                 : undefined,
+            connectTimeout: 10_000,
+            enableReadyCheck: false,
+            maxRetriesPerRequest: 1,
+            retryStrategy: () => undefined,
           },
         };
       })(),
