@@ -92,6 +92,58 @@ const isRedisDisabled = /^true$/i.test(process.env.REDIS_DISABLED || '');
 const queueBackedModules = isRedisDisabled
   ? []
   : [TasksModule, ReportsModule, MailModule];
+const queueInfraModules = isRedisDisabled
+  ? []
+  : [
+      BullModule.forRoot(
+        (() => {
+          const redisUrl =
+            process.env.REDIS_URL ||
+            process.env.URL_REDIS ||
+            process.env.REDIS_PUBLIC_URL;
+
+          if (redisUrl) {
+            const parsed = new URL(redisUrl);
+            return {
+              connection: {
+                host: parsed.hostname,
+                port: Number(parsed.port || 6379),
+                username: parsed.username
+                  ? decodeURIComponent(parsed.username)
+                  : undefined,
+                password: parsed.password
+                  ? decodeURIComponent(parsed.password)
+                  : undefined,
+                tls:
+                  parsed.protocol === 'rediss:'
+                    ? { rejectUnauthorized: false }
+                    : undefined,
+                connectTimeout: 10_000,
+                enableReadyCheck: false,
+                maxRetriesPerRequest: 1,
+                retryStrategy: () => undefined,
+              },
+            };
+          }
+
+          return {
+            connection: {
+              host: process.env.REDIS_HOST,
+              port: Number(process.env.REDIS_PORT),
+              password: process.env.REDIS_PASSWORD,
+              tls:
+                process.env.REDIS_TLS === 'true'
+                  ? { rejectUnauthorized: false }
+                  : undefined,
+              connectTimeout: 10_000,
+              enableReadyCheck: false,
+              maxRetriesPerRequest: 1,
+              retryStrategy: () => undefined,
+            },
+          };
+        })(),
+      ),
+    ];
 
 /**
  * 🔒 CONFIGURAÇÃO DE SEGURANÇA E VALIDAÇÃO DE VARIÁVEIS DE AMBIENTE
@@ -296,54 +348,7 @@ const validationSchema = Joi.object({
     }),
 
     // 5. BullModule (BullMQ) para filas com Redis (Railway-safe)
-    BullModule.forRoot(
-      (() => {
-        const redisUrl =
-          process.env.REDIS_URL ||
-          process.env.URL_REDIS ||
-          process.env.REDIS_PUBLIC_URL;
-
-        if (redisUrl) {
-          const parsed = new URL(redisUrl);
-          return {
-            connection: {
-              host: parsed.hostname,
-              port: Number(parsed.port || 6379),
-              username: parsed.username
-                ? decodeURIComponent(parsed.username)
-                : undefined,
-              password: parsed.password
-                ? decodeURIComponent(parsed.password)
-                : undefined,
-              tls:
-                parsed.protocol === 'rediss:'
-                  ? { rejectUnauthorized: false }
-                  : undefined,
-              connectTimeout: 10_000,
-              enableReadyCheck: false,
-              maxRetriesPerRequest: 1,
-              retryStrategy: () => undefined,
-            },
-          };
-        }
-
-        return {
-          connection: {
-            host: process.env.REDIS_HOST,
-            port: Number(process.env.REDIS_PORT),
-            password: process.env.REDIS_PASSWORD,
-            tls:
-              process.env.REDIS_TLS === 'true'
-                ? { rejectUnauthorized: false }
-                : undefined,
-            connectTimeout: 10_000,
-            enableReadyCheck: false,
-            maxRetriesPerRequest: 1,
-            retryStrategy: () => undefined,
-          },
-        };
-      })(),
-    ),
+    ...queueInfraModules,
 
     // 6. TypeORM com configuração segura de SSL
     TypeOrmModule.forRootAsync({
