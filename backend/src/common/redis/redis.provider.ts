@@ -220,6 +220,37 @@ export const redisProvider: Provider = {
       logger.error(`Redis connection error: ${err.message}`);
     });
 
-    return client;
+    const failOpen = process.env.REDIS_FAIL_OPEN !== 'false';
+    try {
+      await Promise.race([
+        client.connect(),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Redis connect timeout during bootstrap')),
+            12000,
+          ),
+        ),
+      ]);
+      logger.log('✅ Redis connected');
+      return client;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`❌ Redis unavailable at bootstrap: ${message}`);
+      try {
+        client.disconnect();
+      } catch {
+        // noop
+      }
+
+      if (!failOpen) {
+        throw error;
+      }
+
+      logger.warn(
+        '⚠️ REDIS_FAIL_OPEN ativo: fallback para cache em memória (funcionalidades de fila/redis podem degradar).',
+      );
+      return new InMemoryRedis() as unknown as Redis;
+    }
+
   },
 };
