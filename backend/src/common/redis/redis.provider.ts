@@ -162,9 +162,18 @@ export const redisProvider: Provider = {
       return new InMemoryRedis() as unknown as Redis;
     }
     console.log('REDIS: Connecting via URL_REDIS');
+    const redisUrlFrom =
+      process.env.REDIS_URL
+        ? 'REDIS_URL'
+        : process.env.URL_REDIS
+          ? 'URL_REDIS'
+          : process.env.REDIS_PUBLIC_URL
+            ? 'REDIS_PUBLIC_URL'
+            : null;
+
     let redisUrl =
-      process.env.URL_REDIS ||
       process.env.REDIS_URL ||
+      process.env.URL_REDIS ||
       process.env.REDIS_PUBLIC_URL;
     if (!redisUrl && process.env.REDIS_HOST) {
       const redisUser = process.env.REDIS_USER || 'default';
@@ -179,6 +188,15 @@ export const redisProvider: Provider = {
       throw new Error('REDIS_URL or URL_REDIS must be defined');
     }
     assertValidRedisUrl(redisUrl);
+
+    try {
+      const parsed = new URL(redisUrl);
+      logger.log(
+        `Redis target: source=${redisUrlFrom || 'derived'} host=${parsed.hostname} port=${parsed.port || '6379'} tls=${parsed.protocol === 'rediss:'}`,
+      );
+    } catch {
+      // URL já foi validada acima; manter robustez se valor mudar entre leituras
+    }
 
     const client = new Redis(redisUrl, {
       maxRetriesPerRequest: null,
