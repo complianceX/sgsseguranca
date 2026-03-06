@@ -12,6 +12,7 @@
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "node dist/main",
+    "start:railway": "npm run migration:run && npm run start",
     "start:local": "nest start",
     "prestart:dev": "node scripts/free-port.js",
     "start:dev": "nest start --watch",
