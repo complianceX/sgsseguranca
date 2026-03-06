@@ -158,7 +158,8 @@ class InMemoryRedis {
 export const redisProvider: Provider = {
   provide: REDIS_CLIENT,
   useFactory: async () => {
-    if (process.env.REDIS_DISABLED === 'true') {
+    const redisDisabled = /^true$/i.test(process.env.REDIS_DISABLED || '');
+    if (redisDisabled) {
       return new InMemoryRedis() as unknown as Redis;
     }
     console.log('REDIS: Connecting via URL_REDIS');
@@ -199,28 +200,19 @@ export const redisProvider: Provider = {
     }
 
     const client = new Redis(redisUrl, {
-      maxRetriesPerRequest: null,
+      maxRetriesPerRequest: 1,
       enableReadyCheck: false,
       connectTimeout: 10000,
       lazyConnect: true,
-      retryStrategy: (times) => {
-        // Exponential backoff: 50ms, 100ms, 200ms... up to 3s
-        return Math.min(times * 50, 3000);
-      },
-      reconnectOnError: (err) => {
-        const targetError = 'READONLY';
-        if (err.message.includes(targetError)) {
-          return true;
-        }
-        return false;
-      },
+      retryStrategy: () => null,
+      reconnectOnError: () => false,
     });
 
     client.on('error', (err) => {
       logger.error(`Redis connection error: ${err.message}`);
     });
 
-    const failOpen = process.env.REDIS_FAIL_OPEN !== 'false';
+    const failOpen = !/^false$/i.test(process.env.REDIS_FAIL_OPEN || 'true');
     try {
       await Promise.race([
         client.connect(),

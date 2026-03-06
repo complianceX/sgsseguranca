@@ -88,7 +88,7 @@ import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
 
-const isRedisDisabled = process.env.REDIS_DISABLED === 'true';
+const isRedisDisabled = /^true$/i.test(process.env.REDIS_DISABLED || '');
 const queueBackedModules = isRedisDisabled
   ? []
   : [TasksModule, ReportsModule, MailModule];
@@ -575,7 +575,7 @@ export class AppModule implements OnModuleInit {
       this.logger.warn('⚠️  Ambiente de DESENVOLVIMENTO detectado');
     }
 
-    if (process.env.REDIS_DISABLED === 'true') {
+    if (/^true$/i.test(process.env.REDIS_DISABLED || '')) {
       this.logger.warn(
         '⚠️ REDIS_DISABLED=true: módulos de fila (mail/reports/tasks) estão desabilitados neste runtime.',
       );
