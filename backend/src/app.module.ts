@@ -317,8 +317,16 @@ const validationSchema = Joi.object({
       useFactory: (config: ConfigService) => {
         const isProduction = config.get('NODE_ENV') === 'production';
         const logger = new Logger('CacheModule');
+        const redisDisabled = /^true$/i.test(
+          config.get<string>('REDIS_DISABLED', 'false'),
+        );
+        const hasRedisUrl = !!(
+          config.get<string>('REDIS_URL') ||
+          config.get<string>('URL_REDIS') ||
+          config.get<string>('REDIS_PUBLIC_URL')
+        );
 
-        if (isProduction) {
+        if (isProduction && !redisDisabled && hasRedisUrl) {
           logger.log('🔴 Configurando Redis Cache para PRODUÇÃO');
 
           const redisConfig: RedisCacheConfig = {
@@ -339,7 +347,17 @@ const validationSchema = Joi.object({
           return redisConfig as unknown as RedisClientOptions;
         }
 
-        logger.log('💾 Configurando Memory Cache para DESENVOLVIMENTO');
+        if (isProduction && redisDisabled) {
+          logger.warn(
+            '⚠️ REDIS_DISABLED=true: usando Memory Cache em produção',
+          );
+        } else if (isProduction && !hasRedisUrl) {
+          logger.warn(
+            '⚠️ Redis URL ausente: usando Memory Cache em produção',
+          );
+        } else {
+          logger.log('💾 Configurando Memory Cache para DESENVOLVIMENTO');
+        }
         return {
           ttl: 300,
           max: 100,
@@ -595,6 +613,9 @@ export class AppModule implements OnModuleInit {
    * Verifica se todas as configurações críticas estão corretas.
    */
   private validateProductionSecurity() {
+    const redisDisabled = /^true$/i.test(
+      this.configService.get<string>('REDIS_DISABLED', 'false'),
+    );
     const jwtSecret = this.configService.get<string>('JWT_SECRET');
     const databaseSSL = this.configService.get<boolean>('DATABASE_SSL');
     const databaseUrl = this.configService.get<string>('DATABASE_URL');
@@ -624,8 +645,9 @@ export class AppModule implements OnModuleInit {
       },
       {
         name: 'REDIS_CONNECTION',
-        valid: !!redisUrl || !!redisHost,
-        message: 'Configure REDIS_URL (recomendado) ou REDIS_HOST em produção',
+        valid: redisDisabled || !!redisUrl || !!redisHost,
+        message:
+          'Configure REDIS_URL (recomendado) ou REDIS_HOST em produção, ou defina REDIS_DISABLED=true',
       },
     ];
 
