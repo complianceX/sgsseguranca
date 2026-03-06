@@ -28,6 +28,7 @@ COPY --from=builder /app/package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/scripts ./scripts
 
 # Entrypoint (sem migrations no boot)
 COPY entrypoint.sh ./entrypoint.sh
