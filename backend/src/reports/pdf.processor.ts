@@ -1,4 +1,9 @@
-import { InjectQueue, Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
+import {
+  InjectQueue,
+  Processor,
+  WorkerHost,
+  OnWorkerEvent,
+} from '@nestjs/bullmq';
 import { DelayedError, type Job, type Queue } from 'bullmq';
 import { Logger } from '@nestjs/common';
 import { ReportsService } from './reports.service';
@@ -25,7 +30,7 @@ export class PdfProcessor extends WorkerHost {
   // BullMQ v5+: @Process() foi removido. Implementar process() e rotear por job.name.
   async process(job: Job): Promise<any> {
     const start = Date.now();
-    const companyId = (job.data as any)?.companyId as string | undefined;
+    const companyId = job.data?.companyId as string | undefined;
     const quota = await this.tenantQuota.tryAcquire('pdf', companyId);
     if (!quota.acquired) {
       const delayMs = this.tenantQuota.getDelayMs('pdf');
@@ -48,7 +53,7 @@ export class PdfProcessor extends WorkerHost {
             job.name,
             Date.now() - start,
             'success',
-            (job.data as any)?.companyId,
+            job.data?.companyId,
           );
           return result;
         }
@@ -67,7 +72,7 @@ export class PdfProcessor extends WorkerHost {
         job.name,
         Date.now() - start,
         'error',
-        (job.data as any)?.companyId,
+        job.data?.companyId,
       );
       throw err;
     } finally {
@@ -120,7 +125,7 @@ export class PdfProcessor extends WorkerHost {
           originalJobId: job.id,
           originalJobName: job.name,
           attemptsMade: job.attemptsMade,
-          companyId: (job.data as any)?.companyId,
+          companyId: job.data?.companyId,
           data: job.data,
           error: { message: error.message, stack: error.stack },
           failedAt: new Date().toISOString(),

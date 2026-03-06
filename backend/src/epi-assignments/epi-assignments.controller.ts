@@ -9,12 +9,14 @@ import {
   Req,
   UseGuards,
   UseInterceptors,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import { Role } from '../auth/enums/roles.enum';
 import { CreateEpiAssignmentDto } from './dto/create-epi-assignment.dto';
 import {
@@ -31,7 +33,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('epi-assignments')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class EpiAssignmentsController {
   constructor(private readonly assignmentsService: EpiAssignmentsService) {}
@@ -64,14 +66,14 @@ export class EpiAssignmentsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.assignmentsService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   update(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateEpiAssignmentDto,
     @Req() req: AuthenticatedRequest,
   ) {
@@ -87,7 +89,7 @@ export class EpiAssignmentsController {
     Role.COLABORADOR,
   )
   returnAssignment(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: ReturnEpiAssignmentDto,
     @Req() req: AuthenticatedRequest,
   ) {
@@ -97,7 +99,7 @@ export class EpiAssignmentsController {
   @Post(':id/replace')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   replaceAssignment(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: ReplaceEpiAssignmentDto,
     @Req() req: AuthenticatedRequest,
   ) {

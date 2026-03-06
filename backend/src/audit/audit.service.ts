@@ -26,7 +26,19 @@ export class AuditService {
         'AuditService: userId e companyId são obrigatórios',
       );
     }
-    const log = this.auditRepo.create(data);
+    const now = new Date();
+    const before = data.changes?.before ?? null;
+    const after = data.changes?.after ?? data.changes ?? null;
+    const log = this.auditRepo.create({
+      ...data,
+      user_id: data.userId,
+      entity_type: data.entity,
+      entity_id: data.entityId,
+      before,
+      after,
+      created_at: now,
+      timestamp: now,
+    });
     await this.auditRepo.save(log);
   }
 }

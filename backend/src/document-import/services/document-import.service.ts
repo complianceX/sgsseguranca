@@ -13,6 +13,8 @@ import { DocumentClassifierService } from './document-classifier.service';
 import { DocumentInterpreterService } from './document-interpreter.service';
 import { DocumentValidationService } from './document-validation.service';
 import { DdsService } from '../../dds/dds.service';
+import { TenantService } from '../../common/tenant/tenant.service';
+import { ForbiddenException } from '@nestjs/common';
 
 @Injectable()
 export class DocumentImportService {
@@ -26,7 +28,16 @@ export class DocumentImportService {
     private readonly documentInterpreterService: DocumentInterpreterService,
     private readonly documentValidationService: DocumentValidationService,
     private readonly ddsService: DdsService,
+    private readonly tenantService: TenantService,
   ) {}
+
+  private assertTenantAccess(empresaId: string) {
+    const tenantId = this.tenantService.getTenantId();
+    const isSuperAdmin = this.tenantService.isSuperAdmin();
+    if (!isSuperAdmin && tenantId && empresaId !== tenantId) {
+      throw new ForbiddenException('Acesso cross-tenant negado.');
+    }
+  }
 
   async processDocument(
     fileBuffer: Buffer,
@@ -35,6 +46,7 @@ export class DocumentImportService {
     mimetype: string = 'application/pdf',
     originalname: string = 'document.pdf',
   ): Promise<DocumentImportResponseDto> {
+    this.assertTenantAccess(empresaId);
     this.logger.log(`Processando novo documento para empresa: ${empresaId}`);
 
     const hash = this.fileParserService.generateFileHash(fileBuffer);
@@ -72,6 +84,7 @@ export class DocumentImportService {
 
       await this.updateRecordWithClassification(
         documentImport.id,
+        empresaId,
         tipoDocumentoFinal,
         classification.score,
       );
@@ -86,6 +99,7 @@ export class DocumentImportService {
 
       await this.updateRecordWithAnalysis(
         documentImport.id,
+        empresaId,
         analysis,
         validation,
         textoExtraido.length,
@@ -142,24 +156,25 @@ export class DocumentImportService {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : 'Erro desconhecido';
-      await this.markAsFailed(documentImport.id, errorMessage);
+      await this.markAsFailed(documentImport.id, empresaId, errorMessage);
       throw error;
     }
   }
 
   private async updateRecordWithClassification(
     documentId: string,
+    empresaId: string,
     tipoDocumento: string,
     scoreClassificacao: number,
   ): Promise<void> {
     // CORREÇÃO: Ler o registro existente antes de atualizar para evitar sobrescrever metadados.
     const record = await this.documentImportRepository.findOne({
-      where: { id: documentId },
+      where: { id: documentId, empresaId },
     });
 
     const existingMetadata = record?.metadata || {};
 
-    await this.documentImportRepository.update(documentId, {
+    await this.documentImportRepository.update({ id: documentId, empresaId }, {
       tipoDocumento: tipoDocumento,
       status: DocumentImportStatus.PROCESSING,
       metadata: {
@@ -171,17 +186,18 @@ export class DocumentImportService {
 
   private async updateRecordWithAnalysis(
     documentId: string,
+    empresaId: string,
     analysis: DocumentAnalysisDto,
     validation: DocumentValidationResultDto,
     textoExtraidoLength: number,
   ): Promise<void> {
     const record = await this.documentImportRepository.findOne({
-      where: { id: documentId },
+      where: { id: documentId, empresaId },
     });
 
     const existingMetadata = record?.metadata || {};
 
-    await this.documentImportRepository.update(documentId, {
+    await this.documentImportRepository.update({ id: documentId, empresaId }, {
       jsonEstruturado: analysis as Record<string, any>, // jsonb column remains any for now
       status: DocumentImportStatus.COMPLETED,
       metadata: {
@@ -195,15 +211,16 @@ export class DocumentImportService {
 
   private async markAsFailed(
     documentId: string,
+    empresaId: string,
     errorMessage: string,
   ): Promise<void> {
     const record = await this.documentImportRepository.findOne({
-      where: { id: documentId },
+      where: { id: documentId, empresaId },
     });
 
     const existingMetadata = record?.metadata || {};
 
-    await this.documentImportRepository.update(documentId, {
+    await this.documentImportRepository.update({ id: documentId, empresaId }, {
       status: DocumentImportStatus.FAILED,
       metadata: {
         ...existingMetadata,
@@ -214,12 +231,14 @@ export class DocumentImportService {
   }
 
   async getDocumentStatus(documentId: string): Promise<DocumentImport | null> {
+    const tenantId = this.tenantService.getTenantId();
     return await this.documentImportRepository.findOne({
-      where: { id: documentId },
+      where: tenantId ? { id: documentId, empresaId: tenantId } : { id: documentId },
     });
   }
 
   async getDocumentsByEmpresa(empresaId: string): Promise<DocumentImport[]> {
+    this.assertTenantAccess(empresaId);
     return await this.documentImportRepository.find({
       where: { empresaId: empresaId },
       order: { createdAt: 'DESC' },
@@ -229,8 +248,13 @@ export class DocumentImportService {
   async getDocumentsByStatus(
     status: DocumentImportStatus,
   ): Promise<DocumentImport[]> {
+    const tenantId = this.tenantService.getTenantId();
+    if (!this.tenantService.isSuperAdmin() && !tenantId) {
+      // Sem tenant no contexto → fail closed
+      throw new ForbiddenException('Contexto de empresa não definido.');
+    }
     return await this.documentImportRepository.find({
-      where: { status: status },
+      where: tenantId ? ({ status: status, empresaId: tenantId } as any) : ({ status: status } as any),
       order: { createdAt: 'DESC' },
     });
   }

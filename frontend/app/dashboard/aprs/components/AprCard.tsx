@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Apr } from '@/services/aprsService';
 import {
   FileText,
@@ -14,9 +14,16 @@ import {
   Pencil,
   Trash2,
   GitBranch,
+  PenLine,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { SignatureModal } from '@/components/SignatureModal';
+import { SignaturesPanel } from '@/components/SignaturesPanel';
+import { signaturesService } from '@/services/signaturesService';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
 
 interface AprCardProps {
   apr: Apr;
@@ -60,6 +67,26 @@ export const AprCard = React.memo(
     onReject,
     onCreateNewVersion,
   }: AprCardProps) => {
+    const { user, hasPermission } = useAuth();
+    const [showSignModal, setShowSignModal] = useState(false);
+    const [showSignaturesPanel, setShowSignaturesPanel] = useState(false);
+
+    const handleSignSave = async (signatureData: string, type: string) => {
+      try {
+        await signaturesService.create({
+          document_id: apr.id,
+          document_type: 'APR',
+          signature_data: signatureData,
+          type,
+          user_id: user?.id,
+          company_id: apr.company_id,
+        });
+        toast.success('Assinatura registrada com sucesso!');
+      } catch {
+        toast.error('Erro ao registrar assinatura.');
+      }
+    };
+
     const isApproved = apr.status === 'Aprovada';
     const hasCriticalRisk = (apr.classificacao_resumo?.critico || 0) > 0;
     const hasSubstantialRisk = (apr.classificacao_resumo?.substancial || 0) > 0;
@@ -119,7 +146,7 @@ export const AprCard = React.memo(
           >
             Nova Versão
           </button>
-        ) : (
+        ) : hasPermission('can_approve_pt') ? (
           <>
             <button
               type="button"
@@ -138,6 +165,7 @@ export const AprCard = React.memo(
               Reprovar
             </button>
           </>
+        ) : null}
         )}
         <button
           type="button"
@@ -183,7 +211,36 @@ export const AprCard = React.memo(
         >
           <Trash2 className="h-4 w-4" />
         </button>
+        <button
+          type="button"
+          onClick={() => setShowSignModal(true)}
+          className="p-1.5 rounded-lg text-purple-600 hover:bg-purple-50 transition-colors"
+          title="Assinar APR"
+        >
+          <PenLine className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowSignaturesPanel(true)}
+          className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+          title="Ver assinaturas"
+        >
+          <Users className="h-4 w-4" />
+        </button>
       </div>
+
+      <SignatureModal
+        isOpen={showSignModal}
+        onClose={() => setShowSignModal(false)}
+        onSave={handleSignSave}
+        userName={user?.nome ?? 'Usuário'}
+      />
+      <SignaturesPanel
+        isOpen={showSignaturesPanel}
+        onClose={() => setShowSignaturesPanel(false)}
+        documentId={apr.id}
+        documentType="APR"
+      />
     </div>
   );
   },

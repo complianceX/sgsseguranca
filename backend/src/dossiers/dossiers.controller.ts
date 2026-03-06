@@ -10,10 +10,11 @@ import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import { DossiersService } from './dossiers.service';
 
 @Controller('dossiers')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class DossiersController {
   constructor(private readonly dossiersService: DossiersService) {}

@@ -1,4 +1,4 @@
-import { Controller, Get, Inject } from '@nestjs/common';
+import { Controller, Get, Inject, UseGuards } from '@nestjs/common';
 import {
   HealthCheckService,
   HealthCheck,
@@ -9,8 +9,14 @@ import {
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { PuppeteerPoolService } from '../common/services/puppeteer-pool.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { Role } from '../auth/enums/roles.enum';
 
 @Controller('health')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN_GERAL)
 export class HealthController {
   constructor(
     private health: HealthCheckService,

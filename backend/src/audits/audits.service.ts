@@ -4,15 +4,28 @@ import { Repository } from 'typeorm';
 import { Audit } from './entities/audit.entity';
 import { CreateAuditDto } from './dto/create-audit.dto';
 import { UpdateAuditDto } from './dto/create-audit.dto';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
+import {
+  TenantRepository,
+  TenantRepositoryFactory,
+} from '../common/tenant/tenant-repository';
 
 @Injectable()
 export class AuditsService {
   private readonly logger = new Logger(AuditsService.name);
+  private readonly tenantRepo: TenantRepository<Audit>;
 
   constructor(
     @InjectRepository(Audit)
     private auditsRepository: Repository<Audit>,
-  ) {}
+    tenantRepositoryFactory: TenantRepositoryFactory,
+  ) {
+    this.tenantRepo = tenantRepositoryFactory.wrap(this.auditsRepository);
+  }
 
   async create(createAuditDto: CreateAuditDto, companyId: string) {
     const audit = this.auditsRepository.create({
@@ -36,9 +49,37 @@ export class AuditsService {
     });
   }
 
+  async findPaginated(
+    opts: { page?: number; limit?: number; search?: string },
+    companyId: string,
+  ): Promise<OffsetPage<Audit>> {
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const qb = this.auditsRepository
+      .createQueryBuilder('a')
+      .leftJoinAndSelect('a.site', 'site')
+      .leftJoinAndSelect('a.auditor', 'auditor')
+      .where('a.company_id = :companyId', { companyId })
+      .orderBy('a.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    if (opts?.search) {
+      qb.andWhere(
+        '(a.titulo ILIKE :search OR a.tipo_auditoria ILIKE :search)',
+        { search: `%${opts.search}%` },
+      );
+    }
+
+    const [data, total] = await qb.getManyAndCount();
+    return toOffsetPage(data, total, page, limit);
+  }
+
   async findOne(id: string, companyId: string) {
-    const audit = await this.auditsRepository.findOne({
-      where: { id, company_id: companyId },
+    const audit = await this.tenantRepo.findOne(id, companyId, {
       relations: ['site', 'auditor', 'company'],
     });
 
@@ -69,5 +110,50 @@ export class AuditsService {
       auditId: audit.id,
       companyId,
     });
+  }
+
+  async listStoredFiles(filters: {
+    companyId?: string;
+    year?: number;
+    week?: number;
+  }) {
+    const query = this.auditsRepository
+      .createQueryBuilder('a')
+      .where('a.pdf_file_key IS NOT NULL');
+
+    if (filters.companyId) {
+      query.andWhere('a.company_id = :companyId', {
+        companyId: filters.companyId,
+      });
+    }
+
+    const results = await query.getMany();
+
+    return results
+      .filter((a) => {
+        if (!a.created_at) return false;
+        const date = new Date(a.created_at);
+        if (filters.year && date.getFullYear() !== filters.year) return false;
+        if (filters.week) {
+          const d = new Date(
+            Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+          );
+          d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+          const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+          const isoWeek = Math.ceil(
+            ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
+          );
+          if (isoWeek !== filters.week) return false;
+        }
+        return true;
+      })
+      .map((a) => ({
+        id: a.id,
+        titulo: a.titulo,
+        companyId: a.company_id,
+        fileKey: a.pdf_file_key,
+        folderPath: a.pdf_folder_path,
+        originalName: a.pdf_original_name,
+      }));
   }
 }

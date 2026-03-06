@@ -334,6 +334,57 @@ export class CatsService {
     };
   }
 
+  async getStatistics() {
+    const companyId = this.getTenantIdOrThrow();
+
+    const [total, fatalCount, openCount, byTipoRaw, byGravidadeRaw, byMonthRaw] =
+      await Promise.all([
+        this.catsRepository.count({ where: { company_id: companyId } }),
+        this.catsRepository.count({ where: { company_id: companyId, gravidade: 'fatal' } }),
+        this.catsRepository.count({ where: { company_id: companyId, status: 'aberta' } }),
+        this.catsRepository
+          .createQueryBuilder('cat')
+          .select('cat.tipo', 'tipo')
+          .addSelect('COUNT(*)', 'total')
+          .where('cat.company_id = :companyId', { companyId })
+          .groupBy('cat.tipo')
+          .getRawMany<{ tipo: string; total: string }>(),
+        this.catsRepository
+          .createQueryBuilder('cat')
+          .select('cat.gravidade', 'gravidade')
+          .addSelect('COUNT(*)', 'total')
+          .where('cat.company_id = :companyId', { companyId })
+          .groupBy('cat.gravidade')
+          .getRawMany<{ gravidade: string; total: string }>(),
+        this.catsRepository
+          .createQueryBuilder('cat')
+          .select("DATE_TRUNC('month', cat.data_ocorrencia)", 'month')
+          .addSelect('COUNT(*)', 'total')
+          .where('cat.company_id = :companyId', { companyId })
+          .andWhere("cat.data_ocorrencia >= NOW() - INTERVAL '12 months'")
+          .groupBy("DATE_TRUNC('month', cat.data_ocorrencia)")
+          .orderBy("DATE_TRUNC('month', cat.data_ocorrencia)", 'ASC')
+          .getRawMany<{ month: string; total: string }>(),
+      ]);
+
+    const byTipo = byTipoRaw.reduce<Record<string, number>>((acc, r) => {
+      acc[r.tipo] = Number(r.total);
+      return acc;
+    }, {});
+
+    const byGravidade = byGravidadeRaw.reduce<Record<string, number>>((acc, r) => {
+      acc[r.gravidade] = Number(r.total);
+      return acc;
+    }, {});
+
+    const byMonth = byMonthRaw.map((r) => ({
+      month: r.month ? new Date(r.month).toISOString().slice(0, 7) : '',
+      total: Number(r.total),
+    }));
+
+    return { total, fatalCount, openCount, byTipo, byGravidade, byMonth };
+  }
+
   private getTenantIdOrThrow(): string {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {

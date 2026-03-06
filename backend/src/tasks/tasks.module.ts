@@ -9,6 +9,7 @@ import { CompaniesModule } from '../companies/companies.module';
   imports: [
     TypeOrmModule.forFeature([AuditLog]),
     BullModule.registerQueue({ name: 'sla-escalation' }),
+    BullModule.registerQueue({ name: 'expiry-notifications' }),
     CompaniesModule,
   ],
   providers: [CleanupTask],

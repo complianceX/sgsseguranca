@@ -8,6 +8,7 @@ import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { PdfRateLimitService } from './services/pdf-rate-limit.service';
+import { BruteForceService } from './brute-force.service';
 
 @Module({
   imports: [
@@ -28,7 +29,13 @@ import { PdfRateLimitService } from './services/pdf-rate-limit.service';
       inject: [ConfigService],
     }),
   ],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy, PdfRateLimitService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    JwtRefreshStrategy,
+    PdfRateLimitService,
+    BruteForceService,
+  ],
   controllers: [AuthController],
   exports: [AuthService, JwtModule, PdfRateLimitService],
 })

@@ -236,7 +236,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   // Set default company
   useEffect(() => {
     if (id || selectedCompanyId || isAdminGeneral) return;
-    const companyId = user?.company_id || (typeof window !== 'undefined' ? localStorage.getItem('companyId') : null);
+    const companyId = user?.company_id || null;
     if (!companyId) return;
     setValue('company_id', companyId);
   }, [id, selectedCompanyId, setValue, user?.company_id, isAdminGeneral]);

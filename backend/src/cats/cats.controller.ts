@@ -12,6 +12,7 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as fs from 'fs/promises';
@@ -23,6 +24,7 @@ import { Role } from '../auth/enums/roles.enum';
 import { validateFileMagicBytes } from '../common/interceptors/file-upload.interceptor';
 import { fileUploadOptions } from '../common/interceptors/file-upload.interceptor';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import { CatsService } from './cats.service';
 import { CloseCatDto } from './dto/close-cat.dto';
 import { CreateCatDto } from './dto/create-cat.dto';
@@ -36,7 +38,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 @Controller('cats')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class CatsController {
   constructor(private readonly catsService: CatsService) {}
@@ -65,15 +67,20 @@ export class CatsController {
     return this.catsService.getSummary();
   }
 
+  @Get('statistics')
+  getStatistics() {
+    return this.catsService.getStatistics();
+  }
+
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.catsService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   update(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateDto: UpdateCatDto,
     @Req() req: AuthenticatedRequest,
   ) {
@@ -83,7 +90,7 @@ export class CatsController {
   @Post(':id/investigation')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   startInvestigation(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: StartCatInvestigationDto,
     @Req() req: AuthenticatedRequest,
   ) {
@@ -93,7 +100,7 @@ export class CatsController {
   @Post(':id/close')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   close(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: CloseCatDto,
     @Req() req: AuthenticatedRequest,
   ) {
@@ -104,7 +111,7 @@ export class CatsController {
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   async attachFile(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file: Express.Multer.File,
     @Req() req: AuthenticatedRequest,
     @Query('category')
@@ -147,8 +154,8 @@ export class CatsController {
   @Delete(':id/attachments/:attachmentId')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   removeAttachment(
-    @Param('id') id: string,
-    @Param('attachmentId') attachmentId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
     @Req() req: AuthenticatedRequest,
   ) {
     return this.catsService.removeAttachment(id, attachmentId, req.user?.id);
@@ -156,8 +163,8 @@ export class CatsController {
 
   @Get(':id/attachments/:attachmentId/access')
   getAttachmentAccess(
-    @Param('id') id: string,
-    @Param('attachmentId') attachmentId: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
   ) {
     return this.catsService.getAttachmentAccess(id, attachmentId);
   }

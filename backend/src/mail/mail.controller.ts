@@ -25,25 +25,33 @@ import { UploadedFile } from '@nestjs/common';
 import { MailService } from './mail.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { TenantGuard } from '../common/guards/tenant.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { Role } from '../auth/enums/roles.enum';
 import { DispatchAlertsDto } from './dto/dispatch-alerts.dto';
 import { StorageService } from '../common/services/storage.service';
 import { defaultJobOptions } from '../queue/default-job-options';
+import { validatePdfMagicBytesFromPath } from '../common/interceptors/file-upload.interceptor';
+import { TenantService } from '../common/tenant/tenant.service';
 
 type RequestWithUser = {
   user?: { company_id?: string; companyId?: string; userId?: string };
 };
 
 @Controller('mail')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class MailController {
   constructor(
     private readonly mailService: MailService,
     @InjectQueue('mail') private readonly mailQueue: Queue,
     private readonly storageService: StorageService,
+    private readonly tenantService: TenantService,
   ) {}
 
   @Get('logs/export')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   async exportLogs(
     @Query()
     query: {
@@ -60,6 +68,20 @@ export class MailController {
     @Request() req: RequestWithUser,
     @Res() res: Response,
   ) {
+    const isSuperAdmin = this.tenantService.isSuperAdmin();
+    const tenantCompanyId = req.user?.company_id || req.user?.companyId;
+
+    if (isSuperAdmin && query.companyId) {
+      const uuidV4 =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidV4.test(query.companyId)) {
+        throw new BadRequestException('companyId inválido.');
+      }
+    }
+    const effectiveCompanyId = isSuperAdmin
+      ? query.companyId || tenantCompanyId
+      : tenantCompanyId;
+
     const { csv, filename } = await this.mailService.exportLogs({
       startDate: query.startDate,
       endDate: query.endDate,
@@ -67,7 +89,10 @@ export class MailController {
       to: query.to,
       subject: query.subject,
       messageId: query.messageId,
-      companyId: req.user?.company_id || query.companyId,
+      // Segurança multi-tenant:
+      // - usuários comuns: ignorar companyId vindo da query (não confiável)
+      // - ADMIN_GERAL: pode filtrar por companyId explicitamente
+      companyId: effectiveCompanyId,
       userId: query.userId || req.user?.userId,
       limit: query.limit,
     });
@@ -78,6 +103,7 @@ export class MailController {
   }
 
   @Get('logs')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   async listLogs(
     @Query()
     query: {
@@ -94,6 +120,20 @@ export class MailController {
     },
     @Request() req: RequestWithUser,
   ) {
+    const isSuperAdmin = this.tenantService.isSuperAdmin();
+    const tenantCompanyId = req.user?.company_id || req.user?.companyId;
+
+    if (isSuperAdmin && query.companyId) {
+      const uuidV4 =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidV4.test(query.companyId)) {
+        throw new BadRequestException('companyId inválido.');
+      }
+    }
+    const effectiveCompanyId = isSuperAdmin
+      ? query.companyId || tenantCompanyId
+      : tenantCompanyId;
+
     return this.mailService.listLogs({
       page: query.page,
       pageSize: query.pageSize,
@@ -103,7 +143,7 @@ export class MailController {
       to: query.to,
       subject: query.subject,
       messageId: query.messageId,
-      companyId: req.user?.company_id || query.companyId,
+      companyId: effectiveCompanyId,
       userId: query.userId || req.user?.userId,
     });
   }
@@ -186,6 +226,7 @@ export class MailController {
     const fileKey = `uploads/${folder}/${randomUUID()}.pdf`;
 
     try {
+      await validatePdfMagicBytesFromPath(file.path);
       await this.storageService.upload(
         fileKey,
         createReadStream(file.path),

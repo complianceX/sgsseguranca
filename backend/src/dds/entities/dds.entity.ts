@@ -52,7 +52,11 @@ export class Dds {
   facilitador_id: string;
 
   @ManyToMany(() => User)
-  @JoinTable({ name: 'dds_participants' })
+  @JoinTable({
+    name: 'dds_participants',
+    joinColumn: { name: 'dds_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
+  })
   participants: User[];
 
   @ManyToOne(() => User, { nullable: true })

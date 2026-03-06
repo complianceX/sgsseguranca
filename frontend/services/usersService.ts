@@ -29,14 +29,20 @@ export interface User {
   site?: { id: string; nome: string };
   profile_id: string;
   profile?: Profile;
+  roles?: string[];
+  permissions?: string[];
   created_at: string;
   updated_at: string;
 }
 
 export const usersService = {
-  findPaginated: async (opts?: { page?: number; limit?: number }): Promise<PaginatedResponse<User>> => {
+  findPaginated: async (opts?: { page?: number; limit?: number; search?: string }): Promise<PaginatedResponse<User>> => {
     const response = await api.get<PaginatedResponse<User>>('/users', {
-      params: { page: opts?.page ?? 1, limit: opts?.limit ?? 20 },
+      params: {
+        page: opts?.page ?? 1,
+        limit: opts?.limit ?? 20,
+        ...(opts?.search ? { search: opts.search } : {}),
+      },
     });
     return response.data;
   },

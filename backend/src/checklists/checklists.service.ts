@@ -95,7 +95,9 @@ export class ChecklistsService {
     limit?: number;
   }): Promise<OffsetPage<ChecklistResponseDto>> {
     const tenantId = this.tenantService.getTenantId();
-    this.logger.debug(`Buscando checklists paginados para empresa: ${tenantId}`);
+    this.logger.debug(
+      `Buscando checklists paginados para empresa: ${tenantId}`,
+    );
 
     const filter: { company_id?: string; is_modelo?: boolean } = {};
     if (tenantId) {
@@ -469,5 +471,54 @@ export class ChecklistsService {
     return this.checklistsRepository.count({
       where: tenantId ? { ...where, company_id: tenantId } : where,
     });
+  }
+
+  async listStoredFiles(filters: {
+    companyId?: string;
+    year?: number;
+    week?: number;
+  }) {
+    const tenantId = this.tenantService.getTenantId();
+    const query = this.checklistsRepository
+      .createQueryBuilder('c')
+      .where('c.pdf_file_key IS NOT NULL');
+
+    if (tenantId) {
+      query.andWhere('c.company_id = :tenantId', { tenantId });
+    }
+    if (filters.companyId) {
+      query.andWhere('c.company_id = :companyId', {
+        companyId: filters.companyId,
+      });
+    }
+
+    const results = await query.getMany();
+
+    return results
+      .filter((c) => {
+        if (!c.created_at) return false;
+        const date = new Date(c.created_at);
+        if (filters.year && date.getFullYear() !== filters.year) return false;
+        if (filters.week) {
+          const d = new Date(
+            Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+          );
+          d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+          const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+          const isoWeek = Math.ceil(
+            ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
+          );
+          if (isoWeek !== filters.week) return false;
+        }
+        return true;
+      })
+      .map((c) => ({
+        id: c.id,
+        titulo: c.titulo,
+        companyId: c.company_id,
+        fileKey: c.pdf_file_key,
+        folderPath: c.pdf_folder_path,
+        originalName: c.pdf_original_name,
+      }));
   }
 }

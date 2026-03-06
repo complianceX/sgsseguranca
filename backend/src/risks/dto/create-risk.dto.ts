@@ -1,9 +1,13 @@
 import {
+  IsEnum,
   IsBoolean,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
+  Min,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { Trim } from 'class-sanitizer';
@@ -40,6 +44,59 @@ export class CreateRiskDto {
   )
   @IsOptional()
   medidas_controle?: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  @IsOptional()
+  probability?: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  @IsOptional()
+  severity?: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  @IsOptional()
+  exposure?: number;
+
+  @IsEnum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
+  @IsOptional()
+  residual_risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+  @IsEnum([
+    'ELIMINATION',
+    'SUBSTITUTION',
+    'ENGINEERING',
+    'ADMINISTRATIVE',
+    'PPE',
+  ])
+  @IsOptional()
+  control_hierarchy?:
+    | 'ELIMINATION'
+    | 'SUBSTITUTION'
+    | 'ENGINEERING'
+    | 'ADMINISTRATIVE'
+    | 'PPE';
+
+  @IsString()
+  @IsOptional()
+  evidence_photo?: string;
+
+  @IsString()
+  @IsOptional()
+  evidence_document?: string;
+
+  @IsString()
+  @IsOptional()
+  control_description?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  control_evidence?: boolean;
 
   @IsBoolean()
   @IsOptional()

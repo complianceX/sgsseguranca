@@ -1,4 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Report } from './entities/report.entity';
 import { PdfService } from '../common/services/pdf.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CompaniesService } from '../companies/companies.service';
@@ -10,12 +13,22 @@ export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
 
   constructor(
+    @InjectRepository(Report)
+    private readonly reportRepository: Repository<Report>,
     private readonly pdfService: PdfService,
     private readonly tenantService: TenantService,
     private readonly companiesService: CompaniesService,
     private readonly episService: EpisService,
     private readonly trainingsService: TrainingsService,
   ) {}
+
+  async findAll(): Promise<Report[]> {
+    const tenantId = this.tenantService.getTenantId();
+    return this.reportRepository.find({
+      where: tenantId ? { company_id: tenantId } : {},
+      order: { created_at: 'DESC' },
+    });
+  }
 
   async generateBuffer(reportType: string, params: unknown): Promise<Buffer> {
     switch (reportType) {
@@ -47,30 +60,31 @@ export class ReportsService {
     const reportData = await this.tenantService.run(
       { companyId, isSuperAdmin: false },
       async () => {
-      const epis = await this.episService.findAll();
-      const trainings = await this.trainingsService.findAll();
+        const epis = await this.episService.findAll();
+        const trainings = await this.trainingsService.findAll();
 
-      const stats = {
-        'EPIs com CA vencido no mês': epis.filter(
-          (e) =>
-            e.validade_ca &&
-            new Date(e.validade_ca).getFullYear() === year &&
-            new Date(e.validade_ca).getMonth() + 1 === month,
-        ).length,
-        'Treinamentos realizados no mês': trainings.filter(
-          (t) =>
-            t.data_conclusao &&
-            new Date(t.data_conclusao).getFullYear() === year &&
-            new Date(t.data_conclusao).getMonth() + 1 === month,
-        ).length,
-      };
+        const stats = {
+          'EPIs com CA vencido no mês': epis.filter(
+            (e) =>
+              e.validade_ca &&
+              new Date(e.validade_ca).getFullYear() === year &&
+              new Date(e.validade_ca).getMonth() + 1 === month,
+          ).length,
+          'Treinamentos realizados no mês': trainings.filter(
+            (t) =>
+              t.data_conclusao &&
+              new Date(t.data_conclusao).getFullYear() === year &&
+              new Date(t.data_conclusao).getMonth() + 1 === month,
+          ).length,
+        };
 
-      return {
-        estatisticas: stats,
-        analise_gandra:
-          'Esta é uma análise automática preliminar. Recomenda-se uma revisão detalhada dos dados para ações corretivas.',
-      } as { estatisticas: Record<string, any>; analise_gandra: string };
-    });
+        return {
+          estatisticas: stats,
+          analise_gandra:
+            'Esta é uma análise automática preliminar. Recomenda-se uma revisão detalhada dos dados para ações corretivas.',
+        } as { estatisticas: Record<string, any>; analise_gandra: string };
+      },
+    );
 
     const html = this.buildMonthlyReportHtml({
       companyName: company.razao_social,

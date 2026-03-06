@@ -2,8 +2,10 @@ import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ProfilesService } from '../profiles/profiles.service';
 import { CompaniesService } from '../companies/companies.service';
 import { UsersService } from '../users/users.service';
+import type { User } from '../users/entities/user.entity';
 import { CompanyResponseDto } from '../companies/dto/company-response.dto';
 import { Profile } from '../profiles/entities/profile.entity';
+import { TenantService } from '../common/tenant/tenant.service';
 
 @Injectable()
 export class SeedService implements OnApplicationBootstrap {
@@ -13,6 +15,7 @@ export class SeedService implements OnApplicationBootstrap {
     private profilesService: ProfilesService,
     private companiesService: CompaniesService,
     private usersService: UsersService,
+    private tenantService: TenantService,
   ) {}
 
   onApplicationBootstrap() {
@@ -66,6 +69,20 @@ export class SeedService implements OnApplicationBootstrap {
 
   private async seedAdmin() {
     try {
+      const targetCpfRaw = process.env.DEV_ADMIN_CPF || '15082302698';
+      const targetPassword =
+        process.env.DEV_ADMIN_PASSWORD || 'GANDRA@2026';
+      const targetCpf = targetCpfRaw.replace(/\D/g, '');
+      const oldCpfs = ['00000000191', '00000000000'];
+
+      if (targetCpf.length !== 11) {
+        this.logger.warn(
+          `DEV_ADMIN_CPF inválido (esperado 11 dígitos). Usando fallback 15082302698.`,
+        );
+      }
+      const TARGET_CPF = targetCpf.length === 11 ? targetCpf : '15082302698';
+      const TARGET_PASSWORD = targetPassword;
+
       // Check if any company exists
       const companies = await this.companiesService.findAll();
       let company: CompanyResponseDto;
@@ -92,17 +109,65 @@ export class SeedService implements OnApplicationBootstrap {
         return;
       }
 
-      const adminUser = await this.usersService.findOneByCpf('00000000191');
+      const targetAdmin = await this.usersService.findOneByCpf(TARGET_CPF);
+      const oldAdmins = (
+        await Promise.all(
+          oldCpfs.map((cpf) => this.usersService.findOneByCpf(cpf)),
+        )
+      ).filter((u): u is User => u !== null);
 
-      if (!adminUser) {
-        await this.usersService.create({
-          nome: 'Administrador Geral',
-          cpf: '00000000191',
-          funcao: 'Admin',
-          password: 'admin', // Will be hashed in service
-          company_id: company.id,
-          profile_id: adminProfile.id,
-        });
+      if (targetAdmin) {
+        this.logger.log(
+          `Atualizando senha do admin existente (CPF=${TARGET_CPF})`,
+        );
+        await this.tenantService.run(
+          { companyId: targetAdmin.company_id || company.id, isSuperAdmin: true },
+          async () => {
+            await this.usersService.update(targetAdmin.id, {
+              password: TARGET_PASSWORD,
+              profile_id: adminProfile.id,
+              company_id: targetAdmin.company_id || company.id,
+              funcao: targetAdmin.funcao || 'Admin',
+              status: true,
+            });
+          },
+        );
+      } else if (oldAdmins.length > 0) {
+        const oldAdmin = oldAdmins[0];
+        this.logger.log(
+          `Migrando admin de CPF antigo (${oldAdmin.cpf || 'sem-cpf'}) para novo (${TARGET_CPF})`,
+        );
+        await this.tenantService.run(
+          { companyId: oldAdmin.company_id || company.id, isSuperAdmin: true },
+          async () => {
+            await this.usersService.update(oldAdmin.id, {
+              cpf: TARGET_CPF,
+              password: TARGET_PASSWORD,
+              profile_id: adminProfile.id,
+              company_id: oldAdmin.company_id || company.id,
+              funcao: oldAdmin.funcao || 'Admin',
+              status: true,
+            });
+          },
+        );
+      } else {
+        this.logger.log(
+          `Criando admin padrão (CPF=${TARGET_CPF}) com empresa=${company.id}`,
+        );
+        await this.tenantService.run(
+          { companyId: company.id, isSuperAdmin: true },
+          async () => {
+            await this.usersService.create({
+              nome: 'Administrador Geral',
+              cpf: TARGET_CPF,
+              funcao: 'Admin',
+              password: TARGET_PASSWORD,
+              company_id: company.id,
+              profile_id: adminProfile.id,
+              status: true,
+            });
+          },
+        );
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

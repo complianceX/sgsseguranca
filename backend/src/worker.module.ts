@@ -10,6 +10,7 @@ import { ReportsWorkerModule } from './reports/reports.worker.module';
 import { QueueServicesModule } from './queue/queue-services.module';
 import { ObservabilityModule } from './common/observability/observability.module';
 import { SlaEscalationWorkerModule } from './sla-escalation-worker.module';
+import { ExpiryNotificationsWorkerModule } from './tasks/expiry-notifications-worker.module';
 
 const validationSchema = Joi.object({
   NODE_ENV: Joi.string()
@@ -146,6 +147,7 @@ const validationSchema = Joi.object({
     ReportsWorkerModule,
     QueueServicesModule,
     SlaEscalationWorkerModule,
+    ExpiryNotificationsWorkerModule,
   ],
 })
 export class WorkerModule {

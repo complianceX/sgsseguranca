@@ -43,15 +43,15 @@ export class CreateUserDto {
   @IsCPF({ message: 'CPF inválido' })
   cpf: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Email do usuário',
     example: 'joao@example.com',
     format: 'email',
   })
   @IsEmail({}, { message: ValidationMessages.IS_EMAIL('Email') })
-  @IsNotEmpty({ message: ValidationMessages.IS_NOT_EMPTY('Email') })
+  @IsOptional()
   @MaxLength(100, { message: ValidationMessages.MAX_LENGTH('Email', 100) })
-  email: string;
+  email?: string;
 
   @ApiPropertyOptional({
     description: 'Senha (mínimo 6 caracteres)',

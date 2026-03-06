@@ -1,36 +1,44 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { usersService, User } from '@/services/usersService';
 import { Plus, Pencil, Trash2, Search, Building2, Map as MapIcon } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { TableRowSkeleton } from '@/components/ui/skeleton';
+import { PaginationControls } from '@/components/PaginationControls';
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
 
-  useEffect(() => {
-    loadEmployees();
-  }, []);
-
-  async function loadEmployees() {
+  const loadEmployees = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await usersService.findAll();
-      // Filtra apenas perfis de colaboradores ou usuários que tenham uma obra vinculada
-      // mas para ser mais abrangente e atender o pedido do usuário, mostraremos todos
-      // que não são Administradores Gerais se o usuário quiser ver todos os "trabalhadores"
-      // No entanto, o pedido foi "cadastrar funcionarios por empresa e obra"
-      setEmployees(data);
+      const res = await usersService.findPaginated({ page, search: searchTerm || undefined });
+      setEmployees(res.data);
+      setTotal(res.total);
+      setLastPage(res.lastPage);
     } catch (error) {
       console.error('Erro ao carregar funcionários:', error);
       toast.error('Erro ao carregar lista de funcionários.');
     } finally {
       setLoading(false);
     }
-  }
+  }, [page, searchTerm]);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    loadEmployees();
+  }, [loadEmployees]);
 
   async function handleDelete(id: string) {
     if (confirm('Tem certeza que deseja excluir este funcionário?')) {
@@ -45,10 +53,9 @@ export default function EmployeesPage() {
     }
   }
 
-  const filteredEmployees = employees.filter(emp =>
-    (emp.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.cpf.includes(searchTerm)) &&
-    emp.profile?.nome !== 'Administrador Geral' // Não mostra admin geral na lista de funcionários
+  // Keep admin filter client-side (cosmetic: there are very few admins per tenant)
+  const displayedEmployees = employees.filter(
+    emp => emp.profile?.nome !== 'Administrador Geral',
   );
 
   return (
@@ -97,21 +104,17 @@ export default function EmployeesPage() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center">
-                    <div className="flex justify-center">
-                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredEmployees.length === 0 ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <TableRowSkeleton key={i} cols={6} />
+                ))
+              ) : displayedEmployees.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
                     Nenhum funcionário encontrado.
                   </td>
                 </tr>
               ) : (
-                filteredEmployees.map((emp) => (
+                displayedEmployees.map((emp) => (
                   <tr key={emp.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 font-medium text-gray-900">{emp.nome}</td>
                     <td className="px-6 py-4 text-gray-600">{emp.cpf}</td>
@@ -138,6 +141,7 @@ export default function EmployeesPage() {
                           <Pencil className="h-4 w-4" />
                         </Link>
                         <button
+                          type="button"
                           onClick={() => handleDelete(emp.id)}
                           className="rounded p-1 text-red-600 hover:bg-red-50"
                           title="Excluir"
@@ -152,6 +156,16 @@ export default function EmployeesPage() {
             </tbody>
           </table>
         </div>
+
+        {!loading && (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+          />
+        )}
       </div>
     </div>
   );

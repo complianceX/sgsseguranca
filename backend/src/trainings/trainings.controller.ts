@@ -5,10 +5,13 @@ import {
   Body,
   Patch,
   Param,
+  ParseUUIDPipe,
   Delete,
   UseGuards,
   UseInterceptors,
   Query,
+  Header,
+  StreamableFile,
 } from '@nestjs/common';
 import { TrainingsService } from './trainings.service';
 import { CreateTrainingDto } from './dto/create-training.dto';
@@ -17,10 +20,11 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import { Role } from '../auth/enums/roles.enum';
 
 @Controller('trainings')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class TrainingsController {
   constructor(private readonly trainingsService: TrainingsService) {}
@@ -75,15 +79,23 @@ export class TrainingsController {
     return this.trainingsService.getComplianceByUser(userId);
   }
 
+  @Get('export/excel')
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  @Header('Content-Disposition', 'attachment; filename="treinamentos.xlsx"')
+  async exportExcel(): Promise<StreamableFile> {
+    const buffer = await this.trainingsService.exportExcel();
+    return new StreamableFile(buffer);
+  }
+
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.trainingsService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   update(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateTrainingDto: UpdateTrainingDto,
   ) {
     return this.trainingsService.update(id, updateTrainingDto);
@@ -91,7 +103,7 @@ export class TrainingsController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL)
-  remove(@Param('id') id: string) {
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.trainingsService.remove(id);
   }
 }

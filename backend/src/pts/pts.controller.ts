@@ -5,12 +5,16 @@ import {
   Body,
   Patch,
   Param,
+  ParseUUIDPipe,
   Delete,
   UseGuards,
   UseInterceptors,
   Req,
   Query,
   UnauthorizedException,
+  Header,
+  StreamableFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { PtsService } from './pts.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -18,12 +22,14 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreatePtDto } from './dto/create-pt.dto';
 import { UpdatePtDto } from './dto/update-pt.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('pts')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class PtsController {
   constructor(
@@ -43,19 +49,74 @@ export class PtsController {
     return this.ptsService.create(createPtDto);
   }
 
+  @Post(':id/approve')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_approve_pt')
+  approve(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body('reason') reason: string | undefined,
+    @Req() req: { user?: { userId?: string } },
+  ) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new BadRequestException('Usuário autenticado inválido');
+    }
+    return this.ptsService.approve(id, userId, reason);
+  }
+
+  @Post(':id/reject')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_approve_pt')
+  reject(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body('reason') reason: string,
+    @Req() req: { user?: { userId?: string } },
+  ) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new BadRequestException('Usuário autenticado inválido');
+    }
+    return this.ptsService.reject(id, userId, reason);
+  }
+
   @Get()
   findPaginated(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
   ) {
     return this.ptsService.findPaginated({
       page: Number(page),
       limit: Number(limit),
+      search: search || undefined,
+      status: status || undefined,
     });
   }
 
+  @Get('files/list')
+  listStoredFiles(
+    @Query('company_id') companyId?: string,
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ) {
+    return this.ptsService.listStoredFiles({
+      companyId,
+      year: year ? Number(year) : undefined,
+      week: week ? Number(week) : undefined,
+    });
+  }
+
+  @Get('export/excel')
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  @Header('Content-Disposition', 'attachment; filename="pts.xlsx"')
+  async exportExcel(): Promise<StreamableFile> {
+    const buffer = await this.ptsService.exportExcel();
+    return new StreamableFile(buffer);
+  }
+
   @Get(':id')
-  async findOne(@Param('id') id: string, @Req() req: any) {
+  async findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: any) {
     // Check rate limit for mass data access/PDF generation
     try {
       if (req.user && req.user.id) {
@@ -75,13 +136,13 @@ export class PtsController {
     Role.SUPERVISOR,
     Role.COLABORADOR,
   )
-  update(@Param('id') id: string, @Body() updatePtDto: UpdatePtDto) {
+  update(@Param('id', new ParseUUIDPipe()) id: string, @Body() updatePtDto: UpdatePtDto) {
     return this.ptsService.update(id, updatePtDto);
   }
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
-  remove(@Param('id') id: string) {
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.ptsService.remove(id);
   }
 }

@@ -33,6 +33,18 @@ import { reportsService, Report } from '@/services/reportsService';
 import { aiService } from '@/services/aiService';
 import { format, isBefore, addDays } from 'date-fns';
 import { GandraInsights } from '@/components/GandraInsights';
+import {
+  BarChart,
+  Bar,
+  Cell,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -96,11 +108,13 @@ export default function DashboardPage() {
     taxa: number;
   }[]>([]);
   const [recentReports, setRecentReports] = useState<Report[]>([]);
+  const [ncMonthlyData, setNcMonthlyData] = useState<{ mes: string; total: number }[]>([]);
+  const [trainingSummaryData, setTrainingSummaryData] = useState<{ name: string; value: number; fill: string }[]>([]);
 
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const [users, companies, sites, checklists, aprs, pts, epis, trainings, aiInsights, audits, inspections, nonconformities, dds, reports] = await Promise.all([
+        const results = await Promise.allSettled([
           usersService.findAll(),
           companiesService.findAll(),
           sitesService.findAll(),
@@ -117,6 +131,23 @@ export default function DashboardPage() {
           reportsService.findAll(),
         ]);
 
+        const [usersR, companiesR, sitesR, checklistsR, aprsR, ptsR, episR, trainingsR, aiInsightsR, auditsR, inspectionsR, nonconformitiesR, ddsR, reportsR] = results;
+
+        const users = usersR.status === 'fulfilled' ? usersR.value : [];
+        const companies = companiesR.status === 'fulfilled' ? companiesR.value : [];
+        const sites = sitesR.status === 'fulfilled' ? sitesR.value : [];
+        const checklists = checklistsR.status === 'fulfilled' ? checklistsR.value : [];
+        const aprs = aprsR.status === 'fulfilled' ? aprsR.value : [];
+        const pts = ptsR.status === 'fulfilled' ? ptsR.value : [];
+        const epis = episR.status === 'fulfilled' ? episR.value : [];
+        const trainings = trainingsR.status === 'fulfilled' ? trainingsR.value : [];
+        const aiInsights = aiInsightsR.status === 'fulfilled' ? aiInsightsR.value : null;
+        const audits = auditsR.status === 'fulfilled' ? auditsR.value : [];
+        const inspections = inspectionsR.status === 'fulfilled' ? inspectionsR.value : [];
+        const nonconformities = nonconformitiesR.status === 'fulfilled' ? nonconformitiesR.value : [];
+        const dds = ddsR.status === 'fulfilled' ? ddsR.value : [];
+        const reports = reportsR.status === 'fulfilled' ? reportsR.value : [];
+
         setCounts({
           users: users.length,
           companies: companies.length,
@@ -126,7 +157,7 @@ export default function DashboardPage() {
           pts: pts.length,
         });
 
-        setSafetyScore(aiInsights.safetyScore);
+        if (aiInsights?.safetyScore !== undefined) setSafetyScore(aiInsights.safetyScore);
 
         // Filtrar EPIs vencidos ou vencendo em 30 dias
         const today = new Date();
@@ -415,6 +446,30 @@ export default function DashboardPage() {
             .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
             .slice(0, 4),
         );
+
+        // SST Charts data
+        try {
+          const [monthlyR, expSummaryR] = await Promise.allSettled([
+            nonConformitiesService.getMonthlyAnalytics(),
+            trainingsService.getExpirySummary(),
+          ]);
+          if (monthlyR.status === 'fulfilled') {
+            setNcMonthlyData(monthlyR.value.map((r) => ({
+              mes: r.mes.slice(0, 7),
+              total: r.total,
+            })));
+          }
+          if (expSummaryR.status === 'fulfilled') {
+            const s = expSummaryR.value;
+            setTrainingSummaryData([
+              { name: 'Em dia', value: s.valid, fill: '#10b981' },
+              { name: 'Vencendo', value: s.expiringSoon, fill: '#f59e0b' },
+              { name: 'Vencidos', value: s.expired, fill: '#ef4444' },
+            ]);
+          }
+        } catch {
+          // SST chart data is non-critical
+        }
       } catch (error) {
         console.error('Erro ao carregar dados do dashboard:', error);
       } finally {
@@ -866,6 +921,61 @@ export default function DashboardPage() {
             <Link href="/dashboard/pts" className="rounded-full bg-indigo-50 px-3 py-1 text-indigo-700">PTs</Link>
             <Link href="/dashboard/checklists" className="rounded-full bg-purple-50 px-3 py-1 text-purple-700">Checklists</Link>
             <Link href="/dashboard/trainings" className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">Treinamentos</Link>
+          </div>
+        </div>
+      </div>
+
+      {/* SST Indicators Section */}
+      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <h2 className="mb-6 text-lg font-bold text-gray-900 flex items-center">
+          <TrendingUp className="mr-2 h-5 w-5 text-blue-600" />
+          Indicadores SST
+        </h2>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Chart 1: Conformidade por Obra */}
+          <div>
+            <p className="mb-3 text-sm font-semibold text-gray-600">Conformidade por Obra (%)</p>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={siteCompliance} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="nome" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} domain={[0, 100]} />
+                <Tooltip formatter={(v: number | undefined) => [`${v ?? 0}%`, 'Conformidade']} />
+                <Bar dataKey="taxa" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Chart 2: Evolução de NCs */}
+          <div>
+            <p className="mb-3 text-sm font-semibold text-gray-600">Não Conformidades (últimos 12 meses)</p>
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={ncMonthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="mes" tick={{ fontSize: 9 }} />
+                <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                <Tooltip />
+                <Line type="monotone" dataKey="total" stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} name="NCs" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Chart 3: Status de Treinamentos */}
+          <div>
+            <p className="mb-3 text-sm font-semibold text-gray-600">Status de Treinamentos</p>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={trainingSummaryData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={70} />
+                <Tooltip />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} name="Quantidade">
+                  {trainingSummaryData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>

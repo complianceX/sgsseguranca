@@ -19,6 +19,20 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { Throttle } from '@nestjs/throttler';
 import { UsersService } from '../users/users.service';
+import { BruteForceService } from './brute-force.service';
+import { RbacService } from '../rbac/rbac.service';
+
+const isProd = process.env.NODE_ENV === 'production';
+const LOGIN_THROTTLE_LIMIT = Number(
+  process.env.LOGIN_THROTTLE_LIMIT || (isProd ? 5 : 30),
+);
+const LOGIN_THROTTLE_TTL = Number(process.env.LOGIN_THROTTLE_TTL || 60000);
+const CHANGE_PASSWORD_THROTTLE_LIMIT = Number(
+  process.env.CHANGE_PASSWORD_THROTTLE_LIMIT || (isProd ? 5 : 30),
+);
+const CHANGE_PASSWORD_THROTTLE_TTL = Number(
+  process.env.CHANGE_PASSWORD_THROTTLE_TTL || 60000,
+);
 
 @Controller('auth')
 export class AuthController {
@@ -27,27 +41,39 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private usersService: UsersService,
+    private bruteForceService: BruteForceService,
+    private rbacService: RbacService,
   ) {}
 
   @Public()
-  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 tentativas/min
+  @Throttle({
+    default: { limit: LOGIN_THROTTLE_LIMIT, ttl: LOGIN_THROTTLE_TTL },
+  })
   @Post('login')
   async login(
+    @Req() req: ExpressRequest,
     @Body() body: LoginDto,
     @Res({ passthrough: true }) response: Response,
   ) {
+    const ip = req.ip || '';
+    await this.bruteForceService.assertAllowed(ip);
     const user = (await this.authService.validateUser(
       body.cpf,
       body.password,
     )) as User;
     if (!user) {
+      await this.bruteForceService.registerFailure(ip);
       const maskedCpf = body.cpf.replace(/\d(?=\d{2})/g, '*');
       this.logger.warn({ event: 'login_failed', cpf: maskedCpf });
       throw new UnauthorizedException('Credenciais inválidas');
     }
     this.logger.log({ event: 'login_success', userId: user.id });
+    await this.bruteForceService.reset(ip);
 
-    const result = await this.authService.login(user);
+    const result = await this.authService.login(user, {
+      userAgent: String(req.headers['user-agent'] || ''),
+    });
+    const access = await this.rbacService.getUserAccess(user.id);
 
     // Refresh token - longa duração
     response.cookie('refresh_token', result.refreshToken, {
@@ -59,7 +85,12 @@ export class AuthController {
     });
 
     // Modelo oficial: access token em Authorization Bearer (não em cookie).
-    return { accessToken: result.accessToken, user: result.user };
+    return {
+      accessToken: result.accessToken,
+      user: result.user,
+      roles: access.roles,
+      permissions: access.permissions,
+    };
   }
 
   @Public()
@@ -74,7 +105,9 @@ export class AuthController {
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token não encontrado');
     }
-    const result = await this.authService.refresh(refreshToken);
+    const result = await this.authService.refresh(refreshToken, {
+      userAgent: String(req.headers['user-agent'] || ''),
+    });
 
     if (result.refreshToken) {
       res.cookie('refresh_token', result.refreshToken, {
@@ -105,7 +138,12 @@ export class AuthController {
     return { success: true };
   }
 
-  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Throttle({
+    default: {
+      limit: CHANGE_PASSWORD_THROTTLE_LIMIT,
+      ttl: CHANGE_PASSWORD_THROTTLE_TTL,
+    },
+  })
   @UseGuards(JwtAuthGuard)
   @Post('change-password')
   async changePassword(
@@ -131,6 +169,7 @@ export class AuthController {
       throw new UnauthorizedException('Usuário não autenticado');
     }
     const user = await this.usersService.findOne(req.user.userId);
-    return { user };
+    const access = await this.rbacService.getUserAccess(req.user.userId);
+    return { user, roles: access.roles, permissions: access.permissions };
   }
 }

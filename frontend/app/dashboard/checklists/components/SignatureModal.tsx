@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { X, PenTool, Upload, Camera, Check, RefreshCw } from 'lucide-react';
+import { X, PenTool, Upload, Camera, Check, RefreshCw, Smartphone } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'sonner';
 
@@ -14,8 +14,10 @@ interface SignatureModalProps {
 }
 
 export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureModalProps) {
-  const [activeTab, setActiveTab] = useState<'digital' | 'upload' | 'facial'>('digital');
+  const [activeTab, setActiveTab] = useState<'digital' | 'upload' | 'facial' | 'cpf_pin'>('digital');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [cpf, setCpf] = useState('');
+  const [pin, setPin] = useState('');
   
   const sigCanvas = useRef<SignatureCanvas>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -90,7 +92,16 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
 
   const handleSave = () => {
     let signatureData = '';
-    
+
+    if (activeTab === 'cpf_pin') {
+      if (!cpf.trim()) { toast.error('Informe o CPF.'); return; }
+      if (!/^\d{4,6}$/.test(pin)) { toast.error('PIN deve ter entre 4 e 6 dígitos numéricos.'); return; }
+      signatureData = JSON.stringify({ cpf: cpf.trim(), confirmed_at: new Date().toISOString() });
+      onSave(signatureData, 'cpf_pin');
+      onClose();
+      return;
+    }
+
     if (activeTab === 'digital') {
       if (sigCanvas.current?.isEmpty()) {
         toast.error('Por favor, faça a assinatura.');
@@ -161,9 +172,19 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
               <Camera className="h-4 w-4" />
               <span>Facial</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('cpf_pin')}
+              className={`flex flex-1 items-center justify-center space-x-2 rounded-md py-2 text-sm font-medium transition-all ${
+                activeTab === 'cpf_pin' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Smartphone className="h-4 w-4" />
+              <span>CPF+PIN</span>
+            </button>
           </div>
 
-          <div className="relative mb-6 flex h-64 w-full items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 overflow-hidden">
+          <div className={`relative mb-6 flex ${activeTab === 'cpf_pin' ? 'h-auto' : 'h-64'} w-full items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 overflow-hidden`}>
             {activeTab === 'digital' && (
               <SignatureCanvas
                 ref={sigCanvas}
@@ -221,6 +242,33 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
                   </>
                 )}
                 <canvas ref={canvasRef} className="hidden" />
+              </div>
+            )}
+
+            {activeTab === 'cpf_pin' && (
+              <div className="flex flex-col gap-4 p-6 w-full">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">CPF</label>
+                  <input
+                    type="text"
+                    placeholder="000.000.000-00"
+                    value={cpf}
+                    onChange={(e) => setCpf(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">PIN (4–6 dígitos)</label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    placeholder="••••"
+                    maxLength={6}
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
               </div>
             )}
           </div>

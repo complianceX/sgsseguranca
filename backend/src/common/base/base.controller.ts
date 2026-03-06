@@ -5,6 +5,7 @@ import {
   Delete,
   Body,
   Param,
+  ParseUUIDPipe,
   UseGuards,
   UseInterceptors,
   Query,
@@ -29,6 +30,7 @@ import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { Role } from '../../auth/enums/roles.enum';
 import { TenantInterceptor } from '../tenant/tenant.interceptor';
+import { TenantGuard } from '../guards/tenant.guard';
 import { BaseService } from './base.service';
 import { PaginationDto } from '../dto/pagination.dto';
 
@@ -44,7 +46,7 @@ import { PaginationDto } from '../dto/pagination.dto';
  *   }
  * }
  */
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 @ApiBearerAuth('access-token')
 export abstract class BaseController<
@@ -118,7 +120,7 @@ export abstract class BaseController<
     status: 404,
     description: 'Não encontrado',
   })
-  async findOne(@Param('id') id: string): Promise<T> {
+  async findOne(@Param('id', new ParseUUIDPipe()) id: string): Promise<T> {
     return this.service.findOne(id);
   }
 
@@ -139,7 +141,7 @@ export abstract class BaseController<
     description: 'Não encontrado',
   })
   async update(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateDto: UpdateDto,
   ): Promise<T> {
     return this.service.update(id, updateDto);
@@ -162,7 +164,7 @@ export abstract class BaseController<
     status: 404,
     description: 'Não encontrado',
   })
-  async remove(@Param('id') id: string): Promise<void> {
+  async remove(@Param('id', new ParseUUIDPipe()) id: string): Promise<void> {
     await this.service.remove(id);
   }
 }

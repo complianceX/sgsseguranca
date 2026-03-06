@@ -59,6 +59,34 @@ export interface NonConformity {
   updated_at: string;
 }
 
+export enum NcStatus {
+  ABERTA = 'ABERTA',
+  EM_ANDAMENTO = 'EM_ANDAMENTO',
+  AGUARDANDO_VALIDACAO = 'AGUARDANDO_VALIDACAO',
+  ENCERRADA = 'ENCERRADA',
+}
+
+export const NC_STATUS_LABEL: Record<NcStatus, string> = {
+  [NcStatus.ABERTA]: 'Aberta',
+  [NcStatus.EM_ANDAMENTO]: 'Em Andamento',
+  [NcStatus.AGUARDANDO_VALIDACAO]: 'Aguard. Validação',
+  [NcStatus.ENCERRADA]: 'Encerrada',
+};
+
+export const NC_STATUS_COLORS: Record<NcStatus, string> = {
+  [NcStatus.ABERTA]: 'bg-red-100 text-red-700 border-red-200',
+  [NcStatus.EM_ANDAMENTO]: 'bg-amber-100 text-amber-700 border-amber-200',
+  [NcStatus.AGUARDANDO_VALIDACAO]: 'bg-blue-100 text-blue-700 border-blue-200',
+  [NcStatus.ENCERRADA]: 'bg-green-100 text-green-700 border-green-200',
+};
+
+export const NC_ALLOWED_TRANSITIONS: Record<NcStatus, NcStatus[]> = {
+  [NcStatus.ABERTA]: [NcStatus.EM_ANDAMENTO],
+  [NcStatus.EM_ANDAMENTO]: [NcStatus.AGUARDANDO_VALIDACAO, NcStatus.ABERTA],
+  [NcStatus.AGUARDANDO_VALIDACAO]: [NcStatus.ENCERRADA, NcStatus.ABERTA],
+  [NcStatus.ENCERRADA]: [NcStatus.ABERTA],
+};
+
 export const nonConformitiesService = {
   findAll: async () => {
     const response = await api.get<NonConformity[]>('/nonconformities');
@@ -106,6 +134,21 @@ export const nonConformitiesService = {
     week?: number;
   }) => {
     const response = await api.get('/nonconformities/files/list', { params: filters });
+    return response.data;
+  },
+
+  updateStatus: async (id: string, status: NcStatus) => {
+    const response = await api.patch<NonConformity>(
+      `/nonconformities/${id}/status`,
+      { status },
+    );
+    return response.data;
+  },
+
+  getMonthlyAnalytics: async (): Promise<{ mes: string; total: number }[]> => {
+    const response = await api.get<{ mes: string; total: number }[]>(
+      '/nonconformities/analytics/monthly',
+    );
     return response.data;
   },
 

@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
   Request,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -37,7 +38,7 @@ export class NotificationsController {
   }
 
   @Patch(':id/read')
-  markAsRead(@Param('id') id: string, @Request() req: RequestWithUser) {
+  markAsRead(@Param('id', new ParseUUIDPipe()) id: string, @Request() req: RequestWithUser) {
     return this.notificationsService.markAsRead(id, req.user.userId);
   }
 

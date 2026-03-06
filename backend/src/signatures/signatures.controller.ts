@@ -8,14 +8,19 @@ import {
   UseGuards,
   Query,
   Request,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { SignaturesService } from './signatures.service';
 import { CreateSignatureDto } from './dto/create-signature.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import type { RequestWithUser } from '../auth/interfaces/request-with-user.interface';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { Role } from '../auth/enums/roles.enum';
 
 @Controller('signatures')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 export class SignaturesController {
   constructor(private readonly signaturesService: SignaturesService) {}
 
@@ -36,12 +41,13 @@ export class SignaturesController {
   }
 
   @Get('verify/:id')
-  verifyById(@Param('id') id: string) {
+  verifyById(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.signaturesService.verifyById(id);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req: RequestWithUser) {
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  remove(@Param('id', new ParseUUIDPipe()) id: string, @Request() req: RequestWithUser) {
     return this.signaturesService.remove(
       id,
       req.user.userId,
@@ -50,6 +56,7 @@ export class SignaturesController {
   }
 
   @Delete('document/:document_id')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   removeByDocument(
     @Param('document_id') document_id: string,
     @Query('document_type') document_type: string,

@@ -5,10 +5,12 @@ import {
   Body,
   Patch,
   Param,
+  ParseUUIDPipe,
   Delete,
   UseGuards,
   UseInterceptors,
   Req,
+  Query,
   UnauthorizedException,
 } from '@nestjs/common';
 import { DdsService } from './dds.service';
@@ -16,13 +18,14 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Role } from '../auth/enums/roles.enum';
 
 @Controller('dds')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class DdsController {
   constructor(
@@ -47,8 +50,21 @@ export class DdsController {
     return this.ddsService.findAll();
   }
 
+  @Get('files/list')
+  listStoredFiles(
+    @Query('company_id') companyId?: string,
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ) {
+    return this.ddsService.listStoredFiles({
+      companyId,
+      year: year ? Number(year) : undefined,
+      week: week ? Number(week) : undefined,
+    });
+  }
+
   @Get(':id')
-  async findOne(@Param('id') id: string, @Req() req: any) {
+  async findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: any) {
     // Check rate limit for mass data access/PDF generation
     try {
       if (req.user && req.user.id) {
@@ -68,13 +84,13 @@ export class DdsController {
     Role.SUPERVISOR,
     Role.COLABORADOR,
   )
-  update(@Param('id') id: string, @Body() updateDdsDto: UpdateDdsDto) {
+  update(@Param('id', new ParseUUIDPipe()) id: string, @Body() updateDdsDto: UpdateDdsDto) {
     return this.ddsService.update(id, updateDdsDto);
   }
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
-  remove(@Param('id') id: string) {
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.ddsService.remove(id);
   }
 }

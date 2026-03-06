@@ -8,6 +8,9 @@ import {
   IsEnum,
   IsBoolean,
   IsObject,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
 
 export class CreatePtDto {
@@ -72,6 +75,44 @@ export class CreatePtDto {
   @IsBoolean()
   @IsOptional()
   escavacao?: boolean;
+
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  @IsOptional()
+  probability?: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  @IsOptional()
+  severity?: number;
+
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  @IsOptional()
+  exposure?: number;
+
+  @IsEnum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])
+  @IsOptional()
+  residual_risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+  @IsString()
+  @IsOptional()
+  evidence_photo?: string;
+
+  @IsString()
+  @IsOptional()
+  evidence_document?: string;
+
+  @IsString()
+  @IsOptional()
+  control_description?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  control_evidence?: boolean;
 
   @IsOptional()
   @IsArray()

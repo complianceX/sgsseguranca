@@ -22,6 +22,15 @@ export interface Apr {
   is_modelo?: boolean;
   is_modelo_padrao?: boolean;
   itens_risco?: Array<Record<string, string>>;
+  probability?: number;
+  severity?: number;
+  exposure?: number;
+  initial_risk?: number;
+  residual_risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  evidence_photo?: string;
+  evidence_document?: string;
+  control_description?: string;
+  control_evidence?: boolean;
   company_id: string;
   company?: Company;
   site_id: string;
@@ -110,6 +119,14 @@ export interface CreateAprDto {
   is_modelo?: boolean;
   is_modelo_padrao?: boolean;
   itens_risco?: Array<Record<string, string>>;
+  probability?: number;
+  severity?: number;
+  exposure?: number;
+  residual_risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  evidence_photo?: string;
+  evidence_document?: string;
+  control_description?: string;
+  control_evidence?: boolean;
   company_id: string;
   site_id: string;
   elaborador_id: string;
@@ -126,9 +143,14 @@ export interface CreateAprDto {
 }
 
 export const aprsService = {
-  findPaginated: async (opts?: { page?: number; limit?: number }) => {
+  findPaginated: async (opts?: { page?: number; limit?: number; search?: string; status?: string }) => {
     const response = await api.get<PaginatedResponse<Apr>>('/aprs', {
-      params: { page: opts?.page ?? 1, limit: opts?.limit ?? 20 },
+      params: {
+        page: opts?.page ?? 1,
+        limit: opts?.limit ?? 20,
+        ...(opts?.search ? { search: opts.search } : {}),
+        ...(opts?.status ? { status: opts.status } : {}),
+      },
     });
     return response.data;
   },

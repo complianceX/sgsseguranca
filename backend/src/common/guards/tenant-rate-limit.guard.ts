@@ -39,7 +39,7 @@ export class TenantRateLimitGuard implements CanActivate {
 
     const companyId = this.tenantService.getTenantId();
 
-    // Sem tenant no contexto — deixa TenantRequiredGuard tratar
+    // Sem tenant no contexto — deixa TenantGuard tratar
     if (!companyId) return true;
 
     const request = context.switchToHttp().getRequest();

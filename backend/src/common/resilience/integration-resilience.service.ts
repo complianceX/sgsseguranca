@@ -108,8 +108,7 @@ export class IntegrationResilienceService {
 
     return this.circuitBreaker.execute(
       `integration:${normalized}`,
-      async () =>
-        this.retryService.execute(fn, retryOptions),
+      async () => this.retryService.execute(fn, retryOptions),
       breakerConfig,
     );
   }
@@ -156,7 +155,11 @@ function summarizeError(error: unknown): string {
         : typeof anyErr?.response?.status === 'number'
           ? anyErr.response.status
           : undefined;
-  return [message, code ? `code=${code}` : null, typeof status === 'number' ? `status=${status}` : null]
+  return [
+    message,
+    code ? `code=${code}` : null,
+    typeof status === 'number' ? `status=${status}` : null,
+  ]
     .filter(Boolean)
     .join(' ');
 }

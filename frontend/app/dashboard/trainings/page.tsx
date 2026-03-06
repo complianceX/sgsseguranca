@@ -10,17 +10,19 @@ import {
 } from '@/services/trainingsService';
 import { signaturesService } from '@/services/signaturesService';
 import { generateTrainingPdf } from '@/lib/pdf/trainingGenerator';
-import { 
-  Plus, 
-  Search, 
-  User, 
-  Calendar, 
-  Download, 
-  Mail, 
+import {
+  Plus,
+  Search,
+  User,
+  Calendar,
+  Download,
+  Mail,
   Printer,
-  Pencil, 
-  Trash2 
+  Pencil,
+  Trash2,
+  FileSpreadsheet,
 } from 'lucide-react';
+import { downloadExcel } from '@/lib/download-excel';
 import { toast } from 'sonner';
 import { SendMailModal } from '@/components/SendMailModal';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -224,6 +226,14 @@ export default function TrainingsPage() {
             <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
               {filteredTrainings.length} resultado(s)
             </span>
+            <button
+              type="button"
+              onClick={() => downloadExcel('/trainings/export/excel', 'treinamentos.xlsx')}
+              className="flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+            >
+              <FileSpreadsheet className="mr-1.5 h-4 w-4 text-green-600" />
+              Exportar Excel
+            </button>
             <button
               type="button"
               onClick={handleNotifyExpiring}

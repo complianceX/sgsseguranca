@@ -8,47 +8,92 @@ import {
   Delete,
   UseGuards,
   Request,
+  Query,
+  UnauthorizedException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuditsService } from './audits.service';
 import { CreateAuditDto, UpdateAuditDto } from './dto/create-audit.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-
-type RequestWithUser = { user: { companyId: string } };
+import { TenantGuard } from '../common/guards/tenant.guard';
+import { TenantService } from '../common/tenant/tenant.service';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { Role } from '../auth/enums/roles.enum';
 
 @Controller('audits')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 export class AuditsController {
-  constructor(private readonly auditsService: AuditsService) {}
+  constructor(
+    private readonly auditsService: AuditsService,
+    private readonly tenantService: TenantService,
+  ) {}
+
+  private getTenantIdOrThrow(): string {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException(
+        'Contexto de empresa não identificado. Faça login novamente ou selecione uma empresa.',
+      );
+    }
+    return tenantId;
+  }
 
   @Post()
-  create(
-    @Body() createAuditDto: CreateAuditDto,
-    @Request() req: RequestWithUser,
-  ) {
-    return this.auditsService.create(createAuditDto, req.user.companyId);
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  create(@Body() createAuditDto: CreateAuditDto) {
+    return this.auditsService.create(createAuditDto, this.getTenantIdOrThrow());
   }
 
   @Get()
-  findAll(@Request() req: RequestWithUser) {
-    return this.auditsService.findAll(req.user.companyId);
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.auditsService.findPaginated(
+      {
+        page: page ? Number(page) : 1,
+        limit: limit ? Number(limit) : 20,
+        search: search || undefined,
+      },
+      this.getTenantIdOrThrow(),
+    );
+  }
+
+  @Get('files/list')
+  listStoredFiles(
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ) {
+    return this.auditsService.listStoredFiles({
+      companyId: this.getTenantIdOrThrow(),
+      year: year ? Number(year) : undefined,
+      week: week ? Number(week) : undefined,
+    });
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.auditsService.findOne(id, req.user.companyId);
+  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.auditsService.findOne(id, this.getTenantIdOrThrow());
   }
 
   @Patch(':id')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   update(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateAuditDto: UpdateAuditDto,
-    @Request() req: RequestWithUser,
   ) {
-    return this.auditsService.update(id, updateAuditDto, req.user.companyId);
+    return this.auditsService.update(
+      id,
+      updateAuditDto,
+      this.getTenantIdOrThrow(),
+    );
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Request() req: RequestWithUser) {
-    return this.auditsService.remove(id, req.user.companyId);
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.auditsService.remove(id, this.getTenantIdOrThrow());
   }
 }

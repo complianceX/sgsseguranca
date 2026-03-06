@@ -1,4 +1,5 @@
 require('reflect-metadata');
+require('dotenv').config();
 const { DataSource } = require('typeorm');
 
 function buildDataSource() {

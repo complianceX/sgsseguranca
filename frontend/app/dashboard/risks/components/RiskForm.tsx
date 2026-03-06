@@ -18,6 +18,17 @@ const riskSchema = z.object({
   categoria: z.string().min(1, 'Selecione uma categoria'),
   descricao: z.string().optional(),
   medidas_controle: z.string().optional(),
+  probability: z.coerce.number().min(1).max(5).optional(),
+  severity: z.coerce.number().min(1).max(5).optional(),
+  exposure: z.coerce.number().min(1).max(5).optional(),
+  residual_risk: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional(),
+  control_hierarchy: z
+    .enum(['ELIMINATION', 'SUBSTITUTION', 'ENGINEERING', 'ADMINISTRATIVE', 'PPE'])
+    .optional(),
+  evidence_photo: z.string().optional(),
+  evidence_document: z.string().optional(),
+  control_description: z.string().optional(),
+  control_evidence: z.boolean().optional(),
   company_id: z.string().min(1, 'Selecione uma empresa'),
 });
 
@@ -44,6 +55,15 @@ export function RiskForm({ id }: RiskFormProps) {
       categoria: '',
       descricao: '',
       medidas_controle: '',
+      probability: undefined,
+      severity: undefined,
+      exposure: undefined,
+      residual_risk: undefined,
+      control_hierarchy: undefined,
+      evidence_photo: '',
+      evidence_document: '',
+      control_description: '',
+      control_evidence: false,
       company_id: '',
     },
   });
@@ -61,6 +81,15 @@ export function RiskForm({ id }: RiskFormProps) {
             categoria: data.categoria || '',
             descricao: data.descricao || '',
             medidas_controle: data.medidas_controle || '',
+            probability: data.probability || undefined,
+            severity: data.severity || undefined,
+            exposure: data.exposure || undefined,
+            residual_risk: data.residual_risk || undefined,
+            control_hierarchy: data.control_hierarchy || undefined,
+            evidence_photo: data.evidence_photo || '',
+            evidence_document: data.evidence_document || '',
+            control_description: data.control_description || '',
+            control_evidence: Boolean(data.control_evidence),
             company_id: data.company_id || '',
           });
         }
@@ -189,6 +218,110 @@ export function RiskForm({ id }: RiskFormProps) {
               placeholder="Informe as medidas de controle adotadas..."
             />
           </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <label htmlFor="probability" className="block text-sm font-medium text-gray-700">Probabilidade (1-5)</label>
+              <input
+                id="probability"
+                type="number"
+                min={1}
+                max={5}
+                {...register('probability', { valueAsNumber: true })}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+              />
+            </div>
+            <div>
+              <label htmlFor="severity" className="block text-sm font-medium text-gray-700">Severidade (1-5)</label>
+              <input
+                id="severity"
+                type="number"
+                min={1}
+                max={5}
+                {...register('severity', { valueAsNumber: true })}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+              />
+            </div>
+            <div>
+              <label htmlFor="exposure" className="block text-sm font-medium text-gray-700">Exposição (1-5)</label>
+              <input
+                id="exposure"
+                type="number"
+                min={1}
+                max={5}
+                {...register('exposure', { valueAsNumber: true })}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label htmlFor="residual_risk" className="block text-sm font-medium text-gray-700">Risco Residual</label>
+              <select
+                id="residual_risk"
+                {...register('residual_risk')}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+              >
+                <option value="">Automático</option>
+                <option value="LOW">Baixo</option>
+                <option value="MEDIUM">Médio</option>
+                <option value="HIGH">Alto</option>
+                <option value="CRITICAL">Crítico</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="control_hierarchy" className="block text-sm font-medium text-gray-700">Hierarquia de Controle</label>
+              <select
+                id="control_hierarchy"
+                {...register('control_hierarchy')}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+              >
+                <option value="">Selecione</option>
+                <option value="ELIMINATION">Eliminação</option>
+                <option value="SUBSTITUTION">Substituição</option>
+                <option value="ENGINEERING">Engenharia</option>
+                <option value="ADMINISTRATIVE">Administrativo</option>
+                <option value="PPE">EPI</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="control_description" className="block text-sm font-medium text-gray-700">Descrição do Controle</label>
+            <textarea
+              id="control_description"
+              {...register('control_description')}
+              rows={3}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label htmlFor="evidence_photo" className="block text-sm font-medium text-gray-700">Evidência (foto/url)</label>
+              <input
+                id="evidence_photo"
+                type="text"
+                {...register('evidence_photo')}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+              />
+            </div>
+            <div>
+              <label htmlFor="evidence_document" className="block text-sm font-medium text-gray-700">Evidência documental</label>
+              <input
+                id="evidence_document"
+                type="text"
+                {...register('evidence_document')}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+              />
+            </div>
+          </div>
+
+          <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+            <input type="checkbox" {...register('control_evidence')} className="h-4 w-4 rounded border-gray-300" />
+            Controle com evidência validada
+          </label>
         </div>
 
         <div className="flex justify-end space-x-3 border-t pt-6">

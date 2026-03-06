@@ -20,6 +20,15 @@ export interface Pt {
   trabalho_quente: boolean;
   eletricidade: boolean;
   escavacao: boolean;
+  probability?: number;
+  severity?: number;
+  exposure?: number;
+  initial_risk?: number;
+  residual_risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  evidence_photo?: string;
+  evidence_document?: string;
+  control_description?: string;
+  control_evidence?: boolean;
   trabalho_altura_checklist?: Array<{
     id: string;
     pergunta: string;
@@ -90,9 +99,14 @@ export interface Pt {
 }
 
 export const ptsService = {
-  findPaginated: async (opts?: { page?: number; limit?: number }) => {
+  findPaginated: async (opts?: { page?: number; limit?: number; search?: string; status?: string }) => {
     const response = await api.get<PaginatedResponse<Pt>>('/pts', {
-      params: { page: opts?.page ?? 1, limit: opts?.limit ?? 20 },
+      params: {
+        page: opts?.page ?? 1,
+        limit: opts?.limit ?? 20,
+        ...(opts?.search ? { search: opts.search } : {}),
+        ...(opts?.status ? { status: opts.status } : {}),
+      },
     });
     return response.data;
   },

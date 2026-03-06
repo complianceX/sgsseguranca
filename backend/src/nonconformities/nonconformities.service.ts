@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as XLSX from 'xlsx';
 import { NonConformity } from './entities/nonconformity.entity';
 import {
   CreateNonConformityDto,
@@ -8,6 +13,23 @@ import {
 } from './dto/create-nonconformity.dto';
 import { TenantService } from '../common/tenant/tenant.service';
 import { StorageService } from '../common/services/storage.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/enums/audit-action.enum';
+import { RequestContext } from '../common/middleware/request-context.middleware';
+
+export enum NcStatus {
+  ABERTA = 'ABERTA',
+  EM_ANDAMENTO = 'EM_ANDAMENTO',
+  AGUARDANDO_VALIDACAO = 'AGUARDANDO_VALIDACAO',
+  ENCERRADA = 'ENCERRADA',
+}
+
+const ALLOWED_TRANSITIONS: Record<NcStatus, NcStatus[]> = {
+  [NcStatus.ABERTA]: [NcStatus.EM_ANDAMENTO],
+  [NcStatus.EM_ANDAMENTO]: [NcStatus.AGUARDANDO_VALIDACAO, NcStatus.ABERTA],
+  [NcStatus.AGUARDANDO_VALIDACAO]: [NcStatus.ENCERRADA, NcStatus.ABERTA],
+  [NcStatus.ENCERRADA]: [NcStatus.ABERTA],
+};
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 
 @Injectable()
@@ -17,6 +39,7 @@ export class NonConformitiesService {
     private nonConformitiesRepository: Repository<NonConformity>,
     private tenantService: TenantService,
     private storageService: StorageService,
+    private readonly auditService: AuditService,
   ) {}
 
   async create(createNonConformityDto: CreateNonConformityDto) {
@@ -24,7 +47,9 @@ export class NonConformitiesService {
       ...createNonConformityDto,
       company_id: this.tenantService.getTenantId(),
     });
-    return this.nonConformitiesRepository.save(nonConformity);
+    const saved = await this.nonConformitiesRepository.save(nonConformity);
+    await this.logAudit(AuditAction.CREATE, saved.id, null, saved);
+    return saved;
   }
 
   async findAll() {
@@ -54,13 +79,18 @@ export class NonConformitiesService {
 
   async update(id: string, updateNonConformityDto: UpdateNonConformityDto) {
     const nonConformity = await this.findOne(id);
+    const before = { ...nonConformity };
     Object.assign(nonConformity, updateNonConformityDto);
-    return this.nonConformitiesRepository.save(nonConformity);
+    const saved = await this.nonConformitiesRepository.save(nonConformity);
+    await this.logAudit(AuditAction.UPDATE, saved.id, before, saved);
+    return saved;
   }
 
   async remove(id: string) {
     const nonConformity = await this.findOne(id);
+    const before = { ...nonConformity };
     await this.nonConformitiesRepository.remove(nonConformity);
+    await this.logAudit(AuditAction.DELETE, id, before, null);
   }
 
   async listStoredFiles(filters: {
@@ -148,7 +178,89 @@ export class NonConformitiesService {
     return this.nonConformitiesRepository.save(nc);
   }
 
+  async getMonthlyAnalytics(): Promise<{ mes: string; total: number }[]> {
+    const tenantId = this.tenantService.getTenantId();
+    const qb = this.nonConformitiesRepository
+      .createQueryBuilder('nc')
+      .select("TO_CHAR(DATE_TRUNC('month', nc.created_at), 'YYYY-MM')", 'mes')
+      .addSelect('COUNT(*)', 'total')
+      .where("nc.created_at >= NOW() - INTERVAL '12 months'")
+      .groupBy("DATE_TRUNC('month', nc.created_at)")
+      .orderBy("DATE_TRUNC('month', nc.created_at)", 'ASC');
+
+    if (tenantId) {
+      qb.andWhere('nc.company_id = :tenantId', { tenantId });
+    }
+
+    const rows = await qb.getRawMany<{ mes: string; total: string }>();
+    return rows.map((r) => ({ mes: r.mes, total: Number(r.total) }));
+  }
+
+  async updateStatus(id: string, newStatus: NcStatus): Promise<NonConformity> {
+    const nc = await this.findOne(id);
+    const before = { ...nc };
+    const current = nc.status as NcStatus;
+    const allowed = ALLOWED_TRANSITIONS[current] ?? [];
+    if (!allowed.includes(newStatus)) {
+      throw new BadRequestException(
+        `Transição de "${current}" para "${newStatus}" não permitida`,
+      );
+    }
+    nc.status = newStatus;
+    const saved = await this.nonConformitiesRepository.save(nc);
+    await this.logAudit(AuditAction.UPDATE, saved.id, before, saved);
+    return saved;
+  }
+
   async count(options?: any): Promise<number> {
     return this.nonConformitiesRepository.count(options);
+  }
+
+  async exportExcel(): Promise<Buffer> {
+    const tenantId = this.tenantService.getTenantId();
+    const qb = this.nonConformitiesRepository
+      .createQueryBuilder('nc')
+      .select([
+        'nc.codigo_nc', 'nc.tipo', 'nc.status',
+        'nc.data_identificacao', 'nc.created_at',
+      ])
+      .orderBy('nc.created_at', 'DESC');
+    if (tenantId) qb.where('nc.company_id = :tenantId', { tenantId });
+    const ncs = await qb.getMany();
+
+    const rows = ncs.map((n) => ({
+      'Código NC': n.codigo_nc,
+      'Tipo': n.tipo ?? '',
+      'Status': n.status,
+      'Data de Identificação': n.data_identificacao
+        ? new Date(n.data_identificacao).toLocaleDateString('pt-BR')
+        : '',
+      'Criado em': new Date(n.created_at).toLocaleDateString('pt-BR'),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Não Conformidades');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
+  private async logAudit(
+    action: AuditAction,
+    entityId: string,
+    before: unknown,
+    after: unknown,
+  ) {
+    const companyId = this.tenantService.getTenantId();
+    if (!companyId) return;
+    await this.auditService.log({
+      userId: RequestContext.getUserId() || 'system',
+      action,
+      entity: 'NonConformity',
+      entityId,
+      changes: { before, after },
+      ip: (RequestContext.get('ip') as string) || 'unknown',
+      userAgent: (RequestContext.get('userAgent') as string) || 'unknown',
+      companyId,
+    });
   }
 }

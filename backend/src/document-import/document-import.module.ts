@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DocumentImport } from './entities/document-import.entity';
 import { DdsModule } from '../dds/dds.module';
+import { AiModule } from '../ai/ai.module';
 import { DocumentImportController } from './controllers/document-import.controller';
 import { DocumentImportService } from './services/document-import.service';
 import { FileParserService } from './services/file-parser.service';
@@ -10,7 +11,7 @@ import { DocumentInterpreterService } from './services/document-interpreter.serv
 import { DocumentValidationService } from './services/document-validation.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([DocumentImport]), DdsModule],
+  imports: [TypeOrmModule.forFeature([DocumentImport]), DdsModule, AiModule],
   controllers: [DocumentImportController],
   providers: [
     DocumentImportService,

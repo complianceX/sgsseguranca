@@ -15,6 +15,7 @@ export class CleanupTask {
     @InjectRepository(AuditLog)
     private auditLogRepo: Repository<AuditLog>,
     @InjectQueue('sla-escalation') private readonly slaQueue: Queue,
+    @InjectQueue('expiry-notifications') private readonly expiryQueue: Queue,
     private readonly companiesService: CompaniesService,
   ) {}
 
@@ -34,6 +35,29 @@ export class CleanupTask {
   generateWeeklyReports() {
     this.logger.log('Starting weekly reports generation...');
     // Lógica de geração de relatórios semanais
+  }
+
+  @Cron('0 8 * * *') // Daily at 08:00
+  async runExpiryNotifications() {
+    const tenants = await this.companiesService.findAllActive();
+    for (const tenant of tenants) {
+      await this.expiryQueue.add(
+        'training-check',
+        { tenantId: tenant.id, type: 'training-check' },
+        { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: true },
+      );
+      await this.expiryQueue.add(
+        'epi-check',
+        { tenantId: tenant.id, type: 'epi-check' },
+        { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: true },
+      );
+      await this.expiryQueue.add(
+        'medical-exam-check',
+        { tenantId: tenant.id, type: 'medical-exam-check' },
+        { attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: true },
+      );
+    }
+    this.logger.log(`Expiry notifications enqueued for ${tenants.length} tenants`);
   }
 
   @Cron(CronExpression.EVERY_HOUR)

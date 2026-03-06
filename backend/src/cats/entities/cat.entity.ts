@@ -12,6 +12,10 @@ import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
 
+const isSqlite =
+  process.env.DATABASE_TYPE === 'sqlite' ||
+  process.env.DATABASE_TYPE === 'better-sqlite3';
+
 export type CatStatus = 'aberta' | 'investigacao' | 'fechada';
 export type CatTipo = 'tipico' | 'trajeto' | 'doenca_ocupacional' | 'outros';
 export type CatGravidade = 'leve' | 'moderada' | 'grave' | 'fatal';
@@ -63,7 +67,7 @@ export class Cat {
   @JoinColumn({ name: 'worker_id' })
   worker?: User;
 
-  @Column({ type: 'timestamp' })
+  @Column()
   data_ocorrencia: Date;
 
   @Column({ type: 'varchar', default: 'tipico' })
@@ -78,7 +82,7 @@ export class Cat {
   @Column({ type: 'text', nullable: true })
   local_ocorrencia?: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: isSqlite ? 'simple-json' : 'jsonb', nullable: true })
   pessoas_envolvidas?: string[];
 
   @Column({ type: 'text', nullable: true })
@@ -120,16 +124,16 @@ export class Cat {
   @JoinColumn({ name: 'closed_by_id' })
   closed_by?: User;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   opened_at?: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   investigated_at?: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   closed_at?: Date;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: isSqlite ? 'simple-json' : 'jsonb', nullable: true })
   attachments?: CatAttachment[];
 
   @CreateDateColumn()

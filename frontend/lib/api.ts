@@ -1,18 +1,30 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
-import { storage } from './storage';
+import { tokenStore } from './tokenStore';
+import { sessionStore } from './sessionStore';
 
 const getBaseUrl = () => {
   if (process.env.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
   if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:3001`;
+    // Padrão local: backend roda em 3011 (run-local.ps1 / LOCAL_SETUP.md)
+    return `${window.location.protocol}//${window.location.hostname}:3011`;
   }
-  return 'http://localhost:3001';
+  return 'http://localhost:3011';
 };
 
 type RetryConfig = AxiosRequestConfig & { __retryCount?: number };
 type AuthRetryConfig = RetryConfig & { __authRetry?: boolean };
+
+const notifyApiStatus = (online: boolean, baseURL?: string) => {
+  if (typeof window === 'undefined') return;
+  const eventName = online ? 'app:api-online' : 'app:api-offline';
+  window.dispatchEvent(
+    new CustomEvent(eventName, {
+      detail: { baseURL },
+    }),
+  );
+};
 
 const refreshClient = axios.create({
   baseURL: getBaseUrl(),
@@ -29,7 +41,7 @@ async function refreshAccessToken(): Promise<string> {
       if (!token) {
         throw new Error('Refresh não retornou accessToken.');
       }
-      storage.setItem('token', token);
+      tokenStore.set(token);
       return token;
     })().finally(() => {
       refreshInFlight = null;
@@ -48,24 +60,10 @@ api.interceptors.request.use((config) => {
   if (typeof window === 'undefined') {
     return config;
   }
-  const token = storage.getItem('token');
-  let companyId = storage.getItem('companyId');
-  let userProfileName: string | undefined;
-  const rawUser = storage.getItem('user');
-  if (rawUser) {
-    try {
-      const parsedUser = JSON.parse(rawUser) as {
-        company_id?: string;
-        profile?: { nome?: string };
-      };
-      if (!companyId && parsedUser?.company_id) {
-        companyId = parsedUser.company_id;
-      }
-      userProfileName = parsedUser?.profile?.nome;
-    } catch {
-      companyId = companyId || null;
-    }
-  }
+  const token = tokenStore.get();
+  const session = sessionStore.get();
+  const companyId = session?.companyId || null;
+  const userProfileName = session?.profileName;
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -82,15 +80,22 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    notifyApiStatus(true, response.config?.baseURL);
+    return response;
+  },
   async (error: AxiosError) => {
     const config = error.config as AuthRetryConfig | undefined;
     if (!config) {
       return Promise.reject(error);
     }
 
-    // 401 → tenta refresh via cookie httpOnly e refaz a request uma única vez
     const status = error.response?.status;
+    if (!status || error.code === 'ERR_NETWORK') {
+      notifyApiStatus(false, config.baseURL || getBaseUrl());
+    }
+
+    // 401 → tenta refresh via cookie httpOnly e refaz a request uma única vez
     const url = String(config.url || '');
     const method = (config.method || 'get').toLowerCase();
     const isAuthEndpoint =
@@ -106,9 +111,8 @@ api.interceptors.response.use(
         (config.headers as any).Authorization = `Bearer ${newToken}`;
         return api.request(config);
       } catch {
-        storage.removeItem('token');
-        storage.removeItem('user');
-        storage.removeItem('companyId');
+        tokenStore.clear();
+        sessionStore.clear();
         return Promise.reject(error);
       }
     }

@@ -122,7 +122,11 @@ export class LoggingInterceptor implements NestInterceptor {
     return value;
   }
 
-  private sanitizeKeyValue(key: string, value: unknown, depth: number): unknown {
+  private sanitizeKeyValue(
+    key: string,
+    value: unknown,
+    depth: number,
+  ): unknown {
     const k = key.toLowerCase();
 
     const redactKeys = new Set([
@@ -141,9 +145,7 @@ export class LoggingInterceptor implements NestInterceptor {
     }
 
     if (k.includes('email')) {
-      return typeof value === 'string'
-        ? this.maskEmail(value)
-        : '***MASKED***';
+      return typeof value === 'string' ? this.maskEmail(value) : '***MASKED***';
     }
 
     return this.sanitizeUnknown(value, depth);

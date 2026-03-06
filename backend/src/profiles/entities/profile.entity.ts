@@ -8,6 +8,10 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
+const isSqlite =
+  process.env.DATABASE_TYPE === 'sqlite' ||
+  process.env.DATABASE_TYPE === 'better-sqlite3';
+
 @Entity('profiles')
 export class Profile {
   @PrimaryGeneratedColumn('uuid')
@@ -16,7 +20,7 @@ export class Profile {
   @Column()
   nome: string;
 
-  @Column({ type: 'jsonb' })
+  @Column({ type: isSqlite ? 'simple-json' : 'jsonb' })
   permissoes: any;
 
   @Column({ default: true })

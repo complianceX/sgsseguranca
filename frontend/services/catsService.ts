@@ -138,4 +138,16 @@ export const catsService = {
     }>(`/cats/${id}/attachments/${attachmentId}/access`);
     return response.data;
   },
+
+  getStatistics: async (): Promise<{
+    total: number;
+    fatalCount: number;
+    openCount: number;
+    byTipo: Record<string, number>;
+    byGravidade: Record<string, number>;
+    byMonth: { month: string; total: number }[];
+  }> => {
+    const res = await api.get('/cats/statistics');
+    return res.data;
+  },
 };

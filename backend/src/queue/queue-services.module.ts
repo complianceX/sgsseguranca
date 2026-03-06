@@ -11,6 +11,7 @@ import { TempCleanupService } from '../common/services/temp-cleanup.service';
       { name: 'pdf-generation-dlq' },
       { name: 'mail-dlq' },
       { name: 'sla-escalation' },
+      { name: 'expiry-notifications' },
     ),
   ],
   providers: [QueueMonitorService, TempCleanupService],

@@ -27,6 +27,7 @@ export function useAprs() {
   const [aprs, setAprs] = useState<Apr[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [insights, setInsights] = useState<Insight[]>([]);
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
@@ -40,7 +41,12 @@ export function useAprs() {
   const loadAprs = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await aprsService.findPaginated({ page, limit });
+      const res = await aprsService.findPaginated({
+        page,
+        limit,
+        search: searchTerm || undefined,
+        status: statusFilter || undefined,
+      });
       setAprs(res.data);
       setTotal(res.total);
       setLastPage(res.lastPage);
@@ -49,7 +55,12 @@ export function useAprs() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit]);
+  }, [page, limit, searchTerm, statusFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter]);
 
   const loadInsights = useCallback(async () => {
     try {
@@ -141,12 +152,8 @@ export function useAprs() {
     }
   }, []);
 
-  const filteredAprs = useMemo(() => {
-    return aprs.filter(apr =>
-      apr.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apr.descricao?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [aprs, searchTerm]);
+  // Filtering is now server-side — aprs already contains the filtered page
+  const filteredAprs = aprs;
 
   const overviewMetrics: AprOverviewMetrics | null = useMemo(() => {
     const list = filteredAprs;
@@ -211,6 +218,8 @@ export function useAprs() {
     loading,
     searchTerm,
     setSearchTerm,
+    statusFilter,
+    setStatusFilter,
     insights,
     overviewMetrics,
     page,

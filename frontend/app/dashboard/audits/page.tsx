@@ -1,8 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { auditsService, Audit } from '@/services/auditsService';
 import { Plus, Search, FileText, Edit, Trash2, ClipboardCheck, Download, Mail, Printer } from 'lucide-react';
+import { TableRowSkeleton } from '@/components/ui/skeleton';
+import { ActionMenu } from '@/components/ActionMenu';
+import { PaginationControls } from '@/components/PaginationControls';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -13,26 +17,38 @@ import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { correctiveActionsService } from '@/services/correctiveActionsService';
 
 export default function AuditsPage() {
+  const router = useRouter();
   const [audits, setAudits] = useState<Audit[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
 
-  const fetchAudits = async () => {
+  const fetchAudits = useCallback(async () => {
     try {
-      const data = await auditsService.findAll();
-      setAudits(data);
+      setLoading(true);
+      const res = await auditsService.findPaginated({ page, search: searchTerm || undefined });
+      setAudits(res.data);
+      setTotal(res.total);
+      setLastPage(res.lastPage);
     } catch {
       toast.error('Erro ao carregar auditorias');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, searchTerm]);
+
+  // Reset page when search changes
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm]);
 
   useEffect(() => {
     fetchAudits();
-  }, []);
+  }, [fetchAudits]);
 
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir esta auditoria?')) {
@@ -114,12 +130,6 @@ export default function AuditsPage() {
     }
   };
 
-  const filteredAudits = audits.filter(audit =>
-    audit.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    audit.tipo_auditoria.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    audit.site?.nome.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   const companyOptions = Array.from(
     new Map(
       audits
@@ -149,7 +159,7 @@ export default function AuditsPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Buscar por título, tipo ou site..."
+            placeholder="Buscar por título ou tipo..."
             className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -170,15 +180,11 @@ export default function AuditsPage() {
           </thead>
           <tbody className="divide-y divide-gray-200">
             {loading ? (
-              Array.from({ length: 3 }).map((_, i) => (
-                <tr key={i} className="animate-pulse">
-                  <td colSpan={5} className="px-6 py-4">
-                    <div className="h-4 w-full rounded bg-gray-100"></div>
-                  </td>
-                </tr>
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRowSkeleton key={i} cols={5} />
               ))
-            ) : filteredAudits.length > 0 ? (
-              filteredAudits.map((audit) => (
+            ) : audits.length > 0 ? (
+              audits.map((audit) => (
                 <tr key={audit.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center space-x-3">
@@ -201,55 +207,14 @@ export default function AuditsPage() {
                     <p className="text-gray-700">{audit.auditor?.nome || '-'}</p>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => handleCreateCapa(audit)}
-                        className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-emerald-600 transition-colors"
-                        title="Gerar CAPA"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handlePrint(audit)}
-                        className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                        title="Imprimir"
-                      >
-                        <Printer className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSendEmail(audit)}
-                        className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                        title="Enviar por E-mail"
-                      >
-                        <Mail className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadPdf(audit)}
-                        className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                        title="Baixar PDF"
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
-                      <Link
-                        href={`/dashboard/audits/edit/${audit.id}`}
-                        className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                        title="Editar"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(audit.id)}
-                        className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-red-600 transition-colors"
-                        title="Excluir"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                    <ActionMenu items={[
+                      { label: 'Gerar CAPA', icon: <Plus className="h-4 w-4" />, onClick: () => handleCreateCapa(audit) },
+                      { label: 'Imprimir', icon: <Printer className="h-4 w-4" />, onClick: () => handlePrint(audit) },
+                      { label: 'Enviar E-mail', icon: <Mail className="h-4 w-4" />, onClick: () => handleSendEmail(audit) },
+                      { label: 'Baixar PDF', icon: <Download className="h-4 w-4" />, onClick: () => handleDownloadPdf(audit) },
+                      { label: 'Editar', icon: <Edit className="h-4 w-4" />, onClick: () => router.push(`/dashboard/audits/edit/${audit.id}`) },
+                      { label: 'Excluir', icon: <Trash2 className="h-4 w-4" />, onClick: () => handleDelete(audit.id), variant: 'danger' },
+                    ]} />
                   </td>
                 </tr>
               ))
@@ -265,6 +230,16 @@ export default function AuditsPage() {
             )}
           </tbody>
         </table>
+
+        {!loading && (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+          />
+        )}
       </div>
 
       <StoredFilesPanel

@@ -56,7 +56,10 @@ import { SignaturesModule } from './signatures/signatures.module';
 import { AuditsModule } from './audits/audits.module';
 import { InspectionsModule } from './inspections/inspections.module';
 import { NonConformitiesModule } from './nonconformities/nonconformities.module';
-// import { DocumentImportModule } from './document-import/document-import.module';
+import { RdosModule } from './rdos/rdos.module';
+import { MedicalExamsModule } from './medical-exams/medical-exams.module';
+import { ServiceOrdersModule } from './service-orders/service-orders.module';
+import { DocumentImportModule } from './document-import/document-import.module';
 import { AuditModule } from './audit/audit.module';
 import { ContractsModule } from './contracts/contracts.module';
 import { TasksModule } from './tasks/tasks.module';
@@ -66,13 +69,15 @@ import { DataLoaderModule } from './common/dataloader/dataloader.module';
 import { MathModule } from './math/math.module';
 import { RedisModule } from './common/redis/redis.module';
 import { ObservabilityModule } from './common/observability/observability.module';
+import { RbacModule } from './rbac/rbac.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 // QueueServicesModule removido do AppModule — registra as mesmas filas que
 // MailModule/ReportsModule/TasksModule, causando conflito de DI no NestJS.
 // Fica apenas no WorkerModule onde tem acesso completo a todas as filas.
 
 // Guards, Interceptors & Middleware
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
-import { TenantRequiredGuard } from './common/guards/tenant-required.guard';
+import { TenantGuard } from './common/guards/tenant.guard';
 import { TenantRateLimitGuard } from './common/guards/tenant-rate-limit.guard';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -94,6 +99,10 @@ const validationSchema = Joi.object({
     .valid('development', 'production', 'test', 'staging')
     .default('development'),
   PORT: Joi.number().default(3000),
+  DATABASE_TYPE: Joi.string()
+    .valid('postgres', 'sqlite', 'better-sqlite3')
+    .default('postgres'),
+  SQLITE_DB_PATH: Joi.string().default('dev.sqlite'),
   DATABASE_URL: Joi.string().optional(),
   DATABASE_HOST: Joi.string().when('DATABASE_URL', {
     is: Joi.exist(),
@@ -118,10 +127,15 @@ const validationSchema = Joi.object({
   }),
   DATABASE_SSL: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
-  REDIS_HOST: Joi.string().when('NODE_ENV', {
-    is: 'production',
-    then: Joi.required(),
-    otherwise: Joi.string().default('127.0.0.1'),
+  REDIS_URL: Joi.string().optional(),
+  REDIS_HOST: Joi.string().when('REDIS_URL', {
+    is: Joi.exist(),
+    then: Joi.optional(),
+    otherwise: Joi.string().when('NODE_ENV', {
+      is: 'production',
+      then: Joi.required(),
+      otherwise: Joi.string().default('127.0.0.1'),
+    }),
   }),
   REDIS_PORT: Joi.number().default(6379),
   REDIS_PASSWORD: Joi.string().optional().allow(''),
@@ -193,6 +207,24 @@ const validationSchema = Joi.object({
   JAEGER_AGENT_PORT: Joi.number().optional(),
   PROMETHEUS_PORT: Joi.number().optional(),
   ANTHROPIC_API_KEY: Joi.string().optional(),
+  DEV_LOGIN_BYPASS: Joi.boolean().default(false),
+  ALLOW_DEV_LOGIN_BYPASS: Joi.boolean().default(false),
+  LOGIN_FAIL_MAX: Joi.number().default(10),
+  LOGIN_FAIL_WINDOW_SECONDS: Joi.number().default(900),
+  LOGIN_FAIL_BLOCK_SECONDS: Joi.number().default(900),
+}).custom((value, helpers) => {
+  const bypassEnabled = value.DEV_LOGIN_BYPASS === true;
+  const explicitlyAllowed = value.ALLOW_DEV_LOGIN_BYPASS === true;
+  const isLocalDev = value.NODE_ENV === 'development';
+
+  if (bypassEnabled && (!isLocalDev || !explicitlyAllowed)) {
+    return helpers.error('any.invalid', {
+      message:
+        'DEV_LOGIN_BYPASS só é permitido em NODE_ENV=development com ALLOW_DEV_LOGIN_BYPASS=true',
+    });
+  }
+
+  return value;
 });
 
 @Module({
@@ -259,17 +291,46 @@ const validationSchema = Joi.object({
     }),
 
     // 5. BullModule (BullMQ) para filas com Redis (Railway-safe)
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST,
-        port: Number(process.env.REDIS_PORT),
-        password: process.env.REDIS_PASSWORD,
-        tls:
-          process.env.REDIS_TLS === 'true'
-            ? { rejectUnauthorized: false }
-            : undefined,
-      },
-    }),
+    BullModule.forRoot(
+      (() => {
+        const redisUrl =
+          process.env.REDIS_URL ||
+          process.env.URL_REDIS ||
+          process.env.REDIS_PUBLIC_URL;
+
+        if (redisUrl) {
+          const parsed = new URL(redisUrl);
+          return {
+            connection: {
+              host: parsed.hostname,
+              port: Number(parsed.port || 6379),
+              username: parsed.username
+                ? decodeURIComponent(parsed.username)
+                : undefined,
+              password: parsed.password
+                ? decodeURIComponent(parsed.password)
+                : undefined,
+              tls:
+                parsed.protocol === 'rediss:'
+                  ? { rejectUnauthorized: false }
+                  : undefined,
+            },
+          };
+        }
+
+        return {
+          connection: {
+            host: process.env.REDIS_HOST,
+            port: Number(process.env.REDIS_PORT),
+            password: process.env.REDIS_PASSWORD,
+            tls:
+              process.env.REDIS_TLS === 'true'
+                ? { rejectUnauthorized: false }
+                : undefined,
+          },
+        };
+      })(),
+    ),
 
     // 6. TypeORM com configuração segura de SSL
     TypeOrmModule.forRootAsync({
@@ -277,21 +338,41 @@ const validationSchema = Joi.object({
       useFactory: (config: ConfigService) => {
         const logger = new Logger('TypeORM');
         const isProduction = config.get('NODE_ENV') === 'production';
+        const dbType = config.get<'postgres' | 'sqlite'>('DATABASE_TYPE', 'postgres');
         const url = config.get<string>('DATABASE_URL');
+        logger.log(`🗄️ DATABASE_TYPE=${dbType}`);
 
-        // Configuração base
-        const baseConfig: TypeOrmModuleOptions = {
-          type: 'postgres' as const,
+        // Configuração base comum
+        const commonBase: Pick<
+          TypeOrmModuleOptions,
+          'autoLoadEntities' | 'logger' | 'logging' | 'maxQueryExecutionTime'
+        > = {
           autoLoadEntities: true,
-          synchronize: false, // NUNCA true em produção
           logger: new DatabaseLogger(),
           logging: isProduction
             ? (['error', 'warn'] as const)
             : (['error', 'warn', 'query'] as const),
-          maxQueryExecutionTime: 1000, // Log queries > 1s
+          maxQueryExecutionTime: 1000,
+        };
 
+        // Fallback de desenvolvimento: SQLite
+        if (dbType === 'sqlite') {
+          const sqlitePath = config.get<string>('SQLITE_DB_PATH', 'dev.sqlite');
+          logger.warn(`🟡 Usando SQLite para DESENVOLVIMENTO (${sqlitePath})`);
+          return {
+            type: 'better-sqlite3',
+            database: sqlitePath,
+            synchronize: true,
+            ...commonBase,
+          } satisfies TypeOrmModuleOptions;
+        }
+
+        // Configuração base PostgreSQL
+        const baseConfig: TypeOrmModuleOptions = {
+          type: 'postgres',
+          synchronize: false, // NUNCA true em produção
+          ...commonBase,
           // Connection pooling configurável via env
-          // Railway: DB_POOL_MAX=10 por instância (ajuste conforme plano PG)
           extra: {
             max: config.get<number>('DB_POOL_MAX', 10),
             min: config.get<number>('DB_POOL_MIN', 0),
@@ -300,7 +381,6 @@ const validationSchema = Joi.object({
               'DB_CONNECTION_TIMEOUT_MS',
               10000,
             ),
-            // SECURITY: compatível com PgBouncer em modo transaction
             prepareThreshold: 0,
           },
         };
@@ -343,6 +423,21 @@ const validationSchema = Joi.object({
         const dataSource = new DataSource(options!);
 
         const connectWithRetry = async () => {
+          // Para SQLite, inicializa uma única vez sem retry
+          if ((options as TypeOrmModuleOptions)?.type === 'sqlite') {
+            try {
+              await dataSource.initialize();
+              dsLogger.log('✅ SQLite connected');
+              return;
+            } catch (err: unknown) {
+              dsLogger.error(
+                `❌ Falha ao inicializar SQLite: ${
+                  err instanceof Error ? err.message : String(err)
+                }`,
+              );
+              throw err;
+            }
+          }
           let attempt = 0;
           while (true) {
             try {
@@ -398,12 +493,17 @@ const validationSchema = Joi.object({
     AuditsModule,
     InspectionsModule,
     NonConformitiesModule,
-    // DocumentImportModule,
+    RdosModule,
+    MedicalExamsModule,
+    ServiceOrdersModule,
+    DocumentImportModule,
     AuditModule,
     ContractsModule,
     DataLoaderModule,
     MathModule,
     ObservabilityModule,
+    RbacModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [
@@ -416,7 +516,7 @@ const validationSchema = Joi.object({
     },
     {
       provide: APP_GUARD,
-      useClass: TenantRequiredGuard,
+      useClass: TenantGuard,
     },
     {
       provide: APP_GUARD,
@@ -475,9 +575,14 @@ export class AppModule implements OnModuleInit {
   private validateProductionSecurity() {
     const jwtSecret = this.configService.get<string>('JWT_SECRET');
     const databaseSSL = this.configService.get<boolean>('DATABASE_SSL');
+    const databaseUrl = this.configService.get<string>('DATABASE_URL');
     const railwaySelfSigned =
       this.configService.get<string>('BANCO_DE_DADOS_SSL') === 'true';
     const redisHost = this.configService.get<string>('REDIS_HOST');
+    const redisUrl =
+      this.configService.get<string>('REDIS_URL') ||
+      this.configService.get<string>('URL_REDIS') ||
+      this.configService.get<string>('REDIS_PUBLIC_URL');
     //
 
     const checks = [
@@ -488,14 +593,17 @@ export class AppModule implements OnModuleInit {
       },
       {
         name: 'DATABASE_SSL',
-        valid: databaseSSL === true || railwaySelfSigned === true,
+        valid:
+          databaseSSL === true ||
+          railwaySelfSigned === true ||
+          !!databaseUrl,
         message:
-          'Habilite DATABASE_SSL ou BANCO_DE_DADOS_SSL (Railway self-signed) em produção',
+          'Configure DATABASE_URL (Railway) ou habilite DATABASE_SSL/BANCO_DE_DADOS_SSL em produção',
       },
       {
-        name: 'REDIS_HOST',
-        valid: !!redisHost,
-        message: 'REDIS_HOST é obrigatório em produção',
+        name: 'REDIS_CONNECTION',
+        valid: !!redisUrl || !!redisHost,
+        message: 'Configure REDIS_URL (recomendado) ou REDIS_HOST em produção',
       },
     ];
 
@@ -541,6 +649,7 @@ export class AppModule implements OnModuleInit {
   ) {
     const sslEnabled = config.get<boolean>('DATABASE_SSL');
     const sslCA = config.get<string>('DATABASE_SSL_CA');
+    const databaseUrl = config.get<string>('DATABASE_URL');
     const railwaySelfSigned =
       config.get<string>('BANCO_DE_DADOS_SSL') === 'true';
 
@@ -553,6 +662,13 @@ export class AppModule implements OnModuleInit {
     if (railwaySelfSigned) {
       logger.warn(
         '⚠️  SSL com rejectUnauthorized:false habilitado (Railway self-signed)',
+      );
+      return { rejectUnauthorized: false };
+    }
+
+    if (databaseUrl && !sslCA) {
+      logger.warn(
+        '⚠️  DATABASE_URL detectada sem CA customizado — usando rejectUnauthorized:false (Railway compat)',
       );
       return { rejectUnauthorized: false };
     }

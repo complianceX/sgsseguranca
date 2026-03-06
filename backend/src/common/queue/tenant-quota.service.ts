@@ -46,7 +46,10 @@ return current
     private readonly metricsService: MetricsService,
   ) {}
 
-  async tryAcquire(resource: QuotaResource, companyId?: string | null): Promise<{
+  async tryAcquire(
+    resource: QuotaResource,
+    companyId?: string | null,
+  ): Promise<{
     acquired: boolean;
     key?: string;
     limit?: number;
@@ -83,7 +86,10 @@ return current
     return { acquired, key, limit };
   }
 
-  async release(resource: QuotaResource, companyId?: string | null): Promise<void> {
+  async release(
+    resource: QuotaResource,
+    companyId?: string | null,
+  ): Promise<void> {
     const cid = String(companyId || '').trim();
     if (!cid) return;
     const limit = this.getLimit(resource);
@@ -96,7 +102,9 @@ return current
 
   getDelayMs(resource: QuotaResource): number {
     const base =
-      this.getNumberEnv(`WORKER_TENANT_QUOTA_${resource.toUpperCase()}_DELAY_MS`) ??
+      this.getNumberEnv(
+        `WORKER_TENANT_QUOTA_${resource.toUpperCase()}_DELAY_MS`,
+      ) ??
       this.getNumberEnv('WORKER_TENANT_QUOTA_DELAY_MS') ??
       (resource === 'pdf' ? 10_000 : 5_000);
     const jitterMs = this.getJitterMs(resource);

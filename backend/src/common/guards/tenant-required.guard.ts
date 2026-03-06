@@ -5,18 +5,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Request } from 'express';
 import { TenantService } from '../tenant/tenant.service';
-import { Role } from '../../auth/enums/roles.enum';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-
-interface RequestWithUser extends Request {
-  user?: {
-    profile?: {
-      nome: string;
-    };
-  };
-}
+import { TENANT_OPTIONAL_KEY } from '../decorators/tenant-optional.decorator';
 
 @Injectable()
 export class TenantRequiredGuard implements CanActivate {
@@ -35,14 +26,23 @@ export class TenantRequiredGuard implements CanActivate {
       return true;
     }
 
-    const tenantId = this.tenantService.getTenantId();
-    const request = context.switchToHttp().getRequest<RequestWithUser>();
-    const user = request.user;
+    const tenantOptional = this.reflector.getAllAndOverride<boolean>(
+      TENANT_OPTIONAL_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (tenantOptional) return true;
 
-    // Admin geral não precisa de tenant (pode ver tudo ou escolhe contexto depois)
-    if (user?.profile?.nome === Role.ADMIN_GERAL) {
+    const requireExplicitForSuperAdmin =
+      process.env.REQUIRE_EXPLICIT_TENANT_FOR_SUPER_ADMIN === 'true';
+
+    // isSuperAdmin é setado pelo TenantMiddleware a partir do JWT,
+    // antes de qualquer guard ser executado.
+    // request.user ainda NÃO está disponível aqui (JwtAuthGuard é route-level).
+    if (this.tenantService.isSuperAdmin() && !requireExplicitForSuperAdmin) {
       return true;
     }
+
+    const tenantId = this.tenantService.getTenantId();
 
     if (!tenantId) {
       throw new UnauthorizedException(

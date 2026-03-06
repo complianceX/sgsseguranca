@@ -42,12 +42,19 @@ export class AlertsService {
       const total = pool.totalCount ?? 0;
       const idle = pool.idleCount ?? 0;
       const waiting = pool.waitingCount ?? 0;
-      const max =
-        pool.options?.max ?? this.getNumberEnv('DB_POOL_MAX', 10);
+      const max = pool.options?.max ?? this.getNumberEnv('DB_POOL_MAX', 10);
       const active = Math.max(0, total - idle);
       const usage = max > 0 ? active / max : undefined;
 
-      return { total, idle, waiting, max, min: pool.options?.min, active, usage };
+      return {
+        total,
+        idle,
+        waiting,
+        max,
+        min: pool.options?.min,
+        active,
+        usage,
+      };
     } catch {
       return {};
     }

@@ -5,6 +5,7 @@ import {
   Body,
   Patch,
   Param,
+  ParseUUIDPipe,
   Delete,
   UseGuards,
   UseInterceptors,
@@ -24,13 +25,14 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 
 @ApiTags('users')
 @Controller('users')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 @ApiBearerAuth('access-token')
 export class UsersController {
@@ -103,8 +105,13 @@ export class UsersController {
   findPaginated(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
+    @Query('search') search?: string,
   ) {
-    return this.usersService.findPaginated({ page: Number(page), limit: Number(limit) });
+    return this.usersService.findPaginated({
+      page: Number(page),
+      limit: Number(limit),
+      search: search || undefined,
+    });
   }
 
   @Get(':id')
@@ -119,7 +126,7 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Não autenticado' })
   @ApiResponse({ status: 403, description: 'Sem permissão' })
   @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
-  findOne(@Param('id') id: string): Promise<UserResponseDto> {
+  findOne(@Param('id', new ParseUUIDPipe()) id: string): Promise<UserResponseDto> {
     return this.usersService.findOne(id);
   }
 
@@ -150,7 +157,7 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Sem permissão' })
   @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
   update(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<UserResponseDto> {
     return this.usersService.update(id, updateUserDto);
@@ -167,7 +174,7 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Não autenticado' })
   @ApiResponse({ status: 403, description: 'Sem permissão' })
   @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
-  gdprErasure(@Param('id') id: string): Promise<void> {
+  gdprErasure(@Param('id', new ParseUUIDPipe()) id: string): Promise<void> {
     return this.usersService.gdprErasure(id);
   }
 
@@ -179,7 +186,7 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Não autenticado' })
   @ApiResponse({ status: 403, description: 'Sem permissão' })
   @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
-  remove(@Param('id') id: string): Promise<void> {
+  remove(@Param('id', new ParseUUIDPipe()) id: string): Promise<void> {
     return this.usersService.remove(id);
   }
 }

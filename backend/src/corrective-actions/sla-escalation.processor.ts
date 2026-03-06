@@ -32,7 +32,7 @@ export class SlaEscalationProcessor extends WorkerHost {
   onFailed(job: Job | undefined, error: Error) {
     if (!job) return;
     this.logger.error(
-      `[Job ${job.id}] tenant=${(job.data as any)?.tenantId} falhou: ${error.message}`,
+      `[Job ${job.id}] tenant=${job.data?.tenantId} falhou: ${error.message}`,
       error.stack,
     );
   }

@@ -103,7 +103,7 @@ export async function paginateWithCursor<
     .getMany();
 
   const hasMore = rows.length > limit;
-  const data = (hasMore ? rows.slice(0, -1) : rows) as T[];
+  const data = hasMore ? rows.slice(0, -1) : rows;
 
   const last = data[data.length - 1];
   const nextCursor =

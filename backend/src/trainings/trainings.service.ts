@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as XLSX from 'xlsx';
 import { Training } from './entities/training.entity';
 import { CreateTrainingDto } from './dto/create-training.dto';
 import { UpdateTrainingDto } from './dto/update-training.dto';
@@ -208,5 +209,46 @@ export class TrainingsService {
       options.where.company_id = tenantId;
     }
     return this.trainingsRepository.count(options);
+  }
+
+  async exportExcel(): Promise<Buffer> {
+    const tenantId = this.tenantService.getTenantId();
+    const qb = this.trainingsRepository
+      .createQueryBuilder('training')
+      .leftJoinAndSelect('training.user', 'user')
+      .select([
+        'training.nr_codigo', 'training.nome', 'training.data_vencimento',
+        'training.data_conclusao', 'training.carga_horaria', 'training.created_at',
+        'user.nome',
+      ])
+      .orderBy('training.data_vencimento', 'ASC');
+    if (tenantId) qb.where('training.company_id = :tenantId', { tenantId });
+    const trainings = await qb.getMany();
+
+    const now = new Date();
+    const rows = trainings.map((t) => {
+      const vencimento = t.data_vencimento ? new Date(t.data_vencimento) : null;
+      const status = !vencimento
+        ? 'Sem validade'
+        : vencimento < now
+          ? 'Vencido'
+          : (vencimento.getTime() - now.getTime()) / (1000 * 60 * 60 * 24) <= 30
+            ? 'Vencendo em breve'
+            : 'Em dia';
+      return {
+        'Código NR': t.nr_codigo ?? '',
+        'Nome': t.nome,
+        'Status': status,
+        'Data de Vencimento': vencimento ? vencimento.toLocaleDateString('pt-BR') : '',
+        'Data de Conclusão': t.data_conclusao ? new Date(t.data_conclusao).toLocaleDateString('pt-BR') : '',
+        'Carga Horária (h)': t.carga_horaria ?? '',
+        'Funcionário': t.user?.nome ?? '',
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Treinamentos');
+    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
 }

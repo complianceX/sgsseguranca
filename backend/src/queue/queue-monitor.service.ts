@@ -41,7 +41,10 @@ export class QueueMonitorService {
         'failed',
       );
       const pdfDlqStats = await this.pdfDlqQueue.getJobCounts('wait', 'failed');
-      const mailDlqStats = await this.mailDlqQueue.getJobCounts('wait', 'failed');
+      const mailDlqStats = await this.mailDlqQueue.getJobCounts(
+        'wait',
+        'failed',
+      );
 
       const pdfTotal = Object.values(pdfStats).reduce(
         (a: number, b: number) => a + b,

@@ -43,4 +43,3 @@ export function toOffsetPage<T>(
   const lastPage = Math.max(1, Math.ceil(total / limit));
   return { data, total, page, lastPage };
 }
-

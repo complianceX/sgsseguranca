@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
@@ -41,12 +42,36 @@ export class AuthService {
     private redisService: RedisService,
   ) {}
 
+  private readonly logger = new Logger(AuthService.name);
+
   async validateUser(cpf: string, pass: string): Promise<Partial<User> | null> {
     if (!cpf || !pass) {
       return null;
     }
 
     const normalizedCpf = CpfUtil.normalize(cpf);
+
+    // Modo desenvolvimento: bypass de login APENAS quando explicitamente habilitado.
+    // Útil para destravar UI quando o DB estiver indisponível, mas perigoso se ficar ligado.
+    // Usa credenciais definidas via env DEV_ADMIN_CPF e DEV_ADMIN_PASSWORD.
+    const devCpf = (process.env.DEV_ADMIN_CPF || '').replace(/\D/g, '');
+    const devPass = process.env.DEV_ADMIN_PASSWORD || '';
+    const isDevBypassEnabled =
+      process.env.NODE_ENV === 'development' &&
+      process.env.DEV_LOGIN_BYPASS === 'true' &&
+      process.env.ALLOW_DEV_LOGIN_BYPASS === 'true' &&
+      devCpf &&
+      devPass;
+    if (isDevBypassEnabled && normalizedCpf === devCpf && pass === devPass) {
+      return {
+        id: 'dev-admin',
+        nome: 'Admin Dev',
+        cpf: devCpf,
+        funcao: 'Admin',
+        company_id: 'dev-company',
+        profile: { nome: 'Administrador Geral' } as unknown as User['profile'],
+      } as Partial<User>;
+    }
 
     // Login é uma rota pública: não há JWT ainda, portanto AsyncLocalStorage não
     // tem contexto de tenant. Com FORCE ROW LEVEL SECURITY ativo, a policy RLS
@@ -89,7 +114,16 @@ export class AuthService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  async login(user: User) {
+  private hashContext(value: string): string {
+    return crypto.createHash('sha256').update(value).digest('hex');
+  }
+
+  private getRefreshBindingMode(): 'none' | 'ua' {
+    const mode = String(process.env.REFRESH_BINDING || 'none').toLowerCase();
+    return mode === 'ua' ? 'ua' : 'none';
+  }
+
+  async login(user: User, ctx?: { userAgent?: string }) {
     const payload = {
       sub: user.id,
       cpf: user.cpf,
@@ -102,7 +136,26 @@ export class AuthService {
     });
     const tokenHash = this.hashToken(refreshToken);
     const ttlSeconds = getRefreshTokenTtlDays() * 24 * 3600;
-    await this.redisService.storeRefreshToken(user.id, tokenHash, ttlSeconds);
+    const bindingMode = this.getRefreshBindingMode();
+    const ua = ctx?.userAgent || '';
+    const storedValue =
+      bindingMode === 'ua' && ua
+        ? JSON.stringify({ v: 1, ua: this.hashContext(ua) })
+        : '1';
+    try {
+      await this.redisService.storeRefreshToken(
+        user.id,
+        tokenHash,
+        ttlSeconds,
+        storedValue,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Falha ao registrar refresh token no Redis: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
     return {
       accessToken,
       refreshToken,
@@ -138,7 +191,7 @@ export class AuthService {
     }
   }
 
-  async refresh(refreshToken: string) {
+  async refresh(refreshToken: string, ctx?: { userAgent?: string }) {
     let payload: JwtPayload;
     try {
       payload = await this.jwtService.verifyAsync(refreshToken);
@@ -147,9 +200,28 @@ export class AuthService {
     }
     const oldHash = this.hashToken(refreshToken);
     const key = this.redisService.getRefreshTokenKey(payload.sub, oldHash);
-    const exists = await this.redisService.getClient().get(key);
-    if (!exists) {
+    const stored = await this.redisService.getClient().get(key);
+    if (!stored) {
       throw new UnauthorizedException('Refresh token revogado ou já utilizado');
+    }
+
+    const bindingMode = this.getRefreshBindingMode();
+    if (bindingMode === 'ua') {
+      try {
+        const parsed = JSON.parse(stored) as { ua?: string };
+        const expectedUaHash = parsed?.ua;
+        const actualUa = ctx?.userAgent || '';
+        if (expectedUaHash && actualUa) {
+          const actualHash = this.hashContext(actualUa);
+          if (actualHash !== expectedUaHash) {
+            throw new UnauthorizedException(
+              'Sessão inválida (contexto divergente)',
+            );
+          }
+        }
+      } catch (e) {
+        if (e instanceof UnauthorizedException) throw e;
+      }
     }
     // Rotação: invalida token antigo e registra o novo.
     const newPayload = {
@@ -164,11 +236,17 @@ export class AuthService {
     });
     const newHash = this.hashToken(newRefreshToken);
     const ttlSeconds = getRefreshTokenTtlDays() * 24 * 3600;
+    const ua = ctx?.userAgent || '';
+    const storedValue =
+      bindingMode === 'ua' && ua
+        ? JSON.stringify({ v: 1, ua: this.hashContext(ua) })
+        : '1';
     await this.redisService.rotateRefreshToken(
       payload.sub,
       oldHash,
       newHash,
       ttlSeconds,
+      storedValue,
     );
     return {
       accessToken,

@@ -3,6 +3,7 @@
 import React from 'react';
 import { Pt } from '@/services/ptsService';
 import { PtsTableRow } from './PtsTableRow';
+import { TableRowSkeleton } from '@/components/ui/skeleton';
 
 interface PtsTableProps {
   pts: Pt[];
@@ -30,13 +31,9 @@ export const PtsTable = React.memo(({ pts, loading, onDelete, onPrint, onSendEma
         </thead>
         <tbody className="divide-y divide-[#E5E7EB]">
           {loading ? (
-            <tr>
-              <td colSpan={5} className="py-10 text-center">
-                <div className="flex justify-center">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#2563EB] border-t-transparent"></div>
-                </div>
-              </td>
-            </tr>
+            Array.from({ length: 5 }).map((_, i) => (
+              <TableRowSkeleton key={i} cols={5} />
+            ))
           ) : pts.length === 0 ? (
             <tr>
               <td colSpan={5} className="py-10 text-center text-[#6B7280] font-medium">

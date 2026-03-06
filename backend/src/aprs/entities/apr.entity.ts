@@ -50,8 +50,35 @@ export class Apr {
   @Column({ default: false })
   is_modelo_padrao: boolean;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   itens_risco?: Array<Record<string, string>>;
+
+  @Column({ type: 'int', nullable: true })
+  probability?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  severity?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  exposure?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  initial_risk?: number | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  residual_risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | null;
+
+  @Column({ type: 'text', nullable: true })
+  evidence_photo?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  evidence_document?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  control_description?: string | null;
+
+  @Column({ default: false })
+  control_evidence: boolean;
 
   @ManyToOne(() => Company)
   @JoinColumn({ name: 'company_id' })
@@ -159,7 +186,7 @@ export class Apr {
   @Column({ type: 'text', nullable: true })
   reprovado_motivo?: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   classificacao_resumo?: {
     total: number;
     aceitavel: number;

@@ -9,11 +9,13 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import {
   CreateCorrectiveActionDto,
   UpdateCorrectiveActionStatusDto,
@@ -23,7 +25,7 @@ import { CorrectiveActionsService } from './corrective-actions.service';
 import { Role } from '../auth/enums/roles.enum';
 
 @Controller('corrective-actions')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class CorrectiveActionsController {
   constructor(
@@ -38,13 +40,13 @@ export class CorrectiveActionsController {
 
   @Post('from/nonconformity/:id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  createFromNonConformity(@Param('id') id: string) {
+  createFromNonConformity(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.correctiveActionsService.createFromNonConformity(id);
   }
 
   @Post('from/audit/:id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  createFromAudit(@Param('id') id: string) {
+  createFromAudit(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.correctiveActionsService.createFromAudit(id);
   }
 
@@ -84,7 +86,7 @@ export class CorrectiveActionsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.correctiveActionsService.findOne(id, {
       relations: ['responsible_user', 'site'],
     });
@@ -92,7 +94,10 @@ export class CorrectiveActionsController {
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  update(@Param('id') id: string, @Body() dto: UpdateCorrectiveActionDto) {
+  update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateCorrectiveActionDto,
+  ) {
     return this.correctiveActionsService.update(id, dto);
   }
 
@@ -105,7 +110,7 @@ export class CorrectiveActionsController {
     Role.COLABORADOR,
   )
   updateStatus(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateCorrectiveActionStatusDto,
   ) {
     return this.correctiveActionsService.updateStatus(id, dto);
@@ -113,7 +118,7 @@ export class CorrectiveActionsController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
-  remove(@Param('id') id: string) {
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.correctiveActionsService.remove(id);
   }
 }

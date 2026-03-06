@@ -2,15 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { sitesService, Site } from '@/services/sitesService';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, QrCode } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { QRCodeCanvas } from 'qrcode.react';
 
 export default function SitesPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [qrSiteId, setQrSiteId] = useState<string | null>(null);
 
   useEffect(() => {
     loadSites();
@@ -47,6 +49,9 @@ export default function SitesPage() {
     site.cidade?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const qrUrl = qrSiteId
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/verify?siteId=${qrSiteId}&flow=dds`
+    : '';
   return (
     <div className="space-y-6">
       <div className="rounded-xl border bg-white p-4 shadow-sm">
@@ -127,6 +132,13 @@ export default function SitesPage() {
                         <Pencil className="h-4 w-4" />
                       </Link>
                       <button
+                        onClick={() => setQrSiteId(site.id)}
+                        className="rounded p-1 text-gray-700 hover:bg-gray-100"
+                        title="QR Code da Obra"
+                      >
+                        <QrCode className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => handleDelete(site.id)}
                         className="rounded p-1 text-red-600 hover:bg-red-50"
                         title="Excluir Obra/Setor"
@@ -141,6 +153,30 @@ export default function SitesPage() {
           </TableBody>
         </Table>
       </div>
+      {qrSiteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">QR Code da Obra</h2>
+              <button
+                onClick={() => setQrSiteId(null)}
+                className="rounded px-2 py-1 text-sm text-gray-600 hover:bg-gray-100"
+              >
+                Fechar
+              </button>
+            </div>
+            <div className="flex flex-col items-center gap-4">
+              <QRCodeCanvas value={qrUrl} size={220} includeMargin />
+              <div className="w-full break-all rounded bg-gray-50 p-3 text-xs text-gray-700">
+                {qrUrl}
+              </div>
+              <p className="text-xs text-gray-500">
+                Escaneie o QR Code para acessar o fluxo de DDS/Checklist da obra sem login.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

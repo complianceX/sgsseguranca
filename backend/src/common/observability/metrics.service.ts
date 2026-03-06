@@ -100,9 +100,12 @@ export class MetricsService {
       description: 'Total number of jobs processed',
     });
 
-    this.queueJobDuration = this.meter.createHistogram('queue_job_duration_ms', {
-      description: 'Queue job duration in milliseconds',
-    });
+    this.queueJobDuration = this.meter.createHistogram(
+      'queue_job_duration_ms',
+      {
+        description: 'Queue job duration in milliseconds',
+      },
+    );
 
     this.queueJobErrors = this.meter.createCounter('queue_job_errors_total', {
       description: 'Total number of queue job errors',

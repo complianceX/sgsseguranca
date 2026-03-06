@@ -10,6 +10,10 @@ import {
 import { Company } from '../../companies/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
 
+const isSqlite =
+  process.env.DATABASE_TYPE === 'sqlite' ||
+  process.env.DATABASE_TYPE === 'better-sqlite3';
+
 @Entity('mail_logs')
 export class MailLog {
   @PrimaryGeneratedColumn('uuid')
@@ -41,10 +45,10 @@ export class MailLog {
   @Column({ nullable: true })
   message_id: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: isSqlite ? 'simple-json' : 'jsonb', nullable: true })
   accepted: string[];
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: isSqlite ? 'simple-json' : 'jsonb', nullable: true })
   rejected: string[];
 
   @Column({ type: 'text', nullable: true })

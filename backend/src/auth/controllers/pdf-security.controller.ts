@@ -17,6 +17,7 @@ import { PdfService } from '../../common/services/pdf.service';
 import { PdfRateLimitService } from '../services/pdf-rate-limit.service';
 import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { validatePdfMagicBytes } from '../../common/interceptors/file-upload.interceptor';
 
 @ApiTags('PDF Security')
 @Controller('pdf-security')
@@ -71,6 +72,10 @@ export class PdfSecurityController {
     if (file.mimetype !== 'application/pdf') {
       throw new BadRequestException('Only PDF files are allowed');
     }
+    if (!file.buffer || file.buffer.length === 0) {
+      throw new BadRequestException('Falha ao ler o arquivo enviado.');
+    }
+    await validatePdfMagicBytes(file.buffer);
 
     const userId = req.user.id;
     const ip = req.ip;

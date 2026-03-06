@@ -17,9 +17,7 @@ export async function initializeTelemetry(opts?: {
   });
 
   const prometheusExporter = new PrometheusExporter({
-    port: Number(
-      opts?.prometheusPort ?? process.env.PROMETHEUS_PORT ?? 9464,
-    ),
+    port: Number(opts?.prometheusPort ?? process.env.PROMETHEUS_PORT ?? 9464),
   });
 
   const sdk = new NodeSDK({

@@ -6,6 +6,7 @@ import {
   UseGuards,
   Req,
   NotFoundException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -63,7 +64,7 @@ export class SessionsController {
   @Delete(':id')
   @ApiOperation({ summary: 'Revoke a specific session' })
   @ApiResponse({ status: 200, description: 'Session revoked' })
-  async remove(@Param('id') id: string, @Req() req: SessionRequest) {
+  async remove(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: SessionRequest) {
     const userId = req.user.userId;
 
     const session = await this.userSessionRepository.findOne({

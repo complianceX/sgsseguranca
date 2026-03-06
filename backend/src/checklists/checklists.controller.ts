@@ -5,6 +5,7 @@ import {
   Body,
   Patch,
   Param,
+  ParseUUIDPipe,
   Delete,
   UseGuards,
   UseInterceptors,
@@ -15,12 +16,13 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateChecklistDto } from './dto/create-checklist.dto';
 import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { Role } from '../auth/enums/roles.enum';
 
 @Controller('checklists')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class ChecklistsController {
   constructor(private readonly checklistsService: ChecklistsService) {}
@@ -52,15 +54,28 @@ export class ChecklistsController {
     });
   }
 
+  @Get('files/list')
+  listStoredFiles(
+    @Query('company_id') companyId?: string,
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ) {
+    return this.checklistsService.listStoredFiles({
+      companyId,
+      year: year ? Number(year) : undefined,
+      week: week ? Number(week) : undefined,
+    });
+  }
+
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.checklistsService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   update(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateChecklistDto: UpdateChecklistDto,
   ) {
     return this.checklistsService.update(id, updateChecklistDto);
@@ -68,7 +83,7 @@ export class ChecklistsController {
 
   @Post(':id/send-email')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  sendEmail(@Param('id') id: string, @Body() body: { to: string }) {
+  sendEmail(@Param('id', new ParseUUIDPipe()) id: string, @Body() body: { to: string }) {
     return this.checklistsService.sendEmail(id, body.to);
   }
 
@@ -89,13 +104,13 @@ export class ChecklistsController {
 
   @Post(':id/save-pdf')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  savePdf(@Param('id') id: string) {
+  savePdf(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.checklistsService.savePdfToStorage(id);
   }
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
-  remove(@Param('id') id: string) {
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.checklistsService.remove(id);
   }
 }

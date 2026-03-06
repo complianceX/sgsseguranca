@@ -53,9 +53,29 @@ export class AiService {
     this.logger.warn('AI getInsights called - returning mock data');
     await Promise.resolve();
     return {
+      safetyScore: 85,
+      summary:
+        'Sistema operando normalmente. Continue monitorando os indicadores de conformidade.',
+      timestamp: new Date().toISOString(),
       insights: [
-        'Aumentar inspeções no Site A',
-        'Treinamento de EPIs recomendado',
+        {
+          type: 'info',
+          title: 'Monitoramento',
+          message: 'Mantenha as inspeções periódicas em dia para garantir a conformidade.',
+          action: '/dashboard/inspections',
+        },
+        {
+          type: 'warning',
+          title: 'EPIs',
+          message: 'Verifique a validade dos Certificados de Aprovação (CA) dos EPIs cadastrados.',
+          action: '/dashboard/epis',
+        },
+        {
+          type: 'success',
+          title: 'Treinamentos',
+          message: 'Certifique-se de que os treinamentos obrigatórios estejam atualizados.',
+          action: '/dashboard/trainings',
+        },
       ],
     };
   }

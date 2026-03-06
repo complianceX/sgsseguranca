@@ -1,22 +1,12 @@
-import { AiModule } from './ai/ai.module';
-import { NotificationsModule } from './notifications/notifications.module';
-import { TasksModule } from './tasks/tasks.module';
-import { DocumentImportModule } from './document-import/document-import.module';
-import { AuditModule } from './audit/audit.module';
-import { MathModule } from './math/math.module';import { AiModule } from './ai/ai.module';
-import { NotificationsModule } from './notifications/notifications.module';
-import { TasksModule } from './tasks/tasks.module';
-import { DocumentImportModule } from './document-import/document-import.module';
-import { AuditModule } from './audit/audit.module';
-import { MathModule } from './math/math.module';import type { Cache } from 'cache-manager';# 🔐 CREDENCIAIS DE LOGIN
+# 🔐 CREDENCIAIS DE LOGIN
 
-## ✅ USUÁRIO ADMINISTRADOR PADRÃO
+## ✅ USUÁRIO ADMINISTRADOR PADRÃO (DESENVOLVIMENTO)
 
 Quando o backend iniciar pela primeira vez, ele cria automaticamente um usuário administrador:
 
 ### Credenciais:
-- **CPF:** `00000000000` (11 zeros)
-- **Senha:** `admin`
+- **CPF:** `15082302698`
+- **Senha:** `GANDRA@2026`
 - **Perfil:** Administrador Geral
 - **Empresa:** Empresa Master SST (criada automaticamente)
 
@@ -47,8 +37,8 @@ Ele cria:
 
 1. Acesse: `http://localhost:3000/login`
 2. Digite:
-   - CPF: `00000000000`
-   - Senha: `admin`
+   - CPF: `15082302698`
+   - Senha: `GANDRA@2026`
 3. Clique em "Entrar"
 
 ## ⚠️ IMPORTANTE - SEGURANÇA
@@ -71,3 +61,8 @@ Após fazer login como admin, você pode:
 - Se o usuário admin já existir, ele não será recriado
 - A senha é hasheada usando bcrypt antes de ser salva no banco
 - O sistema usa JWT para autenticação
+
+## 🔧 COMO ALTERAR AS CREDENCIAIS
+As credenciais padrão do admin em desenvolvimento podem ser definidas via `backend/.env`:
+- `DEV_ADMIN_CPF`
+- `DEV_ADMIN_PASSWORD`

@@ -26,6 +26,42 @@ export class Risk {
   @Column({ type: 'text', nullable: true })
   medidas_controle: string;
 
+  @Column({ type: 'int', nullable: true })
+  probability?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  severity?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  exposure?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  initial_risk?: number | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  residual_risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  control_hierarchy?:
+    | 'ELIMINATION'
+    | 'SUBSTITUTION'
+    | 'ENGINEERING'
+    | 'ADMINISTRATIVE'
+    | 'PPE'
+    | null;
+
+  @Column({ type: 'text', nullable: true })
+  evidence_photo?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  evidence_document?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  control_description?: string | null;
+
+  @Column({ default: false })
+  control_evidence: boolean;
+
   @Column({ default: true })
   status: boolean;
 

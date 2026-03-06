@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ptsService, Pt } from '@/services/ptsService';
 import { aiService } from '@/services/aiService';
 import { signaturesService } from '@/services/signaturesService';
@@ -19,6 +19,7 @@ export function usePts() {
   const [pts, setPts] = useState<Pt[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [insights, setInsights] = useState<Insight[]>([]);
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
@@ -32,7 +33,12 @@ export function usePts() {
   const loadPts = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await ptsService.findPaginated({ page, limit });
+      const res = await ptsService.findPaginated({
+        page,
+        limit,
+        search: searchTerm || undefined,
+        status: statusFilter || undefined,
+      });
       setPts(res.data);
       setTotal(res.total);
       setLastPage(res.lastPage);
@@ -41,7 +47,7 @@ export function usePts() {
     } finally {
       setLoading(false);
     }
-  }, [page, limit]);
+  }, [page, limit, searchTerm, statusFilter]);
 
   const loadInsights = useCallback(async () => {
     try {
@@ -54,6 +60,11 @@ export function usePts() {
       console.error('Erro ao carregar insights:', error);
     }
   }, []);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, statusFilter]);
 
   useEffect(() => {
     loadPts();
@@ -160,18 +171,16 @@ export function usePts() {
     }
   }, []);
 
-  const filteredPts = useMemo(() => {
-    return pts.filter(pt =>
-      pt.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      pt.numero.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [pts, searchTerm]);
+  // Filtering is now server-side — pts already contains the filtered page
+  const filteredPts = pts;
 
   return {
     pts,
     loading,
     searchTerm,
     setSearchTerm,
+    statusFilter,
+    setStatusFilter,
     insights,
     page,
     setPage,

@@ -3,17 +3,23 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
-import { storage } from '@/lib/storage';
+import { tokenStore } from '@/lib/tokenStore';
+import { sessionStore } from '@/lib/sessionStore';
 
 import { User } from '@/services/usersService';
 
 interface AuthMeResponse {
   user?: User;
+  roles?: string[];
+  permissions?: string[];
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  roles: string[];
+  permissions: string[];
+  hasPermission: (permission: string) => boolean;
   login: (cpf: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -23,6 +29,8 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [roles, setRoles] = useState<string[]>([]);
+  const [permissions, setPermissions] = useState<string[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -30,21 +38,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const bootstrapSession = async () => {
       try {
-        const token = storage.getItem('token');
-        if (!token) {
-          if (mounted) {
-            setUser(null);
+        // Access token fica apenas em memória.
+        // Em reload, tentamos obter novo access token via refresh token (cookie httpOnly).
+        if (!tokenStore.get()) {
+          const refreshed = await api.post<{ accessToken: string }>('/auth/refresh');
+          const refreshedToken = refreshed.data?.accessToken;
+          if (refreshedToken) {
+            tokenStore.set(refreshedToken);
           }
-          return;
         }
+
+        if (!tokenStore.get()) return;
+
         const response = await api.get<AuthMeResponse>('/auth/me');
         const data = response.data;
         if (mounted) {
           setUser(data.user || null);
+          setRoles(data.roles || []);
+          setPermissions(data.permissions || []);
+          if (data.user?.id) {
+            sessionStore.set({
+              userId: data.user.id,
+              companyId: data.user.company_id,
+              profileName: data.user.profile?.nome ?? null,
+            });
+          }
         }
       } catch {
         if (mounted) {
           setUser(null);
+          setRoles([]);
+          setPermissions([]);
+          tokenStore.clear();
+          sessionStore.clear();
         }
       } finally {
         if (mounted) {
@@ -68,6 +94,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         accessToken?: string;
         requires2FA?: boolean;
         requires2FASetup?: boolean;
+        roles?: string[];
+        permissions?: string[];
       };
 
       if (data.requires2FA || data.requires2FASetup) {
@@ -78,23 +106,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
       }
 
-      const authenticatedUser = data.user
-        ? data.user
-        : (await api.get<AuthMeResponse>('/auth/me')).data?.user;
-
-      if (!authenticatedUser) {
-        throw new Error('Resposta de login invalida do servidor.');
-      }
-
       if (!data.accessToken) {
         throw new Error('Access token ausente na resposta de login.');
       }
 
-      storage.setItem('token', data.accessToken);
-      storage.setItem('user', JSON.stringify(authenticatedUser));
-      storage.setItem('companyId', authenticatedUser.company_id);
+      tokenStore.set(data.accessToken);
+
+      const meResponse = await api.get<AuthMeResponse>('/auth/me');
+      const authenticatedUser = meResponse.data?.user || data.user;
+      if (!authenticatedUser) {
+        throw new Error('Resposta de login invalida do servidor.');
+      }
+      sessionStore.set({
+        userId: authenticatedUser.id,
+        companyId: authenticatedUser.company_id,
+        profileName: authenticatedUser.profile?.nome ?? null,
+      });
 
       setUser(authenticatedUser);
+      setRoles(meResponse.data?.roles || data.roles || []);
+      setPermissions(meResponse.data?.permissions || data.permissions || []);
       router.push('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
@@ -109,15 +140,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Ignora falhas de rede no logout e limpa estado local mesmo assim.
     }
 
-    storage.removeItem('token');
-    storage.removeItem('user');
-    storage.removeItem('companyId');
+    tokenStore.clear();
+    sessionStore.clear();
     setUser(null);
+    setRoles([]);
+    setPermissions([]);
     router.push('/login');
   };
 
+  const hasPermission = (permission: string) => permissions.includes(permission);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, roles, permissions, hasPermission, login, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -6,7 +6,11 @@ export interface RetryOptions {
   maxDelayMs: number;
   jitterRatio: number; // 0..1
   shouldRetry?: (error: unknown, attempt: number) => boolean;
-  onRetry?: (info: { error: unknown; attempt: number; delayMs: number }) => void;
+  onRetry?: (info: {
+    error: unknown;
+    attempt: number;
+    delayMs: number;
+  }) => void;
 }
 
 @Injectable()
@@ -132,4 +136,3 @@ function sleep(ms: number): Promise<void> {
   if (!ms) return Promise.resolve();
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-

@@ -3,6 +3,39 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
+import axios from 'axios';
+
+function getLoginErrorMessage(error: unknown): string {
+  if (!axios.isAxiosError(error)) {
+    return 'Erro ao tentar fazer login. Tente novamente.';
+  }
+
+  const status = error.response?.status;
+  const data = error.response?.data as { message?: string | string[] } | undefined;
+
+  if (!error.response) {
+    const apiBase = error.config?.baseURL || 'http://localhost:3011';
+    return `Não foi possível conectar ao servidor (${apiBase}). Verifique se o backend está rodando.`;
+  }
+
+  if (status === 401 || status === 403) {
+    return 'CPF ou senha inválidos.';
+  }
+
+  if (status === 429) {
+    return 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.';
+  }
+
+  if (Array.isArray(data?.message)) {
+    return data.message[0] || 'Falha na autenticação.';
+  }
+
+  if (typeof data?.message === 'string' && data.message.trim()) {
+    return data.message;
+  }
+
+  return 'Falha na autenticação. Tente novamente.';
+}
 
 export default function LoginPage() {
   const [cpf, setCpf] = useState('');
@@ -17,20 +50,12 @@ export default function LoginPage() {
     setLoading(true);
 
     const cleanCpf = cpf.replace(/\D/g, '');
-    console.log(`Tentando login com CPF: ${cleanCpf}`);
 
     try {
       await login(cleanCpf, password);
     } catch (err: unknown) {
       console.error('Erro no formulário de login:', err);
-      const axiosError = err as { response?: { data?: { message?: string } }; request?: unknown };
-      if (axiosError.response) {
-        setError(axiosError.response.data?.message || 'CPF ou senha inválidos');
-      } else if (axiosError.request) {
-        setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
-      } else {
-        setError('Erro ao tentar fazer login. Tente novamente.');
-      }
+      setError(getLoginErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -50,7 +75,6 @@ export default function LoginPage() {
           />
         </div>
 
-        <h1 className="mb-2 text-center text-3xl font-bold text-gray-800">COMPLIANCE X</h1>
         <p className="mb-6 text-center text-sm text-gray-600">
           Sistema de Gestão de Segurança do Trabalho
         </p>

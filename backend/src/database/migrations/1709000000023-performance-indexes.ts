@@ -253,7 +253,9 @@ export class PerformanceIndexes1709000000023 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Fase 3
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_epi_assignments_epi_id"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_epi_assignments_epi_id"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_mail_logs_to"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_users_cpf"`);
 

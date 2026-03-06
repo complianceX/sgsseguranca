@@ -50,7 +50,7 @@ export class NonConformity {
   @Column()
   auditor_responsavel: string;
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   classificacao?: string[];
 
   @Column({ type: 'text' })
@@ -83,13 +83,13 @@ export class NonConformity {
   @Column()
   risco_associado: string;
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   risco_consequencias?: string[];
 
   @Column()
   risco_nivel: string;
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   causa?: string[];
 
   @Column({ nullable: true })
@@ -155,7 +155,7 @@ export class NonConformity {
   @Column({ type: 'text', nullable: true })
   observacoes_gerais?: string;
 
-  @Column({ type: 'json', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   anexos?: string[];
 
   @Column({ nullable: true })

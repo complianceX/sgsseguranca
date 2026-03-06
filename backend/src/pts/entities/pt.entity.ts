@@ -84,6 +84,33 @@ export class Pt {
   @Column({ default: false })
   escavacao: boolean;
 
+  @Column({ type: 'int', nullable: true })
+  probability?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  severity?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  exposure?: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  initial_risk?: number | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  residual_risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | null;
+
+  @Column({ type: 'text', nullable: true })
+  evidence_photo?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  evidence_document?: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  control_description?: string | null;
+
+  @Column({ default: false })
+  control_evidence: boolean;
+
   @Column({ type: 'jsonb', nullable: true })
   trabalho_altura_checklist?: Array<{
     id: string;

@@ -1,9 +1,11 @@
-import { IsNotEmpty, IsString, IsOptional, IsObject } from 'class-validator';
+import { IsString, IsOptional, IsObject, IsUUID } from 'class-validator';
 
 export class UploadDocumentDto {
-  @IsNotEmpty({ message: 'O ID da empresa é obrigatório' })
-  @IsString({ message: 'O ID da empresa deve ser uma string' })
-  empresaId: string;
+  // Importante: em ambiente multi-tenant, o empresaId vem do contexto do token.
+  // Mantemos este campo como opcional apenas para compatibilidade de clientes antigos.
+  @IsOptional()
+  @IsUUID('4', { message: 'O ID da empresa deve ser um UUID válido' })
+  empresaId?: string;
 
   @IsOptional()
   @IsString({ message: 'O tipo de documento deve ser uma string' })

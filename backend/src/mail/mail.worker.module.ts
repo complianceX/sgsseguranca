@@ -14,10 +14,7 @@ import { MailModule } from './mail.module';
  */
 @Module({
   imports: [
-    BullModule.registerQueue(
-      { name: 'mail' },
-      { name: 'mail-dlq' },
-    ),
+    BullModule.registerQueue({ name: 'mail' }, { name: 'mail-dlq' }),
     MailModule,
   ],
   providers: [MailProcessor],

@@ -11,17 +11,25 @@ import {
 
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { TenantService } from '../common/tenant/tenant.service';
+import {
+  TenantRepository,
+  TenantRepositoryFactory,
+} from '../common/tenant/tenant-repository';
 
 @Injectable()
 export class InspectionsService {
   private readonly logger = new Logger(InspectionsService.name);
+  private readonly tenantRepo: TenantRepository<Inspection>;
 
   constructor(
     @InjectRepository(Inspection)
     private inspectionsRepository: Repository<Inspection>,
     private notificationsGateway: NotificationsGateway,
     private tenantService: TenantService,
-  ) {}
+    tenantRepositoryFactory: TenantRepositoryFactory,
+  ) {
+    this.tenantRepo = tenantRepositoryFactory.wrap(this.inspectionsRepository);
+  }
 
   async create(
     createInspectionDto: CreateInspectionDto,
@@ -67,8 +75,7 @@ export class InspectionsService {
   }
 
   async findOneEntity(id: string, companyId: string): Promise<Inspection> {
-    const inspection = await this.inspectionsRepository.findOne({
-      where: { id, company_id: companyId },
+    const inspection = await this.tenantRepo.findOne(id, companyId, {
       relations: ['site', 'responsavel', 'company'],
     });
 

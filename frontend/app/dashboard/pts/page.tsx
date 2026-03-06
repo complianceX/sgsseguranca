@@ -1,7 +1,8 @@
 'use client';
 
 import { usePts } from './hooks/usePts';
-import { Plus } from 'lucide-react';
+import { Plus, FileSpreadsheet } from 'lucide-react';
+import { downloadExcel } from '@/lib/download-excel';
 import Link from 'next/link';
 import { PtsFilters } from './components/PtsFilters';
 import { PtsTable } from './components/PtsTable';
@@ -16,6 +17,8 @@ export default function PtsPage() {
     loading,
     searchTerm,
     setSearchTerm,
+    statusFilter,
+    setStatusFilter,
     insights,
     page,
     setPage,
@@ -49,13 +52,23 @@ export default function PtsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Permissão de Trabalho (PT)</h1>
           <p className="text-gray-500">Gerencie as Permissões de Trabalho emitidas.</p>
         </div>
-        <Link
-          href="/dashboard/pts/new"
-          className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700 shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Nova PT
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => downloadExcel('/pts/export/excel', 'pts.xlsx')}
+            className="flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:scale-105 active:scale-95"
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" />
+            Exportar Excel
+          </button>
+          <Link
+            href="/dashboard/pts/new"
+            className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700 shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nova PT
+          </Link>
+        </div>
       </div>
 
       <PtsInsights insights={insights} />
@@ -64,6 +77,8 @@ export default function PtsPage() {
         <PtsFilters
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
+          statusFilter={statusFilter}
+          onStatusChange={setStatusFilter}
         />
 
         <PtsTable

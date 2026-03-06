@@ -84,12 +84,11 @@ export function UserForm({ id }: UserFormProps) {
         if (colaboradorProfile) {
           payload.profile_id = colaboradorProfile.id;
         }
-        payload.role = 'user';
       }
 
       // Cleanup payload
       if (payload.email === '') delete payload.email;
-      if (payload.role === '') delete payload.role;
+      delete payload.role;
       if (payload.site_id === '') payload.site_id = null;
       if (payload.profile_id === '') delete payload.profile_id;
       if (!payload.password) delete payload.password;

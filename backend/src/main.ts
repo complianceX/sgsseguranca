@@ -1,4 +1,8 @@
 console.log('🔥 MAIN.TS REAL EXECUTANDO');
+import * as path from 'path';
+import * as dotenv from 'dotenv';
+// Carrega .env antes de qualquer uso de process.env (inclui PORT)
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 import * as crypto from 'crypto';
 
 // Polyfill para crypto.randomUUID() executado no nível do módulo
@@ -142,35 +146,50 @@ async function bootstrap() {
       );
     }
     const bullBoardAuth: RequestHandler = (req, res, next) => {
-    const password = process.env.BULL_BOARD_PASS;
-    if (isProductionEnv && !password) {
-      res
-        .status(503)
-        .json({ error: 'Bull Board desabilitado: configure BULL_BOARD_PASS' });
-      return;
-    }
-    if (!password) {
+      // Hardening operacional:
+      // - Autenticação SEMPRE (inclusive em desenvolvimento)
+      // - Bloqueio de acesso externo: Bull Board somente localhost
+      const password = process.env.BULL_BOARD_PASS;
+      if (!password) {
+        res
+          .status(503)
+          .json({ error: 'Bull Board desabilitado: configure BULL_BOARD_PASS' });
+        return;
+      }
+
+      const ip = String(req.ip || '');
+      const remote = String(req.socket?.remoteAddress || '');
+      const isLocalhost =
+        ip === '127.0.0.1' ||
+        ip === '::1' ||
+        ip === '::ffff:127.0.0.1' ||
+        remote === '127.0.0.1' ||
+        remote === '::1' ||
+        remote === '::ffff:127.0.0.1';
+
+      if (!isLocalhost) {
+        res.status(403).json({ error: 'Acesso negado' });
+        return;
+      }
+
+      const authHeader = req.headers['authorization'];
+      if (!authHeader || !authHeader.startsWith('Basic ')) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="Bull Board"');
+        res.status(401).json({ error: 'Autenticação necessária' });
+        return;
+      }
+      const [user, pass] = Buffer.from(authHeader.slice(6), 'base64')
+        .toString('utf-8')
+        .split(':');
+      if (
+        user !== (process.env.BULL_BOARD_USER || 'admin') ||
+        pass !== password
+      ) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="Bull Board"');
+        res.status(401).json({ error: 'Credenciais inválidas' });
+        return;
+      }
       next();
-      return;
-    }
-    const authHeader = req.headers['authorization'];
-    if (!authHeader || !authHeader.startsWith('Basic ')) {
-      res.setHeader('WWW-Authenticate', 'Basic realm="Bull Board"');
-      res.status(401).json({ error: 'Autenticação necessária' });
-      return;
-    }
-    const [user, pass] = Buffer.from(authHeader.slice(6), 'base64')
-      .toString('utf-8')
-      .split(':');
-    if (
-      user !== (process.env.BULL_BOARD_USER || 'admin') ||
-      pass !== password
-    ) {
-      res.setHeader('WWW-Authenticate', 'Basic realm="Bull Board"');
-      res.status(401).json({ error: 'Credenciais inválidas' });
-      return;
-    }
-    next();
     };
     app.use('/admin/queues', bullBoardAuth, bullBoardAdapter.getRouter());
   }
@@ -188,11 +207,15 @@ async function bootstrap() {
   // Threshold padrão: 1KB (responses menores não compensam o overhead de CPU)
   app.use(compression());
 
+  // Hardening: remove header X-Powered-By (express)
+  (app.getHttpAdapter().getInstance() as any).disable?.('x-powered-by');
+
   app.use(
     helmet({
       contentSecurityPolicy: {
         reportOnly: !isProduction,
-        useDefaults: false,
+        // Importante: manter os defaults do Helmet (inclui base-uri, object-src, etc.)
+        useDefaults: true,
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'"],
@@ -206,9 +229,19 @@ async function bootstrap() {
         },
       },
       crossOriginEmbedderPolicy: true,
+      crossOriginResourcePolicy: { policy: 'same-site' },
       hsts: { maxAge: 31536000, includeSubDomains: true },
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
     }),
   );
+
+  // Headers adicionais (compatível com versões do helmet que não expõem permissionsPolicy em type defs)
+  app.use((_req, res, next) => {
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    next();
+  });
   const cookieParserMw = cookieParser() as unknown as RequestHandler;
   app.use(cookieParserMw);
 
@@ -255,16 +288,14 @@ async function bootstrap() {
       origin: string | undefined,
       callback: (err: Error | null, allow?: boolean) => void,
     ) => {
-      if (!origin) {
-        return callback(null, true);
-      }
+      // Segurança: não "aceitar origin nulo". Para requisições sem Origin (ex.: curl/server-to-server),
+      // retornamos false para não habilitar CORS, sem bloquear a request.
+      if (!origin || origin === 'null') return callback(null, false);
       const isExplicitAllowed = allowedOrigins.includes(origin);
       const isDevNetworkAllowed =
         !isProduction &&
-        (/^http:\/\/(?:localhost|127\.0\.0\.1):(?:3000|3001|3002)$/i.test(
-          origin,
-        ) ||
-          /^http:\/\/(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}):(?:3000|3001|3002)$/i.test(
+        (/^http:\/\/(?:localhost|127\.0\.0\.1):\d{2,5}$/i.test(origin) ||
+          /^http:\/\/(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}):\d{2,5}$/i.test(
             origin,
           ));
       if (isExplicitAllowed || isDevNetworkAllowed) {

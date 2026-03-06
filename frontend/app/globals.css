@@ -1,43 +1,43 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f3f4f6;
-  --foreground: #374151;
-  --card: #ffffff;
-  --card-foreground: #374151;
-  --muted: #e5e7eb;
-  --muted-foreground: #6b7280;
-  --popover: #ffffff;
-  --popover-foreground: #374151;
-  --primary: #2563eb;
+  --background: #0F172A;
+  --foreground: #F1F5F9;
+  --card: #1E293B;
+  --card-foreground: #F1F5F9;
+  --muted: #1E293B;
+  --muted-foreground: #94A3B8;
+  --popover: #1E293B;
+  --popover-foreground: #F1F5F9;
+  --primary: #2563EB;
   --primary-foreground: #ffffff;
-  --secondary: #e5e7eb;
-  --secondary-foreground: #374151;
-  --accent: #1e3a8a;
+  --secondary: #334155;
+  --secondary-foreground: #F1F5F9;
+  --accent: #1D4ED8;
   --accent-foreground: #ffffff;
-  --destructive: #dc2626;
+  --destructive: #DC2626;
   --destructive-foreground: #ffffff;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-  --ring: #2563eb;
-  --surface-1: #ffffff;
-  --surface-2: #f9fafb;
-  --sidebar: #1e293b;
-  --sidebar-foreground: #ffffff;
-  --sidebar-accent: #334155;
-  --sidebar-muted: #cbd5e1;
-  --success: #16a34a;
-  --success-hover: #15803d;
-  --warning: #facc15;
-  --warning-hover: #eab308;
-  --warning-foreground: #111827;
-  --danger-hover: #b91c1c;
-  --primary-dark: #1e3a8a;
-  --primary-hover: #1e40af;
-  --risk-acceptable: #22c55e;
-  --risk-attention: #3b82f6;
-  --risk-substantial: #f97316;
-  --risk-critical: #ef4444;
+  --border: #334155;
+  --input: #334155;
+  --ring: #2563EB;
+  --surface-1: #1E293B;
+  --surface-2: #0F172A;
+  --sidebar: #0F172A;
+  --sidebar-foreground: #F1F5F9;
+  --sidebar-accent: #2563EB;
+  --sidebar-muted: #94A3B8;
+  --success: #16A34A;
+  --success-hover: #15803D;
+  --warning: #EAB308;
+  --warning-hover: #CA8A04;
+  --warning-foreground: #F1F5F9;
+  --danger-hover: #B91C1C;
+  --primary-dark: #1E40AF;
+  --primary-hover: #1D4ED8;
+  --risk-acceptable: #16A34A;
+  --risk-attention: #2563EB;
+  --risk-substantial: #EA580C;
+  --risk-critical: #DC2626;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -61,36 +61,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a1224;
-    --foreground: #e5edff;
-    --card: #0f1a33;
-    --card-foreground: #e5edff;
-    --muted: #1a2746;
-    --muted-foreground: #b8c7eb;
-    --popover: #0f1a33;
-    --popover-foreground: #e5edff;
-    --primary: #3b82f6;
-    --primary-foreground: #eaf2ff;
-    --secondary: #172742;
-    --secondary-foreground: #d7e5ff;
-    --accent: #1f3a66;
-    --accent-foreground: #d6e5ff;
-    --destructive: #ef4444;
-    --destructive-foreground: #ffe4e6;
-    --border: #2a3b61;
-    --input: #2a3b61;
-    --ring: #60a5fa;
-    --surface-1: #101c37;
-    --surface-2: #0b162f;
-    --sidebar: #060d1f;
-    --sidebar-foreground: #c4d5ff;
-    --sidebar-accent: #3b82f6;
-    --sidebar-muted: #86a0d8;
-  }
-}
-
 * {
   border-color: var(--border);
 }
@@ -108,7 +78,7 @@ body {
   h4,
   h5,
   h6 {
-    color: #0b1a38;
+    color: #F1F5F9;
     letter-spacing: -0.01em;
   }
 
@@ -116,73 +86,73 @@ body {
   span,
   li,
   td {
-    color: #1f2f4a;
+    color: #CBD5E1;
   }
 
   label {
-    color: #12233f !important;
-    font-weight: 700 !important;
+    color: #CBD5E1 !important;
+    font-weight: 600 !important;
     letter-spacing: 0.01em;
   }
 
   table thead th {
     color: #ffffff !important;
     font-weight: 700 !important;
-    background: #1e3a8a !important;
-    border-bottom: 1px solid #1e3a8a !important;
+    background: #1E3A8A !important;
+    border-bottom: 1px solid #1E3A8A !important;
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: 0.05em;
   }
 
   table tbody td {
-    color: #1f2f4a !important;
-    border-bottom: 1px solid #d7e2f1;
-    background-color: #ffffff;
+    color: #CBD5E1 !important;
+    border-bottom: 1px solid #334155;
+    background-color: #1E293B;
   }
 
   table tbody tr:nth-child(even) td {
-    background-color: #f9fafb;
+    background-color: #162032;
   }
 
   table tbody tr:hover td {
-    background-color: #eef2ff !important;
+    background-color: #273549 !important;
   }
 
   input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea {
-    border-color: #e5e7eb !important;
-    background-color: #ffffff !important;
-    color: #12233f !important;
-    font-weight: 600 !important;
+    border-color: #334155 !important;
+    background-color: #0F172A !important;
+    color: #F1F5F9 !important;
+    font-weight: 500 !important;
     border-radius: 0.5rem !important;
     transition: all 0.2s ease;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 
   input::placeholder,
   textarea::placeholder {
-    color: #6b7f9f !important;
+    color: #64748B !important;
     opacity: 1 !important;
   }
 
   input:not([type="checkbox"]):not([type="radio"]):focus,
   select:focus,
   textarea:focus {
-    border-color: #2563eb !important;
-    background-color: #ffffff !important;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+    border-color: #2563EB !important;
+    background-color: #0F172A !important;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2) !important;
     outline: none !important;
   }
 }
 
 @layer components {
   .sst-card {
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: #1E293B;
+    border: 1px solid #334155;
     border-radius: 0.75rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
   }
 
   .risk-badge-acceptable {
@@ -205,6 +175,7 @@ body {
     color: #ffffff;
   }
 
+  /* APR/PT print tables — manter fundo branco para impressão */
   .apr-sheet thead th {
     border: 1px solid #111827 !important;
     font-size: 0.7rem;
@@ -248,4 +219,70 @@ body {
     padding: 0.45rem 0.5rem !important;
     line-height: 1.25;
   }
+}
+
+/* ============================================================
+   Dark Theme — Global Tailwind Class Overrides
+   Regras fora de @layer têm precedência sobre @layer utilities,
+   convertendo automaticamente componentes claro → escuro
+   sem modificar cada arquivo individualmente.
+   ============================================================ */
+
+.bg-white {
+  background-color: #1E293B;
+}
+
+.border-gray-100,
+.border-gray-200,
+.border-gray-300 {
+  border-color: #334155;
+}
+
+.text-gray-900,
+.text-gray-800 {
+  color: #F1F5F9;
+}
+
+.text-gray-700,
+.text-gray-600 {
+  color: #CBD5E1;
+}
+
+.text-gray-500,
+.text-gray-400 {
+  color: #94A3B8;
+}
+
+.bg-gray-50 {
+  background-color: #0F172A;
+}
+
+.bg-gray-100 {
+  background-color: #1E293B;
+}
+
+.hover\:bg-gray-50:hover {
+  background-color: #273549;
+}
+
+.hover\:bg-gray-100:hover {
+  background-color: #273549;
+}
+
+.shadow-sm {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.hover\:shadow-md:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* Card pattern: rounded-xl + border = dark card */
+.rounded-xl.border {
+  background-color: #1E293B;
+}
+
+/* Dividers */
+.divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #334155;
 }

@@ -70,8 +70,18 @@ export abstract class BaseService<T extends ObjectLiteral> {
   }
 
   async create(data: DeepPartial<T>): Promise<T> {
+    // Defesa em profundidade: nunca confiar em company_id vindo do client.
+    const next = { ...(data as any) };
+    delete (next as any).company_id;
+    delete (next as any).empresa_id;
+    delete (next as any).profile_id;
+    delete (next as any).role;
+    delete (next as any).roles;
+    delete (next as any).permissions;
+    delete (next as any).permissoes;
+
     const entity = this.repository.create({
-      ...data,
+      ...(next as any),
       company_id: this.getTenantId(),
     } as DeepPartial<T>);
     return this.repository.save(entity);
@@ -79,7 +89,18 @@ export abstract class BaseService<T extends ObjectLiteral> {
 
   async update(id: string, data: DeepPartial<T>): Promise<T> {
     const entity = await this.findOne(id);
-    this.repository.merge(entity, data);
+
+    // Bloqueio de mass assignment: impedir alteração de campos sensíveis via payload.
+    const next = { ...(data as any) };
+    delete (next as any).company_id;
+    delete (next as any).empresa_id;
+    delete (next as any).profile_id;
+    delete (next as any).role;
+    delete (next as any).roles;
+    delete (next as any).permissions;
+    delete (next as any).permissoes;
+
+    this.repository.merge(entity, next);
     return this.repository.save(entity);
   }
 

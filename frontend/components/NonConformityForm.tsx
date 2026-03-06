@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import type { FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, Plus, Trash2, Loader2 } from 'lucide-react';
+import { Save, Plus, Trash2, Loader2, Camera, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { nonConformitiesService } from '@/services/nonConformitiesService';
 import { sitesService, Site } from '@/services/sitesService';
@@ -76,6 +76,9 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const {
     register,
@@ -106,6 +109,44 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     control,
     name: 'anexos',
   });
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setIsCameraOpen(true);
+    } catch (err) {
+      toast.error('Não foi possível acessar a câmera.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((t) => t.stop());
+      videoRef.current.srcObject = null;
+    }
+    setIsCameraOpen(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth || 800;
+      canvas.height = video.videoHeight || 600;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        appendAnexo({ url: dataUrl });
+        toast.success('Foto capturada e adicionada aos anexos');
+      }
+    }
+    stopCamera();
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -732,6 +773,16 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               <span>Adicionar anexo</span>
             </button>
           </div>
+          <div className="mb-3">
+            <button
+              type="button"
+              onClick={startCamera}
+              className="inline-flex items-center space-x-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+            >
+              <Camera className="h-4 w-4" />
+              <span>Capturar foto</span>
+            </button>
+          </div>
           <div className="space-y-2">
             {anexosFields.map((field, index) => (
               <div key={field.id} className="flex items-center space-x-2">
@@ -754,6 +805,38 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           </div>
         </div>
       </div>
+
+      {isCameraOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-lg rounded-lg bg-white p-4 shadow-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900">Capturar foto</h3>
+              <button
+                type="button"
+                onClick={stopCamera}
+                className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Fechar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mb-3 overflow-hidden rounded-lg border">
+              <video ref={videoRef} autoPlay playsInline className="h-64 w-full bg-black" />
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
+            <div className="flex items-center justify-end space-x-2">
+              <button
+                type="button"
+                onClick={capturePhoto}
+                className="inline-flex items-center space-x-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                <Camera className="h-4 w-4" />
+                <span>Capturar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-bold text-gray-900">13. Assinaturas</h2>

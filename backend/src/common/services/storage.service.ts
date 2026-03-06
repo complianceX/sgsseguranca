@@ -130,9 +130,13 @@ export class StorageService {
       Key: key,
     });
 
-    await this.integration.execute('s3_delete', () => this.s3Client.send(command), {
-      timeoutMs: 10_000,
-    });
+    await this.integration.execute(
+      's3_delete',
+      () => this.s3Client.send(command),
+      {
+        timeoutMs: 10_000,
+      },
+    );
 
     this.logger.log(`Arquivo deletado: ${key}`);
   }

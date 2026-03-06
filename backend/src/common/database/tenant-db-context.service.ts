@@ -117,6 +117,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
         const setStart = process.hrtime.bigint();
         await client.query(
           `SELECT
+             set_config('app.current_company',    $1, false),
              set_config('app.current_company_id', $1, false),
              set_config('app.is_super_admin',     $2, false)`,
           [ctx?.companyId ?? '', String(ctx?.isSuperAdmin ?? false)],
@@ -133,6 +134,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
         try {
           await client.query(
             `SELECT
+               set_config('app.current_company',    $1, false),
                set_config('app.current_company_id', $1, false),
                set_config('app.is_super_admin',     $2, false)`,
             ['', 'false'],

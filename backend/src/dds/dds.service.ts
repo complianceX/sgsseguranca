@@ -101,4 +101,53 @@ export class DdsService {
       where: tenantId ? { ...where, company_id: tenantId } : where,
     });
   }
+
+  async listStoredFiles(filters: {
+    companyId?: string;
+    year?: number;
+    week?: number;
+  }) {
+    const tenantId = this.tenantService.getTenantId();
+    const query = this.ddsRepository
+      .createQueryBuilder('d')
+      .where('d.pdf_file_key IS NOT NULL');
+
+    if (tenantId) {
+      query.andWhere('d.company_id = :tenantId', { tenantId });
+    }
+    if (filters.companyId) {
+      query.andWhere('d.company_id = :companyId', {
+        companyId: filters.companyId,
+      });
+    }
+
+    const results = await query.getMany();
+
+    return results
+      .filter((d) => {
+        if (!d.created_at) return false;
+        const date = new Date(d.created_at);
+        if (filters.year && date.getFullYear() !== filters.year) return false;
+        if (filters.week) {
+          const dt = new Date(
+            Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+          );
+          dt.setUTCDate(dt.getUTCDate() + 4 - (dt.getUTCDay() || 7));
+          const yearStart = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+          const isoWeek = Math.ceil(
+            ((dt.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
+          );
+          if (isoWeek !== filters.week) return false;
+        }
+        return true;
+      })
+      .map((d) => ({
+        id: d.id,
+        tema: d.tema,
+        companyId: d.company_id,
+        fileKey: d.pdf_file_key,
+        folderPath: d.pdf_folder_path,
+        originalName: d.pdf_original_name,
+      }));
+  }
 }

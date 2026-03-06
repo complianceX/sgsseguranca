@@ -1,5 +1,6 @@
 # Dependencias Node
 node_modules
+.npm-cache
 
 #Build  frontend
 .next
@@ -43,6 +44,9 @@ uploads/
 
 # Env de produção com configurações reais ou templates que podem confundir
 .env.production.optimized
+
+# Artefatos locais de dev
+backend/dev.sqlite
 
 # Arquivos de build local do backend
 backend/dist/

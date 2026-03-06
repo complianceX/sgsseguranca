@@ -6,6 +6,21 @@ export interface Risk {
   categoria: string;
   descricao?: string;
   medidas_controle?: string;
+  probability?: number;
+  severity?: number;
+  exposure?: number;
+  initial_risk?: number;
+  residual_risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  control_hierarchy?:
+    | 'ELIMINATION'
+    | 'SUBSTITUTION'
+    | 'ENGINEERING'
+    | 'ADMINISTRATIVE'
+    | 'PPE';
+  evidence_photo?: string;
+  evidence_document?: string;
+  control_description?: string;
+  control_evidence?: boolean;
   company_id: string;
   status: boolean;
   created_at: string;

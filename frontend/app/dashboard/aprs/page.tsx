@@ -1,6 +1,7 @@
 'use client';
 
-import { Plus } from 'lucide-react';
+import { Plus, FileSpreadsheet } from 'lucide-react';
+import { downloadExcel } from '@/lib/download-excel';
 import Link from 'next/link';
 import { SendMailModal } from '@/components/SendMailModal';
 import { useAprs } from './hooks/useAprs';
@@ -10,12 +11,15 @@ import { AprFilters } from './components/AprFilters';
 import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { aprsService } from '@/services/aprsService';
 import { PaginationControls } from '@/components/PaginationControls';
+import { CardSkeleton } from '@/components/ui/skeleton';
 
 export default function AprsPage() {
   const {
     loading,
     searchTerm,
     setSearchTerm,
+    statusFilter,
+    setStatusFilter,
     insights,
     overviewMetrics,
     page,
@@ -54,13 +58,23 @@ export default function AprsPage() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Análise Preliminar de Risco (APR)</h1>
           <p className="text-gray-500">Gerencie as APRs emitidas para as obras e setores.</p>
         </div>
-        <Link
-          href="/dashboard/aprs/new"
-          className="flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 hover:scale-105 active:scale-95"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Nova APR
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => downloadExcel('/aprs/export/excel', 'aprs.xlsx')}
+            className="flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:scale-105 active:scale-95"
+          >
+            <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" />
+            Exportar Excel
+          </button>
+          <Link
+            href="/dashboard/aprs/new"
+            className="flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 hover:scale-105 active:scale-95"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nova APR
+          </Link>
+        </div>
       </div>
 
       <AprInsights insights={insights} />
@@ -79,14 +93,18 @@ export default function AprsPage() {
       )}
 
       <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
-        <AprFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} />
+        <AprFilters
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          statusFilter={statusFilter}
+          onStatusChange={setStatusFilter}
+        />
 
         <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3">
           {loading ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-20 space-y-4">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-              <p className="text-sm text-gray-500 font-medium">Carregando APRs...</p>
-            </div>
+            Array.from({ length: 6 }).map((_, i) => (
+              <CardSkeleton key={i} />
+            ))
           ) : filteredAprs.length === 0 ? (
             <div className="col-span-full flex flex-col items-center justify-center py-20 space-y-2">
               <div className="rounded-full bg-gray-50 p-4">

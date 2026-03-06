@@ -3,6 +3,8 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeepPartial } from 'typeorm';
@@ -21,12 +23,18 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import { Profile } from '../profiles/entities/profile.entity';
+import { Role } from '../auth/enums/roles.enum';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    @InjectRepository(Profile)
+    private profilesRepository: Repository<Profile>,
     private tenantService: TenantService,
     private passwordService: PasswordService,
     private auditService: AuditService,
@@ -34,10 +42,46 @@ export class UsersService {
 
   async create(createUserData: DeepPartial<User>): Promise<UserResponseDto> {
     const { password, ...rest } = createUserData;
-    const companyId = rest.company_id || this.tenantService.getTenantId();
+    const tenantId = this.tenantService.getTenantId();
+    const isSuperAdmin = this.tenantService.isSuperAdmin();
+
+    // Defesa em profundidade: não confiar em company_id vindo do body.
+    if (!isSuperAdmin && rest.company_id && tenantId && rest.company_id !== tenantId) {
+      this.logger.warn({
+        event: 'cross_tenant_attempt',
+        action: 'users.create',
+        actorId: RequestContext.getUserId(),
+        tenantId,
+        requestedCompanyId: rest.company_id,
+      });
+      throw new ForbiddenException('Não é permitido criar usuário em outra empresa.');
+    }
+
+    const companyId = isSuperAdmin ? rest.company_id || tenantId : tenantId;
 
     if (!companyId) {
       throw new BadRequestException('Empresa é obrigatória');
+    }
+
+    // Broken Function Level Auth / Privilege Escalation:
+    // apenas ADMIN_GERAL pode atribuir perfil "Administrador Geral".
+    if (rest.profile_id) {
+      const profile = await this.profilesRepository.findOne({
+        where: { id: rest.profile_id as string },
+        select: { id: true, nome: true },
+      });
+      if (profile?.nome === Role.ADMIN_GERAL && !isSuperAdmin) {
+        this.logger.warn({
+          event: 'role_change_denied',
+          action: 'users.create',
+          actorId: RequestContext.getUserId(),
+          targetCompanyId: companyId,
+          requestedProfile: profile.nome,
+        });
+        throw new ForbiddenException(
+          'Atribuição de perfil Administrador Geral não é permitida.',
+        );
+      }
     }
 
     const normalizedCpf = CpfUtil.normalize(rest.cpf as string);
@@ -67,6 +111,7 @@ export class UsersService {
   async findPaginated(opts?: {
     page?: number;
     limit?: number;
+    search?: string;
   }): Promise<OffsetPage<UserResponseDto>> {
     const tenantId = this.tenantService.getTenantId();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
@@ -74,32 +119,25 @@ export class UsersService {
       maxLimit: 100,
     });
 
-    const [users, total] = await this.usersRepository.findAndCount({
-      where: tenantId ? { company_id: tenantId } : {},
-      // LISTING: carregar apenas o necessário (profile para nome no frontend).
-      relations: ['profile'],
-      select: {
-        id: true,
-        nome: true,
-        cpf: true,
-        email: true,
-        funcao: true,
-        company_id: true,
-        site_id: true,
-        profile_id: true,
-        status: true,
-        created_at: true,
-        updated_at: true,
-        profile: {
-          id: true,
-          nome: true,
-        } as any,
-      } as any,
-      skip,
-      take: limit,
-      order: { nome: 'ASC' },
-    });
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.profile', 'profile')
+      .skip(skip)
+      .take(limit)
+      .orderBy('user.nome', 'ASC');
 
+    if (tenantId) {
+      qb.where('user.company_id = :tenantId', { tenantId });
+    }
+
+    if (opts?.search) {
+      const clause = '(user.nome ILIKE :search OR user.cpf LIKE :search)';
+      tenantId
+        ? qb.andWhere(clause, { search: `%${opts.search}%` })
+        : qb.where(clause, { search: `%${opts.search}%` });
+    }
+
+    const [users, total] = await qb.getManyAndCount();
     const data = users.map((user) => plainToClass(UserResponseDto, user));
     return toOffsetPage(data, total, page, limit);
   }
@@ -154,6 +192,7 @@ export class UsersService {
   ): Promise<UserResponseDto> {
     // Busca a entidade original
     const tenantId = this.tenantService.getTenantId();
+    const isSuperAdmin = this.tenantService.isSuperAdmin();
     const user = await this.usersRepository.findOne({
       where: tenantId ? { id, company_id: tenantId } : { id },
     });
@@ -163,6 +202,56 @@ export class UsersService {
     }
 
     const { password, ...rest } = updateUserData;
+
+    // Bloqueio de mass assignment: não permitir alteração de company_id via payload.
+    // Se for necessário "mover usuário de empresa", crie um endpoint admin dedicado com
+    // auditoria e validações adicionais.
+    if (rest.company_id) {
+      this.logger.warn({
+        event: 'mass_assignment_blocked',
+        action: 'users.update',
+        actorId: RequestContext.getUserId(),
+        tenantId,
+        targetUserId: id,
+        attemptedCompanyId: rest.company_id,
+      });
+      delete (rest as any).company_id;
+      if (!isSuperAdmin) {
+        throw new ForbiddenException(
+          'Alteração de empresa do usuário não é permitida por este endpoint.',
+        );
+      }
+    }
+
+    // Privilege Escalation: bloquear promoção para ADMIN_GERAL por não-superadmin.
+    if (rest.profile_id) {
+      const profile = await this.profilesRepository.findOne({
+        where: { id: rest.profile_id as string },
+        select: { id: true, nome: true },
+      });
+      if (profile?.nome === Role.ADMIN_GERAL && !isSuperAdmin) {
+        this.logger.warn({
+          event: 'role_change_denied',
+          action: 'users.update',
+          actorId: RequestContext.getUserId(),
+          targetUserId: id,
+          requestedProfile: profile.nome,
+        });
+        throw new ForbiddenException(
+          'Atribuição de perfil Administrador Geral não é permitida.',
+        );
+      }
+    }
+
+    if (rest.profile_id && rest.profile_id !== (user as any).profile_id) {
+      this.logger.warn({
+        event: 'role_change',
+        actorId: RequestContext.getUserId(),
+        targetUserId: id,
+        fromProfileId: (user as any).profile_id,
+        toProfileId: rest.profile_id,
+      });
+    }
 
     if (password && typeof password === 'string') {
       user.password = await this.passwordService.hash(password);

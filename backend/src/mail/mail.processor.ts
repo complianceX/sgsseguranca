@@ -1,4 +1,9 @@
-import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import {
+  InjectQueue,
+  OnWorkerEvent,
+  Processor,
+  WorkerHost,
+} from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { DelayedError, type Job, type Queue } from 'bullmq';
 import { MailService } from './mail.service';
@@ -22,7 +27,7 @@ export class MailProcessor extends WorkerHost {
   // BullMQ v5+: @Process() foi removido. Implementar process() e rotear por job.name.
   async process(job: Job): Promise<any> {
     const start = Date.now();
-    const companyId = (job.data as any)?.companyId as string | undefined;
+    const companyId = job.data?.companyId as string | undefined;
     const quota = await this.tenantQuota.tryAcquire('mail', companyId);
     if (!quota.acquired) {
       const delayMs = this.tenantQuota.getDelayMs('mail');
@@ -45,7 +50,7 @@ export class MailProcessor extends WorkerHost {
             job.name,
             Date.now() - start,
             'success',
-            (job.data as any)?.companyId,
+            job.data?.companyId,
           );
           return result;
         }
@@ -166,7 +171,7 @@ export class MailProcessor extends WorkerHost {
           originalJobId: job.id,
           originalJobName: job.name,
           attemptsMade: job.attemptsMade,
-          companyId: (job.data as any)?.companyId,
+          companyId: job.data?.companyId,
           data: job.data,
           error: { message: error.message, stack: error.stack },
           failedAt: new Date().toISOString(),

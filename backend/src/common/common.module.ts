@@ -10,12 +10,17 @@ import { PdfService } from './services/pdf.service';
 import { PuppeteerPoolService } from './services/puppeteer-pool.service';
 import { PdfValidatorService } from './services/pdf-validator.service';
 import { SignatureTimestampService } from './services/signature-timestamp.service';
+import { TenantRepositoryFactory } from './tenant/tenant-repository';
+import { TenantGuard } from './guards/tenant.guard';
+import { RiskCalculationService } from './services/risk-calculation.service';
 
 @Global()
 @Module({
   imports: [RedisModule],
   providers: [
     TenantService,
+    TenantRepositoryFactory,
+    TenantGuard,
     TenantDbContextService,
     DbTimingsService,
     PasswordService,
@@ -25,10 +30,13 @@ import { SignatureTimestampService } from './services/signature-timestamp.servic
     PuppeteerPoolService,
     PdfValidatorService,
     SignatureTimestampService,
+    RiskCalculationService,
   ],
   exports: [
     RedisModule,
     TenantService,
+    TenantRepositoryFactory,
+    TenantGuard,
     TenantDbContextService,
     DbTimingsService,
     PasswordService,
@@ -38,6 +46,7 @@ import { SignatureTimestampService } from './services/signature-timestamp.servic
     PuppeteerPoolService,
     PdfValidatorService,
     SignatureTimestampService,
+    RiskCalculationService,
   ],
 })
 export class CommonModule {}

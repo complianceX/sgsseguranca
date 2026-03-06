@@ -30,6 +30,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost) {
+    const isProduction = process.env.NODE_ENV === 'production';
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<AuthenticatedRequest>();
@@ -50,6 +51,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       } else {
         message = exceptionResponse as string;
       }
+
+      // Sanitização em produção: para 5xx, não expor mensagens internas ao client.
+      if (isProduction && status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+        message = 'Erro interno do servidor';
+        details = undefined;
+      }
     } else if (exception instanceof QueryFailedError) {
       status = HttpStatus.BAD_REQUEST;
       message = 'Erro ao processar consulta no banco de dados';
@@ -65,7 +72,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
         code = 'FOREIGN_KEY_VIOLATION';
       }
     } else if (exception instanceof Error) {
-      message = exception.message;
+      // Em produção, evitar vazar mensagens internas (stack traces, libs, infra, SQL, etc.).
+      message = isProduction ? 'Erro interno do servidor' : exception.message;
       code = exception.name;
     }
 
@@ -82,7 +90,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
     };
 
     // Rotas de browser/crawler sem rota registrada — ignorar completamente
-    const SILENT_PATHS = ['/favicon.ico', '/robots.txt', '/apple-touch-icon.png'];
+    const SILENT_PATHS = [
+      '/favicon.ico',
+      '/robots.txt',
+      '/apple-touch-icon.png',
+    ];
     if (SILENT_PATHS.includes(request.url) && status === HttpStatus.NOT_FOUND) {
       response.status(status).json(errorResponse);
       return;

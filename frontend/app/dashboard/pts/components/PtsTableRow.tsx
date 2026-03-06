@@ -1,12 +1,17 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Pt } from '@/services/ptsService';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Pencil, Trash2, Printer, Mail, Download, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Pencil, Trash2, Printer, Mail, Download, CheckCircle, Clock, AlertTriangle, PenLine, Users } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { SignatureModal } from '@/components/SignatureModal';
+import { SignaturesPanel } from '@/components/SignaturesPanel';
+import { signaturesService } from '@/services/signaturesService';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
 
 interface PtsTableRowProps {
   pt: Pt;
@@ -41,8 +46,29 @@ const getStatusClass = (status: string) => {
 };
 
 export const PtsTableRow = React.memo(({ pt, onDelete, onPrint, onSendEmail, onDownloadPdf, onApprove, onReject }: PtsTableRowProps) => {
+  const { user, hasPermission } = useAuth();
+  const [showSignModal, setShowSignModal] = useState(false);
+  const [showSignaturesPanel, setShowSignaturesPanel] = useState(false);
   const isApproved = pt.status === 'Aprovada';
+
+  const handleSignSave = async (signatureData: string, type: string) => {
+    try {
+      await signaturesService.create({
+        document_id: pt.id,
+        document_type: 'PT',
+        signature_data: signatureData,
+        type,
+        user_id: user?.id,
+        company_id: pt.company_id,
+      });
+      toast.success('Assinatura registrada com sucesso!');
+    } catch {
+      toast.error('Erro ao registrar assinatura.');
+    }
+  };
+
   return (
+    <>
     <tr className="group transition-colors hover:bg-[#EEF2FF]">
       <td className="px-6 py-4">
         <div className="font-medium text-[#1F2F4A]">{pt.numero}</div>
@@ -89,7 +115,7 @@ export const PtsTableRow = React.memo(({ pt, onDelete, onPrint, onSendEmail, onD
           >
             <Download className="h-4 w-4" />
           </button>
-          {!isApproved && (
+          {!isApproved && hasPermission('can_approve_pt') && (
             <>
               <button
                 type="button"
@@ -129,9 +155,39 @@ export const PtsTableRow = React.memo(({ pt, onDelete, onPrint, onSendEmail, onD
           >
             <Trash2 className="h-4 w-4" />
           </button>
+          <button
+            type="button"
+            onClick={() => setShowSignModal(true)}
+            className="rounded p-1.5 text-purple-600 transition-colors hover:bg-purple-50"
+            title="Assinar PT"
+          >
+            <PenLine className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowSignaturesPanel(true)}
+            className="rounded p-1.5 text-gray-500 transition-colors hover:bg-gray-100"
+            title="Ver assinaturas"
+          >
+            <Users className="h-4 w-4" />
+          </button>
         </div>
       </td>
     </tr>
+
+    <SignatureModal
+      isOpen={showSignModal}
+      onClose={() => setShowSignModal(false)}
+      onSave={handleSignSave}
+      userName={user?.nome ?? 'Usuário'}
+    />
+    <SignaturesPanel
+      isOpen={showSignaturesPanel}
+      onClose={() => setShowSignaturesPanel(false)}
+      documentId={pt.id}
+      documentType="PT"
+    />
+    </>
   );
 });
 

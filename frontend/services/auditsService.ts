@@ -1,6 +1,7 @@
 import api from '@/lib/api';
 import { Site } from './sitesService';
 import { User } from './usersService';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export interface Audit {
   id: string;
@@ -100,9 +101,23 @@ export interface CreateAuditDto {
 }
 
 export const auditsService = {
-  findAll: async () => {
-    const response = await api.get<Audit[]>('/audits');
+  findPaginated: async (opts?: { page?: number; limit?: number; search?: string }): Promise<PaginatedResponse<Audit>> => {
+    const response = await api.get<PaginatedResponse<Audit>>('/audits', {
+      params: {
+        page: opts?.page ?? 1,
+        limit: opts?.limit ?? 20,
+        ...(opts?.search ? { search: opts.search } : {}),
+      },
+    });
     return response.data;
+  },
+
+  findAll: async () => {
+    return fetchAllPages({
+      fetchPage: (page, limit) => auditsService.findPaginated({ page, limit }),
+      limit: 100,
+      maxPages: 20,
+    });
   },
 
   findOne: async (id: string) => {

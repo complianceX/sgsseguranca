@@ -22,13 +22,14 @@ export class RedisService {
     userId: string,
     tokenHash: string,
     ttlSeconds: number,
+    value: string = '1',
   ): Promise<void> {
     const key = this.getRefreshTokenKey(userId, tokenHash);
     const setKey = this.getRefreshTokenSetKey(userId);
 
     await this.client
       .multi()
-      .setex(key, ttlSeconds, '1')
+      .setex(key, ttlSeconds, value)
       .sadd(setKey, tokenHash)
       .expire(setKey, ttlSeconds)
       .exec();
@@ -46,6 +47,7 @@ export class RedisService {
     oldTokenHash: string,
     newTokenHash: string,
     ttlSeconds: number,
+    value: string = '1',
   ): Promise<void> {
     const oldKey = this.getRefreshTokenKey(userId, oldTokenHash);
     const newKey = this.getRefreshTokenKey(userId, newTokenHash);
@@ -55,7 +57,7 @@ export class RedisService {
       .multi()
       .del(oldKey)
       .srem(setKey, oldTokenHash)
-      .setex(newKey, ttlSeconds, '1')
+      .setex(newKey, ttlSeconds, value)
       .sadd(setKey, newTokenHash)
       .expire(setKey, ttlSeconds)
       .exec();

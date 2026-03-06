@@ -10,9 +10,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *    (idx_<table>_company_created / idx_<table>_company_status).
  *    Aqui garantimos cobertura para TODAS as tabelas com as colunas-alvo.
  */
-export class StrategicTenantIndexes1709000000024
-  implements MigrationInterface
-{
+export class StrategicTenantIndexes1709000000024 implements MigrationInterface {
   name = 'StrategicTenantIndexes1709000000024';
 
   // Índices já criados explicitamente na migration 1709000000023 (não remover no down)
@@ -150,4 +148,3 @@ export class StrategicTenantIndexes1709000000024
     }
   }
 }
-
