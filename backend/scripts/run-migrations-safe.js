@@ -20,6 +20,20 @@ function buildDataSource() {
     );
   }
 
+  const isProduction = process.env.NODE_ENV === 'production';
+  const railwaySelfSigned = process.env.BANCO_DE_DADOS_SSL === 'true';
+  const sslEnabled =
+    process.env.DATABASE_SSL === 'true' || process.env.DB_SSL === 'true';
+  const sslConfig = isProduction
+    ? railwaySelfSigned || (databaseUrl && !process.env.DATABASE_SSL_CA)
+      ? { rejectUnauthorized: false }
+      : sslEnabled
+        ? process.env.DATABASE_SSL_CA
+          ? { rejectUnauthorized: true, ca: process.env.DATABASE_SSL_CA }
+          : { rejectUnauthorized: true }
+        : false
+    : false;
+
   return new DataSource({
     type: 'postgres',
     url: databaseUrl,
@@ -28,12 +42,12 @@ function buildDataSource() {
     username,
     password,
     database,
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+    ssl: sslConfig,
     synchronize: false,
     entities: ['src/**/*.entity.ts', 'dist/**/*.entity.js'],
     migrations: [
       'src/database/migrations/*.ts',
-      'dist/src/database/migrations/*.js',
+      'dist/database/migrations/*.js',
     ],
   });
 }

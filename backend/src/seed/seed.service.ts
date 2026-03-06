@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { ProfilesService } from '../profiles/profiles.service';
 import { CompaniesService } from '../companies/companies.service';
 import { UsersService } from '../users/users.service';
@@ -12,6 +13,7 @@ export class SeedService implements OnApplicationBootstrap {
   private readonly logger = new Logger(SeedService.name);
 
   constructor(
+    private dataSource: DataSource,
     private profilesService: ProfilesService,
     private companiesService: CompaniesService,
     private usersService: UsersService,
@@ -27,6 +29,13 @@ export class SeedService implements OnApplicationBootstrap {
 
   private async runSeed() {
     try {
+      const schemaReady = await this.ensureSeedTablesExist();
+      if (!schemaReady) {
+        this.logger.warn(
+          'Tabelas base não encontradas (migrations pendentes). Seed ignorado neste ciclo.',
+        );
+        return;
+      }
       await this.seedProfiles();
       await this.seedAdmin();
     } catch (error) {
@@ -36,6 +45,33 @@ export class SeedService implements OnApplicationBootstrap {
         error instanceof Error ? error.stack : undefined,
       );
     }
+  }
+
+  private async ensureSeedTablesExist(): Promise<boolean> {
+    const maxWaitMs = 60_000;
+    const start = Date.now();
+    while (!this.dataSource.isInitialized && Date.now() - start < maxWaitMs) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+
+    if (!this.dataSource.isInitialized) {
+      this.logger.warn('DataSource não inicializado após 60s. Seed adiado.');
+      return false;
+    }
+
+    const requiredTables = ['profiles', 'companies', 'users'];
+    const rows = (await this.dataSource.query(
+      `
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = current_schema()
+          AND table_name = ANY($1)
+      `,
+      [requiredTables],
+    )) as Array<{ table_name: string }>;
+
+    const existing = new Set(rows.map((row) => row.table_name));
+    return requiredTables.every((table) => existing.has(table));
   }
 
   private async seedProfiles() {
