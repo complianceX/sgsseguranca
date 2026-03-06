@@ -292,15 +292,21 @@ async function bootstrap() {
       // retornamos false para não habilitar CORS, sem bloquear a request.
       if (!origin || origin === 'null') return callback(null, false);
       const isExplicitAllowed = allowedOrigins.includes(origin);
+      const isRailwayPublicDomain =
+        isProduction &&
+        /^https:\/\/[a-z0-9-]+\.up\.railway\.app$/i.test(origin);
       const isDevNetworkAllowed =
         !isProduction &&
         (/^http:\/\/(?:localhost|127\.0\.0\.1):\d{2,5}$/i.test(origin) ||
           /^http:\/\/(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}):\d{2,5}$/i.test(
             origin,
           ));
-      if (isExplicitAllowed || isDevNetworkAllowed) {
+      if (isExplicitAllowed || isDevNetworkAllowed || isRailwayPublicDomain) {
         return callback(null, true);
       }
+      console.warn(
+        `[CORS] Origem bloqueada: ${origin}. Permitidas: ${allowedOrigins.join(', ') || '(nenhuma)'}${isProduction ? ' + *.up.railway.app' : ''}`,
+      );
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
