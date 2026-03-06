@@ -166,7 +166,6 @@ export const AprCard = React.memo(
             </button>
           </>
         ) : null}
-        )}
         <button
           type="button"
           onClick={() => onPrint(apr)}
