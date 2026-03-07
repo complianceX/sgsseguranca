@@ -40,7 +40,6 @@ export class TenantGuard implements CanActivate {
     if (tenantOptional) return true;
 
     const requireExplicitForSuperAdmin =
-      process.env.NODE_ENV === 'production' ||
       process.env.REQUIRE_EXPLICIT_TENANT_FOR_SUPER_ADMIN === 'true';
 
     const isSuperAdmin = this.tenantService.isSuperAdmin();
