@@ -7,6 +7,7 @@ import { signaturesService } from '@/services/signaturesService';
 import { generateAprPdf } from '@/lib/pdf/aprGenerator';
 import { toast } from 'sonner';
 import { handleApiError } from '@/lib/error-handler';
+import { openPdfForPrint } from '@/lib/print-utils';
 
 interface Insight {
   type: 'warning' | 'success' | 'info';
@@ -119,13 +120,9 @@ export function useAprs() {
         const byteArray = new Uint8Array(byteNumbers);
         const file = new Blob([byteArray], { type: 'application/pdf' });
         const fileURL = URL.createObjectURL(file);
-        
-        const printWindow = window.open(fileURL);
-        if (printWindow) {
-          printWindow.print();
-        } else {
-          toast.error('Não foi possível abrir a janela de impressão. Verifique se o bloqueador de pop-ups está ativo.');
-        }
+        openPdfForPrint(fileURL, () => {
+          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+        });
       }
     } catch (error) {
       handleApiError(error, 'Impressão');

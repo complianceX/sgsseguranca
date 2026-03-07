@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React from 'react';
+import { openPdfForPrint } from '@/lib/print-utils';
 
 export function useChecklists() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
@@ -102,12 +103,9 @@ export function useChecklists() {
         const byteArray = new Uint8Array(byteNumbers);
         const file = new Blob([byteArray], { type: 'application/pdf' });
         const fileURL = URL.createObjectURL(file);
-        const printWindow = window.open(fileURL);
-        if (printWindow) {
-          printWindow.print();
-        } else {
-          toast.error('Não foi possível abrir a janela de impressão. Verifique se o bloqueador de pop-ups está ativo.');
-        }
+        openPdfForPrint(fileURL, () => {
+          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+        });
       }
     } catch (error) {
       handleApiError(error, 'Imprimir');

@@ -15,6 +15,7 @@ import { generateAuditPdf } from '@/lib/pdf/auditGenerator';
 import { SendMailModal } from '@/components/SendMailModal';
 import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { correctiveActionsService } from '@/services/correctiveActionsService';
+import { openPdfForPrint } from '@/lib/print-utils';
 
 export default function AuditsPage() {
   const router = useRouter();
@@ -88,12 +89,9 @@ export default function AuditsPage() {
         const byteArray = new Uint8Array(byteNumbers);
         const file = new Blob([byteArray], { type: 'application/pdf' });
         const fileURL = URL.createObjectURL(file);
-        const printWindow = window.open(fileURL);
-        if (printWindow) {
-          printWindow.print();
-        } else {
-          toast.error('Não foi possível abrir a janela de impressão. Verifique se o bloqueador de pop-ups está ativo.');
-        }
+        openPdfForPrint(fileURL, () => {
+          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+        });
       }
     } catch (error) {
       console.error('Erro ao imprimir:', error);

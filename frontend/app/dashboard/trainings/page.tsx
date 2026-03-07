@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { SendMailModal } from '@/components/SendMailModal';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
+import { openPdfForPrint } from '@/lib/print-utils';
 
 export default function TrainingsPage() {
   const [trainings, setTrainings] = useState<Training[]>([]);
@@ -133,12 +134,9 @@ export default function TrainingsPage() {
         const byteArray = new Uint8Array(byteNumbers);
         const file = new Blob([byteArray], { type: 'application/pdf' });
         const fileURL = URL.createObjectURL(file);
-        const printWindow = window.open(fileURL);
-        if (printWindow) {
-          printWindow.print();
-        } else {
-          toast.error('Não foi possível abrir a janela de impressão. Verifique se o bloqueador de pop-ups está ativo.');
-        }
+        openPdfForPrint(fileURL, () => {
+          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+        });
       }
     } catch (error) {
       console.error('Erro ao imprimir:', error);
