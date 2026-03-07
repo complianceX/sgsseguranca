@@ -31,6 +31,9 @@ export class RequestContextMiddleware implements NestMiddleware {
     store.set('ip', req.ip);
     store.set('userAgent', req.headers['user-agent']);
 
+    // Mantém uma única origem de requestId para todo o pipeline.
+    (req as Request & { requestId?: string }).requestId = requestId;
+
     // Adicionar requestId ao response header
     res.setHeader('X-Request-ID', requestId);
 

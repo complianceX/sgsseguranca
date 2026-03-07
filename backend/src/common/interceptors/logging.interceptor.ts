@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
-import * as crypto from 'crypto';
 import { Request, Response } from 'express';
 
 interface RequestWithUser extends Request {
@@ -30,10 +29,13 @@ export class LoggingInterceptor implements NestInterceptor {
     const headers = request.headers;
     const ip = request.ip || '';
     const userAgent = (headers['user-agent'] as string) || '';
-    const requestId = crypto.randomUUID();
+    const requestId =
+      request.requestId ||
+      (request.headers['x-request-id'] as string) ||
+      'unknown';
     const isAuthRoute = typeof url === 'string' && url.startsWith('/auth');
 
-    // Adicionar requestId ao request para rastreamento
+    // Reforça o mesmo requestId no request para uso em filtros/logs.
     request.requestId = requestId;
 
     const now = Date.now();

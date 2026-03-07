@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(\"/c/Users/User/AppData/Roaming/npm/railway\" logs)"
-    ]
-  }
-}

@@ -4,22 +4,32 @@ import { sessionStore } from './sessionStore';
 import { authRefreshHint } from './authRefreshHint';
 import { selectedTenantStore } from './selectedTenantStore';
 
-const getBaseUrl = () => {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
+const resolveBaseUrl = () => {
+  const explicitApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  const fallbackApiUrl = process.env.NEXT_PUBLIC_API_FALLBACK_URL?.trim();
+
+  if (explicitApiUrl) {
+    return explicitApiUrl;
   }
+
+  if (fallbackApiUrl) {
+    return fallbackApiUrl;
+  }
+
   if (typeof window !== 'undefined') {
     if (window.location.hostname.endsWith('.up.railway.app')) {
-      return (
-        process.env.NEXT_PUBLIC_API_FALLBACK_URL ||
-        'https://keen-smile-production.up.railway.app'
-      );
+      return null;
     }
     // Padrão local: backend roda em 3011 (run-local.ps1 / LOCAL_SETUP.md)
     return `${window.location.protocol}//${window.location.hostname}:3011`;
   }
-  return 'http://localhost:3011';
+
+  return null;
 };
+
+const API_BASE_URL = resolveBaseUrl();
+const API_BASE_URL_ERROR_MESSAGE =
+  'API não configurada para este ambiente. Defina NEXT_PUBLIC_API_URL (ou NEXT_PUBLIC_API_FALLBACK_URL) no serviço Frontend do Railway.';
 
 type RetryConfig = AxiosRequestConfig & { __retryCount?: number };
 type AuthRetryConfig = RetryConfig & { __authRetry?: boolean };
@@ -35,7 +45,7 @@ const notifyApiStatus = (online: boolean, baseURL?: string) => {
 };
 
 const refreshClient = axios.create({
-  baseURL: getBaseUrl(),
+  baseURL: API_BASE_URL || undefined,
   timeout: 45000,
   withCredentials: true,
 });
@@ -59,7 +69,7 @@ async function refreshAccessToken(): Promise<string> {
 }
 
 const api = axios.create({
-  baseURL: getBaseUrl(),
+  baseURL: API_BASE_URL || undefined,
   timeout: 45000,
   withCredentials: true,
 });
@@ -67,6 +77,9 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   if (typeof window === 'undefined') {
     return config;
+  }
+  if (!API_BASE_URL) {
+    return Promise.reject(new Error(API_BASE_URL_ERROR_MESSAGE));
   }
   const token = tokenStore.get();
   const session = sessionStore.get();
@@ -109,7 +122,7 @@ api.interceptors.response.use(
 
     const status = error.response?.status;
     if (!status || error.code === 'ERR_NETWORK') {
-      notifyApiStatus(false, config.baseURL || getBaseUrl());
+      notifyApiStatus(false, config.baseURL || API_BASE_URL || undefined);
     }
 
     // 401 → tenta refresh via cookie httpOnly e refaz a request uma única vez
