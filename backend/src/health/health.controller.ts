@@ -13,6 +13,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('health')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -29,6 +30,7 @@ export class HealthController {
 
   @Get()
   @HealthCheck()
+  @Authorize('can_view_system_health')
   check() {
     return this.health.check([
       // Database
@@ -92,18 +94,21 @@ export class HealthController {
   }
 
   @Get('ready')
+  @Authorize('can_view_system_health')
   ready() {
     // Kubernetes readiness probe
     return { status: 'ready' };
   }
 
   @Get('live')
+  @Authorize('can_view_system_health')
   live() {
     // Kubernetes liveness probe
     return { status: 'alive' };
   }
 
   @Get('puppeteer')
+  @Authorize('can_view_system_health')
   puppeteer() {
     try {
       const stats = this.puppeteerPool.getPoolStats();

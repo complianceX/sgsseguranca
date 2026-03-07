@@ -18,6 +18,7 @@ import { PdfRateLimitService } from '../services/pdf-rate-limit.service';
 import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { validatePdfMagicBytes } from '../../common/interceptors/file-upload.interceptor';
+import { Authorize } from '../authorize.decorator';
 
 @ApiTags('PDF Security')
 @Controller('pdf-security')
@@ -29,6 +30,7 @@ export class PdfSecurityController {
   ) {}
 
   @Post('sign')
+  @Authorize('can_manage_signatures')
   @UseInterceptors(
     FileInterceptor('file', {
       limits: {
@@ -104,6 +106,7 @@ export class PdfSecurityController {
 
   @Get('verify/:hash')
   @ApiOperation({ summary: 'Verify a PDF file integrity by hash' })
+  @Authorize('can_view_signatures')
   async verifyPdf(@Param('hash') hash: string) {
     const result = await this.pdfService.verify(hash);
     return result;

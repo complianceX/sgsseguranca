@@ -20,6 +20,7 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('sites')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -29,22 +30,26 @@ export class SitesController {
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_sites')
   create(@Body() createSiteDto: CreateSiteDto) {
     return this.sitesService.create(createSiteDto);
   }
 
   @Get()
+  @Authorize('can_view_sites')
   findAll(@Query('company_id') companyId?: string) {
     return this.sitesService.findAll(companyId);
   }
 
   @Get(':id')
+  @Authorize('can_view_sites')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.sitesService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_sites')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateSiteDto: UpdateSiteDto,
@@ -54,6 +59,7 @@ export class SitesController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_manage_sites')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.sitesService.remove(id);
   }

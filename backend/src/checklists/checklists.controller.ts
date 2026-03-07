@@ -20,6 +20,7 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateChecklistDto } from './dto/create-checklist.dto';
 import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('checklists')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -29,17 +30,20 @@ export class ChecklistsController {
 
   @Post('seed/welding-machine')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
   seedWeldingMachine() {
     return this.checklistsService.createWeldingMachineTemplate();
   }
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
   create(@Body() createChecklistDto: CreateChecklistDto) {
     return this.checklistsService.create(createChecklistDto);
   }
 
   @Get()
+  @Authorize('can_view_checklists')
   findPaginated(
     @Query('onlyTemplates') onlyTemplates?: string,
     @Query('excludeTemplates') excludeTemplates?: string,
@@ -55,6 +59,7 @@ export class ChecklistsController {
   }
 
   @Get('files/list')
+  @Authorize('can_view_checklists')
   listStoredFiles(
     @Query('company_id') companyId?: string,
     @Query('year') year?: string,
@@ -68,12 +73,14 @@ export class ChecklistsController {
   }
 
   @Get(':id')
+  @Authorize('can_view_checklists')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.checklistsService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateChecklistDto: UpdateChecklistDto,
@@ -83,6 +90,7 @@ export class ChecklistsController {
 
   @Post(':id/send-email')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
   sendEmail(@Param('id', new ParseUUIDPipe()) id: string, @Body() body: { to: string }) {
     return this.checklistsService.sendEmail(id, body.to);
   }
@@ -95,6 +103,7 @@ export class ChecklistsController {
     Role.SUPERVISOR,
     Role.TRABALHADOR,
   )
+  @Authorize('can_view_checklists')
   fillFromTemplate(
     @Param('templateId') templateId: string,
     @Body() fillData: UpdateChecklistDto,
@@ -104,12 +113,14 @@ export class ChecklistsController {
 
   @Post(':id/save-pdf')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
   savePdf(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.checklistsService.savePdfToStorage(id);
   }
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_checklists')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.checklistsService.remove(id);
   }

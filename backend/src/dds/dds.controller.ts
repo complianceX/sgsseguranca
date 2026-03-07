@@ -23,6 +23,7 @@ import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('dds')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -41,16 +42,19 @@ export class DdsController {
     Role.SUPERVISOR,
     Role.COLABORADOR,
   )
+  @Authorize('can_manage_dds')
   create(@Body() createDdsDto: CreateDdsDto) {
     return this.ddsService.create(createDdsDto);
   }
 
   @Get()
+  @Authorize('can_view_dds')
   findAll() {
     return this.ddsService.findAll();
   }
 
   @Get('files/list')
+  @Authorize('can_view_dds')
   listStoredFiles(
     @Query('company_id') companyId?: string,
     @Query('year') year?: string,
@@ -64,6 +68,7 @@ export class DdsController {
   }
 
   @Get(':id')
+  @Authorize('can_view_dds')
   async findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: any) {
     // Check rate limit for mass data access/PDF generation
     try {
@@ -84,12 +89,14 @@ export class DdsController {
     Role.SUPERVISOR,
     Role.COLABORADOR,
   )
+  @Authorize('can_manage_dds')
   update(@Param('id', new ParseUUIDPipe()) id: string, @Body() updateDdsDto: UpdateDdsDto) {
     return this.ddsService.update(id, updateDdsDto);
   }
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_dds')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.ddsService.remove(id);
   }

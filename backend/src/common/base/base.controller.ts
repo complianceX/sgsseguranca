@@ -26,6 +26,7 @@ import {
   ObjectLiteral,
 } from 'typeorm';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { Authorize } from '../../auth/authorize.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { Role } from '../../auth/enums/roles.enum';
@@ -68,6 +69,7 @@ export abstract class BaseController<
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_catalogs')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Criar novo registro' })
   @ApiResponse({
@@ -83,6 +85,7 @@ export abstract class BaseController<
   }
 
   @Get()
+  @Authorize('can_manage_catalogs')
   @ApiOperation({ summary: 'Listar todos os registros' })
   @ApiQuery({
     name: 'page',
@@ -106,6 +109,7 @@ export abstract class BaseController<
   }
 
   @Get(':id')
+  @Authorize('can_manage_catalogs')
   @ApiOperation({ summary: 'Obter por ID' })
   @ApiParam({
     name: 'id',
@@ -126,6 +130,7 @@ export abstract class BaseController<
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_catalogs')
   @ApiOperation({ summary: 'Atualizar registro' })
   @ApiParam({
     name: 'id',
@@ -149,6 +154,7 @@ export abstract class BaseController<
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_manage_catalogs')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Deletar registro' })
   @ApiParam({

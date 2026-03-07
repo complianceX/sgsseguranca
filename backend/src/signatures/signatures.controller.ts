@@ -18,6 +18,7 @@ import type { RequestWithUser } from '../auth/interfaces/request-with-user.inter
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('signatures')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -25,6 +26,7 @@ export class SignaturesController {
   constructor(private readonly signaturesService: SignaturesService) {}
 
   @Post()
+  @Authorize('can_manage_signatures')
   create(
     @Body() createSignatureDto: CreateSignatureDto,
     @Request() req: RequestWithUser,
@@ -33,6 +35,7 @@ export class SignaturesController {
   }
 
   @Get()
+  @Authorize('can_view_signatures')
   findByDocument(
     @Query('document_id') document_id: string,
     @Query('document_type') document_type: string,
@@ -41,12 +44,14 @@ export class SignaturesController {
   }
 
   @Get('verify/:id')
+  @Authorize('can_view_signatures')
   verifyById(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.signaturesService.verifyById(id);
   }
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_signatures')
   remove(@Param('id', new ParseUUIDPipe()) id: string, @Request() req: RequestWithUser) {
     return this.signaturesService.remove(
       id,
@@ -57,6 +62,7 @@ export class SignaturesController {
 
   @Delete('document/:document_id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_signatures')
   removeByDocument(
     @Param('document_id') document_id: string,
     @Query('document_type') document_type: string,

@@ -45,6 +45,7 @@ export class PtsController {
     Role.SUPERVISOR,
     Role.COLABORADOR,
   )
+  @Authorize('can_manage_pt')
   create(@Body() createPtDto: CreatePtDto) {
     return this.ptsService.create(createPtDto);
   }
@@ -80,6 +81,7 @@ export class PtsController {
   }
 
   @Get()
+  @Authorize('can_view_pt')
   findPaginated(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
@@ -95,6 +97,7 @@ export class PtsController {
   }
 
   @Get('files/list')
+  @Authorize('can_view_pt')
   listStoredFiles(
     @Query('company_id') companyId?: string,
     @Query('year') year?: string,
@@ -108,6 +111,7 @@ export class PtsController {
   }
 
   @Get('export/excel')
+  @Authorize('can_view_pt')
   @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   @Header('Content-Disposition', 'attachment; filename="pts.xlsx"')
   async exportExcel(): Promise<StreamableFile> {
@@ -116,6 +120,7 @@ export class PtsController {
   }
 
   @Get(':id')
+  @Authorize('can_view_pt')
   async findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: any) {
     // Check rate limit for mass data access/PDF generation
     try {
@@ -136,12 +141,14 @@ export class PtsController {
     Role.SUPERVISOR,
     Role.COLABORADOR,
   )
+  @Authorize('can_manage_pt')
   update(@Param('id', new ParseUUIDPipe()) id: string, @Body() updatePtDto: UpdatePtDto) {
     return this.ptsService.update(id, updatePtDto);
   }
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_pt')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.ptsService.remove(id);
   }

@@ -20,6 +20,7 @@ import { Roles } from '../../auth/roles.decorator';
 import { Role } from '../../auth/enums/roles.enum';
 import { SstAgentService } from './sst-agent.service';
 import { SstChatDto } from '../dto/sst-chat.dto';
+import { Authorize } from '../../auth/authorize.decorator';
 
 /**
  * Controller do Agente SST.
@@ -53,6 +54,7 @@ export class SstAgentController {
    */
   @Post('chat')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
   async chat(@Body() dto: SstChatDto, @Request() req: any) {
     const userId: string = req.user?.sub ?? req.user?.id ?? 'unknown';
     return this.sstAgentService.chat(dto.question, userId, dto.history ?? []);
@@ -69,6 +71,7 @@ export class SstAgentController {
    */
   @Get('history')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
   async getHistory(
     @Request() req: any,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
@@ -85,6 +88,7 @@ export class SstAgentController {
    */
   @Get('history/:id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
   async getInteraction(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.sstAgentService.getInteraction(id);
   }

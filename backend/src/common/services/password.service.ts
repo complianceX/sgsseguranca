@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class PasswordService {
+  private readonly logger = new Logger(PasswordService.name);
   private readonly SALT_ROUNDS = this.getSaltRounds();
   private readonly MIN_LENGTH = this.getMinPasswordLength();
 
@@ -27,7 +28,16 @@ export class PasswordService {
   }
 
   async compare(password: string, hash: string): Promise<boolean> {
-    return bcrypt.compare(password, hash);
+    try {
+      return await bcrypt.compare(password, hash);
+    } catch (error) {
+      this.logger.warn(
+        `Password comparison failed and was treated as invalid credentials: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return false;
+    }
   }
 
   validate(password: string): { valid: boolean; errors: string[] } {

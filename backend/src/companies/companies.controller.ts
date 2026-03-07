@@ -21,6 +21,7 @@ import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { TenantService } from '../common/tenant/tenant.service';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
+import { Authorize } from '../auth/authorize.decorator';
 
 type AuthReq = {
   user?: {
@@ -39,17 +40,20 @@ export class CompaniesController {
 
   @Post()
   @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_manage_companies')
   create(@Body() createCompanyDto: CreateCompanyDto) {
     return this.companiesService.create(createCompanyDto);
   }
 
   @Get()
   @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_view_companies')
   findAll() {
     return this.companiesService.findAll();
   }
 
   @Get(':id')
+  @Authorize('can_view_companies')
   findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: AuthReq) {
     // Broken Object Level Authorization (BOLA) fix:
     // - companies é uma tabela global (sem company_id e sem RLS)
@@ -66,6 +70,7 @@ export class CompaniesController {
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_manage_companies')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateCompanyDto: UpdateCompanyDto,
@@ -75,6 +80,7 @@ export class CompaniesController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_manage_companies')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.companiesService.remove(id);
   }

@@ -22,6 +22,7 @@ import { Roles } from '../auth/roles.decorator';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('medical-exams')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -30,11 +31,13 @@ export class MedicalExamsController {
   constructor(private readonly medicalExamsService: MedicalExamsService) {}
 
   @Post()
+  @Authorize('can_manage_medical_exams')
   create(@Body() createMedicalExamDto: CreateMedicalExamDto) {
     return this.medicalExamsService.create(createMedicalExamDto);
   }
 
   @Get()
+  @Authorize('can_view_medical_exams')
   findPaginated(
     @Query('page') page = 1,
     @Query('limit') limit = 20,
@@ -52,11 +55,13 @@ export class MedicalExamsController {
   }
 
   @Get('expiry/summary')
+  @Authorize('can_view_medical_exams')
   findExpirySummary() {
     return this.medicalExamsService.findExpirySummary();
   }
 
   @Get('export/excel')
+  @Authorize('can_view_medical_exams')
   @Header(
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -68,11 +73,13 @@ export class MedicalExamsController {
   }
 
   @Get(':id')
+  @Authorize('can_view_medical_exams')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.medicalExamsService.findOne(id);
   }
 
   @Patch(':id')
+  @Authorize('can_manage_medical_exams')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateMedicalExamDto: UpdateMedicalExamDto,
@@ -82,6 +89,7 @@ export class MedicalExamsController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
+  @Authorize('can_manage_medical_exams')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.medicalExamsService.remove(id);
   }

@@ -45,6 +45,7 @@ export class AprsController {
   }
 
   @Get()
+  @Authorize('can_view_apr')
   findPaginated(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
@@ -65,6 +66,7 @@ export class AprsController {
   }
 
   @Get('files/list')
+  @Authorize('can_view_apr')
   listStoredFiles(
     @Query('company_id') companyId?: string,
     @Query('year') year?: string,
@@ -78,6 +80,7 @@ export class AprsController {
   }
 
   @Get('export/excel')
+  @Authorize('can_view_apr')
   @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   @Header('Content-Disposition', 'attachment; filename="aprs.xlsx"')
   async exportExcel(): Promise<StreamableFile> {
@@ -86,11 +89,13 @@ export class AprsController {
   }
 
   @Get('risks/matrix')
+  @Authorize('can_view_apr')
   getRiskMatrix(@Query('site_id') siteId?: string) {
     return this.aprsService.getRiskMatrix(siteId || undefined);
   }
 
   @Get(':id')
+  @Authorize('can_view_apr')
   async findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: any) {
     // Check rate limit for mass data access/PDF generation
     try {
@@ -111,12 +116,14 @@ export class AprsController {
     Role.SUPERVISOR,
     Role.COLABORADOR,
   )
+  @Authorize('can_create_apr')
   update(@Param('id', new ParseUUIDPipe()) id: string, @Body() updateAprDto: UpdateAprDto) {
     return this.aprsService.update(id, updateAprDto);
   }
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_create_apr')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.aprsService.remove(id);
   }

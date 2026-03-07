@@ -19,6 +19,7 @@ import { AnalyzePtDto } from './dto/analyze-pt.dto';
 import { GenerateChecklistDto } from './dto/generate-checklist.dto';
 import { ChatDto } from './dto/chat.dto';
 import { AnalyzeAprDto } from './dto/analyze-apr.dto';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('ai')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -28,42 +29,49 @@ export class AiController {
 
   @Post('chat')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
   async chat(@Body() body: ChatDto) {
     return this.aiService.chat(body.message, body.context as any);
   }
 
   @Post('insights')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
   async getInsights() {
     return this.aiService.getInsights();
   }
 
   @Post('analyze-apr')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
   async analyzeApr(@Body() body: AnalyzeAprDto) {
     return this.aiService.analyzeApr(body.description);
   }
 
   @Post('analyze-pt')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
   async analyzePt(@Body() body: AnalyzePtDto) {
     return this.aiService.analyzePt(body as any);
   }
 
   @Get('analyze-checklist/:id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
   async analyzeChecklist(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.aiService.analyzeChecklist(id);
   }
 
   @Post('generate-dds')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
   async generateDds() {
     return this.aiService.generateDds();
   }
 
   @Post('generate-checklist')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
   async generateChecklist(@Body() body: GenerateChecklistDto) {
     return this.aiService.generateChecklist(body as any);
   }

@@ -20,6 +20,7 @@ import { TenantService } from '../common/tenant/tenant.service';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('audits')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -41,11 +42,13 @@ export class AuditsController {
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_audits')
   create(@Body() createAuditDto: CreateAuditDto) {
     return this.auditsService.create(createAuditDto, this.getTenantIdOrThrow());
   }
 
   @Get()
+  @Authorize('can_view_audits')
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
@@ -62,6 +65,7 @@ export class AuditsController {
   }
 
   @Get('files/list')
+  @Authorize('can_view_audits')
   listStoredFiles(
     @Query('year') year?: string,
     @Query('week') week?: string,
@@ -74,12 +78,14 @@ export class AuditsController {
   }
 
   @Get(':id')
+  @Authorize('can_view_audits')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.auditsService.findOne(id, this.getTenantIdOrThrow());
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_audits')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateAuditDto: UpdateAuditDto,
@@ -93,6 +99,7 @@ export class AuditsController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_audits')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.auditsService.remove(id, this.getTenantIdOrThrow());
   }

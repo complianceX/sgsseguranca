@@ -21,6 +21,7 @@ import { TenantService } from '../common/tenant/tenant.service';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('inspections')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -42,6 +43,7 @@ export class InspectionsController {
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_inspections')
   create(@Body() createInspectionDto: CreateInspectionDto) {
     return this.inspectionsService.create(
       createInspectionDto,
@@ -50,17 +52,20 @@ export class InspectionsController {
   }
 
   @Get()
+  @Authorize('can_view_inspections')
   findAll() {
     return this.inspectionsService.findAll(this.getTenantIdOrThrow());
   }
 
   @Get(':id')
+  @Authorize('can_view_inspections')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.inspectionsService.findOne(id, this.getTenantIdOrThrow());
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_inspections')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateInspectionDto: UpdateInspectionDto,
@@ -74,6 +79,7 @@ export class InspectionsController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_inspections')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.inspectionsService.remove(id, this.getTenantIdOrThrow());
   }

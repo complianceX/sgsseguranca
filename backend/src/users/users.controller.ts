@@ -29,6 +29,7 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { Authorize } from '../auth/authorize.decorator';
 
 @ApiTags('users')
 @Controller('users')
@@ -40,6 +41,7 @@ export class UsersController {
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
+  @Authorize('can_manage_users')
   @ApiOperation({ summary: 'Criar novo usuário' })
   @ApiResponse({
     status: 201,
@@ -67,6 +69,7 @@ export class UsersController {
   }
 
   @Get()
+  @Authorize('can_view_users')
   @ApiOperation({ summary: 'Listar todos os usuários' })
   @ApiQuery({
     name: 'page',
@@ -116,6 +119,7 @@ export class UsersController {
 
   @Get(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
+  @Authorize('can_view_users')
   @ApiOperation({ summary: 'Buscar usuário por ID' })
   @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
   @ApiResponse({
@@ -132,6 +136,7 @@ export class UsersController {
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
+  @Authorize('can_manage_users')
   @ApiOperation({ summary: 'Atualizar usuário' })
   @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
   @ApiResponse({
@@ -165,6 +170,7 @@ export class UsersController {
 
   @Patch(':id/gdpr-erasure')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
+  @Authorize('can_manage_users')
   @ApiOperation({ summary: 'Anonimizar e desativar usuário (LGPD)' })
   @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
   @ApiResponse({
@@ -180,6 +186,7 @@ export class UsersController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
+  @Authorize('can_manage_users')
   @ApiOperation({ summary: 'Excluir usuário' })
   @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
   @ApiResponse({ status: 200, description: 'Usuário excluído com sucesso' })

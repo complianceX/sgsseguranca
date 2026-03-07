@@ -1,7 +1,12 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, UseGuards } from '@nestjs/common';
 import { CircuitBreakerService } from '../common/resilience/circuit-breaker.service';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 
 /**
  * Enhanced Health Check Controller
@@ -13,6 +18,8 @@ import { DataSource } from 'typeorm';
  * - Métricas básicas
  */
 @Controller('health')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN_GERAL)
 export class EnhancedHealthController {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
@@ -23,6 +30,7 @@ export class EnhancedHealthController {
    * Health check básico
    */
   @Get()
+  @Authorize('can_view_system_health')
   async healthCheck() {
     return {
       status: 'ok',
@@ -36,6 +44,7 @@ export class EnhancedHealthController {
    * Health check detalhado
    */
   @Get('detailed')
+  @Authorize('can_view_system_health')
   async detailedHealthCheck() {
     const [dbStatus, memoryUsage] = await Promise.all([
       this.checkDatabase(),
@@ -97,6 +106,7 @@ export class EnhancedHealthController {
    * Endpoint de readiness (para Kubernetes)
    */
   @Get('ready')
+  @Authorize('can_view_system_health')
   async readiness() {
     const dbStatus = await this.checkDatabase();
 
@@ -117,6 +127,7 @@ export class EnhancedHealthController {
    * Endpoint de liveness (para Kubernetes)
    */
   @Get('live')
+  @Authorize('can_view_system_health')
   async liveness() {
     return {
       status: 'alive',

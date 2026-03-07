@@ -28,11 +28,8 @@ interface JwtPayload {
 
 @Injectable()
 export class AuthService {
-  // A pre-computed hash for a string that is cryptographically hard to guess.
-  // Used to prevent timing attacks when a user is not found.
-  // This hash corresponds to a dummy password and will never match a real one.
   private readonly DUMMY_HASH =
-    '$2b$10$NotARealHashForTimingAttackPrevention Purposes';
+    '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2';
 
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,

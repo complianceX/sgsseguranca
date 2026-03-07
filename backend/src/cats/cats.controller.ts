@@ -30,6 +30,7 @@ import { CloseCatDto } from './dto/close-cat.dto';
 import { CreateCatDto } from './dto/create-cat.dto';
 import { StartCatInvestigationDto } from './dto/start-cat-investigation.dto';
 import { UpdateCatDto } from './dto/update-cat.dto';
+import { Authorize } from '../auth/authorize.decorator';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -45,11 +46,13 @@ export class CatsController {
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_cats')
   create(@Body() createDto: CreateCatDto, @Req() req: AuthenticatedRequest) {
     return this.catsService.create(createDto, req.user?.id);
   }
 
   @Get()
+  @Authorize('can_view_cats')
   findAll(
     @Query('status') status?: 'aberta' | 'investigacao' | 'fechada',
     @Query('worker_id') workerId?: string,
@@ -63,22 +66,26 @@ export class CatsController {
   }
 
   @Get('summary')
+  @Authorize('can_view_cats')
   getSummary() {
     return this.catsService.getSummary();
   }
 
   @Get('statistics')
+  @Authorize('can_view_cats')
   getStatistics() {
     return this.catsService.getStatistics();
   }
 
   @Get(':id')
+  @Authorize('can_view_cats')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.catsService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_cats')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateDto: UpdateCatDto,
@@ -89,6 +96,7 @@ export class CatsController {
 
   @Post(':id/investigation')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_cats')
   startInvestigation(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: StartCatInvestigationDto,
@@ -99,6 +107,7 @@ export class CatsController {
 
   @Post(':id/close')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_cats')
   close(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: CloseCatDto,
@@ -110,6 +119,7 @@ export class CatsController {
   @Post(':id/file')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_cats')
   async attachFile(
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file: Express.Multer.File,
@@ -153,6 +163,7 @@ export class CatsController {
 
   @Delete(':id/attachments/:attachmentId')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_cats')
   removeAttachment(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
@@ -162,6 +173,7 @@ export class CatsController {
   }
 
   @Get(':id/attachments/:attachmentId/access')
+  @Authorize('can_view_cats')
   getAttachmentAccess(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,

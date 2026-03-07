@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Authorize } from '../auth/authorize.decorator';
 
 type RequestWithUser = { user: { userId: string } };
 
@@ -20,6 +21,7 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
+  @Authorize('can_view_notifications')
   findAll(
     @Request() req: RequestWithUser,
     @Query('page') page?: string,
@@ -33,16 +35,19 @@ export class NotificationsController {
   }
 
   @Get('unread-count')
+  @Authorize('can_view_notifications')
   getUnreadCount(@Request() req: RequestWithUser) {
     return this.notificationsService.getUnreadCount(req.user.userId);
   }
 
   @Patch(':id/read')
+  @Authorize('can_manage_notifications')
   markAsRead(@Param('id', new ParseUUIDPipe()) id: string, @Request() req: RequestWithUser) {
     return this.notificationsService.markAsRead(id, req.user.userId);
   }
 
   @Post('read-all')
+  @Authorize('can_manage_notifications')
   markAllAsRead(@Request() req: RequestWithUser) {
     return this.notificationsService.markAllAsRead(req.user.userId);
   }

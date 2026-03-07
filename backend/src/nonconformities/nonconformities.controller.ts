@@ -46,11 +46,13 @@ export class NonConformitiesController {
   }
 
   @Get()
+  @Authorize('can_manage_nc')
   findAll() {
     return this.nonConformitiesService.findAll();
   }
 
   @Get('files/list')
+  @Authorize('can_manage_nc')
   listStoredFiles(
     @Query('company_id') companyId?: string,
     @Query('year') year?: string,
@@ -64,11 +66,13 @@ export class NonConformitiesController {
   }
 
   @Get('analytics/monthly')
+  @Authorize('can_manage_nc')
   getMonthlyAnalytics() {
     return this.nonConformitiesService.getMonthlyAnalytics();
   }
 
   @Get('export/excel')
+  @Authorize('can_manage_nc')
   @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   @Header('Content-Disposition', 'attachment; filename="nao-conformidades.xlsx"')
   async exportExcel(): Promise<StreamableFile> {
@@ -77,17 +81,20 @@ export class NonConformitiesController {
   }
 
   @Get(':id')
+  @Authorize('can_manage_nc')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.nonConformitiesService.findOne(id);
   }
 
   @Get(':id/pdf')
+  @Authorize('can_manage_nc')
   getPdf(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.nonConformitiesService.getPdfAccess(id);
   }
 
   @Post(':id/file')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
+  @Authorize('can_manage_nc')
   async attachFile(
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file: Express.Multer.File,

@@ -10,6 +10,10 @@ import {
 } from '@nestjs/common';
 import { TenantRateLimitService } from '../rate-limit/tenant-rate-limit.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { RolesGuard } from '../../auth/roles.guard';
+import { Roles } from '../../auth/roles.decorator';
+import { Role } from '../../auth/enums/roles.enum';
+import { Authorize } from '../../auth/authorize.decorator';
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -26,7 +30,8 @@ interface AuthenticatedRequest extends Request {
  * requisições por tenant baseado no plano contratado.
  */
 @Controller('examples/rate-limit')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(Role.ADMIN_GERAL)
 export class RateLimitExampleController {
   constructor(private readonly rateLimitService: TenantRateLimitService) {}
 
@@ -34,6 +39,7 @@ export class RateLimitExampleController {
    * Exemplo 1: Rate limiting em endpoint de criação de relatório
    */
   @Post('reports')
+  @Authorize('can_view_system_health')
   async createReport(@Request() req: AuthenticatedRequest, @Body() data: any) {
     // Verificar limite do tenant
     const limit = await this.rateLimitService.checkLimit(
@@ -65,6 +71,7 @@ export class RateLimitExampleController {
    * Exemplo 2: Rate limiting em endpoint de geração de PDF
    */
   @Post('pdf/generate')
+  @Authorize('can_view_system_health')
   async generatePdf(@Request() req: AuthenticatedRequest, @Body() data: any) {
     const limit = await this.rateLimitService.checkLimit(
       req.user.companyId,
@@ -93,6 +100,7 @@ export class RateLimitExampleController {
    * Exemplo 3: Rate limiting em endpoint de API pública
    */
   @Get('public/data')
+  @Authorize('can_view_system_health')
   async getPublicData(@Request() req: AuthenticatedRequest) {
     const limit = await this.rateLimitService.checkLimit(
       req.user.companyId,
@@ -119,6 +127,7 @@ export class RateLimitExampleController {
    * Exemplo 4: Verificar estatísticas de uso do tenant
    */
   @Get('stats')
+  @Authorize('can_view_system_health')
   async getTenantStats(@Request() req: AuthenticatedRequest) {
     const stats = await this.rateLimitService.getTenantStats(
       req.user.companyId,
@@ -137,6 +146,7 @@ export class RateLimitExampleController {
    * Exemplo 5: Resetar limite do tenant (admin only)
    */
   @Post('reset')
+  @Authorize('can_view_system_health')
   async resetTenantLimit(@Request() req: AuthenticatedRequest) {
     // Em produção, adicionar guard de admin aqui
     await this.rateLimitService.resetTenant(req.user.companyId);

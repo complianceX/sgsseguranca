@@ -12,6 +12,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { DossiersService } from './dossiers.service';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('dossiers')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -20,6 +21,7 @@ export class DossiersController {
   constructor(private readonly dossiersService: DossiersService) {}
 
   @Get('employee/:userId/pdf')
+  @Authorize('can_view_dossiers')
   async generateEmployeeDossier(
     @Param('userId') userId: string,
     @Res() res: Response,

@@ -19,6 +19,7 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('activities')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -28,22 +29,26 @@ export class ActivitiesController {
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_activities')
   create(@Body() createActivityDto: CreateActivityDto) {
     return this.activitiesService.create(createActivityDto);
   }
 
   @Get()
+  @Authorize('can_view_activities')
   findAll() {
     return this.activitiesService.findAll();
   }
 
   @Get(':id')
+  @Authorize('can_view_activities')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.activitiesService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_activities')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateActivityDto: UpdateActivityDto,
@@ -53,6 +58,7 @@ export class ActivitiesController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_manage_activities')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.activitiesService.remove(id);
   }

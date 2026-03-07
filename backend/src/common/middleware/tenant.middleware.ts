@@ -59,6 +59,9 @@ export class TenantMiddleware implements NestMiddleware {
 
   async use(req: TenantRequest, _res: Response, next: NextFunction) {
     const token = this.extractToken(req);
+    const requireExplicitForSuperAdmin =
+      process.env.NODE_ENV === 'production' ||
+      process.env.REQUIRE_EXPLICIT_TENANT_FOR_SUPER_ADMIN === 'true';
 
     let companyId: string | undefined;
     let isSuperAdmin = false;
@@ -87,11 +90,6 @@ export class TenantMiddleware implements NestMiddleware {
           | undefined;
 
         if (isSuperAdmin) {
-          // ADMIN_GERAL:
-          // - Pode escolher um tenant via header `x-company-id` (auditável).
-          // - Sem header:
-          //   - se REQUIRE_EXPLICIT_TENANT_FOR_SUPER_ADMIN=true, fica sem tenant e o guard irá bloquear rotas tenant-scoped;
-          //   - caso contrário, opera em modo cross-tenant via is_super_admin() no RLS.
           if (headerCompanyId) {
             this.logger.log({
               event: 'tenant_switch',
@@ -102,8 +100,18 @@ export class TenantMiddleware implements NestMiddleware {
             });
             companyId = headerCompanyId;
           } else {
-            // Sem header: mantém companyId vazio para permitir cross-tenant via RLS
-            // (ou para o guard bloquear quando REQUIRE_EXPLICIT... estiver ativo).
+            if (requireExplicitForSuperAdmin) {
+              this.logger.warn({
+                event: 'super_admin_missing_explicit_tenant',
+                userId: payload.sub,
+                ip: req.ip,
+                path: req.originalUrl || req.url,
+              });
+              throw new UnauthorizedException(
+                'Administrador Geral deve informar o tenant via header x-company-id.',
+              );
+            }
+
             companyId = undefined;
           }
         } else {
@@ -134,7 +142,12 @@ export class TenantMiddleware implements NestMiddleware {
           }
         }
       } catch (err) {
-        if (err instanceof ForbiddenException) throw err;
+        if (
+          err instanceof ForbiddenException ||
+          err instanceof UnauthorizedException
+        ) {
+          throw err;
+        }
         // Token inválido/expirado → sem contexto. JwtAuthGuard bloqueará rotas protegidas.
         companyId = undefined;
         isSuperAdmin = false;

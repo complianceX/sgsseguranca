@@ -22,6 +22,7 @@ import { Roles } from '../auth/roles.decorator';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('trainings')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -31,11 +32,13 @@ export class TrainingsController {
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_trainings')
   create(@Body() createTrainingDto: CreateTrainingDto) {
     return this.trainingsService.create(createTrainingDto);
   }
 
   @Get()
+  @Authorize('can_view_trainings')
   findPaginated(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
@@ -47,22 +50,26 @@ export class TrainingsController {
   }
 
   @Get('user/:userId')
+  @Authorize('can_view_trainings')
   findByUserId(@Param('userId') userId: string) {
     return this.trainingsService.findByUserId(userId);
   }
 
   @Get('expiry/summary')
+  @Authorize('can_view_trainings')
   getExpirySummary() {
     return this.trainingsService.findExpirySummary();
   }
 
   @Get('expiry/expiring')
+  @Authorize('can_view_trainings')
   getExpiring(@Query('days') days?: string) {
     return this.trainingsService.findExpiring(days ? Number(days) : 7);
   }
 
   @Post('expiry/notify')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_trainings')
   notifyExpiry(@Query('days') days?: string) {
     return this.trainingsService.dispatchExpiryNotifications(
       days ? Number(days) : 7,
@@ -70,16 +77,19 @@ export class TrainingsController {
   }
 
   @Get('compliance/blocking-users')
+  @Authorize('can_view_trainings')
   getBlockingUsers() {
     return this.trainingsService.findBlockingUsers();
   }
 
   @Get('compliance/user/:userId')
+  @Authorize('can_view_trainings')
   getComplianceByUser(@Param('userId') userId: string) {
     return this.trainingsService.getComplianceByUser(userId);
   }
 
   @Get('export/excel')
+  @Authorize('can_view_trainings')
   @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   @Header('Content-Disposition', 'attachment; filename="treinamentos.xlsx"')
   async exportExcel(): Promise<StreamableFile> {
@@ -88,12 +98,14 @@ export class TrainingsController {
   }
 
   @Get(':id')
+  @Authorize('can_view_trainings')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.trainingsService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_trainings')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateTrainingDto: UpdateTrainingDto,
@@ -103,6 +115,7 @@ export class TrainingsController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_manage_trainings')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.trainingsService.remove(id);
   }

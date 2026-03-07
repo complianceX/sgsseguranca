@@ -34,6 +34,7 @@ import { StorageService } from '../common/services/storage.service';
 import { defaultJobOptions } from '../queue/default-job-options';
 import { validatePdfMagicBytesFromPath } from '../common/interceptors/file-upload.interceptor';
 import { TenantService } from '../common/tenant/tenant.service';
+import { Authorize } from '../auth/authorize.decorator';
 
 type RequestWithUser = {
   user?: { company_id?: string; companyId?: string; userId?: string };
@@ -52,6 +53,7 @@ export class MailController {
 
   @Get('logs/export')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_view_mail')
   async exportLogs(
     @Query()
     query: {
@@ -104,6 +106,7 @@ export class MailController {
 
   @Get('logs')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_view_mail')
   async listLogs(
     @Query()
     query: {
@@ -149,6 +152,7 @@ export class MailController {
   }
 
   @Post('send-stored-document')
+  @Authorize('can_manage_mail')
   async sendStoredDocument(
     @Body() body: { documentId: string; documentType: string; email: string },
     @Request() req: RequestWithUser,
@@ -181,6 +185,7 @@ export class MailController {
   }
 
   @Post('send-uploaded-document')
+  @Authorize('can_manage_mail')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -258,6 +263,7 @@ export class MailController {
   }
 
   @Post('alerts/dispatch')
+  @Authorize('can_manage_mail')
   async dispatchAlerts(
     @Body() body: DispatchAlertsDto,
     @Request() req: RequestWithUser,

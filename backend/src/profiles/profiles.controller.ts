@@ -18,6 +18,7 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('profiles')
 @TenantOptional()
@@ -27,24 +28,28 @@ export class ProfilesController {
 
   @Post()
   @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_manage_profiles')
   create(@Body() createProfileDto: CreateProfileDto) {
     return this.profilesService.create(createProfileDto);
   }
 
   @Get()
   @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_view_profiles')
   findAll() {
     return this.profilesService.findAll();
   }
 
   @Get(':id')
   @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_view_profiles')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.profilesService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_manage_profiles')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateProfileDto: UpdateProfileDto,
@@ -54,6 +59,7 @@ export class ProfilesController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL)
+  @Authorize('can_manage_profiles')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.profilesService.remove(id);
   }

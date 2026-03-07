@@ -25,6 +25,7 @@ import {
 } from './dto/return-epi-assignment.dto';
 import { UpdateEpiAssignmentDto } from './dto/update-epi-assignment.dto';
 import { EpiAssignmentsService } from './epi-assignments.service';
+import { Authorize } from '../auth/authorize.decorator';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -40,6 +41,7 @@ export class EpiAssignmentsController {
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_epi_assignments')
   create(
     @Body() createDto: CreateEpiAssignmentDto,
     @Req() req: AuthenticatedRequest,
@@ -48,6 +50,7 @@ export class EpiAssignmentsController {
   }
 
   @Get()
+  @Authorize('can_view_epi_assignments')
   findAll(
     @Query('status') status?: 'entregue' | 'devolvido' | 'substituido',
     @Query('user_id') userId?: string,
@@ -61,17 +64,20 @@ export class EpiAssignmentsController {
   }
 
   @Get('summary')
+  @Authorize('can_view_epi_assignments')
   getSummary() {
     return this.assignmentsService.getSummary();
   }
 
   @Get(':id')
+  @Authorize('can_view_epi_assignments')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.assignmentsService.findOne(id);
   }
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_epi_assignments')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateEpiAssignmentDto,
@@ -88,6 +94,7 @@ export class EpiAssignmentsController {
     Role.SUPERVISOR,
     Role.COLABORADOR,
   )
+  @Authorize('can_manage_epi_assignments')
   returnAssignment(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: ReturnEpiAssignmentDto,
@@ -98,6 +105,7 @@ export class EpiAssignmentsController {
 
   @Post(':id/replace')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_epi_assignments')
   replaceAssignment(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: ReplaceEpiAssignmentDto,

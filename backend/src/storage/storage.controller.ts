@@ -15,6 +15,7 @@ import { TenantService } from '../common/tenant/tenant.service';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('storage')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -27,6 +28,7 @@ export class StorageController {
 
   @Post('presigned-url')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_import_documents')
   async getPresignedUrl(
     @Body() body: { filename: string; contentType?: string },
   ) {

@@ -23,6 +23,7 @@ import {
 import { UpdateCorrectiveActionDto } from './dto/update-corrective-action.dto';
 import { CorrectiveActionsService } from './corrective-actions.service';
 import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('corrective-actions')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -34,23 +35,27 @@ export class CorrectiveActionsController {
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_corrective_actions')
   create(@Body() dto: CreateCorrectiveActionDto) {
     return this.correctiveActionsService.create(dto);
   }
 
   @Post('from/nonconformity/:id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_corrective_actions')
   createFromNonConformity(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.correctiveActionsService.createFromNonConformity(id);
   }
 
   @Post('from/audit/:id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_corrective_actions')
   createFromAudit(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.correctiveActionsService.createFromAudit(id);
   }
 
   @Get()
+  @Authorize('can_view_corrective_actions')
   findAll(
     @Query('status')
     status?: 'open' | 'in_progress' | 'done' | 'overdue' | 'cancelled',
@@ -65,27 +70,32 @@ export class CorrectiveActionsController {
   }
 
   @Get('summary')
+  @Authorize('can_view_corrective_actions')
   findSummary() {
     return this.correctiveActionsService.findSummary();
   }
 
   @Get('sla/overview')
+  @Authorize('can_view_corrective_actions')
   getSlaOverview() {
     return this.correctiveActionsService.getSlaOverview();
   }
 
   @Get('sla/by-site')
+  @Authorize('can_view_corrective_actions')
   getSlaBySite() {
     return this.correctiveActionsService.getSlaBySite();
   }
 
   @Post('sla/escalate')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_corrective_actions')
   runSlaEscalation() {
     return this.correctiveActionsService.runSlaEscalationSweep();
   }
 
   @Get(':id')
+  @Authorize('can_view_corrective_actions')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.correctiveActionsService.findOne(id, {
       relations: ['responsible_user', 'site'],
@@ -94,6 +104,7 @@ export class CorrectiveActionsController {
 
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_corrective_actions')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateCorrectiveActionDto,
@@ -109,6 +120,7 @@ export class CorrectiveActionsController {
     Role.SUPERVISOR,
     Role.COLABORADOR,
   )
+  @Authorize('can_manage_corrective_actions')
   updateStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateCorrectiveActionStatusDto,
@@ -118,6 +130,7 @@ export class CorrectiveActionsController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_manage_corrective_actions')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.correctiveActionsService.remove(id);
   }

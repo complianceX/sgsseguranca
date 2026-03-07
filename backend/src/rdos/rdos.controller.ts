@@ -22,6 +22,7 @@ import { Roles } from '../auth/roles.decorator';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { Role } from '../auth/enums/roles.enum';
+import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('rdos')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -30,11 +31,13 @@ export class RdosController {
   constructor(private readonly rdosService: RdosService) {}
 
   @Post()
+  @Authorize('can_manage_rdos')
   create(@Body() createRdoDto: CreateRdoDto) {
     return this.rdosService.create(createRdoDto);
   }
 
   @Get()
+  @Authorize('can_view_rdos')
   findPaginated(
     @Query('page') page = 1,
     @Query('limit') limit = 20,
@@ -54,6 +57,7 @@ export class RdosController {
   }
 
   @Get('export/excel')
+  @Authorize('can_view_rdos')
   @Header(
     'Content-Type',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -65,11 +69,13 @@ export class RdosController {
   }
 
   @Get(':id')
+  @Authorize('can_view_rdos')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.rdosService.findOne(id);
   }
 
   @Patch(':id')
+  @Authorize('can_manage_rdos')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateRdoDto: UpdateRdoDto,
@@ -78,6 +84,7 @@ export class RdosController {
   }
 
   @Patch(':id/status')
+  @Authorize('can_manage_rdos')
   updateStatus(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body('status') status: string,
@@ -87,6 +94,7 @@ export class RdosController {
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
+  @Authorize('can_manage_rdos')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.rdosService.remove(id);
   }

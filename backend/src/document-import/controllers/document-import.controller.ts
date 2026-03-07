@@ -27,6 +27,7 @@ import { Role } from '../../auth/enums/roles.enum';
 import { TenantInterceptor } from '../../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { TenantService } from '../../common/tenant/tenant.service';
+import { Authorize } from '../../auth/authorize.decorator';
 import {
   ApiTags,
   ApiOperation,
@@ -51,6 +52,7 @@ export class DocumentImportController {
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_import_documents')
   @ApiOperation({ summary: 'Importar e analisar documento' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
