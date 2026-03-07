@@ -42,11 +42,13 @@ export class AuthService {
     private passwordService: PasswordService,
     private redisService: RedisService,
     private configService: ConfigService,
-  ) {
-    this.resend = new Resend(this.configService.get<string>('RESEND_API_KEY'));
-  }
+  ) {}
 
-  private readonly resend: Resend;
+  private getResend(): Resend | null {
+    const key = this.configService.get<string>('RESEND_API_KEY');
+    if (!key) return null;
+    return new Resend(key);
+  }
 
   private readonly logger = new Logger(AuthService.name);
 
@@ -384,15 +386,20 @@ export class AuthService {
     `;
 
     try {
-      const fromName = this.configService.get<string>('MAIL_FROM_NAME')?.trim() || 'COMPLIANCE X';
-      const fromEmail = this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() || 'onboarding@resend.dev';
-      await this.resend.emails.send({
-        from: `${fromName} <${fromEmail}>`,
-        to: user.email,
-        subject: 'Redefinição de senha — COMPLIANCE X',
-        text: `Acesse o link para redefinir sua senha: ${resetUrl}`,
-        html,
-      });
+      const resend = this.getResend();
+      if (!resend) {
+        this.logger.warn({ event: 'forgot_password_email_skipped', reason: 'RESEND_API_KEY not configured', userId: user.id });
+      } else {
+        const fromName = this.configService.get<string>('MAIL_FROM_NAME')?.trim() || 'COMPLIANCE X';
+        const fromEmail = this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() || 'onboarding@resend.dev';
+        await resend.emails.send({
+          from: `${fromName} <${fromEmail}>`,
+          to: user.email,
+          subject: 'Redefinição de senha — COMPLIANCE X',
+          text: `Acesse o link para redefinir sua senha: ${resetUrl}`,
+          html,
+        });
+      }
       this.logger.log({ event: 'forgot_password_sent', userId: user.id });
     } catch (err) {
       this.logger.error(`Falha ao enviar e-mail de reset: ${err instanceof Error ? err.message : String(err)}`);
