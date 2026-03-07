@@ -2,7 +2,12 @@ import api from '@/lib/api';
 import type { Checklist } from './checklistsService';
 
 export interface AiResponse {
-  content: string;
+  answer: string;
+  confidence: 'high' | 'medium' | 'low';
+  needsHumanReview: boolean;
+  sources: string[];
+  warnings: string[];
+  toolsUsed: string[];
   timestamp: string;
 }
 
@@ -39,14 +44,12 @@ export const aiService = {
   chat: async (
     message: string,
     options?: {
-      context?: { companyName?: string; userName?: string; currentPath?: string };
       conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
     },
   ) => {
-    const response = await api.post('/ai/chat', {
-      message,
-      context: options?.context,
-      conversationHistory: options?.conversationHistory || [],
+    const response = await api.post<AiResponse>('/ai/sst/chat', {
+      question: message,
+      history: options?.conversationHistory || [],
     });
     return response.data;
   },

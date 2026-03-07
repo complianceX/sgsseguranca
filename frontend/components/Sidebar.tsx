@@ -24,7 +24,6 @@ import {
   BookOpen,
   Stethoscope,
   ClipboardList,
-  Bot,
   Radio,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -32,7 +31,6 @@ import { useAuth } from '@/context/AuthContext';
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
   { icon: Radio, label: 'TST em Campo', href: '/dashboard/tst' },
-  { icon: Bot, label: 'Agente SST (IA)', href: '/dashboard/sst-agent' },
   { icon: Building2, label: 'Empresas', href: '/dashboard/companies', adminOnly: true },
   { icon: Map, label: 'Obras/Setores', href: '/dashboard/sites', adminOnly: true },
   { icon: Users, label: 'Funcionários', href: '/dashboard/employees' },

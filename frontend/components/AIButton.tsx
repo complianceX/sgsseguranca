@@ -9,11 +9,11 @@ export function AIButton() {
 
   return (
     <>
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-6 left-6 z-50">
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="group relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-xl transition-all hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          title={isOpen ? "Fechar COMPLIANCE X" : "COMPLIANCE X AI"}
+          title={isOpen ? "Fechar especialista SST" : "Especialista SST"}
         >
           {isOpen ? (
             <X className="h-7 w-7 transition-transform" />
@@ -30,8 +30,8 @@ export function AIButton() {
           
           {/* Tooltip hint */}
           {!isOpen && (
-            <span className="absolute bottom-full right-0 mb-3 hidden w-max rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white shadow-lg group-hover:block">
-              COMPLIANCE X: Como posso ajudar?
+            <span className="absolute bottom-full left-0 mb-3 hidden w-max rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white shadow-lg group-hover:block">
+              Especialista SST: como posso ajudar?
             </span>
           )}
         </button>

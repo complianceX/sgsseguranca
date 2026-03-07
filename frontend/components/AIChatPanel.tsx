@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, X, Loader2, Sparkles } from 'lucide-react';
 import { aiService } from '@/services/aiService';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/context/AuthContext';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -18,11 +17,10 @@ interface AIChatPanelProps {
 }
 
 export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
-  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Olá! Eu sou o COMPLIANCE X, seu assistente de segurança inteligente. Como posso ajudar você hoje?',
+      content: 'Olá! Sou sua IA especialista em SST. Posso apoiar com NRs, APR, PT, NC, treinamentos e conformidade operacional.',
       timestamp: new Date(),
     },
   ]);
@@ -52,17 +50,18 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
     setIsLoading(true);
 
     try {
+      const conversationHistory = messages.slice(-10).map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
       const response = await aiService.chat(input, {
-        context: {
-          companyName: user?.company?.razao_social || 'Empresa',
-          userName: user?.nome || 'Usuário',
-          currentPath: window.location.pathname,
-        },
+        conversationHistory,
       });
 
       const assistantMessage: Message = {
         role: 'assistant',
-        content: response.content,
+        content: response.answer,
         timestamp: new Date(),
       };
 
@@ -71,7 +70,7 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
       console.error('Erro no chat do COMPLIANCE X:', error);
       const errorMessage: Message = {
         role: 'assistant',
-        content: 'Desculpe, tive um problema ao processar sua mensagem. Pode tentar novamente?',
+        content: 'Não consegui responder agora. Tente novamente em instantes.',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -83,7 +82,7 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-24 right-6 z-50 flex h-[500px] w-[380px] flex-col overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-2xl transition-all animate-in slide-in-from-bottom-4">
+    <div className="fixed bottom-24 left-6 z-50 flex h-[500px] w-[380px] flex-col overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-2xl transition-all animate-in slide-in-from-bottom-4">
       {/* Header */}
       <div className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-indigo-700 px-4 py-3 text-white">
         <div className="flex items-center space-x-2">
@@ -91,10 +90,10 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
             <span className="text-lg font-black italic">G</span>
           </div>
           <div>
-            <h3 className="text-sm font-bold">COMPLIANCE X AI</h3>
+            <h3 className="text-sm font-bold">Especialista SST</h3>
             <div className="flex items-center space-x-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-[10px] text-blue-100">Online e pronta</span>
+              <span className="text-[10px] text-blue-100">Online</span>
             </div>
           </div>
         </div>
@@ -142,7 +141,7 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
           <div className="flex justify-start">
             <div className="flex items-center space-x-2 rounded-2xl bg-white border border-gray-100 px-4 py-2 shadow-sm">
               <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-              <span className="text-xs text-gray-500 italic">COMPLIANCE X está pensando...</span>
+              <span className="text-xs text-gray-500 italic">Analisando contexto SST...</span>
             </div>
           </div>
         )}
@@ -157,7 +156,7 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Pergunte qualquer coisa sobre SST..."
+            placeholder="Pergunte sobre SST, NR, APR, PT, NC..."
             className="w-full rounded-full border border-gray-200 bg-gray-50 py-2 pl-4 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           <button
@@ -172,7 +171,7 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
         </div>
         <div className="mt-2 flex items-center justify-center space-x-1">
           <Sparkles className="h-3 w-3 text-blue-600" />
-          <span className="text-[10px] text-gray-400">Poder de IA do COMPLIANCE X</span>
+          <span className="text-[10px] text-gray-400">IA especialista em SST</span>
         </div>
       </div>
     </div>

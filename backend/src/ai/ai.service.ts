@@ -40,15 +40,6 @@ export class AiService {
     };
   }
 
-  async chat(_message: string, _context: any) {
-    this.logger.warn('AI chat called - returning mock data');
-    await Promise.resolve();
-    return {
-      content: 'Resposta mock do assistente COMPLIANCE X.',
-      timestamp: new Date().toISOString(),
-    };
-  }
-
   async getInsights() {
     this.logger.warn('AI getInsights called - returning mock data');
     await Promise.resolve();

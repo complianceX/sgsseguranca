@@ -17,7 +17,6 @@ import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { AnalyzePtDto } from './dto/analyze-pt.dto';
 import { GenerateChecklistDto } from './dto/generate-checklist.dto';
-import { ChatDto } from './dto/chat.dto';
 import { AnalyzeAprDto } from './dto/analyze-apr.dto';
 import { Authorize } from '../auth/authorize.decorator';
 
@@ -26,13 +25,6 @@ import { Authorize } from '../auth/authorize.decorator';
 @UseInterceptors(TenantInterceptor)
 export class AiController {
   constructor(private readonly aiService: AiService) {}
-
-  @Post('chat')
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
-  @Authorize('can_use_ai')
-  async chat(@Body() body: ChatDto) {
-    return this.aiService.chat(body.message, body.context as any);
-  }
 
   @Post('insights')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
