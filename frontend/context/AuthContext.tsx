@@ -126,9 +126,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       tokenStore.set(data.accessToken);
       authRefreshHint.set();
+      let meData: AuthMeResponse | null = null;
+      try {
+        const meResponse = await api.get<AuthMeResponse>('/auth/me');
+        meData = meResponse.data;
+      } catch {
+        meData = null;
+      }
 
-      const meResponse = await api.get<AuthMeResponse>('/auth/me');
-      const authenticatedUser = meResponse.data?.user || data.user;
+      const authenticatedUser = meData?.user || data.user;
       if (!authenticatedUser) {
         throw new Error('Resposta de login invalida do servidor.');
       }
@@ -151,8 +157,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       setUser(authenticatedUser);
-      setRoles(meResponse.data?.roles || data.roles || []);
-      setPermissions(meResponse.data?.permissions || data.permissions || []);
+      setRoles(meData?.roles || data.roles || []);
+      setPermissions(meData?.permissions || data.permissions || []);
       router.push('/dashboard');
     } catch (error) {
       console.error('Login error:', error);
