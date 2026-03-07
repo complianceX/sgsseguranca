@@ -2,6 +2,7 @@ import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { tokenStore } from './tokenStore';
 import { sessionStore } from './sessionStore';
 import { authRefreshHint } from './authRefreshHint';
+import { selectedTenantStore } from './selectedTenantStore';
 
 const getBaseUrl = () => {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -79,8 +80,15 @@ api.interceptors.request.use((config) => {
   const existingCompanyId =
     config.headers?.get?.('x-company-id') ||
     config.headers?.['x-company-id'];
-  if (!existingCompanyId && companyId && userProfileName !== 'Administrador Geral') {
-    config.headers['x-company-id'] = companyId;
+  if (!existingCompanyId) {
+    if (userProfileName === 'Administrador Geral') {
+      const selectedTenant = selectedTenantStore.get();
+      if (selectedTenant?.companyId) {
+        config.headers['x-company-id'] = selectedTenant.companyId;
+      }
+    } else if (companyId) {
+      config.headers['x-company-id'] = companyId;
+    }
   }
 
   return config;
