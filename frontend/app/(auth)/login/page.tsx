@@ -2,7 +2,7 @@
 
 import React, { Suspense, useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter as useNextRouter } from 'next/navigation';
 import Image from 'next/image';
 import axios from 'axios';
 
@@ -50,6 +50,7 @@ const REMEMBER_CPF_KEY = 'compliance_x_remembered_cpf';
 
 function LoginPageContent() {
   const searchParams = useSearchParams();
+  const router = useNextRouter();
   const sessionExpired = searchParams.get('expired') === '1';
 
   const savedCpf = typeof window !== 'undefined' ? localStorage.getItem(REMEMBER_CPF_KEY) ?? '' : '';
@@ -297,7 +298,7 @@ function LoginPageContent() {
               </label>
               <button
                 type="button"
-                onClick={() => alert('Entre em contato com o administrador do sistema para redefinir sua senha.')}
+                onClick={() => router.push('/forgot-password')}
                 className="text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors"
               >
                 Esqueceu a senha?

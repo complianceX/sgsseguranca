@@ -16,6 +16,8 @@ import type { User } from '../users/entities/user.entity';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { Throttle } from '@nestjs/throttler';
 import { UsersService } from '../users/users.service';
@@ -160,6 +162,24 @@ export class AuthController {
     );
     this.logger.log({ event: 'password_changed', userId: req.user.userId });
     return result;
+  }
+
+  @Public()
+  @Throttle({
+    default: { limit: LOGIN_THROTTLE_LIMIT, ttl: LOGIN_THROTTLE_TTL },
+  })
+  @Post('forgot-password')
+  async forgotPassword(@Body() body: ForgotPasswordDto) {
+    return await this.authService.forgotPassword(body.cpf);
+  }
+
+  @Public()
+  @Throttle({
+    default: { limit: LOGIN_THROTTLE_LIMIT, ttl: LOGIN_THROTTLE_TTL },
+  })
+  @Post('reset-password')
+  async resetPassword(@Body() body: ResetPasswordDto) {
+    return await this.authService.resetPassword(body.token, body.newPassword);
   }
 
   @UseGuards(JwtAuthGuard)

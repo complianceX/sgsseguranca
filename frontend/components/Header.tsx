@@ -1,40 +1,55 @@
 'use client';
 
-import { Bell, Search, User, X, AlertTriangle, Info, CheckCircle, ExternalLink } from 'lucide-react';
+import { Bell, Search, User, X, AlertTriangle, Info, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { useState, useEffect, useRef } from 'react';
-import { aiService } from '@/services/aiService';
-import { Insight } from '@/components/GandraInsights';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useApiStatus } from '@/hooks/useApiStatus';
 import { useApiReconnect } from '@/hooks/useApiReconnect';
-import Link from 'next/link';
+import { notificationsService, AppNotification } from '@/services/notificationsService';
+
+const POLL_INTERVAL_MS = 30_000;
 
 export function Header() {
   const { user } = useAuth();
   const { isOffline, apiBaseUrl } = useApiStatus();
   const { isReconnecting, reconnect } = useApiReconnect(apiBaseUrl);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<Insight[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [markingAll, setMarkingAll] = useState(false);
+
+  const handleOpen = () => setShowNotifications((v) => !v);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  const loadNotifications = async () => {
+  const loadUnreadCount = useCallback(async () => {
     try {
-      const result = await aiService.getInsights();
-      setNotifications(result.insights);
-      setUnreadCount(result.insights.length);
-    } catch (error) {
-      console.error('Erro ao carregar notificações:', error);
+      const res = await notificationsService.getUnreadCount();
+      setUnreadCount(res.count);
+    } catch {
+      // silencioso
     }
-  };
+  }, []);
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const res = await notificationsService.findAll(1, 20);
+      setNotifications(res.items);
+    } catch {
+      // silencioso
+    }
+  }, []);
 
   useEffect(() => {
-    const loadData = async () => {
-      await loadNotifications();
-    };
-    loadData();
-    
-    // Fechar ao clicar fora
+    loadUnreadCount();
+    const interval = setInterval(loadUnreadCount, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [loadUnreadCount]);
+
+  useEffect(() => {
+    if (showNotifications) loadNotifications();
+  }, [showNotifications, loadNotifications]);
+
+  useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
         setShowNotifications(false);
@@ -44,13 +59,40 @@ export function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const handleMarkAllAsRead = async () => {
+    setMarkingAll(true);
+    try {
+      await notificationsService.markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } finally {
+      setMarkingAll(false);
+    }
+  };
+
+  const handleMarkOne = async (id: string) => {
+    try {
+      await notificationsService.markAsRead(id);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+      setUnreadCount((c) => Math.max(0, c - 1));
+    } catch {
+      // silencioso
+    }
+  };
+
   const getIcon = (type: string) => {
     switch (type) {
       case 'warning': return <AlertTriangle className="h-5 w-5 text-amber-500" />;
-      case 'danger': return <AlertTriangle className="h-5 w-5 text-red-500" />;
+      case 'danger':  return <AlertTriangle className="h-5 w-5 text-red-500" />;
       case 'success': return <CheckCircle className="h-5 w-5 text-emerald-500" />;
-      default: return <Info className="h-5 w-5 text-blue-500" />;
+      default:        return <Info className="h-5 w-5 text-blue-500" />;
     }
+  };
+
+  const formatDate = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    } catch { return ''; }
   };
 
   return (
@@ -102,16 +144,13 @@ export function Header() {
           <button
             type="button"
             title="Notificações"
-            onClick={() => {
-              setShowNotifications(!showNotifications);
-              if (!showNotifications) setUnreadCount(0);
-            }}
+            onClick={handleOpen}
             className="relative rounded-full p-1 text-[#94A3B8] hover:bg-[#334155] hover:text-[#F1F5F9]"
           >
             <Bell className="h-6 w-6" />
             {unreadCount > 0 && (
               <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                {unreadCount}
+                {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
           </button>
@@ -119,7 +158,7 @@ export function Header() {
           {showNotifications && (
             <div className="absolute right-0 mt-2 w-80 rounded-lg border border-[#334155] bg-[#1E293B] shadow-xl z-50 overflow-hidden">
               <div className="flex items-center justify-between border-b border-[#334155] bg-[#0F172A] px-4 py-2">
-                <h3 className="text-sm font-semibold text-[#F1F5F9]">Notificações COMPLIANCE X AI</h3>
+                <h3 className="text-sm font-semibold text-[#F1F5F9]">Notificações</h3>
                 <button
                   type="button"
                   title="Fechar"
@@ -130,25 +169,25 @@ export function Header() {
               </div>
               <div className="max-h-96 overflow-y-auto">
                 {notifications.length > 0 ? (
-                  notifications.map((notification, index) => (
-                    <div key={index} className="border-b border-[#334155] last:border-0 hover:bg-[#0F172A] px-4 py-3 transition-colors">
-                      <div className="flex items-start space-x-3">
-                        <div className="mt-0.5">
-                          {getIcon(notification.type)}
-                        </div>
+                  notifications.map((notification) => (
+                    <button
+                      key={notification.id}
+                      type="button"
+                      onClick={() => !notification.read && handleMarkOne(notification.id)}
+                      className={`w-full text-left border-b border-[#334155] last:border-0 px-4 py-3 transition-colors hover:bg-[#0F172A] ${!notification.read ? 'bg-blue-500/5' : ''}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 shrink-0">{getIcon(notification.type)}</div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-[#F1F5F9] truncate">{notification.title}</p>
-                          <p className="text-xs text-[#94A3B8] mt-1 line-clamp-2">{notification.message}</p>
-                          <Link
-                            href={notification.action}
-                            className="mt-2 inline-flex items-center text-[10px] font-semibold text-[#60A5FA] hover:text-[#93C5FD]"
-                            onClick={() => setShowNotifications(false)}
-                          >
-                            VER DETALHES <ExternalLink className="ml-1 h-3 w-3" />
-                          </Link>
+                          <div className="flex items-center gap-1.5">
+                            <p className={`text-sm font-semibold truncate ${!notification.read ? 'text-[#F1F5F9]' : 'text-[#94A3B8]'}`}>{notification.title}</p>
+                            {!notification.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />}
+                          </div>
+                          <p className="text-xs text-[#64748B] mt-0.5 line-clamp-2">{notification.message}</p>
+                          <p className="mt-1 text-[10px] text-[#475569]">{formatDate(notification.createdAt)}</p>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))
                 ) : (
                   <div className="p-8 text-center">
@@ -160,9 +199,11 @@ export function Header() {
               <div className="bg-[#0F172A] px-4 py-2 text-center">
                 <button
                   type="button"
-                  className="text-xs font-medium text-[#64748B] hover:text-[#94A3B8]"
+                  onClick={handleMarkAllAsRead}
+                  disabled={markingAll || unreadCount === 0}
+                  className="text-xs font-medium text-[#64748B] hover:text-[#94A3B8] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Marcar todas como lidas
+                  {markingAll ? 'Marcando...' : 'Marcar todas como lidas'}
                 </button>
               </div>
             </div>

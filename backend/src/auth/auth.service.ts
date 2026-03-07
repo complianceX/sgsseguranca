@@ -7,17 +7,21 @@ import {
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 import { USER_WITH_PASSWORD_FIELDS } from '../users/constants/user-fields.constant';
 import { CpfUtil } from '../common/utils/cpf.util';
 import { PasswordService } from '../common/services/password.service';
 import { RedisService } from '../common/redis/redis.service';
+import { MailService } from '../mail/mail.service';
 import * as crypto from 'crypto';
 import {
   getRefreshTokenTtl,
   getRefreshTokenTtlDays,
 } from './auth-security.config';
+
+const RESET_TOKEN_TTL_SECONDS = 3600; // 1 hora
 
 interface JwtPayload {
   sub: string;
@@ -37,6 +41,8 @@ export class AuthService {
     private jwtService: JwtService,
     private passwordService: PasswordService,
     private redisService: RedisService,
+    private mailService: MailService,
+    private configService: ConfigService,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -328,5 +334,95 @@ export class AuthService {
     const tokenHash = this.hashToken(refreshToken);
     await this.redisService.revokeRefreshToken(payload.sub, tokenHash);
     return { success: true };
+  }
+
+  async forgotPassword(cpf: string): Promise<{ message: string }> {
+    const normalizedCpf = CpfUtil.normalize(cpf);
+
+    // Busca o usuário ignorando RLS (rota pública, sem contexto de tenant)
+    const user = await this.dataSource.transaction(async (manager) => {
+      await manager.query("SET LOCAL app.is_super_admin = 'true'");
+      return manager.findOne(User, {
+        where: { cpf: normalizedCpf },
+        select: ['id', 'email', 'nome', 'status'] as any,
+      });
+    });
+
+    // Sempre retornar sucesso para não revelar se o CPF existe
+    const successMsg = 'Se o CPF estiver cadastrado, você receberá um e-mail com instruções para redefinir sua senha.';
+
+    if (!user || user.status === false || !user.email) {
+      this.logger.warn({ event: 'forgot_password_cpf_not_found', cpf: normalizedCpf.replace(/\d(?=\d{2})/g, '*') });
+      return { message: successMsg };
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const redisKey = `reset_password:${token}`;
+    await this.redisService.getClient().setex(redisKey, RESET_TOKEN_TTL_SECONDS, user.id);
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3002';
+    const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; color: #1f2937; max-width: 520px; margin: 0 auto;">
+        <h2 style="color: #1d4ed8;">Redefinição de Senha — COMPLIANCE X</h2>
+        <p>Olá, <strong>${user.nome || 'usuário'}</strong>.</p>
+        <p>Recebemos uma solicitação para redefinir a senha da sua conta. Clique no botão abaixo para continuar:</p>
+        <div style="margin: 28px 0;">
+          <a href="${resetUrl}"
+             style="background-color: #2563eb; color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+            Redefinir Senha
+          </a>
+        </div>
+        <p style="font-size: 13px; color: #6b7280;">Este link é válido por <strong>1 hora</strong>. Caso não tenha solicitado, ignore este e-mail — sua senha permanece inalterada.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+        <p style="font-size: 11px; color: #9ca3af;">© 2026 Compliance X · Todos os direitos reservados</p>
+      </div>
+    `;
+
+    try {
+      await this.mailService.sendMail(
+        user.email,
+        'Redefinição de senha — COMPLIANCE X',
+        `Acesse o link para redefinir sua senha: ${resetUrl}`,
+        html,
+      );
+      this.logger.log({ event: 'forgot_password_sent', userId: user.id });
+    } catch (err) {
+      this.logger.error(`Falha ao enviar e-mail de reset: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    return { message: successMsg };
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const redisKey = `reset_password:${token}`;
+    const userId = await this.redisService.getClient().get(redisKey);
+
+    if (!userId) {
+      throw new BadRequestException('Token inválido ou expirado. Solicite um novo link de redefinição.');
+    }
+
+    const validation = this.passwordService.validate(newPassword);
+    if (!validation.valid) {
+      throw new BadRequestException(
+        `A nova senha não atende aos critérios de segurança: ${validation.errors.join(', ')}`,
+      );
+    }
+
+    const hashedPassword = await this.passwordService.hash(newPassword);
+    await this.dataSource.transaction(async (manager) => {
+      await manager.query("SET LOCAL app.is_super_admin = 'true'");
+      await manager.update(User, { id: userId }, { password: hashedPassword });
+    });
+
+    // Invalida o token após uso
+    await this.redisService.getClient().del(redisKey);
+
+    // Invalida todos os refresh tokens — o usuário precisará fazer login novamente
+    await this.redisService.clearAllRefreshTokens(userId);
+
+    this.logger.log({ event: 'password_reset', userId });
+    return { message: 'Senha redefinida com sucesso. Faça login com a nova senha.' };
   }
 }

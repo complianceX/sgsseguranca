@@ -5,6 +5,7 @@ import { Header } from '@/components/Header';
 import { AIButton } from '@/components/AIButton';
 import { ApiStatusBanner } from '@/components/ApiStatusBanner';
 import CompanySelectorModal from '@/components/CompanySelectorModal';
+import { OnboardingModal } from '@/components/OnboardingModal';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -144,6 +145,7 @@ export default function DashboardLayout({
         onLogout={logout}
         currentCompanyId={selectedTenant?.companyId}
       />
+      <OnboardingModal userId={user?.id} />
     </div>
   );
 }
