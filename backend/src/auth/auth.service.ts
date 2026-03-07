@@ -14,7 +14,7 @@ import { USER_WITH_PASSWORD_FIELDS } from '../users/constants/user-fields.consta
 import { CpfUtil } from '../common/utils/cpf.util';
 import { PasswordService } from '../common/services/password.service';
 import { RedisService } from '../common/redis/redis.service';
-import { MailService } from '../mail/mail.service';
+import { Resend } from 'resend';
 import * as crypto from 'crypto';
 import {
   getRefreshTokenTtl,
@@ -41,9 +41,12 @@ export class AuthService {
     private jwtService: JwtService,
     private passwordService: PasswordService,
     private redisService: RedisService,
-    private mailService: MailService,
     private configService: ConfigService,
-  ) {}
+  ) {
+    this.resend = new Resend(this.configService.get<string>('RESEND_API_KEY'));
+  }
+
+  private readonly resend: Resend;
 
   private readonly logger = new Logger(AuthService.name);
 
@@ -381,12 +384,15 @@ export class AuthService {
     `;
 
     try {
-      await this.mailService.sendMail(
-        user.email,
-        'Redefinição de senha — COMPLIANCE X',
-        `Acesse o link para redefinir sua senha: ${resetUrl}`,
+      const fromName = this.configService.get<string>('MAIL_FROM_NAME')?.trim() || 'COMPLIANCE X';
+      const fromEmail = this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() || 'onboarding@resend.dev';
+      await this.resend.emails.send({
+        from: `${fromName} <${fromEmail}>`,
+        to: user.email,
+        subject: 'Redefinição de senha — COMPLIANCE X',
+        text: `Acesse o link para redefinir sua senha: ${resetUrl}`,
         html,
-      );
+      });
       this.logger.log({ event: 'forgot_password_sent', userId: user.id });
     } catch (err) {
       this.logger.error(`Falha ao enviar e-mail de reset: ${err instanceof Error ? err.message : String(err)}`);
