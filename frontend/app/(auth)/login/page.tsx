@@ -8,6 +8,9 @@ import axios from 'axios';
 
 function getLoginErrorMessage(error: unknown): string {
   if (!axios.isAxiosError(error)) {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message;
+    }
     return 'Erro ao tentar fazer login. Tente novamente.';
   }
 

@@ -4,6 +4,9 @@ import { sessionStore } from './sessionStore';
 import { authRefreshHint } from './authRefreshHint';
 import { selectedTenantStore } from './selectedTenantStore';
 
+const RAILWAY_DEFAULT_API_URL =
+  'https://keen-smile-production.up.railway.app';
+
 const resolveBaseUrl = () => {
   const explicitApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
   const fallbackApiUrl = process.env.NEXT_PUBLIC_API_FALLBACK_URL?.trim();
@@ -18,7 +21,7 @@ const resolveBaseUrl = () => {
 
   if (typeof window !== 'undefined') {
     if (window.location.hostname.endsWith('.up.railway.app')) {
-      return null;
+      return RAILWAY_DEFAULT_API_URL;
     }
     // Padrão local: backend roda em 3011 (run-local.ps1 / LOCAL_SETUP.md)
     return `${window.location.protocol}//${window.location.hostname}:3011`;
