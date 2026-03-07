@@ -92,14 +92,44 @@ export class AuthService {
       return found;
     });
 
-    // Se o usuário não existir ou não tiver senha, usamos um hash falso para a comparação.
-    // Isso garante um tempo de execução semelhante, prevenindo ataques de temporização (timing attacks)
-    // que poderiam permitir a um atacante adivinhar se um CPF é válido.
-    const hashToCompare = user?.password || this.DUMMY_HASH;
-    const isMatch = await this.passwordService.compare(pass, hashToCompare);
+    let isMatch = false;
+    let shouldUpgradeLegacyPassword = false;
+
+    if (user?.password) {
+      const looksLikeBcryptHash = /^\$2[aby]\$\d{2}\$/.test(user.password);
+      if (looksLikeBcryptHash) {
+        isMatch = await this.passwordService.compare(pass, user.password);
+      } else {
+        isMatch = pass === user.password;
+        shouldUpgradeLegacyPassword = isMatch;
+      }
+    } else {
+      await this.passwordService.compare(pass, this.DUMMY_HASH);
+    }
 
     if (!user || user.status === false || !isMatch) {
       return null;
+    }
+
+    if (shouldUpgradeLegacyPassword) {
+      try {
+        const upgradedHash = await this.passwordService.hash(pass);
+        await this.dataSource.transaction(async (manager) => {
+          await manager.query("SET LOCAL app.is_super_admin = 'true'");
+          await manager.update(User, { id: user.id }, { password: upgradedHash });
+        });
+        user.password = upgradedHash;
+        this.logger.warn({
+          event: 'legacy_password_upgraded',
+          userId: user.id,
+        });
+      } catch (error) {
+        this.logger.error(
+          `Falha ao migrar senha legada do usuário ${user.id}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
     }
 
     const result = { ...user } as Partial<User>;
