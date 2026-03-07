@@ -60,7 +60,6 @@ export class TenantMiddleware implements NestMiddleware {
   async use(req: TenantRequest, _res: Response, next: NextFunction) {
     const token = this.extractToken(req);
     const requireExplicitForSuperAdmin =
-      process.env.NODE_ENV === 'production' ||
       process.env.REQUIRE_EXPLICIT_TENANT_FOR_SUPER_ADMIN === 'true';
 
     let companyId: string | undefined;
