@@ -1,0 +1,91 @@
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  UseInterceptors,
+  ParseUUIDPipe,
+  ParseIntPipe,
+  DefaultValuePipe,
+  Request,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { TenantGuard } from '../../common/guards/tenant.guard';
+import { RolesGuard } from '../../auth/roles.guard';
+import { TenantInterceptor } from '../../common/tenant/tenant.interceptor';
+import { Roles } from '../../auth/roles.decorator';
+import { Role } from '../../auth/enums/roles.enum';
+import { SstAgentService } from './sst-agent.service';
+import { SstChatDto } from '../dto/sst-chat.dto';
+
+/**
+ * Controller do Agente SST.
+ *
+ * Rotas sob /ai/sst — isoladas das rotas do AiController genérico.
+ * Acesso restrito a perfis habilitados: ADMIN_GERAL, ADMIN_EMPRESA, TST.
+ */
+@Controller('ai/sst')
+@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseInterceptors(TenantInterceptor)
+export class SstAgentController {
+  constructor(private readonly sstAgentService: SstAgentService) {}
+
+  /**
+   * POST /ai/sst/chat
+   *
+   * Envia uma pergunta ao agente SST e recebe resposta estruturada.
+   *
+   * Body:
+   *   - question: string — pergunta do usuário (max 2000 chars)
+   *   - history?: ConversationMessage[] — histórico da sessão atual (opcional)
+   *
+   * Response: SstAgentResponse
+   *   - answer: string
+   *   - confidence: 'high' | 'medium' | 'low'
+   *   - needsHumanReview: boolean
+   *   - sources: string[] (ex: ['NR-6', 'NR-7'])
+   *   - suggestedActions: SuggestedAction[]
+   *   - warnings: string[]
+   *   - toolsUsed: string[]
+   */
+  @Post('chat')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  async chat(@Body() dto: SstChatDto, @Request() req: any) {
+    const userId: string = req.user?.sub ?? req.user?.id ?? 'unknown';
+    return this.sstAgentService.chat(dto.question, userId, dto.history ?? []);
+  }
+
+  /**
+   * GET /ai/sst/history
+   *
+   * Retorna histórico de interações do usuário atual (metadados, sem resposta completa).
+   * Isolado por tenant — cada empresa vê apenas suas próprias interações.
+   *
+   * Query params:
+   *   - limit: number (padrão: 20, máximo: 100)
+   */
+  @Get('history')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  async getHistory(
+    @Request() req: any,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+  ) {
+    const userId: string = req.user?.sub ?? req.user?.id ?? 'unknown';
+    return this.sstAgentService.getHistory(userId, limit);
+  }
+
+  /**
+   * GET /ai/sst/history/:id
+   *
+   * Retorna uma interação completa por ID (incluindo resposta e ferramentas usadas).
+   * Garante isolamento de tenant — retorna 404 se o ID pertencer a outro tenant.
+   */
+  @Get('history/:id')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  async getInteraction(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.sstAgentService.getInteraction(id);
+  }
+}
