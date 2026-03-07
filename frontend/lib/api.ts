@@ -85,6 +85,8 @@ api.interceptors.request.use((config) => {
       const selectedTenant = selectedTenantStore.get();
       if (selectedTenant?.companyId) {
         config.headers['x-company-id'] = selectedTenant.companyId;
+      } else if (companyId) {
+        config.headers['x-company-id'] = companyId;
       }
     } else if (companyId) {
       config.headers['x-company-id'] = companyId;
