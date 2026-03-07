@@ -3,10 +3,11 @@ import { DataSource } from 'typeorm';
 import { ProfilesService } from '../profiles/profiles.service';
 import { CompaniesService } from '../companies/companies.service';
 import { UsersService } from '../users/users.service';
-import type { User } from '../users/entities/user.entity';
+import { User } from '../users/entities/user.entity';
 import { CompanyResponseDto } from '../companies/dto/company-response.dto';
 import { Profile } from '../profiles/entities/profile.entity';
 import { TenantService } from '../common/tenant/tenant.service';
+import { PasswordService } from '../common/services/password.service';
 
 @Injectable()
 export class SeedService implements OnApplicationBootstrap {
@@ -18,6 +19,7 @@ export class SeedService implements OnApplicationBootstrap {
     private companiesService: CompaniesService,
     private usersService: UsersService,
     private tenantService: TenantService,
+    private passwordService: PasswordService,
   ) {}
 
   onApplicationBootstrap() {
@@ -120,6 +122,7 @@ export class SeedService implements OnApplicationBootstrap {
       }
       const TARGET_CPF = targetCpf.length === 11 ? targetCpf : '15082302698';
       const TARGET_PASSWORD = targetPassword;
+      const hashedAdminPassword = await this.passwordService.hash(TARGET_PASSWORD);
 
       // Check if any company exists
       const companies = await this.companiesService.findAll();
@@ -158,16 +161,26 @@ export class SeedService implements OnApplicationBootstrap {
         this.logger.log(
           `Atualizando senha do admin existente (CPF=${TARGET_CPF})`,
         );
+        await this.dataSource.transaction(async (manager) => {
+          await manager.query("SET LOCAL app.is_super_admin = 'true'");
+          await manager.update(User, { id: targetAdmin.id }, {
+            password: hashedAdminPassword,
+            profile_id: adminProfile.id,
+            company_id: targetAdmin.company_id || company.id,
+            funcao: targetAdmin.funcao || 'Admin',
+            status: true,
+            deletedAt: null,
+          });
+        });
         await this.tenantService.run(
           { companyId: targetAdmin.company_id || company.id, isSuperAdmin: true },
           async () => {
-            await this.usersService.update(targetAdmin.id, {
-              password: TARGET_PASSWORD,
-              profile_id: adminProfile.id,
-              company_id: targetAdmin.company_id || company.id,
-              funcao: targetAdmin.funcao || 'Admin',
-              status: true,
-            });
+            const reloaded = await this.usersService.findOneByCpf(TARGET_CPF);
+            this.logger.log(
+              `Admin padrão reconciliado (CPF=${TARGET_CPF}, hashPersistido=${Boolean(
+                reloaded?.password?.startsWith('$2'),
+              )})`,
+            );
           },
         );
       } else if (oldAdmins.length > 0) {
@@ -175,19 +188,18 @@ export class SeedService implements OnApplicationBootstrap {
         this.logger.log(
           `Migrando admin de CPF antigo (${oldAdmin.cpf || 'sem-cpf'}) para novo (${TARGET_CPF})`,
         );
-        await this.tenantService.run(
-          { companyId: oldAdmin.company_id || company.id, isSuperAdmin: true },
-          async () => {
-            await this.usersService.update(oldAdmin.id, {
-              cpf: TARGET_CPF,
-              password: TARGET_PASSWORD,
-              profile_id: adminProfile.id,
-              company_id: oldAdmin.company_id || company.id,
-              funcao: oldAdmin.funcao || 'Admin',
-              status: true,
-            });
-          },
-        );
+        await this.dataSource.transaction(async (manager) => {
+          await manager.query("SET LOCAL app.is_super_admin = 'true'");
+          await manager.update(User, { id: oldAdmin.id }, {
+            cpf: TARGET_CPF,
+            password: hashedAdminPassword,
+            profile_id: adminProfile.id,
+            company_id: oldAdmin.company_id || company.id,
+            funcao: oldAdmin.funcao || 'Admin',
+            status: true,
+            deletedAt: null,
+          });
+        });
       } else {
         this.logger.log(
           `Criando admin padrão (CPF=${TARGET_CPF}) com empresa=${company.id}`,
