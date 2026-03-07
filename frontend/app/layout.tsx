@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from 'sonner';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
+import { PwaBootstrap } from '@/components/PwaBootstrap';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,6 +46,7 @@ export default function RootLayout({
       >
         <AppErrorBoundary>
           <AuthProvider>
+            <PwaBootstrap />
             {children}
             <Toaster position="top-right" richColors />
           </AuthProvider>

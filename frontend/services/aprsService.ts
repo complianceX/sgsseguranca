@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import { AxiosResponse } from 'axios';
+import { AxiosError } from 'axios';
 import { Activity } from './activitiesService';
 import { Risk } from './risksService';
 import { Epi } from './episService';
@@ -10,6 +11,7 @@ import { User } from './usersService';
 import { Site } from './sitesService';
 import { Company } from './companiesService';
 import { fetchAllPages, PaginatedResponse } from './pagination';
+import { enqueueOfflineMutation } from '@/lib/offline-sync';
 
 export interface Apr {
   id: string;
@@ -169,13 +171,58 @@ export const aprsService = {
   },
 
   create: async (data: CreateAprDto) => {
-    const response = await api.post<Apr>('/aprs', data);
-    return response.data;
+    try {
+      const response = await api.post<Apr>('/aprs', data);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.code !== 'ERR_NETWORK') {
+        throw error;
+      }
+
+      const queued = enqueueOfflineMutation({
+        url: '/aprs',
+        method: 'post',
+        data,
+        label: 'APR',
+      });
+
+      return {
+        ...(data as unknown as Partial<Apr>),
+        id: queued.id,
+        status: ((data as unknown as Partial<Apr>)?.status || 'Pendente') as Apr['status'],
+        created_at: queued.createdAt,
+        updated_at: queued.createdAt,
+        offlineQueued: true,
+      } as Apr & { offlineQueued: true };
+    }
   },
 
   update: async (id: string, data: Partial<CreateAprDto>) => {
-    const response = await api.patch<Apr>(`/aprs/${id}`, data);
-    return response.data;
+    try {
+      const response = await api.patch<Apr>(`/aprs/${id}`, data);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.code !== 'ERR_NETWORK') {
+        throw error;
+      }
+
+      const queued = enqueueOfflineMutation({
+        url: `/aprs/${id}`,
+        method: 'patch',
+        data,
+        label: 'APR',
+      });
+
+      return {
+        ...(data as unknown as Partial<Apr>),
+        id,
+        created_at: queued.createdAt,
+        updated_at: queued.createdAt,
+        offlineQueued: true,
+      } as Apr & { offlineQueued: true };
+    }
   },
 
   attachFile: async (id: string, file: File) => {

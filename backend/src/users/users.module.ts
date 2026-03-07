@@ -6,17 +6,30 @@ import { UsersController } from './users.controller';
 import { User } from './entities/user.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import { TenantRequiredGuard } from '../common/guards/tenant-required.guard';
+import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
+import { Training } from '../trainings/entities/training.entity';
+import { EpiAssignment } from '../epi-assignments/entities/epi-assignment.entity';
+import { WorkerOperationalStatusService } from './worker-operational-status.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Profile])],
+  imports: [
+    TypeOrmModule.forFeature([
+      User,
+      Profile,
+      MedicalExam,
+      Training,
+      EpiAssignment,
+    ]),
+  ],
   controllers: [UsersController],
   providers: [
     UsersService,
+    WorkerOperationalStatusService,
     {
       provide: APP_GUARD,
       useClass: TenantRequiredGuard,
     },
   ],
-  exports: [UsersService],
+  exports: [UsersService, WorkerOperationalStatusService],
 })
 export class UsersModule {}

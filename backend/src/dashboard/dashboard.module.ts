@@ -8,6 +8,7 @@ import { Notification } from '../notifications/entities/notification.entity';
 import { Pt } from '../pts/entities/pt.entity';
 import { Site } from '../sites/entities/site.entity';
 import { Training } from '../trainings/entities/training.entity';
+import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
@@ -24,6 +25,7 @@ import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
       Site,
       MonthlySnapshot,
       Notification,
+      MedicalExam,
     ]),
   ],
   controllers: [DashboardController],

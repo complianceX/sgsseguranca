@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { Suspense, useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
@@ -48,7 +48,7 @@ function formatCpf(value: string): string {
 
 const REMEMBER_CPF_KEY = 'compliance_x_remembered_cpf';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const searchParams = useSearchParams();
   const sessionExpired = searchParams.get('expired') === '1';
 
@@ -355,5 +355,21 @@ export default function LoginPage() {
         .login-shake { animation: shake 0.5s ease-in-out; }
       `}</style>
     </div>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#0F172A] to-[#1E3A5F]">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/30 border-t-white" />
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

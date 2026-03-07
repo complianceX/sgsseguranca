@@ -20,6 +20,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
+import { WorkerOperationalStatusService } from './worker-operational-status.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -37,7 +38,10 @@ import { Authorize } from '../auth/authorize.decorator';
 @UseInterceptors(TenantInterceptor)
 @ApiBearerAuth('access-token')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly workerOperationalStatusService: WorkerOperationalStatusService,
+  ) {}
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
@@ -115,6 +119,15 @@ export class UsersController {
       limit: Number(limit),
       search: search || undefined,
     });
+  }
+
+  @Get('worker-status/cpf/:cpf')
+  @Authorize('can_view_users')
+  @ApiOperation({ summary: 'Consultar status operacional do trabalhador por CPF' })
+  @ApiResponse({ status: 200, description: 'Status operacional retornado com sucesso' })
+  @ApiResponse({ status: 404, description: 'Trabalhador não encontrado' })
+  getWorkerStatusByCpf(@Param('cpf') cpf: string) {
+    return this.workerOperationalStatusService.getByCpf(cpf);
   }
 
   @Get(':id')

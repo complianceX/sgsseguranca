@@ -9,6 +9,7 @@ import { Company } from '../companies/entities/company.entity';
 import { TrainingsModule } from '../trainings/trainings.module';
 import { User } from '../users/entities/user.entity';
 import { AuditModule } from '../audit/audit.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AuditModule } from '../audit/audit.module';
     AuthModule,
     TrainingsModule,
     AuditModule,
+    UsersModule,
   ],
   controllers: [PtsController],
   providers: [PtsService],

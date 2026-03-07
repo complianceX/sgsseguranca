@@ -35,6 +35,41 @@ export interface User {
   updated_at: string;
 }
 
+export interface WorkerOperationalStatus {
+  user: {
+    id: string;
+    nome: string;
+    cpf: string | null;
+    funcao?: string | null;
+    company_id: string;
+  };
+  operationalStatus: 'APTO' | 'BLOQUEADO';
+  blocked: boolean;
+  reasons: string[];
+  medicalExam: {
+    status: 'VALIDO' | 'VENCIDO' | 'INAPTO' | 'AUSENTE';
+    data_realizacao?: string | null;
+    data_vencimento?: string | null;
+    resultado?: string | null;
+  };
+  trainings: {
+    total: number;
+    expiredBlocking: Array<{
+      id: string;
+      nome: string;
+      data_vencimento: string;
+    }>;
+  };
+  epis: {
+    totalActive: number;
+    expiringCa: Array<{
+      id: string;
+      epiNome?: string;
+      validade_ca?: string;
+    }>;
+  };
+}
+
 export const usersService = {
   findPaginated: async (opts?: { page?: number; limit?: number; search?: string }): Promise<PaginatedResponse<User>> => {
     const response = await api.get<PaginatedResponse<User>>('/users', {
@@ -57,6 +92,13 @@ export const usersService = {
 
   findOne: async (id: string) => {
     const response = await api.get<User>(`/users/${id}`);
+    return response.data;
+  },
+
+  getWorkerStatusByCpf: async (cpf: string) => {
+    const response = await api.get<WorkerOperationalStatus>(
+      `/users/worker-status/cpf/${cpf}`,
+    );
     return response.data;
   },
 

@@ -16,6 +16,7 @@ import { RiskCalculationService } from '../common/services/risk-calculation.serv
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { RequestContext } from '../common/middleware/request-context.middleware';
+import { WorkerOperationalStatusService } from '../users/worker-operational-status.service';
 import {
   normalizeOffsetPagination,
   OffsetPage,
@@ -32,6 +33,7 @@ export class PtsService {
     private tenantService: TenantService,
     private readonly riskCalculationService: RiskCalculationService,
     private readonly auditService: AuditService,
+    private readonly workerOperationalStatusService: WorkerOperationalStatusService,
   ) {}
 
   async create(createPtDto: CreatePtDto): Promise<Pt> {
@@ -165,7 +167,7 @@ export class PtsService {
   async approve(id: string, approvedByUserId: string, reason?: string): Promise<Pt> {
     const pt = await this.findOne(id);
     const before = { ...pt };
-    this.assertCanApprove(pt);
+    await this.assertCanApprove(pt);
     pt.status = 'Aprovada';
     pt.aprovado_por_id = approvedByUserId;
     pt.aprovado_em = new Date();
@@ -288,11 +290,34 @@ export class PtsService {
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
 
-  private assertCanApprove(pt: Pt): void {
+  private async assertCanApprove(pt: Pt): Promise<void> {
+    const reasons: string[] = [];
+
     if (pt.residual_risk === 'CRITICAL' && !pt.control_evidence) {
-      throw new BadRequestException(
-        'PT bloqueada: risco residual crítico sem evidência de controle.',
-      );
+      reasons.push('risco residual crítico sem evidência de controle');
+    }
+
+    const workerIds = [
+      pt.responsavel_id,
+      ...(Array.isArray(pt.executantes)
+        ? pt.executantes.map((executante) => executante.id)
+        : []),
+    ].filter(
+      (value, index, values): value is string =>
+        Boolean(value) && values.indexOf(value) === index,
+    );
+
+    const workerStatuses =
+      await this.workerOperationalStatusService.getByUserIds(workerIds);
+
+    workerStatuses.forEach((status) => {
+      if (status.blocked) {
+        reasons.push(`${status.user.nome}: ${status.reasons.join(' ')}`.trim());
+      }
+    });
+
+    if (reasons.length > 0) {
+      throw new BadRequestException(`PT bloqueada: ${reasons.join(' | ')}.`);
     }
   }
 

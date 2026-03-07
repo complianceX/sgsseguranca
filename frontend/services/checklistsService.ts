@@ -1,5 +1,7 @@
 import api from '@/lib/api';
+import { AxiosError } from 'axios';
 import { fetchAllPages, PaginatedResponse } from './pagination';
+import { enqueueOfflineMutation } from '@/lib/offline-sync';
 
 export interface ChecklistItem {
   id?: string;
@@ -87,17 +89,64 @@ export const checklistsService = {
   },
 
   create: async (data: Partial<Checklist>, companyId?: string) => {
-    const response = await api.post<Checklist>('/checklists', data, {
-      headers: companyId ? { 'x-company-id': companyId } : undefined,
-    });
-    return response.data;
+    try {
+      const response = await api.post<Checklist>('/checklists', data, {
+        headers: companyId ? { 'x-company-id': companyId } : undefined,
+      });
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.code !== 'ERR_NETWORK') {
+        throw error;
+      }
+
+      const queued = enqueueOfflineMutation({
+        url: '/checklists',
+        method: 'post',
+        data,
+        headers: companyId ? { 'x-company-id': companyId } : undefined,
+        label: 'Checklist',
+      });
+
+      return {
+        ...(data as Checklist),
+        id: queued.id,
+        status: ((data as Checklist)?.status || 'Pendente') as Checklist['status'],
+        created_at: queued.createdAt,
+        updated_at: queued.createdAt,
+        offlineQueued: true,
+      } as Checklist & { offlineQueued: true };
+    }
   },
 
   update: async (id: string, data: Partial<Checklist>, companyId?: string) => {
-    const response = await api.patch<Checklist>(`/checklists/${id}`, data, {
-      headers: companyId ? { 'x-company-id': companyId } : undefined,
-    });
-    return response.data;
+    try {
+      const response = await api.patch<Checklist>(`/checklists/${id}`, data, {
+        headers: companyId ? { 'x-company-id': companyId } : undefined,
+      });
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.code !== 'ERR_NETWORK') {
+        throw error;
+      }
+
+      const queued = enqueueOfflineMutation({
+        url: `/checklists/${id}`,
+        method: 'patch',
+        data,
+        headers: companyId ? { 'x-company-id': companyId } : undefined,
+        label: 'Checklist',
+      });
+
+      return {
+        ...(data as Checklist),
+        id,
+        created_at: queued.createdAt,
+        updated_at: queued.createdAt,
+        offlineQueued: true,
+      } as Checklist & { offlineQueued: true };
+    }
   },
 
   delete: async (id: string) => {

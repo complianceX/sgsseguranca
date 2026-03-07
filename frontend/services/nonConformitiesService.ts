@@ -1,5 +1,7 @@
 import api from '@/lib/api';
+import { AxiosError } from 'axios';
 import { Site } from './sitesService';
+import { enqueueOfflineMutation } from '@/lib/offline-sync';
 
 export interface NonConformity {
   id: string;
@@ -99,13 +101,57 @@ export const nonConformitiesService = {
   },
 
   create: async (data: Partial<NonConformity>) => {
-    const response = await api.post<NonConformity>('/nonconformities', data);
-    return response.data;
+    try {
+      const response = await api.post<NonConformity>('/nonconformities', data);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.code !== 'ERR_NETWORK') {
+        throw error;
+      }
+
+      const queued = enqueueOfflineMutation({
+        url: '/nonconformities',
+        method: 'post',
+        data,
+        label: 'NC',
+      });
+
+      return {
+        ...(data as NonConformity),
+        id: queued.id,
+        created_at: queued.createdAt,
+        updated_at: queued.createdAt,
+        offlineQueued: true,
+      } as NonConformity & { offlineQueued: true };
+    }
   },
 
   update: async (id: string, data: Partial<NonConformity>) => {
-    const response = await api.patch<NonConformity>(`/nonconformities/${id}`, data);
-    return response.data;
+    try {
+      const response = await api.patch<NonConformity>(`/nonconformities/${id}`, data);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.code !== 'ERR_NETWORK') {
+        throw error;
+      }
+
+      const queued = enqueueOfflineMutation({
+        url: `/nonconformities/${id}`,
+        method: 'patch',
+        data,
+        label: 'NC',
+      });
+
+      return {
+        ...(data as NonConformity),
+        id,
+        created_at: queued.createdAt,
+        updated_at: queued.createdAt,
+        offlineQueued: true,
+      } as NonConformity & { offlineQueued: true };
+    }
   },
 
   attachFile: async (id: string, file: File) => {

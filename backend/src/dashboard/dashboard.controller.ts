@@ -33,4 +33,15 @@ export class DashboardController {
       req.tenant?.companyId || req.user?.company_id || '',
     );
   }
+
+  @Get('tst-day')
+  @Authorize('can_view_dashboard')
+  getTstDay(
+    @Req()
+    req: { user?: { company_id?: string }; tenant?: { companyId?: string } },
+  ) {
+    return this.dashboardService.getTstDay(
+      req.tenant?.companyId || req.user?.company_id || '',
+    );
+  }
 }

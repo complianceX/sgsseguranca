@@ -1,6 +1,8 @@
 import api from '@/lib/api';
+import { AxiosError } from 'axios';
 import { User } from './usersService';
 import { fetchAllPages, PaginatedResponse } from './pagination';
+import { enqueueOfflineMutation } from '@/lib/offline-sync';
 
 export interface Pt {
   id: string;
@@ -125,13 +127,58 @@ export const ptsService = {
   },
 
   create: async (data: Omit<Partial<Pt>, 'executantes'> & { executantes?: string[] }) => {
-    const response = await api.post<Pt>('/pts', data);
-    return response.data;
+    try {
+      const response = await api.post<Pt>('/pts', data);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.code !== 'ERR_NETWORK') {
+        throw error;
+      }
+
+      const queued = enqueueOfflineMutation({
+        url: '/pts',
+        method: 'post',
+        data,
+        label: 'PT',
+      });
+
+      return {
+        ...(data as unknown as Partial<Pt>),
+        id: queued.id,
+        status: ((data as unknown as Partial<Pt>)?.status || 'Pendente') as Pt['status'],
+        created_at: queued.createdAt,
+        updated_at: queued.createdAt,
+        offlineQueued: true,
+      } as Pt & { offlineQueued: true };
+    }
   },
 
   update: async (id: string, data: Omit<Partial<Pt>, 'executantes'> & { executantes?: string[] }) => {
-    const response = await api.patch<Pt>(`/pts/${id}`, data);
-    return response.data;
+    try {
+      const response = await api.patch<Pt>(`/pts/${id}`, data);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.code !== 'ERR_NETWORK') {
+        throw error;
+      }
+
+      const queued = enqueueOfflineMutation({
+        url: `/pts/${id}`,
+        method: 'patch',
+        data,
+        label: 'PT',
+      });
+
+      return {
+        ...(data as unknown as Partial<Pt>),
+        id,
+        created_at: queued.createdAt,
+        updated_at: queued.createdAt,
+        offlineQueued: true,
+      } as Pt & { offlineQueued: true };
+    }
   },
 
   approve: async (id: string, reason?: string) => {
