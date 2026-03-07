@@ -2,6 +2,7 @@ import api from '@/lib/api';
 import { AxiosError } from 'axios';
 import { fetchAllPages, PaginatedResponse } from './pagination';
 import { enqueueOfflineMutation } from '@/lib/offline-sync';
+import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
 
 export interface ChecklistItem {
   id?: string;
@@ -55,28 +56,53 @@ export const checklistsService = {
     page?: number;
     limit?: number;
   }) => {
-    const response = await api.get<PaginatedResponse<Checklist>>('/checklists', {
-      params: {
-        onlyTemplates: params?.onlyTemplates ? 'true' : undefined,
-        excludeTemplates: params?.excludeTemplates ? 'true' : undefined,
-        page: params?.page ?? 1,
-        limit: params?.limit ?? 20,
-      },
-    });
-    return response.data;
+    const query = {
+      onlyTemplates: params?.onlyTemplates ? 'true' : undefined,
+      excludeTemplates: params?.excludeTemplates ? 'true' : undefined,
+      page: params?.page ?? 1,
+      limit: params?.limit ?? 20,
+    };
+    const cacheKey = `checklists.paginated.${JSON.stringify(query)}`;
+
+    try {
+      const response = await api.get<PaginatedResponse<Checklist>>('/checklists', {
+        params: query,
+      });
+      setOfflineCache(cacheKey, response.data);
+      return response.data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = getOfflineCache<PaginatedResponse<Checklist>>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   findAll: async (options?: { onlyTemplates?: boolean; excludeTemplates?: boolean }) => {
-    return fetchAllPages({
-      fetchPage: (page, limit) =>
-        checklistsService.findPaginated({
-          ...options,
-          page,
-          limit,
-        }),
-      limit: 100,
-      maxPages: 50,
-    });
+    const cacheKey = `checklists.all.${JSON.stringify(options || {})}`;
+    try {
+      const data = await fetchAllPages({
+        fetchPage: (page, limit) =>
+          checklistsService.findPaginated({
+            ...options,
+            page,
+            limit,
+          }),
+        limit: 100,
+        maxPages: 50,
+      });
+      setOfflineCache(cacheKey, data);
+      return data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = getOfflineCache<Checklist[]>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   findTemplates: async () => {
@@ -84,8 +110,19 @@ export const checklistsService = {
   },
 
   findOne: async (id: string) => {
-    const response = await api.get<Checklist>(`/checklists/${id}`);
-    return response.data;
+    const cacheKey = `checklists.one.${id}`;
+    try {
+      const response = await api.get<Checklist>(`/checklists/${id}`);
+      setOfflineCache(cacheKey, response.data);
+      return response.data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = getOfflineCache<Checklist>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   create: async (data: Partial<Checklist>, companyId?: string) => {

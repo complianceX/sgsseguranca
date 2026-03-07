@@ -33,6 +33,19 @@ export class Company {
   @Column({ default: true })
   status: boolean;
 
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    default: () =>
+      `'{"blockCriticalRiskWithoutEvidence":true,"blockWorkerWithoutValidMedicalExam":true,"blockWorkerWithExpiredBlockingTraining":true,"requireAtLeastOneExecutante":false}'::jsonb`,
+  })
+  pt_approval_rules?: {
+    blockCriticalRiskWithoutEvidence: boolean;
+    blockWorkerWithoutValidMedicalExam: boolean;
+    blockWorkerWithExpiredBlockingTraining: boolean;
+    requireAtLeastOneExecutante: boolean;
+  } | null;
+
   @CreateDateColumn()
   created_at: Date;
 

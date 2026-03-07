@@ -12,11 +12,13 @@ import { TenantService } from '../common/tenant/tenant.service';
 import { CreatePtDto } from './dto/create-pt.dto';
 import { UpdatePtDto } from './dto/update-pt.dto';
 import { User } from '../users/entities/user.entity';
+import { Company } from '../companies/entities/company.entity';
 import { RiskCalculationService } from '../common/services/risk-calculation.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import { WorkerOperationalStatusService } from '../users/worker-operational-status.service';
+import { UpdatePtApprovalRulesDto } from './dto/update-pt-approval-rules.dto';
 import {
   normalizeOffsetPagination,
   OffsetPage,
@@ -26,10 +28,18 @@ import {
 @Injectable()
 export class PtsService {
   private readonly logger = new Logger(PtsService.name);
+  private readonly defaultApprovalRules = {
+    blockCriticalRiskWithoutEvidence: true,
+    blockWorkerWithoutValidMedicalExam: true,
+    blockWorkerWithExpiredBlockingTraining: true,
+    requireAtLeastOneExecutante: false,
+  };
 
   constructor(
     @InjectRepository(Pt)
     private ptsRepository: Repository<Pt>,
+    @InjectRepository(Company)
+    private readonly companiesRepository: Repository<Company>,
     private tenantService: TenantService,
     private readonly riskCalculationService: RiskCalculationService,
     private readonly auditService: AuditService,
@@ -167,7 +177,7 @@ export class PtsService {
   async approve(id: string, approvedByUserId: string, reason?: string): Promise<Pt> {
     const pt = await this.findOne(id);
     const before = { ...pt };
-    await this.assertCanApprove(pt);
+    await this.assertCanApprove(pt, pt.company_id);
     pt.status = 'Aprovada';
     pt.aprovado_por_id = approvedByUserId;
     pt.aprovado_em = new Date();
@@ -290,11 +300,36 @@ export class PtsService {
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
 
-  private async assertCanApprove(pt: Pt): Promise<void> {
-    const reasons: string[] = [];
+  async getApprovalRules() {
+    const company = await this.findCurrentCompanyOrFail();
+    return this.normalizeApprovalRules(company.pt_approval_rules || undefined);
+  }
 
-    if (pt.residual_risk === 'CRITICAL' && !pt.control_evidence) {
+  async updateApprovalRules(payload: UpdatePtApprovalRulesDto) {
+    const company = await this.findCurrentCompanyOrFail();
+    const merged = this.normalizeApprovalRules({
+      ...(company.pt_approval_rules || {}),
+      ...payload,
+    });
+    company.pt_approval_rules = merged;
+    await this.companiesRepository.save(company);
+    return merged;
+  }
+
+  private async assertCanApprove(pt: Pt, companyId: string): Promise<void> {
+    const reasons: string[] = [];
+    const rules = await this.getApprovalRulesForCompany(companyId);
+
+    if (
+      rules.blockCriticalRiskWithoutEvidence &&
+      pt.residual_risk === 'CRITICAL' &&
+      !pt.control_evidence
+    ) {
       reasons.push('risco residual crítico sem evidência de controle');
+    }
+
+    if (rules.requireAtLeastOneExecutante && (!pt.executantes || pt.executantes.length === 0)) {
+      reasons.push('PT exige ao menos um executante vinculado');
     }
 
     const workerIds = [
@@ -311,14 +346,84 @@ export class PtsService {
       await this.workerOperationalStatusService.getByUserIds(workerIds);
 
     workerStatuses.forEach((status) => {
-      if (status.blocked) {
-        reasons.push(`${status.user.nome}: ${status.reasons.join(' ')}`.trim());
+      const workerReasons: string[] = [];
+
+      if (
+        rules.blockWorkerWithoutValidMedicalExam &&
+        status.medicalExam.status !== 'VALIDO'
+      ) {
+        workerReasons.push(
+          `${status.user.nome}: ASO ${status.medicalExam.status.toLowerCase()}.`,
+        );
+      }
+
+      if (
+        rules.blockWorkerWithExpiredBlockingTraining &&
+        status.trainings.expiredBlocking.length > 0
+      ) {
+        workerReasons.push(
+          `${status.user.nome}: treinamentos vencidos (${status.trainings.expiredBlocking
+            .map((item) => item.nome)
+            .join(', ')}).`,
+        );
+      }
+
+      if (workerReasons.length > 0) {
+        reasons.push(...workerReasons);
       }
     });
 
     if (reasons.length > 0) {
-      throw new BadRequestException(`PT bloqueada: ${reasons.join(' | ')}.`);
+      throw new BadRequestException({
+        code: 'PT_APPROVAL_BLOCKED',
+        message: 'PT bloqueada pelas regras de segurança da empresa.',
+        reasons,
+        rules,
+      });
     }
+  }
+
+  private normalizeApprovalRules(
+    rules?: Partial<Company['pt_approval_rules']>,
+  ): NonNullable<Company['pt_approval_rules']> {
+    return {
+      blockCriticalRiskWithoutEvidence:
+        rules?.blockCriticalRiskWithoutEvidence ??
+        this.defaultApprovalRules.blockCriticalRiskWithoutEvidence,
+      blockWorkerWithoutValidMedicalExam:
+        rules?.blockWorkerWithoutValidMedicalExam ??
+        this.defaultApprovalRules.blockWorkerWithoutValidMedicalExam,
+      blockWorkerWithExpiredBlockingTraining:
+        rules?.blockWorkerWithExpiredBlockingTraining ??
+        this.defaultApprovalRules.blockWorkerWithExpiredBlockingTraining,
+      requireAtLeastOneExecutante:
+        rules?.requireAtLeastOneExecutante ??
+        this.defaultApprovalRules.requireAtLeastOneExecutante,
+    };
+  }
+
+  private async findCurrentCompanyOrFail(): Promise<Company> {
+    const companyId = this.tenantService.getTenantId();
+    if (!companyId) {
+      throw new BadRequestException(
+        'Contexto de empresa não identificado para configurar regras da PT.',
+      );
+    }
+    const company = await this.companiesRepository.findOne({
+      where: { id: companyId },
+    });
+    if (!company) {
+      throw new NotFoundException('Empresa não encontrada para configurar regras.');
+    }
+    return company;
+  }
+
+  private async getApprovalRulesForCompany(companyId: string) {
+    const company = await this.companiesRepository.findOne({
+      where: { id: companyId },
+      select: { id: true, pt_approval_rules: true },
+    });
+    return this.normalizeApprovalRules(company?.pt_approval_rules || undefined);
   }
 
   private async logAudit(params: {

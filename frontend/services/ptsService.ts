@@ -3,6 +3,7 @@ import { AxiosError } from 'axios';
 import { User } from './usersService';
 import { fetchAllPages, PaginatedResponse } from './pagination';
 import { enqueueOfflineMutation } from '@/lib/offline-sync';
+import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
 
 export interface Pt {
   id: string;
@@ -100,30 +101,71 @@ export interface Pt {
   reprovado_motivo?: string;
 }
 
+export interface PtApprovalRules {
+  blockCriticalRiskWithoutEvidence: boolean;
+  blockWorkerWithoutValidMedicalExam: boolean;
+  blockWorkerWithExpiredBlockingTraining: boolean;
+  requireAtLeastOneExecutante: boolean;
+}
+
 export const ptsService = {
   findPaginated: async (opts?: { page?: number; limit?: number; search?: string; status?: string }) => {
-    const response = await api.get<PaginatedResponse<Pt>>('/pts', {
-      params: {
-        page: opts?.page ?? 1,
-        limit: opts?.limit ?? 20,
-        ...(opts?.search ? { search: opts.search } : {}),
-        ...(opts?.status ? { status: opts.status } : {}),
-      },
-    });
-    return response.data;
+    const params = {
+      page: opts?.page ?? 1,
+      limit: opts?.limit ?? 20,
+      ...(opts?.search ? { search: opts.search } : {}),
+      ...(opts?.status ? { status: opts.status } : {}),
+    };
+    const cacheKey = `pts.paginated.${JSON.stringify(params)}`;
+
+    try {
+      const response = await api.get<PaginatedResponse<Pt>>('/pts', { params });
+      setOfflineCache(cacheKey, response.data);
+      return response.data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = getOfflineCache<PaginatedResponse<Pt>>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   findAll: async () => {
-    return fetchAllPages({
-      fetchPage: (page, limit) => ptsService.findPaginated({ page, limit }),
-      limit: 100,
-      maxPages: 20,
-    });
+    const cacheKey = 'pts.all';
+    try {
+      const data = await fetchAllPages({
+        fetchPage: (page, limit) => ptsService.findPaginated({ page, limit }),
+        limit: 100,
+        maxPages: 20,
+      });
+      setOfflineCache(cacheKey, data);
+      return data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = getOfflineCache<Pt[]>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   findOne: async (id: string) => {
-    const response = await api.get<Pt>(`/pts/${id}`);
-    return response.data;
+    const cacheKey = `pts.one.${id}`;
+    try {
+      const response = await api.get<Pt>(`/pts/${id}`);
+      setOfflineCache(cacheKey, response.data);
+      return response.data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = getOfflineCache<Pt>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   create: async (data: Omit<Partial<Pt>, 'executantes'> & { executantes?: string[] }) => {
@@ -222,5 +264,18 @@ export const ptsService = {
 
   delete: async (id: string) => {
     await api.delete(`/pts/${id}`);
+  },
+
+  getApprovalRules: async () => {
+    const response = await api.get<PtApprovalRules>('/pts/approval-rules');
+    return response.data;
+  },
+
+  updateApprovalRules: async (payload: Partial<PtApprovalRules>) => {
+    const response = await api.patch<PtApprovalRules>(
+      '/pts/approval-rules',
+      payload,
+    );
+    return response.data;
   },
 };

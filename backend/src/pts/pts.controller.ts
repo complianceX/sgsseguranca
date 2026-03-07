@@ -25,6 +25,7 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreatePtDto } from './dto/create-pt.dto';
 import { UpdatePtDto } from './dto/update-pt.dto';
+import { UpdatePtApprovalRulesDto } from './dto/update-pt-approval-rules.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Authorize } from '../auth/authorize.decorator';
 
@@ -117,6 +118,18 @@ export class PtsController {
   async exportExcel(): Promise<StreamableFile> {
     const buffer = await this.ptsService.exportExcel();
     return new StreamableFile(buffer);
+  }
+
+  @Get('approval-rules')
+  @Authorize('can_view_pt')
+  getApprovalRules() {
+    return this.ptsService.getApprovalRules();
+  }
+
+  @Patch('approval-rules')
+  @Authorize('can_manage_pt')
+  updateApprovalRules(@Body() payload: UpdatePtApprovalRulesDto) {
+    return this.ptsService.updateApprovalRules(payload);
   }
 
   @Get(':id')

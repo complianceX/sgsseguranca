@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useApiStatus } from '@/hooks/useApiStatus';
 import { useApiReconnect } from '@/hooks/useApiReconnect';
 import { notificationsService, AppNotification } from '@/services/notificationsService';
+import { flushOfflineQueue, getOfflineQueueCount } from '@/lib/offline-sync';
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -17,6 +18,8 @@ export function Header() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [markingAll, setMarkingAll] = useState(false);
+  const [offlineQueueCount, setOfflineQueueCount] = useState(0);
+  const [syncingOfflineQueue, setSyncingOfflineQueue] = useState(false);
 
   const handleOpen = () => setShowNotifications((v) => !v);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -44,6 +47,26 @@ export function Header() {
     const interval = setInterval(loadUnreadCount, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [loadUnreadCount]);
+
+  useEffect(() => {
+    const updateCount = () => setOfflineQueueCount(getOfflineQueueCount());
+    const onSyncStarted = () => setSyncingOfflineQueue(true);
+    const onSyncCompleted = () => {
+      setSyncingOfflineQueue(false);
+      updateCount();
+    };
+
+    updateCount();
+    window.addEventListener('app:offline-queue-updated', updateCount as EventListener);
+    window.addEventListener('app:offline-sync-started', onSyncStarted as EventListener);
+    window.addEventListener('app:offline-sync-completed', onSyncCompleted as EventListener);
+
+    return () => {
+      window.removeEventListener('app:offline-queue-updated', updateCount as EventListener);
+      window.removeEventListener('app:offline-sync-started', onSyncStarted as EventListener);
+      window.removeEventListener('app:offline-sync-completed', onSyncCompleted as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     if (showNotifications) loadNotifications();
@@ -111,6 +134,21 @@ export function Header() {
       </div>
 
       <div className="flex items-center space-x-4">
+        <button
+          type="button"
+          onClick={() => void flushOfflineQueue()}
+          disabled={syncingOfflineQueue || offlineQueueCount === 0}
+          className={`hidden rounded-full border px-3 py-1 text-xs font-semibold xl:flex ${
+            offlineQueueCount > 0
+              ? 'border-amber-400/40 bg-amber-500/10 text-amber-300'
+              : 'border-slate-500/40 bg-slate-500/10 text-slate-300'
+          } disabled:cursor-not-allowed disabled:opacity-70`}
+          title="Sincronizar itens salvos offline"
+        >
+          {syncingOfflineQueue
+            ? 'Sincronizando offline...'
+            : `Fila offline: ${offlineQueueCount}`}
+        </button>
         <div
           className={`hidden items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold xl:flex ${
             isOffline

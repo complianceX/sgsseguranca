@@ -2,6 +2,7 @@ import api from '@/lib/api';
 import { AxiosError } from 'axios';
 import { Site } from './sitesService';
 import { enqueueOfflineMutation } from '@/lib/offline-sync';
+import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
 
 export interface NonConformity {
   id: string;
@@ -91,13 +92,35 @@ export const NC_ALLOWED_TRANSITIONS: Record<NcStatus, NcStatus[]> = {
 
 export const nonConformitiesService = {
   findAll: async () => {
-    const response = await api.get<NonConformity[]>('/nonconformities');
-    return response.data;
+    const cacheKey = 'nonconformities.all';
+    try {
+      const response = await api.get<NonConformity[]>('/nonconformities');
+      setOfflineCache(cacheKey, response.data);
+      return response.data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = getOfflineCache<NonConformity[]>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   findOne: async (id: string) => {
-    const response = await api.get<NonConformity>(`/nonconformities/${id}`);
-    return response.data;
+    const cacheKey = `nonconformities.one.${id}`;
+    try {
+      const response = await api.get<NonConformity>(`/nonconformities/${id}`);
+      setOfflineCache(cacheKey, response.data);
+      return response.data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = getOfflineCache<NonConformity>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   create: async (data: Partial<NonConformity>) => {

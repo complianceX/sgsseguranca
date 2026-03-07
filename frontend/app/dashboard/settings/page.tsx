@@ -9,9 +9,10 @@ import { Settings, ShieldCheck, Users, Building2, Map, HardHat, AlertTriangle, W
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { companiesService, Company } from '@/services/companiesService';
+import { ptsService, PtApprovalRules } from '@/services/ptsService';
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const isAdmin = user?.profile?.nome === 'Administrador Geral';
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -23,6 +24,11 @@ export default function SettingsPage() {
   const [logoRemoved, setLogoRemoved] = useState(false);
   const [savingLogo, setSavingLogo] = useState(false);
   const [loadingLogo, setLoadingLogo] = useState(true);
+  const [approvalRules, setApprovalRules] = useState<PtApprovalRules | null>(
+    null,
+  );
+  const [loadingApprovalRules, setLoadingApprovalRules] = useState(false);
+  const [savingApprovalRules, setSavingApprovalRules] = useState(false);
 
   const managementLinks = [
     { label: 'Usuários e Acessos', href: '/dashboard/users', icon: Users, adminOnly: true },
@@ -60,6 +66,29 @@ export default function SettingsPage() {
       active = false;
     };
   }, [user?.company_id]);
+
+  useEffect(() => {
+    if (!hasPermission('can_manage_pt')) return;
+    let active = true;
+    const loadApprovalRules = async () => {
+      try {
+        setLoadingApprovalRules(true);
+        const rules = await ptsService.getApprovalRules();
+        if (!active) return;
+        setApprovalRules(rules);
+      } catch (error) {
+        console.error('Erro ao carregar regras de aprovação de PT:', error);
+        toast.error('Não foi possível carregar regras de aprovação da PT.');
+      } finally {
+        if (active) setLoadingApprovalRules(false);
+      }
+    };
+
+    void loadApprovalRules();
+    return () => {
+      active = false;
+    };
+  }, [hasPermission]);
 
   const handleChangePassword = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -181,6 +210,31 @@ export default function SettingsPage() {
     setLogoPreview(null);
     setLogoDraft(null);
     setLogoRemoved(true);
+  };
+
+  const handleApprovalRuleChange = (
+    key: keyof PtApprovalRules,
+    checked: boolean,
+  ) => {
+    setApprovalRules((current) => {
+      if (!current) return current;
+      return { ...current, [key]: checked };
+    });
+  };
+
+  const handleSaveApprovalRules = async () => {
+    if (!approvalRules) return;
+    try {
+      setSavingApprovalRules(true);
+      const updated = await ptsService.updateApprovalRules(approvalRules);
+      setApprovalRules(updated);
+      toast.success('Regras de aprovação de PT atualizadas.');
+    } catch (error) {
+      console.error('Erro ao salvar regras de aprovação de PT:', error);
+      toast.error('Não foi possível salvar as regras de aprovação de PT.');
+    } finally {
+      setSavingApprovalRules(false);
+    }
   };
 
   return (
@@ -338,6 +392,89 @@ export default function SettingsPage() {
               )}
             </div>
           </div>
+
+          {hasPermission('can_manage_pt') && (
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Regras de bloqueio da PT
+              </h2>
+              <p className="text-sm text-gray-500">
+                Configure quando o sistema deve bloquear a aprovação de permissões de trabalho.
+              </p>
+              <div className="mt-4 space-y-3">
+                {loadingApprovalRules ? (
+                  <p className="text-sm text-gray-500">Carregando regras...</p>
+                ) : approvalRules ? (
+                  <>
+                    <label className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                      <span>Bloquear risco crítico sem evidência de controle</span>
+                      <input
+                        type="checkbox"
+                        checked={approvalRules.blockCriticalRiskWithoutEvidence}
+                        onChange={(event) =>
+                          handleApprovalRuleChange(
+                            'blockCriticalRiskWithoutEvidence',
+                            event.target.checked,
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                      <span>Bloquear trabalhador sem ASO válido</span>
+                      <input
+                        type="checkbox"
+                        checked={approvalRules.blockWorkerWithoutValidMedicalExam}
+                        onChange={(event) =>
+                          handleApprovalRuleChange(
+                            'blockWorkerWithoutValidMedicalExam',
+                            event.target.checked,
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                      <span>Bloquear trabalhador com treinamento bloqueante vencido</span>
+                      <input
+                        type="checkbox"
+                        checked={approvalRules.blockWorkerWithExpiredBlockingTraining}
+                        onChange={(event) =>
+                          handleApprovalRuleChange(
+                            'blockWorkerWithExpiredBlockingTraining',
+                            event.target.checked,
+                          )
+                        }
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                      <span>Exigir ao menos um executante na PT</span>
+                      <input
+                        type="checkbox"
+                        checked={approvalRules.requireAtLeastOneExecutante}
+                        onChange={(event) =>
+                          handleApprovalRuleChange(
+                            'requireAtLeastOneExecutante',
+                            event.target.checked,
+                          )
+                        }
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleSaveApprovalRules}
+                      disabled={savingApprovalRules}
+                      className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                    >
+                      {savingApprovalRules ? 'Salvando regras...' : 'Salvar regras de PT'}
+                    </button>
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    Não foi possível carregar as regras da empresa atual.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
