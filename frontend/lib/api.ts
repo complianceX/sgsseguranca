@@ -131,6 +131,7 @@ api.interceptors.response.use(
         tokenStore.clear();
         sessionStore.clear();
         authRefreshHint.clear();
+        selectedTenantStore.clear();
         return Promise.reject(error);
       }
     }

@@ -19,6 +19,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Public } from '../common/decorators/public.decorator';
+import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
 import { Throttle } from '@nestjs/throttler';
 import { UsersService } from '../users/users.service';
 import { BruteForceService } from './brute-force.service';
@@ -146,6 +147,7 @@ export class AuthController {
       ttl: CHANGE_PASSWORD_THROTTLE_TTL,
     },
   })
+  @TenantOptional()
   @UseGuards(JwtAuthGuard)
   @Post('change-password')
   async changePassword(
@@ -182,6 +184,7 @@ export class AuthController {
     return await this.authService.resetPassword(body.token, body.newPassword);
   }
 
+  @TenantOptional()
   @UseGuards(JwtAuthGuard)
   @Get('me')
   async me(@Request() req: { user?: { userId?: string } }) {

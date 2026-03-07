@@ -72,6 +72,7 @@ export default function DashboardLayout({
   }, [user, loading, router, pathname, hasPermission]);
 
   const handleCompanySelect = (company: Company) => {
+    selectedTenantStore.set({ companyId: company.id, companyName: company.razao_social });
     setSelectedTenant({ companyId: company.id, companyName: company.razao_social });
     setSelectorOpen(false);
   };

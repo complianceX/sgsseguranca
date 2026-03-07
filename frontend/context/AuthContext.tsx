@@ -6,6 +6,7 @@ import api from '@/lib/api';
 import { tokenStore } from '@/lib/tokenStore';
 import { sessionStore } from '@/lib/sessionStore';
 import { authRefreshHint } from '@/lib/authRefreshHint';
+import { selectedTenantStore } from '@/lib/selectedTenantStore';
 
 import { User } from '@/services/usersService';
 
@@ -63,6 +64,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               companyId: data.user.company_id,
               profileName: data.user.profile?.nome ?? null,
             });
+            if (
+              data.user.profile?.nome === 'Administrador Geral' &&
+              data.user.company_id &&
+              !selectedTenantStore.get()
+            ) {
+              selectedTenantStore.set({
+                companyId: data.user.company_id,
+                companyName: data.user.company?.razao_social || 'Empresa padrão',
+              });
+            }
           }
         }
       } catch {
@@ -73,6 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           tokenStore.clear();
           sessionStore.clear();
           authRefreshHint.clear();
+          selectedTenantStore.clear();
         }
       } finally {
         if (mounted) {
@@ -125,6 +137,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         companyId: authenticatedUser.company_id,
         profileName: authenticatedUser.profile?.nome ?? null,
       });
+      if (authenticatedUser.profile?.nome === 'Administrador Geral') {
+        if (authenticatedUser.company_id) {
+          selectedTenantStore.set({
+            companyId: authenticatedUser.company_id,
+            companyName: authenticatedUser.company?.razao_social || 'Empresa padrão',
+          });
+        } else {
+          selectedTenantStore.clear();
+        }
+      } else {
+        selectedTenantStore.clear();
+      }
 
       setUser(authenticatedUser);
       setRoles(meResponse.data?.roles || data.roles || []);
@@ -146,6 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     tokenStore.clear();
     sessionStore.clear();
     authRefreshHint.clear();
+    selectedTenantStore.clear();
     setUser(null);
     setRoles([]);
     setPermissions([]);
