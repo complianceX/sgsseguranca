@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { tokenStore } from '@/lib/tokenStore';
 import { sessionStore } from '@/lib/sessionStore';
+import { authRefreshHint } from '@/lib/authRefreshHint';
 
 import { User } from '@/services/usersService';
 
@@ -40,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         // Access token fica apenas em memória.
         // Em reload, tentamos obter novo access token via refresh token (cookie httpOnly).
-        if (!tokenStore.get()) {
+        if (!tokenStore.get() && authRefreshHint.get()) {
           const refreshed = await api.post<{ accessToken: string }>('/auth/refresh');
           const refreshedToken = refreshed.data?.accessToken;
           if (refreshedToken) {
@@ -71,6 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setPermissions([]);
           tokenStore.clear();
           sessionStore.clear();
+          authRefreshHint.clear();
         }
       } finally {
         if (mounted) {
@@ -111,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       tokenStore.set(data.accessToken);
+      authRefreshHint.set();
 
       const meResponse = await api.get<AuthMeResponse>('/auth/me');
       const authenticatedUser = meResponse.data?.user || data.user;
@@ -142,6 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     tokenStore.clear();
     sessionStore.clear();
+    authRefreshHint.clear();
     setUser(null);
     setRoles([]);
     setPermissions([]);

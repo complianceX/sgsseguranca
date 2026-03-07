@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import { tokenStore } from './tokenStore';
 import { sessionStore } from './sessionStore';
+import { authRefreshHint } from './authRefreshHint';
 
 const getBaseUrl = () => {
   if (process.env.NEXT_PUBLIC_API_URL) {
@@ -119,6 +120,7 @@ api.interceptors.response.use(
       } catch {
         tokenStore.clear();
         sessionStore.clear();
+        authRefreshHint.clear();
         return Promise.reject(error);
       }
     }
