@@ -35,6 +35,13 @@ export class ChecklistsController {
     return this.checklistsService.createWeldingMachineTemplate();
   }
 
+  @Post('templates/bootstrap')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
+  bootstrapTemplates() {
+    return this.checklistsService.createPresetTemplates();
+  }
+
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_checklists')

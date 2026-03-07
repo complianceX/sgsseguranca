@@ -145,6 +145,7 @@ export function AprForm({ id }: AprFormProps) {
     matchedIn?: 'original' | 'watermarked';
     message?: string;
   } | null>(null);
+  const [suggestingControls, setSuggestingControls] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [custodyReportDigest, setCustodyReportDigest] = useState<string>('');
   const [downloadingCustodyPdf, setDownloadingCustodyPdf] = useState(false);
@@ -330,6 +331,47 @@ export function AprForm({ id }: AprFormProps) {
     }
   };
 
+  const handleSuggestControls = useCallback(async () => {
+    if (riskFields.length === 0) {
+      toast.error('Adicione ao menos uma linha de risco para gerar sugestões.');
+      return;
+    }
+
+    try {
+      setSuggestingControls(true);
+      const rows = watch('itens_risco') || [];
+      await Promise.all(
+        rows.map(async (row, index) => {
+          const result = await aprsService.getControlSuggestions({
+            probability: row?.probabilidade ? Number(row.probabilidade) : undefined,
+            severity: row?.severidade ? Number(row.severidade) : undefined,
+            exposure: 1,
+            activity: row?.atividade_processo || tituloApr,
+            condition: row?.condicao_perigosa,
+          });
+
+          const suggestionText = result.suggestions
+            .map((item) => `${item.title}: ${item.description}`)
+            .join(' | ');
+
+          if (suggestionText) {
+            setValue(`itens_risco.${index}.medidas_prevencao`, suggestionText, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
+          }
+        }),
+      );
+
+      toast.success('Sugestões de controles aplicadas nas linhas de risco.');
+    } catch (error) {
+      console.error('Erro ao sugerir controles:', error);
+      toast.error('Não foi possível gerar sugestões de controles.');
+    } finally {
+      setSuggestingControls(false);
+    }
+  }, [riskFields.length, setValue, tituloApr, watch]);
+
   const handleFinalizeApr = useCallback(async () => {
     if (!id) return;
     if (!confirm('Deseja finalizar e aprovar esta APR?')) return;
@@ -411,6 +453,14 @@ export function AprForm({ id }: AprFormProps) {
   const handleUploadEvidence = useCallback(async () => {
     if (!id || !selectedRiskItemEvidence || !evidenceFile) {
       toast.error('Selecione item de risco e imagem.');
+      return;
+    }
+    if (!evidenceLatitude || !evidenceLongitude) {
+      toast.error('Capture a geolocalização antes de enviar a evidência.');
+      return;
+    }
+    if (!evidenceFile.type.startsWith('image/')) {
+      toast.error('Envie uma imagem válida para manter a trilha de evidência.');
       return;
     }
     try {
@@ -1241,14 +1291,29 @@ export function AprForm({ id }: AprFormProps) {
         <div className="sst-card p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-bold text-[#1F2F4A]">APR - Análise Preliminar de Riscos (Planilha)</h2>
-            <button
-              type="button"
-              onClick={() => appendRisk({})}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1E40AF]"
-            >
-              <Plus className="h-4 w-4" />
-              Adicionar Linha
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSuggestControls}
+                disabled={suggestingControls}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-2 text-sm font-semibold text-[#1D4ED8] hover:bg-[#DBEAFE] disabled:opacity-60"
+              >
+                {suggestingControls ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Sugerir Controles
+              </button>
+              <button
+                type="button"
+                onClick={() => appendRisk({})}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1E40AF]"
+              >
+                <Plus className="h-4 w-4" />
+                Adicionar Linha
+              </button>
+            </div>
           </div>
 
           <div className="mb-4 overflow-x-auto rounded-lg border border-[#D1D5DB] bg-[#F9FAFB]">

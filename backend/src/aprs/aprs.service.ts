@@ -365,4 +365,29 @@ export class AprsService {
 
     return { matrix };
   }
+
+  getControlSuggestions(payload: {
+    probability?: number;
+    severity?: number;
+    exposure?: number;
+    activity?: string;
+    condition?: string;
+  }) {
+    const score = this.riskCalculationService.calculateScore(
+      payload.probability,
+      payload.severity,
+      payload.exposure,
+    );
+    const riskLevel = this.riskCalculationService.classifyByScore(score);
+
+    return {
+      score,
+      riskLevel,
+      suggestions: this.riskCalculationService.suggestControls({
+        riskLevel,
+        activity: payload.activity,
+        condition: payload.condition,
+      }),
+    };
+  }
 }

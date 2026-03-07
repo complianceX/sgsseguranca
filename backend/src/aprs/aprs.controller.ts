@@ -94,6 +94,21 @@ export class AprsController {
     return this.aprsService.getRiskMatrix(siteId || undefined);
   }
 
+  @Post('risk-controls/suggestions')
+  @Authorize('can_view_apr')
+  getControlSuggestions(
+    @Body()
+    payload: {
+      probability?: number;
+      severity?: number;
+      exposure?: number;
+      activity?: string;
+      condition?: string;
+    },
+  ) {
+    return this.aprsService.getControlSuggestions(payload);
+  }
+
   @Get(':id')
   @Authorize('can_view_apr')
   async findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: any) {

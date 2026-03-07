@@ -33,6 +33,86 @@ import {
 @Injectable({ scope: Scope.REQUEST })
 export class ChecklistsService {
   private readonly logger = new Logger(ChecklistsService.name);
+  private readonly checklistTemplatesByActivity = [
+    {
+      titulo: 'Checklist - Trabalho em Altura',
+      descricao: 'Inspeção pré-tarefa para serviços em altura.',
+      categoria: 'Atividade Crítica',
+      periodicidade: 'Por tarefa',
+      nivel_risco_padrao: 'Alto',
+      itens: [
+        { item: 'Linha de vida inspecionada e liberada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Cinto paraquedista em bom estado', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Ancoragem definida e sinalizada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Permissão de trabalho emitida', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+      ],
+    },
+    {
+      titulo: 'Checklist - Eletricidade',
+      descricao: 'Verificação pré-serviço para atividades com energia elétrica.',
+      categoria: 'Atividade Crítica',
+      periodicidade: 'Por tarefa',
+      nivel_risco_padrao: 'Alto',
+      itens: [
+        { item: 'Bloqueio e etiquetagem aplicados', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Ausência de tensão confirmada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Ferramentas isoladas inspecionadas', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Equipe com treinamento NR-10 válido', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+      ],
+    },
+    {
+      titulo: 'Checklist - Escavação',
+      descricao: 'Inspeção para abertura e trabalho em valas/escavações.',
+      categoria: 'Atividade Crítica',
+      periodicidade: 'Por turno',
+      nivel_risco_padrao: 'Alto',
+      itens: [
+        { item: 'Talude ou escoramento conforme projeto', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Acesso seguro à escavação disponível', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Interferências subterrâneas verificadas', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Área isolada e sinalizada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+      ],
+    },
+    {
+      titulo: 'Checklist - Içamento de Carga',
+      descricao: 'Conferência antes de içamentos e movimentações críticas.',
+      categoria: 'Movimentação de carga',
+      periodicidade: 'Por tarefa',
+      nivel_risco_padrao: 'Alto',
+      itens: [
+        { item: 'Plano de içamento disponível', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Acessórios inspecionados e identificados', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Sinaleiro definido', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Área de giro isolada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+      ],
+    },
+    {
+      titulo: 'Checklist - Espaço Confinado',
+      descricao: 'Verificação para entrada em espaço confinado.',
+      categoria: 'Atividade Crítica',
+      periodicidade: 'Por entrada',
+      nivel_risco_padrao: 'Crítico',
+      itens: [
+        { item: 'Medição atmosférica realizada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Vigia designado', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Resgate definido e disponível', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Permissão de entrada liberada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+      ],
+    },
+    {
+      titulo: 'Checklist - Máquinas e Equipamentos',
+      descricao: 'Inspeção rápida de condição segura de máquinas.',
+      categoria: 'Equipamento',
+      periodicidade: 'Diário',
+      nivel_risco_padrao: 'Médio',
+      itens: [
+        { item: 'Proteções fixas e móveis instaladas', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Botão de emergência testado', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Sem vazamentos aparentes', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        { item: 'Checklist diário preenchido pelo operador', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+      ],
+    },
+  ];
 
   constructor(
     @InjectRepository(Checklist)
@@ -397,6 +477,49 @@ export class ChecklistsService {
     });
 
     return this.checklistsRepository.save(checklist);
+  }
+
+  async createPresetTemplates() {
+    const companyId = this.tenantService.getTenantId();
+    if (!companyId) {
+      throw new BadRequestException(
+        'Não foi possível identificar a empresa para criar os templates.',
+      );
+    }
+
+    const existingTemplates = await this.checklistsRepository.find({
+      where: { company_id: companyId, is_modelo: true },
+      select: ['titulo'],
+    });
+    const existingTitles = new Set(existingTemplates.map((item) => item.titulo));
+
+    const templatesToCreate = this.checklistTemplatesByActivity
+      .filter((template) => !existingTitles.has(template.titulo))
+      .map((template) =>
+        this.checklistsRepository.create({
+          ...template,
+          data: new Date(),
+          status: 'Pendente',
+          company_id: companyId,
+          is_modelo: true,
+          ativo: true,
+        }),
+      );
+
+    if (templatesToCreate.length === 0) {
+      return {
+        created: 0,
+        skipped: this.checklistTemplatesByActivity.length,
+        templates: existingTemplates,
+      };
+    }
+
+    const saved = await this.checklistsRepository.save(templatesToCreate);
+    return {
+      created: saved.length,
+      skipped: this.checklistTemplatesByActivity.length - saved.length,
+      templates: saved,
+    };
   }
 
   async fillFromTemplate(

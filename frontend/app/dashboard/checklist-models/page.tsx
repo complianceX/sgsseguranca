@@ -15,6 +15,7 @@ export default function ChecklistModelsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [modelFilter, setModelFilter] = useState<'all' | 'model' | 'regular'>('model');
   const [printingId, setPrintingId] = useState<string | null>(null);
+  const [bootstrapping, setBootstrapping] = useState(false);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
 
@@ -73,6 +74,22 @@ export default function ChecklistModelsPage() {
     }
   }
 
+  async function handleBootstrapTemplates() {
+    try {
+      setBootstrapping(true);
+      const result = await checklistsService.bootstrapActivityTemplates();
+      toast.success(
+        `Templates operacionais processados. Criados: ${result.created}. Ignorados: ${result.skipped}.`,
+      );
+      await loadModels(modelFilter);
+    } catch (error) {
+      console.error('Erro ao criar templates operacionais:', error);
+      toast.error('Não foi possível criar os templates por atividade.');
+    } finally {
+      setBootstrapping(false);
+    }
+  }
+
   const handleSendEmail = async (checklist: Checklist) => {
     try {
       setPrintingId(checklist.id);
@@ -102,19 +119,31 @@ export default function ChecklistModelsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Checklists</h1>
           <p className="text-gray-500">Gerencie seus modelos e checklists.</p>
         </div>
-        <Link
-          href="/dashboard/checklist-models/new"
-          className="inline-flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          title="Novo Checklist"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Novo Checklist</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleBootstrapTemplates}
+            disabled={bootstrapping}
+            className="inline-flex items-center space-x-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+            title="Criar templates por atividade"
+          >
+            <Plus className="h-4 w-4" />
+            <span>{bootstrapping ? 'Criando...' : 'Templates por atividade'}</span>
+          </button>
+          <Link
+            href="/dashboard/checklist-models/new"
+            className="inline-flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            title="Novo Checklist"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Novo Checklist</span>
+          </Link>
+        </div>
       </div>
 
       <div className="rounded-xl border bg-white p-6 shadow-sm">

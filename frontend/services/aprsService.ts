@@ -299,6 +299,25 @@ export const aprsService = {
     return response.data;
   },
 
+  getControlSuggestions: async (payload: {
+    probability?: number;
+    severity?: number;
+    exposure?: number;
+    activity?: string;
+    condition?: string;
+  }) => {
+    const response = await api.post<{
+      score: number | null;
+      riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | null;
+      suggestions: Array<{
+        hierarchy: 'ELIMINATION' | 'SUBSTITUTION' | 'ENGINEERING' | 'ADMINISTRATIVE' | 'PPE';
+        title: string;
+        description: string;
+      }>;
+    }>('/aprs/risk-controls/suggestions', payload);
+    return response.data;
+  },
+
   getVersionHistory: async (id: string) => {
     const response = await api.get<
       Array<{

@@ -204,4 +204,13 @@ export const checklistsService = {
     const response = await api.post<{ fileKey: string; folderPath: string; fileUrl: string }>(`/checklists/${id}/save-pdf`);
     return response.data;
   },
+
+  bootstrapActivityTemplates: async () => {
+    const response = await api.post<{
+      created: number;
+      skipped: number;
+      templates: Checklist[];
+    }>('/checklists/templates/bootstrap');
+    return response.data;
+  },
 };

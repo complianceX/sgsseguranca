@@ -109,9 +109,15 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
 
   async findSummary() {
     const companyId = this.getTenantId();
-    const [all, overdue, done] = await Promise.all([
+    const [all, open, inProgress, overdue, done] = await Promise.all([
       this.correctiveActionsRepository.count({
         where: { company_id: companyId },
+      }),
+      this.correctiveActionsRepository.count({
+        where: { company_id: companyId, status: 'open' },
+      }),
+      this.correctiveActionsRepository.count({
+        where: { company_id: companyId, status: 'in_progress' },
       }),
       this.correctiveActionsRepository.count({
         where: { company_id: companyId, status: 'overdue' },
@@ -143,6 +149,8 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
 
     return {
       total: all,
+      open,
+      inProgress,
       overdue,
       done,
       complianceRate: all > 0 ? (done / all) * 100 : 100,
@@ -190,10 +198,38 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
     const actions = await this.correctiveActionsRepository.find({
       where: { company_id: companyId },
     });
+    const now = new Date();
+    const next48Hours = new Date(now);
+    next48Hours.setHours(now.getHours() + 48);
 
     const total = actions.length;
     const overdue = actions.filter((a) => a.status === 'overdue').length;
     const done = actions.filter((a) => a.status === 'done').length;
+    const dueSoon = actions.filter((action) => {
+      if (action.status === 'done' || action.status === 'cancelled') return false;
+      const dueDate = new Date(action.due_date);
+      return dueDate >= now && dueDate <= next48Hours;
+    }).length;
+    const criticalOpen = actions.filter(
+      (action) =>
+        action.priority === 'critical' &&
+        !['done', 'cancelled'].includes(action.status),
+    ).length;
+    const highOpen = actions.filter(
+      (action) =>
+        action.priority === 'high' && !['done', 'cancelled'].includes(action.status),
+    ).length;
+    const resolutionActions = actions.filter((action) => action.closed_at);
+    const avgResolutionDays =
+      resolutionActions.length > 0
+        ? (
+            resolutionActions.reduce((sum, action) => {
+              const closedAt = new Date(action.closed_at as Date).getTime();
+              const createdAt = new Date(action.created_at).getTime();
+              return sum + (closedAt - createdAt) / 86400000;
+            }, 0) / resolutionActions.length
+          ).toFixed(1)
+        : '0.0';
 
     return {
       total,
@@ -201,15 +237,24 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
       done,
       onTime: total - overdue,
       complianceRate: total > 0 ? (done / total) * 100 : 100,
+      dueSoon,
+      criticalOpen,
+      highOpen,
+      avgResolutionDays,
     };
   }
 
   async getSlaBySite() {
     const companyId = this.getTenantId();
+    const actions = await this.correctiveActionsRepository.find({
+      where: { company_id: companyId },
+      relations: ['site'],
+    });
     const sites = await this.correctiveActionsRepository
       .createQueryBuilder('ca')
       .leftJoinAndSelect('ca.site', 'site')
-      .select('site.name', 'siteName')
+      .select('site.id', 'siteId')
+      .addSelect('site.name', 'siteName')
       .addSelect('COUNT(ca.id)', 'total')
       .addSelect(
         "SUM(CASE WHEN ca.status = 'overdue' THEN 1 ELSE 0 END)",
@@ -217,16 +262,25 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
       )
       .where('ca.company_id = :companyId', { companyId })
       .groupBy('site.name')
+      .addGroupBy('site.id')
       .getRawMany<{
+        siteId: string | null;
         siteName: string | null;
         total: string;
         overdue: string;
       }>();
 
     return sites.map((s) => ({
+      siteId: s.siteId,
       site: s.siteName || 'Sem Unidade',
       total: Number.parseInt(s.total, 10),
       overdue: Number.parseInt(s.overdue, 10),
+      criticalOpen: actions.filter(
+        (action) =>
+          action.site_id === s.siteId &&
+          action.priority === 'critical' &&
+          !['done', 'cancelled'].includes(action.status),
+      ).length,
       complianceRate:
         Number.parseInt(s.total, 10) > 0
           ? ((Number.parseInt(s.total, 10) - Number.parseInt(s.overdue, 10)) /

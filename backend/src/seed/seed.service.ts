@@ -36,8 +36,10 @@ export class SeedService implements OnApplicationBootstrap {
         );
         return;
       }
-      await this.seedProfiles();
-      await this.seedAdmin();
+      await this.runAsSuperAdmin(async () => {
+        await this.seedProfiles();
+        await this.seedAdmin();
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
@@ -212,5 +214,12 @@ export class SeedService implements OnApplicationBootstrap {
         err instanceof Error ? err.stack : undefined,
       );
     }
+  }
+
+  private async runAsSuperAdmin<T>(callback: () => Promise<T>): Promise<T> {
+    return this.tenantService.run(
+      { companyId: undefined, isSuperAdmin: true },
+      callback,
+    );
   }
 }
