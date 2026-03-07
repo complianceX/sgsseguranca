@@ -136,13 +136,27 @@ class InMemoryRedis {
   }
   multi() {
     const ops: Array<() => Promise<any>> = [];
-    return {
-      setex: (k: string, t: number, v: string) =>
-        ops.push(() => this.setex(k, t, v)),
-      sadd: (k: string, m: string) => ops.push(() => this.sadd(k, m)),
-      expire: (k: string, s: number) => ops.push(() => this.expire(k, s)),
-      del: (k: string) => ops.push(() => this.del(k)),
-      srem: (k: string, m: string) => ops.push(() => this.srem(k, m)),
+    const builder = {
+      setex: (k: string, t: number, v: string) => {
+        ops.push(() => this.setex(k, t, v));
+        return builder;
+      },
+      sadd: (k: string, m: string) => {
+        ops.push(() => this.sadd(k, m));
+        return builder;
+      },
+      expire: (k: string, s: number) => {
+        ops.push(() => this.expire(k, s));
+        return builder;
+      },
+      del: (k: string) => {
+        ops.push(() => this.del(k));
+        return builder;
+      },
+      srem: (k: string, m: string) => {
+        ops.push(() => this.srem(k, m));
+        return builder;
+      },
       exec: async () => {
         const results: any[] = [];
         for (const op of ops) {
@@ -151,6 +165,7 @@ class InMemoryRedis {
         return results;
       },
     };
+    return builder;
   }
   on(_event: string, _fn: (err: Error) => void) {}
 }
