@@ -1,4 +1,4 @@
-const CACHE_NAME = 'compliancex-shell-v1';
+const CACHE_NAME = 'compliancex-shell-v2';
 const APP_SHELL = ['/', '/login', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -21,6 +21,51 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') {
+    return;
+  }
+
+  const requestUrl = new URL(event.request.url);
+  const isSameOrigin = requestUrl.origin === self.location.origin;
+  const isNavigation = event.request.mode === 'navigate';
+  const isStaticAsset =
+    isSameOrigin &&
+    (requestUrl.pathname.startsWith('/_next/') ||
+      /\.(?:js|css|png|jpg|jpeg|svg|webp|ico|woff2?)$/i.test(
+        requestUrl.pathname,
+      ));
+
+  if (isNavigation) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const cloned = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, cloned);
+          });
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          return cached || (await caches.match('/login'));
+        }),
+    );
+    return;
+  }
+
+  if (!isStaticAsset) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const cloned = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, cloned);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request)),
+    );
     return;
   }
 
