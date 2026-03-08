@@ -4,16 +4,29 @@ export function Skeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'animate-pulse rounded bg-[#334155]/50',
+        'animate-pulse rounded-[var(--ds-radius-sm)] bg-[color:var(--ds-color-surface-muted)]/60',
         className,
       )}
     />
   );
 }
 
+export function StatCardSkeleton() {
+  return (
+    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-10 w-10 rounded-full" />
+        <Skeleton className="h-4 w-14" />
+      </div>
+      <Skeleton className="mt-5 h-8 w-24" />
+      <Skeleton className="mt-3 h-4 w-32" />
+    </div>
+  );
+}
+
 export function CardSkeleton() {
   return (
-    <div className="rounded-xl border border-[#334155] bg-[#1E293B] p-5 space-y-4">
+    <div className="space-y-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
       <div className="flex items-center justify-between">
         <Skeleton className="h-4 w-16 rounded-full" />
         <Skeleton className="h-4 w-24" />
@@ -42,5 +55,38 @@ export function TableRowSkeleton({ cols }: { cols: number }) {
         </td>
       ))}
     </tr>
+  );
+}
+
+export function PageSkeleton({
+  cards = 4,
+  tableRows = 5,
+}: {
+  cards?: number;
+  tableRows?: number;
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-56" />
+        <Skeleton className="h-4 w-80 max-w-full" />
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: cards }).map((_, index) => (
+          <StatCardSkeleton key={index} />
+        ))}
+      </div>
+      <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
+        <div className="mb-4 flex items-center justify-between">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-9 w-28" />
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: tableRows }).map((_, index) => (
+            <Skeleton key={index} className="h-12 w-full" />
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }

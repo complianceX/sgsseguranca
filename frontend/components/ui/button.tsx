@@ -4,31 +4,32 @@ import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center rounded-xl font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none shadow-sm",
+  'inline-flex items-center justify-center rounded-[var(--ds-radius-md)] font-semibold transition-all duration-[var(--ds-motion-base)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-bg-canvas)] disabled:pointer-events-none disabled:opacity-50 shadow-[var(--ds-shadow-sm)]',
   {
     variants: {
       variant: {
         default:
-          "bg-[#2563EB] text-white hover:bg-[#1E40AF] hover:-translate-y-px focus:ring-[#2563EB]",
+          'bg-[var(--ds-color-action-primary)] text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)] hover:-translate-y-px',
         primary:
-          "bg-[#2563EB] text-white hover:bg-[#1E40AF] hover:-translate-y-px focus:ring-[#2563EB]",
+          'bg-[var(--ds-color-action-primary)] text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)] hover:-translate-y-px',
         success:
-          "bg-[#16A34A] text-white hover:bg-[#15803D] hover:-translate-y-px focus:ring-[#16A34A]",
+          'bg-[var(--ds-color-success)] text-white hover:bg-[var(--ds-color-success-hover)] hover:-translate-y-px',
         warning:
-          "bg-[#FACC15] text-[#111827] hover:bg-[#EAB308] hover:-translate-y-px focus:ring-[#FACC15]",
+          'bg-[var(--ds-color-warning)] text-[#111827] hover:bg-[var(--ds-color-warning-hover)] hover:-translate-y-px',
         secondary:
-          "bg-[#E5E7EB] text-[#374151] hover:bg-[#D1D5DB] focus:ring-slate-500",
+          'bg-[var(--ds-color-action-secondary)] text-[var(--ds-color-action-secondary-foreground)] hover:bg-[var(--ds-color-action-secondary-hover)]',
         destructive:
-          "bg-[#DC2626] text-white hover:bg-[#B91C1C] hover:-translate-y-px focus:ring-red-500",
-        ghost: "hover:bg-blue-50 text-slate-700",
+          'bg-[var(--ds-color-danger)] text-white hover:bg-[var(--ds-color-danger-hover)] hover:-translate-y-px',
+        ghost:
+          'bg-transparent text-[var(--ds-color-text-secondary)] shadow-none hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]',
         outline:
-          "border border-slate-300 bg-white hover:bg-slate-50 text-slate-700",
+          'border border-[var(--ds-color-border-strong)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-surface-elevated)]',
       },
       size: {
-        sm: "h-8 px-3 text-xs",
-        md: "h-10 px-4 text-sm",
-        lg: "h-12 px-6 text-base",
-        icon: "h-10 w-10 p-0",
+        sm: 'h-8 px-3 text-xs',
+        md: 'h-10 px-4 text-sm',
+        lg: 'h-12 px-6 text-base',
+        icon: 'h-10 w-10 p-0',
       },
     },
     defaultVariants: {

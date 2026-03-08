@@ -1,6 +1,8 @@
 'use client';
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 export function PaginationControls(props: {
   page: number;
@@ -13,33 +15,36 @@ export function PaginationControls(props: {
   const canNext = props.page < props.lastPage;
 
   return (
-    <div className="flex flex-col gap-2 border-t bg-white px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-sm text-gray-600">
-        Página <span className="font-semibold">{props.page}</span> de{' '}
-        <span className="font-semibold">{props.lastPage}</span> •{' '}
-        <span className="font-semibold">{props.total}</span> item(s)
-      </div>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={props.onPrev}
-          disabled={!canPrev}
-          className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Anterior
-        </button>
-        <button
-          type="button"
-          onClick={props.onNext}
-          disabled={!canNext}
-          className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Próxima
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
+    <Card tone="muted" padding="none" className="border-t border-[var(--ds-color-border-subtle)] shadow-none">
+      <CardContent className="mt-0 flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-[var(--ds-color-text-muted)]">
+          Página <span className="font-semibold text-[var(--ds-color-text-primary)]">{props.page}</span> de{' '}
+          <span className="font-semibold text-[var(--ds-color-text-primary)]">{props.lastPage}</span> •{' '}
+          <span className="font-semibold text-[var(--ds-color-text-primary)]">{props.total}</span> item(s)
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            onClick={props.onPrev}
+            disabled={!canPrev}
+            variant="outline"
+            size="sm"
+            leftIcon={<ChevronLeft className="h-4 w-4" />}
+          >
+            Anterior
+          </Button>
+          <Button
+            type="button"
+            onClick={props.onNext}
+            disabled={!canNext}
+            variant="outline"
+            size="sm"
+            rightIcon={<ChevronRight className="h-4 w-4" />}
+          >
+            Próxima
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
-

@@ -13,6 +13,24 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { EmptyState, InlineLoadingState } from '@/components/ui/state';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
 export interface StoredFileItem {
   entityId: string;
@@ -37,6 +55,9 @@ interface StoredFilesPanelProps {
   }>;
   companyOptions?: Array<{ id: string; name: string }>;
 }
+
+const inputClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 export function StoredFilesPanel({
   title,
@@ -65,6 +86,7 @@ export function StoredFilesPanel({
 
   useEffect(() => {
     let mounted = true;
+
     async function fetchFiles() {
       try {
         setLoading(true);
@@ -73,6 +95,7 @@ export function StoredFilesPanel({
           year: year ? Number(year) : undefined,
           week: week ? Number(week) : undefined,
         });
+
         if (mounted) {
           setFiles(data || []);
         }
@@ -87,6 +110,7 @@ export function StoredFilesPanel({
     }
 
     fetchFiles();
+
     return () => {
       mounted = false;
     };
@@ -138,7 +162,7 @@ export function StoredFilesPanel({
       'file_key',
       'original_name',
     ];
-    const esc = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
     const rows = files.map((file) =>
       [
         file.entityId,
@@ -149,7 +173,7 @@ export function StoredFilesPanel({
         file.fileKey,
         file.originalName,
       ]
-        .map((item) => esc(String(item ?? '')))
+        .map((item) => escapeCsv(String(item ?? '')))
         .join(','),
     );
     const csv = [headers.join(','), ...rows].join('\n');
@@ -166,165 +190,171 @@ export function StoredFilesPanel({
   };
 
   return (
-    <div className="rounded-xl border bg-white shadow-sm">
-      <div className="border-b p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-            <p className="text-sm text-gray-500">{description}</p>
-          </div>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-5">
-            <select
-              value={companyId}
-              onChange={(e) => setCompanyId(e.target.value)}
-              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
-            >
-              <option value="">Todas empresas</option>
-              {companyOptions.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              min={2020}
-              max={2100}
-              placeholder="Ano"
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-            <input
-              type="number"
-              min={1}
-              max={53}
-              placeholder="Semana ISO"
-              value={week}
-              onChange={(e) => setWeek(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            />
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
-            >
-              <option value={10}>10 / página</option>
-              <option value={25}>25 / página</option>
-              <option value={50}>50 / página</option>
-            </select>
-            <button
-              type="button"
-              onClick={handleExportCsv}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5" />
-              Exportar CSV
-            </button>
-          </div>
+    <Card tone="default" padding="none">
+      <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
+        <div className="space-y-1">
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
         </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-xs uppercase text-gray-700">
-            <tr>
-              <th className="px-6 py-3 font-medium">Data</th>
-              <th className="px-6 py-3 font-medium">Título</th>
-              <th className="px-6 py-3 font-medium">Pasta</th>
-              <th className="px-6 py-3 font-medium">Arquivo</th>
-              <th className="px-6 py-3 font-medium">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="py-10 text-center">
-                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-                </td>
-              </tr>
-            ) : paged.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="py-8 text-center text-gray-500">
-                  Nenhum arquivo encontrado para este filtro.
-                </td>
-              </tr>
-            ) : (
-              paged.map((file) => (
-                <tr key={`${file.entityId}-${file.fileKey}`} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-gray-500">
-                    {format(new Date(file.date), 'dd/MM/yyyy', { locale: ptBR })}
-                  </td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{file.title}</td>
-                  <td className="px-6 py-4 text-xs text-gray-600">
-                    <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1">
-                      <Folder className="h-3 w-3" />
-                      <span>{file.folderPath}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyFolder(file.folderPath)}
-                        className="rounded p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
-                        title="Copiar caminho"
-                      >
-                        <Copy className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-xs text-gray-700">{file.originalName}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleDownload(file.entityId)}
-                        className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        Baixar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyLink(file.entityId)}
-                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
-                      >
-                        <Link2 className="h-3.5 w-3.5" />
-                        Copiar link
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {!loading && files.length > 0 && (
-        <div className="flex items-center justify-between border-t px-4 py-3 text-xs text-gray-600">
-          <span>
-            Página {page} de {totalPages} ({files.length} arquivo(s))
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-              disabled={page <= 1}
-              className="inline-flex items-center gap-1 rounded border border-gray-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <ChevronLeft className="h-3 w-3" />
-              Anterior
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-              disabled={page >= totalPages}
-              className="inline-flex items-center gap-1 rounded border border-gray-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Próxima
-              <ChevronRight className="h-3 w-3" />
-            </button>
-          </div>
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5">
+          <select
+            value={companyId}
+            onChange={(event) => setCompanyId(event.target.value)}
+            className={inputClassName}
+          >
+            <option value="">Todas empresas</option>
+            {companyOptions.map((company) => (
+              <option key={company.id} value={company.id}>
+                {company.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min={2020}
+            max={2100}
+            placeholder="Ano"
+            value={year}
+            onChange={(event) => setYear(event.target.value)}
+            className={inputClassName}
+          />
+          <input
+            type="number"
+            min={1}
+            max={53}
+            placeholder="Semana ISO"
+            value={week}
+            onChange={(event) => setWeek(event.target.value)}
+            className={inputClassName}
+          />
+          <select
+            value={pageSize}
+            onChange={(event) => setPageSize(Number(event.target.value))}
+            className={inputClassName}
+          >
+            <option value={10}>10 / página</option>
+            <option value={25}>25 / página</option>
+            <option value={50}>50 / página</option>
+          </select>
+          <Button
+            type="button"
+            variant="outline"
+            leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
+            onClick={handleExportCsv}
+          >
+            Exportar CSV
+          </Button>
         </div>
-      )}
-    </div>
+      </CardHeader>
+
+      <CardContent className="mt-0">
+        {loading ? (
+          <InlineLoadingState label="Carregando arquivos salvos" />
+        ) : paged.length === 0 ? (
+          <EmptyState
+            title="Nenhum arquivo encontrado"
+            description="Não há arquivos armazenados para o filtro aplicado."
+            compact
+          />
+        ) : (
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Título</TableHead>
+                  <TableHead>Pasta</TableHead>
+                  <TableHead>Arquivo</TableHead>
+                  <TableHead>Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paged.map((file) => (
+                  <TableRow key={`${file.entityId}-${file.fileKey}`}>
+                    <TableCell>
+                      {format(new Date(file.date), 'dd/MM/yyyy', { locale: ptBR })}
+                    </TableCell>
+                    <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
+                      {file.title}
+                    </TableCell>
+                    <TableCell>
+                      <div className="inline-flex items-center gap-2 rounded-[var(--ds-radius-sm)] bg-[color:var(--ds-color-surface-muted)]/45 px-2 py-1 text-xs text-[var(--ds-color-text-secondary)]">
+                        <Folder className="h-3 w-3" />
+                        <span>{file.folderPath}</span>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleCopyFolder(file.folderPath)}
+                          title="Copiar caminho"
+                          className="h-6 w-6"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-[var(--ds-color-text-secondary)]">
+                      {file.originalName}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          leftIcon={<Download className="h-3.5 w-3.5" />}
+                          onClick={() => handleDownload(file.entityId)}
+                        >
+                          Baixar
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          leftIcon={<Link2 className="h-3.5 w-3.5" />}
+                          onClick={() => handleCopyLink(file.entityId)}
+                        >
+                          Copiar link
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            <div className="mt-4 flex items-center justify-between text-sm text-[var(--ds-color-text-muted)]">
+              <span>
+                Página <span className="font-semibold text-[var(--ds-color-text-primary)]">{page}</span>{' '}
+                de <span className="font-semibold text-[var(--ds-color-text-primary)]">{totalPages}</span>{' '}
+                • {files.length} arquivo(s)
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  leftIcon={<ChevronLeft className="h-4 w-4" />}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={page <= 1}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  rightIcon={<ChevronRight className="h-4 w-4" />}
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  disabled={page >= totalPages}
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

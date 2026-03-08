@@ -7,17 +7,19 @@ import {
   MedicalExamExpirySummary,
   TIPO_EXAME_LABEL,
   RESULTADO_LABEL,
-  RESULTADO_COLORS,
 } from '@/services/medicalExamsService';
 import { usersService } from '@/services/usersService';
 import { downloadExcel } from '@/lib/download-excel';
 import {
-  Plus,
+  Calendar,
   FileSpreadsheet,
-  Stethoscope,
-  X,
   Pencil,
+  Plus,
+  ShieldAlert,
+  Stethoscope,
   Trash2,
+  User,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -29,8 +31,23 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  EmptyState,
+  ErrorState,
+  PageLoadingState,
+} from '@/components/ui/state';
+import { cn } from '@/lib/utils';
 
-type User = { id: string; nome: string };
+type UserOption = { id: string; nome: string };
 
 type FormState = {
   user_id: string;
@@ -54,19 +71,60 @@ const INITIAL_FORM: FormState = {
   observacoes: '',
 };
 
-function getVencimentoStatus(data_vencimento: string | null) {
-  if (!data_vencimento) return { label: 'Sem vencimento', color: 'text-gray-500 bg-gray-50' };
+const fieldClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60';
+
+const labelClassName =
+  'mb-1.5 block text-sm font-medium text-[var(--ds-color-text-secondary)]';
+
+function getExpiryTone(dataVencimento: string | null) {
+  if (!dataVencimento) {
+    return {
+      label: 'Sem vencimento',
+      className:
+        'bg-[color:var(--ds-color-surface-muted)]/45 text-[var(--ds-color-text-muted)]',
+    };
+  }
+
   const now = new Date();
-  const venc = new Date(data_vencimento);
-  const diff = (venc.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-  if (diff < 0) return { label: 'Vencido', color: 'text-red-700 bg-red-50' };
-  if (diff <= 30) return { label: 'Vence em breve', color: 'text-amber-700 bg-amber-50' };
-  return { label: 'Em dia', color: 'text-green-700 bg-green-50' };
+  const expiry = new Date(dataVencimento);
+  const diff = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+
+  if (diff < 0) {
+    return {
+      label: 'Vencido',
+      className: 'bg-[color:var(--ds-color-danger)]/12 text-[var(--ds-color-danger)]',
+    };
+  }
+
+  if (diff <= 30) {
+    return {
+      label: 'Vence em breve',
+      className: 'bg-[color:var(--ds-color-warning)]/14 text-[var(--ds-color-warning)]',
+    };
+  }
+
+  return {
+    label: 'Em dia',
+    className: 'bg-[color:var(--ds-color-success)]/12 text-[var(--ds-color-success)]',
+  };
+}
+
+function getResultTone(resultado: string) {
+  switch (resultado) {
+    case 'inapto':
+      return 'bg-[color:var(--ds-color-danger)]/12 text-[var(--ds-color-danger)]';
+    case 'apto_com_restricoes':
+      return 'bg-[color:var(--ds-color-warning)]/14 text-[var(--ds-color-warning)]';
+    default:
+      return 'bg-[color:var(--ds-color-success)]/12 text-[var(--ds-color-success)]';
+  }
 }
 
 export default function MedicalExamsPage() {
   const [exams, setExams] = useState<MedicalExam[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
@@ -79,8 +137,7 @@ export default function MedicalExamsPage() {
   });
   const [filterTipo, setFilterTipo] = useState('');
   const [filterResultado, setFilterResultado] = useState('');
-  const [users, setUsers] = useState<User[]>([]);
-
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(INITIAL_FORM);
@@ -88,6 +145,8 @@ export default function MedicalExamsPage() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
+
     try {
       const [paged, sum] = await Promise.all([
         medicalExamsService.findPaginated({
@@ -98,24 +157,35 @@ export default function MedicalExamsPage() {
         }),
         medicalExamsService.getExpirySummary(),
       ]);
+
       setExams(paged.data);
       setTotal(paged.total);
       setLastPage(paged.lastPage);
       setSummary(sum);
-    } catch {
+    } catch (error) {
+      console.error('Erro ao carregar exames médicos:', error);
+      setLoadError('Nao foi possivel carregar o monitor de exames medicos.');
       toast.error('Erro ao carregar exames médicos.');
     } finally {
       setLoading(false);
     }
   }, [page, limit, filterTipo, filterResultado]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   useEffect(() => {
-    usersService.findAll().then((res) => {
-      const list = Array.isArray(res) ? res : (res as { data: User[] }).data ?? [];
-      setUsers(list);
-    }).catch(() => {});
+    usersService
+      .findAll()
+      .then((res) => {
+        const list = Array.isArray(res) ? res : (res as { data: UserOption[] }).data ?? [];
+        setUsers(list);
+      })
+      .catch((error) => {
+        console.error('Erro ao carregar colaboradores para exames médicos:', error);
+        toast.error('Não foi possível carregar a lista de colaboradores.');
+      });
   }, []);
 
   const openCreate = () => {
@@ -139,12 +209,19 @@ export default function MedicalExamsPage() {
     setShowModal(true);
   };
 
+  const closeModal = () => {
+    if (saving) return;
+    setShowModal(false);
+  };
+
   const handleSave = async () => {
     if (!form.user_id || !form.data_realizacao) {
       toast.error('Funcionário e data de realização são obrigatórios.');
       return;
     }
+
     setSaving(true);
+
     try {
       const payload = {
         ...form,
@@ -153,16 +230,19 @@ export default function MedicalExamsPage() {
         crm_medico: form.crm_medico || undefined,
         observacoes: form.observacoes || undefined,
       };
+
       if (editId) {
         await medicalExamsService.update(editId, payload);
-        toast.success('Exame atualizado com sucesso!');
+        toast.success('Exame atualizado com sucesso.');
       } else {
         await medicalExamsService.create(payload);
-        toast.success('Exame registrado com sucesso!');
+        toast.success('Exame registrado com sucesso.');
       }
+
       setShowModal(false);
-      loadData();
-    } catch {
+      await loadData();
+    } catch (error) {
+      console.error('Erro ao salvar exame médico:', error);
       toast.error('Erro ao salvar exame.');
     } finally {
       setSaving(false);
@@ -171,305 +251,443 @@ export default function MedicalExamsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Excluir este exame médico?')) return;
+
     try {
       await medicalExamsService.delete(id);
       toast.success('Exame excluído.');
-      loadData();
-    } catch {
+      await loadData();
+    } catch (error) {
+      console.error('Erro ao excluir exame médico:', error);
       toast.error('Erro ao excluir exame.');
     }
   };
 
+  if (loading) {
+    return (
+      <PageLoadingState
+        title="Carregando monitor de exames médicos"
+        description="Buscando vencimentos de ASO, status ocupacional e pendências do PCMSO."
+        cards={4}
+        tableRows={6}
+      />
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title="Falha ao carregar exames médicos"
+        description={loadError}
+        action={
+          <Button type="button" onClick={loadData}>
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100">
-              <Stethoscope className="h-5 w-5 text-teal-700" />
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+              <Stethoscope className="h-5 w-5" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Exames Médicos (PCMSO)</h1>
-              <p className="text-sm text-gray-500">Controle de ASOs conforme NR-7</p>
+            <div className="space-y-2">
+              <CardTitle className="text-2xl">Exames Médicos (PCMSO)</CardTitle>
+              <CardDescription>
+                Controle de ASOs conforme NR-7, com visão de vencimentos e status ocupacional.
+              </CardDescription>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
               onClick={() => downloadExcel('/medical-exams/export/excel', 'exames-medicos.xlsx')}
-              className="flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
             >
-              <FileSpreadsheet className="mr-1.5 h-4 w-4 text-green-600" />
               Exportar Excel
-            </button>
-            <button
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              leftIcon={<Plus className="h-4 w-4" />}
               onClick={openCreate}
-              className="flex items-center rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Registrar Exame
-            </button>
+              Registrar exame
+            </Button>
           </div>
-        </div>
+        </CardHeader>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Total monitorado</CardDescription>
+            <CardTitle className="text-3xl">{summary.total}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>ASOs vencidos</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-danger)]">
+              {summary.expired}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Vencendo em 30 dias</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
+              {summary.expiringSoon}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Exames válidos</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+              {summary.valid}
+            </CardTitle>
+          </CardHeader>
+        </Card>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium text-gray-500 uppercase">Total</p>
-          <p className="mt-1 text-3xl font-bold text-gray-900">{summary.total}</p>
-        </div>
-        <div className="rounded-xl border bg-red-50 p-4 shadow-sm">
-          <p className="text-xs font-medium text-red-600 uppercase">Vencidos</p>
-          <p className="mt-1 text-3xl font-bold text-red-700">{summary.expired}</p>
-        </div>
-        <div className="rounded-xl border bg-amber-50 p-4 shadow-sm">
-          <p className="text-xs font-medium text-amber-600 uppercase">Vencendo (30d)</p>
-          <p className="mt-1 text-3xl font-bold text-amber-700">{summary.expiringSoon}</p>
-        </div>
-        <div className="rounded-xl border bg-green-50 p-4 shadow-sm">
-          <p className="text-xs font-medium text-green-600 uppercase">Em dia</p>
-          <p className="mt-1 text-3xl font-bold text-green-700">{summary.valid}</p>
-        </div>
-      </div>
+      {summary.expired > 0 ? (
+        <Card
+          tone="muted"
+          padding="md"
+          className="border-[color:var(--ds-color-danger)]/25 bg-[color:var(--ds-color-danger)]/10"
+        >
+          <CardHeader className="gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-[var(--ds-color-danger)]" />
+              <CardTitle className="text-base">Ação recomendada</CardTitle>
+            </div>
+            <CardDescription>
+              Existem {summary.expired} exame(s) vencido(s). Priorize a regularização para evitar
+              bloqueio ocupacional e não conformidades no PCMSO.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
 
-      {/* Filters + Table */}
-      <div className="rounded-xl border bg-white shadow-sm">
-        <div className="flex flex-wrap items-center gap-3 border-b bg-slate-50/70 p-4">
-          <select
-            value={filterTipo}
-            onChange={(e) => { setFilterTipo(e.target.value); setPage(1); }}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none"
-          >
-            <option value="">Todos os tipos</option>
-            {Object.entries(TIPO_EXAME_LABEL).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
-          <select
-            value={filterResultado}
-            onChange={(e) => { setFilterResultado(e.target.value); setPage(1); }}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none"
-          >
-            <option value="">Todos os resultados</option>
-            {Object.entries(RESULTADO_LABEL).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
-        </div>
+      <Card tone="default" padding="none">
+        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <CardTitle>Exames registrados</CardTitle>
+            <CardDescription>
+              {total} registro(s) monitorados com filtros por tipo e resultado.
+            </CardDescription>
+          </div>
+          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+            <select
+              value={filterTipo}
+              onChange={(event) => {
+                setFilterTipo(event.target.value);
+                setPage(1);
+              }}
+              className={cn(fieldClassName, 'min-w-[220px]')}
+            >
+              <option value="">Todos os tipos</option>
+              {Object.entries(TIPO_EXAME_LABEL).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filterResultado}
+              onChange={(event) => {
+                setFilterResultado(event.target.value);
+                setPage(1);
+              }}
+              className={cn(fieldClassName, 'min-w-[220px]')}
+            >
+              <option value="">Todos os resultados</option>
+              {Object.entries(RESULTADO_LABEL).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </CardHeader>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Funcionário</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Resultado</TableHead>
-              <TableHead>Data Realização</TableHead>
-              <TableHead>Vencimento</TableHead>
-              <TableHead>Médico</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center">
-                  <div className="flex justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : exams.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-gray-500">
-                  Nenhum exame médico encontrado.
-                </TableCell>
-              </TableRow>
-            ) : (
-              exams.map((exam) => {
-                const vencStatus = getVencimentoStatus(exam.data_vencimento);
-                return (
-                  <TableRow key={exam.id}>
-                    <TableCell className="font-medium text-gray-900">
-                      {exam.user?.nome ?? '—'}
-                    </TableCell>
-                    <TableCell>{TIPO_EXAME_LABEL[exam.tipo_exame] ?? exam.tipo_exame}</TableCell>
-                    <TableCell>
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${RESULTADO_COLORS[exam.resultado] ?? ''}`}>
-                        {RESULTADO_LABEL[exam.resultado] ?? exam.resultado}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {new Date(exam.data_realizacao).toLocaleDateString('pt-BR')}
-                    </TableCell>
-                    <TableCell>
-                      {exam.data_vencimento ? (
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${vencStatus.color}`}>
-                          {new Date(exam.data_vencimento).toLocaleDateString('pt-BR')}
+        <CardContent className="mt-0">
+          {exams.length === 0 ? (
+            <div className="p-5">
+              <EmptyState
+                title="Nenhum exame médico encontrado"
+                description="Ainda não existem ASOs registrados para este tenant com os filtros atuais."
+                action={
+                  <Button type="button" leftIcon={<Plus className="h-4 w-4" />} onClick={openCreate}>
+                    Registrar exame
+                  </Button>
+                }
+              />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Funcionário</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Resultado</TableHead>
+                  <TableHead>Data realização</TableHead>
+                  <TableHead>Vencimento</TableHead>
+                  <TableHead>Médico responsável</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {exams.map((exam) => {
+                  const expiryTone = getExpiryTone(exam.data_vencimento);
+
+                  return (
+                    <TableRow key={exam.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+                            <User className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <div className="font-medium text-[var(--ds-color-text-primary)]">
+                              {exam.user?.nome ?? 'Colaborador'}
+                            </div>
+                            <div className="text-xs text-[var(--ds-color-text-muted)]">
+                              {exam.user?.cpf ?? `ID ${exam.user_id.slice(0, 8)}`}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {TIPO_EXAME_LABEL[exam.tipo_exame] ?? exam.tipo_exame}
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={cn(
+                            'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold',
+                            getResultTone(exam.resultado),
+                          )}
+                        >
+                          {RESULTADO_LABEL[exam.resultado] ?? exam.resultado}
                         </span>
-                      ) : (
-                        <span className="text-gray-400 text-xs">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-gray-600">{exam.medico_responsavel ?? '—'}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openEdit(exam)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Editar"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(exam.id)}
-                          className="text-red-600 hover:text-red-800"
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
+                          <Calendar className="h-4 w-4" />
+                          <span>
+                            {new Date(exam.data_realizacao).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {exam.data_vencimento ? (
+                          <div className="flex flex-col gap-1">
+                            <span
+                              className={cn(
+                                'inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold',
+                                expiryTone.className,
+                              )}
+                            >
+                              {new Date(exam.data_vencimento).toLocaleDateString('pt-BR')}
+                            </span>
+                            <span className="text-xs text-[var(--ds-color-text-muted)]">
+                              {expiryTone.label}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-[var(--ds-color-text-muted)]">
+                            Sem vencimento
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-[var(--ds-color-text-secondary)]">
+                        {exam.medico_responsavel ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => openEdit(exam)}
+                            title="Editar exame"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDelete(exam.id)}
+                            title="Excluir exame"
+                            className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
 
-        {!loading && (
+        {exams.length > 0 ? (
           <PaginationControls
             page={page}
             lastPage={lastPage}
             total={total}
-            onPrev={() => setPage((p) => Math.max(1, p - 1))}
-            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
           />
-        )}
-      </div>
+        ) : null}
+      </Card>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b px-6 py-4">
-              <h2 className="text-lg font-bold text-gray-900">
-                {editId ? 'Editar Exame Médico' : 'Registrar Exame Médico'}
-              </h2>
-              <button onClick={() => setShowModal(false)}>
-                <X className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-              </button>
-            </div>
-            <div className="space-y-4 p-6">
-              <div>
-                <label className="mb-1 block text-sm font-semibold text-gray-700">Funcionário *</label>
+      {showModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <Card tone="elevated" padding="none" className="w-full max-w-3xl shadow-[var(--ds-shadow-lg)]">
+            <CardHeader className="border-b border-[var(--ds-color-border-subtle)] px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <CardTitle>{editId ? 'Editar exame médico' : 'Registrar exame médico'}</CardTitle>
+                <CardDescription>
+                  Preencha os dados clínicos e de validade do ASO ocupacional.
+                </CardDescription>
+              </div>
+              <Button type="button" variant="ghost" size="icon" onClick={closeModal} title="Fechar">
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+
+            <CardContent className="grid gap-4 px-6 py-6 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className={labelClassName}>Funcionário *</label>
                 <select
                   value={form.user_id}
-                  onChange={(e) => setForm({ ...form, user_id: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none"
+                  onChange={(event) => setForm({ ...form, user_id: event.target.value })}
+                  className={fieldClassName}
+                  disabled={saving}
                 >
                   <option value="">Selecione...</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>{u.nome}</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.nome}
+                    </option>
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1 block text-sm font-semibold text-gray-700">Tipo de Exame *</label>
-                  <select
-                    value={form.tipo_exame}
-                    onChange={(e) => setForm({ ...form, tipo_exame: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none"
-                  >
-                    {Object.entries(TIPO_EXAME_LABEL).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-semibold text-gray-700">Resultado *</label>
-                  <select
-                    value={form.resultado}
-                    onChange={(e) => setForm({ ...form, resultado: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none"
-                  >
-                    {Object.entries(RESULTADO_LABEL).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1 block text-sm font-semibold text-gray-700">Data de Realização *</label>
-                  <input
-                    type="date"
-                    value={form.data_realizacao}
-                    onChange={(e) => setForm({ ...form, data_realizacao: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-semibold text-gray-700">Data de Vencimento</label>
-                  <input
-                    type="date"
-                    value={form.data_vencimento}
-                    onChange={(e) => setForm({ ...form, data_vencimento: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1 block text-sm font-semibold text-gray-700">Médico Responsável</label>
-                  <input
-                    type="text"
-                    value={form.medico_responsavel}
-                    onChange={(e) => setForm({ ...form, medico_responsavel: e.target.value })}
-                    placeholder="Dr. Nome"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-semibold text-gray-700">CRM</label>
-                  <input
-                    type="text"
-                    value={form.crm_medico}
-                    onChange={(e) => setForm({ ...form, crm_medico: e.target.value })}
-                    placeholder="CRM/SP 123456"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none"
-                  />
-                </div>
-              </div>
+
               <div>
-                <label className="mb-1 block text-sm font-semibold text-gray-700">Observações</label>
-                <textarea
-                  value={form.observacoes}
-                  onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
-                  rows={3}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none"
+                <label className={labelClassName}>Tipo de exame *</label>
+                <select
+                  value={form.tipo_exame}
+                  onChange={(event) => setForm({ ...form, tipo_exame: event.target.value })}
+                  className={fieldClassName}
+                  disabled={saving}
+                >
+                  {Object.entries(TIPO_EXAME_LABEL).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className={labelClassName}>Resultado *</label>
+                <select
+                  value={form.resultado}
+                  onChange={(event) => setForm({ ...form, resultado: event.target.value })}
+                  className={fieldClassName}
+                  disabled={saving}
+                >
+                  {Object.entries(RESULTADO_LABEL).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className={labelClassName}>Data de realização *</label>
+                <input
+                  type="date"
+                  value={form.data_realizacao}
+                  onChange={(event) => setForm({ ...form, data_realizacao: event.target.value })}
+                  className={fieldClassName}
+                  disabled={saving}
                 />
               </div>
-            </div>
-            <div className="flex justify-end gap-3 border-t px-6 py-4">
-              <button
-                onClick={() => setShowModal(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
+
+              <div>
+                <label className={labelClassName}>Data de vencimento</label>
+                <input
+                  type="date"
+                  value={form.data_vencimento}
+                  onChange={(event) => setForm({ ...form, data_vencimento: event.target.value })}
+                  className={fieldClassName}
+                  disabled={saving}
+                />
+              </div>
+
+              <div>
+                <label className={labelClassName}>Médico responsável</label>
+                <input
+                  type="text"
+                  value={form.medico_responsavel}
+                  onChange={(event) =>
+                    setForm({ ...form, medico_responsavel: event.target.value })
+                  }
+                  placeholder="Dr. Nome"
+                  className={fieldClassName}
+                  disabled={saving}
+                />
+              </div>
+
+              <div>
+                <label className={labelClassName}>CRM</label>
+                <input
+                  type="text"
+                  value={form.crm_medico}
+                  onChange={(event) => setForm({ ...form, crm_medico: event.target.value })}
+                  placeholder="CRM/SP 123456"
+                  className={fieldClassName}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className={labelClassName}>Observações</label>
+                <textarea
+                  value={form.observacoes}
+                  onChange={(event) => setForm({ ...form, observacoes: event.target.value })}
+                  rows={4}
+                  className={fieldClassName}
+                  disabled={saving}
+                />
+              </div>
+            </CardContent>
+
+            <CardFooter className="justify-end px-6 py-4">
+              <Button type="button" variant="outline" onClick={closeModal} disabled={saving}>
                 Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="rounded-lg bg-teal-600 px-6 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
-              >
-                {saving ? 'Salvando...' : editId ? 'Salvar' : 'Registrar'}
-              </button>
-            </div>
-          </div>
+              </Button>
+              <Button type="button" onClick={handleSave} loading={saving}>
+                {editId ? 'Salvar alterações' : 'Registrar exame'}
+              </Button>
+            </CardFooter>
+          </Card>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -1,8 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useDeferredValue, useMemo } from 'react';
 import { ddsService, Dds } from '@/services/ddsService';
-import { Plus, Pencil, Trash2, Search, Users, Mail, Printer, Download, Folder, Copy, FileSpreadsheet, ChevronLeft, ChevronRight, Link2 } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Download,
+  FileSpreadsheet,
+  Folder,
+  Link2,
+  Mail,
+  Pencil,
+  Plus,
+  Printer,
+  Search,
+  ShieldCheck,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -11,23 +27,52 @@ import { generateDdsPdf } from '@/lib/pdf/ddsGenerator';
 import { signaturesService } from '@/services/signaturesService';
 import { SendMailModal } from '@/components/SendMailModal';
 import { openPdfForPrint } from '@/lib/print-utils';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  EmptyState,
+  ErrorState,
+  InlineLoadingState,
+  PageLoadingState,
+} from '@/components/ui/state';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+
+type StoredFile = {
+  ddsId: string;
+  tema: string;
+  data: string;
+  companyId: string;
+  fileKey: string;
+  folderPath: string;
+  originalName: string;
+};
+
+const inputClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 export default function DdsPage() {
   const [ddsList, setDdsList] = useState<Dds[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const [modelFilter, setModelFilter] = useState<'all' | 'model' | 'regular'>('all');
-  const [storedFiles, setStoredFiles] = useState<
-    Array<{
-      ddsId: string;
-      tema: string;
-      data: string;
-      companyId: string;
-      fileKey: string;
-      folderPath: string;
-      originalName: string;
-    }>
-  >([]);
+
+  const [storedFiles, setStoredFiles] = useState<StoredFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [fileYear, setFileYear] = useState<string>('');
   const [fileWeek, setFileWeek] = useState<string>('');
@@ -35,7 +80,6 @@ export default function DdsPage() {
   const [filesPage, setFilesPage] = useState(1);
   const [filesPageSize, setFilesPageSize] = useState(10);
 
-  // Mail Modal States
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{
     name: string;
@@ -43,33 +87,22 @@ export default function DdsPage() {
     base64: string;
   } | null>(null);
 
-  useEffect(() => {
-    loadDds();
-  }, []);
-
-  useEffect(() => {
-    loadStoredFiles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileCompanyId, fileYear, fileWeek]);
-
-  useEffect(() => {
-    setFilesPage(1);
-  }, [fileCompanyId, fileYear, fileWeek, filesPageSize]);
-
-  async function loadDds() {
+  const loadDds = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const data = await ddsService.findAll();
       setDdsList(data);
     } catch (error) {
       console.error('Erro ao carregar DDS:', error);
+      setLoadError('Nao foi possivel carregar a lista de DDS.');
       toast.error('Erro ao carregar lista de DDS.');
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  async function loadStoredFiles() {
+  const loadStoredFiles = useCallback(async () => {
     try {
       setLoadingFiles(true);
       const yearValue = fileYear ? Number(fileYear) : undefined;
@@ -86,18 +119,30 @@ export default function DdsPage() {
     } finally {
       setLoadingFiles(false);
     }
-  }
+  }, [fileCompanyId, fileWeek, fileYear]);
+
+  useEffect(() => {
+    loadDds();
+  }, [loadDds]);
+
+  useEffect(() => {
+    loadStoredFiles();
+  }, [loadStoredFiles]);
+
+  useEffect(() => {
+    setFilesPage(1);
+  }, [fileCompanyId, fileYear, fileWeek, filesPageSize]);
 
   async function handleDelete(id: string) {
-    if (confirm('Tem certeza que deseja excluir este DDS?')) {
-      try {
-        await ddsService.delete(id);
-        setDdsList(ddsList.filter(d => d.id !== id));
-        toast.success('DDS excluído com sucesso!');
-      } catch (error) {
-        console.error('Erro ao excluir DDS:', error);
-        toast.error('Erro ao excluir DDS. Verifique se existem dependências e tente novamente.');
-      }
+    if (!confirm('Tem certeza que deseja excluir este DDS?')) return;
+
+    try {
+      await ddsService.delete(id);
+      setDdsList((current) => current.filter((dds) => dds.id !== id));
+      toast.success('DDS excluído com sucesso.');
+    } catch (error) {
+      console.error('Erro ao excluir DDS:', error);
+      toast.error('Erro ao excluir DDS. Verifique dependências e tente novamente.');
     }
   }
 
@@ -106,15 +151,19 @@ export default function DdsPage() {
       toast.info('Preparando impressão...');
       const signatures = await signaturesService.findByDocument(dds.id, 'DDS');
       const base64 = await generateDdsPdf(dds, signatures, { save: false, output: 'base64' });
+
       if (base64) {
         const byteCharacters = atob(base64 as string);
         const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+
+        for (let index = 0; index < byteCharacters.length; index += 1) {
+          byteNumbers[index] = byteCharacters.charCodeAt(index);
         }
+
         const byteArray = new Uint8Array(byteNumbers);
         const file = new Blob([byteArray], { type: 'application/pdf' });
         const fileURL = URL.createObjectURL(file);
+
         openPdfForPrint(fileURL, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
         });
@@ -129,7 +178,7 @@ export default function DdsPage() {
     try {
       const signatures = await signaturesService.findByDocument(dds.id, 'DDS');
       const base64 = await generateDdsPdf(dds, signatures, { save: false, output: 'base64' });
-      
+
       if (base64) {
         setSelectedDoc({
           name: `DDS - ${dds.tema}`,
@@ -170,8 +219,17 @@ export default function DdsPage() {
       return;
     }
 
-    const headers = ['dds_id', 'data', 'tema', 'company_id', 'folder_path', 'file_key', 'original_name'];
+    const headers = [
+      'dds_id',
+      'data',
+      'tema',
+      'company_id',
+      'folder_path',
+      'file_key',
+      'original_name',
+    ];
     const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
+
     const rows = storedFiles.map((file) =>
       [
         file.ddsId,
@@ -210,13 +268,45 @@ export default function DdsPage() {
     }
   };
 
-  const companyOptions = Array.from(
-    new Map(
-      ddsList
-        .filter((item) => item.company_id)
-        .map((item) => [item.company_id, item.company?.razao_social || item.company_id]),
-    ).entries(),
-  ).map(([id, name]) => ({ id, name }));
+  const companyOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          ddsList
+            .filter((item) => item.company_id)
+            .map((item) => [
+              item.company_id,
+              item.company?.razao_social || item.company_id,
+            ]),
+        ).entries(),
+      ).map(([id, name]) => ({ id, name })),
+    [ddsList],
+  );
+
+  const filteredDds = useMemo(
+    () =>
+      ddsList.filter((dds) => {
+        const matchesTerm = dds.tema
+          .toLowerCase()
+          .includes(deferredSearchTerm.toLowerCase());
+
+        if (!matchesTerm) return false;
+        if (modelFilter === 'model') return Boolean(dds.is_modelo);
+        if (modelFilter === 'regular') return !dds.is_modelo;
+        return true;
+      }),
+    [ddsList, deferredSearchTerm, modelFilter],
+  );
+
+  const ddsSummary = useMemo(
+    () => ({
+      total: ddsList.length,
+      modelos: ddsList.filter((item) => item.is_modelo).length,
+      registros: ddsList.filter((item) => !item.is_modelo).length,
+      arquivos: storedFiles.length,
+    }),
+    [ddsList, storedFiles.length],
+  );
 
   const totalFilesPages = Math.max(1, Math.ceil(storedFiles.length / filesPageSize));
   const pagedStoredFiles = storedFiles.slice(
@@ -224,315 +314,399 @@ export default function DdsPage() {
     filesPage * filesPageSize,
   );
 
-  const filteredDds = ddsList.filter((dds) => {
-    const matchesTerm = dds.tema.toLowerCase().includes(searchTerm.toLowerCase());
-    if (!matchesTerm) return false;
-    if (modelFilter === 'model') return Boolean(dds.is_modelo);
-    if (modelFilter === 'regular') return !dds.is_modelo;
-    return true;
-  });
+  if (loading) {
+    return (
+      <PageLoadingState
+        title="Carregando DDS"
+        description="Buscando registros, modelos e arquivos armazenados para operação de campo."
+        cards={4}
+        tableRows={6}
+      />
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title="Falha ao carregar DDS"
+        description={loadError}
+        action={
+          <Button type="button" onClick={loadDds}>
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Diálogo Diário de Segurança (DDS)</h1>
-          <p className="text-gray-500">Gerencie os registros de DDS realizados.</p>
-        </div>
-        <Link
-          href="/dashboard/dds/new"
-          className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Novo DDS
-        </Link>
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-2">
+            <CardTitle className="text-2xl">Diálogo Diário de Segurança (DDS)</CardTitle>
+            <CardDescription>
+              Gerencie registros de DDS, modelos reutilizáveis e PDFs armazenados por empresa.
+            </CardDescription>
+          </div>
+          <Link href="/dashboard/dds/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo DDS
+          </Link>
+        </CardHeader>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Total de DDS</CardDescription>
+            <CardTitle className="text-3xl">{ddsSummary.total}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Registros operacionais</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
+              {ddsSummary.registros}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Modelos</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
+              {ddsSummary.modelos}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>PDFs armazenados</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+              {ddsSummary.arquivos}
+            </CardTitle>
+          </CardHeader>
+        </Card>
       </div>
 
-      <div className="rounded-xl border bg-white shadow-sm">
-        <div className="border-b p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Arquivos DDS (Storage)</h2>
-              <p className="text-sm text-gray-500">PDFs salvos automaticamente por empresa/ano/semana.</p>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
-              <select
-                value={fileCompanyId}
-                onChange={(e) => setFileCompanyId(e.target.value)}
-                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
-                aria-label="Filtro empresa"
-              >
-                <option value="">Todas empresas</option>
-                {companyOptions.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min={2020}
-                max={2100}
-                placeholder="Ano"
-                value={fileYear}
-                onChange={(e) => setFileYear(e.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              />
-              <input
-                type="number"
-                min={1}
-                max={53}
-                placeholder="Semana ISO"
-                value={fileWeek}
-                onChange={(e) => setFileWeek(e.target.value)}
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              />
-              <select
-                value={filesPageSize}
-                onChange={(e) => setFilesPageSize(Number(e.target.value))}
-                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
-                aria-label="Itens por página"
-              >
-                <option value={10}>10 / página</option>
-                <option value={25}>25 / página</option>
-                <option value={50}>50 / página</option>
-              </select>
-            </div>
+      <Card tone="default" padding="none">
+        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
+          <div className="space-y-1">
+            <CardTitle>Arquivos DDS (Storage)</CardTitle>
+            <CardDescription>
+              PDFs salvos automaticamente por empresa, ano e semana operacional.
+            </CardDescription>
           </div>
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              onClick={handleExportStoredFilesCsv}
-              className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5">
+            <select
+              value={fileCompanyId}
+              onChange={(event) => setFileCompanyId(event.target.value)}
+              className={inputClassName}
+              aria-label="Filtro empresa"
             >
-              <FileSpreadsheet className="h-3.5 w-3.5" />
+              <option value="">Todas empresas</option>
+              {companyOptions.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min={2020}
+              max={2100}
+              placeholder="Ano"
+              value={fileYear}
+              onChange={(event) => setFileYear(event.target.value)}
+              className={inputClassName}
+            />
+            <input
+              type="number"
+              min={1}
+              max={53}
+              placeholder="Semana ISO"
+              value={fileWeek}
+              onChange={(event) => setFileWeek(event.target.value)}
+              className={inputClassName}
+            />
+            <select
+              value={filesPageSize}
+              onChange={(event) => setFilesPageSize(Number(event.target.value))}
+              className={inputClassName}
+              aria-label="Itens por página"
+            >
+              <option value={10}>10 / página</option>
+              <option value={25}>25 / página</option>
+              <option value={50}>50 / página</option>
+            </select>
+            <Button
+              type="button"
+              variant="outline"
+              leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
+              onClick={handleExportStoredFilesCsv}
+            >
               Exportar CSV
-            </button>
+            </Button>
           </div>
-        </div>
+        </CardHeader>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-700">
-              <tr>
-                <th className="px-6 py-3 font-medium">Data</th>
-                <th className="px-6 py-3 font-medium">Tema</th>
-                <th className="px-6 py-3 font-medium">Pasta</th>
-                <th className="px-6 py-3 font-medium">Arquivo</th>
-                <th className="px-6 py-3 font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {loadingFiles ? (
-                <tr>
-                  <td colSpan={5} className="py-10 text-center">
-                    <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-                  </td>
-                </tr>
-              ) : storedFiles.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-500">
-                    Nenhum PDF de DDS encontrado para este filtro.
-                  </td>
-                </tr>
-              ) : (
-                pagedStoredFiles.map((file) => (
-                  <tr key={`${file.ddsId}-${file.fileKey}`} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-gray-500">
-                      {format(new Date(file.data), 'dd/MM/yyyy', { locale: ptBR })}
-                    </td>
-                    <td className="px-6 py-4 font-medium text-gray-900">{file.tema}</td>
-                    <td className="px-6 py-4 text-xs text-gray-600">
-                      <div className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1">
-                        <Folder className="h-3 w-3" />
-                        <span>{file.folderPath}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyFolderPath(file.folderPath)}
-                          className="rounded p-0.5 text-gray-500 hover:bg-gray-200 hover:text-gray-700"
-                          title="Copiar caminho da pasta"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-xs text-gray-700">{file.originalName}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadStoredPdf(file.ddsId)}
-                          className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          Baixar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyPdfLink(file.ddsId)}
-                          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100"
-                          title="Copiar link do PDF"
-                        >
-                          <Link2 className="h-3.5 w-3.5" />
-                          Copiar link
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        {!loadingFiles && storedFiles.length > 0 && (
-          <div className="flex items-center justify-between border-t px-4 py-3 text-xs text-gray-600">
-            <span>
-              Página {filesPage} de {totalFilesPages} ({storedFiles.length} arquivo(s))
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setFilesPage((prev) => Math.max(1, prev - 1))}
-                disabled={filesPage <= 1}
-                className="inline-flex items-center gap-1 rounded border border-gray-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <ChevronLeft className="h-3 w-3" />
-                Anterior
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilesPage((prev) => Math.min(totalFilesPages, prev + 1))}
-                disabled={filesPage >= totalFilesPages}
-                className="inline-flex items-center gap-1 rounded border border-gray-300 px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Próxima
-                <ChevronRight className="h-3 w-3" />
-              </button>
-            </div>
+        <CardContent className="mt-0">
+          {loadingFiles ? (
+            <InlineLoadingState label="Carregando arquivos DDS armazenados" />
+          ) : storedFiles.length === 0 ? (
+            <EmptyState
+              title="Nenhum PDF de DDS encontrado"
+              description="Não há arquivos armazenados para o filtro aplicado."
+              compact
+            />
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Tema</TableHead>
+                    <TableHead>Pasta</TableHead>
+                    <TableHead>Arquivo</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pagedStoredFiles.map((file) => (
+                    <TableRow key={`${file.ddsId}-${file.fileKey}`}>
+                      <TableCell>
+                        {format(new Date(file.data), 'dd/MM/yyyy', { locale: ptBR })}
+                      </TableCell>
+                      <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
+                        {file.tema}
+                      </TableCell>
+                      <TableCell>
+                        <div className="inline-flex items-center gap-2 rounded-[var(--ds-radius-sm)] bg-[color:var(--ds-color-surface-muted)]/45 px-2 py-1 text-xs text-[var(--ds-color-text-secondary)]">
+                          <Folder className="h-3 w-3" />
+                          <span>{file.folderPath}</span>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleCopyFolderPath(file.folderPath)}
+                            title="Copiar caminho da pasta"
+                            className="h-6 w-6"
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-[var(--ds-color-text-secondary)]">
+                        {file.originalName}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            leftIcon={<Download className="h-3.5 w-3.5" />}
+                            onClick={() => handleDownloadStoredPdf(file.ddsId)}
+                          >
+                            Baixar
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            leftIcon={<Link2 className="h-3.5 w-3.5" />}
+                            onClick={() => handleCopyPdfLink(file.ddsId)}
+                            title="Copiar link do PDF"
+                          >
+                            Copiar link
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              <div className="mt-4 flex items-center justify-between text-sm text-[var(--ds-color-text-muted)]">
+                <span>
+                  Página <span className="font-semibold text-[var(--ds-color-text-primary)]">{filesPage}</span>{' '}
+                  de <span className="font-semibold text-[var(--ds-color-text-primary)]">{totalFilesPages}</span>{' '}
+                  • {storedFiles.length} arquivo(s)
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    leftIcon={<ChevronLeft className="h-4 w-4" />}
+                    onClick={() => setFilesPage((current) => Math.max(1, current - 1))}
+                    disabled={filesPage <= 1}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    rightIcon={<ChevronRight className="h-4 w-4" />}
+                    onClick={() => setFilesPage((current) => Math.min(totalFilesPages, current + 1))}
+                    disabled={filesPage >= totalFilesPages}
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card tone="default" padding="none">
+        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <CardTitle>Registros de DDS</CardTitle>
+            <CardDescription>
+              {filteredDds.length} registro(s) exibidos com filtros por tema e tipo.
+            </CardDescription>
           </div>
-        )}
-      </div>
-
-      <div className="rounded-xl border bg-white shadow-sm">
-        <div className="border-b p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full max-w-sm">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                <Search className="h-4 w-4 text-gray-400" />
-              </span>
+          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+            <div className="relative min-w-[260px]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
               <input
                 type="text"
-                placeholder="Pesquisar DDS..."
-                className="w-full rounded-md border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none"
+                placeholder="Pesquisar DDS"
+                className={cn(inputClassName, 'pl-10')}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(event) => setSearchTerm(event.target.value)}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500">Filtro</span>
-              <select
-                aria-label="Filtro de DDS"
-                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
-                value={modelFilter}
-                onChange={(e) => setModelFilter(e.target.value as 'all' | 'model' | 'regular')}
-              >
-                <option value="all">Todos</option>
-                <option value="regular">Registros</option>
-                <option value="model">Modelos</option>
-              </select>
-            </div>
+            <select
+              aria-label="Filtro de DDS"
+              className={cn(inputClassName, 'min-w-[180px]')}
+              value={modelFilter}
+              onChange={(event) =>
+                setModelFilter(event.target.value as 'all' | 'model' | 'regular')
+              }
+            >
+              <option value="all">Todos</option>
+              <option value="regular">Registros</option>
+              <option value="model">Modelos</option>
+            </select>
           </div>
-        </div>
+        </CardHeader>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-700">
-              <tr>
-                <th className="px-6 py-3 font-medium">Data</th>
-                <th className="px-6 py-3 font-medium">Tema</th>
-                <th className="px-6 py-3 font-medium">Participantes</th>
-                <th className="px-6 py-3 font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan={4} className="py-10 text-center">
-                    <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-                  </td>
-                </tr>
-              ) : filteredDds.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-10 text-center text-gray-500">
-                    Nenhum DDS encontrado.
-                  </td>
-                </tr>
-              ) : (
-                filteredDds.map((dds) => (
-                  <tr key={dds.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-gray-500">
+        <CardContent className="mt-0">
+          {filteredDds.length === 0 ? (
+            <EmptyState
+              title="Nenhum DDS encontrado"
+              description={
+                deferredSearchTerm || modelFilter !== 'all'
+                  ? 'Nenhum resultado corresponde aos filtros aplicados.'
+                  : 'Ainda não existem registros de DDS para este tenant.'
+              }
+              action={
+                !deferredSearchTerm && modelFilter === 'all' ? (
+                  <Link href="/dashboard/dds/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Novo DDS
+                  </Link>
+                ) : undefined
+              }
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Tema</TableHead>
+                  <TableHead>Participantes</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredDds.map((dds) => (
+                  <TableRow key={dds.id}>
+                    <TableCell>
                       {format(new Date(dds.data), 'dd/MM/yyyy', { locale: ptBR })}
-                    </td>
-                    <td className="px-6 py-4">
+                    </TableCell>
+                    <TableCell>
                       <div className="flex flex-wrap items-center gap-2">
-                        <div className="font-medium text-gray-900">{dds.tema}</div>
-                        {dds.is_modelo && (
-                          <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+                        <div className="font-medium text-[var(--ds-color-text-primary)]">{dds.tema}</div>
+                        {dds.is_modelo ? (
+                          <span className="rounded-full bg-[color:var(--ds-color-action-primary)]/12 px-2.5 py-1 text-xs font-semibold text-[var(--ds-color-action-primary)]">
                             Modelo
                           </span>
-                        )}
+                        ) : null}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-500">
-                      <div className="flex items-center gap-1">
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
                         <Users className="h-4 w-4" />
-                        {dds.participants?.length || 0}
+                        <span>{dds.participants?.length || 0}</span>
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <button
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
                           type="button"
+                          size="icon"
+                          variant="ghost"
                           onClick={() => handlePrint(dds)}
-                          className="text-gray-600 hover:text-gray-900"
                           title="Imprimir DDS"
                         >
                           <Printer className="h-4 w-4" />
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           type="button"
+                          size="icon"
+                          variant="ghost"
                           onClick={() => handleEmail(dds)}
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Enviar por E-mail"
+                          title="Enviar por e-mail"
                         >
                           <Mail className="h-4 w-4" />
-                        </button>
+                        </Button>
                         <Link
                           href={`/dashboard/dds/edit/${dds.id}`}
-                          className="text-amber-600 hover:text-amber-800"
+                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
                           title="Editar DDS"
                         >
                           <Pencil className="h-4 w-4" />
                         </Link>
-                        <button
+                        <Button
                           type="button"
+                          size="icon"
+                          variant="ghost"
                           onClick={() => handleDelete(dds.id)}
-                          className="text-red-600 hover:text-red-800"
                           title="Excluir DDS"
+                          className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
                         >
                           <Trash2 className="h-4 w-4" />
-                        </button>
+                        </Button>
                       </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
-      {selectedDoc && (
+      {ddsSummary.modelos > 0 ? (
+        <Card tone="muted" padding="md" className="border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/8">
+          <CardHeader className="gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
+              <CardTitle className="text-base">Biblioteca de modelos ativa</CardTitle>
+            </div>
+            <CardDescription>
+              Existem {ddsSummary.modelos} modelo(s) cadastrados. Use-os para acelerar criação de DDS padronizados por tema, obra ou rotina operacional.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
+
+      {selectedDoc ? (
         <SendMailModal
           isOpen={isMailModalOpen}
           onClose={() => {
@@ -543,7 +717,7 @@ export default function DdsPage() {
           filename={selectedDoc.filename}
           base64={selectedDoc.base64}
         />
-      )}
+      ) : null}
     </div>
   );
 }

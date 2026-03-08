@@ -1,45 +1,75 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useDeferredValue, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  trainingsService,
   Training,
-  TrainingExpirySummary,
   TrainingBlockingUser,
+  TrainingExpirySummary,
+  trainingsService,
 } from '@/services/trainingsService';
 import { signaturesService } from '@/services/signaturesService';
 import { generateTrainingPdf } from '@/lib/pdf/trainingGenerator';
 import {
-  Plus,
-  Search,
-  User,
   Calendar,
   Download,
-  Mail,
-  Printer,
-  Pencil,
-  Trash2,
   FileSpreadsheet,
+  Mail,
+  Pencil,
+  Plus,
+  Printer,
+  Search,
+  ShieldAlert,
+  Trash2,
+  User,
 } from 'lucide-react';
 import { downloadExcel } from '@/lib/download-excel';
 import { toast } from 'sonner';
 import { SendMailModal } from '@/components/SendMailModal';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { openPdfForPrint } from '@/lib/print-utils';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  EmptyState,
+  ErrorState,
+  PageLoadingState,
+} from '@/components/ui/state';
+import { cn } from '@/lib/utils';
+
+type PrintablePdfResult = { base64: string; filename: string };
 
 export default function TrainingsPage() {
   const [trainings, setTrainings] = useState<Training[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<{
+    name: string;
+    filename: string;
+    base64: string;
+  } | null>(null);
   const [expirySummary, setExpirySummary] = useState<TrainingExpirySummary>({
     total: 0,
     expired: 0,
@@ -49,19 +79,22 @@ export default function TrainingsPage() {
   const [blockingUsers, setBlockingUsers] = useState<TrainingBlockingUser[]>([]);
 
   const loadTrainings = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
     try {
-      const [paged, summary] = await Promise.all([
+      const [paged, summary, pendingUsers] = await Promise.all([
         trainingsService.findPaginated({ page, limit }),
         trainingsService.getExpirySummary(),
+        trainingsService.getBlockingUsers(),
       ]);
       setTrainings(paged.data);
       setTotal(paged.total);
       setLastPage(paged.lastPage);
       setExpirySummary(summary);
-      const pendingUsers = await trainingsService.getBlockingUsers();
       setBlockingUsers(pendingUsers);
     } catch (error) {
       console.error('Erro ao carregar treinamentos:', error);
+      setLoadError('Nao foi possivel carregar o monitor de treinamentos.');
       toast.error('Não foi possível carregar os treinamentos.');
     } finally {
       setLoading(false);
@@ -78,6 +111,7 @@ export default function TrainingsPage() {
       toast.success(
         `${result.notificationsCreated} notificações enviadas para ${result.trainings} treinamento(s).`,
       );
+      await loadTrainings();
     } catch (error) {
       console.error('Erro ao notificar vencimentos:', error);
       toast.error('Não foi possível enviar alertas automáticos.');
@@ -89,7 +123,7 @@ export default function TrainingsPage() {
       setPrintingId(training.id);
       const signatures = await signaturesService.findByTraining(training.id);
       await generateTrainingPdf(training, signatures);
-      toast.success('PDF gerado com sucesso!');
+      toast.success('PDF gerado com sucesso.');
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
       toast.error('Erro ao gerar PDF do treinamento.');
@@ -102,9 +136,12 @@ export default function TrainingsPage() {
     try {
       setPrintingId(training.id);
       const signatures = await signaturesService.findByTraining(training.id);
-      const pdfData = await generateTrainingPdf(training, signatures, { save: false, output: 'base64' });
-      
-      if (pdfData && pdfData.base64) {
+      const pdfData = (await generateTrainingPdf(training, signatures, {
+        save: false,
+        output: 'base64',
+      })) as PrintablePdfResult | undefined;
+
+      if (pdfData?.base64) {
         setSelectedDoc({
           name: training.nome,
           filename: pdfData.filename,
@@ -124,18 +161,21 @@ export default function TrainingsPage() {
     try {
       setPrintingId(training.id);
       const signatures = await signaturesService.findByTraining(training.id);
-      const result = await generateTrainingPdf(training, signatures, { save: false, output: 'base64' }) as { base64: string };
+      const result = (await generateTrainingPdf(training, signatures, {
+        save: false,
+        output: 'base64',
+      })) as PrintablePdfResult | undefined;
       if (result?.base64) {
         const byteCharacters = atob(result.base64);
         const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
+        for (let i = 0; i < byteCharacters.length; i += 1) {
           byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
         const byteArray = new Uint8Array(byteNumbers);
         const file = new Blob([byteArray], { type: 'application/pdf' });
         const fileURL = URL.createObjectURL(file);
         openPdfForPrint(fileURL, () => {
-          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+          toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba para impressão.');
         });
       }
     } catch (error) {
@@ -151,28 +191,31 @@ export default function TrainingsPage() {
 
     try {
       await trainingsService.delete(id);
-      toast.success('Treinamento excluído com sucesso!');
-      loadTrainings();
+      toast.success('Treinamento excluído com sucesso.');
+      await loadTrainings();
     } catch (error) {
       console.error('Erro ao excluir treinamento:', error);
       toast.error('Erro ao excluir treinamento.');
     }
   };
 
-  const filteredTrainings = trainings.filter((t) =>
-    t.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (t.user?.nome?.toLowerCase() || '').includes(searchTerm.toLowerCase())
-  );
+  const filteredTrainings = trainings.filter((training) => {
+    const term = deferredSearchTerm.toLowerCase();
+    return (
+      training.nome.toLowerCase().includes(term) ||
+      (training.user?.nome?.toLowerCase() || '').includes(term)
+    );
+  });
 
-  const getStatusColor = (vencimento: string) => {
+  const getStatusTone = (vencimento: string) => {
     const date = new Date(vencimento);
     const now = new Date();
     const diff = date.getTime() - now.getTime();
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
 
-    if (days < 0) return 'text-red-600 bg-red-50 border-red-100';
-    if (days <= 30) return 'text-amber-600 bg-amber-50 border-amber-100';
-    return 'text-green-600 bg-green-50 border-green-100';
+    if (days < 0) return 'bg-[color:var(--ds-color-danger)]/12 text-[var(--ds-color-danger)]';
+    if (days <= 30) return 'bg-[color:var(--ds-color-warning)]/14 text-[var(--ds-color-warning)]';
+    return 'bg-[color:var(--ds-color-success)]/12 text-[var(--ds-color-success)]';
   };
 
   const getStatusLabel = (vencimento: string) => {
@@ -183,7 +226,7 @@ export default function TrainingsPage() {
 
     if (days < 0) return 'Vencido';
     if (days <= 30) return 'Vence em breve';
-    return 'Válido';
+    return 'Valido';
   };
 
   const handleExportCsv = () => {
@@ -196,7 +239,9 @@ export default function TrainingsPage() {
       new Date(training.data_vencimento).toLocaleDateString('pt-BR'),
       getStatusLabel(training.data_vencimento),
     ]);
-    const csv = [header, ...rows].map((row) => row.map(escapeCsv).join(';')).join('\n');
+    const csv = [header, ...rows]
+      .map((row) => row.map(escapeCsv).join(';'))
+      .join('\n');
     const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -206,196 +251,289 @@ export default function TrainingsPage() {
     URL.revokeObjectURL(url);
   };
 
+  if (loading) {
+    return (
+      <PageLoadingState
+        title="Carregando monitor de treinamentos"
+        description="Buscando validade, pendencias e indicadores de bloqueio operacional."
+        cards={3}
+        tableRows={6}
+      />
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title="Falha ao carregar treinamentos"
+        description={loadError}
+        action={
+          <Button type="button" onClick={loadTrainings}>
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Monitor de Treinamentos</h1>
-            <p className="text-gray-500">Controle de validade de NRs e capacitações.</p>
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-2">
+            <CardTitle className="text-2xl">Monitor de Treinamentos</CardTitle>
+            <CardDescription>
+              Controle validade de NRs, bloqueios operacionais e disparo de alertas automáticos.
+            </CardDescription>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-700">
-              {expirySummary.expired} vencido(s)
-            </span>
-            <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-              {expirySummary.expiringSoon} a vencer
-            </span>
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-              {filteredTrainings.length} resultado(s)
-            </span>
-            <button
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => downloadExcel('/trainings/export/excel', 'treinamentos.xlsx')}
-              className="flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+              leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
             >
-              <FileSpreadsheet className="mr-1.5 h-4 w-4 text-green-600" />
               Exportar Excel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={handleNotifyExpiring}
-              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100"
             >
               Notificar vencimentos
-            </button>
+            </Button>
             <Link
               href="/dashboard/trainings/new"
-              className="flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              className={cn(
+                buttonVariants({ size: 'sm' }),
+                'inline-flex items-center',
+              )}
             >
               <Plus className="mr-2 h-4 w-4" />
-              Registrar Treinamento
+              Registrar treinamento
             </Link>
           </div>
-        </div>
+        </CardHeader>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Treinamentos vencidos</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-danger)]">
+              {expirySummary.expired}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Vencendo em breve</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
+              {expirySummary.expiringSoon}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Treinamentos válidos</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+              {expirySummary.valid}
+            </CardTitle>
+          </CardHeader>
+        </Card>
       </div>
 
-      {blockingUsers.length > 0 && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-800">
-          <p className="text-sm font-semibold">
-            Bloqueio por pendencia de treinamento NR ativo para {blockingUsers.length}{' '}
-            colaborador(es).
-          </p>
-          <p className="mt-1 text-xs">
-            Esses colaboradores nao podem ser usados em emissao de PT ate regularizacao.
-          </p>
-        </div>
-      )}
+      {blockingUsers.length > 0 ? (
+        <Card tone="muted" padding="md" className="border-[color:var(--ds-color-danger)]/25 bg-[color:var(--ds-color-danger)]/10">
+          <CardHeader className="gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-[var(--ds-color-danger)]" />
+              <CardTitle className="text-base">
+                Bloqueio operacional por treinamento pendente
+              </CardTitle>
+            </div>
+            <CardDescription>
+              {blockingUsers.length} colaborador(es) estão bloqueados para emissao de PT ate regularizacao.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
 
-      <div className="rounded-xl border bg-white shadow-sm">
-        <div className="flex flex-wrap items-center gap-3 border-b bg-slate-50/70 p-4">
-        <div className="relative flex-1">
-          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-            <Search className="h-4 w-4 text-gray-400" />
+      <Card tone="default" padding="none">
+        <CardHeader className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <CardTitle>Treinamentos registrados</CardTitle>
+            <CardDescription>
+              {filteredTrainings.length} resultado(s) exibidos nesta página.
+            </CardDescription>
           </div>
-          <input
-            type="text"
-            placeholder="Buscar por treinamento ou colaborador..."
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <button
-          type="button"
-          onClick={handleExportCsv}
-          className="flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-        >
-          <Download className="mr-2 h-4 w-4" />
-          Exportar CSV
-        </button>
-      </div>
+          <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
+            <div className="relative min-w-[240px] flex-1 md:flex-none">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
+              <input
+                type="text"
+                placeholder="Buscar por treinamento ou colaborador"
+                className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] py-2 pl-10 pr-4 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={handleExportCsv}>
+              <Download className="mr-2 h-4 w-4" />
+              Exportar CSV
+            </Button>
+          </div>
+        </CardHeader>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Colaborador</TableHead>
-              <TableHead>Treinamento / NR</TableHead>
-              <TableHead>Conclusão</TableHead>
-              <TableHead>Vencimento</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center">
-                  <div className="flex justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : filteredTrainings.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-gray-500">
-                  Nenhum treinamento encontrado.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredTrainings.map((training) => (
-                <TableRow key={training.id}>
-                  <TableCell>
-                    <div className="flex items-center space-x-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-600">
-                        <User className="h-4 w-4" />
-                      </div>
-                      <span className="font-medium text-gray-900">{training.user?.nome}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium text-gray-700">{training.nome}</TableCell>
-                  <TableCell>{new Date(training.data_conclusao).toLocaleDateString('pt-BR')}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center space-x-2 text-gray-500">
-                      <Calendar className="h-4 w-4" />
-                      <span>{new Date(training.data_vencimento).toLocaleDateString('pt-BR')}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${getStatusColor(training.data_vencimento)}`}>
-                      {getStatusLabel(training.data_vencimento)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end space-x-3">
-                      <button
-                        onClick={() => handlePrint(training)}
-                        disabled={printingId === training.id}
-                        className={`text-gray-600 transition-colors hover:text-gray-800 ${printingId === training.id ? 'animate-pulse opacity-50' : ''}`}
-                        title="Imprimir"
-                      >
-                        <Printer className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDownloadPdf(training)}
-                        disabled={printingId === training.id}
-                        className={`text-gray-600 transition-colors hover:text-gray-800 ${printingId === training.id ? 'animate-pulse opacity-50' : ''}`}
-                        title="Baixar PDF"
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleSendEmail(training)}
-                        disabled={printingId === training.id}
-                        className={`text-gray-600 transition-colors hover:text-gray-800 ${printingId === training.id ? 'animate-pulse opacity-50' : ''}`}
-                        title="Enviar por E-mail"
-                      >
-                        <Mail className="h-4 w-4" />
-                      </button>
-                      <Link
-                        href={`/dashboard/trainings/edit/${training.id}`}
-                        className="text-blue-600 transition-colors hover:text-blue-800"
-                        title="Editar Treinamento"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(training.id)}
-                        className="text-red-600 transition-colors hover:text-red-800"
-                        title="Excluir Treinamento"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </TableCell>
+        <CardContent className="mt-0">
+          {filteredTrainings.length === 0 ? (
+            <div className="p-5">
+              <EmptyState
+                title="Nenhum treinamento encontrado"
+                description={
+                  searchTerm
+                    ? 'Nenhum resultado corresponde ao filtro aplicado.'
+                    : 'Ainda nao existem treinamentos registrados para este tenant.'
+                }
+                action={
+                  !searchTerm ? (
+                    <Link
+                      href="/dashboard/trainings/new"
+                      className={cn(buttonVariants(), 'inline-flex items-center')}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Registrar treinamento
+                    </Link>
+                  ) : undefined
+                }
+              />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Colaborador</TableHead>
+                  <TableHead>Treinamento / NR</TableHead>
+                  <TableHead>Conclusão</TableHead>
+                  <TableHead>Vencimento</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredTrainings.map((training) => (
+                  <TableRow key={training.id}>
+                    <TableCell>
+                      <div className="flex items-center space-x-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+                          <User className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-[var(--ds-color-text-primary)]">
+                            {training.user?.nome || 'Colaborador'}
+                          </div>
+                          <div className="text-xs text-[var(--ds-color-text-muted)]">
+                            ID {training.user_id.slice(0, 8)}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium text-[var(--ds-color-text-primary)]">{training.nome}</div>
+                      {training.nr_codigo ? (
+                        <div className="text-xs text-[var(--ds-color-text-muted)]">{training.nr_codigo}</div>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      {new Date(training.data_conclusao).toLocaleDateString('pt-BR')}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2 text-[var(--ds-color-text-secondary)]">
+                        <Calendar className="h-4 w-4" />
+                        <span>{new Date(training.data_vencimento).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusTone(
+                          training.data_vencimento,
+                        )}`}
+                      >
+                        {getStatusLabel(training.data_vencimento)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handlePrint(training)}
+                          disabled={printingId === training.id}
+                          title="Imprimir"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleDownloadPdf(training)}
+                          disabled={printingId === training.id}
+                          title="Baixar PDF"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleSendEmail(training)}
+                          disabled={printingId === training.id}
+                          title="Enviar por e-mail"
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                        <Link
+                          href={`/dashboard/trainings/edit/${training.id}`}
+                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                          title="Editar treinamento"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Link>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleDelete(training.id)}
+                          title="Excluir treinamento"
+                          className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
 
-        {!loading && (
+        {filteredTrainings.length > 0 ? (
           <PaginationControls
             page={page}
             lastPage={lastPage}
             total={total}
-            onPrev={() => setPage((p) => Math.max(1, p - 1))}
-            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
           />
-        )}
-      </div>
+        ) : null}
+      </Card>
 
-      {selectedDoc && (
+      {selectedDoc ? (
         <SendMailModal
           isOpen={isMailModalOpen}
           onClose={() => {
@@ -406,7 +544,7 @@ export default function TrainingsPage() {
           filename={selectedDoc.filename}
           base64={selectedDoc.base64}
         />
-      )}
+      ) : null}
     </div>
   );
 }
