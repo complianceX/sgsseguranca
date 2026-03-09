@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Send, X, Loader2, Sparkles } from 'lucide-react';
+import { useState, useRef, useEffect, type ChangeEvent } from 'react';
+import { Send, X, Loader2, Sparkles, ImagePlus, TriangleAlert } from 'lucide-react';
 import { aiService } from '@/services/aiService';
 import { cn } from '@/lib/utils';
 
@@ -26,7 +26,10 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -36,12 +39,77 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    if (!selectedImage) {
+      setSelectedImagePreview(null);
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(selectedImage);
+    setSelectedImagePreview(objectUrl);
+
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [selectedImage]);
+
+  const formatImageAnalysis = (analysis: Awaited<ReturnType<typeof aiService.analyzeImageRisk>>) =>
+    [
+      `Resumo: ${analysis.summary}`,
+      `Nível de risco: ${analysis.riskLevel}`,
+      analysis.imminentRisks.length
+        ? `Riscos iminentes:\n- ${analysis.imminentRisks.join('\n- ')}`
+        : null,
+      analysis.immediateActions.length
+        ? `Ações imediatas:\n- ${analysis.immediateActions.join('\n- ')}`
+        : null,
+      analysis.ppeRecommendations.length
+        ? `EPIs recomendados:\n- ${analysis.ppeRecommendations.join('\n- ')}`
+        : null,
+      `Observações: ${analysis.notes}`,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+  const clearSelectedImage = () => {
+    setSelectedImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSelectImage = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) {
+      return;
+    }
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Use uma imagem JPG, PNG ou WEBP para análise de risco.',
+          timestamp: new Date(),
+        },
+      ]);
+      clearSelectedImage();
+      return;
+    }
+
+    setSelectedImage(file);
+  };
+
   const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && !selectedImage) || isLoading) return;
+
+    const prompt = input.trim() || 'Analise os riscos visíveis nesta imagem.';
 
     const userMessage: Message = {
       role: 'user',
-      content: input,
+      content: selectedImage
+        ? `${prompt}\n\n[Imagem anexada: ${selectedImage.name}]`
+        : prompt,
       timestamp: new Date(),
     };
 
@@ -55,13 +123,17 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
         content: msg.content,
       }));
 
-      const response = await aiService.chat(input, {
-        conversationHistory,
-      });
+      const assistantContent = selectedImage
+        ? formatImageAnalysis(await aiService.analyzeImageRisk(selectedImage, prompt))
+        : (
+            await aiService.chat(prompt, {
+              conversationHistory,
+            })
+          ).answer;
 
       const assistantMessage: Message = {
         role: 'assistant',
-        content: response.answer,
+        content: assistantContent,
         timestamp: new Date(),
       };
 
@@ -75,6 +147,7 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
+      clearSelectedImage();
       setIsLoading(false);
     }
   };
@@ -150,18 +223,58 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
 
       {/* Input */}
       <div className="border-t bg-white p-4">
+        {selectedImagePreview ? (
+          <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
+                <TriangleAlert className="h-3.5 w-3.5 text-amber-500" />
+                Foto pronta para análise de risco
+              </div>
+              <button
+                type="button"
+                onClick={clearSelectedImage}
+                className="rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
+                title="Remover imagem"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <img
+              src={selectedImagePreview}
+              alt="Pré-visualização da imagem enviada para a IA SST"
+              className="h-28 w-full rounded-xl object-cover"
+            />
+          </div>
+        ) : null}
         <div className="relative flex items-center">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleSelectImage}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            className="absolute left-1 rounded-full p-2 text-gray-500 transition-all hover:bg-gray-100 hover:text-blue-600 disabled:opacity-50"
+            title="Anexar foto para análise"
+            aria-label="Anexar foto para análise"
+          >
+            <ImagePlus className="h-4 w-4" />
+          </button>
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Pergunte sobre SST, NR, APR, PT, NC..."
-            className="w-full rounded-full border border-gray-200 bg-gray-50 py-2 pl-4 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="Pergunte sobre SST ou anexe uma foto para análise de risco..."
+            className="w-full rounded-full border border-gray-200 bg-gray-50 py-2 pl-11 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           <button
             onClick={handleSend}
-            disabled={!input.trim() || isLoading}
+            disabled={(!input.trim() && !selectedImage) || isLoading}
             className="absolute right-1 rounded-full bg-blue-600 p-1.5 text-white transition-all hover:bg-blue-700 disabled:bg-gray-300"
             title="Enviar mensagem"
             aria-label="Enviar mensagem"
@@ -171,7 +284,7 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
         </div>
         <div className="mt-2 flex items-center justify-center space-x-1">
           <Sparkles className="h-3 w-3 text-blue-600" />
-          <span className="text-[10px] text-gray-400">IA especialista em SST</span>
+          <span className="text-[10px] text-gray-400">IA especialista em SST com análise de fotos</span>
         </div>
       </div>
     </div>

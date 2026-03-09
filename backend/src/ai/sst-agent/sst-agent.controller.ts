@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Post,
   Get,
@@ -11,7 +12,10 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
   Request,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import * as fs from 'fs/promises';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../auth/roles.guard';
@@ -21,6 +25,10 @@ import { Role } from '../../auth/enums/roles.enum';
 import { SstAgentService } from './sst-agent.service';
 import { SstChatDto } from '../dto/sst-chat.dto';
 import { Authorize } from '../../auth/authorize.decorator';
+import {
+  fileUploadOptions,
+  validateFileMagicBytes,
+} from '../../common/interceptors/file-upload.interceptor';
 
 /**
  * Controller do Agente SST.
@@ -58,6 +66,41 @@ export class SstAgentController {
   async chat(@Body() dto: SstChatDto, @Request() req: any) {
     const userId: string = req.user?.sub ?? req.user?.id ?? 'unknown';
     return this.sstAgentService.chat(dto.question, userId, dto.history ?? []);
+  }
+
+  @Post('analyze-image-risk')
+  @UseInterceptors(FileInterceptor('image', fileUploadOptions))
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
+  async analyzeImageRisk(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('context') context: string | undefined,
+    @Request() req: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Imagem nao enviada.');
+    }
+
+    const buffer =
+      file.buffer && file.buffer.length > 0
+        ? file.buffer
+        : file.path
+          ? await fs.readFile(file.path)
+          : undefined;
+
+    if (!buffer) {
+      throw new BadRequestException('Falha ao ler a imagem enviada.');
+    }
+
+    await validateFileMagicBytes(buffer, ['image/jpeg', 'image/png', 'image/webp']);
+
+    const userId: string = req.user?.sub ?? req.user?.id ?? 'unknown';
+    return this.sstAgentService.analyzeImageRisk(
+      buffer,
+      file.mimetype,
+      userId,
+      context,
+    );
   }
 
   /**

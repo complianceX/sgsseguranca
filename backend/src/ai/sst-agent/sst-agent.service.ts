@@ -34,6 +34,8 @@ import {
   SstAgentResponse,
   SstChatResponse,
   ConversationMessage,
+  ImageRiskAnalysis,
+  ImageRiskLevel,
   AiInteractionStatus,
   ConfidenceLevel,
   HumanReviewReason,
@@ -58,6 +60,7 @@ const MAX_TOOL_ITERATIONS = 5;
 /** Custo estimado por token — atualizar conforme pricing da Anthropic */
 const COST_PER_INPUT_TOKEN = 3 / 1_000_000;
 const COST_PER_OUTPUT_TOKEN = 15 / 1_000_000;
+const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 
 type SupportedAiProvider = typeof ANTHROPIC_PROVIDER | typeof GEMINI_PROVIDER | 'stub';
 
@@ -83,6 +86,10 @@ type GeminiFunctionCall = {
 
 type GeminiPart = {
   text?: string;
+  inlineData?: {
+    mimeType: string;
+    data: string;
+  };
   functionCall?: GeminiFunctionCall;
   functionResponse?: {
     name: string;
@@ -122,6 +129,33 @@ Cite sempre a norma ao mencionar obrigacoes: NR-1 a NR-35, CLT, Portarias MTE.
 - Consulte a ferramenta correspondente antes de responder sobre pendencias
 - Para diagnosticos gerais, use gerar_resumo_sst como ponto de partida
 - Se a tool retornar is_stub=true, informe o usuario e nao apresente os dados como definitivos
+`.trim();
+
+const SST_IMAGE_ANALYSIS_PROMPT = `
+Voce e um agente especialista em SST analisando uma foto de campo.
+
+Objetivo:
+- identificar situacoes de risco visiveis
+- classificar o nivel geral de risco
+- apontar acoes imediatas de controle
+- recomendar EPIs e medidas pela hierarquia de controle
+
+Regras:
+1. Considere apenas o que estiver visivel ou claramente informado no contexto.
+2. Nao invente fatos ocultos.
+3. Se a imagem estiver inconclusiva, diga isso em notes.
+4. Se houver risco grave ou iminente, destaque em immediateActions.
+5. Responda SOMENTE em JSON valido.
+
+Formato de resposta:
+{
+  "summary": "resumo curto em portugues",
+  "riskLevel": "Baixo|Médio|Alto|Crítico",
+  "imminentRisks": ["..."],
+  "immediateActions": ["..."],
+  "ppeRecommendations": ["..."],
+  "notes": "observacoes adicionais"
+}
 `.trim();
 
 // ---------------------------------------------------------------------------
@@ -320,6 +354,86 @@ export class SstAgentService {
     return this.interactionRepo.findOne({ where: { id, tenant_id: tenantId } });
   }
 
+  async analyzeImageRisk(
+    imageBuffer: Buffer,
+    mimeType: string,
+    userId: string,
+    context?: string,
+  ): Promise<ImageRiskAnalysis> {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new UnauthorizedException('Tenant nao identificado. Verifique autenticacao.');
+    }
+
+    if (!ALLOWED_IMAGE_MIME_TYPES.includes(mimeType as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {
+      throw new HttpException('Formato de imagem nao suportado.', HttpStatus.BAD_REQUEST);
+    }
+
+    const rlCheck = await this.rateLimitService.checkAndConsume(tenantId);
+    if (!rlCheck.allowed) {
+      throw new HttpException(
+        `Limite atingido. Tente novamente em ${rlCheck.retryAfterSeconds} segundos.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const startTime = Date.now();
+    const question = context?.trim()
+      ? `Analise a foto considerando este contexto: ${context.trim()}`
+      : 'Analise a foto e descreva os principais riscos de SST visiveis.';
+
+    const interaction = this.interactionRepo.create({
+      tenant_id: tenantId,
+      user_id: userId,
+      question,
+      model: this.model,
+      provider: this.provider,
+      status: AiInteractionStatus.SUCCESS,
+    });
+
+    if (this.provider === 'stub') {
+      const stub = this.buildStubImageAnalysis();
+      interaction.response = stub;
+      interaction.latency_ms = Date.now() - startTime;
+      await this.interactionRepo.save(interaction);
+      return stub;
+    }
+
+    try {
+      const { analysis, inputTokens, outputTokens } =
+        this.provider === ANTHROPIC_PROVIDER
+          ? await this.analyzeImageWithAnthropic(imageBuffer, mimeType, context)
+          : await this.analyzeImageWithGemini(imageBuffer, mimeType, context);
+
+      const latency = Date.now() - startTime;
+      interaction.response = analysis;
+      interaction.latency_ms = latency;
+      interaction.token_usage_input = inputTokens;
+      interaction.token_usage_output = outputTokens;
+      interaction.tokens_used = inputTokens + outputTokens;
+      interaction.estimated_cost_usd = this.estimateCost(inputTokens, outputTokens, this.provider);
+      interaction.confidence =
+        analysis.riskLevel === 'Crítico' || analysis.riskLevel === 'Alto'
+          ? ConfidenceLevel.HIGH
+          : ConfidenceLevel.MEDIUM;
+
+      await this.interactionRepo.save(interaction);
+
+      this.logger.log(
+        `[SstAgent] image-analysis tenant=${tenantId} user=${userId} provider=${this.provider} model=${this.model} latency=${latency}ms`,
+      );
+
+      return analysis;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      interaction.status = AiInteractionStatus.ERROR;
+      interaction.error_message = message;
+      interaction.latency_ms = Date.now() - startTime;
+      await this.interactionRepo.save(interaction);
+      throw error;
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Loop de agente
   // -------------------------------------------------------------------------
@@ -413,6 +527,55 @@ export class SstAgentService {
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
       toolsUsed,
+    };
+  }
+
+  private async analyzeImageWithAnthropic(
+    imageBuffer: Buffer,
+    mimeType: string,
+    context?: string,
+  ): Promise<{
+    analysis: ImageRiskAnalysis;
+    inputTokens: number;
+    outputTokens: number;
+  }> {
+    const response = await this.anthropic!.messages.create({
+      model: ANTHROPIC_MODEL,
+      max_tokens: MAX_TOKENS,
+      system: SST_IMAGE_ANALYSIS_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/webp',
+                data: imageBuffer.toString('base64'),
+              },
+            },
+            {
+              type: 'text',
+              text: context?.trim()
+                ? `Contexto adicional do usuario: ${context.trim()}`
+                : 'Sem contexto adicional fornecido.',
+            },
+          ],
+        },
+      ],
+    });
+
+    const answer = response.content
+      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+      .map((block) => block.text)
+      .join('\n')
+      .trim();
+
+    return {
+      analysis: this.parseImageRiskAnalysis(answer),
+      inputTokens: response.usage.input_tokens,
+      outputTokens: response.usage.output_tokens,
     };
   }
 
@@ -557,6 +720,78 @@ export class SstAgentService {
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
       toolsUsed,
+    };
+  }
+
+  private async analyzeImageWithGemini(
+    imageBuffer: Buffer,
+    mimeType: string,
+    context?: string,
+  ): Promise<{
+    analysis: ImageRiskAnalysis;
+    inputTokens: number;
+    outputTokens: number;
+  }> {
+    if (!this.geminiApiKey) {
+      throw new Error('GEMINI_API_KEY nao configurada.');
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: SST_IMAGE_ANALYSIS_PROMPT }],
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  inlineData: {
+                    mimeType,
+                    data: imageBuffer.toString('base64'),
+                  },
+                },
+                {
+                  text: context?.trim()
+                    ? `Contexto adicional do usuario: ${context.trim()}`
+                    : 'Sem contexto adicional fornecido.',
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: MAX_TOKENS,
+          },
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Gemini API error ${response.status}: ${body}`);
+    }
+
+    const payload = (await response.json()) as GeminiGenerateContentResponse;
+    const answer = payload.candidates
+      ?.flatMap((candidate) => candidate.content?.parts ?? [])
+      .map((part) => part.text?.trim())
+      .filter((value): value is string => Boolean(value))
+      .join('\n')
+      .trim();
+
+    if (!answer) {
+      throw new Error('Gemini nao retornou analise de imagem.');
+    }
+
+    return {
+      analysis: this.parseImageRiskAnalysis(answer),
+      inputTokens: payload.usageMetadata?.promptTokenCount ?? 0,
+      outputTokens: payload.usageMetadata?.candidatesTokenCount ?? 0,
     };
   }
 
@@ -756,6 +991,63 @@ export class SstAgentService {
     return { ...response, interactionId, status, timestamp: new Date().toISOString() };
   }
 
+  private parseImageRiskAnalysis(rawText: string): ImageRiskAnalysis {
+    const normalized = rawText.trim();
+    const jsonMatch =
+      normalized.match(/```json\s*([\s\S]*?)```/i) ||
+      normalized.match(/```([\s\S]*?)```/i);
+    const candidate = (jsonMatch?.[1] ?? normalized).trim();
+
+    try {
+      const parsed = JSON.parse(candidate) as Partial<ImageRiskAnalysis>;
+      return {
+        summary: parsed.summary?.trim() || 'Analise de risco concluida.',
+        riskLevel: this.normalizeRiskLevel(parsed.riskLevel),
+        imminentRisks: this.normalizeStringArray(parsed.imminentRisks),
+        immediateActions: this.normalizeStringArray(parsed.immediateActions),
+        ppeRecommendations: this.normalizeStringArray(parsed.ppeRecommendations),
+        notes: parsed.notes?.trim() || 'Sem observacoes adicionais.',
+      };
+    } catch {
+      return {
+        summary: candidate.slice(0, 280) || 'Nao foi possivel estruturar a analise automaticamente.',
+        riskLevel: 'Médio',
+        imminentRisks: [],
+        immediateActions: ['Revisar manualmente a imagem e confirmar os riscos em campo.'],
+        ppeRecommendations: [],
+        notes: candidate,
+      };
+    }
+  }
+
+  private normalizeRiskLevel(value?: string): ImageRiskLevel {
+    switch ((value || '').toLowerCase()) {
+      case 'baixo':
+        return 'Baixo';
+      case 'medio':
+      case 'médio':
+        return 'Médio';
+      case 'alto':
+        return 'Alto';
+      case 'critico':
+      case 'crítico':
+        return 'Crítico';
+      default:
+        return 'Médio';
+    }
+  }
+
+  private normalizeStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean)
+      .slice(0, 8);
+  }
+
   private estimateCost(
     inputTokens: number,
     outputTokens: number,
@@ -802,6 +1094,17 @@ export class SstAgentService {
       suggestedActions: [{ label: 'Ver Dashboard', href: '/dashboard', priority: 'low' }],
       warnings: ['Configure ANTHROPIC_API_KEY ou GEMINI_API_KEY para habilitar a IA SST.'],
       toolsUsed: [],
+    };
+  }
+
+  private buildStubImageAnalysis(): ImageRiskAnalysis {
+    return {
+      summary: 'Analise de imagem indisponivel no modo stub.',
+      riskLevel: 'Médio',
+      imminentRisks: [],
+      immediateActions: ['Configure um provider de IA para habilitar a analise de imagem.'],
+      ppeRecommendations: [],
+      notes: 'Configure ANTHROPIC_API_KEY ou GEMINI_API_KEY para usar a analise de fotos.',
     };
   }
 }

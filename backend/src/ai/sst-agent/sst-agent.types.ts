@@ -58,6 +58,17 @@ export interface SuggestedAction {
   priority: 'high' | 'medium' | 'low';
 }
 
+export type ImageRiskLevel = 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+
+export interface ImageRiskAnalysis {
+  summary: string;
+  riskLevel: ImageRiskLevel;
+  imminentRisks: string[];
+  immediateActions: string[];
+  ppeRecommendations: string[];
+  notes: string;
+}
+
 /**
  * Resposta padronizada do Agente SST.
  * Sempre estruturada — o frontend nunca recebe texto puro sem metadados.

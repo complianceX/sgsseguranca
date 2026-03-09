@@ -96,7 +96,7 @@ export const aiService = {
       formData.append('context', context.trim());
     }
 
-    const response = await api.post('/ai/analyze-image-risk', formData);
+    const response = await api.post('/ai/sst/analyze-image-risk', formData);
     return response.data as ImageRiskAnalysis;
   }
 };

@@ -9,6 +9,7 @@ import {
   AiInteractionStatus,
   ConfidenceLevel,
   HumanReviewReason,
+  ImageRiskAnalysis,
   SstAgentResponse,
 } from '../sst-agent/sst-agent.types';
 
@@ -46,11 +47,11 @@ export class AiInteraction {
   question: string;
 
   /**
-   * Resposta estruturada do agente (SstAgentResponse).
+   * Resposta estruturada do agente (chat ou análise de imagem).
    * Armazenada como JSON para permitir consultas e auditoria futura.
    */
   @Column({ type: 'json', nullable: true })
-  response: SstAgentResponse | null;
+  response: SstAgentResponse | ImageRiskAnalysis | null;
 
   /** Nomes das ferramentas chamadas durante a geração da resposta. */
   @Column({ type: 'json', nullable: true })
