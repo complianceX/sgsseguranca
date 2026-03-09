@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useState } from 'react';
 import { Upload, FileText, CheckCircle, AlertTriangle, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 import api from '@/lib/api';
@@ -8,7 +8,6 @@ import { toast } from 'sonner';
 import { sitesService, Site } from '@/services/sitesService';
 import { usersService, User } from '@/services/usersService';
 import { useAuth } from '@/context/AuthContext';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,14 +32,20 @@ export default function ImportPage() {
   const [result, setResult] = useState<ExtractedData | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [sitesLoading, setSitesLoading] = useState(false);
+  const [usersLoading, setUsersLoading] = useState(false);
   const [siteId, setSiteId] = useState('');
   const [responsibleId, setResponsibleId] = useState('');
+  const [siteSearchTerm, setSiteSearchTerm] = useState('');
+  const [responsibleSearchTerm, setResponsibleSearchTerm] = useState('');
   const [title, setTitle] = useState('');
   const [number, setNumber] = useState('');
   const [date, setDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [isModel, setIsModel] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  const deferredSiteSearchTerm = useDeferredValue(siteSearchTerm);
+  const deferredResponsibleSearchTerm = useDeferredValue(responsibleSearchTerm);
 
   const uploadConfig = {
     headers: {
@@ -76,27 +81,84 @@ export default function ImportPage() {
   };
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const [sitesData, usersData] = await Promise.all([sitesService.findAll(), usersService.findAll()]);
-        setSites(sitesData);
-        setUsers(usersData);
-        if (user?.id && !responsibleId) {
-          setResponsibleId(user.id);
-        }
-        if (user?.site_id) {
-          setSiteId(user.site_id);
-        } else if (sitesData.length > 0 && !siteId) {
-          setSiteId(sitesData[0].id);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-        toast.error('Erro ao carregar sites e usuários.');
-      }
+    if (user?.id && !responsibleId) {
+      setResponsibleId(user.id);
     }
+    if (user?.site_id && !siteId) {
+      setSiteId(user.site_id);
+    }
+  }, [siteId, responsibleId, user?.id, user?.site_id]);
 
-    loadData();
-  }, [siteId, user?.id, user?.site_id, responsibleId]);
+  const loadSites = useCallback(async () => {
+    try {
+      setSitesLoading(true);
+      const response = await sitesService.findPaginated({
+        page: 1,
+        limit: 25,
+        search: deferredSiteSearchTerm.trim() || undefined,
+      });
+
+      let nextSites = response.data;
+      if (siteId && !nextSites.some((site) => site.id === siteId)) {
+        try {
+          const selectedSite = await sitesService.findOne(siteId);
+          nextSites = dedupeById([selectedSite, ...nextSites]);
+        } catch {
+          nextSites = dedupeById(nextSites);
+        }
+      } else {
+        nextSites = dedupeById(nextSites);
+      }
+
+      setSites(nextSites);
+      if (!siteId && !!user && !user.site_id && nextSites.length > 0) {
+        setSiteId(nextSites[0].id);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar sites:', error);
+      toast.error('Erro ao carregar sites disponíveis.');
+    } finally {
+      setSitesLoading(false);
+    }
+  }, [deferredSiteSearchTerm, siteId, user?.site_id]);
+
+  const loadUsers = useCallback(async () => {
+    try {
+      setUsersLoading(true);
+      const response = await usersService.findPaginated({
+        page: 1,
+        limit: 25,
+        search: deferredResponsibleSearchTerm.trim() || undefined,
+      });
+
+      let nextUsers = response.data;
+      if (responsibleId && !nextUsers.some((entry) => entry.id === responsibleId)) {
+        try {
+          const selectedUser = await usersService.findOne(responsibleId);
+          nextUsers = dedupeById([selectedUser, ...nextUsers]);
+        } catch {
+          nextUsers = dedupeById(nextUsers);
+        }
+      } else {
+        nextUsers = dedupeById(nextUsers);
+      }
+
+      setUsers(nextUsers);
+    } catch (error) {
+      console.error('Erro ao carregar usuários:', error);
+      toast.error('Erro ao carregar responsáveis disponíveis.');
+    } finally {
+      setUsersLoading(false);
+    }
+  }, [deferredResponsibleSearchTerm, responsibleId]);
+
+  useEffect(() => {
+    void loadSites();
+  }, [loadSites]);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
 
   useEffect(() => {
     if (!result) return;
@@ -331,12 +393,22 @@ export default function ImportPage() {
                   <div className="mt-2 grid grid-cols-1 gap-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-4">
                     <div>
                       <label htmlFor="import-site" className="text-xs text-[var(--ds-color-text-muted)]">Obra/Setor</label>
+                      <Input
+                        id="import-site-search"
+                        type="text"
+                        className="mt-1"
+                        value={siteSearchTerm}
+                        onChange={(e) => setSiteSearchTerm(e.target.value)}
+                        placeholder="Buscar obra/setor"
+                      />
                       <select
                         id="import-site"
-                        className="mt-1 h-11 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
+                        className="mt-2 h-11 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
                         value={siteId}
                         onChange={(e) => setSiteId(e.target.value)}
+                        disabled={sitesLoading}
                       >
+                        <option value="">{sitesLoading ? 'Carregando sites...' : 'Selecione a obra/setor'}</option>
                         {sites.map((site) => (
                           <option key={site.id} value={site.id}>
                             {site.nome}
@@ -348,13 +420,24 @@ export default function ImportPage() {
 
                     <div>
                       <label htmlFor="import-responsible" className="text-xs text-[var(--ds-color-text-muted)]">{getResponsibleLabel(result.type)}</label>
+                      <Input
+                        id="import-responsible-search"
+                        type="text"
+                        className="mt-1"
+                        value={responsibleSearchTerm}
+                        onChange={(e) => setResponsibleSearchTerm(e.target.value)}
+                        placeholder={`Buscar ${getResponsibleLabel(result.type).toLowerCase()}`}
+                      />
                       <select
                         id="import-responsible"
-                        className="mt-1 h-11 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
+                        className="mt-2 h-11 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
                         value={responsibleId}
                         onChange={(e) => setResponsibleId(e.target.value)}
+                        disabled={usersLoading}
                       >
-                        <option value="">Selecione</option>
+                        <option value="">
+                          {usersLoading ? 'Carregando responsáveis...' : 'Selecione'}
+                        </option>
                         {users.map((entry) => (
                           <option key={entry.id} value={entry.id}>
                             {entry.nome}
@@ -450,4 +533,8 @@ export default function ImportPage() {
       </div>
     </div>
   );
+}
+
+function dedupeById<T extends { id: string }>(items: T[]) {
+  return Array.from(new Map(items.map((item) => [item.id, item])).values());
 }

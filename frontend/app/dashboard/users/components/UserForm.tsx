@@ -41,6 +41,7 @@ export function UserForm({ id }: UserFormProps) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const { user } = useAuth();
+  const isAdminGeneral = user?.profile?.nome === 'Administrador Geral';
 
   const isEmployeePath = typeof window !== 'undefined' && window.location.pathname.includes('/employees');
   const backPath = isEmployeePath ? '/dashboard/employees' : '/dashboard/users';
@@ -70,6 +71,10 @@ export function UserForm({ id }: UserFormProps) {
   const selectedCompanyId = useWatch({
     control,
     name: 'company_id',
+  });
+  const selectedSiteId = useWatch({
+    control,
+    name: 'site_id',
   });
 
   const { handleSubmit: onSubmit, loading } = useFormSubmit(
@@ -117,15 +122,44 @@ export function UserForm({ id }: UserFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const [companiesData, profilesData] = await Promise.all([
-          companiesService.findAll(),
+        const [profilesData, userData] = await Promise.all([
           profilesService.findAll(),
+          id ? usersService.findOne(id) : Promise.resolve(null),
         ]);
-        setCompanies(companiesData);
         setProfiles(profilesData);
 
-        if (id) {
-          const userData = await usersService.findOne(id);
+        const selectedCompanyId = userData?.company_id || user?.company_id || '';
+        let companiesData: Company[] = [];
+
+        if (isAdminGeneral) {
+          const companiesPage = await companiesService.findPaginated({
+            page: 1,
+            limit: 100,
+          });
+          companiesData = companiesPage.data;
+          if (
+            selectedCompanyId &&
+            !companiesData.some((company) => company.id === selectedCompanyId)
+          ) {
+            try {
+              const selectedCompany = await companiesService.findOne(selectedCompanyId);
+              companiesData = dedupeById([selectedCompany, ...companiesData]);
+            } catch {
+              companiesData = dedupeById(companiesData);
+            }
+          }
+        } else if (selectedCompanyId) {
+          try {
+            const selectedCompany = await companiesService.findOne(selectedCompanyId);
+            companiesData = [selectedCompany];
+          } catch {
+            companiesData = [];
+          }
+        }
+
+        setCompanies(dedupeById(companiesData));
+
+        if (userData) {
           reset({
             nome: userData.nome,
             email: userData.email,
@@ -146,7 +180,7 @@ export function UserForm({ id }: UserFormProps) {
     }
 
     loadData();
-  }, [id, reset, router, backPath]);
+  }, [id, reset, router, backPath, isAdminGeneral, user?.company_id]);
 
   useEffect(() => {
     async function loadSites() {
@@ -155,20 +189,30 @@ export function UserForm({ id }: UserFormProps) {
         return;
       }
       try {
-        const sitesData = await sitesService.findAll(selectedCompanyId);
-        if (sitesData.length > 0) {
-          setSites(sitesData);
-          return;
+        const sitesPage = await sitesService.findPaginated({
+          page: 1,
+          limit: 100,
+          companyId: selectedCompanyId,
+        });
+        let nextSites = sitesPage.data;
+        if (selectedSiteId && !nextSites.some((site) => site.id === selectedSiteId)) {
+          try {
+            const selectedSite = await sitesService.findOne(selectedSiteId);
+            nextSites = dedupeById([selectedSite, ...nextSites]);
+          } catch {
+            nextSites = dedupeById(nextSites);
+          }
+        } else {
+          nextSites = dedupeById(nextSites);
         }
-        const allSites = await sitesService.findAll();
-        setSites(allSites.filter((site) => site.company_id === selectedCompanyId));
+        setSites(nextSites);
       } catch (error) {
         handleApiError(error, 'Obras');
         setSites([]);
       }
     }
     loadSites();
-  }, [selectedCompanyId]);
+  }, [selectedCompanyId, selectedSiteId]);
 
   useEffect(() => {
     if (!id && !selectedCompanyId && user?.company_id) {
@@ -396,4 +440,8 @@ export function UserForm({ id }: UserFormProps) {
       </form>
     </div>
   );
+}
+
+function dedupeById<T extends { id: string }>(items: T[]) {
+  return Array.from(new Map(items.map((item) => [item.id, item])).values());
 }

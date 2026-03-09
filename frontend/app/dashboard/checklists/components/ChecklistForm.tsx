@@ -107,6 +107,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   });
 
   const selectedCompanyId = watch('company_id');
+  const selectedSiteId = watch('site_id');
   const selectedInspectorId = watch('inspetor_id');
   const filteredSites = sites.filter(site => !selectedCompanyId || site.company_id === selectedCompanyId);
   const filteredInspectors = users.filter(u => !selectedCompanyId || u.company_id === selectedCompanyId);
@@ -118,17 +119,44 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const [companiesData, sitesData, usersData] = await Promise.all([
-          companiesService.findAll(),
-          sitesService.findAll(),
-          usersService.findAll(),
+        const templateId = searchParams.get('templateId');
+        const [checklistData, sigs] = await Promise.all([
+          id ? checklistsService.findOne(id) : Promise.resolve(null),
+          id ? signaturesService.findByChecklist(id) : Promise.resolve([]),
         ]);
 
-        setCompanies(companiesData);
-        setSites(sitesData);
-        setUsers(usersData);
+        const selectedCompany =
+          checklistData?.company_id || user?.company_id || '';
 
-        const templateId = searchParams.get('templateId');
+        let companiesData: Company[] = [];
+        if (isAdminGeneral) {
+          const companiesPage = await companiesService.findPaginated({
+            page: 1,
+            limit: 100,
+          });
+          companiesData = companiesPage.data;
+          if (
+            selectedCompany &&
+            !companiesData.some((company) => company.id === selectedCompany)
+          ) {
+            try {
+              const currentCompany = await companiesService.findOne(selectedCompany);
+              companiesData = dedupeById([currentCompany, ...companiesData]);
+            } catch {
+              companiesData = dedupeById(companiesData);
+            }
+          }
+        } else if (selectedCompany) {
+          try {
+            const currentCompany = await companiesService.findOne(selectedCompany);
+            companiesData = [currentCompany];
+          } catch {
+            companiesData = [];
+          }
+        }
+
+        setCompanies(dedupeById(companiesData));
+
         if (templateId && !id) {
           try {
             const template = await checklistsService.findOne(templateId);
@@ -169,12 +197,8 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
           }
         }
 
-        if (id) {
-          const [checklist, sigs] = await Promise.all([
-            checklistsService.findOne(id),
-            signaturesService.findByChecklist(id)
-          ]);
-
+        if (checklistData) {
+          const checklist = checklistData;
           reset({
             titulo: checklist.titulo,
             descricao: checklist.descricao || '',
@@ -232,6 +256,67 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
 
     loadData();
   }, [id, reset, router, searchParams, setValue, replace]);
+
+  useEffect(() => {
+    async function loadTenantOptions() {
+      if (!selectedCompanyId) {
+        setSites([]);
+        setUsers([]);
+        return;
+      }
+
+      try {
+        const [sitesPage, usersPage] = await Promise.all([
+          sitesService.findPaginated({
+            page: 1,
+            limit: 100,
+            companyId: selectedCompanyId,
+          }),
+          usersService.findPaginated({
+            page: 1,
+            limit: 100,
+            companyId: selectedCompanyId,
+          }),
+        ]);
+
+        let nextSites = sitesPage.data;
+        if (selectedSiteId && !nextSites.some((site) => site.id === selectedSiteId)) {
+          try {
+            const currentSite = await sitesService.findOne(selectedSiteId);
+            nextSites = dedupeById([currentSite, ...nextSites]);
+          } catch {
+            nextSites = dedupeById(nextSites);
+          }
+        } else {
+          nextSites = dedupeById(nextSites);
+        }
+
+        let nextUsers = usersPage.data;
+        if (
+          selectedInspectorId &&
+          !nextUsers.some((entry) => entry.id === selectedInspectorId)
+        ) {
+          try {
+            const currentInspector = await usersService.findOne(selectedInspectorId);
+            nextUsers = dedupeById([currentInspector, ...nextUsers]);
+          } catch {
+            nextUsers = dedupeById(nextUsers);
+          }
+        } else {
+          nextUsers = dedupeById(nextUsers);
+        }
+
+        setSites(nextSites);
+        setUsers(nextUsers);
+      } catch (error) {
+        console.error('Erro ao carregar opções do checklist:', error);
+        setSites([]);
+        setUsers([]);
+      }
+    }
+
+    void loadTenantOptions();
+  }, [selectedCompanyId, selectedInspectorId, selectedSiteId]);
 
   // Set default company
   useEffect(() => {
@@ -758,4 +843,8 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       )}
     </div>
   );
+}
+
+function dedupeById<T extends { id: string }>(items: T[]) {
+  return Array.from(new Map(items.map((item) => [item.id, item])).values());
 }

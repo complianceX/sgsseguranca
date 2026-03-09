@@ -1,8 +1,12 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
+  ParseUUIDPipe,
+  Post,
   Query,
   UseGuards,
   ParseIntPipe,
@@ -21,6 +25,7 @@ import { Role } from '../auth/enums/roles.enum';
 import { defaultJobOptions } from '../queue/default-job-options';
 import { ReportsService } from './reports.service';
 import { Authorize } from '../auth/authorize.decorator';
+import { GenerateReportDto } from './dto/generate-report.dto';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -34,8 +39,26 @@ export class ReportsController {
   @Get()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_dashboard')
-  findAll() {
-    return this.reportsService.findAll();
+  findAll(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit: number,
+  ) {
+    return this.reportsService.findPaginated({ page, limit });
+  }
+
+  @Post('generate')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_view_dashboard')
+  generate(
+    @Request() req: { user: { company_id: string; userId: string } },
+    @Body() body: GenerateReportDto,
+  ) {
+    return this.enqueueMonthlyReport(
+      req.user.company_id,
+      req.user.userId,
+      body.ano,
+      body.mes,
+    );
   }
 
   @Get('monthly')
@@ -52,8 +75,27 @@ export class ReportsController {
     )
     month: number,
   ) {
-    const companyId = req.user.company_id;
-    const userId = req.user.userId;
+    return this.enqueueMonthlyReport(
+      req.user.company_id,
+      req.user.userId,
+      year,
+      month,
+    );
+  }
+
+  @Delete(':id')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_view_dashboard')
+  remove(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.reportsService.remove(id);
+  }
+
+  private async enqueueMonthlyReport(
+    companyId: string,
+    userId: string,
+    year: number,
+    month: number,
+  ) {
     const job = await this.pdfQueue.add(
       'generate',
       {
@@ -77,5 +119,12 @@ export class ReportsController {
     }
     const state = await job.getState();
     return { state, result: job.returnvalue ?? null };
+  }
+
+  @Get(':id')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_view_dashboard')
+  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.reportsService.findOne(id);
   }
 }

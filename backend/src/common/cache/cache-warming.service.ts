@@ -44,9 +44,13 @@ export class CacheWarmingService implements OnApplicationBootstrap {
       return;
     }
 
-    // Pré-carregar dados estáticos (best-effort).
+    // Pré-carregar caches/lightweight lookups usados no boot e em cron jobs.
     await withTimeout(this.profilesService.findAll(), timeoutMs, 'profiles');
-    await withTimeout(this.companiesService.findAll(), timeoutMs, 'companies');
+    await withTimeout(
+      this.companiesService.findAllActive(),
+      timeoutMs,
+      'companies_active_ids',
+    );
 
     this.logger.log({ event: 'cache_warming_finished' });
   }

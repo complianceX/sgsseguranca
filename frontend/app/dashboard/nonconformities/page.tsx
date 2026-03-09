@@ -49,6 +49,7 @@ import {
   ErrorState,
   PageLoadingState,
 } from '@/components/ui/state';
+import { PaginationControls } from '@/components/PaginationControls';
 import { cn } from '@/lib/utils';
 
 const inputClassName =
@@ -60,6 +61,9 @@ export default function NonConformitiesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{
     name: string;
@@ -71,8 +75,14 @@ export default function NonConformitiesPage() {
     try {
       setLoading(true);
       setLoadError(null);
-      const data = await nonConformitiesService.findAll();
-      setItems(data);
+      const response = await nonConformitiesService.findPaginated({
+        page,
+        limit: 10,
+        search: deferredSearchTerm || undefined,
+      });
+      setItems(response.data);
+      setTotal(response.total);
+      setLastPage(response.lastPage);
     } catch (error) {
       console.error('Erro ao carregar não conformidades:', error);
       setLoadError('Nao foi possivel carregar a lista de nao conformidades.');
@@ -80,7 +90,7 @@ export default function NonConformitiesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [deferredSearchTerm, page]);
 
   useEffect(() => {
     fetchItems();
@@ -92,6 +102,10 @@ export default function NonConformitiesPage() {
     try {
       await nonConformitiesService.remove(id);
       toast.success('Não conformidade excluída com sucesso');
+      if (items.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+        return;
+      }
       await fetchItems();
     } catch (error) {
       console.error('Erro ao excluir não conformidade:', error);
@@ -145,28 +159,15 @@ export default function NonConformitiesPage() {
     }
   };
 
-  const filteredItems = useMemo(() => {
-    const term = deferredSearchTerm.toLowerCase();
-
-    return items.filter((item) => {
-      return (
-        item.codigo_nc.toLowerCase().includes(term) ||
-        item.local_setor_area.toLowerCase().includes(term) ||
-        item.tipo.toLowerCase().includes(term) ||
-        item.status.toLowerCase().includes(term)
-      );
-    });
-  }, [deferredSearchTerm, items]);
-
   const summary = useMemo(
     () => ({
-      total: items.length,
+      total,
       abertas: items.filter((item) => item.status === NcStatus.ABERTA).length,
       andamento: items.filter((item) => item.status === NcStatus.EM_ANDAMENTO).length,
       aguardando: items.filter((item) => item.status === NcStatus.AGUARDANDO_VALIDACAO).length,
       encerradas: items.filter((item) => item.status === NcStatus.ENCERRADA).length,
     }),
-    [items],
+    [items, total],
   );
 
   const companyOptions = useMemo(
@@ -248,7 +249,7 @@ export default function NonConformitiesPage() {
         </Card>
         <Card interactive padding="md">
           <CardHeader>
-            <CardDescription>Abertas</CardDescription>
+            <CardDescription>Abertas na página</CardDescription>
             <CardTitle className="text-3xl text-[var(--ds-color-danger)]">
               {summary.abertas}
             </CardTitle>
@@ -256,7 +257,7 @@ export default function NonConformitiesPage() {
         </Card>
         <Card interactive padding="md">
           <CardHeader>
-            <CardDescription>Em andamento</CardDescription>
+            <CardDescription>Em andamento na página</CardDescription>
             <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
               {summary.andamento + summary.aguardando}
             </CardTitle>
@@ -264,7 +265,7 @@ export default function NonConformitiesPage() {
         </Card>
         <Card interactive padding="md">
           <CardHeader>
-            <CardDescription>Encerradas</CardDescription>
+            <CardDescription>Encerradas na página</CardDescription>
             <CardTitle className="text-3xl text-[var(--ds-color-success)]">
               {summary.encerradas}
             </CardTitle>
@@ -284,8 +285,8 @@ export default function NonConformitiesPage() {
               <CardTitle className="text-base">Atenção de tratativa</CardTitle>
             </div>
             <CardDescription>
-              Existem {summary.abertas + summary.andamento + summary.aguardando} não conformidade(s)
-              ainda sem encerramento. Priorize CAPA e validação para reduzir reincidência.
+              Nesta página existem {summary.abertas + summary.andamento + summary.aguardando}{' '}
+              não conformidade(s) ainda sem encerramento. Priorize CAPA e validação para reduzir reincidência.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -296,7 +297,7 @@ export default function NonConformitiesPage() {
           <div className="space-y-1">
             <CardTitle>Base de não conformidades</CardTitle>
             <CardDescription>
-              {filteredItems.length} registro(s) exibidos com busca por código, local, tipo e status.
+              {total} registro(s) encontrados com busca por código, local, tipo e status.
             </CardDescription>
           </div>
           <div className="relative w-full md:w-[360px]">
@@ -306,13 +307,16 @@ export default function NonConformitiesPage() {
               placeholder="Buscar por código, local, tipo ou status"
               className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
+              onChange={(event) => {
+                setSearchTerm(event.target.value);
+                setPage(1);
+              }}
             />
           </div>
         </CardHeader>
 
         <CardContent className="mt-0">
-          {filteredItems.length === 0 ? (
+          {items.length === 0 ? (
             <EmptyState
               title="Nenhuma não conformidade encontrada"
               description={
@@ -346,7 +350,7 @@ export default function NonConformitiesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.map((item) => (
+                {items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
                       {item.codigo_nc}
@@ -440,6 +444,15 @@ export default function NonConformitiesPage() {
             </Table>
           )}
         </CardContent>
+        {!loading && total > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </Card>
 
       <StoredFilesPanel

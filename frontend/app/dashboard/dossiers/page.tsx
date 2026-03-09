@@ -10,6 +10,7 @@ import { FileDown } from 'lucide-react';
 export default function DossiersPage() {
   const [userOptions, setUserOptions] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<null | 'employee' | 'site' | 'contract'>(
@@ -18,6 +19,7 @@ export default function DossiersPage() {
   const [userSearch, setUserSearch] = useState('');
   const deferredUserSearch = useDeferredValue(userSearch);
   const [siteSearch, setSiteSearch] = useState('');
+  const deferredSiteSearch = useDeferredValue(siteSearch);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedSiteId, setSelectedSiteId] = useState('');
 
@@ -25,8 +27,23 @@ export default function DossiersPage() {
     const loadSites = async () => {
       try {
         setLoading(true);
-        const sitesData = await sitesService.findAll();
-        setSites(sitesData);
+        const sitesPage = await sitesService.findPaginated({
+          page: 1,
+          limit: 25,
+          search: deferredSiteSearch || undefined,
+        });
+        let nextSites = sitesPage.data;
+        if (selectedSiteId && !nextSites.some((item) => item.id === selectedSiteId)) {
+          try {
+            const currentSite = await sitesService.findOne(selectedSiteId);
+            nextSites = dedupeById([currentSite, ...nextSites]);
+          } catch {
+            nextSites = dedupeById(nextSites);
+          }
+        } else {
+          nextSites = dedupeById(nextSites);
+        }
+        setSites(nextSites);
       } catch (error) {
         console.error('Erro ao carregar dossies:', error);
         toast.error('Erro ao carregar dados para emissao de dossie.');
@@ -36,7 +53,7 @@ export default function DossiersPage() {
     };
 
     void loadSites();
-  }, []);
+  }, [deferredSiteSearch, selectedSiteId]);
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -63,15 +80,13 @@ export default function DossiersPage() {
 
     return [selectedUser, ...userOptions.filter((item) => item.id !== selectedUser.id)];
   }, [selectedUser, userOptions]);
-
-  const filteredSites = useMemo(() => {
-    const term = siteSearch.trim().toLowerCase();
-    if (!term) {
+  const availableSites = useMemo(() => {
+    if (!selectedSite) {
       return sites;
     }
 
-    return sites.filter((item) => item.nome.toLowerCase().includes(term));
-  }, [siteSearch, sites]);
+    return [selectedSite, ...sites.filter((item) => item.id !== selectedSite.id)];
+  }, [selectedSite, sites]);
 
   const downloadEmployee = async () => {
     if (!selectedUserId) {
@@ -173,12 +188,18 @@ export default function DossiersPage() {
           />
           <select
             value={selectedSiteId}
-            onChange={(e) => setSelectedSiteId(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSelectedSite(
+                availableSites.find((item) => item.id === value) || null,
+              );
+              setSelectedSiteId(value);
+            }}
             disabled={loading}
             className="mt-3 w-full rounded-md border px-3 py-2 text-sm"
           >
             <option value="">Selecione uma obra/setor</option>
-            {filteredSites.map((item) => (
+            {availableSites.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.nome}
               </option>
@@ -197,4 +218,8 @@ export default function DossiersPage() {
       </div>
     </div>
   );
+}
+
+function dedupeById<T extends { id: string }>(items: T[]) {
+  return Array.from(new Map(items.map((item) => [item.id, item])).values());
 }

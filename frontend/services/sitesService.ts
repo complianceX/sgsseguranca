@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export interface Site {
   id: string;
@@ -12,11 +13,34 @@ export interface Site {
 }
 
 export const sitesService = {
-  findAll: async (companyId?: string) => {
-    const response = await api.get<Site[]>('/sites', companyId
-      ? { params: { company_id: companyId } }
-      : undefined);
+  findPaginated: async (opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    companyId?: string;
+  }): Promise<PaginatedResponse<Site>> => {
+    const response = await api.get<PaginatedResponse<Site>>('/sites', {
+      params: {
+        page: opts?.page ?? 1,
+        limit: opts?.limit ?? 20,
+        ...(opts?.search ? { search: opts.search } : {}),
+        ...(opts?.companyId ? { company_id: opts.companyId } : {}),
+      },
+    });
     return response.data;
+  },
+
+  findAll: async (companyId?: string) => {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        sitesService.findPaginated({
+          page,
+          limit,
+          companyId,
+        }),
+      limit: 100,
+      maxPages: 50,
+    });
   },
 
   findOne: async (id: string) => {

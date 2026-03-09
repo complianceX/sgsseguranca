@@ -33,11 +33,14 @@ type SignatureTarget =
 export default function EpiFichasPage() {
   const [assignments, setAssignments] = useState<EpiAssignment[]>([]);
   const [epis, setEpis] = useState<Epi[]>([]);
+  const [selectedEpi, setSelectedEpi] = useState<Epi | null>(null);
   const [userOptions, setUserOptions] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [epiSearch, setEpiSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
+  const deferredEpiSearch = useDeferredValue(epiSearch);
   const deferredUserSearch = useDeferredValue(userSearch);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -70,13 +73,20 @@ export default function EpiFichasPage() {
 
     return [selectedUser, ...userOptions.filter((item) => item.id !== selectedUser.id)];
   }, [selectedUser, userOptions]);
+  const availableEpis = useMemo(() => {
+    if (!selectedEpi) {
+      return epis;
+    }
+
+    return [selectedEpi, ...epis.filter((item) => item.id !== selectedEpi.id)];
+  }, [epis, selectedEpi]);
   const usersMap = useMemo(
     () => new Map(availableUsers.map((item) => [item.id, item.nome])),
     [availableUsers],
   );
   const episMap = useMemo(
-    () => new Map(epis.map((item) => [item.id, item.nome])),
-    [epis],
+    () => new Map(availableEpis.map((item) => [item.id, item.nome])),
+    [availableEpis],
   );
 
   const loadAssignments = useCallback(async () => {
@@ -105,8 +115,23 @@ export default function EpiFichasPage() {
   useEffect(() => {
     const loadEpis = async () => {
       try {
-        const episData = await episService.findAll();
-        setEpis(episData);
+        const episPage = await episService.findPaginated({
+          page: 1,
+          limit: 25,
+          search: deferredEpiSearch || undefined,
+        });
+        let nextEpis = episPage.data;
+        if (form.epi_id && !nextEpis.some((item) => item.id === form.epi_id)) {
+          try {
+            const currentEpi = await episService.findOne(form.epi_id);
+            nextEpis = dedupeById([currentEpi, ...nextEpis]);
+          } catch {
+            nextEpis = dedupeById(nextEpis);
+          }
+        } else {
+          nextEpis = dedupeById(nextEpis);
+        }
+        setEpis(nextEpis);
       } catch (error) {
         console.error('Erro ao carregar EPIs:', error);
         toast.error('Erro ao carregar catálogo de EPIs.');
@@ -114,7 +139,7 @@ export default function EpiFichasPage() {
     };
 
     void loadEpis();
-  }, []);
+  }, [deferredEpiSearch, form.epi_id]);
 
   useEffect(() => {
     const loadUsers = async () => {
@@ -160,7 +185,9 @@ export default function EpiFichasPage() {
       setForm({ epi_id: '', user_id: '', quantidade: 1, observacoes: '' });
       setDeliverySignature('');
       setDeliverySignatureType('digital');
+      setSelectedEpi(null);
       setSelectedUser(null);
+      setEpiSearch('');
       setUserSearch('');
       if (page !== 1) {
         setPage(1);
@@ -250,11 +277,17 @@ export default function EpiFichasPage() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
           <select
             value={form.epi_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, epi_id: e.target.value }))}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSelectedEpi(
+                availableEpis.find((item) => item.id === value) || null,
+              );
+              setForm((prev) => ({ ...prev, epi_id: value }));
+            }}
             className="rounded-md border px-3 py-2 text-sm"
           >
             <option value="">EPI</option>
-            {epis.map((item) => (
+            {availableEpis.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.nome}
               </option>
@@ -307,6 +340,13 @@ export default function EpiFichasPage() {
           >
             {deliverySignature ? 'Assinatura capturada' : 'Assinar entrega'}
           </button>
+          <input
+            type="text"
+            value={epiSearch}
+            onChange={(e) => setEpiSearch(e.target.value)}
+            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
+            placeholder="Buscar EPI"
+          />
           <input
             type="text"
             value={userSearch}
@@ -465,4 +505,8 @@ function Kpi({ title, value }: { title: string; value: number }) {
       <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
     </div>
   );
+}
+
+function dedupeById<T extends { id: string }>(items: T[]) {
+  return Array.from(new Map(items.map((item) => [item.id, item])).values());
 }

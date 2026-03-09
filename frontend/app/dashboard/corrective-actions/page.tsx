@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PaginationControls } from '@/components/PaginationControls';
 import { handleApiError } from '@/lib/error-handler';
 
 const STATUS_OPTIONS: Array<{ value: CorrectiveActionStatus; label: string }> = [
@@ -30,6 +31,9 @@ export default function CorrectiveActionsPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
   const [summary, setSummary] = useState({
     total: 0,
     open: 0,
@@ -64,12 +68,14 @@ export default function CorrectiveActionsPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [actionsData, summaryData, usersData] = await Promise.all([
-        correctiveActionsService.findAll(),
+      const [actionsPage, summaryData, usersData] = await Promise.all([
+        correctiveActionsService.findPaginated({ page, limit: 10 }),
         correctiveActionsService.findSummary(),
         usersService.findAll(),
       ]);
-      setActions(actionsData);
+      setActions(actionsPage.data);
+      setTotal(actionsPage.total);
+      setLastPage(actionsPage.lastPage);
       setSummary(summaryData);
       setUsers(usersData);
       const [overview, bySite] = await Promise.all([
@@ -83,7 +89,7 @@ export default function CorrectiveActionsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     loadData();
@@ -109,7 +115,11 @@ export default function CorrectiveActionsPage() {
         priority: 'medium',
         responsible_user_id: '',
       });
-      await loadData();
+      if (page !== 1) {
+        setPage(1);
+      } else {
+        await loadData();
+      }
     } catch (error) {
       handleApiError(error, 'Ação corretiva');
     } finally {
@@ -287,6 +297,15 @@ export default function CorrectiveActionsPage() {
             )}
           </TableBody>
         </Table>
+        {!loading && total > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </Card>
 
       <Card tone="elevated">

@@ -3,6 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeepPartial } from 'typeorm';
 import { Site } from './entities/site.entity';
 import { TenantService } from '../common/tenant/tenant.service';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
 
 @Injectable()
 export class SitesService {
@@ -21,6 +26,52 @@ export class SitesService {
     const site = this.sitesRepository.create(siteData);
     const saved = await this.sitesRepository.save(site);
     return saved;
+  }
+
+  async findPaginated(opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    companyId?: string;
+  }): Promise<OffsetPage<Site>> {
+    const tenantId = this.tenantService.getTenantId();
+    const effectiveCompanyId =
+      opts?.companyId && (!tenantId || tenantId === opts.companyId)
+        ? opts.companyId
+        : tenantId;
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const query = this.sitesRepository
+      .createQueryBuilder('site')
+      .orderBy('site.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    if (effectiveCompanyId) {
+      query.where('site.company_id = :companyId', {
+        companyId: effectiveCompanyId,
+      });
+    }
+
+    if (opts?.search?.trim()) {
+      const search = `%${opts.search.trim().toLowerCase()}%`;
+      const condition = `(
+        LOWER(site.nome) LIKE :search
+        OR LOWER(COALESCE(site.cidade, '')) LIKE :search
+        OR LOWER(COALESCE(site.estado, '')) LIKE :search
+      )`;
+      if (effectiveCompanyId) {
+        query.andWhere(condition, { search });
+      } else {
+        query.where(condition, { search });
+      }
+    }
+
+    const [data, total] = await query.getManyAndCount();
+    return toOffsetPage(data, total, page, limit);
   }
 
   async findAll(companyId?: string): Promise<Site[]> {

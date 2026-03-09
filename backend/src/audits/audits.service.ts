@@ -83,6 +83,32 @@ export class AuditsService {
     return toOffsetPage(data, total, page, limit);
   }
 
+  async countPendingActionItems(companyId?: string): Promise<number> {
+    const params = companyId ? [companyId] : [];
+    const where = companyId ? 'WHERE a.company_id = $1' : '';
+
+    const rows = (await this.auditsRepository.query(
+      `
+        SELECT COALESCE(
+          SUM(
+            (
+              SELECT COUNT(*)
+              FROM json_array_elements(COALESCE(a.plano_acao, '[]'::json)) AS item
+              WHERE LOWER(COALESCE(item->>'status', '')) NOT LIKE '%conclu%'
+                AND LOWER(COALESCE(item->>'status', '')) NOT LIKE '%encerr%'
+            )
+          ),
+          0
+        )::int AS total
+        FROM audits a
+        ${where}
+      `,
+      params,
+    )) as Array<{ total?: number | string }>;
+
+    return Number(rows[0]?.total ?? 0);
+  }
+
   async findOne(id: string, companyId: string) {
     const audit = await this.tenantRepo.findOne(id, companyId, {
       relations: ['site', 'auditor', 'company'],

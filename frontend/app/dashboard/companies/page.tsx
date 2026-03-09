@@ -26,6 +26,7 @@ import {
   ErrorState,
   PageLoadingState,
 } from '@/components/ui/state';
+import { PaginationControls } from '@/components/PaginationControls';
 import { cn } from '@/lib/utils';
 
 const inputClassName =
@@ -37,17 +38,26 @@ export default function CompaniesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
 
   useEffect(() => {
     loadCompanies();
-  }, []);
+  }, [page, deferredSearchTerm]);
 
   async function loadCompanies() {
     try {
       setLoading(true);
       setLoadError(null);
-      const data = await companiesService.findAll();
-      setCompanies(data);
+      const response = await companiesService.findPaginated({
+        page,
+        limit: 10,
+        search: deferredSearchTerm || undefined,
+      });
+      setCompanies(response.data);
+      setTotal(response.total);
+      setLastPage(response.lastPage);
     } catch (error) {
       console.error('Erro ao carregar empresas:', error);
       setLoadError('Nao foi possivel carregar a lista de empresas.');
@@ -64,30 +74,25 @@ export default function CompaniesPage() {
 
     try {
       await companiesService.delete(id);
-      setCompanies((current) => current.filter((company) => company.id !== id));
       toast.success('Empresa excluida com sucesso');
+      if (companies.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+        return;
+      }
+      loadCompanies();
     } catch (error) {
       console.error('Erro ao excluir empresa:', error);
       toast.error('Erro ao excluir empresa. Verifique dependencias e tente novamente.');
     }
   }
 
-  const filteredCompanies = useMemo(
-    () =>
-      companies.filter((company) =>
-        company.razao_social.toLowerCase().includes(deferredSearchTerm.toLowerCase()) ||
-        company.cnpj.includes(deferredSearchTerm),
-      ),
-    [companies, deferredSearchTerm],
-  );
-
   const summary = useMemo(
     () => ({
-      total: companies.length,
-      visiveis: filteredCompanies.length,
+      total,
+      visiveis: companies.length,
       ativas: companies.filter((company) => company.status).length,
     }),
-    [companies, filteredCompanies.length],
+    [companies, total],
   );
 
   if (loading) {
@@ -170,7 +175,7 @@ export default function CompaniesPage() {
           <div className="space-y-1">
             <CardTitle>Base de empresas</CardTitle>
             <CardDescription>
-              {filteredCompanies.length} empresa(s) exibida(s) com busca por razão social e CNPJ.
+              {total} empresa(s) encontrada(s) com busca por razão social, CNPJ e responsável.
             </CardDescription>
           </div>
           <div className="relative w-full md:w-[360px]">
@@ -181,13 +186,16 @@ export default function CompaniesPage() {
               aria-label="Buscar empresas por razão social ou CNPJ"
               className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
+              onChange={(event) => {
+                setSearchTerm(event.target.value);
+                setPage(1);
+              }}
             />
           </div>
         </CardHeader>
 
         <CardContent className="mt-0">
-          {filteredCompanies.length === 0 ? (
+          {companies.length === 0 ? (
             <EmptyState
               title="Nenhuma empresa encontrada"
               description={
@@ -218,7 +226,7 @@ export default function CompaniesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredCompanies.map((company) => (
+                {companies.map((company) => (
                   <TableRow key={company.id}>
                     <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
                       {company.razao_social}
@@ -254,6 +262,15 @@ export default function CompaniesPage() {
             </Table>
           )}
         </CardContent>
+        {!loading && total > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </Card>
     </div>
   );

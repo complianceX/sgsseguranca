@@ -112,6 +112,7 @@ export class UsersService {
     page?: number;
     limit?: number;
     search?: string;
+    companyId?: string;
   }): Promise<OffsetPage<UserResponseDto>> {
     const tenantId = this.tenantService.getTenantId();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
@@ -128,11 +129,15 @@ export class UsersService {
 
     if (tenantId) {
       qb.where('user.company_id = :tenantId', { tenantId });
+    } else if (opts?.companyId) {
+      qb.where('user.company_id = :companyId', {
+        companyId: opts.companyId,
+      });
     }
 
     if (opts?.search) {
       const clause = '(user.nome ILIKE :search OR user.cpf LIKE :search)';
-      tenantId
+      tenantId || opts?.companyId
         ? qb.andWhere(clause, { search: `%${opts.search}%` })
         : qb.where(clause, { search: `%${opts.search}%` });
     }

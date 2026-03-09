@@ -9,6 +9,7 @@ import {
   UseGuards,
   UnauthorizedException,
   ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
 import { InspectionsService } from './inspections.service';
 import {
@@ -53,8 +54,16 @@ export class InspectionsController {
 
   @Get()
   @Authorize('can_view_inspections')
-  findAll() {
-    return this.inspectionsService.findAll(this.getTenantIdOrThrow());
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.inspectionsService.findPaginated(this.getTenantIdOrThrow(), {
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      search,
+    });
   }
 
   @Get(':id')

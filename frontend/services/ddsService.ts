@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import { User } from './usersService';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export interface Dds {
   id: string;
@@ -27,9 +28,33 @@ export interface Dds {
 }
 
 export const ddsService = {
-  findAll: async () => {
-    const response = await api.get<Dds[]>('/dds');
+  findPaginated: async (opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    kind?: 'all' | 'model' | 'regular';
+  }): Promise<PaginatedResponse<Dds>> => {
+    const response = await api.get<PaginatedResponse<Dds>>('/dds', {
+      params: {
+        page: opts?.page ?? 1,
+        limit: opts?.limit ?? 20,
+        ...(opts?.search ? { search: opts.search } : {}),
+        ...(opts?.kind && opts.kind !== 'all' ? { kind: opts.kind } : {}),
+      },
+    });
     return response.data;
+  },
+
+  findAll: async () => {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        ddsService.findPaginated({
+          page,
+          limit,
+        }),
+      limit: 100,
+      maxPages: 50,
+    });
   },
 
   findOne: async (id: string) => {

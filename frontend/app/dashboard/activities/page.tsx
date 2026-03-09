@@ -26,6 +26,7 @@ import {
   ErrorState,
   PageLoadingState,
 } from '@/components/ui/state';
+import { PaginationControls } from '@/components/PaginationControls';
 import { cn } from '@/lib/utils';
 
 const inputClassName =
@@ -37,17 +38,26 @@ export default function ActivitiesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
 
   useEffect(() => {
     loadActivities();
-  }, []);
+  }, [page, deferredSearchTerm]);
 
   async function loadActivities() {
     try {
       setLoading(true);
       setLoadError(null);
-      const data = await activitiesService.findAll();
-      setActivities(data);
+      const response = await activitiesService.findPaginated({
+        page,
+        limit: 10,
+        search: deferredSearchTerm || undefined,
+      });
+      setActivities(response.data);
+      setTotal(response.total);
+      setLastPage(response.lastPage);
     } catch (error) {
       console.error('Erro ao carregar atividades:', error);
       setLoadError('Nao foi possivel carregar a lista de atividades.');
@@ -64,33 +74,25 @@ export default function ActivitiesPage() {
 
     try {
       await activitiesService.delete(id);
-      setActivities((current) => current.filter((activity) => activity.id !== id));
       toast.success('Atividade excluida com sucesso');
+      if (activities.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+        return;
+      }
+      loadActivities();
     } catch (error) {
       console.error('Erro ao excluir atividade:', error);
       toast.error('Erro ao excluir atividade. Verifique dependencias e tente novamente.');
     }
   }
 
-  const filteredActivities = useMemo(
-    () =>
-      activities.filter((activity) => {
-        const term = deferredSearchTerm.toLowerCase();
-        return (
-          activity.nome.toLowerCase().includes(term) ||
-          activity.descricao?.toLowerCase().includes(term)
-        );
-      }),
-    [activities, deferredSearchTerm],
-  );
-
   const summary = useMemo(
     () => ({
-      total: activities.length,
-      visiveis: filteredActivities.length,
+      total,
+      visiveis: activities.length,
       comDescricao: activities.filter((activity) => Boolean(activity.descricao)).length,
     }),
-    [activities, filteredActivities.length],
+    [activities, total],
   );
 
   if (loading) {
@@ -173,7 +175,7 @@ export default function ActivitiesPage() {
           <div className="space-y-1">
             <CardTitle>Base de atividades</CardTitle>
             <CardDescription>
-              {filteredActivities.length} atividade(s) exibida(s) com busca por nome e descrição.
+              {total} atividade(s) encontrada(s) com busca por nome e descrição.
             </CardDescription>
           </div>
           <div className="relative w-full md:w-[360px]">
@@ -184,13 +186,16 @@ export default function ActivitiesPage() {
               aria-label="Buscar atividades por nome ou descrição"
               className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
+              onChange={(event) => {
+                setSearchTerm(event.target.value);
+                setPage(1);
+              }}
             />
           </div>
         </CardHeader>
 
         <CardContent className="mt-0">
-          {filteredActivities.length === 0 ? (
+          {activities.length === 0 ? (
             <EmptyState
               title="Nenhuma atividade encontrada"
               description={
@@ -221,7 +226,7 @@ export default function ActivitiesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredActivities.map((activity) => (
+                {activities.map((activity) => (
                   <TableRow key={activity.id}>
                     <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
                       {activity.nome}
@@ -259,6 +264,15 @@ export default function ActivitiesPage() {
             </Table>
           )}
         </CardContent>
+        {!loading && total > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </Card>
     </div>
   );

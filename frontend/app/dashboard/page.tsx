@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/context/AuthContext';
 import { 
   Users, 
   Building2, 
@@ -21,21 +20,11 @@ import {
   Clock3,
   ArrowUpRight,
 } from 'lucide-react';
-import { usersService } from '@/services/usersService';
-import { companiesService } from '@/services/companiesService';
-import { sitesService } from '@/services/sitesService';
-import { checklistsService } from '@/services/checklistsService';
-import { aprsService } from '@/services/aprsService';
-import { ptsService } from '@/services/ptsService';
-import { episService, Epi } from '@/services/episService';
-import { trainingsService, Training } from '@/services/trainingsService';
-import { auditsService } from '@/services/auditsService';
-import { inspectionsService } from '@/services/inspectionsService';
+import { dashboardService, DashboardSummaryResponse } from '@/services/dashboardService';
 import { nonConformitiesService } from '@/services/nonConformitiesService';
-import { ddsService } from '@/services/ddsService';
-import { reportsService, Report } from '@/services/reportsService';
+import { trainingsService } from '@/services/trainingsService';
 import { aiService } from '@/services/aiService';
-import { format, isBefore, addDays } from 'date-fns';
+import { format, isBefore } from 'date-fns';
 import { GandraInsights } from '@/components/GandraInsights';
 import {
   BarChart,
@@ -62,7 +51,6 @@ const CHART_TOKENS = {
 };
 
 export default function DashboardPage() {
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [safetyScore, setSafetyScore] = useState(100);
   const [counts, setCounts] = useState({
@@ -73,417 +61,82 @@ export default function DashboardPage() {
     aprs: 0,
     pts: 0,
   });
-  const [expiringEpis, setExpiringEpis] = useState<Epi[]>([]);
-  const [expiringTrainings, setExpiringTrainings] = useState<Training[]>([]);
-  const [pendingApprovals, setPendingApprovals] = useState({
+  const [expiringEpis, setExpiringEpis] = useState<DashboardSummaryResponse['expiringEpis']>([]);
+  const [expiringTrainings, setExpiringTrainings] = useState<DashboardSummaryResponse['expiringTrainings']>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<DashboardSummaryResponse['pendingApprovals']>({
     aprs: 0,
     pts: 0,
     checklists: 0,
     nonconformities: 0,
   });
-  const [actionPlanItems, setActionPlanItems] = useState<{
-    id: string;
-    source: string;
-    title: string;
-    action: string;
-    responsavel?: string;
-    prazo?: string;
-    status?: string;
-    href: string;
-  }[]>([]);
-  const [riskSummary, setRiskSummary] = useState({
+  const [actionPlanItems, setActionPlanItems] = useState<DashboardSummaryResponse['actionPlanItems']>([]);
+  const [riskSummary, setRiskSummary] = useState<DashboardSummaryResponse['riskSummary']>({
     alto: 0,
     medio: 0,
     baixo: 0,
   });
-  const [evidenceSummary, setEvidenceSummary] = useState({
+  const [evidenceSummary, setEvidenceSummary] = useState<DashboardSummaryResponse['evidenceSummary']>({
     total: 0,
     inspections: 0,
     nonconformities: 0,
     audits: 0,
   });
-  const [modelCounts, setModelCounts] = useState({
+  const [modelCounts, setModelCounts] = useState<DashboardSummaryResponse['modelCounts']>({
     aprs: 0,
     dds: 0,
     checklists: 0,
   });
-  const [recentActivities, setRecentActivities] = useState<{
-    id: string;
-    title: string;
-    description: string;
-    date: string;
-    href: string;
-    color: string;
-  }[]>([]);
-  const [siteCompliance, setSiteCompliance] = useState<{
-    id: string;
-    nome: string;
-    total: number;
-    conformes: number;
-    taxa: number;
-  }[]>([]);
-  const [recentReports, setRecentReports] = useState<Report[]>([]);
+  const [recentActivities, setRecentActivities] = useState<DashboardSummaryResponse['recentActivities']>([]);
+  const [siteCompliance, setSiteCompliance] = useState<DashboardSummaryResponse['siteCompliance']>([]);
+  const [recentReports, setRecentReports] = useState<DashboardSummaryResponse['recentReports']>([]);
   const [ncMonthlyData, setNcMonthlyData] = useState<{ mes: string; total: number }[]>([]);
   const [trainingSummaryData, setTrainingSummaryData] = useState<{ name: string; value: number; fill: string }[]>([]);
 
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        const results = await Promise.allSettled([
-          usersService.findAll(),
-          companiesService.findAll(),
-          sitesService.findAll(),
-          checklistsService.findAll(),
-          aprsService.findAll(),
-          ptsService.findAll(),
-          episService.findAll(),
-          trainingsService.findAll(),
+        const [summaryR, aiInsightsR, monthlyR, expSummaryR] = await Promise.allSettled([
+          dashboardService.getSummary(),
           aiService.getInsights(),
-          auditsService.findAll(),
-          inspectionsService.findAll(),
-          nonConformitiesService.findAll(),
-          ddsService.findAll(),
-          reportsService.findAll(),
+          nonConformitiesService.getMonthlyAnalytics(),
+          trainingsService.getExpirySummary(),
         ]);
 
-        const [usersR, companiesR, sitesR, checklistsR, aprsR, ptsR, episR, trainingsR, aiInsightsR, auditsR, inspectionsR, nonconformitiesR, ddsR, reportsR] = results;
+        if (summaryR.status === 'fulfilled') {
+          const summary = summaryR.value;
+          setCounts(summary.counts);
+          setExpiringEpis(summary.expiringEpis);
+          setExpiringTrainings(summary.expiringTrainings);
+          setPendingApprovals(summary.pendingApprovals);
+          setActionPlanItems(summary.actionPlanItems);
+          setRiskSummary(summary.riskSummary);
+          setEvidenceSummary(summary.evidenceSummary);
+          setModelCounts(summary.modelCounts);
+          setRecentActivities(summary.recentActivities);
+          setSiteCompliance(summary.siteCompliance);
+          setRecentReports(summary.recentReports);
+        }
 
-        const users = usersR.status === 'fulfilled' ? usersR.value : [];
-        const companies = companiesR.status === 'fulfilled' ? companiesR.value : [];
-        const sites = sitesR.status === 'fulfilled' ? sitesR.value : [];
-        const checklists = checklistsR.status === 'fulfilled' ? checklistsR.value : [];
-        const aprs = aprsR.status === 'fulfilled' ? aprsR.value : [];
-        const pts = ptsR.status === 'fulfilled' ? ptsR.value : [];
-        const epis = episR.status === 'fulfilled' ? episR.value : [];
-        const trainings = trainingsR.status === 'fulfilled' ? trainingsR.value : [];
-        const aiInsights = aiInsightsR.status === 'fulfilled' ? aiInsightsR.value : null;
-        const audits = auditsR.status === 'fulfilled' ? auditsR.value : [];
-        const inspections = inspectionsR.status === 'fulfilled' ? inspectionsR.value : [];
-        const nonconformities = nonconformitiesR.status === 'fulfilled' ? nonconformitiesR.value : [];
-        const dds = ddsR.status === 'fulfilled' ? ddsR.value : [];
-        const reports = reportsR.status === 'fulfilled' ? reportsR.value : [];
+        if (aiInsightsR.status === 'fulfilled' && aiInsightsR.value?.safetyScore !== undefined) {
+          setSafetyScore(aiInsightsR.value.safetyScore);
+        }
 
-        setCounts({
-          users: users.length,
-          companies: companies.length,
-          sites: sites.length,
-          checklists: checklists.length,
-          aprs: aprs.length,
-          pts: pts.length,
-        });
+        if (monthlyR.status === 'fulfilled') {
+          setNcMonthlyData(
+            monthlyR.value.map((row) => ({
+              mes: row.mes.slice(0, 7),
+              total: row.total,
+            })),
+          );
+        }
 
-        if (aiInsights?.safetyScore !== undefined) setSafetyScore(aiInsights.safetyScore);
-
-        // Filtrar EPIs vencidos ou vencendo em 30 dias
-        const today = new Date();
-        const warningLimit = addDays(today, 30);
-        
-        const expiring = epis.filter(epi => {
-          if (!epi.validade_ca) return false;
-          const validityDate = new Date(epi.validade_ca);
-          return isBefore(validityDate, warningLimit);
-        }).sort((a, b) => {
-          if (!a.validade_ca || !b.validade_ca) return 0;
-          return new Date(a.validade_ca).getTime() - new Date(b.validade_ca).getTime();
-        });
-
-        setExpiringEpis(expiring.slice(0, 5));
-
-        const trainingExpiring = trainings.filter(training => {
-          const expiry = new Date(training.data_vencimento);
-          return isBefore(expiry, warningLimit);
-        }).sort((a, b) => {
-          return new Date(a.data_vencimento).getTime() - new Date(b.data_vencimento).getTime();
-        });
-
-        setExpiringTrainings(trainingExpiring.slice(0, 5));
-
-        const siteNameMap = new Map(sites.map(site => [site.id, site.nome]));
-
-        const pendingNonconformities = nonconformities.filter((item) => {
-          const status = (item.status || '').toLowerCase();
-          return status && status !== 'encerrada' && status !== 'concluída' && status !== 'concluida';
-        }).length;
-
-        setPendingApprovals({
-          aprs: aprs.filter((item) => item.status === 'Pendente').length,
-          pts: pts.filter((item) => item.status === 'Pendente').length,
-          checklists: checklists.filter((item) => item.status === 'Pendente').length,
-          nonconformities: pendingNonconformities,
-        });
-
-        const actionItems: {
-          id: string;
-          source: string;
-          title: string;
-          action: string;
-          responsavel?: string;
-          prazo?: string;
-          status?: string;
-          href: string;
-        }[] = [];
-
-        inspections.forEach((inspection) => {
-          inspection.plano_acao?.forEach((item, index) => {
-            actionItems.push({
-              id: `inspection-${inspection.id}-${index}`,
-              source: 'Inspeção',
-              title: inspection.setor_area,
-              action: item.acao,
-              responsavel: item.responsavel,
-              prazo: item.prazo,
-              status: item.status,
-              href: `/dashboard/inspections/edit/${inspection.id}`,
-            });
-          });
-        });
-
-        audits.forEach((audit) => {
-          audit.plano_acao?.forEach((item, index) => {
-            actionItems.push({
-              id: `audit-${audit.id}-${index}`,
-              source: 'Auditoria',
-              title: audit.titulo,
-              action: item.acao,
-              responsavel: item.responsavel,
-              prazo: item.prazo,
-              status: item.status,
-              href: `/dashboard/audits/edit/${audit.id}`,
-            });
-          });
-        });
-
-        nonconformities.forEach((item) => {
-          if (item.acao_imediata_descricao) {
-            actionItems.push({
-              id: `nc-imediata-${item.id}`,
-              source: 'Não Conformidade',
-              title: item.codigo_nc,
-              action: item.acao_imediata_descricao,
-              responsavel: item.acao_imediata_responsavel,
-              prazo: item.acao_imediata_data,
-              status: item.acao_imediata_status || item.status,
-              href: `/dashboard/nonconformities/edit/${item.id}`,
-            });
-          }
-          if (item.acao_definitiva_descricao) {
-            actionItems.push({
-              id: `nc-definitiva-${item.id}`,
-              source: 'Não Conformidade',
-              title: item.codigo_nc,
-              action: item.acao_definitiva_descricao,
-              responsavel: item.acao_definitiva_responsavel,
-              prazo: item.acao_definitiva_prazo || item.acao_definitiva_data_prevista,
-              status: item.status,
-              href: `/dashboard/nonconformities/edit/${item.id}`,
-            });
-          }
-        });
-
-        const actionItemsSorted = actionItems
-          .sort((a, b) => {
-            const aDate = a.prazo ? new Date(a.prazo).getTime() : Number.MAX_SAFE_INTEGER;
-            const bDate = b.prazo ? new Date(b.prazo).getTime() : Number.MAX_SAFE_INTEGER;
-            return aDate - bDate;
-          })
-          .slice(0, 6);
-
-        setActionPlanItems(actionItemsSorted);
-
-        const riskCounts = { alto: 0, medio: 0, baixo: 0 };
-        const applyRisk = (value?: string) => {
-          if (!value) return;
-          const level = value.toLowerCase();
-          if (level.includes('alto')) {
-            riskCounts.alto += 1;
-          } else if (level.includes('médio') || level.includes('medio')) {
-            riskCounts.medio += 1;
-          } else if (level.includes('baixo')) {
-            riskCounts.baixo += 1;
-          }
-        };
-
-        inspections.forEach((inspection) => {
-          inspection.perigos_riscos?.forEach((risk) => applyRisk(risk.classificacao_risco));
-        });
-
-        nonconformities.forEach((item) => applyRisk(item.risco_nivel));
-
-        setRiskSummary(riskCounts);
-
-        const inspectionEvidence = inspections.reduce(
-          (total, inspection) => total + (inspection.evidencias?.length || 0),
-          0,
-        );
-        const nonconformityEvidence = nonconformities.reduce(
-          (total, item) => total + (item.anexos?.length || 0),
-          0,
-        );
-        const auditEvidence = audits.reduce(
-          (total, audit) => total + (audit.resultados_nao_conformidades?.length || 0),
-          0,
-        );
-
-        setEvidenceSummary({
-          total: inspectionEvidence + nonconformityEvidence + auditEvidence,
-          inspections: inspectionEvidence,
-          nonconformities: nonconformityEvidence,
-          audits: auditEvidence,
-        });
-
-        setModelCounts({
-          aprs: aprs.filter((item) => item.is_modelo).length,
-          dds: dds.filter((item) => item.is_modelo).length,
-          checklists: checklists.filter((item) => item.is_modelo).length,
-        });
-
-        const activityItems: {
-          id: string;
-          title: string;
-          description: string;
-          date: string;
-          href: string;
-          color: string;
-        }[] = [];
-
-        aprs.forEach((item) => {
-          activityItems.push({
-            id: `apr-${item.id}`,
-            title: 'APR atualizada',
-            description: item.titulo,
-            date: item.updated_at || item.created_at,
-            href: '/dashboard/aprs',
-            color: 'bg-blue-500',
-          });
-        });
-
-        pts.forEach((item) => {
-          activityItems.push({
-            id: `pt-${item.id}`,
-            title: 'PT atualizada',
-            description: item.titulo,
-            date: item.updated_at || item.created_at,
-            href: '/dashboard/pts',
-            color: 'bg-indigo-500',
-          });
-        });
-
-        checklists.forEach((item) => {
-          activityItems.push({
-            id: `checklist-${item.id}`,
-            title: 'Checklist atualizado',
-            description: item.titulo,
-            date: item.updated_at || item.created_at,
-            href: '/dashboard/checklists',
-            color: 'bg-emerald-500',
-          });
-        });
-
-        inspections.forEach((item) => {
-          activityItems.push({
-            id: `inspection-${item.id}`,
-            title: 'Inspeção registrada',
-            description: item.setor_area,
-            date: item.updated_at || item.created_at,
-            href: '/dashboard/inspections',
-            color: 'bg-amber-500',
-          });
-        });
-
-        audits.forEach((item) => {
-          activityItems.push({
-            id: `audit-${item.id}`,
-            title: 'Auditoria registrada',
-            description: item.titulo,
-            date: item.updated_at || item.created_at,
-            href: '/dashboard/audits',
-            color: 'bg-orange-500',
-          });
-        });
-
-        nonconformities.forEach((item) => {
-          activityItems.push({
-            id: `nc-${item.id}`,
-            title: 'Não conformidade atualizada',
-            description: item.codigo_nc,
-            date: item.updated_at || item.created_at,
-            href: '/dashboard/nonconformities',
-            color: 'bg-red-500',
-          });
-        });
-
-        trainings.forEach((item) => {
-          activityItems.push({
-            id: `training-${item.id}`,
-            title: 'Treinamento registrado',
-            description: item.nome,
-            date: item.data_conclusao,
-            href: '/dashboard/trainings',
-            color: 'bg-purple-500',
-          });
-        });
-
-        setRecentActivities(
-          activityItems
-            .filter((item) => item.date)
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .slice(0, 6),
-        );
-
-        const complianceBySite = Array.from(
-          checklists.reduce((map, checklist) => {
-            const current = map.get(checklist.site_id) || {
-              total: 0,
-              conformes: 0,
-            };
-            current.total += 1;
-            if (checklist.status === 'Conforme') {
-              current.conformes += 1;
-            }
-            map.set(checklist.site_id, current);
-            return map;
-          }, new Map<string, { total: number; conformes: number }>()),
-        ).map(([id, stats]) => ({
-          id,
-          nome: siteNameMap.get(id) || 'Sem obra',
-          total: stats.total,
-          conformes: stats.conformes,
-          taxa: stats.total > 0 ? Math.round((stats.conformes / stats.total) * 100) : 0,
-        }));
-
-        setSiteCompliance(
-          complianceBySite.sort((a, b) => b.taxa - a.taxa).slice(0, 5),
-        );
-
-        setRecentReports(
-          reports
-            .slice()
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-            .slice(0, 4),
-        );
-
-        // SST Charts data
-        try {
-          const [monthlyR, expSummaryR] = await Promise.allSettled([
-            nonConformitiesService.getMonthlyAnalytics(),
-            trainingsService.getExpirySummary(),
+        if (expSummaryR.status === 'fulfilled') {
+          const summary = expSummaryR.value;
+          setTrainingSummaryData([
+            { name: 'Em dia', value: summary.valid, fill: '#10b981' },
+            { name: 'Vencendo', value: summary.expiringSoon, fill: '#f59e0b' },
+            { name: 'Vencidos', value: summary.expired, fill: '#ef4444' },
           ]);
-          if (monthlyR.status === 'fulfilled') {
-            setNcMonthlyData(monthlyR.value.map((r) => ({
-              mes: r.mes.slice(0, 7),
-              total: r.total,
-            })));
-          }
-          if (expSummaryR.status === 'fulfilled') {
-            const s = expSummaryR.value;
-            setTrainingSummaryData([
-              { name: 'Em dia', value: s.valid, fill: '#10b981' },
-              { name: 'Vencendo', value: s.expiringSoon, fill: '#f59e0b' },
-              { name: 'Vencidos', value: s.expired, fill: '#ef4444' },
-            ]);
-          }
-        } catch {
-          // SST chart data is non-critical
         }
       } catch (error) {
         console.error('Erro ao carregar dados do dashboard:', error);

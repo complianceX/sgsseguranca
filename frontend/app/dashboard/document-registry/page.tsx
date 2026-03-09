@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Archive,
@@ -62,28 +62,57 @@ export default function DocumentRegistryPage() {
   const [entries, setEntries] = useState<DocumentRegistryEntry[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [loadingBundle, setLoadingBundle] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState(() => selectedTenantStore.get()?.companyId || '');
+  const [companySearchTerm, setCompanySearchTerm] = useState('');
   const [year, setYear] = useState(String(getISOWeekYear(new Date())));
   const [week, setWeek] = useState(String(getISOWeek(new Date())));
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const deferredCompanySearchTerm = useDeferredValue(companySearchTerm);
+
+  const loadCompanies = useCallback(async () => {
+    try {
+      setLoadingCompanies(true);
+      const response = await companiesService.findPaginated({
+        page: 1,
+        limit: 25,
+        search: deferredCompanySearchTerm.trim() || undefined,
+      });
+
+      let nextCompanies = response.data;
+      if (companyId && !nextCompanies.some((company) => company.id === companyId)) {
+        try {
+          const selectedCompany = await companiesService.findOne(companyId);
+          nextCompanies = dedupeById([selectedCompany, ...nextCompanies]);
+        } catch {
+          nextCompanies = dedupeById(nextCompanies);
+        }
+      } else {
+        nextCompanies = dedupeById(nextCompanies);
+      }
+
+      setCompanies(nextCompanies);
+    } catch (loadError) {
+      console.error('Erro ao carregar empresas do registry documental:', loadError);
+      toast.error('Erro ao carregar empresas disponíveis.');
+    } finally {
+      setLoadingCompanies(false);
+    }
+  }, [companyId, deferredCompanySearchTerm]);
 
   const loadPageData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const [companiesData, registryData] = await Promise.all([
-        companiesService.findAll(),
-        documentRegistryService.list({
-          company_id: companyId || undefined,
-          year: year ? Number(year) : undefined,
-          week: week ? Number(week) : undefined,
-          modules: selectedModules.length ? selectedModules : undefined,
-        }),
-      ]);
-      setCompanies(companiesData);
+      const registryData = await documentRegistryService.list({
+        company_id: companyId || undefined,
+        year: year ? Number(year) : undefined,
+        week: week ? Number(week) : undefined,
+        modules: selectedModules.length ? selectedModules : undefined,
+      });
       setEntries(registryData);
     } catch (loadError) {
       console.error('Erro ao carregar registry documental:', loadError);
@@ -97,6 +126,10 @@ export default function DocumentRegistryPage() {
   useEffect(() => {
     loadPageData();
   }, [loadPageData]);
+
+  useEffect(() => {
+    void loadCompanies();
+  }, [loadCompanies]);
 
   useEffect(() => {
     const unsubscribe = selectedTenantStore.subscribe((tenant) => {
@@ -323,7 +356,7 @@ export default function DocumentRegistryPage() {
           icon={<Filter className="h-4 w-4" />}
         />
         <RegistryMetricCard
-          label="Empresa filtrada"
+          label="Empresas no seletor"
           value={companyId ? 1 : companies.length}
           icon={<Building2 className="h-4 w-4" />}
         />
@@ -371,19 +404,34 @@ export default function DocumentRegistryPage() {
             </CardDescription>
           </div>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-            <select
-              aria-label="Selecionar empresa do pacote semanal"
-              value={companyId}
-              onChange={(event) => setCompanyId(event.target.value)}
-              className={inputClassName}
-            >
-              <option value="">Tenant atual / todas as empresas disponíveis</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.razao_social}
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={companySearchTerm}
+                onChange={(event) => setCompanySearchTerm(event.target.value)}
+                placeholder="Buscar empresa no seletor"
+                aria-label="Buscar empresa do pacote semanal"
+                className={inputClassName}
+              />
+              <select
+                aria-label="Selecionar empresa do pacote semanal"
+                value={companyId}
+                onChange={(event) => setCompanyId(event.target.value)}
+                className={inputClassName}
+                disabled={loadingCompanies}
+              >
+                <option value="">
+                  {loadingCompanies
+                    ? 'Carregando empresas...'
+                    : 'Tenant atual / empresas encontradas'}
                 </option>
-              ))}
-            </select>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.razao_social}
+                  </option>
+                ))}
+              </select>
+            </div>
             <input
               type="number"
               min={2020}
@@ -558,4 +606,8 @@ function RegistryMetricCard({
       </CardHeader>
     </Card>
   );
+}
+
+function dedupeById<T extends { id: string }>(items: T[]) {
+  return Array.from(new Map(items.map((item) => [item.id, item])).values());
 }

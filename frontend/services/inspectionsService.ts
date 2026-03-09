@@ -1,6 +1,7 @@
 import api from '@/lib/api';
 import { Site } from './sitesService';
 import { User } from './usersService';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export interface Inspection {
   id: string;
@@ -87,9 +88,31 @@ export interface CreateInspectionDto {
 export type UpdateInspectionDto = Partial<CreateInspectionDto>;
 
 export const inspectionsService = {
-  findAll: async () => {
-    const response = await api.get<Inspection[]>('/inspections');
+  findPaginated: async (opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<PaginatedResponse<Inspection>> => {
+    const response = await api.get<PaginatedResponse<Inspection>>('/inspections', {
+      params: {
+        page: opts?.page ?? 1,
+        limit: opts?.limit ?? 20,
+        ...(opts?.search ? { search: opts.search } : {}),
+      },
+    });
     return response.data;
+  },
+
+  findAll: async () => {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        inspectionsService.findPaginated({
+          page,
+          limit,
+        }),
+      limit: 100,
+      maxPages: 50,
+    });
   },
 
   findOne: async (id: string) => {

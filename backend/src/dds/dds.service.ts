@@ -15,6 +15,11 @@ import {
   DocumentBundleService,
   WeeklyBundleFilters,
 } from '../common/services/document-bundle.service';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
 
 @Injectable()
 export class DdsService {
@@ -56,6 +61,76 @@ export class DdsService {
       where: tenantId ? { company_id: tenantId } : {},
       relations: ['site', 'facilitador', 'participants'],
     });
+  }
+
+  async findPaginated(opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    kind?: 'all' | 'model' | 'regular';
+  }): Promise<OffsetPage<Dds>> {
+    const tenantId = this.tenantService.getTenantId();
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const idsQuery = this.ddsRepository
+      .createQueryBuilder('dds')
+      .select('dds.id', 'id')
+      .orderBy('dds.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    const countQuery = this.ddsRepository
+      .createQueryBuilder('dds')
+      .orderBy('dds.created_at', 'DESC');
+
+    if (tenantId) {
+      idsQuery.where('dds.company_id = :tenantId', { tenantId });
+      countQuery.where('dds.company_id = :tenantId', { tenantId });
+    }
+
+    if (opts?.search?.trim()) {
+      const search = `%${opts.search.trim().toLowerCase()}%`;
+      const condition = 'LOWER(dds.tema) LIKE :search';
+      if (tenantId) {
+        idsQuery.andWhere(condition, { search });
+        countQuery.andWhere(condition, { search });
+      } else {
+        idsQuery.where(condition, { search });
+        countQuery.where(condition, { search });
+      }
+    }
+
+    if (opts?.kind === 'model') {
+      idsQuery.andWhere('dds.is_modelo = true');
+      countQuery.andWhere('dds.is_modelo = true');
+    } else if (opts?.kind === 'regular') {
+      idsQuery.andWhere('dds.is_modelo = false');
+      countQuery.andWhere('dds.is_modelo = false');
+    }
+
+    const [rows, total] = await Promise.all([
+      idsQuery.getRawMany<{ id: string }>(),
+      countQuery.getCount(),
+    ]);
+
+    const ids = rows.map((row) => row.id);
+    if (ids.length === 0) {
+      return toOffsetPage([], total, page, limit);
+    }
+
+    const data = await this.ddsRepository.find({
+      where: ids.map((id) => ({ id })),
+      relations: ['site', 'facilitador', 'participants', 'company'],
+    });
+
+    const ordered = ids
+      .map((id) => data.find((item) => item.id === id))
+      .filter((item): item is Dds => Boolean(item));
+
+    return toOffsetPage(ordered, total, page, limit);
   }
 
   async findOne(id: string): Promise<Dds> {

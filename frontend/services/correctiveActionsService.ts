@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { PaginatedResponse } from './pagination';
 
 export type CorrectiveActionStatus =
   | 'open'
@@ -33,6 +34,25 @@ export interface CorrectiveAction {
 }
 
 export const correctiveActionsService = {
+  findPaginated: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: CorrectiveActionStatus;
+    source_type?: CorrectiveActionSource;
+    due?: 'overdue' | 'soon';
+  }) => {
+    const response = await api.get<PaginatedResponse<CorrectiveAction>>('/corrective-actions', {
+      params: {
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 20,
+        ...(params?.status ? { status: params.status } : {}),
+        ...(params?.source_type ? { source_type: params.source_type } : {}),
+        ...(params?.due ? { due: params.due } : {}),
+      },
+    });
+    return response.data;
+  },
+
   findAll: async (params?: {
     status?: CorrectiveActionStatus;
     source_type?: CorrectiveActionSource;

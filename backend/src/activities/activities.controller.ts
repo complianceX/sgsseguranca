@@ -9,6 +9,7 @@ import {
   Delete,
   UseGuards,
   UseInterceptors,
+  Query,
 } from '@nestjs/common';
 import { ActivitiesService } from './activities.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -36,8 +37,16 @@ export class ActivitiesController {
 
   @Get()
   @Authorize('can_view_activities')
-  findAll() {
-    return this.activitiesService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.activitiesService.findPaginated({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      search,
+    });
   }
 
   @Get(':id')

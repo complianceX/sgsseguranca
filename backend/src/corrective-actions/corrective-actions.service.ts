@@ -19,6 +19,11 @@ import { AuditsService } from '../audits/audits.service';
 import { User } from '../users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Notification } from '../notifications/entities/notification.entity';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
 
 const DEFAULT_SLA_BY_PRIORITY: Record<
   'low' | 'medium' | 'high' | 'critical',
@@ -105,6 +110,61 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
     }
 
     return rows;
+  }
+
+  async listPaginated(filters?: {
+    page?: number;
+    limit?: number;
+    status?: CorrectiveActionStatus;
+    source_type?: CorrectiveActionSource;
+    due?: 'overdue' | 'soon';
+  }): Promise<OffsetPage<CorrectiveAction>> {
+    await this.refreshOverdueActions();
+    const { page, limit, skip } = normalizeOffsetPagination(filters, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const query = this.correctiveActionsRepository
+      .createQueryBuilder('ca')
+      .leftJoinAndSelect('ca.site', 'site')
+      .leftJoinAndSelect('ca.responsible_user', 'responsible_user')
+      .where('ca.company_id = :companyId', { companyId: this.getTenantId() })
+      .orderBy('ca.due_date', 'ASC')
+      .addOrderBy('ca.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    if (filters?.status) {
+      query.andWhere('ca.status = :status', { status: filters.status });
+    }
+
+    if (filters?.source_type) {
+      query.andWhere('ca.source_type = :sourceType', {
+        sourceType: filters.source_type,
+      });
+    }
+
+    if (filters?.due === 'overdue') {
+      query.andWhere('ca.status = :overdueStatus', { overdueStatus: 'overdue' });
+    }
+
+    if (filters?.due === 'soon') {
+      const now = new Date();
+      const limitDate = new Date(now);
+      limitDate.setDate(limitDate.getDate() + 7);
+      query
+        .andWhere('ca.status NOT IN (:...ignoredStatuses)', {
+          ignoredStatuses: ['done', 'cancelled'],
+        })
+        .andWhere('ca.due_date BETWEEN :now AND :limitDate', {
+          now,
+          limitDate,
+        });
+    }
+
+    const [data, total] = await query.getManyAndCount();
+    return toOffsetPage(data, total, page, limit);
   }
 
   async findSummary() {

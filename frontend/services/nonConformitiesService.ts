@@ -3,6 +3,7 @@ import { AxiosError } from 'axios';
 import { Site } from './sitesService';
 import { enqueueOfflineMutation } from '@/lib/offline-sync';
 import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export interface NonConformity {
   id: string;
@@ -91,12 +92,38 @@ export const NC_ALLOWED_TRANSITIONS: Record<NcStatus, NcStatus[]> = {
 };
 
 export const nonConformitiesService = {
+  findPaginated: async (opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<PaginatedResponse<NonConformity>> => {
+    const response = await api.get<PaginatedResponse<NonConformity>>(
+      '/nonconformities',
+      {
+        params: {
+          page: opts?.page ?? 1,
+          limit: opts?.limit ?? 20,
+          ...(opts?.search ? { search: opts.search } : {}),
+        },
+      },
+    );
+    return response.data;
+  },
+
   findAll: async () => {
     const cacheKey = 'nonconformities.all';
     try {
-      const response = await api.get<NonConformity[]>('/nonconformities');
-      setOfflineCache(cacheKey, response.data);
-      return response.data;
+      const all = await fetchAllPages({
+        fetchPage: (page, limit) =>
+          nonConformitiesService.findPaginated({
+            page,
+            limit,
+          }),
+        limit: 100,
+        maxPages: 50,
+      });
+      setOfflineCache(cacheKey, all);
+      return all;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;

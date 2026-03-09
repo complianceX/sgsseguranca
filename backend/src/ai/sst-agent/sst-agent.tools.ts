@@ -277,21 +277,15 @@ export class SstToolsExecutor {
   // -------------------------------------------------------------------------
 
   private async buscarNaoConformidades(status?: string): Promise<SstToolResult> {
-    const all = await this.nonConformitiesService.findAll();
-    const filtered = status ? all.filter((nc: any) => nc.status === status.toUpperCase()) : all;
-    const byStatus: Record<string, number> = {};
-    for (const nc of all) {
-      const s = (nc as any).status ?? 'SEM_STATUS';
-      byStatus[s] = (byStatus[s] ?? 0) + 1;
-    }
+    const summary = await this.nonConformitiesService.summarizeByStatus(status);
     return {
       success: true,
       is_stub: false,
       data: {
-        total: all.length,
-        filtrado: filtered.length,
-        filtro_status: status ?? null,
-        por_status: byStatus,
+        total: summary.total,
+        filtrado: summary.filtered,
+        filtro_status: summary.filterStatus,
+        por_status: summary.byStatus,
         link: '/dashboard/nonconformities',
         referencia: 'NR-1: nao conformidades devem ser registradas e tratadas no SGS.',
       },

@@ -37,8 +37,18 @@ export class SitesController {
 
   @Get()
   @Authorize('can_view_sites')
-  findAll(@Query('company_id') companyId?: string) {
-    return this.sitesService.findAll(companyId);
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('company_id') companyId?: string,
+  ) {
+    return this.sitesService.findPaginated({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      search,
+      companyId,
+    });
   }
 
   @Get(':id')

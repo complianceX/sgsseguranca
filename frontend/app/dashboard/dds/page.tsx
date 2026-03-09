@@ -49,6 +49,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { PaginationControls } from '@/components/PaginationControls';
 import { cn } from '@/lib/utils';
 
 type StoredFile = {
@@ -71,6 +72,9 @@ export default function DdsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [modelFilter, setModelFilter] = useState<'all' | 'model' | 'regular'>('all');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
 
   const [storedFiles, setStoredFiles] = useState<StoredFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
@@ -91,8 +95,15 @@ export default function DdsPage() {
     try {
       setLoading(true);
       setLoadError(null);
-      const data = await ddsService.findAll();
-      setDdsList(data);
+      const response = await ddsService.findPaginated({
+        page,
+        limit: 10,
+        search: deferredSearchTerm || undefined,
+        kind: modelFilter,
+      });
+      setDdsList(response.data);
+      setTotal(response.total);
+      setLastPage(response.lastPage);
     } catch (error) {
       console.error('Erro ao carregar DDS:', error);
       setLoadError('Nao foi possivel carregar a lista de DDS.');
@@ -100,7 +111,7 @@ export default function DdsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [deferredSearchTerm, modelFilter, page]);
 
   const loadStoredFiles = useCallback(async () => {
     try {
@@ -126,6 +137,10 @@ export default function DdsPage() {
   }, [loadDds]);
 
   useEffect(() => {
+    setPage(1);
+  }, [deferredSearchTerm, modelFilter]);
+
+  useEffect(() => {
     loadStoredFiles();
   }, [loadStoredFiles]);
 
@@ -138,8 +153,12 @@ export default function DdsPage() {
 
     try {
       await ddsService.delete(id);
-      setDdsList((current) => current.filter((dds) => dds.id !== id));
       toast.success('DDS excluído com sucesso.');
+      if (ddsList.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+        return;
+      }
+      await loadDds();
     } catch (error) {
       console.error('Erro ao excluir DDS:', error);
       toast.error('Erro ao excluir DDS. Verifique dependências e tente novamente.');
@@ -332,29 +351,14 @@ export default function DdsPage() {
     [ddsList],
   );
 
-  const filteredDds = useMemo(
-    () =>
-      ddsList.filter((dds) => {
-        const matchesTerm = dds.tema
-          .toLowerCase()
-          .includes(deferredSearchTerm.toLowerCase());
-
-        if (!matchesTerm) return false;
-        if (modelFilter === 'model') return Boolean(dds.is_modelo);
-        if (modelFilter === 'regular') return !dds.is_modelo;
-        return true;
-      }),
-    [ddsList, deferredSearchTerm, modelFilter],
-  );
-
   const ddsSummary = useMemo(
     () => ({
-      total: ddsList.length,
+      total,
       modelos: ddsList.filter((item) => item.is_modelo).length,
       registros: ddsList.filter((item) => !item.is_modelo).length,
       arquivos: storedFiles.length,
     }),
-    [ddsList, storedFiles.length],
+    [ddsList, storedFiles.length, total],
   );
 
   const totalFilesPages = Math.max(1, Math.ceil(storedFiles.length / filesPageSize));
@@ -414,7 +418,7 @@ export default function DdsPage() {
         </Card>
         <Card interactive padding="md">
           <CardHeader>
-            <CardDescription>Registros operacionais</CardDescription>
+            <CardDescription>Registros na página</CardDescription>
             <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
               {ddsSummary.registros}
             </CardTitle>
@@ -422,7 +426,7 @@ export default function DdsPage() {
         </Card>
         <Card interactive padding="md">
           <CardHeader>
-            <CardDescription>Modelos</CardDescription>
+            <CardDescription>Modelos na página</CardDescription>
             <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
               {ddsSummary.modelos}
             </CardTitle>
@@ -635,7 +639,7 @@ export default function DdsPage() {
           <div className="space-y-1">
             <CardTitle>Registros de DDS</CardTitle>
             <CardDescription>
-              {filteredDds.length} registro(s) exibidos com filtros por tema e tipo.
+              {total} registro(s) encontrados com filtros por tema e tipo.
             </CardDescription>
           </div>
           <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
@@ -665,7 +669,7 @@ export default function DdsPage() {
         </CardHeader>
 
         <CardContent className="mt-0">
-          {filteredDds.length === 0 ? (
+          {ddsList.length === 0 ? (
             <EmptyState
               title="Nenhum DDS encontrado"
               description={
@@ -693,7 +697,7 @@ export default function DdsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDds.map((dds) => (
+                {ddsList.map((dds) => (
                   <TableRow key={dds.id}>
                     <TableCell>
                       {format(new Date(dds.data), 'dd/MM/yyyy', { locale: ptBR })}
@@ -759,6 +763,15 @@ export default function DdsPage() {
             </Table>
           )}
         </CardContent>
+        {!loading && total > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </Card>
 
       {ddsSummary.modelos > 0 ? (

@@ -10,6 +10,7 @@ import {
   NotFoundException,
   Req,
   ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
 import { CompaniesService } from './companies.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -48,8 +49,16 @@ export class CompaniesController {
   @Get()
   @Roles(Role.ADMIN_GERAL)
   @Authorize('can_view_companies')
-  findAll() {
-    return this.companiesService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.companiesService.findPaginated({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      search,
+    });
   }
 
   @Get(':id')

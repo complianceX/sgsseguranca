@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Between, LessThan, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Training } from './entities/training.entity';
 import { CreateTrainingDto } from './dto/create-training.dto';
@@ -107,22 +107,29 @@ export class TrainingsService {
   }
 
   async findExpirySummary() {
-    const trainings = await this.findAll();
     const now = new Date();
-    const expired = trainings.filter(
-      (t) => new Date(t.data_vencimento) < now,
-    ).length;
-    const expiringSoon = trainings.filter((t) => {
-      const diff = new Date(t.data_vencimento).getTime() - now.getTime();
-      const days = diff / (1000 * 60 * 60 * 24);
-      return days > 0 && days <= 30;
-    }).length;
+    const limitDate = new Date();
+    limitDate.setDate(now.getDate() + 30);
+
+    const [total, expired, expiringSoon] = await Promise.all([
+      this.count(),
+      this.count({
+        where: {
+          data_vencimento: LessThan(now),
+        },
+      }),
+      this.count({
+        where: {
+          data_vencimento: Between(now, limitDate),
+        },
+      }),
+    ]);
 
     return {
-      total: trainings.length,
+      total,
       expired,
       expiringSoon,
-      valid: trainings.length - expired - expiringSoon,
+      valid: total - expired - expiringSoon,
     };
   }
 

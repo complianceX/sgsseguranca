@@ -3,6 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeepPartial } from 'typeorm';
 import { Activity } from './entities/activity.entity';
 import { TenantService } from '../common/tenant/tenant.service';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
 
 @Injectable()
 export class ActivitiesService {
@@ -16,6 +21,44 @@ export class ActivitiesService {
     const activity = this.activitiesRepository.create(createActivityDto);
     const saved = await this.activitiesRepository.save(activity);
     return saved;
+  }
+
+  async findPaginated(opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<OffsetPage<Activity>> {
+    const tenantId = this.tenantService.getTenantId();
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const query = this.activitiesRepository
+      .createQueryBuilder('activity')
+      .orderBy('activity.createdAt', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    if (tenantId) {
+      query.where('activity.company_id = :companyId', { companyId: tenantId });
+    }
+
+    if (opts?.search?.trim()) {
+      const search = `%${opts.search.trim().toLowerCase()}%`;
+      const condition = `(
+        LOWER(activity.nome) LIKE :search
+        OR LOWER(COALESCE(activity.descricao, '')) LIKE :search
+      )`;
+      if (tenantId) {
+        query.andWhere(condition, { search });
+      } else {
+        query.where(condition, { search });
+      }
+    }
+
+    const [data, total] = await query.getManyAndCount();
+    return toOffsetPage(data, total, page, limit);
   }
 
   async findAll(): Promise<Activity[]> {

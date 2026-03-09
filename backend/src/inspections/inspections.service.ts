@@ -15,6 +15,11 @@ import {
   TenantRepository,
   TenantRepositoryFactory,
 } from '../common/tenant/tenant-repository';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
 
 @Injectable()
 export class InspectionsService {
@@ -67,6 +72,77 @@ export class InspectionsService {
       order: { created_at: 'DESC' },
     });
     return inspections.map((i) => plainToClass(InspectionResponseDto, i));
+  }
+
+  async findPaginated(
+    companyId: string,
+    opts?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+    },
+  ): Promise<OffsetPage<InspectionResponseDto>> {
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const query = this.inspectionsRepository
+      .createQueryBuilder('inspection')
+      .leftJoinAndSelect('inspection.site', 'site')
+      .leftJoinAndSelect('inspection.responsavel', 'responsavel')
+      .where('inspection.company_id = :companyId', { companyId })
+      .orderBy('inspection.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    if (opts?.search?.trim()) {
+      const search = `%${opts.search.trim().toLowerCase()}%`;
+      query.andWhere(
+        `(
+          LOWER(inspection.setor_area) LIKE :search
+          OR LOWER(inspection.tipo_inspecao) LIKE :search
+          OR LOWER(COALESCE(site.nome, '')) LIKE :search
+          OR LOWER(COALESCE(responsavel.nome, '')) LIKE :search
+        )`,
+        { search },
+      );
+    }
+
+    const [data, total] = await query.getManyAndCount();
+    return toOffsetPage(
+      data.map((item) => plainToClass(InspectionResponseDto, item)),
+      total,
+      page,
+      limit,
+    );
+  }
+
+  async countPendingActionItems(companyId?: string): Promise<number> {
+    const resolvedCompanyId = companyId || this.tenantService.getTenantId();
+    const params = resolvedCompanyId ? [resolvedCompanyId] : [];
+    const where = resolvedCompanyId ? 'WHERE i.company_id = $1' : '';
+
+    const rows = (await this.inspectionsRepository.query(
+      `
+        SELECT COALESCE(
+          SUM(
+            (
+              SELECT COUNT(*)
+              FROM json_array_elements(COALESCE(i.plano_acao, '[]'::json)) AS item
+              WHERE LOWER(COALESCE(item->>'status', '')) NOT LIKE '%conclu%'
+                AND LOWER(COALESCE(item->>'status', '')) NOT LIKE '%encerr%'
+            )
+          ),
+          0
+        )::int AS total
+        FROM inspections i
+        ${where}
+      `,
+      params,
+    )) as Array<{ total?: number | string }>;
+
+    return Number(rows[0]?.total ?? 0);
   }
 
   async findOne(id: string, companyId: string): Promise<InspectionResponseDto> {

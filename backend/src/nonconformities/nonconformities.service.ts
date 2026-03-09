@@ -21,6 +21,11 @@ import { DocumentRegistryService } from '../document-registry/document-registry.
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { RequestContext } from '../common/middleware/request-context.middleware';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
 
 export enum NcStatus {
   ABERTA = 'ABERTA',
@@ -66,6 +71,115 @@ export class NonConformitiesService {
       relations: ['site'],
       order: { created_at: 'DESC' },
     });
+  }
+
+  async findPaginated(opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<OffsetPage<NonConformity>> {
+    const tenantId = this.tenantService.getTenantId();
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const query = this.nonConformitiesRepository
+      .createQueryBuilder('nc')
+      .leftJoinAndSelect('nc.site', 'site')
+      .orderBy('nc.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    if (tenantId) {
+      query.where('nc.company_id = :tenantId', { tenantId });
+    }
+
+    if (opts?.search?.trim()) {
+      const search = `%${opts.search.trim().toLowerCase()}%`;
+      const condition = `(
+        LOWER(nc.codigo_nc) LIKE :search
+        OR LOWER(nc.local_setor_area) LIKE :search
+        OR LOWER(nc.tipo) LIKE :search
+        OR LOWER(nc.status) LIKE :search
+      )`;
+      if (tenantId) {
+        query.andWhere(condition, { search });
+      } else {
+        query.where(condition, { search });
+      }
+    }
+
+    const [data, total] = await query.getManyAndCount();
+    return toOffsetPage(data, total, page, limit);
+  }
+
+  async countPendingActionItems(companyId?: string): Promise<number> {
+    const tenantId = companyId || this.tenantService.getTenantId();
+    const query = this.nonConformitiesRepository
+      .createQueryBuilder('nc')
+      .select(
+        `
+          COALESCE(
+            SUM(
+              CASE
+                WHEN nc.acao_imediata_status IS NOT NULL
+                 AND LOWER(nc.acao_imediata_status) NOT LIKE '%conclu%'
+                 AND LOWER(nc.acao_imediata_status) NOT LIKE '%encerr%'
+                THEN 1
+                ELSE 0
+              END
+              +
+              CASE
+                WHEN nc.status IS NOT NULL
+                 AND LOWER(nc.status) NOT LIKE '%conclu%'
+                 AND LOWER(nc.status) NOT LIKE '%encerr%'
+                THEN 1
+                ELSE 0
+              END
+            ),
+            0
+          )
+        `,
+        'total',
+      );
+
+    if (tenantId) {
+      query.where('nc.company_id = :tenantId', { tenantId });
+    }
+
+    const row = await query.getRawOne<{ total?: string | number }>();
+    return Number(row?.total ?? 0);
+  }
+
+  async summarizeByStatus(status?: string) {
+    const tenantId = this.tenantService.getTenantId();
+    const query = this.nonConformitiesRepository
+      .createQueryBuilder('nc')
+      .select('UPPER(COALESCE(nc.status, :emptyStatus))', 'status')
+      .addSelect('COUNT(*)', 'total')
+      .setParameter('emptyStatus', 'SEM_STATUS')
+      .groupBy('UPPER(COALESCE(nc.status, :emptyStatus))');
+
+    if (tenantId) {
+      query.where('nc.company_id = :tenantId', { tenantId });
+    }
+
+    const rows = await query.getRawMany<{ status: string; total: string }>();
+    const byStatus = rows.reduce<Record<string, number>>((acc, row) => {
+      acc[row.status] = Number(row.total);
+      return acc;
+    }, {});
+
+    const total = Object.values(byStatus).reduce((sum, value) => sum + value, 0);
+    const normalizedStatus = status?.trim().toUpperCase();
+
+    return {
+      total,
+      filtered: normalizedStatus ? (byStatus[normalizedStatus] ?? 0) : total,
+      byStatus,
+      filterStatus: normalizedStatus ?? null,
+    };
   }
 
   async findOne(id: string) {

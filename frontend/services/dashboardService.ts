@@ -1,5 +1,82 @@
 import api from '@/lib/api';
 
+export interface DashboardSummaryResponse {
+  counts: {
+    users: number;
+    companies: number;
+    sites: number;
+    checklists: number;
+    aprs: number;
+    pts: number;
+  };
+  expiringEpis: Array<{
+    id: string;
+    nome: string;
+    ca: string | null;
+    validade_ca: string | null;
+  }>;
+  expiringTrainings: Array<{
+    id: string;
+    nome: string;
+    data_vencimento: string;
+    user: { nome: string } | null;
+  }>;
+  pendingApprovals: {
+    aprs: number;
+    pts: number;
+    checklists: number;
+    nonconformities: number;
+  };
+  actionPlanItems: Array<{
+    id: string;
+    source: string;
+    title: string;
+    action: string;
+    responsavel: string | null;
+    prazo: string | null;
+    status: string | null;
+    href: string;
+  }>;
+  riskSummary: {
+    alto: number;
+    medio: number;
+    baixo: number;
+  };
+  evidenceSummary: {
+    total: number;
+    inspections: number;
+    nonconformities: number;
+    audits: number;
+  };
+  modelCounts: {
+    aprs: number;
+    dds: number;
+    checklists: number;
+  };
+  recentActivities: Array<{
+    id: string;
+    title: string;
+    description: string;
+    date: string;
+    href: string;
+    color: string;
+  }>;
+  siteCompliance: Array<{
+    id: string;
+    nome: string;
+    total: number;
+    conformes: number;
+    taxa: number;
+  }>;
+  recentReports: Array<{
+    id: string;
+    titulo: string;
+    mes: number;
+    ano: number;
+    created_at: string;
+  }>;
+}
+
 export interface DashboardKpisResponse {
   leading: {
     apr_before_task: { total: number; compliant: number; percentage: number };
@@ -83,6 +160,11 @@ export interface TstDayDashboard {
 }
 
 export const dashboardService = {
+  getSummary: async () => {
+    const response = await api.get<DashboardSummaryResponse>('/dashboard/summary');
+    return response.data;
+  },
+
   getKpis: async () => {
     const response = await api.get<DashboardKpisResponse>('/dashboard/kpis');
     return response.data;

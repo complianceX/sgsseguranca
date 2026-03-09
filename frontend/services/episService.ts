@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export interface Epi {
   id: string;
@@ -13,9 +14,31 @@ export interface Epi {
 }
 
 export const episService = {
-  findAll: async () => {
-    const response = await api.get<Epi[]>('/epis');
+  findPaginated: async (opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<PaginatedResponse<Epi>> => {
+    const response = await api.get<PaginatedResponse<Epi>>('/epis', {
+      params: {
+        page: opts?.page ?? 1,
+        limit: opts?.limit ?? 20,
+        ...(opts?.search ? { search: opts.search } : {}),
+      },
+    });
     return response.data;
+  },
+
+  findAll: async () => {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        episService.findPaginated({
+          page,
+          limit,
+        }),
+      limit: 100,
+      maxPages: 50,
+    });
   },
 
   findOne: async (id: string) => {

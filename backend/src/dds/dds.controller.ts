@@ -50,8 +50,18 @@ export class DdsController {
 
   @Get()
   @Authorize('can_view_dds')
-  findAll() {
-    return this.ddsService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('kind') kind?: 'all' | 'model' | 'regular',
+  ) {
+    return this.ddsService.findPaginated({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      search,
+      kind,
+    });
   }
 
   @Get('files/list')

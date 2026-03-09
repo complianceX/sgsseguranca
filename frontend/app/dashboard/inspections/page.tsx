@@ -41,6 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { PaginationControls } from '@/components/PaginationControls';
 import { cn } from '@/lib/utils';
 
 const inputClassName =
@@ -52,6 +53,9 @@ export default function InspectionsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{
     name: string;
@@ -63,8 +67,14 @@ export default function InspectionsPage() {
     try {
       setLoading(true);
       setLoadError(null);
-      const data = await inspectionsService.findAll();
-      setInspections(data);
+      const response = await inspectionsService.findPaginated({
+        page,
+        limit: 10,
+        search: deferredSearchTerm || undefined,
+      });
+      setInspections(response.data);
+      setTotal(response.total);
+      setLastPage(response.lastPage);
     } catch (error) {
       console.error('Erro ao carregar inspeções:', error);
       setLoadError('Nao foi possivel carregar os relatorios de inspecao.');
@@ -72,7 +82,7 @@ export default function InspectionsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [deferredSearchTerm, page]);
 
   useEffect(() => {
     fetchInspections();
@@ -84,6 +94,10 @@ export default function InspectionsPage() {
     try {
       await inspectionsService.remove(id);
       toast.success('Inspeção excluída com sucesso');
+      if (inspections.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+        return;
+      }
       await fetchInspections();
     } catch (error) {
       console.error('Erro ao excluir inspeção:', error);
@@ -156,19 +170,6 @@ export default function InspectionsPage() {
     }
   };
 
-  const filteredInspections = useMemo(() => {
-    const term = deferredSearchTerm.toLowerCase();
-
-    return inspections.filter((inspection) => {
-      return (
-        inspection.setor_area.toLowerCase().includes(term) ||
-        inspection.tipo_inspecao.toLowerCase().includes(term) ||
-        (inspection.site?.nome?.toLowerCase() || '').includes(term) ||
-        (inspection.responsavel?.nome?.toLowerCase() || '').includes(term)
-      );
-    });
-  }, [deferredSearchTerm, inspections]);
-
   const summary = useMemo(() => {
     const typeCount = new Set(inspections.map((item) => item.tipo_inspecao).filter(Boolean)).size;
     const siteCount = new Set(inspections.map((item) => item.site?.id).filter(Boolean)).size;
@@ -176,13 +177,13 @@ export default function InspectionsPage() {
     const withRisks = inspections.filter((item) => (item.perigos_riscos?.length || 0) > 0).length;
 
     return {
-      total: inspections.length,
+      total,
       tipos: typeCount,
       sites: siteCount,
       comPlano: withActionPlan,
       comRiscos: withRisks,
     };
-  }, [inspections]);
+  }, [inspections, total]);
 
   if (loading) {
     return (
@@ -243,7 +244,7 @@ export default function InspectionsPage() {
         </Card>
         <Card interactive padding="md">
           <CardHeader>
-            <CardDescription>Tipos de inspeção</CardDescription>
+            <CardDescription>Tipos na página</CardDescription>
             <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
               {summary.tipos}
             </CardTitle>
@@ -251,7 +252,7 @@ export default function InspectionsPage() {
         </Card>
         <Card interactive padding="md">
           <CardHeader>
-            <CardDescription>Inspeções com plano de ação</CardDescription>
+            <CardDescription>Com plano na página</CardDescription>
             <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
               {summary.comPlano}
             </CardTitle>
@@ -259,7 +260,7 @@ export default function InspectionsPage() {
         </Card>
         <Card interactive padding="md">
           <CardHeader>
-            <CardDescription>Sites no recorte</CardDescription>
+            <CardDescription>Sites na página</CardDescription>
             <CardTitle className="text-3xl text-[var(--ds-color-success)]">
               {summary.sites}
             </CardTitle>
@@ -279,7 +280,7 @@ export default function InspectionsPage() {
               <CardTitle className="text-base">Foco operacional</CardTitle>
             </div>
             <CardDescription>
-              {summary.comRiscos} inspeção(ões) possuem perigos/riscos registrados. Revise planos de ação e responsáveis para acelerar tratativas.
+              Nesta página, {summary.comRiscos} inspeção(ões) possuem perigos/riscos registrados. Revise planos de ação e responsáveis para acelerar tratativas.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -290,7 +291,7 @@ export default function InspectionsPage() {
           <div className="space-y-1">
             <CardTitle>Base de inspeções</CardTitle>
             <CardDescription>
-              {filteredInspections.length} relatório(s) exibidos com busca por setor, tipo, site e responsável.
+              {total} relatório(s) encontrados com busca por setor, tipo, site e responsável.
             </CardDescription>
           </div>
           <div className="relative w-full md:w-[360px]">
@@ -301,13 +302,16 @@ export default function InspectionsPage() {
               aria-label="Buscar inspeções por setor, tipo, site ou responsável"
               className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
+              onChange={(event) => {
+                setSearchTerm(event.target.value);
+                setPage(1);
+              }}
             />
           </div>
         </CardHeader>
 
         <CardContent className="mt-0">
-          {filteredInspections.length === 0 ? (
+          {inspections.length === 0 ? (
             <EmptyState
               title="Nenhum relatório de inspeção encontrado"
               description={
@@ -340,7 +344,7 @@ export default function InspectionsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredInspections.map((inspection) => (
+                {inspections.map((inspection) => (
                   <TableRow key={inspection.id}>
                     <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
                       {inspection.setor_area}
@@ -413,6 +417,15 @@ export default function InspectionsPage() {
             </Table>
           )}
         </CardContent>
+        {!loading && total > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </Card>
 
       {selectedDoc ? (

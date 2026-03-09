@@ -1,10 +1,11 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { EpisService } from './epis.service';
 import { BaseController } from '../common/base/base.controller';
 import { Epi } from './entities/epi.entity';
 import { CreateEpiDto } from './dto/create-epi.dto';
 import { UpdateEpiDto } from './dto/update-epi.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('epis')
 @Controller('epis')
@@ -15,5 +16,17 @@ export class EpisController extends BaseController<
 > {
   constructor(private readonly episService: EpisService) {
     super(episService, 'EPI');
+  }
+
+  @Get()
+  findAll(
+    @Query() pagination: PaginationDto,
+    @Query('search') search?: string,
+  ) {
+    return this.episService.findPaginated({
+      page: pagination.page,
+      limit: pagination.limit,
+      search,
+    });
   }
 }

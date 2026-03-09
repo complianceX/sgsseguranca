@@ -57,12 +57,16 @@ export class CorrectiveActionsController {
   @Get()
   @Authorize('can_view_corrective_actions')
   findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('status')
     status?: 'open' | 'in_progress' | 'done' | 'overdue' | 'cancelled',
     @Query('source_type') sourceType?: 'manual' | 'nonconformity' | 'audit',
     @Query('due') due?: 'overdue' | 'soon',
   ) {
-    return this.correctiveActionsService.list({
+    return this.correctiveActionsService.listPaginated({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
       status,
       source_type: sourceType,
       due,

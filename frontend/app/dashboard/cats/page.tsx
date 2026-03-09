@@ -31,7 +31,9 @@ export default function CatsPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [workerSearch, setWorkerSearch] = useState('');
+  const [siteSearch, setSiteSearch] = useState('');
   const deferredWorkerSearch = useDeferredValue(workerSearch);
+  const deferredSiteSearch = useDeferredValue(siteSearch);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
@@ -95,8 +97,23 @@ export default function CatsPage() {
   useEffect(() => {
     const loadSites = async () => {
       try {
-        const sitesData = await sitesService.findAll();
-        setSites(sitesData);
+        const sitesPage = await sitesService.findPaginated({
+          page: 1,
+          limit: 25,
+          search: deferredSiteSearch || undefined,
+        });
+        let nextSites = sitesPage.data;
+        if (form.site_id && !nextSites.some((item) => item.id === form.site_id)) {
+          try {
+            const selectedSite = await sitesService.findOne(form.site_id);
+            nextSites = dedupeById([selectedSite, ...nextSites]);
+          } catch {
+            nextSites = dedupeById(nextSites);
+          }
+        } else {
+          nextSites = dedupeById(nextSites);
+        }
+        setSites(nextSites);
       } catch (error) {
         console.error('Erro ao carregar obras/setores:', error);
         toast.error('Erro ao carregar obras/setores.');
@@ -104,7 +121,7 @@ export default function CatsPage() {
     };
 
     void loadSites();
-  }, []);
+  }, [deferredSiteSearch, form.site_id]);
 
   useEffect(() => {
     const loadWorkers = async () => {
@@ -342,12 +359,19 @@ export default function CatsPage() {
           />
           <input
             type="text"
+            value={siteSearch}
+            onChange={(e) => setSiteSearch(e.target.value)}
+            placeholder="Buscar obra/setor"
+            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
+          />
+          <input
+            type="text"
             value={form.local_ocorrencia}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, local_ocorrencia: e.target.value }))
             }
             placeholder="Local da ocorrencia"
-            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
+            className="rounded-md border px-3 py-2 text-sm md:col-span-1"
           />
           <input
             type="text"
@@ -356,7 +380,7 @@ export default function CatsPage() {
               setForm((prev) => ({ ...prev, acao_imediata: e.target.value }))
             }
             placeholder="Acao imediata"
-            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
+            className="rounded-md border px-3 py-2 text-sm md:col-span-1"
           />
           <input
             type="text"
@@ -403,7 +427,10 @@ export default function CatsPage() {
                   </TableCell>
                   <TableCell>{cat.worker?.nome || '-'}</TableCell>
                   <TableCell>
-                    {cat.local_ocorrencia || sitesMap.get(cat.site_id || '') || '-'}
+                    {cat.local_ocorrencia ||
+                      cat.site?.nome ||
+                      sitesMap.get(cat.site_id || '') ||
+                      '-'}
                   </TableCell>
                   <TableCell>{cat.status}</TableCell>
                   <TableCell>
@@ -495,4 +522,8 @@ function Kpi({ title, value }: { title: string; value: number }) {
       <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
     </div>
   );
+}
+
+function dedupeById<T extends { id: string }>(items: T[]) {
+  return Array.from(new Map(items.map((item) => [item.id, item])).values());
 }

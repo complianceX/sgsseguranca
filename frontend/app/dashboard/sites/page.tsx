@@ -27,6 +27,7 @@ import {
   ErrorState,
   PageLoadingState,
 } from '@/components/ui/state';
+import { PaginationControls } from '@/components/PaginationControls';
 import { cn } from '@/lib/utils';
 
 const inputClassName =
@@ -39,17 +40,26 @@ export default function SitesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [qrSiteId, setQrSiteId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
 
   useEffect(() => {
     loadSites();
-  }, []);
+  }, [page, deferredSearchTerm]);
 
   async function loadSites() {
     try {
       setLoading(true);
       setLoadError(null);
-      const data = await sitesService.findAll();
-      setSites(data);
+      const response = await sitesService.findPaginated({
+        page,
+        limit: 10,
+        search: deferredSearchTerm || undefined,
+      });
+      setSites(response.data);
+      setTotal(response.total);
+      setLastPage(response.lastPage);
     } catch (error) {
       console.error('Erro ao carregar sites:', error);
       setLoadError('Nao foi possivel carregar a lista de obras/setores.');
@@ -66,30 +76,25 @@ export default function SitesPage() {
 
     try {
       await sitesService.delete(id);
-      setSites((current) => current.filter((site) => site.id !== id));
       toast.success('Obra/Setor excluido com sucesso');
+      if (sites.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+        return;
+      }
+      loadSites();
     } catch (error) {
       console.error('Erro ao excluir site:', error);
       toast.error('Erro ao excluir obra/setor. Verifique dependencias e tente novamente.');
     }
   }
 
-  const filteredSites = useMemo(
-    () =>
-      sites.filter((site) =>
-        site.nome.toLowerCase().includes(deferredSearchTerm.toLowerCase()) ||
-        site.cidade?.toLowerCase().includes(deferredSearchTerm.toLowerCase()),
-      ),
-    [sites, deferredSearchTerm],
-  );
-
   const summary = useMemo(
     () => ({
-      total: sites.length,
-      visiveis: filteredSites.length,
+      total,
+      visiveis: sites.length,
       comCidade: sites.filter((site) => Boolean(site.cidade)).length,
     }),
-    [sites, filteredSites.length],
+    [sites, total],
   );
 
   const qrUrl = qrSiteId
@@ -176,7 +181,7 @@ export default function SitesPage() {
           <div className="space-y-1">
             <CardTitle>Base de obras/setores</CardTitle>
             <CardDescription>
-              {filteredSites.length} obra(s)/setor(es) exibido(s) com busca por nome e cidade.
+              {total} obra(s)/setor(es) encontrada(s) com busca por nome, cidade e UF.
             </CardDescription>
           </div>
           <div className="relative w-full md:w-[360px]">
@@ -187,13 +192,16 @@ export default function SitesPage() {
               aria-label="Buscar obras ou setores por nome ou cidade"
               className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
+              onChange={(event) => {
+                setSearchTerm(event.target.value);
+                setPage(1);
+              }}
             />
           </div>
         </CardHeader>
 
         <CardContent className="mt-0">
-          {filteredSites.length === 0 ? (
+          {sites.length === 0 ? (
             <EmptyState
               title="Nenhuma obra/setor encontrada"
               description={
@@ -224,7 +232,7 @@ export default function SitesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSites.map((site) => (
+                {sites.map((site) => (
                   <TableRow key={site.id}>
                     <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
                       <div className="flex items-center gap-2">
@@ -275,6 +283,15 @@ export default function SitesPage() {
             </Table>
           )}
         </CardContent>
+        {!loading && total > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </Card>
 
       {qrSiteId ? (

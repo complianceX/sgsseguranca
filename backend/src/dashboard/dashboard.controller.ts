@@ -12,6 +12,17 @@ import { DashboardService } from './dashboard.service';
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
+  @Get('summary')
+  @Authorize('can_view_dashboard')
+  getSummary(
+    @Req()
+    req: { user?: { company_id?: string }; tenant?: { companyId?: string } },
+  ) {
+    return this.dashboardService.getSummary(
+      req.tenant?.companyId || req.user?.company_id || '',
+    );
+  }
+
   @Get('kpis')
   @Authorize('can_view_dashboard')
   getKpis(

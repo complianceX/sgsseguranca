@@ -10,23 +10,31 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { SendMailModal } from '@/components/SendMailModal';
 import { openPdfForPrint } from '@/lib/print-utils';
+import { PaginationControls } from '@/components/PaginationControls';
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export default function ReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
 
   useEffect(() => {
     loadReports();
-  }, []);
+  }, [page]);
 
   async function loadReports() {
     try {
       setLoading(true);
-      const data = await reportsService.findAll();
-      setReports(data);
+      const response = await reportsService.findPaginated({ page, limit: 9 });
+      setReports(response.data);
+      setTotal(response.total);
+      setLastPage(response.lastPage);
     } catch (error) {
       console.error('Erro ao carregar relatórios:', error);
       toast.error('Erro ao carregar lista de relatórios.');
@@ -42,9 +50,29 @@ export default function ReportsPage() {
       const mes = now.getMonth() + 1;
       const ano = now.getFullYear();
       
-      await reportsService.generate(mes, ano);
-      toast.success('Relatório mensal gerado com sucesso pelo COMPLIANCE X!');
-      loadReports();
+      const job = await reportsService.generate(mes, ano);
+      toast.info('Relatório enfileirado. Aguardando processamento...');
+
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        await wait(3000);
+        const status = await reportsService.getStatus(job.jobId);
+
+        if (status.state === 'completed') {
+          toast.success('Relatório mensal gerado com sucesso pelo COMPLIANCE X!');
+          if (page !== 1) {
+            setPage(1);
+          } else {
+            loadReports();
+          }
+          return;
+        }
+
+        if (status.state === 'failed') {
+          throw new Error('A fila de geração retornou falha.');
+        }
+      }
+
+      toast.warning('Relatório ainda está processando. Atualize a lista em instantes.');
     } catch (error) {
       console.error('Erro ao gerar relatório:', error);
       toast.error('Erro ao gerar relatório mensal.');
@@ -59,6 +87,10 @@ export default function ReportsPage() {
     try {
       await reportsService.delete(id);
       toast.success('Relatório excluído com sucesso!');
+      if (reports.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+        return;
+      }
       loadReports();
     } catch (error) {
       console.error('Erro ao excluir relatório:', error);
@@ -302,6 +334,16 @@ export default function ReportsPage() {
           ))
         )}
       </div>
+
+      {!loading && total > 0 ? (
+        <PaginationControls
+          page={page}
+          lastPage={lastPage}
+          total={total}
+          onPrev={() => setPage((current) => Math.max(1, current - 1))}
+          onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+        />
+      ) : null}
 
       {selectedDoc && (
         <SendMailModal

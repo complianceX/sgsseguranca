@@ -27,10 +27,7 @@ import { TenantService } from '../common/tenant/tenant.service';
 import { StorageService } from '../common/services/storage.service';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { ReportsService } from '../reports/reports.service';
-import { InspectionResponseDto } from '../inspections/dto/inspection-response.dto';
-import { Audit } from '../audits/entities/audit.entity';
 import { CompanyResponseDto } from '../companies/dto/company-response.dto';
-import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 
 @Injectable()
 export class MailService {
@@ -481,6 +478,7 @@ export class MailService {
     const now = new Date();
     const limitDate = new Date();
     limitDate.setDate(now.getDate() + 30);
+    const companyId = this.tenantService.getTenantId() || '';
 
     const [
       episExpired,
@@ -493,6 +491,9 @@ export class MailService {
       pendingChecklists,
       openNonconformities,
       ddsCount,
+      inspectionActionItems,
+      auditActionItems,
+      nonconformityActionItems,
     ] = await Promise.all([
       this.episService.count({ where: { validade_ca: LessThan(now) } }),
       this.episService.count({
@@ -516,21 +517,13 @@ export class MailService {
         where: { status: Not(In(['Encerrada', 'Concluída', 'Concluida'])) },
       }),
       this.ddsService.count(),
+      this.inspectionsService.countPendingActionItems(companyId),
+      this.auditsService.countPendingActionItems(companyId),
+      this.nonConformitiesService.countPendingActionItems(companyId),
     ]);
 
-    // RISCO: A contagem de "action items" ainda usa `findAll()`, pois exige uma lógica complexa
-    // para consultar campos JSON. Isso ainda representa um risco de performance e deve ser
-    // otimizado no futuro, criando métodos de contagem específicos nos seus respectivos serviços.
-    const companyId = this.tenantService.getTenantId() || '';
-    const inspections = await this.inspectionsService.findAll(companyId);
-    const audits = await this.auditsService.findAll(companyId);
-    const nonconformitiesForActions =
-      await this.nonConformitiesService.findAll();
-    const actionItems = this.countActionItems(
-      inspections,
-      audits,
-      nonconformitiesForActions,
-    );
+    const actionItems =
+      inspectionActionItems + auditActionItems + nonconformityActionItems;
 
     const reminders = [
       `Resumo de alertas (${now.toLocaleDateString('pt-BR')}):`,
@@ -548,43 +541,6 @@ export class MailService {
     ];
 
     return reminders.join('\n');
-  }
-
-  private countActionItems(
-    inspections: InspectionResponseDto[],
-    audits: Audit[],
-    nonconformities: NonConformity[],
-  ) {
-    const isDone = (status?: string) => {
-      if (!status) return false;
-      const value = status.toLowerCase();
-      return value.includes('conclu') || value.includes('encerr');
-    };
-
-    const inspectionActions = inspections.reduce((total, inspection) => {
-      const planoAcao =
-        (inspection.plano_acao as Array<{ status?: string }>) || [];
-      const pending = planoAcao.filter((item) => !isDone(item.status)).length;
-      return total + pending;
-    }, 0);
-
-    const auditActions = audits.reduce((total, audit) => {
-      const planoAcao = (audit.plano_acao as Array<{ status?: string }>) || [];
-      const pending = planoAcao.filter((item) => !isDone(item.status)).length;
-      return total + pending;
-    }, 0);
-
-    const nonconformityActions = nonconformities.reduce((total, item) => {
-      const immediate = item.acao_imediata_status
-        ? isDone(item.acao_imediata_status)
-          ? 0
-          : 1
-        : 0;
-      const definitive = item.status ? (isDone(item.status) ? 0 : 1) : 0;
-      return total + immediate + definitive;
-    }, 0);
-
-    return inspectionActions + auditActions + nonconformityActions;
   }
 
   private async sendWhatsappWebhook(payload: {
@@ -651,9 +607,7 @@ export class MailService {
         return;
       }
 
-      // RISCO: `findAll` pode causar problemas de memória com muitas empresas.
-      // RECOMENDAÇÃO: Implementar paginação no `companiesService.findAll` e processar em lotes.
-      const companies = await this.companiesService.findAll();
+      const companies = await this.companiesService.findAllActive();
       for (const company of companies) {
         await this.dispatchAlerts({
           to: recipients.join(','),

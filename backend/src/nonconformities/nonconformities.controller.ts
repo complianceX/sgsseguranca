@@ -47,8 +47,16 @@ export class NonConformitiesController {
 
   @Get()
   @Authorize('can_manage_nc')
-  findAll() {
-    return this.nonConformitiesService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.nonConformitiesService.findPaginated({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      search,
+    });
   }
 
   @Get('files/list')

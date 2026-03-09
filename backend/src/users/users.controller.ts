@@ -89,6 +89,12 @@ export class UsersController {
     type: Number,
     description: 'Limite de itens por página',
   })
+  @ApiQuery({
+    name: 'company_id',
+    required: false,
+    type: String,
+    description: 'Filtro por empresa (uso administrativo)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Lista de usuários retornada com sucesso',
@@ -115,11 +121,13 @@ export class UsersController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
     @Query('search') search?: string,
+    @Query('company_id') companyId?: string,
   ) {
     return this.usersService.findPaginated({
       page: Number(page),
       limit: Number(limit),
       search: search || undefined,
+      companyId: companyId || undefined,
     });
   }
 

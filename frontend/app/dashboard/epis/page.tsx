@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { episService, Epi } from '@/services/episService';
 import { Plus, Pencil, Trash2, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
@@ -8,6 +8,7 @@ import { format, isBefore, addDays } from 'date-fns';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
+import { PaginationControls } from '@/components/PaginationControls';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,16 +17,26 @@ export default function EpisPage() {
   const [epis, setEpis] = useState<Epi[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
 
   useEffect(() => {
     loadEpis();
-  }, []);
+  }, [deferredSearchTerm, page]);
 
   async function loadEpis() {
     try {
       setLoading(true);
-      const data = await episService.findAll();
-      setEpis(data);
+      const response = await episService.findPaginated({
+        page,
+        limit: 10,
+        search: deferredSearchTerm || undefined,
+      });
+      setEpis(response.data);
+      setTotal(response.total);
+      setLastPage(response.lastPage);
     } catch (error) {
       console.error('Erro ao carregar EPIs:', error);
       toast.error('Erro ao carregar EPIs.');
@@ -38,8 +49,12 @@ export default function EpisPage() {
     if (confirm('Tem certeza que deseja excluir este EPI?')) {
       try {
         await episService.delete(id);
-        setEpis(epis.filter(e => e.id !== id));
         toast.success('EPI excluído com sucesso!');
+        if (epis.length === 1 && page > 1) {
+          setPage((current) => current - 1);
+          return;
+        }
+        loadEpis();
       } catch (error) {
         console.error('Erro ao excluir EPI:', error);
         toast.error('Erro ao excluir EPI. Verifique se existem dependências e tente novamente.');
@@ -58,9 +73,12 @@ export default function EpisPage() {
     return 'valid';
   };
 
-  const filteredEpis = epis.filter(epi =>
-    epi.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    epi.ca?.toLowerCase().includes(searchTerm.toLowerCase())
+  const summary = useMemo(
+    () => ({
+      total,
+      visible: epis.length,
+    }),
+    [epis.length, total],
   );
 
   return (
@@ -73,7 +91,7 @@ export default function EpisPage() {
           </div>
           <div className="flex items-center gap-3">
             <Badge variant="primary" className="px-3 py-1">
-              {filteredEpis.length} resultado(s)
+              {summary.total} resultado(s)
             </Badge>
             <Link
               href="/dashboard/epis/new"
@@ -98,7 +116,10 @@ export default function EpisPage() {
               aria-label="Buscar EPIs por nome ou CA"
               className="pl-10"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
             />
           </div>
         </div>
@@ -122,14 +143,14 @@ export default function EpisPage() {
                   </div>
                 </TableCell>
               </TableRow>
-            ) : filteredEpis.length === 0 ? (
+            ) : epis.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="py-10 text-center text-[var(--ds-color-text-muted)]">
                   Nenhum EPI encontrado.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredEpis.map((epi) => {
+              epis.map((epi) => {
                 const status = getValidityStatus(epi.validade_ca);
                 return (
                   <TableRow key={epi.id}>
@@ -186,6 +207,15 @@ export default function EpisPage() {
             )}
           </TableBody>
         </Table>
+        {!loading && total > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </div>
     </div>
   );

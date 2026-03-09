@@ -123,15 +123,50 @@ export default function ServiceOrdersPage() {
   useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
-    usersService.findAll().then((res) => {
-      const list = Array.isArray(res) ? res : (res as { data: User[] }).data ?? [];
-      setUsers(list);
-    }).catch(() => {});
-    sitesService.findAll().then((res) => {
-      const list = Array.isArray(res) ? res : (res as { data: Site[] }).data ?? [];
-      setSites(list);
-    }).catch(() => {});
-  }, []);
+    async function loadOptions() {
+      try {
+        const [usersPage, sitesPage] = await Promise.all([
+          usersService.findPaginated({ page: 1, limit: 100 }),
+          sitesService.findPaginated({ page: 1, limit: 100 }),
+        ]);
+
+        let nextUsers = usersPage.data as User[];
+        if (
+          form.responsavel_id &&
+          !nextUsers.some((entry) => entry.id === form.responsavel_id)
+        ) {
+          try {
+            const selectedUser = await usersService.findOne(form.responsavel_id);
+            nextUsers = dedupeById([selectedUser, ...nextUsers]);
+          } catch {
+            nextUsers = dedupeById(nextUsers);
+          }
+        } else {
+          nextUsers = dedupeById(nextUsers);
+        }
+
+        let nextSites = sitesPage.data as Site[];
+        if (form.site_id && !nextSites.some((entry) => entry.id === form.site_id)) {
+          try {
+            const selectedSite = await sitesService.findOne(form.site_id);
+            nextSites = dedupeById([selectedSite, ...nextSites]);
+          } catch {
+            nextSites = dedupeById(nextSites);
+          }
+        } else {
+          nextSites = dedupeById(nextSites);
+        }
+
+        setUsers(nextUsers);
+        setSites(nextSites);
+      } catch {
+        setUsers([]);
+        setSites([]);
+      }
+    }
+
+    void loadOptions();
+  }, [form.responsavel_id, form.site_id]);
 
   const openCreate = () => {
     setEditId(null);
@@ -612,4 +647,8 @@ export default function ServiceOrdersPage() {
       )}
     </div>
   );
+}
+
+function dedupeById<T extends { id: string }>(items: T[]) {
+  return Array.from(new Map(items.map((item) => [item.id, item])).values());
 }

@@ -7,6 +7,11 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Company } from './entities/company.entity';
 import { CompanyResponseDto } from './dto/company-response.dto';
 import { CnpjUtil } from '../common/utils/cnpj.util';
+import {
+  normalizeOffsetPagination,
+  OffsetPage,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
 
 @Injectable()
 export class CompaniesService {
@@ -29,15 +34,60 @@ export class CompaniesService {
     });
     const saved = await this.companiesRepository.save(company);
     await this.cacheManager.del('companies:all');
+    await this.cacheManager.del('companies:active:ids');
     return plainToClass(CompanyResponseDto, saved);
   }
 
   /** Retorna apenas os IDs das empresas ativas — para uso interno em cron jobs. */
   async findAllActive(): Promise<{ id: string }[]> {
-    return this.companiesRepository.find({
+    const cacheKey = 'companies:active:ids';
+    const cached = await this.cacheManager.get<{ id: string }[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const companies = await this.companiesRepository.find({
       select: ['id'],
       where: { status: true },
     });
+    await this.cacheManager.set(cacheKey, companies, 60 * 60 * 1000);
+    return companies;
+  }
+
+  async findPaginated(opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<OffsetPage<CompanyResponseDto>> {
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const query = this.companiesRepository
+      .createQueryBuilder('company')
+      .orderBy('company.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    if (opts?.search?.trim()) {
+      const search = `%${opts.search.trim().toLowerCase()}%`;
+      query.where(
+        `(
+          LOWER(company.razao_social) LIKE :search
+          OR company.cnpj LIKE :search
+          OR LOWER(COALESCE(company.responsavel, '')) LIKE :search
+        )`,
+        { search },
+      );
+    }
+
+    const [companies, total] = await query.getManyAndCount();
+    const data = companies.map((company) =>
+      plainToClass(CompanyResponseDto, company),
+    );
+
+    return toOffsetPage(data, total, page, limit);
   }
 
   async findAll(): Promise<CompanyResponseDto[]> {
@@ -93,6 +143,7 @@ export class CompaniesService {
 
     // Invalidar caches
     await this.cacheManager.del('companies:all');
+    await this.cacheManager.del('companies:active:ids');
     await this.cacheManager.del(`company:${id}`);
 
     return plainToClass(CompanyResponseDto, saved);
@@ -104,6 +155,7 @@ export class CompaniesService {
 
     // Invalidar caches
     await this.cacheManager.del('companies:all');
+    await this.cacheManager.del('companies:active:ids');
     await this.cacheManager.del(`company:${id}`);
   }
 }
