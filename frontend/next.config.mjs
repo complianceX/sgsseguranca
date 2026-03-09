@@ -28,6 +28,7 @@ function buildCsp() {
     `style-src 'self' 'unsafe-inline'`,
     `script-src 'self' 'unsafe-inline'${!isProd ? " 'unsafe-eval'" : ''}`,
     `connect-src ${connectSrc.join(' ')}`,
+    `worker-src 'self'`,
     `form-action 'self'`,
     `upgrade-insecure-requests`,
   ];

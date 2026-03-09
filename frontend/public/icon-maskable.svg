@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d1f39"/>
+      <stop offset="100%" stop-color="#081326"/>
+    </linearGradient>
+    <linearGradient id="shield-fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e3557"/>
+      <stop offset="100%" stop-color="#122340"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur"/>
+      <feOffset dx="0" dy="4" result="offset"/>
+      <feFlood flood-color="#10B981" flood-opacity="0.3" result="color"/>
+      <feComposite in="color" in2="offset" operator="in" result="shadow"/>
+      <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Full bleed background (maskable: safe zone = center 80%) -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- Shield slightly smaller to stay within safe zone -->
+  <path d="M256 80 C186 80 128 112 128 156 V268 C128 344 196 408 256 432 C316 408 384 344 384 268 V156 C384 112 326 80 256 80 Z"
+        fill="url(#shield-fill)"/>
+  <path d="M256 80 C186 80 128 112 128 156 V268 C128 344 196 408 256 432 C316 408 384 344 384 268 V156 C384 112 326 80 256 80 Z"
+        fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="10" stroke-linejoin="round"/>
+
+  <!-- Green X -->
+  <path d="M196 196 L316 316 M316 196 L196 316"
+        stroke="#10B981" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"
+        filter="url(#glow)"/>
+</svg>
