@@ -27,6 +27,7 @@ import {
   ErrorState,
   PageLoadingState,
 } from '@/components/ui/state';
+import { PaginationControls } from '@/components/PaginationControls';
 import { cn } from '@/lib/utils';
 
 export default function MachinesPage() {
@@ -35,17 +36,26 @@ export default function MachinesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
 
   useEffect(() => {
     loadMachines();
-  }, []);
+  }, [page, deferredSearchTerm]);
 
   async function loadMachines() {
     try {
       setLoading(true);
       setLoadError(null);
-      const data = await machinesService.findAll();
-      setMachines(data);
+      const response = await machinesService.findPaginated({
+        page,
+        limit: 10,
+        search: deferredSearchTerm || undefined,
+      });
+      setMachines(response.data);
+      setTotal(response.total);
+      setLastPage(response.lastPage);
     } catch (error) {
       console.error('Erro ao carregar máquinas:', error);
       setLoadError('Nao foi possivel carregar a lista de maquinas.');
@@ -62,30 +72,25 @@ export default function MachinesPage() {
 
     try {
       await machinesService.delete(id);
-      setMachines((current) => current.filter((machine) => machine.id !== id));
       toast.success('Máquina excluida com sucesso');
+      if (machines.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+        return;
+      }
+      loadMachines();
     } catch (error) {
       console.error('Erro ao excluir máquina:', error);
       toast.error('Erro ao excluir máquina. Verifique dependencias e tente novamente.');
     }
   }
 
-  const filteredMachines = useMemo(
-    () =>
-      machines.filter((machine) =>
-        machine.nome.toLowerCase().includes(deferredSearchTerm.toLowerCase()) ||
-        machine.placa?.toLowerCase().includes(deferredSearchTerm.toLowerCase()),
-      ),
-    [machines, deferredSearchTerm],
-  );
-
   const summary = useMemo(
     () => ({
-      total: machines.length,
-      visiveis: filteredMachines.length,
+      total,
+      visiveis: machines.length,
       comPlaca: machines.filter((machine) => Boolean(machine.placa)).length,
     }),
-    [machines, filteredMachines.length],
+    [machines, total],
   );
 
   if (loading) {
@@ -168,7 +173,7 @@ export default function MachinesPage() {
           <div className="space-y-1">
             <CardTitle>Base de máquinas</CardTitle>
             <CardDescription>
-              {filteredMachines.length} máquina(s) exibida(s) com busca por nome e placa.
+              {total} máquina(s) encontrada(s) com busca por nome e placa.
             </CardDescription>
           </div>
           <div className="relative w-full md:w-[360px]">
@@ -179,13 +184,16 @@ export default function MachinesPage() {
               aria-label="Buscar máquinas por nome ou placa"
               className="pl-10"
               value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
+              onChange={(event) => {
+                setSearchTerm(event.target.value);
+                setPage(1);
+              }}
             />
           </div>
         </CardHeader>
 
         <CardContent className="mt-0">
-          {filteredMachines.length === 0 ? (
+          {machines.length === 0 ? (
             <EmptyState
               title="Nenhuma máquina encontrada"
               description={
@@ -216,7 +224,7 @@ export default function MachinesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredMachines.map((machine) => (
+                {machines.map((machine) => (
                   <TableRow key={machine.id}>
                     <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
                       {machine.nome}
@@ -259,6 +267,15 @@ export default function MachinesPage() {
             </Table>
           )}
         </CardContent>
+        {!loading && total > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </Card>
     </div>
   );

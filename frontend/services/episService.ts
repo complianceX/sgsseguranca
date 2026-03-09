@@ -18,23 +18,26 @@ export const episService = {
     page?: number;
     limit?: number;
     search?: string;
+    companyId?: string;
   }): Promise<PaginatedResponse<Epi>> => {
     const response = await api.get<PaginatedResponse<Epi>>('/epis', {
       params: {
         page: opts?.page ?? 1,
         limit: opts?.limit ?? 20,
         ...(opts?.search ? { search: opts.search } : {}),
+        ...(opts?.companyId ? { company_id: opts.companyId } : {}),
       },
     });
     return response.data;
   },
 
-  findAll: async () => {
+  findAll: async (companyId?: string) => {
     return fetchAllPages({
       fetchPage: (page, limit) =>
         episService.findPaginated({
           page,
           limit,
+          companyId,
         }),
       limit: 100,
       maxPages: 50,

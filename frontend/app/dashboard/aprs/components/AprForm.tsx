@@ -619,24 +619,42 @@ export function AprForm({ id }: AprFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const [actData, riskData, epiData, siteData, userData, companyData, toolData, machineData] = await Promise.all([
-          activitiesService.findAll(),
-          risksService.findAll(),
-          episService.findAll(),
-          sitesService.findAll(),
-          usersService.findAll(),
-          companiesService.findAll(),
-          toolsService.findAll(),
-          machinesService.findAll(),
-        ]);
-        setActivities(actData);
-        setRisks(riskData);
-        setEpis(epiData);
-        setSites(siteData);
-        setUsers(userData);
-        setCompanies(companyData);
-        setTools(toolData);
-        setMachines(machineData);
+        let companySeedId = user?.company_id || '';
+
+        const loadCompanies = async (selectedCompanyId?: string) => {
+          let nextCompanies: Company[] = [];
+
+          if (user?.profile?.nome === 'Administrador Geral') {
+            const companiesPage = await companiesService.findPaginated({
+              page: 1,
+              limit: 100,
+            });
+            nextCompanies = companiesPage.data;
+            if (
+              selectedCompanyId &&
+              !nextCompanies.some((company) => company.id === selectedCompanyId)
+            ) {
+              try {
+                const selectedCompany = await companiesService.findOne(
+                  selectedCompanyId,
+                );
+                nextCompanies = dedupeById([selectedCompany, ...nextCompanies]);
+              } catch {
+                nextCompanies = dedupeById(nextCompanies);
+              }
+            }
+          } else if (selectedCompanyId) {
+            try {
+              const selectedCompany =
+                await companiesService.findOne(selectedCompanyId);
+              nextCompanies = [selectedCompany];
+            } catch {
+              nextCompanies = [];
+            }
+          }
+
+          setCompanies(dedupeById(nextCompanies));
+        };
 
         if (id) {
           setLoadingTimeline(true);
@@ -668,6 +686,20 @@ export function AprForm({ id }: AprFormProps) {
             sigMap[s.user_id] = { data: s.signature_data, type: s.type };
           });
           setSignatures(sigMap);
+          companySeedId = apr.company_id;
+          setActivities(dedupeById(apr.activities || []));
+          setRisks(dedupeById(apr.risks || []));
+          setEpis(dedupeById(apr.epis || []));
+          setTools(dedupeById(apr.tools || []));
+          setMachines(dedupeById(apr.machines || []));
+          setSites(dedupeById(apr.site ? [apr.site] : []));
+          setUsers(
+            dedupeById([
+              ...(apr.elaborador ? [apr.elaborador] : []),
+              ...(apr.participants || []),
+              ...(apr.auditado_por ? [apr.auditado_por] : []),
+            ]),
+          );
 
           reset({
             numero: apr.numero,
@@ -709,6 +741,7 @@ export function AprForm({ id }: AprFormProps) {
                 ...watch(),
                 ...parsedDraft.values,
               });
+              companySeedId = parsedDraft.values.company_id || companySeedId;
               replaceRisk(
                 parsedDraft.values.itens_risco && parsedDraft.values.itens_risco.length > 0
                   ? parsedDraft.values.itens_risco
@@ -726,11 +759,17 @@ export function AprForm({ id }: AprFormProps) {
 
             setDraftRestored(true);
           } else {
-            const aprData = await aprsService.findAll();
-            const defaultAprItem = aprData.find((apr) => apr.is_modelo_padrao);
+            const defaultAprPage = await aprsService.findPaginated({
+              page: 1,
+              limit: 20,
+              companyId: user?.company_id,
+              isModeloPadrao: true,
+            });
+            const defaultAprItem = defaultAprPage.data[0];
 
             if (defaultAprItem) {
               const defaultApr = await aprsService.findOne(defaultAprItem.id);
+              companySeedId = defaultApr.company_id;
               setValue('company_id', defaultApr.company_id);
               setValue('titulo', defaultApr.titulo);
               setValue('descricao', defaultApr.descricao || '');
@@ -759,9 +798,24 @@ export function AprForm({ id }: AprFormProps) {
                 (defaultApr.participants || []).map((participant) => participant.id),
               );
               replaceRisk(defaultApr.itens_risco && defaultApr.itens_risco.length > 0 ? defaultApr.itens_risco : []);
+              setActivities(dedupeById(defaultApr.activities || []));
+              setRisks(dedupeById(defaultApr.risks || []));
+              setEpis(dedupeById(defaultApr.epis || []));
+              setTools(dedupeById(defaultApr.tools || []));
+              setMachines(dedupeById(defaultApr.machines || []));
+              setSites(dedupeById(defaultApr.site ? [defaultApr.site] : []));
+              setUsers(
+                dedupeById([
+                  ...(defaultApr.elaborador ? [defaultApr.elaborador] : []),
+                  ...(defaultApr.participants || []),
+                  ...(defaultApr.auditado_por ? [defaultApr.auditado_por] : []),
+                ]),
+              );
             }
           }
         }
+
+        await loadCompanies(companySeedId);
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
         toast.error('Erro ao carregar dados para o formulário.');
@@ -772,6 +826,117 @@ export function AprForm({ id }: AprFormProps) {
     }
     loadData();
   }, [draftStorageKey, id, replaceRisk, reset, setValue, watch]);
+
+  useEffect(() => {
+    async function loadCompanyScopedCatalogs() {
+      if (!selectedCompanyId) {
+        setActivities([]);
+        setRisks([]);
+        setEpis([]);
+        setTools([]);
+        setMachines([]);
+        setSites([]);
+        setUsers([]);
+        return;
+      }
+
+      try {
+        const [
+          actPage,
+          riskPage,
+          epiPage,
+          sitePage,
+          userPage,
+          toolPage,
+          machinePage,
+        ] = await Promise.all([
+          activitiesService.findPaginated({
+            page: 1,
+            limit: 100,
+            companyId: selectedCompanyId,
+          }),
+          risksService.findPaginated({
+            page: 1,
+            limit: 100,
+            companyId: selectedCompanyId,
+          }),
+          episService.findPaginated({
+            page: 1,
+            limit: 100,
+            companyId: selectedCompanyId,
+          }),
+          sitesService.findPaginated({
+            page: 1,
+            limit: 100,
+            companyId: selectedCompanyId,
+          }),
+          usersService.findPaginated({
+            page: 1,
+            limit: 100,
+            companyId: selectedCompanyId,
+          }),
+          toolsService.findPaginated({
+            page: 1,
+            limit: 100,
+            companyId: selectedCompanyId,
+          }),
+          machinesService.findPaginated({
+            page: 1,
+            limit: 100,
+            companyId: selectedCompanyId,
+          }),
+        ]);
+
+        setActivities((prev) =>
+          dedupeById([
+            ...prev.filter((item) => item.company_id === selectedCompanyId),
+            ...actPage.data,
+          ]),
+        );
+        setRisks((prev) =>
+          dedupeById([
+            ...prev.filter((item) => item.company_id === selectedCompanyId),
+            ...riskPage.data,
+          ]),
+        );
+        setEpis((prev) =>
+          dedupeById([
+            ...prev.filter((item) => item.company_id === selectedCompanyId),
+            ...epiPage.data,
+          ]),
+        );
+        setSites((prev) =>
+          dedupeById([
+            ...prev.filter((item) => item.company_id === selectedCompanyId),
+            ...sitePage.data,
+          ]),
+        );
+        setUsers((prev) =>
+          dedupeById([
+            ...prev.filter((item) => item.company_id === selectedCompanyId),
+            ...userPage.data,
+          ]),
+        );
+        setTools((prev) =>
+          dedupeById([
+            ...prev.filter((item) => item.company_id === selectedCompanyId),
+            ...toolPage.data,
+          ]),
+        );
+        setMachines((prev) =>
+          dedupeById([
+            ...prev.filter((item) => item.company_id === selectedCompanyId),
+            ...machinePage.data,
+          ]),
+        );
+      } catch (error) {
+        console.error('Erro ao carregar catálogos da APR:', error);
+        toast.error('Erro ao carregar catálogos da APR.');
+      }
+    }
+
+    void loadCompanyScopedCatalogs();
+  }, [selectedCompanyId]);
 
   useEffect(() => {
     if (id || selectedCompanyId) return;
@@ -2129,4 +2294,8 @@ function SectionGrid({ title, items, selectedIds, onToggle, error, signatures, c
       </div>
     </div>
   );
+}
+
+function dedupeById<T extends { id: string }>(items: T[]) {
+  return Array.from(new Map(items.map((item) => [item.id, item])).values());
 }

@@ -5,10 +5,15 @@ import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { RisksFilters } from './components/RisksFilters';
 import { RisksTable } from './components/RisksTable';
+import { PaginationControls } from '@/components/PaginationControls';
 
 export default function RisksPage() {
   const {
     loading,
+    page,
+    lastPage,
+    total,
+    setPage,
     searchTerm,
     setSearchTerm,
     filteredRisks,
@@ -42,6 +47,15 @@ export default function RisksPage() {
           loading={loading}
           onDelete={handleDelete}
         />
+        {!loading && total > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </div>
     </div>
   );

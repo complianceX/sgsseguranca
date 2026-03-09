@@ -24,6 +24,7 @@ export class EpisService extends BaseService<Epi> {
     page?: number;
     limit?: number;
     search?: string;
+    companyId?: string;
   }): Promise<OffsetPage<Epi>> {
     const tenantId = this.tenantService.getTenantId();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
@@ -39,6 +40,10 @@ export class EpisService extends BaseService<Epi> {
 
     if (tenantId) {
       query.where('epi.company_id = :tenantId', { tenantId });
+    } else if (opts?.companyId) {
+      query.where('epi.company_id = :companyId', {
+        companyId: opts.companyId,
+      });
     }
 
     if (opts?.search?.trim()) {
@@ -47,7 +52,7 @@ export class EpisService extends BaseService<Epi> {
         LOWER(epi.nome) LIKE :search
         OR LOWER(COALESCE(epi.ca, '')) LIKE :search
       )`;
-      if (tenantId) {
+      if (tenantId || opts?.companyId) {
         query.andWhere(condition, { search });
       } else {
         query.where(condition, { search });

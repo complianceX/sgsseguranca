@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export interface Machine {
   id: string;
@@ -12,9 +13,30 @@ export interface Machine {
 }
 
 export const machinesService = {
-  findAll: async () => {
-    const response = await api.get<Machine[]>('/machines');
+  findPaginated: async (opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    companyId?: string;
+  }): Promise<PaginatedResponse<Machine>> => {
+    const response = await api.get<PaginatedResponse<Machine>>('/machines', {
+      params: {
+        page: opts?.page ?? 1,
+        limit: opts?.limit ?? 20,
+        ...(opts?.search ? { search: opts.search } : {}),
+        ...(opts?.companyId ? { company_id: opts.companyId } : {}),
+      },
+    });
     return response.data;
+  },
+
+  findAll: async (companyId?: string) => {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        machinesService.findPaginated({ page, limit, companyId }),
+      limit: 100,
+      maxPages: 50,
+    });
   },
 
   findOne: async (id: string) => {

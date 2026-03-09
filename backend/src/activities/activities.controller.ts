@@ -41,11 +41,13 @@ export class ActivitiesController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('company_id') companyId?: string,
   ) {
     return this.activitiesService.findPaginated({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 20,
       search,
+      companyId: companyId || undefined,
     });
   }
 

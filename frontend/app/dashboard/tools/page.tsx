@@ -26,6 +26,7 @@ import {
   ErrorState,
   PageLoadingState,
 } from '@/components/ui/state';
+import { PaginationControls } from '@/components/PaginationControls';
 import { cn } from '@/lib/utils';
 
 const inputClassName =
@@ -37,17 +38,26 @@ export default function ToolsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
 
   useEffect(() => {
     loadTools();
-  }, []);
+  }, [page, deferredSearchTerm]);
 
   async function loadTools() {
     try {
       setLoading(true);
       setLoadError(null);
-      const data = await toolsService.findAll();
-      setTools(data);
+      const response = await toolsService.findPaginated({
+        page,
+        limit: 10,
+        search: deferredSearchTerm || undefined,
+      });
+      setTools(response.data);
+      setTotal(response.total);
+      setLastPage(response.lastPage);
     } catch (error) {
       console.error('Erro ao carregar ferramentas:', error);
       setLoadError('Nao foi possivel carregar a lista de ferramentas.');
@@ -64,30 +74,25 @@ export default function ToolsPage() {
 
     try {
       await toolsService.delete(id);
-      setTools((current) => current.filter((tool) => tool.id !== id));
       toast.success('Ferramenta excluida com sucesso');
+      if (tools.length === 1 && page > 1) {
+        setPage((current) => current - 1);
+        return;
+      }
+      loadTools();
     } catch (error) {
       console.error('Erro ao excluir ferramenta:', error);
       toast.error('Erro ao excluir ferramenta. Verifique dependencias e tente novamente.');
     }
   }
 
-  const filteredTools = useMemo(
-    () =>
-      tools.filter((tool) =>
-        tool.nome.toLowerCase().includes(deferredSearchTerm.toLowerCase()) ||
-        tool.numero_serie?.includes(deferredSearchTerm),
-      ),
-    [tools, deferredSearchTerm],
-  );
-
   const summary = useMemo(
     () => ({
-      total: tools.length,
-      visiveis: filteredTools.length,
+      total,
+      visiveis: tools.length,
       comSerie: tools.filter((tool) => Boolean(tool.numero_serie)).length,
     }),
-    [tools, filteredTools.length],
+    [tools, total],
   );
 
   if (loading) {
@@ -170,7 +175,7 @@ export default function ToolsPage() {
           <div className="space-y-1">
             <CardTitle>Base de ferramentas</CardTitle>
             <CardDescription>
-              {filteredTools.length} ferramenta(s) exibida(s) com busca por nome e número de série.
+              {total} ferramenta(s) encontrada(s) com busca por nome e número de série.
             </CardDescription>
           </div>
           <div className="relative w-full md:w-[360px]">
@@ -181,13 +186,16 @@ export default function ToolsPage() {
               aria-label="Buscar ferramentas por nome ou número de série"
               className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
+              onChange={(event) => {
+                setSearchTerm(event.target.value);
+                setPage(1);
+              }}
             />
           </div>
         </CardHeader>
 
         <CardContent className="mt-0">
-          {filteredTools.length === 0 ? (
+          {tools.length === 0 ? (
             <EmptyState
               title="Nenhuma ferramenta encontrada"
               description={
@@ -218,7 +226,7 @@ export default function ToolsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTools.map((tool) => (
+                {tools.map((tool) => (
                   <TableRow key={tool.id}>
                     <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
                       {tool.nome}
@@ -261,6 +269,15 @@ export default function ToolsPage() {
             </Table>
           )}
         </CardContent>
+        {!loading && total > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </Card>
     </div>
   );

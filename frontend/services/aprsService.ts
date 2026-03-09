@@ -146,12 +146,23 @@ export interface CreateAprDto {
 }
 
 export const aprsService = {
-  findPaginated: async (opts?: { page?: number; limit?: number; search?: string; status?: string }) => {
+  findPaginated: async (opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    companyId?: string;
+    isModeloPadrao?: boolean;
+  }) => {
     const params = {
       page: opts?.page ?? 1,
       limit: opts?.limit ?? 20,
       ...(opts?.search ? { search: opts.search } : {}),
       ...(opts?.status ? { status: opts.status } : {}),
+      ...(opts?.companyId ? { company_id: opts.companyId } : {}),
+      ...(opts?.isModeloPadrao !== undefined
+        ? { is_modelo_padrao: opts.isModeloPadrao }
+        : {}),
     };
     const cacheKey = `aprs.paginated.${JSON.stringify(params)}`;
 
@@ -169,11 +180,12 @@ export const aprsService = {
     }
   },
 
-  findAll: async () => {
+  findAll: async (companyId?: string) => {
     const cacheKey = 'aprs.all';
     try {
       const data = await fetchAllPages({
-        fetchPage: (page, limit) => aprsService.findPaginated({ page, limit }),
+        fetchPage: (page, limit) =>
+          aprsService.findPaginated({ page, limit, companyId }),
         limit: 100,
         maxPages: 20,
       });

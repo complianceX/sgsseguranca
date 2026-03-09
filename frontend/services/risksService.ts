@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export interface Risk {
   id: string;
@@ -28,9 +29,30 @@ export interface Risk {
 }
 
 export const risksService = {
-  findAll: async () => {
-    const response = await api.get<Risk[]>('/risks');
+  findPaginated: async (opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    companyId?: string;
+  }): Promise<PaginatedResponse<Risk>> => {
+    const response = await api.get<PaginatedResponse<Risk>>('/risks', {
+      params: {
+        page: opts?.page ?? 1,
+        limit: opts?.limit ?? 20,
+        ...(opts?.search ? { search: opts.search } : {}),
+        ...(opts?.companyId ? { company_id: opts.companyId } : {}),
+      },
+    });
     return response.data;
+  },
+
+  findAll: async (companyId?: string) => {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        risksService.findPaginated({ page, limit, companyId }),
+      limit: 100,
+      maxPages: 50,
+    });
   },
 
   findOne: async (id: string) => {

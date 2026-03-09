@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export interface Tool {
   id: string;
@@ -11,9 +12,30 @@ export interface Tool {
 }
 
 export const toolsService = {
-  findAll: async () => {
-    const response = await api.get<Tool[]>('/tools');
+  findPaginated: async (opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    companyId?: string;
+  }): Promise<PaginatedResponse<Tool>> => {
+    const response = await api.get<PaginatedResponse<Tool>>('/tools', {
+      params: {
+        page: opts?.page ?? 1,
+        limit: opts?.limit ?? 20,
+        ...(opts?.search ? { search: opts.search } : {}),
+        ...(opts?.companyId ? { company_id: opts.companyId } : {}),
+      },
+    });
     return response.data;
+  },
+
+  findAll: async (companyId?: string) => {
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        toolsService.findPaginated({ page, limit, companyId }),
+      limit: 100,
+      maxPages: 50,
+    });
   },
 
   findOne: async (id: string) => {

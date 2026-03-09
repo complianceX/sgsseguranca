@@ -136,6 +136,7 @@ export function PtForm({ id }: PtFormProps) {
   const selectedSiteId = watch('site_id');
   const selectedResponsavelId = watch('responsavel_id');
   const selectedAprId = watch('apr_id');
+  const selectedAuditadoPorId = watch('auditado_por_id');
   const selectedTitle = watch('titulo');
   const workAtHeight = watch('trabalho_altura');
   const workElectric = watch('eletricidade');
@@ -145,7 +146,7 @@ export function PtForm({ id }: PtFormProps) {
   const filteredSites = sites.filter(site => site.company_id === selectedCompanyId);
   const filteredAprs = aprs.filter(apr => apr.company_id === selectedCompanyId);
   const filteredUsers = users.filter(user => user.company_id === selectedCompanyId);
-  const selectedExecutanteIds = useMemo(() => watch('executantes') || [], [watch]);
+  const selectedExecutanteIds = watch('executantes') || [];
   const selectedCompany = companies.find((company) => company.id === selectedCompanyId);
   const selectedSite = filteredSites.find((site) => site.id === selectedSiteId);
   const selectedResponsavel = filteredUsers.find((responsavel) => responsavel.id === selectedResponsavelId);
@@ -215,16 +216,42 @@ export function PtForm({ id }: PtFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const [aprData, siteData, userData, companyData] = await Promise.all([
-          aprsService.findAll(),
-          sitesService.findAll(),
-          usersService.findAll(),
-          companiesService.findAll(),
-        ]);
-        setAprs(aprData);
-        setSites(siteData);
-        setUsers(userData);
-        setCompanies(companyData);
+        let companySeedId = user?.company_id || '';
+
+        const loadCompanies = async (currentCompanyId?: string) => {
+          let nextCompanies: Company[] = [];
+
+          if (user?.profile?.nome === 'Administrador Geral') {
+            const companiesPage = await companiesService.findPaginated({
+              page: 1,
+              limit: 100,
+            });
+            nextCompanies = companiesPage.data;
+
+            if (
+              currentCompanyId &&
+              !nextCompanies.some((company) => company.id === currentCompanyId)
+            ) {
+              try {
+                const currentCompany =
+                  await companiesService.findOne(currentCompanyId);
+                nextCompanies = dedupeById([currentCompany, ...nextCompanies]);
+              } catch {
+                nextCompanies = dedupeById(nextCompanies);
+              }
+            }
+          } else if (currentCompanyId) {
+            try {
+              const currentCompany =
+                await companiesService.findOne(currentCompanyId);
+              nextCompanies = [currentCompany];
+            } catch {
+              nextCompanies = [];
+            }
+          }
+
+          setCompanies(dedupeById(nextCompanies));
+        };
 
         if (id) {
           const [pt, sigs] = await Promise.all([
@@ -239,6 +266,24 @@ export function PtForm({ id }: PtFormProps) {
             sigMap[s.user_id] = { data: s.signature_data, type: s.type };
           });
           setSignatures(sigMap);
+          companySeedId = pt.company_id;
+          setAprs(
+            dedupeById(
+              isEntityWithId<Apr>(pt.apr) ? [pt.apr] : [],
+            ),
+          );
+          setSites(
+            dedupeById(
+              isEntityWithId<Site>(pt.site) ? [pt.site] : [],
+            ),
+          );
+          setUsers(
+            dedupeById([
+              ...(isEntityWithId<User>(pt.responsavel) ? [pt.responsavel] : []),
+              ...((pt.executantes || []) as User[]),
+              ...(isEntityWithId<User>(pt.auditado_por) ? [pt.auditado_por] : []),
+            ]),
+          );
 
           reset({
             ...initialChecklists,
@@ -288,6 +333,7 @@ export function PtForm({ id }: PtFormProps) {
                 ...methods.getValues(),
                 ...parsedDraft.values,
               });
+              companySeedId = parsedDraft.values.company_id || companySeedId;
             }
 
             if (parsedDraft.step && parsedDraft.step >= 1 && parsedDraft.step <= 3) {
@@ -300,6 +346,8 @@ export function PtForm({ id }: PtFormProps) {
             setDraftRestored(true);
           }
         }
+
+        await loadCompanies(companySeedId);
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
         toast.error('Erro ao carregar dados para o formulário.');
@@ -308,7 +356,124 @@ export function PtForm({ id }: PtFormProps) {
       }
     }
     loadData();
-  }, [draftStorageKey, id, methods, reset]);
+  }, [draftStorageKey, id, methods, reset, user?.company_id, user?.profile?.nome]);
+
+  useEffect(() => {
+    async function loadCompanyScopedCatalogs() {
+      if (!selectedCompanyId) {
+        setAprs([]);
+        setSites([]);
+        setUsers([]);
+        return;
+      }
+
+      try {
+        let [aprPage, sitePage, userPage] = await Promise.all([
+          aprsService.findPaginated({
+            page: 1,
+            limit: 100,
+            companyId: selectedCompanyId,
+          }),
+          sitesService.findPaginated({
+            page: 1,
+            limit: 100,
+            companyId: selectedCompanyId,
+          }),
+          usersService.findPaginated({
+            page: 1,
+            limit: 100,
+            companyId: selectedCompanyId,
+          }),
+        ]);
+
+        let nextAprs = aprPage.data;
+        let nextSites = sitePage.data;
+        let nextUsers = userPage.data;
+
+        if (selectedAprId && !nextAprs.some((apr) => apr.id === selectedAprId)) {
+          try {
+            const currentApr = await aprsService.findOne(selectedAprId);
+            if (currentApr.company_id === selectedCompanyId) {
+              nextAprs = dedupeById([currentApr, ...nextAprs]);
+            }
+          } catch {}
+        }
+
+        if (
+          selectedSiteId &&
+          !nextSites.some((site) => site.id === selectedSiteId)
+        ) {
+          try {
+            const currentSite = await sitesService.findOne(selectedSiteId);
+            if (currentSite.company_id === selectedCompanyId) {
+              nextSites = dedupeById([currentSite, ...nextSites]);
+            }
+          } catch {}
+        }
+
+        const requiredUserIds = Array.from(
+          new Set(
+            [
+              selectedResponsavelId,
+              selectedAuditadoPorId,
+              ...selectedExecutanteIds,
+            ].filter(Boolean),
+          ),
+        ) as string[];
+        const missingUserIds = requiredUserIds.filter(
+          (userId) => !nextUsers.some((currentUser) => currentUser.id === userId),
+        );
+
+        if (missingUserIds.length > 0) {
+          const fetchedUsers = await Promise.all(
+            missingUserIds.map((userId) =>
+              usersService.findOne(userId).catch(() => null),
+            ),
+          );
+          const presentUsers = fetchedUsers.filter(
+            (currentUser): currentUser is User => currentUser !== null,
+          );
+          nextUsers = dedupeById([
+            ...presentUsers.filter(
+              (currentUser) => currentUser.company_id === selectedCompanyId,
+            ),
+            ...nextUsers,
+          ]);
+        }
+
+        setAprs((prev) =>
+          dedupeById([
+            ...prev.filter((apr) => apr.company_id === selectedCompanyId),
+            ...nextAprs,
+          ]),
+        );
+        setSites((prev) =>
+          dedupeById([
+            ...prev.filter((site) => site.company_id === selectedCompanyId),
+            ...nextSites,
+          ]),
+        );
+        setUsers((prev) =>
+          dedupeById([
+            ...prev.filter((currentUser) => currentUser.company_id === selectedCompanyId),
+            ...nextUsers,
+          ]),
+        );
+      } catch (error) {
+        console.error('Erro ao carregar catálogos da PT:', error);
+        toast.error('Erro ao carregar catálogos da PT.');
+      }
+    }
+
+    void loadCompanyScopedCatalogs();
+  }, [
+    selectedAprId,
+    selectedAuditadoPorId,
+    selectedCompanyId,
+    selectedExecutanteIds,
+    selectedResponsavelId,
+    selectedSiteId,
+  ]);
 
   useEffect(() => {
     if (id) return;
@@ -830,5 +995,20 @@ function WizardMetric({
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] opacity-80">{label}</p>
       <p className="mt-2 text-lg font-semibold">{value}</p>
     </div>
+  );
+}
+
+function dedupeById<T extends { id: string }>(items: T[]) {
+  return Array.from(new Map(items.map((item) => [item.id, item])).values());
+}
+
+function isEntityWithId<T extends { id: string }>(value: unknown): value is T {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  return (
+    'id' in value &&
+    typeof (value as { id?: unknown }).id === 'string'
   );
 }

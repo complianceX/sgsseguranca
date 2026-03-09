@@ -11,23 +11,30 @@ export interface Activity {
 }
 
 export const activitiesService = {
-  findPaginated: async (opts?: { page?: number; limit?: number; search?: string }): Promise<PaginatedResponse<Activity>> => {
+  findPaginated: async (opts?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    companyId?: string;
+  }): Promise<PaginatedResponse<Activity>> => {
     const response = await api.get<PaginatedResponse<Activity>>('/activities', {
       params: {
         page: opts?.page ?? 1,
         limit: opts?.limit ?? 20,
         ...(opts?.search ? { search: opts.search } : {}),
+        ...(opts?.companyId ? { company_id: opts.companyId } : {}),
       },
     });
     return response.data;
   },
 
-  findAll: async () => {
+  findAll: async (companyId?: string) => {
     return fetchAllPages({
       fetchPage: (page, limit) =>
         activitiesService.findPaginated({
           page,
           limit,
+          companyId,
         }),
       limit: 100,
       maxPages: 50,

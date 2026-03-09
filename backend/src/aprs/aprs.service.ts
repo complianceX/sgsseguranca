@@ -111,6 +111,8 @@ export class AprsService {
     limit?: number;
     search?: string;
     status?: string;
+    companyId?: string;
+    isModeloPadrao?: boolean;
   }): Promise<OffsetPage<AprListItemDto>> {
     const tenantId = this.tenantService.getTenantId();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
@@ -132,15 +134,22 @@ export class AprsService {
 
     if (tenantId) {
       qb.where('apr.company_id = :tenantId', { tenantId });
+    } else if (opts?.companyId) {
+      qb.where('apr.company_id = :companyId', { companyId: opts.companyId });
     }
     if (opts?.search) {
       const clause = 'apr.titulo ILIKE :search';
-      tenantId
+      tenantId || opts?.companyId
         ? qb.andWhere(clause, { search: `%${opts.search}%` })
         : qb.where(clause, { search: `%${opts.search}%` });
     }
     if (opts?.status) {
       qb.andWhere('apr.status = :status', { status: opts.status });
+    }
+    if (opts?.isModeloPadrao !== undefined) {
+      qb.andWhere('apr.is_modelo_padrao = :isModeloPadrao', {
+        isModeloPadrao: opts.isModeloPadrao,
+      });
     }
 
     const [rows, total] = await qb.getManyAndCount();

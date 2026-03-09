@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { RisksService } from './risks.service';
@@ -35,8 +36,18 @@ export class RisksController extends BaseController<
 
   @Get()
   @Authorize('can_view_risks')
-  override findAll(): Promise<Risk[]> {
-    return this.risksService.findAll();
+  findPaginated(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('company_id') companyId?: string,
+  ) {
+    return this.risksService.findPaginated({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      search,
+      companyId: companyId || undefined,
+    });
   }
 
   @Get(':id')

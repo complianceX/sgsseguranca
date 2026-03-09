@@ -51,6 +51,8 @@ export class AprsController {
     @Query('limit') limit: number = 20,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('company_id') companyId?: string,
+    @Query('is_modelo_padrao') isModeloPadrao?: string,
   ): Promise<{
     data: AprListItemDto[];
     total: number;
@@ -62,6 +64,11 @@ export class AprsController {
       limit: Number(limit),
       search: search || undefined,
       status: status || undefined,
+      companyId: companyId || undefined,
+      isModeloPadrao:
+        isModeloPadrao === undefined
+          ? undefined
+          : isModeloPadrao === 'true',
     });
   }
 

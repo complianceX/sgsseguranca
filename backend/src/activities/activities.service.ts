@@ -27,6 +27,7 @@ export class ActivitiesService {
     page?: number;
     limit?: number;
     search?: string;
+    companyId?: string;
   }): Promise<OffsetPage<Activity>> {
     const tenantId = this.tenantService.getTenantId();
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
@@ -42,6 +43,10 @@ export class ActivitiesService {
 
     if (tenantId) {
       query.where('activity.company_id = :companyId', { companyId: tenantId });
+    } else if (opts?.companyId) {
+      query.where('activity.company_id = :companyId', {
+        companyId: opts.companyId,
+      });
     }
 
     if (opts?.search?.trim()) {
@@ -50,7 +55,7 @@ export class ActivitiesService {
         LOWER(activity.nome) LIKE :search
         OR LOWER(COALESCE(activity.descricao, '')) LIKE :search
       )`;
-      if (tenantId) {
+      if (tenantId || opts?.companyId) {
         query.andWhere(condition, { search });
       } else {
         query.where(condition, { search });
