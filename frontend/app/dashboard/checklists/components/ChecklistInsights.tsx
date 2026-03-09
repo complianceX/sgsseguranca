@@ -1,5 +1,6 @@
 import React from 'react';
 import { ClipboardCheck, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Card, CardHeader, CardDescription, CardTitle } from '@/components/ui/card';
 
 interface ChecklistInsightsProps {
   insights: {
@@ -16,47 +17,42 @@ export const ChecklistInsights = React.memo(({ insights }: ChecklistInsightsProp
       label: 'Total de Checklists',
       value: insights.total,
       icon: ClipboardCheck,
-      color: 'text-blue-600',
-      bg: 'bg-blue-50',
+      tone: 'text-[var(--ds-color-action-primary)]',
     },
     {
       label: 'Conformes',
       value: insights.conforme,
       icon: CheckCircle2,
-      color: 'text-emerald-600',
-      bg: 'bg-emerald-50',
+      tone: 'text-[var(--ds-color-success)]',
     },
     {
       label: 'Pendentes',
       value: insights.pendente,
       icon: Clock,
-      color: 'text-amber-600',
-      bg: 'bg-amber-50',
+      tone: 'text-[var(--ds-color-warning)]',
     },
     {
       label: 'Não Conformes',
       value: insights.naoConforme,
       icon: AlertTriangle,
-      color: 'text-red-600',
-      bg: 'bg-red-50',
+      tone: 'text-[var(--ds-color-danger)]',
     },
   ];
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {cards.map((card) => (
-        <div
-          key={card.label}
-          className="flex items-center gap-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition-all hover:shadow-md"
-        >
-          <div className={`rounded-lg ${card.bg} p-3`}>
-            <card.icon className={`h-6 w-6 ${card.color}`} />
+        <Card key={card.label} interactive padding="md">
+          <div className="flex items-center gap-4">
+            <div className="rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-surface-muted)]/45 p-3">
+              <card.icon className={`h-6 w-6 ${card.tone}`} />
+            </div>
+            <CardHeader className="gap-1">
+              <CardDescription>{card.label}</CardDescription>
+              <CardTitle className="text-2xl">{card.value}</CardTitle>
+            </CardHeader>
           </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">{card.label}</p>
-            <p className="text-2xl font-bold text-gray-900">{card.value}</p>
-          </div>
-        </div>
+        </Card>
       ))}
     </div>
   );

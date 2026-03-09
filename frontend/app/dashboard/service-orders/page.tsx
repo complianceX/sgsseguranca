@@ -29,6 +29,19 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { cn } from '@/lib/utils';
+
+const inputClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 type User = { id: string; nome: string };
 type Site = { id: string; nome: string };
@@ -62,6 +75,7 @@ const INITIAL_FORM: FormState = {
 export default function ServiceOrdersPage() {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
@@ -87,6 +101,7 @@ export default function ServiceOrdersPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      setLoadError(null);
       const paged = await serviceOrdersService.findPaginated({
         page,
         limit,
@@ -96,7 +111,9 @@ export default function ServiceOrdersPage() {
       setOrders(paged.data);
       setTotal(paged.total);
       setLastPage(paged.lastPage);
-    } catch {
+    } catch (error) {
+      console.error('Erro ao carregar Ordens de Serviço:', error);
+      setLoadError('Nao foi possivel carregar as Ordens de Servico.');
       toast.error('Erro ao carregar Ordens de Serviço.');
     } finally {
       setLoading(false);
@@ -209,66 +226,112 @@ export default function ServiceOrdersPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <PageLoadingState
+        title="Carregando ordens de serviço"
+        description="Buscando ordens, obras, responsáveis e status operacionais."
+        cards={4}
+        tableRows={6}
+      />
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title="Falha ao carregar ordens de serviço"
+        description={loadError}
+        action={
+          <Button type="button" onClick={loadData}>
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100">
-              <ClipboardList className="h-5 w-5 text-indigo-700" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+              <ClipboardList className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Ordens de Serviço (NR-1)</h1>
-              <p className="text-sm text-gray-500">Documentação obrigatória de atividades e riscos</p>
+              <CardTitle className="text-2xl">Ordens de Serviço (NR-1)</CardTitle>
+              <CardDescription>
+                Documentação obrigatória de atividades, riscos, responsáveis e execução planejada.
+              </CardDescription>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button
+            <Button
+              type="button"
+              variant="outline"
+              leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
               onClick={() => downloadExcel('/service-orders/export/excel', 'ordens-servico.xlsx')}
-              className="flex items-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
             >
-              <FileSpreadsheet className="mr-1.5 h-4 w-4 text-green-600" />
               Exportar Excel
-            </button>
-            <button
+            </Button>
+            <Button
+              type="button"
+              leftIcon={<Plus className="h-4 w-4" />}
               onClick={openCreate}
-              className="flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
             >
-              <Plus className="mr-2 h-4 w-4" />
               Nova OS
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
+        </CardHeader>
+      </Card>
 
-      {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <p className="text-xs font-medium text-gray-500 uppercase">Total</p>
-          <p className="mt-1 text-3xl font-bold text-gray-900">{total}</p>
-        </div>
-        <div className="rounded-xl border bg-blue-50 p-4 shadow-sm">
-          <p className="text-xs font-medium text-blue-600 uppercase">Ativas</p>
-          <p className="mt-1 text-3xl font-bold text-blue-700">{summary.ativo}</p>
-        </div>
-        <div className="rounded-xl border bg-green-50 p-4 shadow-sm">
-          <p className="text-xs font-medium text-green-600 uppercase">Concluídas</p>
-          <p className="mt-1 text-3xl font-bold text-green-700">{summary.concluido}</p>
-        </div>
-        <div className="rounded-xl border bg-gray-50 p-4 shadow-sm">
-          <p className="text-xs font-medium text-gray-500 uppercase">Canceladas</p>
-          <p className="mt-1 text-3xl font-bold text-gray-600">{summary.cancelado}</p>
-        </div>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Total</CardDescription>
+            <CardTitle className="text-3xl">{total}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Ativas</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
+              {summary.ativo}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Concluídas</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+              {summary.concluido}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Canceladas</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-text-secondary)]">
+              {summary.cancelado}
+            </CardTitle>
+          </CardHeader>
+        </Card>
       </div>
 
-      {/* Filters + Table */}
-      <div className="rounded-xl border bg-white shadow-sm">
-        <div className="flex flex-wrap items-center gap-3 border-b bg-slate-50/70 p-4">
+      <Card tone="default" padding="none">
+        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <CardTitle>Base de ordens de serviço</CardTitle>
+            <CardDescription>
+              {total} registro(s) no recorte atual com filtros por status e obra.
+            </CardDescription>
+          </div>
+          <div className="grid w-full grid-cols-1 gap-3 md:w-auto md:grid-cols-2">
           <select
             value={filterStatus}
             onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            className={inputClassName}
           >
             <option value="">Todos os status</option>
             {Object.entries(OS_STATUS_LABEL).map(([k, v]) => (
@@ -278,16 +341,35 @@ export default function ServiceOrdersPage() {
           <select
             value={filterSite}
             onChange={(e) => { setFilterSite(e.target.value); setPage(1); }}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            className={inputClassName}
           >
             <option value="">Todas as obras</option>
             {sites.map((s) => (
               <option key={s.id} value={s.id}>{s.nome}</option>
             ))}
           </select>
-        </div>
+          </div>
+        </CardHeader>
 
-        <Table>
+        <CardContent className="mt-0">
+          {orders.length === 0 ? (
+            <EmptyState
+              title="Nenhuma Ordem de Serviço encontrada"
+              description="Ainda nao existem ordens de servico registradas para este tenant."
+              action={
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className={cn(buttonVariants(), 'inline-flex items-center')}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova OS
+                </button>
+              }
+            />
+          ) : (
+            <>
+              <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Número</TableHead>
@@ -300,22 +382,7 @@ export default function ServiceOrdersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center">
-                  <div className="flex justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : orders.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-gray-500">
-                  Nenhuma Ordem de Serviço encontrada.
-                </TableCell>
-              </TableRow>
-            ) : (
-              orders.map((order) => {
+            {orders.map((order) => {
                 const allowed = OS_ALLOWED_TRANSITIONS[order.status] ?? [];
                 return (
                   <TableRow key={order.id}>
@@ -349,14 +416,14 @@ export default function ServiceOrdersPage() {
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => openEdit(order)}
-                          className="text-blue-600 hover:text-blue-800"
+                          className="rounded p-1 text-[var(--ds-color-action-primary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]"
                           title="Editar"
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(order.id)}
-                          className="text-red-600 hover:text-red-800"
+                          className="rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
                           title="Excluir"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -365,21 +432,21 @@ export default function ServiceOrdersPage() {
                     </TableCell>
                   </TableRow>
                 );
-              })
-            )}
+              })}
           </TableBody>
         </Table>
 
-        {!loading && (
-          <PaginationControls
-            page={page}
-            lastPage={lastPage}
-            total={total}
-            onPrev={() => setPage((p) => Math.max(1, p - 1))}
-            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
-          />
-        )}
-      </div>
+              <PaginationControls
+                page={page}
+                lastPage={lastPage}
+                total={total}
+                onPrev={() => setPage((p) => Math.max(1, p - 1))}
+                onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Modal */}
       {showModal && (

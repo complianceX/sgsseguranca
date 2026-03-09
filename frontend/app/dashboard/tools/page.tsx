@@ -1,16 +1,42 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { toolsService, Tool } from '@/services/toolsService';
-import { Plus, Pencil, Trash2, Search, ClipboardList } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, ClipboardList, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  EmptyState,
+  ErrorState,
+  PageLoadingState,
+} from '@/components/ui/state';
+import { cn } from '@/lib/utils';
+
+const inputClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 export default function ToolsPage() {
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const deferredSearchTerm = useDeferredValue(searchTerm);
 
   useEffect(() => {
     loadTools();
@@ -19,10 +45,12 @@ export default function ToolsPage() {
   async function loadTools() {
     try {
       setLoading(true);
+      setLoadError(null);
       const data = await toolsService.findAll();
       setTools(data);
     } catch (error) {
       console.error('Erro ao carregar ferramentas:', error);
+      setLoadError('Nao foi possivel carregar a lista de ferramentas.');
       toast.error('Erro ao carregar lista de ferramentas.');
     } finally {
       setLoading(false);
@@ -30,122 +58,209 @@ export default function ToolsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (confirm('Tem certeza que deseja excluir esta ferramenta?')) {
-      try {
-        await toolsService.delete(id);
-        setTools(tools.filter(t => t.id !== id));
-        toast.success('Ferramenta excluída com sucesso!');
-      } catch (error) {
-        console.error('Erro ao excluir ferramenta:', error);
-        toast.error('Erro ao excluir ferramenta. Verifique se existem dependências e tente novamente.');
-      }
+    if (!confirm('Tem certeza que deseja excluir esta ferramenta?')) {
+      return;
+    }
+
+    try {
+      await toolsService.delete(id);
+      setTools((current) => current.filter((tool) => tool.id !== id));
+      toast.success('Ferramenta excluida com sucesso');
+    } catch (error) {
+      console.error('Erro ao excluir ferramenta:', error);
+      toast.error('Erro ao excluir ferramenta. Verifique dependencias e tente novamente.');
     }
   }
 
-  const filteredTools = tools.filter(tool =>
-    tool.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tool.numero_serie?.includes(searchTerm)
+  const filteredTools = useMemo(
+    () =>
+      tools.filter((tool) =>
+        tool.nome.toLowerCase().includes(deferredSearchTerm.toLowerCase()) ||
+        tool.numero_serie?.includes(deferredSearchTerm),
+      ),
+    [tools, deferredSearchTerm],
   );
+
+  const summary = useMemo(
+    () => ({
+      total: tools.length,
+      visiveis: filteredTools.length,
+      comSerie: tools.filter((tool) => Boolean(tool.numero_serie)).length,
+    }),
+    [tools, filteredTools.length],
+  );
+
+  if (loading) {
+    return (
+      <PageLoadingState
+        title="Carregando ferramentas"
+        description="Buscando cadastro patrimonial e inventário operacional."
+        cards={3}
+        tableRows={6}
+      />
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title="Falha ao carregar ferramentas"
+        description={loadError}
+        action={
+          <Button type="button" onClick={loadTools}>
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Ferramentas</h1>
-            <p className="text-gray-500">Gerencie as ferramentas cadastradas no sistema.</p>
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+              <Wrench className="h-5 w-5" />
+            </div>
+            <div className="space-y-2">
+              <CardTitle className="text-2xl">Ferramentas</CardTitle>
+              <CardDescription>
+                Gerencie o inventário de ferramentas e acesse rapidamente o fluxo de checklist por equipamento.
+              </CardDescription>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-              {filteredTools.length} resultado(s)
-            </span>
-            <Link
-              href="/dashboard/tools/new"
-              className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Ferramenta
-            </Link>
-          </div>
-        </div>
+          <Link
+            href="/dashboard/tools/new"
+            className={cn(buttonVariants(), 'inline-flex items-center')}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nova ferramenta
+          </Link>
+        </CardHeader>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Total cadastrado</CardDescription>
+            <CardTitle className="text-3xl">{summary.total}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Resultados visíveis</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
+              {summary.visiveis}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Com número de série</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+              {summary.comSerie}
+            </CardTitle>
+          </CardHeader>
+        </Card>
       </div>
 
-      <div className="rounded-xl border bg-white shadow-sm">
-        <div className="border-b bg-slate-50/70 p-4">
-          <div className="relative max-w-sm">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-              <Search className="h-4 w-4 text-gray-400" />
-            </span>
+      <Card tone="default" padding="none">
+        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <CardTitle>Base de ferramentas</CardTitle>
+            <CardDescription>
+              {filteredTools.length} ferramenta(s) exibida(s) com busca por nome e número de série.
+            </CardDescription>
+          </div>
+          <div className="relative w-full md:w-[360px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
             <input
               type="text"
               placeholder="Buscar ferramentas..."
-              className="w-full rounded-md border border-gray-400 bg-gray-50 py-2 pl-10 pr-4 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:border-blue-600 focus:bg-white focus:outline-none"
+              className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(event) => setSearchTerm(event.target.value)}
             />
           </div>
-        </div>
+        </CardHeader>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Número de Série</TableHead>
-              <TableHead>Data de Criação</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center">
-                  <div className="flex justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : filteredTools.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-gray-500">
-                  Nenhuma ferramenta encontrada.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredTools.map((tool) => (
-                <TableRow key={tool.id}>
-                  <TableCell className="font-medium text-gray-900">{tool.nome}</TableCell>
-                  <TableCell>{tool.numero_serie || '-'}</TableCell>
-                  <TableCell>{new Date(tool.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end space-x-2">
-                      <Link
-                        href={`/dashboard/checklist-models/new?equipamento=${encodeURIComponent(tool.nome)}&company_id=${tool.company_id}`}
-                        className="rounded p-1 text-indigo-600 hover:bg-indigo-50"
-                        title="Montar Checklist"
-                      >
-                        <ClipboardList className="h-4 w-4" />
-                      </Link>
-                      <Link
-                        href={`/dashboard/tools/edit/${tool.id}`}
-                        className="rounded p-1 text-blue-600 hover:bg-blue-50"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(tool.id)}
-                        className="rounded p-1 text-red-600 hover:bg-red-50"
-                        title="Excluir Ferramenta"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </TableCell>
+        <CardContent className="mt-0">
+          {filteredTools.length === 0 ? (
+            <EmptyState
+              title="Nenhuma ferramenta encontrada"
+              description={
+                deferredSearchTerm
+                  ? 'Nenhum resultado corresponde ao filtro aplicado.'
+                  : 'Ainda nao existem ferramentas cadastradas para este tenant.'
+              }
+              action={
+                !deferredSearchTerm ? (
+                  <Link
+                    href="/dashboard/tools/new"
+                    className={cn(buttonVariants(), 'inline-flex items-center')}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nova ferramenta
+                  </Link>
+                ) : undefined
+              }
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Número de série</TableHead>
+                  <TableHead>Data de criação</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              </TableHeader>
+              <TableBody>
+                {filteredTools.map((tool) => (
+                  <TableRow key={tool.id}>
+                    <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
+                      {tool.nome}
+                    </TableCell>
+                    <TableCell className="text-[var(--ds-color-text-secondary)]">
+                      {tool.numero_serie || '—'}
+                    </TableCell>
+                    <TableCell>{new Date(tool.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Link
+                          href={`/dashboard/checklist-models/new?equipamento=${encodeURIComponent(tool.nome)}&company_id=${tool.company_id}`}
+                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                          title="Montar checklist"
+                        >
+                          <ClipboardList className="h-4 w-4" />
+                        </Link>
+                        <Link
+                          href={`/dashboard/tools/edit/${tool.id}`}
+                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                          title="Editar ferramenta"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Link>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleDelete(tool.id)}
+                          className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                          title="Excluir ferramenta"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

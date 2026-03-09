@@ -1,17 +1,43 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { sitesService, Site } from '@/services/sitesService';
-import { Plus, Pencil, Trash2, Search, QrCode } from 'lucide-react';
+import { Building2, MapPinned, Plus, Pencil, Trash2, Search, QrCode } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { QRCodeCanvas } from 'qrcode.react';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  EmptyState,
+  ErrorState,
+  PageLoadingState,
+} from '@/components/ui/state';
+import { cn } from '@/lib/utils';
+
+const inputClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 export default function SitesPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const [qrSiteId, setQrSiteId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -21,10 +47,12 @@ export default function SitesPage() {
   async function loadSites() {
     try {
       setLoading(true);
+      setLoadError(null);
       const data = await sitesService.findAll();
       setSites(data);
     } catch (error) {
       console.error('Erro ao carregar sites:', error);
+      setLoadError('Nao foi possivel carregar a lista de obras/setores.');
       toast.error('Erro ao carregar lista de obras/setores.');
     } finally {
       setLoading(false);
@@ -32,151 +60,245 @@ export default function SitesPage() {
   }
 
   async function handleDelete(id: string) {
-    if (confirm('Tem certeza que deseja excluir esta obra/setor?')) {
-      try {
-        await sitesService.delete(id);
-        setSites(sites.filter(s => s.id !== id));
-        toast.success('Obra/Setor excluído com sucesso!');
-      } catch (error) {
-        console.error('Erro ao excluir site:', error);
-        toast.error('Erro ao excluir obra/setor. Verifique se existem dependências e tente novamente.');
-      }
+    if (!confirm('Tem certeza que deseja excluir esta obra/setor?')) {
+      return;
+    }
+
+    try {
+      await sitesService.delete(id);
+      setSites((current) => current.filter((site) => site.id !== id));
+      toast.success('Obra/Setor excluido com sucesso');
+    } catch (error) {
+      console.error('Erro ao excluir site:', error);
+      toast.error('Erro ao excluir obra/setor. Verifique dependencias e tente novamente.');
     }
   }
 
-  const filteredSites = sites.filter(site =>
-    site.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    site.cidade?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredSites = useMemo(
+    () =>
+      sites.filter((site) =>
+        site.nome.toLowerCase().includes(deferredSearchTerm.toLowerCase()) ||
+        site.cidade?.toLowerCase().includes(deferredSearchTerm.toLowerCase()),
+      ),
+    [sites, deferredSearchTerm],
+  );
+
+  const summary = useMemo(
+    () => ({
+      total: sites.length,
+      visiveis: filteredSites.length,
+      comCidade: sites.filter((site) => Boolean(site.cidade)).length,
+    }),
+    [sites, filteredSites.length],
   );
 
   const qrUrl = qrSiteId
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/verify?siteId=${qrSiteId}&flow=dds`
     : '';
+
+  if (loading) {
+    return (
+      <PageLoadingState
+        title="Carregando obras e setores"
+        description="Buscando cadastro operacional e estruturas de campo."
+        cards={3}
+        tableRows={6}
+      />
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title="Falha ao carregar obras/setores"
+        description={loadError}
+        action={
+          <Button type="button" onClick={loadSites}>
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Obras/Setores</h1>
-            <p className="text-gray-500">Gerencie as obras e setores cadastrados no sistema.</p>
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+              <MapPinned className="h-5 w-5" />
+            </div>
+            <div className="space-y-2">
+              <CardTitle className="text-2xl">Obras/Setores</CardTitle>
+              <CardDescription>
+                Gerencie as obras e setores usados nos fluxos de campo, mobilização e DDS.
+              </CardDescription>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-              {filteredSites.length} resultado(s)
-            </span>
-            <Link
-              href="/dashboard/sites/new"
-              className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Obra/Setor
-            </Link>
-          </div>
-        </div>
+          <Link
+            href="/dashboard/sites/new"
+            className={cn(buttonVariants(), 'inline-flex items-center')}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Nova obra/setor
+          </Link>
+        </CardHeader>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Total cadastrado</CardDescription>
+            <CardTitle className="text-3xl">{summary.total}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Resultados visíveis</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
+              {summary.visiveis}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Com cidade informada</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+              {summary.comCidade}
+            </CardTitle>
+          </CardHeader>
+        </Card>
       </div>
 
-      <div className="rounded-xl border bg-white shadow-sm">
-        <div className="border-b bg-slate-50/70 p-4">
-          <div className="relative max-w-sm">
-            <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-              <Search className="h-4 w-4 text-gray-400" />
-            </span>
+      <Card tone="default" padding="none">
+        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <CardTitle>Base de obras/setores</CardTitle>
+            <CardDescription>
+              {filteredSites.length} obra(s)/setor(es) exibido(s) com busca por nome e cidade.
+            </CardDescription>
+          </div>
+          <div className="relative w-full md:w-[360px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
             <input
               type="text"
               placeholder="Buscar obras/setores..."
-              className="w-full rounded-md border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none"
+              className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(event) => setSearchTerm(event.target.value)}
             />
           </div>
-        </div>
+        </CardHeader>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Cidade/Estado</TableHead>
-              <TableHead>Data de Criação</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center">
-                  <div className="flex justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></div>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : filteredSites.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="py-10 text-center text-gray-500">
-                  Nenhum site encontrado.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredSites.map((site) => (
-                <TableRow key={site.id}>
-                  <TableCell className="font-medium text-gray-900">{site.nome}</TableCell>
-                  <TableCell>
-                    {site.cidade && site.estado ? `${site.cidade}/${site.estado}` : site.cidade || site.estado || '-'}
-                  </TableCell>
-                  <TableCell>{new Date(site.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end space-x-2">
-                      <Link
-                        href={`/dashboard/sites/edit/${site.id}`}
-                        className="rounded p-1 text-blue-600 hover:bg-blue-50"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Link>
-                      <button
-                        onClick={() => setQrSiteId(site.id)}
-                        className="rounded p-1 text-gray-700 hover:bg-gray-100"
-                        title="QR Code da Obra"
-                      >
-                        <QrCode className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(site.id)}
-                        className="rounded p-1 text-red-600 hover:bg-red-50"
-                        title="Excluir Obra/Setor"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </TableCell>
+        <CardContent className="mt-0">
+          {filteredSites.length === 0 ? (
+            <EmptyState
+              title="Nenhuma obra/setor encontrada"
+              description={
+                deferredSearchTerm
+                  ? 'Nenhum resultado corresponde ao filtro aplicado.'
+                  : 'Ainda nao existem obras/setores cadastrados para este tenant.'
+              }
+              action={
+                !deferredSearchTerm ? (
+                  <Link
+                    href="/dashboard/sites/new"
+                    className={cn(buttonVariants(), 'inline-flex items-center')}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nova obra/setor
+                  </Link>
+                ) : undefined
+              }
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Cidade/Estado</TableHead>
+                  <TableHead>Data de criação</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      {qrSiteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">QR Code da Obra</h2>
-              <button
-                onClick={() => setQrSiteId(null)}
-                className="rounded px-2 py-1 text-sm text-gray-600 hover:bg-gray-100"
-              >
+              </TableHeader>
+              <TableBody>
+                {filteredSites.map((site) => (
+                  <TableRow key={site.id}>
+                    <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
+                        <span>{site.nome}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-[var(--ds-color-text-secondary)]">
+                      {site.cidade && site.estado
+                        ? `${site.cidade}/${site.estado}`
+                        : site.cidade || site.estado || '—'}
+                    </TableCell>
+                    <TableCell>{new Date(site.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Link
+                          href={`/dashboard/sites/edit/${site.id}`}
+                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                          title="Editar obra/setor"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Link>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setQrSiteId(site.id)}
+                          className="text-[var(--ds-color-text-secondary)]"
+                          title="QR Code da obra"
+                        >
+                          <QrCode className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleDelete(site.id)}
+                          className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                          title="Excluir obra/setor"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {qrSiteId ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card tone="elevated" padding="lg" className="w-full max-w-md">
+            <CardHeader className="flex-row items-center justify-between">
+              <div className="space-y-1">
+                <CardTitle>QR Code da obra</CardTitle>
+                <CardDescription>
+                  Escaneie para acessar o fluxo de DDS/Checklist sem login.
+                </CardDescription>
+              </div>
+              <Button type="button" variant="ghost" onClick={() => setQrSiteId(null)}>
                 Fechar
-              </button>
-            </div>
-            <div className="flex flex-col items-center gap-4">
+              </Button>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center gap-4">
               <QRCodeCanvas value={qrUrl} size={220} includeMargin />
-              <div className="w-full break-all rounded bg-gray-50 p-3 text-xs text-gray-700">
+              <div className="w-full break-all rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-surface-muted)]/45 p-3 text-xs text-[var(--ds-color-text-secondary)]">
                 {qrUrl}
               </div>
-              <p className="text-xs text-gray-500">
-                Escaneie o QR Code para acessar o fluxo de DDS/Checklist da obra sem login.
-              </p>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

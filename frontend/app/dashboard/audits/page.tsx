@@ -1,11 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useDeferredValue, useMemo } from 'react';
 import { auditsService, Audit } from '@/services/auditsService';
-import { Plus, Search, FileText, Edit, Trash2, ClipboardCheck, Download, Mail, Printer } from 'lucide-react';
-import { TableRowSkeleton } from '@/components/ui/skeleton';
-import { ActionMenu } from '@/components/ActionMenu';
+import {
+  AlertTriangle,
+  ClipboardCheck,
+  Download,
+  Edit,
+  Mail,
+  Plus,
+  Printer,
+  Search,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
 import { PaginationControls } from '@/components/PaginationControls';
 import Link from 'next/link';
 import { format } from 'date-fns';
@@ -16,50 +24,88 @@ import { SendMailModal } from '@/components/SendMailModal';
 import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { correctiveActionsService } from '@/services/correctiveActionsService';
 import { openPdfForPrint } from '@/lib/print-utils';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  EmptyState,
+  ErrorState,
+  PageLoadingState,
+} from '@/components/ui/state';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+
+const inputClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 export default function AuditsPage() {
-  const router = useRouter();
   const [audits, setAudits] = useState<Audit[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<{
+    name: string;
+    filename: string;
+    base64: string;
+  } | null>(null);
 
   const fetchAudits = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await auditsService.findPaginated({ page, search: searchTerm || undefined });
-      setAudits(res.data);
-      setTotal(res.total);
-      setLastPage(res.lastPage);
-    } catch {
+      setLoadError(null);
+      const response = await auditsService.findPaginated({
+        page,
+        search: deferredSearchTerm || undefined,
+      });
+      setAudits(response.data);
+      setTotal(response.total);
+      setLastPage(response.lastPage);
+    } catch (error) {
+      console.error('Erro ao carregar auditorias:', error);
+      setLoadError('Nao foi possivel carregar os relatorios de auditoria.');
       toast.error('Erro ao carregar auditorias');
     } finally {
       setLoading(false);
     }
-  }, [page, searchTerm]);
+  }, [deferredSearchTerm, page]);
 
-  // Reset page when search changes
   useEffect(() => {
     setPage(1);
-  }, [searchTerm]);
+  }, [deferredSearchTerm]);
 
   useEffect(() => {
     fetchAudits();
   }, [fetchAudits]);
 
   const handleDelete = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta auditoria?')) {
-      try {
-        await auditsService.delete(id);
-        toast.success('Auditoria excluída com sucesso');
-        fetchAudits();
-      } catch {
-        toast.error('Erro ao excluir auditoria');
-      }
+    if (!confirm('Tem certeza que deseja excluir esta auditoria?')) {
+      return;
+    }
+
+    try {
+      await auditsService.delete(id);
+      toast.success('Auditoria excluida com sucesso');
+      await fetchAudits();
+    } catch (error) {
+      console.error('Erro ao excluir auditoria:', error);
+      toast.error('Erro ao excluir auditoria');
     }
   };
 
@@ -68,7 +114,7 @@ export default function AuditsPage() {
       toast.info('Gerando PDF...');
       const fullAudit = await auditsService.findOne(audit.id);
       await generateAuditPdf(fullAudit);
-      toast.success('PDF gerado com sucesso!');
+      toast.success('PDF gerado com sucesso');
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
       toast.error('Erro ao gerar PDF da auditoria.');
@@ -77,25 +123,31 @@ export default function AuditsPage() {
 
   const handlePrint = async (audit: Audit) => {
     try {
-      toast.info('Preparando impressão...');
+      toast.info('Preparando impressao...');
       const fullAudit = await auditsService.findOne(audit.id);
-      const result = await generateAuditPdf(fullAudit, { save: false, output: 'base64' }) as { base64: string };
+      const result = (await generateAuditPdf(fullAudit, {
+        save: false,
+        output: 'base64',
+      })) as { base64: string } | undefined;
+
       if (result?.base64) {
         const byteCharacters = atob(result.base64);
         const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+
+        for (let index = 0; index < byteCharacters.length; index += 1) {
+          byteNumbers[index] = byteCharacters.charCodeAt(index);
         }
+
         const byteArray = new Uint8Array(byteNumbers);
         const file = new Blob([byteArray], { type: 'application/pdf' });
         const fileURL = URL.createObjectURL(file);
         openPdfForPrint(fileURL, () => {
-          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressao.');
         });
       }
     } catch (error) {
       console.error('Erro ao imprimir:', error);
-      toast.error('Erro ao preparar impressão da auditoria.');
+      toast.error('Erro ao preparar impressao da auditoria.');
     }
   };
 
@@ -103,7 +155,11 @@ export default function AuditsPage() {
     try {
       toast.info('Preparando documento...');
       const fullAudit = await auditsService.findOne(audit.id);
-      const result = await generateAuditPdf(fullAudit, { save: false, output: 'base64' }) as { filename: string; base64: string };
+      const result = (await generateAuditPdf(fullAudit, {
+        save: false,
+        output: 'base64',
+      })) as { filename: string; base64: string } | undefined;
+
       if (result?.base64) {
         setSelectedDoc({
           name: audit.titulo,
@@ -121,10 +177,10 @@ export default function AuditsPage() {
   const handleCreateCapa = async (audit: Audit) => {
     try {
       await correctiveActionsService.createFromAudit(audit.id);
-      toast.success('CAPA criada a partir da auditoria.');
+      toast.success('CAPA criada a partir da auditoria');
     } catch (error) {
       console.error('Erro ao criar CAPA da auditoria:', error);
-      toast.error('Não foi possível criar CAPA.');
+      toast.error('Nao foi possivel criar CAPA.');
     }
   };
 
@@ -136,109 +192,294 @@ export default function AuditsPage() {
     ).entries(),
   ).map(([id, name]) => ({ id, name }));
 
+  const summary = useMemo(() => {
+    const typeCount = new Set(audits.map((item) => item.tipo_auditoria).filter(Boolean)).size;
+    const siteCount = new Set(audits.map((item) => item.site?.id).filter(Boolean)).size;
+    const nonConformityCount = audits.reduce(
+      (totalItems, item) => totalItems + (item.resultados_nao_conformidades?.length || 0),
+      0,
+    );
+    const withActionPlan = audits.filter((item) => (item.plano_acao?.length || 0) > 0).length;
+
+    return {
+      total,
+      tipos: typeCount,
+      sites: siteCount,
+      naoConformidades: nonConformityCount,
+      comPlano: withActionPlan,
+    };
+  }, [audits, total]);
+
+  if (loading) {
+    return (
+      <PageLoadingState
+        title="Carregando auditorias"
+        description="Buscando relatorios, auditores, sites e arquivos salvos."
+        cards={4}
+        tableRows={6}
+      />
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title="Falha ao carregar auditorias"
+        description={loadError}
+        action={
+          <Button type="button" onClick={fetchAudits}>
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Auditorias HSE</h1>
-          <p className="text-sm text-gray-500">Gerencie seus relatórios de auditoria e conformidade.</p>
-        </div>
-        <Link
-          href="/dashboard/audits/new"
-          className="flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+              <ClipboardCheck className="h-5 w-5" />
+            </div>
+            <div className="space-y-2">
+              <CardTitle className="text-2xl">Auditorias HSE</CardTitle>
+              <CardDescription>
+                Gerencie relatorios de auditoria, conformidades, CAPAs e evidencias por unidade.
+              </CardDescription>
+            </div>
+          </div>
+          <Link
+            href="/dashboard/audits/new"
+            className={cn(buttonVariants(), 'inline-flex items-center')}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Novo relatorio
+          </Link>
+        </CardHeader>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Total de auditorias</CardDescription>
+            <CardTitle className="text-3xl">{summary.total}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Tipos presentes</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
+              {summary.tipos}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Auditorias com plano de acao</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
+              {summary.comPlano}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Sites no recorte</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+              {summary.sites}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {summary.naoConformidades > 0 ? (
+        <Card
+          tone="muted"
+          padding="md"
+          className="border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/10"
         >
-          <Plus className="h-4 w-4" />
-          <span>Novo Relatório</span>
-        </Link>
-      </div>
+          <CardHeader className="gap-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-[var(--ds-color-warning)]" />
+              <CardTitle className="text-base">Atencao operacional</CardTitle>
+            </div>
+            <CardDescription>
+              Esta pagina concentra {summary.naoConformidades} nao conformidade(s) registradas. Priorize CAPAs e acompanhe os auditores responsaveis.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        <Card
+          tone="muted"
+          padding="md"
+          className="border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success)]/10"
+        >
+          <CardHeader className="gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
+              <CardTitle className="text-base">Base sem nao conformidades na pagina</CardTitle>
+            </div>
+            <CardDescription>
+              Nenhuma nao conformidade foi identificada no recorte atual desta listagem.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
 
-      <div className="flex items-center space-x-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar por título ou tipo..."
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-      </div>
+      <Card tone="default" padding="none">
+        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <CardTitle>Base de auditorias</CardTitle>
+            <CardDescription>
+              {total} relatorio(s) encontrados com busca por titulo ou tipo de auditoria.
+            </CardDescription>
+          </div>
+          <div className="relative w-full md:w-[360px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
+            <input
+              type="text"
+              placeholder="Buscar por titulo ou tipo"
+              className={cn(inputClassName, 'pl-10')}
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+          </div>
+        </CardHeader>
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-gray-50 text-xs font-bold uppercase text-gray-500">
-            <tr>
-              <th className="px-6 py-4">Título / Tipo</th>
-              <th className="px-6 py-4">Site / Unidade</th>
-              <th className="px-6 py-4">Data</th>
-              <th className="px-6 py-4">Auditor</th>
-              <th className="px-6 py-4 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRowSkeleton key={i} cols={5} />
-              ))
-            ) : audits.length > 0 ? (
-              audits.map((audit) => (
-                <tr key={audit.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="rounded-lg bg-blue-100 p-2">
-                        <ClipboardCheck className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-gray-900">{audit.titulo}</p>
-                        <p className="text-xs text-gray-500">{audit.tipo_auditoria}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-gray-700">{audit.site?.nome || '-'}</p>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">
-                    {format(new Date(audit.data_auditoria), 'dd/MM/yyyy', { locale: ptBR })}
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-gray-700">{audit.auditor?.nome || '-'}</p>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <ActionMenu items={[
-                      { label: 'Gerar CAPA', icon: <Plus className="h-4 w-4" />, onClick: () => handleCreateCapa(audit) },
-                      { label: 'Imprimir', icon: <Printer className="h-4 w-4" />, onClick: () => handlePrint(audit) },
-                      { label: 'Enviar E-mail', icon: <Mail className="h-4 w-4" />, onClick: () => handleSendEmail(audit) },
-                      { label: 'Baixar PDF', icon: <Download className="h-4 w-4" />, onClick: () => handleDownloadPdf(audit) },
-                      { label: 'Editar', icon: <Edit className="h-4 w-4" />, onClick: () => router.push(`/dashboard/audits/edit/${audit.id}`) },
-                      { label: 'Excluir', icon: <Trash2 className="h-4 w-4" />, onClick: () => handleDelete(audit.id), variant: 'danger' },
-                    ]} />
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                  <div className="flex flex-col items-center">
-                    <FileText className="mb-2 h-12 w-12 text-gray-200" />
-                    <p>Nenhuma auditoria encontrada.</p>
-                  </div>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        <CardContent className="mt-0">
+          {audits.length === 0 ? (
+            <EmptyState
+              title="Nenhuma auditoria encontrada"
+              description={
+                deferredSearchTerm
+                  ? 'Nenhum resultado corresponde ao filtro aplicado.'
+                  : 'Ainda nao existem auditorias registradas para este tenant.'
+              }
+              action={
+                !deferredSearchTerm ? (
+                  <Link
+                    href="/dashboard/audits/new"
+                    className={cn(buttonVariants(), 'inline-flex items-center')}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Novo relatorio
+                  </Link>
+                ) : undefined
+              }
+            />
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Titulo / Tipo</TableHead>
+                    <TableHead>Site / Unidade</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Auditor</TableHead>
+                    <TableHead className="text-right">Acoes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {audits.map((audit) => (
+                    <TableRow key={audit.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-action-primary)]/10 text-[var(--ds-color-action-primary)]">
+                            <ClipboardCheck className="h-4 w-4" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="font-medium text-[var(--ds-color-text-primary)]">
+                              {audit.titulo}
+                            </p>
+                            <span className="inline-flex rounded-full bg-[color:var(--ds-color-action-primary)]/12 px-2.5 py-1 text-xs font-semibold text-[var(--ds-color-action-primary)]">
+                              {audit.tipo_auditoria}
+                            </span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-[var(--ds-color-text-secondary)]">
+                        {audit.site?.nome || '—'}
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(audit.data_auditoria), 'dd/MM/yyyy', { locale: ptBR })}
+                      </TableCell>
+                      <TableCell className="text-[var(--ds-color-text-secondary)]">
+                        {audit.auditor?.nome || '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleCreateCapa(audit)}
+                            title="Gerar CAPA"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handlePrint(audit)}
+                            title="Imprimir"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleSendEmail(audit)}
+                            title="Enviar por e-mail"
+                          >
+                            <Mail className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDownloadPdf(audit)}
+                            title="Baixar PDF"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Link
+                            href={`/dashboard/audits/edit/${audit.id}`}
+                            className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                            title="Editar"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Link>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDelete(audit.id)}
+                            title="Excluir"
+                            className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
 
-        {!loading && (
-          <PaginationControls
-            page={page}
-            lastPage={lastPage}
-            total={total}
-            onPrev={() => setPage((p) => Math.max(1, p - 1))}
-            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
-          />
-        )}
-      </div>
+              <PaginationControls
+                page={page}
+                lastPage={lastPage}
+                total={total}
+                onPrev={() => setPage((current) => Math.max(1, current - 1))}
+                onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <StoredFilesPanel
         title="Arquivos Auditoria (Storage)"
@@ -248,7 +489,7 @@ export default function AuditsPage() {
         companyOptions={companyOptions}
       />
 
-      {selectedDoc && (
+      {selectedDoc ? (
         <SendMailModal
           isOpen={isMailModalOpen}
           onClose={() => {
@@ -259,7 +500,7 @@ export default function AuditsPage() {
           filename={selectedDoc.filename}
           base64={selectedDoc.base64}
         />
-      )}
+      ) : null}
     </div>
   );
 }

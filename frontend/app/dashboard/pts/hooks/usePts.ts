@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useDeferredValue } from 'react';
 import { ptsService, Pt } from '@/services/ptsService';
 import { aiService } from '@/services/aiService';
 import { signaturesService } from '@/services/signaturesService';
@@ -19,7 +19,9 @@ interface Insight {
 export function usePts() {
   const [pts, setPts] = useState<Pt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const [statusFilter, setStatusFilter] = useState('');
   const [insights, setInsights] = useState<Insight[]>([]);
   const [page, setPage] = useState(1);
@@ -34,21 +36,23 @@ export function usePts() {
   const loadPts = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const res = await ptsService.findPaginated({
         page,
         limit,
-        search: searchTerm || undefined,
+        search: deferredSearchTerm || undefined,
         status: statusFilter || undefined,
       });
       setPts(res.data);
       setTotal(res.total);
       setLastPage(res.lastPage);
     } catch (error) {
+      setLoadError('Nao foi possivel carregar a lista de PTs.');
       handleApiError(error, 'PTs');
     } finally {
       setLoading(false);
     }
-  }, [page, limit, searchTerm, statusFilter]);
+  }, [page, limit, deferredSearchTerm, statusFilter]);
 
   const loadInsights = useCallback(async () => {
     try {
@@ -65,7 +69,7 @@ export function usePts() {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, statusFilter]);
+  }, [deferredSearchTerm, statusFilter]);
 
   useEffect(() => {
     loadPts();
@@ -175,6 +179,7 @@ export function usePts() {
   return {
     pts,
     loading,
+    loadError,
     searchTerm,
     setSearchTerm,
     statusFilter,

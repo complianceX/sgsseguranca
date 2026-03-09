@@ -1,7 +1,7 @@
 'use client';
 
 import { usePts } from './hooks/usePts';
-import { Plus, FileSpreadsheet } from 'lucide-react';
+import { FileSpreadsheet, Plus } from 'lucide-react';
 import { downloadExcel } from '@/lib/download-excel';
 import Link from 'next/link';
 import { PtsFilters } from './components/PtsFilters';
@@ -11,10 +11,24 @@ import { SendMailModal } from '@/components/SendMailModal';
 import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { ptsService } from '@/services/ptsService';
 import { PaginationControls } from '@/components/PaginationControls';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  ErrorState,
+  PageLoadingState,
+} from '@/components/ui/state';
+import { cn } from '@/lib/utils';
 
 export default function PtsPage() {
   const {
     loading,
+    loadError,
     searchTerm,
     setSearchTerm,
     statusFilter,
@@ -35,6 +49,7 @@ export default function PtsPage() {
     handlePrint,
     handleApprove,
     handleReject,
+    loadPts,
   } = usePts();
 
   const companyOptions = Array.from(
@@ -45,35 +60,62 @@ export default function PtsPage() {
     ).entries(),
   ).map(([id, name]) => ({ id, name }));
 
+  if (loading) {
+    return (
+      <PageLoadingState
+        title="Carregando PTs"
+        description="Buscando permissões de trabalho, status operacionais e arquivos armazenados."
+        cards={4}
+        tableRows={6}
+      />
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title="Falha ao carregar PTs"
+        description={loadError}
+        action={
+          <Button type="button" onClick={loadPts}>
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Permissão de Trabalho (PT)</h1>
-          <p className="text-gray-500">Gerencie as Permissões de Trabalho emitidas.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => downloadExcel('/pts/export/excel', 'pts.xlsx')}
-            className="flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:scale-105 active:scale-95"
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" />
-            Exportar Excel
-          </button>
-          <Link
-            href="/dashboard/pts/new"
-            className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-blue-700 shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nova PT
-          </Link>
-        </div>
-      </div>
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-2">
+            <CardTitle className="text-2xl">Permissão de Trabalho (PT)</CardTitle>
+            <CardDescription>
+              Gerencie permissões emitidas, acompanhe aprovações e rastreie documentos operacionais.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
+              onClick={() => downloadExcel('/pts/export/excel', 'pts.xlsx')}
+            >
+              Exportar Excel
+            </Button>
+            <Link href="/dashboard/pts/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nova PT
+            </Link>
+          </div>
+        </CardHeader>
+      </Card>
 
       <PtsInsights insights={insights} />
 
-      <div className="rounded-xl border bg-white shadow-sm overflow-hidden transition-all hover:shadow-md">
+      <Card tone="default" padding="none">
         <PtsFilters
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -81,37 +123,39 @@ export default function PtsPage() {
           onStatusChange={setStatusFilter}
         />
 
-        <PtsTable
-          pts={filteredPts}
-          loading={loading}
-          onDelete={handleDelete}
-          onPrint={handlePrint}
-          onSendEmail={handleSendEmail}
-          onDownloadPdf={handleDownloadPdf}
-          onApprove={handleApprove}
-          onReject={handleReject}
-        />
+        <CardContent className="mt-0">
+          <PtsTable
+            pts={filteredPts}
+            loading={loading}
+            onDelete={handleDelete}
+            onPrint={handlePrint}
+            onSendEmail={handleSendEmail}
+            onDownloadPdf={handleDownloadPdf}
+            onApprove={handleApprove}
+            onReject={handleReject}
+          />
+        </CardContent>
 
-        {!loading && (
+        {filteredPts.length > 0 ? (
           <PaginationControls
             page={page}
             lastPage={lastPage}
             total={total}
-            onPrev={() => setPage((p) => Math.max(1, p - 1))}
-            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
           />
-        )}
-      </div>
+        ) : null}
+      </Card>
 
       <StoredFilesPanel
         title="Arquivos PT (Storage)"
-        description="PDFs salvos automaticamente por empresa/ano/semana."
+        description="PDFs salvos automaticamente por empresa, ano e semana."
         listStoredFiles={ptsService.listStoredFiles}
         getPdfAccess={ptsService.getPdfAccess}
         companyOptions={companyOptions}
       />
 
-      {selectedDoc && (
+      {selectedDoc ? (
         <SendMailModal
           isOpen={isMailModalOpen}
           onClose={() => {
@@ -122,7 +166,7 @@ export default function PtsPage() {
           filename={selectedDoc.filename}
           base64={selectedDoc.base64}
         />
-      )}
+      ) : null}
     </div>
   );
 }

@@ -3,6 +3,15 @@
 import React from 'react';
 import { Pt } from '@/services/ptsService';
 import { PtsTableRow } from './PtsTableRow';
+import {
+  Table,
+  TableBody,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/state';
 import { TableRowSkeleton } from '@/components/ui/skeleton';
 
 interface PtsTableProps {
@@ -16,48 +25,63 @@ interface PtsTableProps {
   onReject: (id: string) => void;
 }
 
-export const PtsTable = React.memo(({ pts, loading, onDelete, onPrint, onSendEmail, onDownloadPdf, onApprove, onReject }: PtsTableProps) => {
-  return (
-    <div className="sst-card overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead className="text-xs uppercase">
-          <tr>
-            <th className="px-6 py-3 font-semibold">Número / Título</th>
-            <th className="px-6 py-3 font-semibold">Início</th>
-            <th className="px-6 py-3 font-semibold">Fim</th>
-            <th className="px-6 py-3 font-semibold">Status</th>
-            <th className="px-6 py-3 font-semibold text-right">Ações</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[#E5E7EB]">
-          {loading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <TableRowSkeleton key={i} cols={5} />
-            ))
-          ) : pts.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="py-10 text-center text-[#6B7280] font-medium">
-                Nenhuma PT encontrada.
-              </td>
-            </tr>
-          ) : (
-            pts.map((pt) => (
-              <PtsTableRow 
-                key={pt.id} 
-                pt={pt} 
-                onDelete={onDelete}
-                onPrint={onPrint}
-                onSendEmail={onSendEmail}
-                onDownloadPdf={onDownloadPdf}
-                onApprove={onApprove}
-                onReject={onReject}
-              />
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-});
+export const PtsTable = React.memo(
+  ({
+    pts,
+    loading,
+    onDelete,
+    onPrint,
+    onSendEmail,
+    onDownloadPdf,
+    onApprove,
+    onReject,
+  }: PtsTableProps) => {
+    return (
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Número / Título</TableHead>
+              <TableHead>Início</TableHead>
+              <TableHead>Fim</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Ações</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, index) => (
+                <TableRowSkeleton key={index} cols={5} />
+              ))
+            ) : pts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-10">
+                  <EmptyState
+                    title="Nenhuma PT encontrada"
+                    description="Tente ajustar os filtros ou crie uma nova permissão de trabalho."
+                    compact
+                  />
+                </TableCell>
+              </TableRow>
+            ) : (
+              pts.map((pt) => (
+                <PtsTableRow
+                  key={pt.id}
+                  pt={pt}
+                  onDelete={onDelete}
+                  onPrint={onPrint}
+                  onSendEmail={onSendEmail}
+                  onDownloadPdf={onDownloadPdf}
+                  onApprove={onApprove}
+                  onReject={onReject}
+                />
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  },
+);
 
 PtsTable.displayName = 'PtsTable';

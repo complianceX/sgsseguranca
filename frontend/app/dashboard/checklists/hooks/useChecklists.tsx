@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
 import { checklistsService, Checklist } from '@/services/checklistsService';
 import { signaturesService } from '@/services/signaturesService';
 import { generateChecklistPdf } from '@/lib/pdf/checklistGenerator';
@@ -13,7 +13,9 @@ import { openPdfForPrint } from '@/lib/print-utils';
 export function useChecklists() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const [modelFilter, setModelFilter] = useState<'all' | 'model' | 'regular'>('regular');
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
@@ -27,6 +29,7 @@ export function useChecklists() {
   const loadChecklists = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const res = await checklistsService.findPaginated({
         onlyTemplates: modelFilter === 'model',
         excludeTemplates: modelFilter === 'regular',
@@ -37,6 +40,7 @@ export function useChecklists() {
       setTotal(res.total);
       setLastPage(res.lastPage);
     } catch (error) {
+      setLoadError('Nao foi possivel carregar os checklists.');
       handleApiError(error, 'Checklists');
     } finally {
       setLoading(false);
@@ -154,7 +158,7 @@ export function useChecklists() {
 
   const filteredChecklists = useMemo(() => {
     return checklists.filter((checklist) => {
-      const term = searchTerm.toLowerCase();
+      const term = deferredSearchTerm.toLowerCase();
       const matchesTerm = (
         checklist.titulo.toLowerCase().includes(term) ||
         (checklist.descricao || '').toLowerCase().includes(term) ||
@@ -166,7 +170,7 @@ export function useChecklists() {
       if (modelFilter === 'regular') return !checklist.is_modelo;
       return true;
     });
-  }, [checklists, searchTerm, modelFilter]);
+  }, [checklists, deferredSearchTerm, modelFilter]);
 
   const insights = useMemo(() => {
     return {
@@ -198,8 +202,10 @@ export function useChecklists() {
   return {
     checklists,
     loading,
+    loadError,
     searchTerm,
     setSearchTerm,
+    deferredSearchTerm,
     modelFilter,
     setModelFilter: setModelFilterAndReset,
     page,
@@ -221,5 +227,6 @@ export function useChecklists() {
     handleAiAnalysis,
     handleDelete,
     handleExportCsv,
+    loadChecklists,
   };
 }

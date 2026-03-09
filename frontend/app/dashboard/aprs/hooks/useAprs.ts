@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useDeferredValue } from 'react';
 import { aprsService, Apr } from '@/services/aprsService';
 import { aiService } from '@/services/aiService';
 import { signaturesService } from '@/services/signaturesService';
@@ -27,7 +27,9 @@ type AprOverviewMetrics = {
 export function useAprs() {
   const [aprs, setAprs] = useState<Apr[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const deferredSearchTerm = useDeferredValue(searchTerm);
   const [statusFilter, setStatusFilter] = useState('');
   const [insights, setInsights] = useState<Insight[]>([]);
   const [page, setPage] = useState(1);
@@ -42,26 +44,28 @@ export function useAprs() {
   const loadAprs = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const res = await aprsService.findPaginated({
         page,
         limit,
-        search: searchTerm || undefined,
+        search: deferredSearchTerm || undefined,
         status: statusFilter || undefined,
       });
       setAprs(res.data);
       setTotal(res.total);
       setLastPage(res.lastPage);
     } catch (error) {
+      setLoadError('Nao foi possivel carregar a lista de APRs.');
       handleApiError(error, 'APRs');
     } finally {
       setLoading(false);
     }
-  }, [page, limit, searchTerm, statusFilter]);
+  }, [page, limit, deferredSearchTerm, statusFilter]);
 
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, statusFilter]);
+  }, [deferredSearchTerm, statusFilter]);
 
   const loadInsights = useCallback(async () => {
     try {
@@ -213,6 +217,7 @@ export function useAprs() {
   return {
     aprs,
     loading,
+    loadError,
     searchTerm,
     setSearchTerm,
     statusFilter,

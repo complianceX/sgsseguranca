@@ -3,6 +3,13 @@
 import React from 'react';
 import { Sparkles, AlertTriangle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 
 interface Insight {
   type: 'warning' | 'success' | 'info';
@@ -19,28 +26,54 @@ export const PtsInsights = React.memo(({ insights }: PtsInsightsProps) => {
   if (insights.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4 transition-all animate-in fade-in slide-in-from-top-4">
-      <div className="mb-3 flex items-center space-x-2">
-        <Sparkles className="h-4 w-4 text-blue-600" />
-        <h2 className="text-sm font-bold text-blue-900 uppercase tracking-wider">Insights do COMPLIANCE X AI</h2>
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <Card
+      tone="muted"
+      padding="md"
+      className="border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/8 animate-in fade-in slide-in-from-top-4"
+    >
+      <CardHeader className="gap-2">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
+          <CardTitle className="text-sm uppercase tracking-wider text-[var(--ds-color-action-primary)]">
+            Insights da Especialista SST
+          </CardTitle>
+        </div>
+        <CardDescription>
+          Alertas automáticos para priorizar aprovação, bloqueios e risco residual em PTs.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="mt-0 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {insights.map((insight, idx) => (
-          <div key={idx} className="flex items-start space-x-3 rounded-lg bg-white p-3 shadow-sm border border-blue-100 transition-transform hover:scale-[1.02]">
-            <div className={cn(
-              "mt-0.5 rounded-full p-1",
-              insight.type === 'warning' ? "bg-amber-100 text-amber-600" : "bg-blue-100 text-blue-600"
-            )}>
-              {insight.type === 'warning' ? <AlertTriangle className="h-3.5 w-3.5" /> : <Info className="h-3.5 w-3.5" />}
+          <div
+            key={idx}
+            className="flex items-start gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 transition-all duration-[var(--ds-motion-base)] hover:-translate-y-px hover:shadow-[var(--ds-shadow-sm)]"
+          >
+            <div
+              className={cn(
+                'mt-0.5 rounded-full p-1.5',
+                insight.type === 'warning'
+                  ? 'bg-[color:var(--ds-color-warning)]/14 text-[var(--ds-color-warning)]'
+                  : 'bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]',
+              )}
+            >
+              {insight.type === 'warning' ? (
+                <AlertTriangle className="h-3.5 w-3.5" />
+              ) : (
+                <Info className="h-3.5 w-3.5" />
+              )}
             </div>
-            <div>
-              <p className="text-xs font-bold text-gray-900">{insight.title}</p>
-              <p className="text-[11px] text-gray-600">{insight.message}</p>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                {insight.title}
+              </p>
+              <p className="text-xs leading-5 text-[var(--ds-color-text-muted)]">
+                {insight.message}
+              </p>
             </div>
           </div>
         ))}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 });
 

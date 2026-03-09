@@ -3,18 +3,18 @@
 import React, { useState } from 'react';
 import { Apr } from '@/services/aprsService';
 import {
-  FileText,
+  AlertTriangle,
   Calendar,
   CheckCircle,
   Clock,
-  AlertTriangle,
-  Printer,
-  Mail,
   Download,
-  Pencil,
-  Trash2,
+  FileText,
   GitBranch,
+  Mail,
   PenLine,
+  Pencil,
+  Printer,
+  Trash2,
   Users,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -24,6 +24,8 @@ import { SignaturesPanel } from '@/components/SignaturesPanel';
 import { signaturesService } from '@/services/signaturesService';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface AprCardProps {
   apr: Apr;
@@ -38,21 +40,31 @@ interface AprCardProps {
 
 const getStatusIcon = (status: string) => {
   switch (status) {
-    case 'Aprovada': return <CheckCircle className="h-4 w-4 text-[#16A34A]" />;
-    case 'Pendente': return <Clock className="h-4 w-4 text-[#2563EB]" />;
-    case 'Cancelada': return <AlertTriangle className="h-4 w-4 text-[#DC2626]" />;
-    case 'Encerrada': return <CheckCircle className="h-4 w-4 text-[#6B7280]" />;
-    default: return null;
+    case 'Aprovada':
+      return <CheckCircle className="h-4 w-4 text-[var(--ds-color-success)]" />;
+    case 'Pendente':
+      return <Clock className="h-4 w-4 text-[var(--ds-color-action-primary)]" />;
+    case 'Cancelada':
+      return <AlertTriangle className="h-4 w-4 text-[var(--ds-color-danger)]" />;
+    case 'Encerrada':
+      return <CheckCircle className="h-4 w-4 text-[var(--ds-color-text-muted)]" />;
+    default:
+      return null;
   }
 };
 
 const getStatusClass = (status: string) => {
   switch (status) {
-    case 'Aprovada': return 'bg-[#16A34A] text-white';
-    case 'Pendente': return 'bg-[#2563EB] text-white';
-    case 'Cancelada': return 'bg-[#DC2626] text-white';
-    case 'Encerrada': return 'bg-[#6B7280] text-white';
-    default: return 'bg-gray-100 text-gray-700';
+    case 'Aprovada':
+      return 'bg-[var(--ds-color-success)] text-white';
+    case 'Pendente':
+      return 'bg-[var(--ds-color-action-primary)] text-white';
+    case 'Cancelada':
+      return 'bg-[var(--ds-color-danger)] text-white';
+    case 'Encerrada':
+      return 'bg-[var(--ds-color-text-muted)] text-white';
+    default:
+      return 'bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]';
   }
 };
 
@@ -81,7 +93,7 @@ export const AprCard = React.memo(
           user_id: user?.id,
           company_id: apr.company_id,
         });
-        toast.success('Assinatura registrada com sucesso!');
+        toast.success('Assinatura registrada com sucesso.');
       } catch {
         toast.error('Erro ao registrar assinatura.');
       }
@@ -91,157 +103,184 @@ export const AprCard = React.memo(
     const hasCriticalRisk = (apr.classificacao_resumo?.critico || 0) > 0;
     const hasSubstantialRisk = (apr.classificacao_resumo?.substancial || 0) > 0;
     const riskHighlightClass = hasCriticalRisk
-      ? 'bg-[#FEE2E2] border-l-4 border-l-[#DC2626]'
+      ? 'border-[color:var(--ds-color-danger)]/25 bg-[color:var(--ds-color-danger)]/8'
       : hasSubstantialRisk
-        ? 'bg-[#FFEDD5] border-l-4 border-l-[#F97316]'
-        : 'bg-white';
+        ? 'border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/8'
+        : '';
 
-  return (
-    <div className={cn(
-      "flex flex-col rounded-xl border p-5 transition-all hover:shadow-lg hover:border-blue-200 group animate-in fade-in zoom-in-95 duration-300",
-      riskHighlightClass
-    )}>
-      <div className="mb-4 flex items-start justify-between">
-        <div className="rounded-xl bg-blue-50 p-2.5 group-hover:bg-blue-600 transition-colors">
-          <FileText className="h-6 w-6 text-blue-600 group-hover:text-white transition-colors" />
-        </div>
-        <span className={cn('flex items-center space-x-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider', getStatusClass(apr.status))}>
-          {getStatusIcon(apr.status)}
-          <span>{apr.status}</span>
-        </span>
-      </div>
-
-      <h3 className="mb-1 text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{apr.titulo}</h3>
-      <p className="mb-4 flex-1 text-sm text-gray-500 line-clamp-2 italic">
-        {apr.descricao || 'Sem descrição.'}
-      </p>
-
-      <div className="mb-4 inline-flex w-fit items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
-        <GitBranch className="mr-1.5 h-3.5 w-3.5" />
-        <span>Versão {apr.versao || 1}</span>
-      </div>
-
-      <div className="mb-5 space-y-2 border-t pt-4 text-xs text-gray-500">
-        <div className="flex items-center">
-          <Calendar className="mr-2 h-3.5 w-3.5 text-gray-400" />
-          <span className="font-medium">Emissão:</span> 
-          <span className="ml-1">{new Date(apr.data_inicio).toLocaleDateString('pt-BR')}</span>
-        </div>
-        {apr.data_fim && (
-          <div className="flex items-center">
-            <Calendar className="mr-2 h-3.5 w-3.5 text-gray-400" />
-            <span className="font-medium">Validade:</span>
-            <span className="ml-1">{new Date(apr.data_fim).toLocaleDateString('pt-BR')}</span>
-          </div>
+    return (
+      <Card
+        tone="default"
+        padding="md"
+        className={cn(
+          'group flex h-full flex-col animate-in fade-in zoom-in-95 transition-all duration-[var(--ds-motion-base)] hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]',
+          riskHighlightClass,
         )}
-      </div>
-
-      <div className="flex flex-wrap justify-end gap-1.5 pt-2 border-t border-gray-50">
-        {isApproved ? (
-          <button
-            type="button"
-            onClick={() => onCreateNewVersion(apr.id)}
-            className="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100"
-            title="Criar nova versão"
-          >
-            Nova Versão
-          </button>
-        ) : hasPermission('can_approve_pt') ? (
-          <>
-            <button
-              type="button"
-              onClick={() => onFinalize(apr.id)}
-              className="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
-              title="Aprovar APR"
+      >
+        <CardHeader className="gap-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 p-2.5 text-[var(--ds-color-action-primary)] transition-colors group-hover:bg-[var(--ds-color-action-primary)] group-hover:text-white">
+              <FileText className="h-6 w-6" />
+            </div>
+            <span
+              className={cn(
+                'flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider',
+                getStatusClass(apr.status),
+              )}
             >
-              Aprovar
-            </button>
-            <button
-              type="button"
-              onClick={() => onReject(apr.id)}
-              className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
-              title="Reprovar APR"
-            >
-              Reprovar
-            </button>
-          </>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => onPrint(apr)}
-          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
-          title="Imprimir APR"
-        >
-          <Printer className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onSendEmail(apr.id)}
-          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
-          title="Enviar por E-mail"
-        >
-          <Mail className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onDownloadPdf(apr.id)}
-          className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
-          title="Baixar PDF"
-        >
-          <Download className="h-4 w-4" />
-        </button>
-        <Link
-          href={`/dashboard/aprs/edit/${apr.id}`}
-          className={cn(
-            'p-1.5 rounded-lg transition-colors',
-            isApproved
-              ? 'pointer-events-none text-gray-300'
-              : 'text-gray-600 hover:bg-gray-100',
-          )}
-          title={isApproved ? 'APR aprovada: edição bloqueada' : 'Editar APR'}
-        >
-          <Pencil className="h-4 w-4" />
-        </Link>
-        <button
-          type="button"
-          onClick={() => onDelete(apr.id)}
-          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
-          title="Excluir APR"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowSignModal(true)}
-          className="p-1.5 rounded-lg text-purple-600 hover:bg-purple-50 transition-colors"
-          title="Assinar APR"
-        >
-          <PenLine className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowSignaturesPanel(true)}
-          className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-          title="Ver assinaturas"
-        >
-          <Users className="h-4 w-4" />
-        </button>
-      </div>
+              {getStatusIcon(apr.status)}
+              <span>{apr.status}</span>
+            </span>
+          </div>
 
-      <SignatureModal
-        isOpen={showSignModal}
-        onClose={() => setShowSignModal(false)}
-        onSave={handleSignSave}
-        userName={user?.nome ?? 'Usuário'}
-      />
-      <SignaturesPanel
-        isOpen={showSignaturesPanel}
-        onClose={() => setShowSignaturesPanel(false)}
-        documentId={apr.id}
-        documentType="APR"
-      />
-    </div>
-  );
+          <div className="space-y-2">
+            <CardTitle className="text-lg transition-colors group-hover:text-[var(--ds-color-action-primary)]">
+              {apr.titulo}
+            </CardTitle>
+            <p className="line-clamp-2 text-sm italic text-[var(--ds-color-text-muted)]">
+              {apr.descricao || 'Sem descrição.'}
+            </p>
+          </div>
+
+          <div className="inline-flex w-fit items-center rounded-full bg-[color:var(--ds-color-surface-muted)]/45 px-2.5 py-1 text-[11px] font-semibold text-[var(--ds-color-text-secondary)]">
+            <GitBranch className="mr-1.5 h-3.5 w-3.5" />
+            <span>Versão {apr.versao || 1}</span>
+          </div>
+        </CardHeader>
+
+        <CardContent className="mt-0 flex flex-1 flex-col">
+          <div className="mb-5 space-y-2 border-t border-[var(--ds-color-border-subtle)] pt-4 text-xs text-[var(--ds-color-text-muted)]">
+            <div className="flex items-center">
+              <Calendar className="mr-2 h-3.5 w-3.5 text-[var(--ds-color-text-muted)]" />
+              <span className="font-medium">Emissão:</span>
+              <span className="ml-1">
+                {new Date(apr.data_inicio).toLocaleDateString('pt-BR')}
+              </span>
+            </div>
+            {apr.data_fim ? (
+              <div className="flex items-center">
+                <Calendar className="mr-2 h-3.5 w-3.5 text-[var(--ds-color-text-muted)]" />
+                <span className="font-medium">Validade:</span>
+                <span className="ml-1">
+                  {new Date(apr.data_fim).toLocaleDateString('pt-BR')}
+                </span>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-auto flex flex-wrap justify-end gap-1.5 border-t border-[var(--ds-color-border-subtle)] pt-3">
+            {isApproved ? (
+              <Button
+                type="button"
+                onClick={() => onCreateNewVersion(apr.id)}
+                variant="outline"
+                size="sm"
+                title="Criar nova versão"
+              >
+                Nova versão
+              </Button>
+            ) : hasPermission('can_approve_pt') ? (
+              <>
+                <Button
+                  type="button"
+                  onClick={() => onFinalize(apr.id)}
+                  variant="outline"
+                  size="sm"
+                  title="Aprovar APR"
+                >
+                  Aprovar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => onReject(apr.id)}
+                  variant="outline"
+                  size="sm"
+                  className="border-[color:var(--ds-color-danger)]/30 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
+                  title="Reprovar APR"
+                >
+                  Reprovar
+                </Button>
+              </>
+            ) : null}
+
+            <Button type="button" size="icon" variant="ghost" onClick={() => onPrint(apr)} title="Imprimir APR">
+              <Printer className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => onSendEmail(apr.id)}
+              title="Enviar por e-mail"
+            >
+              <Mail className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => onDownloadPdf(apr.id)}
+              title="Baixar PDF"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+            <Link
+              href={`/dashboard/aprs/edit/${apr.id}`}
+              className={cn(
+                buttonVariants({ size: 'icon', variant: 'ghost' }),
+                isApproved
+                  ? 'pointer-events-none text-[var(--ds-color-text-muted)] opacity-40'
+                  : '',
+              )}
+              title={isApproved ? 'APR aprovada: edição bloqueada' : 'Editar APR'}
+            >
+              <Pencil className="h-4 w-4" />
+            </Link>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => onDelete(apr.id)}
+              className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+              title="Excluir APR"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => setShowSignModal(true)}
+              title="Assinar APR"
+            >
+              <PenLine className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => setShowSignaturesPanel(true)}
+              title="Ver assinaturas"
+            >
+              <Users className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+
+        <SignatureModal
+          isOpen={showSignModal}
+          onClose={() => setShowSignModal(false)}
+          onSave={handleSignSave}
+          userName={user?.nome ?? 'Usuário'}
+        />
+        <SignaturesPanel
+          isOpen={showSignaturesPanel}
+          onClose={() => setShowSignaturesPanel(false)}
+          documentId={apr.id}
+          documentType="APR"
+        />
+      </Card>
+    );
   },
 );
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useDeferredValue } from 'react';
 import { toast } from 'sonner';
 import {
   rdosService,
@@ -13,8 +13,6 @@ import {
   RDO_STATUS_LABEL,
   RDO_STATUS_COLORS,
   RDO_ALLOWED_TRANSITIONS,
-  CLIMA_LABEL,
-  OCORRENCIA_TIPO_LABEL,
 } from '@/services/rdosService';
 import { sitesService, Site } from '@/services/sitesService';
 import { usersService, User } from '@/services/usersService';
@@ -27,7 +25,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
-  Eye,
   AlertTriangle,
   Users,
   Wrench,
@@ -44,6 +41,19 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { cn } from '@/lib/utils';
+
+const inputClassName =
+  'h-10 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 const STEPS = [
   { label: 'Dados Básicos', icon: ClipboardList },
@@ -123,6 +133,7 @@ export default function RdosPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -138,6 +149,7 @@ export default function RdosPage() {
   const [filterDataInicio, setFilterDataInicio] = useState('');
   const [filterDataFim, setFilterDataFim] = useState('');
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
 
   // Resumo
   const [summary, setSummary] = useState({
@@ -150,6 +162,7 @@ export default function RdosPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const [rdosData, sitesData, usersData] = await Promise.all([
         rdosService.findPaginated({
           page,
@@ -178,6 +191,7 @@ export default function RdosPage() {
       });
     } catch (error) {
       console.error('Erro ao carregar RDOs:', error);
+      setLoadError('Nao foi possivel carregar os RDOs.');
       toast.error('Erro ao carregar RDOs.');
     } finally {
       setLoading(false);
@@ -326,140 +340,215 @@ export default function RdosPage() {
       return { ...f, ocorrencias: arr };
     });
 
-  const filteredRdos = search
+  const filteredRdos = deferredSearch
     ? rdos.filter(
         (r) =>
-          r.numero.toLowerCase().includes(search.toLowerCase()) ||
-          r.site?.nome?.toLowerCase().includes(search.toLowerCase()),
+          r.numero.toLowerCase().includes(deferredSearch.toLowerCase()) ||
+          r.site?.nome?.toLowerCase().includes(deferredSearch.toLowerCase()),
       )
     : rdos;
 
   const totalTrabalhadores = (rdo: Rdo) =>
     (rdo.mao_de_obra ?? []).reduce((sum, m) => sum + (m.quantidade ?? 0), 0);
 
+  if (loading) {
+    return (
+      <PageLoadingState
+        title="Carregando RDOs"
+        description="Buscando relatorios, filtros, obras e responsaveis."
+        cards={4}
+        tableRows={6}
+      />
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title="Falha ao carregar RDOs"
+        description={loadError}
+        action={
+          <Button type="button" onClick={loadData}>
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#0F172A]">Relatórios Diários de Obras (RDO)</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Registro diário de atividades, mão de obra e ocorrências no canteiro
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => downloadExcel('/rdos/export/excel', 'rdos.xlsx')}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm hover:bg-gray-50"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Exportar Excel
-          </button>
-          <button
-            onClick={handleOpenModal}
-            className="flex items-center gap-2 rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            Novo RDO
-          </button>
-        </div>
-      </div>
-
-      {/* Cards de resumo */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[
-          { label: 'Total de RDOs', value: summary.total, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Rascunhos', value: summary.rascunho, color: 'text-gray-600', bg: 'bg-gray-50' },
-          { label: 'Enviados', value: summary.enviado, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Aprovados', value: summary.aprovado, color: 'text-green-600', bg: 'bg-green-50' },
-        ].map((card) => (
-          <div key={card.label} className={`rounded-xl border border-gray-100 ${card.bg} p-4`}>
-            <p className="text-sm text-gray-500">{card.label}</p>
-            <p className={`mt-1 text-2xl font-bold ${card.color}`}>{card.value}</p>
+    <div className="space-y-6">
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+              <ClipboardList className="h-5 w-5" />
+            </div>
+            <div className="space-y-2">
+              <CardTitle className="text-2xl">Relatórios Diários de Obras</CardTitle>
+              <CardDescription>
+                Controle produção diária, clima, mão de obra, ocorrências e status do canteiro.
+              </CardDescription>
+            </div>
           </div>
-        ))}
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              leftIcon={<FileSpreadsheet className="h-4 w-4" />}
+              onClick={() => downloadExcel('/rdos/export/excel', 'rdos.xlsx')}
+            >
+              Exportar Excel
+            </Button>
+            <Button type="button" leftIcon={<Plus className="h-4 w-4" />} onClick={handleOpenModal}>
+              Novo RDO
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Total de RDOs</CardDescription>
+            <CardTitle className="text-3xl">{summary.total}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Rascunhos</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-text-secondary)]">{summary.rascunho}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Enviados</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">{summary.enviado}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Aprovados</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-success)]">{summary.aprovado}</CardTitle>
+          </CardHeader>
+        </Card>
       </div>
 
-      {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar número ou obra..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-9 rounded-xl border border-gray-200 pl-9 pr-4 text-sm focus:border-blue-500 focus:outline-none"
-          />
-        </div>
-        <select
-          value={filterStatus}
-          onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
-          className="h-9 rounded-xl border border-gray-200 px-3 text-sm focus:border-blue-500 focus:outline-none"
+      {summary.rascunho > 0 ? (
+        <Card
+          tone="muted"
+          padding="md"
+          className="border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/10"
         >
-          <option value="">Todos os status</option>
-          <option value="rascunho">Rascunho</option>
-          <option value="enviado">Enviado</option>
-          <option value="aprovado">Aprovado</option>
-        </select>
-        <select
-          value={filterSiteId}
-          onChange={(e) => { setFilterSiteId(e.target.value); setPage(1); }}
-          className="h-9 rounded-xl border border-gray-200 px-3 text-sm focus:border-blue-500 focus:outline-none"
-        >
-          <option value="">Todas as obras</option>
-          {sites.map((s) => (
-            <option key={s.id} value={s.id}>{s.nome}</option>
-          ))}
-        </select>
-        <input
-          type="date"
-          value={filterDataInicio}
-          onChange={(e) => { setFilterDataInicio(e.target.value); setPage(1); }}
-          className="h-9 rounded-xl border border-gray-200 px-3 text-sm focus:border-blue-500 focus:outline-none"
-          title="Data início"
-        />
-        <input
-          type="date"
-          value={filterDataFim}
-          onChange={(e) => { setFilterDataFim(e.target.value); setPage(1); }}
-          className="h-9 rounded-xl border border-gray-200 px-3 text-sm focus:border-blue-500 focus:outline-none"
-          title="Data fim"
-        />
-      </div>
+          <CardHeader className="gap-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-[var(--ds-color-warning)]" />
+              <CardTitle className="text-base">Há RDOs pendentes de envio</CardTitle>
+            </div>
+            <CardDescription>
+              {summary.rascunho} relatório(s) ainda estão em rascunho. Feche o ciclo diário e encaminhe para aprovação.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
 
-      {/* Tabela */}
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-[#F8FAFC]">
-              <TableHead>Número</TableHead>
-              <TableHead>Data</TableHead>
-              <TableHead>Obra/Setor</TableHead>
-              <TableHead>Responsável</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Trabalhadores</TableHead>
-              <TableHead>Acidente</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-gray-400">
-                  Carregando...
-                </TableCell>
-              </TableRow>
-            ) : filteredRdos.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-gray-400">
-                  Nenhum RDO encontrado.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredRdos.map((rdo) => (
-                <TableRow key={rdo.id} className="group transition-colors hover:bg-[#EEF2FF]">
-                  <TableCell className="font-mono text-sm font-medium text-blue-700">
+      <Card tone="default" padding="none">
+        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
+          <div className="space-y-1">
+            <CardTitle>Base de RDOs</CardTitle>
+            <CardDescription>
+              {total} registro(s) no recorte atual com filtros por status, obra e período.
+            </CardDescription>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
+              <input
+                type="text"
+                placeholder="Buscar número ou obra..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className={cn(inputClassName, 'w-full pl-9')}
+              />
+            </div>
+            <select
+              value={filterStatus}
+              onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
+              className={cn(inputClassName, 'w-full')}
+            >
+              <option value="">Todos os status</option>
+              <option value="rascunho">Rascunho</option>
+              <option value="enviado">Enviado</option>
+              <option value="aprovado">Aprovado</option>
+            </select>
+            <select
+              value={filterSiteId}
+              onChange={(e) => { setFilterSiteId(e.target.value); setPage(1); }}
+              className={cn(inputClassName, 'w-full')}
+            >
+              <option value="">Todas as obras</option>
+              {sites.map((s) => (
+                <option key={s.id} value={s.id}>{s.nome}</option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={filterDataInicio}
+              onChange={(e) => { setFilterDataInicio(e.target.value); setPage(1); }}
+              className={cn(inputClassName, 'w-full')}
+              title="Data início"
+            />
+            <input
+              type="date"
+              value={filterDataFim}
+              onChange={(e) => { setFilterDataFim(e.target.value); setPage(1); }}
+              className={cn(inputClassName, 'w-full')}
+              title="Data fim"
+            />
+          </div>
+        </CardHeader>
+
+        <CardContent className="mt-0">
+          {filteredRdos.length === 0 ? (
+            <EmptyState
+              title="Nenhum RDO encontrado"
+              description={
+                deferredSearch
+                  ? 'Nenhum resultado corresponde ao filtro aplicado.'
+                  : 'Ainda não existem RDOs registrados para este tenant.'
+              }
+              action={
+                !deferredSearch ? (
+                  <button
+                    type="button"
+                    onClick={handleOpenModal}
+                    className={cn(buttonVariants(), 'inline-flex items-center')}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Novo RDO
+                  </button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Número</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Obra/Setor</TableHead>
+                    <TableHead>Responsável</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Trabalhadores</TableHead>
+                    <TableHead>Acidente</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRdos.map((rdo) => (
+                    <TableRow key={rdo.id}>
+                  <TableCell className="font-mono text-sm font-medium text-[var(--ds-color-action-primary)]">
                     {rdo.numero}
                   </TableCell>
                   <TableCell className="text-sm">
@@ -480,7 +569,7 @@ export default function RdosPage() {
                           onChange={(e) => {
                             if (e.target.value) handleStatusChange(rdo.id, e.target.value);
                           }}
-                          className="rounded border border-gray-200 px-1 py-0.5 text-xs text-gray-600"
+                          className="rounded border border-[var(--ds-color-border-subtle)] px-1 py-0.5 text-xs text-[var(--ds-color-text-secondary)]"
                         >
                           <option value="">Mover para...</option>
                           {RDO_ALLOWED_TRANSITIONS[rdo.status].map((s) => (
@@ -494,44 +583,44 @@ export default function RdosPage() {
                     {totalTrabalhadores(rdo) > 0 ? (
                       <span className="font-medium">{totalTrabalhadores(rdo)}</span>
                     ) : (
-                      <span className="text-gray-400">—</span>
+                      <span className="text-[var(--ds-color-text-muted)]">—</span>
                     )}
                   </TableCell>
                   <TableCell>
                     {rdo.houve_acidente ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--ds-color-danger)]/10 px-2 py-0.5 text-xs font-medium text-[var(--ds-color-danger)]">
                         <AlertTriangle className="h-3 w-3" /> Sim
                       </span>
                     ) : (
-                      <span className="text-xs text-gray-400">Não</span>
+                      <span className="text-xs text-[var(--ds-color-text-muted)]">Não</span>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100">
+                    <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => handleDelete(rdo.id)}
-                        className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                        className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
                         title="Excluir"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-        <div className="border-t border-gray-100 px-4 py-3">
-          <PaginationControls
-            page={page}
-            lastPage={lastPage}
-            total={total}
-            onPrev={() => setPage((p) => Math.max(1, p - 1))}
-            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
-          />
-        </div>
-      </div>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <PaginationControls
+                page={page}
+                lastPage={lastPage}
+                total={total}
+                onPrev={() => setPage((p) => Math.max(1, p - 1))}
+                onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+              />
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Modal de criação — multi-step */}
       {showModal && (

@@ -1,5 +1,10 @@
 import React from 'react';
 import { Search, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+const inputClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 interface ChecklistsFiltersProps {
   searchTerm: string;
@@ -17,26 +22,26 @@ export const ChecklistsFilters = React.memo(({
   onExportCsv
 }: ChecklistsFiltersProps) => {
   return (
-    <div className="border-b p-4">
+    <div className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="relative max-w-sm flex-1">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-            <Search className="h-4 w-4 text-gray-400" />
-          </span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
           <input
             type="text"
             placeholder="Pesquisar checklists..."
-            className="w-full rounded-md border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none"
+            className={cn(inputClassName, 'pl-10')}
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
           />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">Filtro</span>
+            <span className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--ds-color-text-muted)]">
+              Filtro
+            </span>
             <select
               aria-label="Filtro de checklists"
-              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+              className={inputClassName}
               value={modelFilter}
               onChange={(e) => onModelFilterChange(e.target.value as 'all' | 'model' | 'regular')}
             >
@@ -45,14 +50,14 @@ export const ChecklistsFilters = React.memo(({
               <option value="all">Todos</option>
             </select>
           </div>
-          <button
+          <Button
             type="button"
             onClick={onExportCsv}
-            className="flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            variant="outline"
+            leftIcon={<Download className="h-4 w-4" />}
           >
-            <Download className="mr-2 h-4 w-4" />
             Exportar CSV
-          </button>
+          </Button>
         </div>
       </div>
     </div>

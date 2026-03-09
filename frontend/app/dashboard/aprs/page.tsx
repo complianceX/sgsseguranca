@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, FileSpreadsheet } from 'lucide-react';
+import { FileSpreadsheet, Plus } from 'lucide-react';
 import { downloadExcel } from '@/lib/download-excel';
 import Link from 'next/link';
 import { SendMailModal } from '@/components/SendMailModal';
@@ -11,11 +11,25 @@ import { AprFilters } from './components/AprFilters';
 import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { aprsService } from '@/services/aprsService';
 import { PaginationControls } from '@/components/PaginationControls';
-import { CardSkeleton } from '@/components/ui/skeleton';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '@/components/ui/card';
+import {
+  EmptyState,
+  ErrorState,
+  PageLoadingState,
+} from '@/components/ui/state';
+import { cn } from '@/lib/utils';
 
 export default function AprsPage() {
   const {
     loading,
+    loadError,
     searchTerm,
     setSearchTerm,
     statusFilter,
@@ -38,61 +52,91 @@ export default function AprsPage() {
     handleFinalize,
     handleReject,
     handleCreateNewVersion,
+    loadAprs,
   } = useAprs();
 
   const companyOptions = Array.from(
     new Map(
       filteredAprs
         .filter((item) => item.company_id)
-        .map((item) => [
-          item.company_id,
-          item.company?.razao_social || item.company_id,
-        ]),
+        .map((item) => [item.company_id, item.company?.razao_social || item.company_id]),
     ).entries(),
   ).map(([id, name]) => ({ id, name }));
 
+  if (loading) {
+    return (
+      <PageLoadingState
+        title="Carregando APRs"
+        description="Buscando análises de risco, métricas operacionais e arquivos armazenados."
+        cards={5}
+        tableRows={6}
+      />
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title="Falha ao carregar APRs"
+        description={loadError}
+        action={
+          <Button type="button" onClick={loadAprs}>
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Análise Preliminar de Risco (APR)</h1>
-          <p className="text-gray-500">Gerencie as APRs emitidas para as obras e setores.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => downloadExcel('/aprs/export/excel', 'aprs.xlsx')}
-            className="flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:scale-105 active:scale-95"
-          >
-            <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" />
-            Exportar Excel
-          </button>
-          <Link
-            href="/dashboard/aprs/new"
-            className="flex items-center justify-center rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 hover:scale-105 active:scale-95"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nova APR
-          </Link>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-2">
+            <CardTitle className="text-2xl">Análise Preliminar de Risco (APR)</CardTitle>
+            <CardDescription>
+              Gerencie APRs emitidas por obra, acompanhe riscos críticos e controle versões aprovadas.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
+              onClick={() => downloadExcel('/aprs/export/excel', 'aprs.xlsx')}
+            >
+              Exportar Excel
+            </Button>
+            <Link href="/dashboard/aprs/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nova APR
+            </Link>
+          </div>
+        </CardHeader>
+      </Card>
 
       <AprInsights insights={insights} />
 
-      {overviewMetrics && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      {overviewMetrics ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <MetricCard label="Total APRs" value={overviewMetrics.totalAprs} />
-          <MetricCard label="Aprovadas (pág.)" value={overviewMetrics.aprovadas} />
-          <MetricCard label="Pendentes (pág.)" value={overviewMetrics.pendentes} />
-          <MetricCard label="Riscos Críticos (pág.)" value={overviewMetrics.riscosCriticos} />
+          <MetricCard label="Aprovadas (pág.)" value={overviewMetrics.aprovadas} tone="success" />
+          <MetricCard label="Pendentes (pág.)" value={overviewMetrics.pendentes} tone="primary" />
           <MetricCard
-            label="Média Score"
+            label="Riscos críticos (pág.)"
+            value={overviewMetrics.riscosCriticos}
+            tone="danger"
+          />
+          <MetricCard
+            label="Média score"
             value={overviewMetrics.mediaScoreRisco.toFixed(2)}
+            tone="warning"
           />
         </div>
-      )}
+      ) : null}
 
-      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
+      <Card tone="default" padding="none">
         <AprFilters
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -100,56 +144,68 @@ export default function AprsPage() {
           onStatusChange={setStatusFilter}
         />
 
-        <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-2 lg:grid-cols-3">
-          {loading ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <CardSkeleton key={i} />
-            ))
-          ) : filteredAprs.length === 0 ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-20 space-y-2">
-              <div className="rounded-full bg-gray-50 p-4">
-                <Plus className="h-8 w-8 text-gray-300" />
-              </div>
-              <p className="text-gray-500 font-medium">Nenhuma APR encontrada.</p>
-              <p className="text-xs text-gray-400">Tente ajustar sua busca ou crie uma nova APR.</p>
+        <CardContent className="mt-0">
+          {filteredAprs.length === 0 ? (
+            <div className="p-5">
+              <EmptyState
+                title="Nenhuma APR encontrada"
+                description={
+                  searchTerm || statusFilter
+                    ? 'Nenhum resultado corresponde aos filtros aplicados.'
+                    : 'Ainda não existem APRs registradas para este tenant.'
+                }
+                action={
+                  !searchTerm && !statusFilter ? (
+                    <Link
+                      href="/dashboard/aprs/new"
+                      className={cn(buttonVariants(), 'inline-flex items-center')}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Nova APR
+                    </Link>
+                  ) : undefined
+                }
+              />
             </div>
           ) : (
-            filteredAprs.map((apr) => (
-              <AprCard
-                key={apr.id}
-                apr={apr}
-                onDelete={handleDelete}
-                onPrint={handlePrint}
-                onSendEmail={handleSendEmail}
-                onDownloadPdf={handleDownloadPdf}
-                onFinalize={handleFinalize}
-                onReject={handleReject}
-                onCreateNewVersion={handleCreateNewVersion}
-              />
-            ))
+            <div className="grid grid-cols-1 gap-6 p-5 md:grid-cols-2 lg:grid-cols-3">
+              {filteredAprs.map((apr) => (
+                <AprCard
+                  key={apr.id}
+                  apr={apr}
+                  onDelete={handleDelete}
+                  onPrint={handlePrint}
+                  onSendEmail={handleSendEmail}
+                  onDownloadPdf={handleDownloadPdf}
+                  onFinalize={handleFinalize}
+                  onReject={handleReject}
+                  onCreateNewVersion={handleCreateNewVersion}
+                />
+              ))}
+            </div>
           )}
-        </div>
+        </CardContent>
 
-        {!loading && (
+        {filteredAprs.length > 0 ? (
           <PaginationControls
             page={page}
             lastPage={lastPage}
             total={total}
-            onPrev={() => setPage((p) => Math.max(1, p - 1))}
-            onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
           />
-        )}
-      </div>
+        ) : null}
+      </Card>
 
       <StoredFilesPanel
         title="Arquivos APR (Storage)"
-        description="PDFs salvos automaticamente por empresa/ano/semana."
+        description="PDFs salvos automaticamente por empresa, ano e semana."
         listStoredFiles={aprsService.listStoredFiles}
         getPdfAccess={aprsService.getPdfAccess}
         companyOptions={companyOptions}
       />
 
-      {selectedDoc && (
+      {selectedDoc ? (
         <SendMailModal
           isOpen={isMailModalOpen}
           onClose={() => {
@@ -160,16 +216,37 @@ export default function AprsPage() {
           filename={selectedDoc.filename}
           base64={selectedDoc.base64}
         />
-      )}
+      ) : null}
     </div>
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string | number }) {
+function MetricCard({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  value: string | number;
+  tone?: 'default' | 'primary' | 'success' | 'warning' | 'danger';
+}) {
+  const toneClass =
+    tone === 'success'
+      ? 'text-[var(--ds-color-success)]'
+      : tone === 'warning'
+        ? 'text-[var(--ds-color-warning)]'
+        : tone === 'danger'
+          ? 'text-[var(--ds-color-danger)]'
+          : tone === 'primary'
+            ? 'text-[var(--ds-color-action-primary)]'
+            : 'text-[var(--ds-color-text-primary)]';
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
-    </div>
+    <Card interactive padding="md">
+      <CardHeader>
+        <CardDescription>{label}</CardDescription>
+        <CardTitle className={cn('text-3xl', toneClass)}>{value}</CardTitle>
+      </CardHeader>
+    </Card>
   );
 }
