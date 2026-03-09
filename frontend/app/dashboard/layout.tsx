@@ -106,14 +106,14 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-[#0F172A]">
+    <div className="ds-shell-backdrop flex h-screen">
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
         {/* Badge da empresa selecionada para Admin Geral */}
         {isAdminGeral && (
-          <div className="bg-indigo-900/40 border-b border-indigo-800/50 px-6 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-indigo-200 text-sm">
+          <div className="border-b border-indigo-400/15 bg-indigo-500/10 px-6 py-3 flex items-center justify-between backdrop-blur-sm">
+            <div className="flex items-center gap-2 text-indigo-100 text-sm">
               <Building2 className="h-4 w-4 text-indigo-400" />
               {selectedTenant ? (
                 <span>
@@ -126,7 +126,7 @@ export default function DashboardLayout({
             <button
               type="button"
               onClick={() => setSelectorOpen(true)}
-              className="flex items-center gap-1.5 text-xs text-indigo-300 hover:text-white bg-indigo-800/50 hover:bg-indigo-700/60 px-3 py-1.5 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 rounded-xl border border-indigo-300/15 bg-indigo-900/40 px-3 py-2 text-xs font-semibold text-indigo-100 transition-colors hover:bg-indigo-700/50 hover:text-white"
             >
               <ChevronsUpDown className="h-3.5 w-3.5" />
               Trocar empresa
@@ -134,7 +134,7 @@ export default function DashboardLayout({
           </div>
         )}
         <ApiStatusBanner />
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto px-5 py-6 sm:px-6 xl:px-8">
           {children}
         </main>
         <AIButton />

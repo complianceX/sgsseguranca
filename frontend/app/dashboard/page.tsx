@@ -15,7 +15,11 @@ import {
   AlertCircle, 
   CheckCircle2,
   GraduationCap,
-  AlertTriangle
+  AlertTriangle,
+  CalendarDays,
+  FileStack,
+  Clock3,
+  ArrowUpRight,
 } from 'lucide-react';
 import { usersService } from '@/services/usersService';
 import { companiesService } from '@/services/companiesService';
@@ -497,20 +501,74 @@ export default function DashboardPage() {
     { label: 'Nova NC', href: '/dashboard/nonconformities/new', icon: AlertTriangle, color: 'bg-gradient-to-r from-amber-500 to-orange-500' },
   ];
 
+  const operationalHighlights = [
+    {
+      label: 'Pendências críticas',
+      value: pendingApprovals.aprs + pendingApprovals.pts + pendingApprovals.nonconformities,
+      hint: 'Itens que exigem atuação hoje',
+      icon: AlertTriangle,
+      tone: 'text-amber-100',
+    },
+    {
+      label: 'Documentos ativos',
+      value: counts.aprs + counts.pts + counts.checklists,
+      hint: 'APR, PT e checklist emitidos',
+      icon: FileStack,
+      tone: 'text-sky-100',
+    },
+    {
+      label: 'Atualizado em',
+      value: format(new Date(), 'dd/MM'),
+      hint: 'Painel sincronizado',
+      icon: CalendarDays,
+      tone: 'text-emerald-100',
+    },
+  ];
+
   return (
     <div className="ds-dashboard-shell">
-      <div className="ds-dashboard-panel overflow-hidden p-6">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+      <div className="ds-dashboard-panel ds-hero-panel overflow-hidden p-6 lg:p-7">
+        <div className="relative z-[1] flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
             <div className="mb-3 inline-flex items-center rounded-full border border-[color:var(--ds-color-border-strong)]/70 bg-[color:var(--ds-color-surface-muted)]/55 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--ds-color-text-secondary)]">
               cockpit operacional
             </div>
-            <h1 className="text-3xl font-bold tracking-[-0.03em] text-gray-900">Olá, {user?.nome}!</h1>
-            <p className="mt-2 max-w-2xl text-sm text-gray-500">
+            <h1 className="text-3xl font-bold tracking-[-0.03em] text-white lg:text-[2.2rem]">Gestão SST com visão executiva e resposta rápida.</h1>
+            <p className="mt-3 max-w-2xl text-sm text-[var(--ds-color-text-secondary)]">
               Visão executiva com conformidade, documentação crítica, treinamentos e ações prioritárias em um único painel.
             </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <div className="ds-topbar-chip">
+                <Clock3 className="h-4 w-4 text-sky-300" />
+                Acompanhamento em tempo real
+              </div>
+              <div className="ds-topbar-chip">
+                <Shield className="h-4 w-4 text-emerald-300" />
+                Multiempresa seguro
+              </div>
+              <div className="ds-topbar-chip">
+                <FileText className="h-4 w-4 text-violet-300" />
+                Documentos com rastreabilidade
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[26rem]">
+            {operationalHighlights.map((item) => (
+              <div key={item.label} className="ds-stat-tile">
+                <div className="flex items-center justify-between">
+                  <item.icon className={`h-4 w-4 ${item.tone}`} />
+                  <ArrowUpRight className="h-4 w-4 text-white/40" />
+                </div>
+                <p className="mt-6 text-2xl font-bold text-white">{item.value}</p>
+                <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                  {item.label}
+                </p>
+                <p className="mt-2 text-xs text-[var(--ds-color-text-muted)]">{item.hint}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="relative z-[1] mt-6 flex flex-wrap gap-3">
           {quickActions.map((action, index) => (
             <Link 
               key={index} 
@@ -522,7 +580,6 @@ export default function DashboardPage() {
             </Link>
           ))}
         </div>
-      </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -724,7 +781,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="ds-dashboard-panel p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-gray-900 flex items-center">
               <AlertCircle className="mr-2 h-5 w-5 text-amber-500" />
@@ -769,7 +826,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="ds-dashboard-panel p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-gray-900 flex items-center">
               <GraduationCap className="mr-2 h-5 w-5 text-amber-500" />
@@ -816,7 +873,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="ds-dashboard-panel p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-gray-900 flex items-center">
               <MapPin className="mr-2 h-5 w-5 text-blue-500" />
@@ -856,7 +913,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="ds-dashboard-panel p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-gray-900">Trilha de Auditoria</h2>
             <Link href="/dashboard/reports" className="text-sm font-semibold text-blue-600 hover:underline">
@@ -886,7 +943,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="ds-dashboard-panel p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-gray-900">Relatórios Recentes</h2>
             <Link href="/dashboard/reports" className="text-sm font-semibold text-blue-600 hover:underline">
@@ -912,7 +969,7 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="ds-dashboard-panel p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-bold text-gray-900">Aprovação e Assinaturas</h2>
             <Link href="/dashboard/settings" className="text-sm font-semibold text-blue-600 hover:underline">
@@ -933,7 +990,7 @@ export default function DashboardPage() {
       </div>
 
       {/* SST Indicators Section */}
-      <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+      <div className="ds-dashboard-panel p-6">
         <h2 className="mb-6 text-lg font-bold text-gray-900 flex items-center">
           <TrendingUp className="mr-2 h-5 w-5 text-blue-600" />
           Indicadores SST
