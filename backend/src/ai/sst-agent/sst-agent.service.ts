@@ -24,7 +24,11 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import { TenantService } from '../../common/tenant/tenant.service';
 import { AiInteraction } from '../entities/ai-interaction.entity';
-import { SstToolsExecutor, SST_TOOL_DEFINITIONS } from './sst-agent.tools';
+import {
+  GEMINI_TOOL_DECLARATIONS,
+  SstToolsExecutor,
+  SST_TOOL_DEFINITIONS,
+} from './sst-agent.tools';
 import { SstRateLimitService } from './sst-rate-limit.service';
 import {
   SstAgentResponse,
@@ -59,11 +63,7 @@ type SupportedAiProvider = typeof ANTHROPIC_PROVIDER | typeof GEMINI_PROVIDER | 
 
 type GeminiGenerateContentResponse = {
   candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        text?: string;
-      }>;
-    };
+    content?: GeminiContent;
     finishReason?: string;
   }>;
   usageMetadata?: {
@@ -74,6 +74,26 @@ type GeminiGenerateContentResponse = {
   promptFeedback?: {
     blockReason?: string;
   };
+};
+
+type GeminiFunctionCall = {
+  name: string;
+  args?: Record<string, unknown>;
+};
+
+type GeminiPart = {
+  text?: string;
+  functionCall?: GeminiFunctionCall;
+  functionResponse?: {
+    name: string;
+    response: Record<string, unknown>;
+  };
+  thoughtSignature?: string;
+};
+
+type GeminiContent = {
+  role: 'user' | 'model';
+  parts: GeminiPart[];
 };
 
 // ---------------------------------------------------------------------------
@@ -231,7 +251,7 @@ export class SstAgentService {
       const { result, inputTokens, outputTokens, toolsUsed } =
         this.provider === ANTHROPIC_PROVIDER
           ? await this.runAnthropicAgentLoop(question, history)
-          : await this.runGeminiChat(question, history);
+          : await this.runGeminiAgentLoop(question, history);
 
       const latency = Date.now() - startTime;
       const estimatedCost = this.estimateCost(inputTokens, outputTokens, this.provider);
@@ -396,7 +416,7 @@ export class SstAgentService {
     };
   }
 
-  private async runGeminiChat(
+  private async runGeminiAgentLoop(
     question: string,
     history: ConversationMessage[],
   ): Promise<{
@@ -409,70 +429,133 @@ export class SstAgentService {
       throw new Error('GEMINI_API_KEY nao configurada.');
     }
 
-    const { toolContext, toolsUsed } = await this.buildGeminiToolContext(question);
-    const contents = [
-      ...history.map((message) => ({
-        role: message.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: message.content }],
-      })),
+    const toolsUsed: string[] = [];
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    const historyContents: GeminiContent[] = history.map((message) => ({
+      role: (message.role === 'assistant' ? 'model' : 'user') as GeminiContent['role'],
+      parts: [{ text: message.content }],
+    }));
+    const contents: GeminiContent[] = [
+      ...historyContents,
       {
-        role: 'user',
-        parts: [
-          {
-            text: [
-              `Pergunta do usuario: ${question}`,
-              'Dados do sistema consultados:',
-              toolContext,
-              'Responda em portugues brasileiro, de forma objetiva e segura.',
-            ].join('\n\n'),
-          },
-        ],
+        role: 'user' as const,
+        parts: [{ text: question }],
       },
     ];
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.geminiApiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: SST_SYSTEM_PROMPT }],
+    for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.geminiApiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [{ text: SST_SYSTEM_PROMPT }],
+            },
+            contents,
+            tools: [
+              {
+                functionDeclarations: GEMINI_TOOL_DECLARATIONS,
+              },
+            ],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: MAX_TOKENS,
+            },
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`Gemini API error ${response.status}: ${body}`);
+      }
+
+      const payload = (await response.json()) as GeminiGenerateContentResponse;
+      if (payload.promptFeedback?.blockReason) {
+        throw new Error(`Gemini bloqueou a resposta: ${payload.promptFeedback.blockReason}`);
+      }
+
+      totalInputTokens += payload.usageMetadata?.promptTokenCount ?? 0;
+      totalOutputTokens += payload.usageMetadata?.candidatesTokenCount ?? 0;
+
+      const candidate = payload.candidates?.[0];
+      const modelContent = candidate?.content;
+      if (!modelContent?.parts?.length) {
+        throw new Error('Gemini nao retornou conteudo utilizavel.');
+      }
+
+      const functionCalls = modelContent.parts
+        .map((part) => part.functionCall)
+        .filter((value): value is GeminiFunctionCall => Boolean(value?.name));
+      const text = modelContent.parts
+        .map((part) => part.text?.trim())
+        .filter((value): value is string => Boolean(value))
+        .join('\n')
+        .trim();
+
+      if (functionCalls.length === 0) {
+        if (!text) {
+          throw new Error('Gemini nao retornou texto utilizavel.');
+        }
+
+        return {
+          result: this.buildStructuredResponse(text, question, toolsUsed),
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          toolsUsed,
+        };
+      }
+
+      contents.push({
+        role: 'model',
+        parts: modelContent.parts,
+      });
+
+      const functionResponses: GeminiPart[] = [];
+      for (const functionCall of functionCalls) {
+        if (!toolsUsed.includes(functionCall.name)) {
+          toolsUsed.push(functionCall.name);
+        }
+
+        const toolResult = await this.toolsExecutor.execute(
+          functionCall.name,
+          functionCall.args ?? {},
+        );
+
+        functionResponses.push({
+          functionResponse: {
+            name: functionCall.name,
+            response: toolResult.success
+              ? {
+                  success: true,
+                  data: toolResult.data ?? null,
+                  is_stub: toolResult.is_stub ?? false,
+                }
+              : {
+                  success: false,
+                  error: toolResult.error ?? 'Erro desconhecido ao executar ferramenta.',
+                },
           },
-          contents,
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: MAX_TOKENS,
-          },
-        }),
-      },
-    );
+        });
+      }
 
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`Gemini API error ${response.status}: ${body}`);
+      contents.push({
+        role: 'user',
+        parts: functionResponses,
+      });
     }
 
-    const payload = (await response.json()) as GeminiGenerateContentResponse;
-    if (payload.promptFeedback?.blockReason) {
-      throw new Error(`Gemini bloqueou a resposta: ${payload.promptFeedback.blockReason}`);
-    }
-
-    const answer = payload.candidates
-      ?.flatMap((candidate) => candidate.content?.parts ?? [])
-      .map((part) => part.text?.trim())
-      .filter((value): value is string => Boolean(value))
-      .join('\n')
-      .trim();
-
-    if (!answer) {
-      throw new Error('Gemini nao retornou texto utilizavel.');
-    }
+    this.logger.warn(`[SstAgent] Gemini atingiu o limite de ${MAX_TOOL_ITERATIONS} iteracoes`);
+    const fallbackAnswer =
+      'Nao consegui completar a analise com os dados disponiveis. Reformule a pergunta ou acesse os modulos diretamente para confirmar as informacoes.';
 
     return {
-      result: this.buildStructuredResponse(answer, question, toolsUsed),
-      inputTokens: payload.usageMetadata?.promptTokenCount ?? 0,
-      outputTokens: payload.usageMetadata?.candidatesTokenCount ?? 0,
+      result: this.buildStructuredResponse(fallbackAnswer, question, toolsUsed),
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
       toolsUsed,
     };
   }
@@ -671,57 +754,6 @@ export class SstAgentService {
     status: AiInteractionStatus,
   ): SstChatResponse {
     return { ...response, interactionId, status, timestamp: new Date().toISOString() };
-  }
-
-  private async buildGeminiToolContext(question: string): Promise<{
-    toolContext: string;
-    toolsUsed: string[];
-  }> {
-    const toolNames = this.selectGeminiTools(question);
-    const results = await Promise.all(
-      toolNames.map(async (toolName) => ({
-        toolName,
-        result: await this.toolsExecutor.execute(toolName, {}),
-      })),
-    );
-
-    return {
-      toolContext: JSON.stringify(
-        results.map(({ toolName, result }) => ({ toolName, result })),
-        null,
-        2,
-      ),
-      toolsUsed: results.map(({ toolName }) => toolName),
-    };
-  }
-
-  private selectGeminiTools(question: string): string[] {
-    const normalizedQuestion = question.toLowerCase();
-    const toolNames = new Set<string>(['gerar_resumo_sst']);
-
-    if (/trein/.test(normalizedQuestion)) {
-      toolNames.add('buscar_treinamentos_pendentes');
-    }
-    if (/aso|pcmso|exame/.test(normalizedQuestion)) {
-      toolNames.add('buscar_exames_medicos_pendentes');
-    }
-    if (/cat|acidente/.test(normalizedQuestion)) {
-      toolNames.add('buscar_estatisticas_cats');
-    }
-    if (/nao conform|não conform|\bnc\b/.test(normalizedQuestion)) {
-      toolNames.add('buscar_nao_conformidades');
-    }
-    if (/\bepi\b|certificado de aprovacao|\bca\b/.test(normalizedQuestion)) {
-      toolNames.add('buscar_epis');
-    }
-    if (/risco|apr|pgr/.test(normalizedQuestion)) {
-      toolNames.add('buscar_riscos');
-    }
-    if (/ordem de servico|ordem de serviço|\bos\b/.test(normalizedQuestion)) {
-      toolNames.add('buscar_ordens_de_servico');
-    }
-
-    return [...toolNames];
   }
 
   private estimateCost(

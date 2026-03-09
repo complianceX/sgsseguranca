@@ -105,6 +105,28 @@ export const SST_TOOL_DEFINITIONS: Anthropic.Tool[] = [
   },
 ];
 
+type GeminiFunctionDeclaration = {
+  name: string;
+  description: string;
+  parameters: {
+    type: 'object';
+    properties?: Record<string, unknown>;
+  };
+};
+
+export const GEMINI_TOOL_DECLARATIONS: GeminiFunctionDeclaration[] =
+  SST_TOOL_DEFINITIONS.map((tool) => ({
+    name: tool.name,
+    description: tool.description ?? '',
+    parameters: {
+      type: 'object',
+      properties:
+        'input_schema' in tool && tool.input_schema && 'properties' in tool.input_schema
+          ? (tool.input_schema.properties as Record<string, unknown>)
+          : {},
+    },
+  }));
+
 // ---------------------------------------------------------------------------
 // Executor de ferramentas
 // ---------------------------------------------------------------------------
