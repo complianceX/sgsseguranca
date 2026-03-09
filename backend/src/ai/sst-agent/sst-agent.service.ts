@@ -277,7 +277,13 @@ export class SstAgentService {
       interaction.latency_ms = Date.now() - startTime;
       interaction.confidence = stubResp.confidence;
       interaction.needs_human_review = stubResp.needsHumanReview;
-      await this.interactionRepo.save(interaction);
+      try {
+        await this.interactionRepo.save(interaction);
+      } catch (saveErr) {
+        this.logger.warn(
+          `[SstAgent] Falha ao persistir interação stub (non-fatal): ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`,
+        );
+      }
       return this.toSstChatResponse(stubResp, interaction.id, AiInteractionStatus.SUCCESS);
     }
 
@@ -395,7 +401,13 @@ export class SstAgentService {
       const stub = this.buildStubImageAnalysis();
       interaction.response = stub;
       interaction.latency_ms = Date.now() - startTime;
-      await this.interactionRepo.save(interaction);
+      try {
+        await this.interactionRepo.save(interaction);
+      } catch (saveErr) {
+        this.logger.warn(
+          `[SstAgent] Falha ao persistir interação stub de imagem (non-fatal): ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`,
+        );
+      }
       return stub;
     }
 
