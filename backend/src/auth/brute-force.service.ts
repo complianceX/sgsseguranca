@@ -70,10 +70,22 @@ export class BruteForceService {
     const windowSeconds = this.getWindowSeconds();
     const blockSeconds = this.getBlockSeconds();
 
-    const count = await client.incr(key);
-    if (count === 1) {
-      await client.expire(key, windowSeconds);
-    }
+    // Lua script: INCR e EXPIRE na mesma operação atômica.
+    // Garante que a chave NUNCA fique sem TTL mesmo em caso de crash
+    // entre as duas operações — elimina risco de bloqueio permanente.
+    const incrScript = `
+      local count = redis.call('INCR', KEYS[1])
+      if count == 1 then
+        redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1]))
+      end
+      return count
+    `;
+    const count = (await client.eval(
+      incrScript,
+      1,
+      key,
+      String(windowSeconds),
+    )) as number;
 
     if (count >= max) {
       await client

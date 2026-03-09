@@ -42,6 +42,39 @@ export class RedisService {
     await this.client.multi().del(key).srem(setKey, tokenHash).exec();
   }
 
+  /**
+   * Consome atomicamente um refresh token antigo via Lua script.
+   *
+   * Elimina a janela TOCTOU do padrão GET → lógica → DEL:
+   * GET e DEL acontecem na mesma execução Lua, indivisível no Redis.
+   * Se duas requisições concorrentes chegarem com o mesmo token,
+   * apenas uma receberá o valor de volta — a outra receberá null.
+   *
+   * Retorna o valor armazenado (ex.: '1' ou JSON com ua hash),
+   * ou null se o token não existir / já tiver sido consumido.
+   */
+  async atomicConsumeRefreshToken(
+    userId: string,
+    tokenHash: string,
+  ): Promise<string | null> {
+    const key = this.getRefreshTokenKey(userId, tokenHash);
+    const setKey = this.getRefreshTokenSetKey(userId);
+
+    // Lua: GET + DEL + SREM em uma única operação atômica.
+    const script = `
+      local val = redis.call('GET', KEYS[1])
+      if val == false then
+        return false
+      end
+      redis.call('DEL', KEYS[1])
+      redis.call('SREM', KEYS[2], ARGV[1])
+      return val
+    `;
+
+    const result = await this.client.eval(script, 2, key, setKey, tokenHash);
+    return typeof result === 'string' ? result : null;
+  }
+
   async rotateRefreshToken(
     userId: string,
     oldTokenHash: string,

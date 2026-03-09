@@ -1,4 +1,3 @@
-console.log('🔥 MAIN.TS REAL EXECUTANDO');
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 // Carrega .env antes de qualquer uso de process.env (inclui PORT)
@@ -147,8 +146,11 @@ async function bootstrap() {
     }
     const bullBoardAuth: RequestHandler = (req, res, next) => {
       // Hardening operacional:
-      // - Autenticação SEMPRE (inclusive em desenvolvimento)
-      // - Bloqueio de acesso externo: Bull Board somente localhost
+      // - BULL_BOARD_PASS obrigatório; sem ele o painel fica desabilitado (503).
+      // - Verificação de origem usa EXCLUSIVAMENTE req.socket.remoteAddress
+      //   (camada TCP real, não influenciável por headers como X-Forwarded-For).
+      //   req.ip foi removido: com trust proxy ativo poderia ser forjado via
+      //   X-Forwarded-For: 127.0.0.1, abrindo acesso indevido ao painel.
       const password = process.env.BULL_BOARD_PASS;
       if (!password) {
         res
@@ -157,17 +159,15 @@ async function bootstrap() {
         return;
       }
 
-      const ip = String(req.ip || '');
+      // Somente conexões TCP originadas localmente chegam com remoteAddress local.
+      // Headers HTTP não podem alterar esse valor.
       const remote = String(req.socket?.remoteAddress || '');
-      const isLocalhost =
-        ip === '127.0.0.1' ||
-        ip === '::1' ||
-        ip === '::ffff:127.0.0.1' ||
+      const isLocalSocket =
         remote === '127.0.0.1' ||
         remote === '::1' ||
         remote === '::ffff:127.0.0.1';
 
-      if (!isLocalhost) {
+      if (!isLocalSocket) {
         res.status(403).json({ error: 'Acesso negado' });
         return;
       }
@@ -352,12 +352,9 @@ async function bootstrap() {
   // Railway envia SIGTERM no redeploy → aguarda até 10s → SIGKILL
   app.enableShutdownHooks();
 
-  console.log('🔥 ENV PORT:', process.env.PORT);
-
   const port = process.env.PORT || 8080;
   await app.listen(port, '0.0.0.0');
 
-  console.log('🔥 ADDRESS:', app.getHttpServer().address());
   console.log(`🚀 Server running on port ${port}`);
 }
 

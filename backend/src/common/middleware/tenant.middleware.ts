@@ -20,6 +20,9 @@ interface JwtPayload {
   sub?: string;
   company_id?: string;
   cpf?: string;
+  // profile deve ser sempre { nome } (formato normalizado desde auth.service.ts login()).
+  // O union com string é mantido apenas para compatibilidade de leitura de tokens legados,
+  // mas string nunca concede privilégios — veja a lógica de extração abaixo.
   profile?: { nome?: string } | string;
 }
 
@@ -75,11 +78,21 @@ export class TenantMiddleware implements NestMiddleware {
 
         companyId = payload.company_id;
 
-        // Profile pode ser objeto {nome} ou string dependendo da versão do JWT
-        const profileNome =
-          typeof payload.profile === 'object'
-            ? payload.profile?.nome
-            : payload.profile;
+        // Extração defensiva do profile: somente a forma objeto { nome } é aceita
+        // para determinar privilégios. Tokens legados com profile como string simples
+        // NUNCA recebem status de super-admin — evita escalada via token malformado.
+        let profileNome: string | undefined;
+        if (typeof payload.profile === 'object' && payload.profile !== null) {
+          profileNome = payload.profile.nome;
+        } else if (typeof payload.profile === 'string') {
+          // Token legado: logar aviso e tratar como não-privilegiado.
+          this.logger.warn({
+            event: 'legacy_string_profile_in_jwt',
+            userId: payload.sub,
+            path: req.originalUrl || req.url,
+          });
+          profileNome = undefined;
+        }
 
         isSuperAdmin = profileNome === Role.ADMIN_GERAL;
 

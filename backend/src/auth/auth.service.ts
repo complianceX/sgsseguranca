@@ -111,7 +111,17 @@ export class AuthService {
       if (looksLikeBcryptHash) {
         isMatch = await this.passwordService.compare(pass, user.password);
       } else {
-        isMatch = pass === user.password;
+        // Senha legada (texto plano ou hash não-bcrypt): comparação timing-safe
+        // para evitar timing attack via medição de latência por diferença de prefixo.
+        // timingSafeEqual exige buffers do mesmo tamanho — padding com zero garante isso.
+        // A verificação adicional de comprimento (a.length === b.length) assegura
+        // que senhas de tamanho diferente nunca resultem em match.
+        const a = Buffer.from(pass);
+        const b = Buffer.from(user.password);
+        const len = Math.max(a.length, b.length);
+        const aPad = Buffer.concat([a, Buffer.alloc(len - a.length)], len);
+        const bPad = Buffer.concat([b, Buffer.alloc(len - b.length)], len);
+        isMatch = crypto.timingSafeEqual(aPad, bPad) && a.length === b.length;
         shouldUpgradeLegacyPassword = isMatch;
       }
     } else {
@@ -162,11 +172,18 @@ export class AuthService {
   }
 
   async login(user: User, ctx?: { userAgent?: string }) {
+    // Normaliza profile para { nome } explícito no JWT — elimina o union type
+    // string | object que causava ambiguidade no middleware de autorização.
+    // Apenas o campo `nome` é necessário; emitir a entidade inteira era excessivo.
+    const profileNome =
+      typeof user.profile === 'object' && user.profile !== null
+        ? (user.profile as { nome?: string }).nome ?? ''
+        : '';
     const payload = {
       sub: user.id,
       cpf: user.cpf,
       company_id: user.company_id,
-      profile: user.profile,
+      profile: { nome: profileNome },
     };
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
     const refreshToken = this.jwtService.sign(payload, {
@@ -237,8 +254,14 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token inválido');
     }
     const oldHash = this.hashToken(refreshToken);
-    const key = this.redisService.getRefreshTokenKey(payload.sub, oldHash);
-    const stored = await this.redisService.getClient().get(key);
+
+    // Consume atômico: GET + DEL em uma única operação Lua no Redis.
+    // Elimina a janela TOCTOU — duas requisições concorrentes com o mesmo token
+    // só conseguem consumir o valor uma vez; a segunda recebe null e é rejeitada.
+    const stored = await this.redisService.atomicConsumeRefreshToken(
+      payload.sub,
+      oldHash,
+    );
     if (!stored) {
       throw new UnauthorizedException('Refresh token revogado ou já utilizado');
     }
@@ -261,7 +284,8 @@ export class AuthService {
         if (e instanceof UnauthorizedException) throw e;
       }
     }
-    // Rotação: invalida token antigo e registra o novo.
+
+    // Gera e registra o novo par de tokens.
     const newPayload = {
       sub: payload.sub,
       cpf: payload.cpf,
@@ -279,9 +303,8 @@ export class AuthService {
       bindingMode === 'ua' && ua
         ? JSON.stringify({ v: 1, ua: this.hashContext(ua) })
         : '1';
-    await this.redisService.rotateRefreshToken(
+    await this.redisService.storeRefreshToken(
       payload.sub,
-      oldHash,
       newHash,
       ttlSeconds,
       storedValue,
