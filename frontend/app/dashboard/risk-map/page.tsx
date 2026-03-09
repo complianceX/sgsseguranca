@@ -74,10 +74,9 @@ export default function RiskMapPage() {
 
   useEffect(() => {
     sitesService
-      .findAll()
+      .findPaginated({ page: 1, limit: 100 })
       .then((res) => {
-        const list = Array.isArray(res) ? res : (res as { data: Site[] }).data ?? [];
-        setSites(list);
+        setSites(res.data);
       })
       .catch(() => {});
   }, []);

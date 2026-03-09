@@ -68,16 +68,16 @@ export default function CorrectiveActionsPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [actionsPage, summaryData, usersData] = await Promise.all([
+      const [actionsPage, summaryData, usersPage] = await Promise.all([
         correctiveActionsService.findPaginated({ page, limit: 10 }),
         correctiveActionsService.findSummary(),
-        usersService.findAll(),
+        usersService.findPaginated({ page: 1, limit: 100 }),
       ]);
       setActions(actionsPage.data);
       setTotal(actionsPage.total);
       setLastPage(actionsPage.lastPage);
       setSummary(summaryData);
-      setUsers(usersData);
+      setUsers(usersPage.data);
       const [overview, bySite] = await Promise.all([
         correctiveActionsService.getSlaOverview(),
         correctiveActionsService.getSlaBySite(),

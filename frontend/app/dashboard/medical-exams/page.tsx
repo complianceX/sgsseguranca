@@ -177,10 +177,9 @@ export default function MedicalExamsPage() {
 
   useEffect(() => {
     usersService
-      .findAll()
+      .findPaginated({ page: 1, limit: 100 })
       .then((res) => {
-        const list = Array.isArray(res) ? res : (res as { data: UserOption[] }).data ?? [];
-        setUsers(list);
+        setUsers(res.data);
       })
       .catch((error) => {
         console.error('Erro ao carregar colaboradores para exames médicos:', error);
@@ -195,6 +194,21 @@ export default function MedicalExamsPage() {
   };
 
   const openEdit = (exam: MedicalExam) => {
+    if (!users.some((user) => user.id === exam.user_id)) {
+      usersService
+        .findOne(exam.user_id)
+        .then((user) => {
+          setUsers((current) => {
+            if (current.some((item) => item.id === user.id)) {
+              return current;
+            }
+
+            return [user, ...current];
+          });
+        })
+        .catch(() => {});
+    }
+
     setEditId(exam.id);
     setForm({
       user_id: exam.user_id,

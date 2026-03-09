@@ -163,7 +163,7 @@ export default function RdosPage() {
     try {
       setLoading(true);
       setLoadError(null);
-      const [rdosData, sitesData, usersData] = await Promise.all([
+      const [rdosData, sitesPage, usersPage] = await Promise.all([
         rdosService.findPaginated({
           page,
           limit,
@@ -172,14 +172,14 @@ export default function RdosPage() {
           data_inicio: filterDataInicio || undefined,
           data_fim: filterDataFim || undefined,
         }),
-        sitesService.findAll(),
-        usersService.findAll(),
+        sitesService.findPaginated({ page: 1, limit: 100 }),
+        usersService.findPaginated({ page: 1, limit: 100 }),
       ]);
       setRdos(rdosData.data);
       setTotal(rdosData.total);
       setLastPage(rdosData.lastPage);
-      setSites(sitesData);
-      setUsers(usersData);
+      setSites(sitesPage.data);
+      setUsers(usersPage.data);
 
       // Calcular resumo a partir dos dados carregados (aproximado)
       const allRdos = rdosData.data;
