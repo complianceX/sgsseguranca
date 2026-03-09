@@ -65,6 +65,25 @@ export class NonConformitiesController {
     });
   }
 
+  @Get('files/weekly-bundle')
+  @Authorize('can_manage_nc')
+  async getWeeklyBundle(
+    @Query('company_id') companyId?: string,
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ): Promise<StreamableFile> {
+    const { buffer, fileName } = await this.nonConformitiesService.getWeeklyBundle({
+      companyId,
+      year: year ? Number(year) : undefined,
+      week: week ? Number(week) : undefined,
+    });
+
+    return new StreamableFile(buffer, {
+      disposition: `attachment; filename="${fileName}"`,
+      type: 'application/pdf',
+    });
+  }
+
   @Get('analytics/monthly')
   @Authorize('can_manage_nc')
   getMonthlyAnalytics() {

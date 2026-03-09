@@ -29,6 +29,12 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import {
+  DocumentBundleService,
+  WeeklyBundleFilters,
+} from '../common/services/document-bundle.service';
+import { DocumentRegistryService } from '../document-registry/document-registry.service';
+import { RequestContext } from '../common/middleware/request-context.middleware';
 
 @Injectable({ scope: Scope.REQUEST })
 export class ChecklistsService {
@@ -126,6 +132,8 @@ export class ChecklistsService {
     private storageService: StorageService,
     private usersService: UsersService,
     private sitesService: SitesService,
+    private readonly documentBundleService: DocumentBundleService,
+    private readonly documentRegistryService: DocumentRegistryService,
   ) {}
 
   async create(
@@ -584,6 +592,19 @@ export class ChecklistsService {
     checklist.pdf_folder_path = folderPath;
     checklist.pdf_original_name = fileName;
     await this.checklistsRepository.save(checklist);
+    await this.documentRegistryService.upsert({
+      companyId: checklist.company_id,
+      module: 'checklist',
+      entityId: checklist.id,
+      title: checklist.titulo,
+      documentDate: checklist.data,
+      fileKey,
+      folderPath,
+      originalName: fileName,
+      mimeType: 'application/pdf',
+      fileBuffer: pdfBuffer,
+      createdBy: RequestContext.getUserId() || undefined,
+    });
 
     return { fileKey, folderPath, fileUrl };
   }
@@ -596,11 +617,7 @@ export class ChecklistsService {
     });
   }
 
-  async listStoredFiles(filters: {
-    companyId?: string;
-    year?: number;
-    week?: number;
-  }) {
+  async listStoredFiles(filters: WeeklyBundleFilters) {
     const tenantId = this.tenantService.getTenantId();
     const query = this.checklistsRepository
       .createQueryBuilder('c')
@@ -636,6 +653,9 @@ export class ChecklistsService {
         return true;
       })
       .map((c) => ({
+        entityId: c.id,
+        title: c.titulo,
+        date: c.data || c.created_at,
         id: c.id,
         titulo: c.titulo,
         companyId: c.company_id,
@@ -643,5 +663,19 @@ export class ChecklistsService {
         folderPath: c.pdf_folder_path,
         originalName: c.pdf_original_name,
       }));
+  }
+
+  async getWeeklyBundle(filters: WeeklyBundleFilters) {
+    const files = await this.listStoredFiles(filters);
+    return this.documentBundleService.buildWeeklyPdfBundle(
+      'Checklist',
+      filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
+    );
   }
 }

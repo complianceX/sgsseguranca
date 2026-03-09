@@ -13,6 +13,10 @@ import {
   TenantRepository,
   TenantRepositoryFactory,
 } from '../common/tenant/tenant-repository';
+import {
+  DocumentBundleService,
+  WeeklyBundleFilters,
+} from '../common/services/document-bundle.service';
 
 @Injectable()
 export class AuditsService {
@@ -23,6 +27,7 @@ export class AuditsService {
     @InjectRepository(Audit)
     private auditsRepository: Repository<Audit>,
     tenantRepositoryFactory: TenantRepositoryFactory,
+    private readonly documentBundleService: DocumentBundleService,
   ) {
     this.tenantRepo = tenantRepositoryFactory.wrap(this.auditsRepository);
   }
@@ -112,11 +117,7 @@ export class AuditsService {
     });
   }
 
-  async listStoredFiles(filters: {
-    companyId?: string;
-    year?: number;
-    week?: number;
-  }) {
+  async listStoredFiles(filters: WeeklyBundleFilters) {
     const query = this.auditsRepository
       .createQueryBuilder('a')
       .where('a.pdf_file_key IS NOT NULL');
@@ -148,6 +149,9 @@ export class AuditsService {
         return true;
       })
       .map((a) => ({
+        entityId: a.id,
+        title: a.titulo,
+        date: a.data_auditoria || a.created_at,
         id: a.id,
         titulo: a.titulo,
         companyId: a.company_id,
@@ -155,5 +159,19 @@ export class AuditsService {
         folderPath: a.pdf_folder_path,
         originalName: a.pdf_original_name,
       }));
+  }
+
+  async getWeeklyBundle(filters: WeeklyBundleFilters) {
+    const files = await this.listStoredFiles(filters);
+    return this.documentBundleService.buildWeeklyPdfBundle(
+      'Auditoria',
+      filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
+    );
   }
 }

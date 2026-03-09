@@ -202,6 +202,7 @@ export default function AprsPage() {
         description="PDFs salvos automaticamente por empresa, ano e semana."
         listStoredFiles={aprsService.listStoredFiles}
         getPdfAccess={aprsService.getPdfAccess}
+        downloadWeeklyBundle={aprsService.downloadWeeklyBundle}
         companyOptions={companyOptions}
       />
 

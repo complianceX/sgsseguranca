@@ -289,6 +289,18 @@ export const aprsService = {
     return response.data;
   },
 
+  downloadWeeklyBundle: async (filters: {
+    company_id?: string;
+    year: number;
+    week: number;
+  }) => {
+    const response = await api.get('/aprs/files/weekly-bundle', {
+      params: filters,
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+
   finalize: async (id: string) => {
     const response = await api.post<Apr>(`/aprs/${id}/finalize`);
     return response.data;

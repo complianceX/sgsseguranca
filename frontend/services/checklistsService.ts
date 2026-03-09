@@ -223,6 +223,18 @@ export const checklistsService = {
     return response.data;
   },
 
+  downloadWeeklyBundle: async (filters: {
+    company_id?: string;
+    year: number;
+    week: number;
+  }) => {
+    const response = await api.get('/checklists/files/weekly-bundle', {
+      params: filters,
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+
   // Novos métodos para fluxo de templates
   getTemplates: async (): Promise<Checklist[]> => {
     return checklistsService.findAll({ onlyTemplates: true });

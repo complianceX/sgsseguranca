@@ -24,6 +24,10 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import {
+  DocumentBundleService,
+  WeeklyBundleFilters,
+} from '../common/services/document-bundle.service';
 
 @Injectable()
 export class PtsService {
@@ -44,6 +48,7 @@ export class PtsService {
     private readonly riskCalculationService: RiskCalculationService,
     private readonly auditService: AuditService,
     private readonly workerOperationalStatusService: WorkerOperationalStatusService,
+    private readonly documentBundleService: DocumentBundleService,
   ) {}
 
   async create(createPtDto: CreatePtDto): Promise<Pt> {
@@ -223,11 +228,7 @@ export class PtsService {
     return this.ptsRepository.count(options);
   }
 
-  async listStoredFiles(filters: {
-    companyId?: string;
-    year?: number;
-    week?: number;
-  }) {
+  async listStoredFiles(filters: WeeklyBundleFilters) {
     const tenantId = this.tenantService.getTenantId();
     const query = this.ptsRepository
       .createQueryBuilder('pt')
@@ -263,6 +264,9 @@ export class PtsService {
         return true;
       })
       .map((pt) => ({
+        entityId: pt.id,
+        title: pt.titulo || pt.numero || 'PT',
+        date: pt.data_hora_inicio || pt.created_at,
         id: pt.id,
         numero: pt.numero,
         titulo: pt.titulo,
@@ -271,6 +275,20 @@ export class PtsService {
         folderPath: pt.pdf_folder_path,
         originalName: pt.pdf_original_name,
       }));
+  }
+
+  async getWeeklyBundle(filters: WeeklyBundleFilters) {
+    const files = await this.listStoredFiles(filters);
+    return this.documentBundleService.buildWeeklyPdfBundle(
+      'PT',
+      filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
+    );
   }
 
   async exportExcel(): Promise<Buffer> {

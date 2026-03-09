@@ -152,6 +152,7 @@ export default function PtsPage() {
         description="PDFs salvos automaticamente por empresa, ano e semana."
         listStoredFiles={ptsService.listStoredFiles}
         getPdfAccess={ptsService.getPdfAccess}
+        downloadWeeklyBundle={ptsService.downloadWeeklyBundle}
         companyOptions={companyOptions}
       />
 

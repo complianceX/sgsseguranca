@@ -13,6 +13,7 @@ import { SignatureTimestampService } from './services/signature-timestamp.servic
 import { TenantRepositoryFactory } from './tenant/tenant-repository';
 import { TenantGuard } from './guards/tenant.guard';
 import { RiskCalculationService } from './services/risk-calculation.service';
+import { DocumentBundleService } from './services/document-bundle.service';
 
 @Global()
 @Module({
@@ -31,6 +32,7 @@ import { RiskCalculationService } from './services/risk-calculation.service';
     PdfValidatorService,
     SignatureTimestampService,
     RiskCalculationService,
+    DocumentBundleService,
   ],
   exports: [
     RedisModule,
@@ -47,6 +49,7 @@ import { RiskCalculationService } from './services/risk-calculation.service';
     PdfValidatorService,
     SignatureTimestampService,
     RiskCalculationService,
+    DocumentBundleService,
   ],
 })
 export class CommonModule {}

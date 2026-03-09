@@ -268,6 +268,55 @@ export default function DdsPage() {
     }
   };
 
+  const handleDownloadWeeklyBundle = async () => {
+    if (!fileYear || !fileWeek) {
+      toast.error('Selecione ano e semana para gerar o pacote.');
+      return;
+    }
+
+    try {
+      const blob = await ddsService.downloadWeeklyBundle({
+        company_id: fileCompanyId || undefined,
+        year: Number(fileYear),
+        week: Number(fileWeek),
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `dds-semana-${fileYear}-${String(fileWeek).padStart(2, '0')}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+      toast.success('Pacote semanal gerado com sucesso.');
+    } catch (error) {
+      console.error('Erro ao gerar pacote semanal DDS:', error);
+      toast.error('Não foi possível gerar o pacote semanal de DDS.');
+    }
+  };
+
+  const handlePrintWeeklyBundle = async () => {
+    if (!fileYear || !fileWeek) {
+      toast.error('Selecione ano e semana para imprimir o pacote.');
+      return;
+    }
+
+    try {
+      const blob = await ddsService.downloadWeeklyBundle({
+        company_id: fileCompanyId || undefined,
+        year: Number(fileYear),
+        week: Number(fileWeek),
+      });
+      const url = URL.createObjectURL(blob);
+      openPdfForPrint(url, () => {
+        toast.info('Pop-up bloqueado. Abrimos o pacote na mesma aba.');
+      });
+    } catch (error) {
+      console.error('Erro ao imprimir pacote semanal DDS:', error);
+      toast.error('Não foi possível abrir o pacote semanal de DDS.');
+    }
+  };
+
   const companyOptions = useMemo(
     () =>
       Array.from(
@@ -439,14 +488,34 @@ export default function DdsPage() {
               <option value={25}>25 / página</option>
               <option value={50}>50 / página</option>
             </select>
-            <Button
-              type="button"
-              variant="outline"
-              leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
-              onClick={handleExportStoredFilesCsv}
-            >
-              Exportar CSV
-            </Button>
+            <div className="flex flex-wrap gap-2 xl:col-span-2">
+              <Button
+                type="button"
+                variant="outline"
+                leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
+                onClick={handleExportStoredFilesCsv}
+              >
+                Exportar CSV
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                leftIcon={<Download className="h-4 w-4" />}
+                onClick={handleDownloadWeeklyBundle}
+                disabled={!fileYear || !fileWeek}
+              >
+                Baixar semana
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                leftIcon={<Printer className="h-4 w-4" />}
+                onClick={handlePrintWeeklyBundle}
+                disabled={!fileYear || !fileWeek}
+              >
+                Imprimir semana
+              </Button>
+            </div>
           </div>
         </CardHeader>
 

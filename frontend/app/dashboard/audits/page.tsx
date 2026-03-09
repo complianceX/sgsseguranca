@@ -486,6 +486,7 @@ export default function AuditsPage() {
         description="PDFs salvos automaticamente por empresa/ano/semana."
         listStoredFiles={auditsService.listStoredFiles}
         getPdfAccess={auditsService.getPdfAccess}
+        downloadWeeklyBundle={auditsService.downloadWeeklyBundle}
         companyOptions={companyOptions}
       />
 

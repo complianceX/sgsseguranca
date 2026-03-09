@@ -9,6 +9,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { StorageModule } from '../storage/storage.module';
 import { UsersModule } from '../users/users.module';
 import { SitesModule } from '../sites/sites.module';
+import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { SitesModule } from '../sites/sites.module';
     StorageModule,
     UsersModule,
     SitesModule,
+    DocumentRegistryModule,
   ],
   controllers: [ChecklistsController],
   providers: [ChecklistsService],

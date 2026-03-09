@@ -20,6 +20,10 @@ import {
 import { plainToClass } from 'class-transformer';
 import { AprListItemDto } from './dto/apr-list-item.dto';
 import { RiskCalculationService } from '../common/services/risk-calculation.service';
+import {
+  DocumentBundleService,
+  WeeklyBundleFilters,
+} from '../common/services/document-bundle.service';
 
 @Injectable()
 export class AprsService {
@@ -30,6 +34,7 @@ export class AprsService {
     private aprsRepository: Repository<Apr>,
     private tenantService: TenantService,
     private readonly riskCalculationService: RiskCalculationService,
+    private readonly documentBundleService: DocumentBundleService,
   ) {}
 
   async create(createAprDto: CreateAprDto): Promise<Apr> {
@@ -254,11 +259,7 @@ export class AprsService {
     });
   }
 
-  async listStoredFiles(filters: {
-    companyId?: string;
-    year?: number;
-    week?: number;
-  }) {
+  async listStoredFiles(filters: WeeklyBundleFilters) {
     const tenantId = this.tenantService.getTenantId();
     const query = this.aprsRepository
       .createQueryBuilder('apr')
@@ -294,6 +295,9 @@ export class AprsService {
         return true;
       })
       .map((apr) => ({
+        entityId: apr.id,
+        title: apr.titulo || apr.numero || 'APR',
+        date: apr.data_inicio || apr.created_at,
         id: apr.id,
         titulo: apr.titulo,
         data_inicio: apr.data_inicio,
@@ -302,6 +306,20 @@ export class AprsService {
         folderPath: apr.pdf_folder_path,
         originalName: apr.pdf_original_name,
       }));
+  }
+
+  async getWeeklyBundle(filters: WeeklyBundleFilters) {
+    const files = await this.listStoredFiles(filters);
+    return this.documentBundleService.buildWeeklyPdfBundle(
+      'APR',
+      filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
+    );
   }
 
   async exportExcel(): Promise<Buffer> {

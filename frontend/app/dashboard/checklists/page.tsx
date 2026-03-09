@@ -216,6 +216,7 @@ export default function ChecklistsPage() {
         description="PDFs salvos automaticamente por empresa/ano/semana."
         listStoredFiles={checklistsService.listStoredFiles}
         getPdfAccess={checklistsService.getPdfAccess}
+        downloadWeeklyBundle={checklistsService.downloadWeeklyBundle}
         companyOptions={companyOptions}
       />
 

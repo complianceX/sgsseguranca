@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   Folder,
   Link2,
+  Printer,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -31,6 +32,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { openPdfForPrint } from '@/lib/print-utils';
 
 export interface StoredFileItem {
   entityId: string;
@@ -53,6 +55,11 @@ interface StoredFilesPanelProps {
   getPdfAccess: (id: string) => Promise<{
     url: string;
   }>;
+  downloadWeeklyBundle?: (filters: {
+    company_id?: string;
+    year: number;
+    week: number;
+  }) => Promise<Blob>;
   companyOptions?: Array<{ id: string; name: string }>;
 }
 
@@ -64,6 +71,7 @@ export function StoredFilesPanel({
   description,
   listStoredFiles,
   getPdfAccess,
+  downloadWeeklyBundle,
   companyOptions = [],
 }: StoredFilesPanelProps) {
   const [files, setFiles] = useState<StoredFileItem[]>([]);
@@ -79,6 +87,7 @@ export function StoredFilesPanel({
     () => files.slice((page - 1) * pageSize, page * pageSize),
     [files, page, pageSize],
   );
+  const canBuildWeeklyBundle = Boolean(downloadWeeklyBundle && year && week);
 
   useEffect(() => {
     setPage(1);
@@ -97,7 +106,7 @@ export function StoredFilesPanel({
         });
 
         if (mounted) {
-          setFiles(data || []);
+          setFiles((data || []).map((file) => normalizeStoredFileItem(file)));
         }
       } catch (error) {
         console.error('Erro ao carregar arquivos do storage:', error);
@@ -189,6 +198,55 @@ export function StoredFilesPanel({
     toast.success('CSV exportado com sucesso.');
   };
 
+  const handleDownloadWeeklyBundle = async () => {
+    if (!downloadWeeklyBundle || !year || !week) {
+      toast.error('Selecione ano e semana para gerar o pacote.');
+      return;
+    }
+
+    try {
+      const blob = await downloadWeeklyBundle({
+        company_id: companyId || undefined,
+        year: Number(year),
+        week: Number(week),
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${slugify(title)}-semana-${year}-${String(week).padStart(2, '0')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Pacote semanal gerado com sucesso.');
+    } catch (error) {
+      console.error('Erro ao baixar pacote semanal:', error);
+      toast.error('Não foi possível gerar o pacote semanal.');
+    }
+  };
+
+  const handlePrintWeeklyBundle = async () => {
+    if (!downloadWeeklyBundle || !year || !week) {
+      toast.error('Selecione ano e semana para imprimir o pacote.');
+      return;
+    }
+
+    try {
+      const blob = await downloadWeeklyBundle({
+        company_id: companyId || undefined,
+        year: Number(year),
+        week: Number(week),
+      });
+      const url = URL.createObjectURL(blob);
+      openPdfForPrint(url, () => {
+        toast.info('Pop-up bloqueado. Abrimos o pacote na mesma aba.');
+      });
+    } catch (error) {
+      console.error('Erro ao imprimir pacote semanal:', error);
+      toast.error('Não foi possível abrir o pacote semanal para impressão.');
+    }
+  };
+
   return (
     <Card tone="default" padding="none">
       <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
@@ -236,14 +294,38 @@ export function StoredFilesPanel({
             <option value={25}>25 / página</option>
             <option value={50}>50 / página</option>
           </select>
-          <Button
-            type="button"
-            variant="outline"
-            leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
-            onClick={handleExportCsv}
-          >
-            Exportar CSV
-          </Button>
+          <div className="flex flex-wrap gap-2 xl:col-span-2">
+            <Button
+              type="button"
+              variant="outline"
+              leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
+              onClick={handleExportCsv}
+            >
+              Exportar CSV
+            </Button>
+            {downloadWeeklyBundle ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  leftIcon={<Download className="h-4 w-4" />}
+                  onClick={handleDownloadWeeklyBundle}
+                  disabled={!canBuildWeeklyBundle}
+                >
+                  Baixar semana
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  leftIcon={<Printer className="h-4 w-4" />}
+                  onClick={handlePrintWeeklyBundle}
+                  disabled={!canBuildWeeklyBundle}
+                >
+                  Imprimir semana
+                </Button>
+              </>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
 
@@ -357,4 +439,47 @@ export function StoredFilesPanel({
       </CardContent>
     </Card>
   );
+}
+
+function normalizeStoredFileItem(file: unknown): StoredFileItem {
+  const record = (file ?? {}) as Record<string, unknown>;
+  return {
+    entityId: String(
+      record.entityId ??
+        record.id ??
+        record.ddsId ??
+        record.aprId ??
+        record.ptId ??
+        record.checklistId ??
+        '',
+    ),
+    title: String(
+      record.title ??
+        record.titulo ??
+        record.tema ??
+        record.numero ??
+        record.codigo_nc ??
+        'Documento',
+    ),
+    date:
+      (record.date as string | Date | undefined) ??
+      (record.data as string | Date | undefined) ??
+      (record.data_inicio as string | Date | undefined) ??
+      (record.data_hora_inicio as string | Date | undefined) ??
+      (record.data_identificacao as string | Date | undefined) ??
+      new Date().toISOString(),
+    companyId: String(record.companyId ?? record.company_id ?? ''),
+    fileKey: String(record.fileKey ?? ''),
+    folderPath: String(record.folderPath ?? ''),
+    originalName: String(record.originalName ?? record.fileKey ?? 'documento.pdf'),
+  };
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
 }

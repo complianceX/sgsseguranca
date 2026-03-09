@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Card,
   CardContent,
@@ -27,9 +28,6 @@ import {
   PageLoadingState,
 } from '@/components/ui/state';
 import { cn } from '@/lib/utils';
-
-const inputClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 export default function MachinesPage() {
   const [machines, setMachines] = useState<Machine[]>([]);
@@ -175,10 +173,10 @@ export default function MachinesPage() {
           </div>
           <div className="relative w-full md:w-[360px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
-            <input
+            <Input
               type="text"
               placeholder="Buscar máquinas..."
-              className={cn(inputClassName, 'pl-10')}
+              className="pl-10"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
             />

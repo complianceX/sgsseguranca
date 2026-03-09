@@ -60,6 +60,7 @@ const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
     'can_view_sites',
     'can_manage_sites',
     'can_view_dossiers',
+    'can_view_documents_registry',
   ],
   'Administrador da Empresa': [
     'can_view_risks',
@@ -110,6 +111,7 @@ const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
     'can_view_sites',
     'can_manage_sites',
     'can_view_dossiers',
+    'can_view_documents_registry',
   ],
   'Técnico de Segurança do Trabalho (TST)': [
     'can_view_risks',
@@ -159,6 +161,7 @@ const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
     'can_view_sites',
     'can_manage_sites',
     'can_view_dossiers',
+    'can_view_documents_registry',
   ],
   'Supervisor / Encarregado': [
     'can_view_risks',
@@ -194,6 +197,7 @@ const PROFILE_PERMISSION_FALLBACK: Record<string, string[]> = {
     'can_view_notifications',
     'can_manage_notifications',
     'can_view_sites',
+    'can_view_documents_registry',
   ],
   'Operador / Colaborador': [
     'can_create_apr',

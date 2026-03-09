@@ -206,6 +206,18 @@ export const nonConformitiesService = {
     return response.data;
   },
 
+  downloadWeeklyBundle: async (filters: {
+    company_id?: string;
+    year: number;
+    week: number;
+  }) => {
+    const response = await api.get('/nonconformities/files/weekly-bundle', {
+      params: filters,
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+
   updateStatus: async (id: string, status: NcStatus) => {
     const response = await api.patch<NonConformity>(
       `/nonconformities/${id}/status`,

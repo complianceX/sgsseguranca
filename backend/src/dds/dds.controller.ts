@@ -12,6 +12,7 @@ import {
   Req,
   Query,
   UnauthorizedException,
+  StreamableFile,
 } from '@nestjs/common';
 import { DdsService } from './dds.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -64,6 +65,25 @@ export class DdsController {
       companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
+    });
+  }
+
+  @Get('files/weekly-bundle')
+  @Authorize('can_view_dds')
+  async getWeeklyBundle(
+    @Query('company_id') companyId?: string,
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ): Promise<StreamableFile> {
+    const { buffer, fileName } = await this.ddsService.getWeeklyBundle({
+      companyId,
+      year: year ? Number(year) : undefined,
+      week: week ? Number(week) : undefined,
+    });
+
+    return new StreamableFile(buffer, {
+      disposition: `attachment; filename="${fileName}"`,
+      type: 'application/pdf',
     });
   }
 

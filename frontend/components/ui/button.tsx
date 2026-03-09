@@ -4,26 +4,26 @@ import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center rounded-[var(--ds-radius-md)] font-semibold transition-all duration-[var(--ds-motion-base)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-bg-canvas)] disabled:pointer-events-none disabled:opacity-50 shadow-[var(--ds-shadow-sm)]',
+  'inline-flex items-center justify-center rounded-[var(--ds-radius-md)] font-semibold transition-all duration-[var(--ds-motion-base)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-bg-canvas)] disabled:pointer-events-none disabled:opacity-50 shadow-[var(--ds-shadow-sm)] active:translate-y-0',
   {
     variants: {
       variant: {
         default:
-          'bg-[var(--ds-color-action-primary)] text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)] hover:-translate-y-px',
+          'bg-gradient-to-r from-[var(--ds-color-action-primary)] to-[var(--primary-dark)] text-[var(--ds-color-action-primary-foreground)] hover:from-[var(--ds-color-action-primary-hover)] hover:to-[var(--ds-color-action-primary)] hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]',
         primary:
-          'bg-[var(--ds-color-action-primary)] text-[var(--ds-color-action-primary-foreground)] hover:bg-[var(--ds-color-action-primary-hover)] hover:-translate-y-px',
+          'bg-gradient-to-r from-[var(--ds-color-action-primary)] to-[var(--primary-dark)] text-[var(--ds-color-action-primary-foreground)] hover:from-[var(--ds-color-action-primary-hover)] hover:to-[var(--ds-color-action-primary)] hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]',
         success:
-          'bg-[var(--ds-color-success)] text-white hover:bg-[var(--ds-color-success-hover)] hover:-translate-y-px',
+          'bg-gradient-to-r from-[var(--ds-color-success)] to-[var(--ds-color-success-hover)] text-white hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]',
         warning:
-          'bg-[var(--ds-color-warning)] text-[#111827] hover:bg-[var(--ds-color-warning-hover)] hover:-translate-y-px',
+          'bg-gradient-to-r from-[var(--ds-color-warning)] to-[var(--ds-color-warning-hover)] text-[#111827] hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]',
         secondary:
-          'bg-[var(--ds-color-action-secondary)] text-[var(--ds-color-action-secondary-foreground)] hover:bg-[var(--ds-color-action-secondary-hover)]',
+          'bg-[var(--ds-color-action-secondary)] text-[var(--ds-color-action-secondary-foreground)] hover:bg-[var(--ds-color-action-secondary-hover)] hover:border-[var(--ds-color-border-strong)]',
         destructive:
-          'bg-[var(--ds-color-danger)] text-white hover:bg-[var(--ds-color-danger-hover)] hover:-translate-y-px',
+          'bg-gradient-to-r from-[var(--ds-color-danger)] to-[var(--ds-color-danger-hover)] text-white hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]',
         ghost:
-          'bg-transparent text-[var(--ds-color-text-secondary)] shadow-none hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]',
+          'bg-transparent text-[var(--ds-color-text-secondary)] shadow-none hover:bg-[color:var(--ds-color-surface-muted)]/70 hover:text-[var(--ds-color-text-primary)]',
         outline:
-          'border border-[var(--ds-color-border-strong)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-surface-elevated)]',
+          'border border-[var(--ds-color-border-strong)] bg-[color:var(--ds-color-surface-base)]/92 text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-surface-elevated)] hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-text-primary)]',
       },
       size: {
         sm: 'h-8 px-3 text-xs',

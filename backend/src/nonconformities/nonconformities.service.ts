@@ -13,6 +13,11 @@ import {
 } from './dto/create-nonconformity.dto';
 import { TenantService } from '../common/tenant/tenant.service';
 import { StorageService } from '../common/services/storage.service';
+import {
+  DocumentBundleService,
+  WeeklyBundleFilters,
+} from '../common/services/document-bundle.service';
+import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { RequestContext } from '../common/middleware/request-context.middleware';
@@ -39,6 +44,8 @@ export class NonConformitiesService {
     private nonConformitiesRepository: Repository<NonConformity>,
     private tenantService: TenantService,
     private storageService: StorageService,
+    private readonly documentBundleService: DocumentBundleService,
+    private readonly documentRegistryService: DocumentRegistryService,
     private readonly auditService: AuditService,
   ) {}
 
@@ -93,11 +100,7 @@ export class NonConformitiesService {
     await this.logAudit(AuditAction.DELETE, id, before, null);
   }
 
-  async listStoredFiles(filters: {
-    companyId?: string;
-    year?: number;
-    week?: number;
-  }) {
+  async listStoredFiles(filters: WeeklyBundleFilters) {
     const tenantId = this.tenantService.getTenantId();
     const query = this.nonConformitiesRepository
       .createQueryBuilder('nc')
@@ -128,6 +131,9 @@ export class NonConformitiesService {
         return true;
       })
       .map((nc) => ({
+        entityId: nc.id,
+        title: nc.codigo_nc || nc.tipo || 'NC',
+        date: nc.data_identificacao || nc.created_at,
         id: nc.id,
         codigo_nc: nc.codigo_nc,
         data_identificacao: nc.data_identificacao,
@@ -136,6 +142,20 @@ export class NonConformitiesService {
         folderPath: nc.pdf_folder_path,
         originalName: nc.pdf_original_name,
       }));
+  }
+
+  async getWeeklyBundle(filters: WeeklyBundleFilters) {
+    const files = await this.listStoredFiles(filters);
+    return this.documentBundleService.buildWeeklyPdfBundle(
+      'Nao Conformidade',
+      filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
+    );
   }
 
   async getPdfAccess(id: string) {
@@ -174,8 +194,22 @@ export class NonConformitiesService {
     nc.pdf_file_key = fileKey;
     nc.pdf_folder_path = folderPath;
     nc.pdf_original_name = originalName;
+    const saved = await this.nonConformitiesRepository.save(nc);
+    await this.documentRegistryService.upsert({
+      companyId: saved.company_id,
+      module: 'nonconformity',
+      entityId: saved.id,
+      title: saved.codigo_nc || saved.tipo || 'Nao Conformidade',
+      documentDate: saved.data_identificacao || date,
+      fileKey,
+      folderPath,
+      originalName,
+      mimeType: mimetype,
+      fileBuffer: buffer,
+      createdBy: RequestContext.getUserId() || undefined,
+    });
 
-    return this.nonConformitiesRepository.save(nc);
+    return saved;
   }
 
   async getMonthlyAnalytics(): Promise<{ mes: string; total: number }[]> {

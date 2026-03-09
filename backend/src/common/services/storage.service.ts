@@ -10,6 +10,7 @@ import type { PutObjectCommandInput } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { IntegrationResilienceService } from '../resilience/integration-resilience.service';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
+import { Readable } from 'stream';
 
 @Injectable()
 export class StorageService {
@@ -122,6 +123,40 @@ export class StorageService {
       () => getSignedUrl(this.s3Client, command, { expiresIn }),
       { timeoutMs: 10_000 },
     );
+  }
+
+  async downloadFileBuffer(key: string): Promise<Buffer> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    const response = await this.integration.execute(
+      's3_get_object',
+      () => this.s3Client.send(command),
+      { timeoutMs: 30_000 },
+    );
+
+    const body = response.Body;
+
+    if (!body) {
+      throw new Error(`Arquivo não encontrado no storage: ${key}`);
+    }
+
+    if (typeof (body as any).transformToByteArray === 'function') {
+      const bytes = await (body as any).transformToByteArray();
+      return Buffer.from(bytes);
+    }
+
+    if (body instanceof Readable || typeof (body as any)[Symbol.asyncIterator] === 'function') {
+      const chunks: Buffer[] = [];
+      for await (const chunk of body as AsyncIterable<Buffer | Uint8Array | string>) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+      return Buffer.concat(chunks);
+    }
+
+    throw new Error(`Tipo de resposta de download não suportado para: ${key}`);
   }
 
   async deleteFile(key: string): Promise<void> {

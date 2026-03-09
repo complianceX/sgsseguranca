@@ -447,6 +447,7 @@ export default function NonConformitiesPage() {
         description="PDFs salvos automaticamente por empresa, ano e semana."
         listStoredFiles={nonConformitiesService.listStoredFiles}
         getPdfAccess={nonConformitiesService.getPdfAccess}
+        downloadWeeklyBundle={nonConformitiesService.downloadWeeklyBundle}
         companyOptions={companyOptions}
       />
 

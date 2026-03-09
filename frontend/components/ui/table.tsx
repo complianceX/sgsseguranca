@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
+    <div className="relative w-full overflow-auto rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)]">
       <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   ),
@@ -43,7 +43,7 @@ const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTML
     <tr
       ref={ref}
       className={cn(
-        'border-b border-[var(--ds-color-border-subtle)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/40 data-[state=selected]:bg-[color:var(--ds-color-surface-muted)]/60',
+        'border-b border-[var(--ds-color-border-subtle)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/55 data-[state=selected]:bg-[color:var(--ds-color-surface-muted)]/70',
         className,
       )}
       {...props}
@@ -57,7 +57,7 @@ const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<
     <th
       ref={ref}
       className={cn(
-        'h-12 px-4 text-left align-middle text-xs font-bold uppercase tracking-wider text-[var(--ds-color-text-muted)] [&:has([role=checkbox])]:pr-0',
+        'h-12 px-4 text-left align-middle text-xs font-bold uppercase tracking-[0.08em] text-[var(--ds-color-text-primary)] [&:has([role=checkbox])]:pr-0',
         className,
       )}
       {...props}
@@ -70,7 +70,7 @@ const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<
   ({ className, ...props }, ref) => (
     <td
       ref={ref}
-      className={cn('px-4 py-3 align-middle [&:has([role=checkbox])]:pr-0', className)}
+      className={cn('px-4 py-3 align-middle text-[var(--ds-color-text-secondary)] [&:has([role=checkbox])]:pr-0', className)}
       {...props}
     />
   ),

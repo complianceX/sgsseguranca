@@ -10,6 +10,7 @@ import {
   UseGuards,
   UseInterceptors,
   Query,
+  StreamableFile,
 } from '@nestjs/common';
 import { ChecklistsService } from './checklists.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -76,6 +77,25 @@ export class ChecklistsController {
       companyId,
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
+    });
+  }
+
+  @Get('files/weekly-bundle')
+  @Authorize('can_view_checklists')
+  async getWeeklyBundle(
+    @Query('company_id') companyId?: string,
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ): Promise<StreamableFile> {
+    const { buffer, fileName } = await this.checklistsService.getWeeklyBundle({
+      companyId,
+      year: year ? Number(year) : undefined,
+      week: week ? Number(week) : undefined,
+    });
+
+    return new StreamableFile(buffer, {
+      disposition: `attachment; filename="${fileName}"`,
+      type: 'application/pdf',
     });
   }
 

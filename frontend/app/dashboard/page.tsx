@@ -481,35 +481,41 @@ export default function DashboardPage() {
   }, []);
 
   const stats = [
-    { label: 'Usuários Ativos', value: loading ? '...' : counts.users.toString(), icon: Users, color: 'text-blue-600', bg: 'bg-blue-100' },
-    { label: 'Empresas', value: loading ? '...' : counts.companies.toString(), icon: Building2, color: 'text-green-600', bg: 'bg-green-100' },
-    { label: 'Obras/Setores', value: loading ? '...' : counts.sites.toString(), icon: MapPin, color: 'text-orange-600', bg: 'bg-orange-100' },
-    { label: 'Checklists', value: loading ? '...' : counts.checklists.toString(), icon: ClipboardCheck, color: 'text-purple-600', bg: 'bg-purple-100' },
-    { label: 'APRs Geradas', value: loading ? '...' : counts.aprs.toString(), icon: Shield, color: 'text-red-600', bg: 'bg-red-100' },
-    { label: 'Permissões (PT)', value: loading ? '...' : counts.pts.toString(), icon: FileText, color: 'text-indigo-600', bg: 'bg-indigo-100' },
+    { label: 'Usuários Ativos', value: loading ? '...' : counts.users.toString(), icon: Users, color: 'text-blue-100', bg: 'bg-gradient-to-br from-blue-500 to-cyan-500' },
+    { label: 'Empresas', value: loading ? '...' : counts.companies.toString(), icon: Building2, color: 'text-emerald-100', bg: 'bg-gradient-to-br from-emerald-500 to-green-500' },
+    { label: 'Obras/Setores', value: loading ? '...' : counts.sites.toString(), icon: MapPin, color: 'text-amber-100', bg: 'bg-gradient-to-br from-amber-500 to-orange-500' },
+    { label: 'Checklists', value: loading ? '...' : counts.checklists.toString(), icon: ClipboardCheck, color: 'text-fuchsia-100', bg: 'bg-gradient-to-br from-fuchsia-500 to-violet-500' },
+    { label: 'APRs Geradas', value: loading ? '...' : counts.aprs.toString(), icon: Shield, color: 'text-rose-100', bg: 'bg-gradient-to-br from-rose-500 to-red-500' },
+    { label: 'Permissões (PT)', value: loading ? '...' : counts.pts.toString(), icon: FileText, color: 'text-indigo-100', bg: 'bg-gradient-to-br from-indigo-500 to-blue-600' },
   ];
 
   const quickActions = [
-    { label: 'Nova APR', href: '/dashboard/aprs', icon: PlusCircle, color: 'bg-blue-600' },
-    { label: 'Nova PT', href: '/dashboard/pts', icon: FileText, color: 'bg-indigo-600' },
-    { label: 'Novo Checklist', href: '/dashboard/checklists', icon: ClipboardCheck, color: 'bg-purple-600' },
-    { label: 'Novo EPI', href: '/dashboard/epis', icon: Shield, color: 'bg-green-600' },
-    { label: 'Nova NC', href: '/dashboard/nonconformities/new', icon: AlertTriangle, color: 'bg-amber-600' },
+    { label: 'Nova APR', href: '/dashboard/aprs', icon: PlusCircle, color: 'bg-gradient-to-r from-blue-500 to-cyan-500' },
+    { label: 'Nova PT', href: '/dashboard/pts', icon: FileText, color: 'bg-gradient-to-r from-indigo-500 to-violet-500' },
+    { label: 'Novo Checklist', href: '/dashboard/checklists', icon: ClipboardCheck, color: 'bg-gradient-to-r from-fuchsia-500 to-purple-500' },
+    { label: 'Novo EPI', href: '/dashboard/epis', icon: Shield, color: 'bg-gradient-to-r from-emerald-500 to-green-500' },
+    { label: 'Nova NC', href: '/dashboard/nonconformities/new', icon: AlertTriangle, color: 'bg-gradient-to-r from-amber-500 to-orange-500' },
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-        <h1 className="text-2xl font-bold text-gray-900">Olá, {user?.nome}!</h1>
-        <p className="text-gray-500">Bem-vindo ao painel do COMPLIANCE X.</p>
-      </div>
-        <div className="flex space-x-2">
+    <div className="ds-dashboard-shell">
+      <div className="ds-dashboard-panel overflow-hidden p-6">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+          <div className="max-w-3xl">
+            <div className="mb-3 inline-flex items-center rounded-full border border-[color:var(--ds-color-border-strong)]/70 bg-[color:var(--ds-color-surface-muted)]/55 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--ds-color-text-secondary)]">
+              cockpit operacional
+            </div>
+            <h1 className="text-3xl font-bold tracking-[-0.03em] text-gray-900">Olá, {user?.nome}!</h1>
+            <p className="mt-2 max-w-2xl text-sm text-gray-500">
+              Visão executiva com conformidade, documentação crítica, treinamentos e ações prioritárias em um único painel.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
           {quickActions.map((action, index) => (
             <Link 
               key={index} 
               href={action.href}
-              className={`${action.color} flex items-center space-x-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 shadow-sm`}
+              className={`${action.color} flex items-center space-x-2 rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(15,23,42,0.22)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_36px_rgba(15,23,42,0.3)]`}
             >
               <action.icon className="h-4 w-4" />
               <span>{action.label}</span>
@@ -517,10 +523,11 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Card de Score de Segurança */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm flex flex-col items-center justify-center text-center">
+        <div className="ds-dashboard-panel flex flex-col items-center justify-center p-6 text-center">
           <div className="mb-4 flex items-center space-x-2">
             <TrendingUp className="h-5 w-5 text-blue-600" />
             <h3 className="text-lg font-bold text-gray-800">Compliance SST</h3>
@@ -564,9 +571,9 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {stats.map((stat, index) => (
-          <div key={index} className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+          <div key={index} className="ds-dashboard-panel ds-dashboard-stat p-5 transition-all hover:-translate-y-0.5 hover:shadow-[var(--ds-shadow-lg)]">
             <div className="flex items-center justify-between">
-              <div className={`rounded-lg ${stat.bg} p-2.5`}>
+              <div className={`rounded-2xl ${stat.bg} p-3 shadow-[0_16px_32px_rgba(15,23,42,0.18)]`}>
                 <stat.icon className={`h-6 w-6 ${stat.color}`} />
               </div>
             </div>
@@ -579,7 +586,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="ds-dashboard-panel p-6">
           <h2 className="text-lg font-bold text-gray-900 flex items-center">
             <AlertTriangle className="mr-2 h-5 w-5 text-amber-500" />
             Pendências de Aprovação
@@ -610,7 +617,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2">
+        <div className="ds-dashboard-panel p-6 lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-900">Plano de Ação Prioritário</h2>
             <Link href="/dashboard/inspections" className="text-sm font-semibold text-blue-600 hover:underline">
@@ -644,7 +651,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="ds-dashboard-panel p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-900">Matriz de Risco</h2>
             <Link href="/dashboard/risks" className="text-sm font-semibold text-blue-600 hover:underline">
@@ -667,7 +674,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="ds-dashboard-panel p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-900">Evidências Registradas</h2>
             <Link href="/dashboard/inspections" className="text-sm font-semibold text-blue-600 hover:underline">
@@ -687,7 +694,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="ds-dashboard-panel p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-bold text-gray-900">Biblioteca de Modelos</h2>
             <Link href="/dashboard/checklist-models" className="text-sm font-semibold text-blue-600 hover:underline">

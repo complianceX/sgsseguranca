@@ -3,19 +3,19 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const cardVariants = cva(
-  'rounded-[var(--ds-radius-lg)] border shadow-[var(--ds-shadow-sm)] transition-all duration-[var(--ds-motion-base)]',
+  'rounded-[var(--ds-radius-lg)] border shadow-[var(--ds-shadow-sm)] transition-all duration-[var(--ds-motion-base)] backdrop-blur-sm',
   {
     variants: {
       tone: {
         default:
-          'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]',
+          'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/96',
         elevated:
-          'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] shadow-[var(--ds-shadow-md)]',
+          'border-[color:var(--ds-color-border-strong)]/80 bg-gradient-to-b from-[color:var(--ds-color-surface-elevated)] to-[color:var(--ds-color-surface-base)] shadow-[var(--ds-shadow-md)]',
         muted:
-          'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/35',
+          'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/45',
       },
       interactive: {
-        true: 'hover:-translate-y-px hover:border-[var(--ds-color-border-strong)] hover:shadow-[var(--ds-shadow-md)]',
+        true: 'hover:-translate-y-px hover:border-[var(--ds-color-action-primary)]/60 hover:shadow-[var(--ds-shadow-md)]',
         false: '',
       },
       padding: {

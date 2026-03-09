@@ -11,6 +11,10 @@ import { TenantService } from '../common/tenant/tenant.service';
 import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
 import { User } from '../users/entities/user.entity';
+import {
+  DocumentBundleService,
+  WeeklyBundleFilters,
+} from '../common/services/document-bundle.service';
 
 @Injectable()
 export class DdsService {
@@ -20,6 +24,7 @@ export class DdsService {
     @InjectRepository(Dds)
     private ddsRepository: Repository<Dds>,
     private tenantService: TenantService,
+    private readonly documentBundleService: DocumentBundleService,
   ) {}
 
   async create(createDdsDto: CreateDdsDto): Promise<Dds> {
@@ -102,11 +107,7 @@ export class DdsService {
     });
   }
 
-  async listStoredFiles(filters: {
-    companyId?: string;
-    year?: number;
-    week?: number;
-  }) {
+  async listStoredFiles(filters: WeeklyBundleFilters) {
     const tenantId = this.tenantService.getTenantId();
     const query = this.ddsRepository
       .createQueryBuilder('d')
@@ -142,6 +143,11 @@ export class DdsService {
         return true;
       })
       .map((d) => ({
+        entityId: d.id,
+        title: d.tema,
+        date: d.data || d.created_at,
+        ddsId: d.id,
+        data: d.data || d.created_at,
         id: d.id,
         tema: d.tema,
         companyId: d.company_id,
@@ -149,5 +155,19 @@ export class DdsService {
         folderPath: d.pdf_folder_path,
         originalName: d.pdf_original_name,
       }));
+  }
+
+  async getWeeklyBundle(filters: WeeklyBundleFilters) {
+    const files = await this.listStoredFiles(filters);
+    return this.documentBundleService.buildWeeklyPdfBundle(
+      'DDS',
+      filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
+    );
   }
 }

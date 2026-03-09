@@ -164,6 +164,17 @@ export const auditsService = {
     return response.data;
   },
 
+  downloadWeeklyBundle: async (filters: {
+    year: number;
+    week: number;
+  }) => {
+    const response = await api.get('/audits/files/weekly-bundle', {
+      params: filters,
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+
   delete: async (id: string) => {
     await api.delete(`/audits/${id}`);
   },

@@ -11,6 +11,7 @@ import {
   Query,
   UnauthorizedException,
   ParseUUIDPipe,
+  StreamableFile,
 } from '@nestjs/common';
 import { AuditsService } from './audits.service';
 import { CreateAuditDto, UpdateAuditDto } from './dto/create-audit.dto';
@@ -74,6 +75,24 @@ export class AuditsController {
       companyId: this.getTenantIdOrThrow(),
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
+    });
+  }
+
+  @Get('files/weekly-bundle')
+  @Authorize('can_view_audits')
+  async getWeeklyBundle(
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ): Promise<StreamableFile> {
+    const { buffer, fileName } = await this.auditsService.getWeeklyBundle({
+      companyId: this.getTenantIdOrThrow(),
+      year: year ? Number(year) : undefined,
+      week: week ? Number(week) : undefined,
+    });
+
+    return new StreamableFile(buffer, {
+      disposition: `attachment; filename="${fileName}"`,
+      type: 'application/pdf',
     });
   }
 

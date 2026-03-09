@@ -12,6 +12,20 @@ import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { getFormErrorMessage } from '@/lib/error-handler';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { ErrorState, PageLoadingState } from '@/components/ui/state';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { FormField } from '@/components/ui/form-field';
+import { cn } from '@/lib/utils';
 
 const machineSchema = z.object({
   nome: z.string().min(3, 'O nome deve ter pelo menos 3 caracteres'),
@@ -123,137 +137,167 @@ export function MachineForm({ id }: MachineFormProps) {
 
   if (fetching) {
     return (
-      <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
-      </div>
+      <PageLoadingState
+        title={id ? 'Carregando máquina' : 'Preparando cadastro de máquina'}
+        description="Buscando dados da máquina e empresas disponíveis."
+        cards={2}
+        tableRows={3}
+      />
     );
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+    <div className="mx-auto max-w-4xl space-y-6">
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-center space-x-4">
           <Link
             href="/dashboard/machines"
-            className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className={cn(
+              buttonVariants({ variant: 'ghost', size: 'icon' }),
+              'rounded-full'
+            )}
             title="Voltar"
             aria-label="Voltar para a lista de máquinas"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {id ? 'Editar Máquina' : 'Nova Máquina'}
-          </h1>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6 rounded-xl border bg-white p-6 shadow-sm">
-        {submitError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {submitError}
+            <div className="space-y-2">
+              <CardTitle className="text-2xl">
+                {id ? 'Editar Máquina' : 'Nova Máquina'}
+              </CardTitle>
+              <CardDescription>
+                Cadastre dados operacionais, identificação e empresa responsável pelo equipamento.
+              </CardDescription>
+            </div>
           </div>
-        )}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="company_id" className="text-sm font-medium text-gray-700">
-              Empresa
-            </label>
-            <select
-              id="company_id"
-              {...register('company_id')}
-              className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
-              }`}
-              aria-invalid={Boolean(errors.company_id)}
+          <div className="rounded-2xl border border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/24 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+            Formulário técnico com validação imediata e tenant obrigatório.
+          </div>
+        </CardHeader>
+      </Card>
+
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6">
+        {submitError ? (
+          <ErrorState
+            compact
+            title="Falha ao salvar máquina"
+            description={submitError}
+          />
+        ) : null}
+
+        <Card tone="default" padding="lg">
+          <CardHeader>
+            <CardTitle>Identificação e vínculo</CardTitle>
+            <CardDescription>
+              Defina a empresa dona do registro e a identificação principal da máquina.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <FormField
+              label="Empresa"
+              htmlFor="company_id"
+              required
+              description="Toda máquina precisa estar vinculada a uma empresa do tenant."
+              error={errors.company_id?.message}
+              className="md:col-span-2"
             >
-              <option value="">Selecione uma empresa</option>
-              {companies.map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.razao_social}
-                </option>
-              ))}
-            </select>
-            {errors.company_id && (
-              <p className="text-xs text-red-500">{errors.company_id.message}</p>
-            )}
-          </div>
+              <Select
+                id="company_id"
+                {...register('company_id')}
+                aria-invalid={Boolean(errors.company_id)}
+              >
+                <option value="">Selecione uma empresa</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.razao_social}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
 
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="nome" className="text-sm font-medium text-gray-700">
-              Nome da Máquina
-            </label>
-            <input
-              id="nome"
-              type="text"
-              {...register('nome')}
-              className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
-              }`}
-              aria-invalid={Boolean(errors.nome)}
-              placeholder="Ex: Escavadeira Caterpillar"
-            />
-            {errors.nome && (
-              <p className="text-xs text-red-500">{errors.nome.message}</p>
-            )}
-          </div>
+            <FormField
+              label="Nome da Máquina"
+              htmlFor="nome"
+              required
+              description="Use um nome claro para facilitar checklist, inspeção e rastreabilidade."
+              error={errors.nome?.message}
+              className="md:col-span-2"
+            >
+              <Input
+                id="nome"
+                type="text"
+                {...register('nome')}
+                aria-invalid={Boolean(errors.nome)}
+                placeholder="Ex: Escavadeira Caterpillar"
+              />
+            </FormField>
 
-          <div className="space-y-2">
-            <label htmlFor="placa" className="text-sm font-medium text-gray-700">
-              Placa / Identificação
-            </label>
-            <input
-              id="placa"
-              type="text"
-              {...register('placa')}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              placeholder="Ex: ABC-1234"
-            />
-          </div>
+            <FormField
+              label="Placa / Identificação"
+              htmlFor="placa"
+              description="Opcional. Pode ser placa, patrimônio ou código interno."
+            >
+              <Input
+                id="placa"
+                type="text"
+                {...register('placa')}
+                placeholder="Ex: ABC-1234"
+              />
+            </FormField>
 
-          <div className="space-y-2">
-            <label htmlFor="horimetro_atual" className="text-sm font-medium text-gray-700">
-              Horímetro Atual
-            </label>
-            <input
-              id="horimetro_atual"
-              type="number"
-              step="0.1"
-              {...register('horimetro_atual', { valueAsNumber: true })}
-              className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.horimetro_atual ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
-              }`}
-              aria-invalid={Boolean(errors.horimetro_atual)}
-            />
-            {errors.horimetro_atual && (
-              <p className="text-xs text-red-500">{errors.horimetro_atual.message}</p>
-            )}
-          </div>
+            <FormField
+              label="Horímetro Atual"
+              htmlFor="horimetro_atual"
+              required
+              description="Informe o acumulado atual para manutenção e rastreabilidade operacional."
+              error={errors.horimetro_atual?.message}
+            >
+              <Input
+                id="horimetro_atual"
+                type="number"
+                step="0.1"
+                {...register('horimetro_atual', { valueAsNumber: true })}
+                aria-invalid={Boolean(errors.horimetro_atual)}
+              />
+            </FormField>
+          </CardContent>
+        </Card>
 
-          <div className="space-y-2 md:col-span-2">
-            <label htmlFor="descricao" className="text-sm font-medium text-gray-700">
-              Descrição
-            </label>
-            <textarea
-              id="descricao"
-              rows={3}
-              {...register('descricao')}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-              placeholder="Opcional"
-            />
-          </div>
-        </div>
+        <Card tone="default" padding="lg">
+          <CardHeader>
+            <CardTitle>Detalhamento técnico</CardTitle>
+            <CardDescription>
+              Inclua observações operacionais relevantes para manutenção, inspeção e mobilização.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FormField
+              label="Descrição"
+              htmlFor="descricao"
+              description="Opcional. Use este campo para informações relevantes sobre uso, modelo ou condição."
+            >
+              <Textarea
+                id="descricao"
+                rows={4}
+                {...register('descricao')}
+                placeholder="Opcional"
+              />
+            </FormField>
+          </CardContent>
+        </Card>
 
-        <div className="flex justify-end space-x-4 border-t pt-6">
+        <div className="flex flex-col gap-3 border-t border-[var(--ds-color-border-subtle)] pt-6 sm:flex-row sm:justify-end">
           <Link
             href="/dashboard/machines"
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className={cn(buttonVariants({ variant: 'outline' }), 'justify-center')}
           >
             Cancelar
           </Link>
-          <button
+          <Button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            className="justify-center"
           >
             {loading ? (
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
@@ -261,7 +305,7 @@ export function MachineForm({ id }: MachineFormProps) {
               <Save className="mr-2 h-4 w-4" />
             )}
             {id ? 'Salvar Alterações' : 'Criar Máquina'}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

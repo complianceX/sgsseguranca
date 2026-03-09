@@ -107,6 +107,18 @@ export const ddsService = {
     return response.data;
   },
 
+  downloadWeeklyBundle: async (filters: {
+    company_id?: string;
+    year: number;
+    week: number;
+  }) => {
+    const response = await api.get('/dds/files/weekly-bundle', {
+      params: filters,
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+
   update: async (id: string, data: Omit<Partial<Dds>, 'participants'> & { participants?: string[] }) => {
     const response = await api.patch<Dds>(`/dds/${id}`, data);
     return response.data;

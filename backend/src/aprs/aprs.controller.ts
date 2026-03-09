@@ -79,6 +79,25 @@ export class AprsController {
     });
   }
 
+  @Get('files/weekly-bundle')
+  @Authorize('can_view_apr')
+  async getWeeklyBundle(
+    @Query('company_id') companyId?: string,
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ): Promise<StreamableFile> {
+    const { buffer, fileName } = await this.aprsService.getWeeklyBundle({
+      companyId,
+      year: year ? Number(year) : undefined,
+      week: week ? Number(week) : undefined,
+    });
+
+    return new StreamableFile(buffer, {
+      disposition: `attachment; filename="${fileName}"`,
+      type: 'application/pdf',
+    });
+  }
+
   @Get('export/excel')
   @Authorize('can_view_apr')
   @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
