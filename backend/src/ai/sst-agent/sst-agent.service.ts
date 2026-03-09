@@ -46,12 +46,35 @@ import {
 
 const ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 const ANTHROPIC_PROVIDER = 'anthropic';
+const GEMINI_PROVIDER = 'gemini';
+const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 const MAX_TOKENS = 2048;
 const MAX_TOOL_ITERATIONS = 5;
 
 /** Custo estimado por token — atualizar conforme pricing da Anthropic */
 const COST_PER_INPUT_TOKEN = 3 / 1_000_000;
 const COST_PER_OUTPUT_TOKEN = 15 / 1_000_000;
+
+type SupportedAiProvider = typeof ANTHROPIC_PROVIDER | typeof GEMINI_PROVIDER | 'stub';
+
+type GeminiGenerateContentResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+      }>;
+    };
+    finishReason?: string;
+  }>;
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+  };
+  promptFeedback?: {
+    blockReason?: string;
+  };
+};
 
 // ---------------------------------------------------------------------------
 // Prompt de sistema
@@ -89,6 +112,9 @@ Cite sempre a norma ao mencionar obrigacoes: NR-1 a NR-35, CLT, Portarias MTE.
 export class SstAgentService {
   private readonly logger = new Logger(SstAgentService.name);
   private readonly anthropic: Anthropic | null;
+  private readonly geminiApiKey: string | null;
+  private readonly provider: SupportedAiProvider;
+  private readonly model: string;
 
   constructor(
     @InjectRepository(AiInteraction)
@@ -98,14 +124,60 @@ export class SstAgentService {
     private readonly toolsExecutor: SstToolsExecutor,
     private readonly rateLimitService: SstRateLimitService,
   ) {
-    const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY');
-    if (apiKey) {
-      this.anthropic = new Anthropic({ apiKey });
+    const preferredProvider = this.configService
+      .get<string>('AI_PROVIDER')
+      ?.trim()
+      .toLowerCase();
+    const anthropicApiKey = this.configService.get<string>('ANTHROPIC_API_KEY')?.trim();
+    const geminiApiKey =
+      this.configService.get<string>('GEMINI_API_KEY')?.trim() ||
+      this.configService.get<string>('GOOGLE_API_KEY')?.trim() ||
+      null;
+    const geminiModel =
+      this.configService.get<string>('GEMINI_MODEL')?.trim() || DEFAULT_GEMINI_MODEL;
+
+    this.geminiApiKey = null;
+    this.provider = 'stub';
+    this.model = 'stub';
+
+    if ((preferredProvider === ANTHROPIC_PROVIDER || !preferredProvider) && anthropicApiKey) {
+      this.anthropic = new Anthropic({ apiKey: anthropicApiKey });
+      this.provider = ANTHROPIC_PROVIDER;
+      this.model = ANTHROPIC_MODEL;
       this.logger.log('SstAgentService iniciado com Anthropic API');
-    } else {
-      this.anthropic = null;
-      this.logger.warn('ANTHROPIC_API_KEY nao configurada - SstAgentService em modo STUB');
+      return;
     }
+
+    if ((preferredProvider === GEMINI_PROVIDER || !preferredProvider) && geminiApiKey) {
+      this.anthropic = null;
+      this.geminiApiKey = geminiApiKey;
+      this.provider = GEMINI_PROVIDER;
+      this.model = geminiModel;
+      this.logger.log(`SstAgentService iniciado com Gemini API (${this.model})`);
+      return;
+    }
+
+    if (anthropicApiKey) {
+      this.anthropic = new Anthropic({ apiKey: anthropicApiKey });
+      this.provider = ANTHROPIC_PROVIDER;
+      this.model = ANTHROPIC_MODEL;
+      this.logger.log('SstAgentService iniciado com Anthropic API');
+      return;
+    }
+
+    if (geminiApiKey) {
+      this.anthropic = null;
+      this.geminiApiKey = geminiApiKey;
+      this.provider = GEMINI_PROVIDER;
+      this.model = geminiModel;
+      this.logger.log(`SstAgentService iniciado com Gemini API (${this.model})`);
+      return;
+    }
+
+    this.anthropic = null;
+    this.logger.warn(
+      'Nenhum provider de IA configurado (ANTHROPIC_API_KEY ou GEMINI_API_KEY) - SstAgentService em modo STUB',
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -140,12 +212,12 @@ export class SstAgentService {
       tenant_id: tenantId,
       user_id: userId,
       question,
-      model: this.anthropic ? ANTHROPIC_MODEL : 'stub',
-      provider: this.anthropic ? ANTHROPIC_PROVIDER : 'stub',
+      model: this.model,
+      provider: this.provider,
       status: AiInteractionStatus.SUCCESS,
     });
 
-    if (!this.anthropic) {
+    if (this.provider === 'stub') {
       const stubResp = this.buildStubResponse(question);
       interaction.response = stubResp;
       interaction.latency_ms = Date.now() - startTime;
@@ -157,10 +229,12 @@ export class SstAgentService {
 
     try {
       const { result, inputTokens, outputTokens, toolsUsed } =
-        await this.runAgentLoop(question, history);
+        this.provider === ANTHROPIC_PROVIDER
+          ? await this.runAnthropicAgentLoop(question, history)
+          : await this.runGeminiChat(question, history);
 
       const latency = Date.now() - startTime;
-      const estimatedCost = this.estimateCost(inputTokens, outputTokens);
+      const estimatedCost = this.estimateCost(inputTokens, outputTokens, this.provider);
       const reviewReasons = this.detectHumanReviewReasons(result, question, toolsUsed);
       const finalStatus =
         reviewReasons.length > 0
@@ -187,7 +261,7 @@ export class SstAgentService {
       this.logInteraction({
         tenantId, userId, latency, inputTokens, outputTokens,
         estimatedCost, toolsUsed, confidence: result.confidence,
-        needsHumanReview: result.needsHumanReview, status: finalStatus,
+        needsHumanReview: result.needsHumanReview, status: finalStatus, provider: this.provider, model: this.model,
       });
 
       return this.toSstChatResponse(result, interaction.id, finalStatus);
@@ -230,7 +304,7 @@ export class SstAgentService {
   // Loop de agente
   // -------------------------------------------------------------------------
 
-  private async runAgentLoop(
+  private async runAnthropicAgentLoop(
     question: string,
     history: ConversationMessage[],
   ): Promise<{
@@ -318,6 +392,87 @@ export class SstAgentService {
       ),
       inputTokens: totalInputTokens,
       outputTokens: totalOutputTokens,
+      toolsUsed,
+    };
+  }
+
+  private async runGeminiChat(
+    question: string,
+    history: ConversationMessage[],
+  ): Promise<{
+    result: SstAgentResponse;
+    inputTokens: number;
+    outputTokens: number;
+    toolsUsed: string[];
+  }> {
+    if (!this.geminiApiKey) {
+      throw new Error('GEMINI_API_KEY nao configurada.');
+    }
+
+    const { toolContext, toolsUsed } = await this.buildGeminiToolContext(question);
+    const contents = [
+      ...history.map((message) => ({
+        role: message.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: message.content }],
+      })),
+      {
+        role: 'user',
+        parts: [
+          {
+            text: [
+              `Pergunta do usuario: ${question}`,
+              'Dados do sistema consultados:',
+              toolContext,
+              'Responda em portugues brasileiro, de forma objetiva e segura.',
+            ].join('\n\n'),
+          },
+        ],
+      },
+    ];
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.geminiApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: SST_SYSTEM_PROMPT }],
+          },
+          contents,
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: MAX_TOKENS,
+          },
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Gemini API error ${response.status}: ${body}`);
+    }
+
+    const payload = (await response.json()) as GeminiGenerateContentResponse;
+    if (payload.promptFeedback?.blockReason) {
+      throw new Error(`Gemini bloqueou a resposta: ${payload.promptFeedback.blockReason}`);
+    }
+
+    const answer = payload.candidates
+      ?.flatMap((candidate) => candidate.content?.parts ?? [])
+      .map((part) => part.text?.trim())
+      .filter((value): value is string => Boolean(value))
+      .join('\n')
+      .trim();
+
+    if (!answer) {
+      throw new Error('Gemini nao retornou texto utilizavel.');
+    }
+
+    return {
+      result: this.buildStructuredResponse(answer, question, toolsUsed),
+      inputTokens: payload.usageMetadata?.promptTokenCount ?? 0,
+      outputTokens: payload.usageMetadata?.candidatesTokenCount ?? 0,
       toolsUsed,
     };
   }
@@ -518,7 +673,66 @@ export class SstAgentService {
     return { ...response, interactionId, status, timestamp: new Date().toISOString() };
   }
 
-  private estimateCost(inputTokens: number, outputTokens: number): number {
+  private async buildGeminiToolContext(question: string): Promise<{
+    toolContext: string;
+    toolsUsed: string[];
+  }> {
+    const toolNames = this.selectGeminiTools(question);
+    const results = await Promise.all(
+      toolNames.map(async (toolName) => ({
+        toolName,
+        result: await this.toolsExecutor.execute(toolName, {}),
+      })),
+    );
+
+    return {
+      toolContext: JSON.stringify(
+        results.map(({ toolName, result }) => ({ toolName, result })),
+        null,
+        2,
+      ),
+      toolsUsed: results.map(({ toolName }) => toolName),
+    };
+  }
+
+  private selectGeminiTools(question: string): string[] {
+    const normalizedQuestion = question.toLowerCase();
+    const toolNames = new Set<string>(['gerar_resumo_sst']);
+
+    if (/trein/.test(normalizedQuestion)) {
+      toolNames.add('buscar_treinamentos_pendentes');
+    }
+    if (/aso|pcmso|exame/.test(normalizedQuestion)) {
+      toolNames.add('buscar_exames_medicos_pendentes');
+    }
+    if (/cat|acidente/.test(normalizedQuestion)) {
+      toolNames.add('buscar_estatisticas_cats');
+    }
+    if (/nao conform|não conform|\bnc\b/.test(normalizedQuestion)) {
+      toolNames.add('buscar_nao_conformidades');
+    }
+    if (/\bepi\b|certificado de aprovacao|\bca\b/.test(normalizedQuestion)) {
+      toolNames.add('buscar_epis');
+    }
+    if (/risco|apr|pgr/.test(normalizedQuestion)) {
+      toolNames.add('buscar_riscos');
+    }
+    if (/ordem de servico|ordem de serviço|\bos\b/.test(normalizedQuestion)) {
+      toolNames.add('buscar_ordens_de_servico');
+    }
+
+    return [...toolNames];
+  }
+
+  private estimateCost(
+    inputTokens: number,
+    outputTokens: number,
+    provider: SupportedAiProvider,
+  ): number {
+    if (provider !== ANTHROPIC_PROVIDER) {
+      return 0;
+    }
+
     return inputTokens * COST_PER_INPUT_TOKEN + outputTokens * COST_PER_OUTPUT_TOKEN;
   }
 
@@ -533,10 +747,12 @@ export class SstAgentService {
     confidence: ConfidenceLevel;
     needsHumanReview: boolean;
     status: AiInteractionStatus;
+    provider: SupportedAiProvider;
+    model: string;
   }): void {
     this.logger.log(
       `[SstAgent] complete tenant=${fields.tenantId} user=${fields.userId} ` +
-        `provider=${ANTHROPIC_PROVIDER} model=${ANTHROPIC_MODEL} ` +
+        `provider=${fields.provider} model=${fields.model} ` +
         `latency=${fields.latency}ms tokens=${fields.inputTokens}in/${fields.outputTokens}out ` +
         `cost=$${fields.estimatedCost.toFixed(6)} tools=[${fields.toolsUsed.join(',')}] ` +
         `confidence=${fields.confidence} needsReview=${fields.needsHumanReview} status=${fields.status}`,
@@ -546,13 +762,13 @@ export class SstAgentService {
   private buildStubResponse(question: string): SstAgentResponse {
     return {
       answer:
-        `Agente SST em modo demonstracao (ANTHROPIC_API_KEY nao configurada). ` +
+        `Agente SST em modo demonstracao (nenhum provider configurado). ` +
         `Pergunta registrada: "${question.slice(0, 100)}${question.length > 100 ? '...' : ''}".`,
       confidence: ConfidenceLevel.LOW,
       needsHumanReview: false,
       sources: [],
       suggestedActions: [{ label: 'Ver Dashboard', href: '/dashboard', priority: 'low' }],
-      warnings: ['ANTHROPIC_API_KEY nao configurada. Agente SST em modo stub.'],
+      warnings: ['Configure ANTHROPIC_API_KEY ou GEMINI_API_KEY para habilitar a IA SST.'],
       toolsUsed: [],
     };
   }
