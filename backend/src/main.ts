@@ -15,7 +15,7 @@ if (!globalThis.crypto) {
 }
 
 import { NestFactory } from '@nestjs/core';
-import { BadRequestException, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { json, urlencoded } from 'express';
 import type { RequestHandler } from 'express';
@@ -34,6 +34,8 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 // import { initializeTelemetry } from './common/observability/opentelemetry.config';
 
 async function bootstrap() {
+  const bootstrapLogger = new Logger('Bootstrap');
+
   if (process.env.NEW_RELIC_ENABLED === 'true') {
     await import('newrelic');
   }
@@ -125,7 +127,7 @@ async function bootstrap() {
   // BullBoard — montado diretamente via Express (sem NestJS BullBoardModule).
   // app.use(path, router) usa prefix matching nativo do Express, sem wildcards.
   if (process.env.REDIS_DISABLED === 'true') {
-    console.warn('⚠️ Redis desabilitado — Bull Board não será inicializado');
+    bootstrapLogger.warn('⚠️ Redis desabilitado — Bull Board não será inicializado');
   } else {
     const bullBoardAdapter = new BullBoardExpressAdapter();
     bullBoardAdapter.setBasePath('/admin/queues');
@@ -139,9 +141,10 @@ async function bootstrap() {
         serverAdapter: bullBoardAdapter,
       });
     } catch (err) {
-      console.warn(
-        '⚠️ Bull Board não pôde ser inicializado (provavelmente sem Redis):',
-        err instanceof Error ? err.message : String(err),
+      bootstrapLogger.warn(
+        `⚠️ Bull Board não pôde ser inicializado (provavelmente sem Redis): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       );
     }
     const bullBoardAuth: RequestHandler = (req, res, next) => {
@@ -301,10 +304,10 @@ async function bootstrap() {
           /^http:\/\/(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}):\d{2,5}$/i.test(
             origin,
           ));
-      if (isExplicitAllowed || isDevNetworkAllowed || isRailwayPublicDomain) {
-        return callback(null, true);
-      }
-      console.warn(
+        if (isExplicitAllowed || isDevNetworkAllowed || isRailwayPublicDomain) {
+          return callback(null, true);
+        }
+      bootstrapLogger.warn(
         `[CORS] Origem bloqueada: ${origin}. Permitidas: ${allowedOrigins.join(', ') || '(nenhuma)'}${isProduction ? ' + *.up.railway.app' : ''}`,
       );
       callback(new Error('Not allowed by CORS'));
@@ -343,7 +346,7 @@ async function bootstrap() {
       customCss: '.swagger-ui .topbar { display: none }',
     });
 
-    console.log(
+    bootstrapLogger.log(
       `📚 Swagger documentation available at http://localhost:${process.env.PORT || 3001}/api/docs`,
     );
   }
@@ -355,10 +358,14 @@ async function bootstrap() {
   const port = process.env.PORT || 8080;
   await app.listen(port, '0.0.0.0');
 
-  console.log(`🚀 Server running on port ${port}`);
+  bootstrapLogger.log(`🚀 Server running on port ${port}`);
 }
 
 bootstrap().catch((err) => {
-  console.error('Bootstrap failed:', err);
+  const bootstrapLogger = new Logger('Bootstrap');
+  bootstrapLogger.error(
+    `Bootstrap failed: ${err instanceof Error ? err.message : String(err)}`,
+    err instanceof Error ? err.stack : undefined,
+  );
   process.exit(1);
 });

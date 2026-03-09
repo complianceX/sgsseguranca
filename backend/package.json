@@ -22,6 +22,7 @@
     "start:worker": "node dist/worker.js",
     "migration:run": "node scripts/run-migrations.js",
     "migration:revert": "typeorm migration:revert -d dist/data-source.js",
+    "verify:rls": "node scripts/verify-tenant-rls.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",

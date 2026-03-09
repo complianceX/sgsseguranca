@@ -18,7 +18,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -50,12 +50,15 @@ import {
 // Constantes
 // ---------------------------------------------------------------------------
 
-const ANTHROPIC_MODEL = 'claude-sonnet-4-6';
+const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 const ANTHROPIC_PROVIDER = 'anthropic';
 const GEMINI_PROVIDER = 'gemini';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 const MAX_TOKENS = 2048;
 const MAX_TOOL_ITERATIONS = 5;
+const DEFAULT_AI_HISTORY_DAYS = 30;
+const DEFAULT_AI_HISTORY_MAX_DAYS = 90;
+const DEFAULT_AI_HISTORY_MAX_LIMIT = 100;
 
 /** Custo estimado por token — atualizar conforme pricing da Anthropic */
 const COST_PER_INPUT_TOKEN = 3 / 1_000_000;
@@ -169,6 +172,10 @@ export class SstAgentService {
   private readonly geminiApiKey: string | null;
   private readonly provider: SupportedAiProvider;
   private readonly model: string;
+  private readonly anthropicModel: string;
+  private readonly historyDefaultDays: number;
+  private readonly historyMaxDays: number;
+  private readonly historyMaxLimit: number;
 
   constructor(
     @InjectRepository(AiInteraction)
@@ -187,17 +194,33 @@ export class SstAgentService {
       this.configService.get<string>('GEMINI_API_KEY')?.trim() ||
       this.configService.get<string>('GOOGLE_API_KEY')?.trim() ||
       null;
+    const anthropicModel =
+      this.configService.get<string>('ANTHROPIC_MODEL')?.trim() ||
+      DEFAULT_ANTHROPIC_MODEL;
     const geminiModel =
       this.configService.get<string>('GEMINI_MODEL')?.trim() || DEFAULT_GEMINI_MODEL;
 
     this.geminiApiKey = null;
     this.provider = 'stub';
     this.model = 'stub';
+    this.anthropicModel = anthropicModel;
+    this.historyDefaultDays = this.getPositiveIntConfig(
+      'AI_HISTORY_DEFAULT_DAYS',
+      DEFAULT_AI_HISTORY_DAYS,
+    );
+    this.historyMaxDays = this.getPositiveIntConfig(
+      'AI_HISTORY_MAX_DAYS',
+      DEFAULT_AI_HISTORY_MAX_DAYS,
+    );
+    this.historyMaxLimit = this.getPositiveIntConfig(
+      'AI_HISTORY_MAX_LIMIT',
+      DEFAULT_AI_HISTORY_MAX_LIMIT,
+    );
 
     if ((preferredProvider === ANTHROPIC_PROVIDER || !preferredProvider) && anthropicApiKey) {
       this.anthropic = new Anthropic({ apiKey: anthropicApiKey });
       this.provider = ANTHROPIC_PROVIDER;
-      this.model = ANTHROPIC_MODEL;
+      this.model = anthropicModel;
       this.logger.log('SstAgentService iniciado com Anthropic API');
       return;
     }
@@ -214,7 +237,7 @@ export class SstAgentService {
     if (anthropicApiKey) {
       this.anthropic = new Anthropic({ apiKey: anthropicApiKey });
       this.provider = ANTHROPIC_PROVIDER;
-      this.model = ANTHROPIC_MODEL;
+      this.model = anthropicModel;
       this.logger.log('SstAgentService iniciado com Anthropic API');
       return;
     }
@@ -339,15 +362,32 @@ export class SstAgentService {
     }
   }
 
-  async getHistory(userId: string, limit = 20): Promise<Partial<AiInteraction>[]> {
+  async getHistory(
+    userId: string,
+    limit = 20,
+    days?: number,
+  ): Promise<Partial<AiInteraction>[]> {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) throw new UnauthorizedException('Tenant nao identificado.');
 
-    // Isolamento defensivo: sempre filtra por tenant_id + user_id
+    const safeLimit = this.clampPositiveInt(limit, this.historyMaxLimit, 20);
+    const safeDays = this.clampPositiveInt(
+      days,
+      this.historyMaxDays,
+      this.historyDefaultDays,
+    );
+    const since = new Date(Date.now() - safeDays * 24 * 60 * 60 * 1000);
+
+    // Isolamento defensivo: sempre filtra por tenant_id + user_id.
+    // O recorte temporal padrão evita histórico amplo demais em tenants maiores.
     return this.interactionRepo.find({
-      where: { tenant_id: tenantId, user_id: userId },
+      where: {
+        tenant_id: tenantId,
+        user_id: userId,
+        created_at: MoreThanOrEqual(since),
+      },
       order: { created_at: 'DESC' },
-      take: Math.min(limit, 100),
+      take: safeLimit,
       select: ['id', 'question', 'status', 'confidence', 'needs_human_review', 'latency_ms', 'tokens_used', 'created_at'],
     });
   }
@@ -470,7 +510,7 @@ export class SstAgentService {
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
       const response = await this.anthropic!.messages.create({
-        model: ANTHROPIC_MODEL,
+        model: this.anthropicModel,
         max_tokens: MAX_TOKENS,
         system: SST_SYSTEM_PROMPT,
         tools: SST_TOOL_DEFINITIONS,
@@ -552,7 +592,7 @@ export class SstAgentService {
     outputTokens: number;
   }> {
     const response = await this.anthropic!.messages.create({
-      model: ANTHROPIC_MODEL,
+      model: this.anthropicModel,
       max_tokens: MAX_TOKENS,
       system: SST_IMAGE_ANALYSIS_PROMPT,
       messages: [
@@ -1120,5 +1160,27 @@ export class SstAgentService {
       ppeRecommendations: [],
       notes: 'Configure ANTHROPIC_API_KEY ou GEMINI_API_KEY para usar a analise de fotos.',
     };
+  }
+
+  private getPositiveIntConfig(key: string, fallback: number): number {
+    const rawValue = this.configService.get<string | number>(key);
+    const parsed =
+      typeof rawValue === 'number'
+        ? rawValue
+        : Number.parseInt(String(rawValue ?? ''), 10);
+
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  private clampPositiveInt(
+    value: number | undefined,
+    upperBound: number,
+    fallback: number,
+  ): number {
+    if (!Number.isFinite(value)) {
+      return fallback;
+    }
+
+    return Math.min(Math.max(Math.trunc(value!), 1), upperBound);
   }
 }

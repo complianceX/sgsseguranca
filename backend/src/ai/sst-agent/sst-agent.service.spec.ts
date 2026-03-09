@@ -56,6 +56,10 @@ const mockRateLimitService = () => ({
 const mockConfigService = (apiKey?: string) => ({
   get: jest.fn((key: string) => {
     if (key === 'ANTHROPIC_API_KEY') return apiKey;
+    if (key === 'ANTHROPIC_MODEL') return 'claude-test-model';
+    if (key === 'AI_HISTORY_DEFAULT_DAYS') return 30;
+    if (key === 'AI_HISTORY_MAX_DAYS') return 90;
+    if (key === 'AI_HISTORY_MAX_LIMIT') return 100;
     return undefined;
   }),
 });
@@ -147,11 +151,11 @@ describe('SstAgentService', () => {
 
       await service.getHistory(USER_ID);
 
-      expect(repo.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { tenant_id: TENANT_ID, user_id: USER_ID },
-        }),
-      );
+      const args = repo.find.mock.calls[0][0] as any;
+
+      expect(args.where.tenant_id).toBe(TENANT_ID);
+      expect(args.where.user_id).toBe(USER_ID);
+      expect(args.where.created_at).toBeDefined();
     });
 
     it('getHistory() deve lancar UnauthorizedException sem tenant', async () => {
@@ -214,7 +218,10 @@ describe('SstAgentService', () => {
 
       expect(result.confidence).toBe(ConfidenceLevel.LOW);
       expect(result.toolsUsed).toHaveLength(0);
-      expect(result.warnings).toContainEqual(expect.stringContaining('modo stub'));
+      expect(result.answer).toContain('modo demonstracao');
+      expect(result.warnings).toContainEqual(
+        expect.stringContaining('ANTHROPIC_API_KEY'),
+      );
     });
 
     it('deve persistir interacao em modo stub', async () => {
@@ -403,6 +410,28 @@ describe('SstAgentService', () => {
       expect(repo.find).toHaveBeenCalledWith(
         expect.objectContaining({ take: 20 }),
       );
+    });
+
+    it('deve aplicar janela temporal padrao de historico', async () => {
+      const { service, repo } = await makeService();
+      repo.find.mockResolvedValue([]);
+
+      await service.getHistory(USER_ID);
+
+      const args = repo.find.mock.calls[0][0] as any;
+      expect(args.where.created_at).toBeDefined();
+      expect(args.where.created_at._type).toBe('moreThanOrEqual');
+    });
+
+    it('deve limitar override de dias ao maximo configurado', async () => {
+      const { service, repo } = await makeService();
+      repo.find.mockResolvedValue([]);
+
+      await service.getHistory(USER_ID, 999, 365);
+
+      const args = repo.find.mock.calls[0][0] as any;
+      expect(args.take).toBe(100);
+      expect(args.where.created_at._type).toBe('moreThanOrEqual');
     });
 
     it('deve ordenar por created_at DESC', async () => {

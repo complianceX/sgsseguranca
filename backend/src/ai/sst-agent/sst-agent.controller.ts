@@ -118,9 +118,11 @@ export class SstAgentController {
   async getHistory(
     @Request() req: any,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('days') days?: string,
   ) {
+    const parsedDays = this.parseOptionalPositiveInt(days, 'days');
     const userId: string = req.user?.sub ?? req.user?.id ?? 'unknown';
-    return this.sstAgentService.getHistory(userId, limit);
+    return this.sstAgentService.getHistory(userId, limit, parsedDays);
   }
 
   /**
@@ -134,5 +136,23 @@ export class SstAgentController {
   @Authorize('can_use_ai')
   async getInteraction(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.sstAgentService.getInteraction(id);
+  }
+
+  private parseOptionalPositiveInt(
+    value: string | undefined,
+    fieldName: string,
+  ): number | undefined {
+    if (value === undefined || value === '') {
+      return undefined;
+    }
+
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      throw new BadRequestException(
+        `${fieldName} deve ser um número inteiro positivo.`,
+      );
+    }
+
+    return parsed;
   }
 }

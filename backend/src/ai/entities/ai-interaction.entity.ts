@@ -28,7 +28,11 @@ import {
  */
 @Entity('ai_interactions')
 @Index('IDX_ai_interactions_tenant_created', ['tenant_id', 'created_at'])
-@Index('IDX_ai_interactions_tenant_user', ['tenant_id', 'user_id'])
+@Index('IDX_ai_interactions_tenant_user_created', [
+  'tenant_id',
+  'user_id',
+  'created_at',
+])
 export class AiInteraction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
