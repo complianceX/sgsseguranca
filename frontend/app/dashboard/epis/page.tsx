@@ -91,6 +91,7 @@ export default function EpisPage() {
             <input
               type="text"
               placeholder="Buscar por nome ou C.A..."
+              aria-label="Buscar EPIs por nome ou CA"
               className="w-full rounded-md border border-gray-300 py-2 pl-10 pr-4 text-sm focus:border-blue-500 focus:outline-none"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}

@@ -154,7 +154,7 @@ export function ActivityForm({ id }: ActivityFormProps) {
               className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                 errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
-              aria-invalid={Boolean(errors.company_id)}
+              aria-invalid={errors.company_id ? 'true' : undefined}
             >
               <option value="">Selecione uma empresa</option>
               {companies.map(company => (
@@ -173,7 +173,7 @@ export function ActivityForm({ id }: ActivityFormProps) {
               className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                 errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
-              aria-invalid={Boolean(errors.nome)}
+              aria-invalid={errors.nome ? 'true' : undefined}
               placeholder="Ex: Trabalho em Altura"
             />
             {errors.nome && <p className="mt-1 text-xs text-red-500">{errors.nome.message}</p>}

@@ -29,6 +29,7 @@ export const ChecklistsFilters = React.memo(({
           <input
             type="text"
             placeholder="Pesquisar checklists..."
+            aria-label="Pesquisar checklists"
             className={cn(inputClassName, 'pl-10')}
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}

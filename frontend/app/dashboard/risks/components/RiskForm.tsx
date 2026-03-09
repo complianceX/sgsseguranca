@@ -153,6 +153,7 @@ export function RiskForm({ id }: RiskFormProps) {
             <select
               id="company_id"
               {...register('company_id')}
+              aria-invalid={errors.company_id ? 'true' : undefined}
               className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none transition-colors ${
                 errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
@@ -171,6 +172,7 @@ export function RiskForm({ id }: RiskFormProps) {
               id="nome"
               type="text"
               {...register('nome')}
+              aria-invalid={errors.nome ? 'true' : undefined}
               className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none transition-colors ${
                 errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
@@ -184,6 +186,7 @@ export function RiskForm({ id }: RiskFormProps) {
             <select
               id="categoria"
               {...register('categoria')}
+              aria-invalid={errors.categoria ? 'true' : undefined}
               className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none transition-colors ${
                 errors.categoria ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
@@ -203,6 +206,7 @@ export function RiskForm({ id }: RiskFormProps) {
             <textarea
               id="descricao"
               {...register('descricao')}
+              aria-label="Descrição do risco"
               rows={4}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               placeholder="Descreva brevemente o risco..."
@@ -214,6 +218,7 @@ export function RiskForm({ id }: RiskFormProps) {
             <textarea
               id="medidas_controle"
               {...register('medidas_controle')}
+              aria-label="Medidas de controle"
               rows={4}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               placeholder="Informe as medidas de controle adotadas..."
@@ -229,6 +234,7 @@ export function RiskForm({ id }: RiskFormProps) {
                 min={1}
                 max={5}
                 {...register('probability', { valueAsNumber: true })}
+                aria-label="Probabilidade"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               />
             </div>
@@ -240,6 +246,7 @@ export function RiskForm({ id }: RiskFormProps) {
                 min={1}
                 max={5}
                 {...register('severity', { valueAsNumber: true })}
+                aria-label="Severidade"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               />
             </div>
@@ -251,6 +258,7 @@ export function RiskForm({ id }: RiskFormProps) {
                 min={1}
                 max={5}
                 {...register('exposure', { valueAsNumber: true })}
+                aria-label="Exposição"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               />
             </div>
@@ -262,6 +270,7 @@ export function RiskForm({ id }: RiskFormProps) {
               <select
                 id="residual_risk"
                 {...register('residual_risk')}
+                aria-label="Risco residual"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               >
                 <option value="">Automático</option>
@@ -276,6 +285,7 @@ export function RiskForm({ id }: RiskFormProps) {
               <select
                 id="control_hierarchy"
                 {...register('control_hierarchy')}
+                aria-label="Hierarquia de controle"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               >
                 <option value="">Selecione</option>
@@ -293,6 +303,7 @@ export function RiskForm({ id }: RiskFormProps) {
             <textarea
               id="control_description"
               {...register('control_description')}
+              aria-label="Descrição do controle"
               rows={3}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
             />
@@ -302,25 +313,27 @@ export function RiskForm({ id }: RiskFormProps) {
             <div>
               <label htmlFor="evidence_photo" className="block text-sm font-medium text-gray-700">Evidência (foto/url)</label>
               <input
-                id="evidence_photo"
-                type="text"
-                {...register('evidence_photo')}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
-              />
+              id="evidence_photo"
+              type="text"
+              {...register('evidence_photo')}
+              aria-label="Evidência em foto ou URL"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+            />
             </div>
             <div>
               <label htmlFor="evidence_document" className="block text-sm font-medium text-gray-700">Evidência documental</label>
               <input
-                id="evidence_document"
-                type="text"
-                {...register('evidence_document')}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
-              />
+              id="evidence_document"
+              type="text"
+              {...register('evidence_document')}
+              aria-label="Evidência documental"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
+            />
             </div>
           </div>
 
-          <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
-            <input type="checkbox" {...register('control_evidence')} className="h-4 w-4 rounded border-gray-300" />
+          <label htmlFor="control_evidence" className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+            <input id="control_evidence" type="checkbox" {...register('control_evidence')} className="h-4 w-4 rounded border-gray-300" />
             Controle com evidência validada
           </label>
         </div>

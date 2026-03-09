@@ -1,4 +1,5 @@
-const preferredMajor = 20;
+const supportedMajors = [20, 22, 24];
+const preferredMajor = 24;
 const minimumMajor = 20;
 const version = process.versions?.node || '';
 const match = /^(\d+)\./.exec(version);
@@ -18,12 +19,12 @@ if (!Number.isFinite(major) || major < minimumMajor) {
   process.exit(1);
 }
 
-if (major !== preferredMajor) {
+if (!supportedMajors.includes(major)) {
   console.warn(
     [
-      `Aviso: versão recomendada para o projeto é Node.js ${preferredMajor}.x.`,
+      `Aviso: versões validadas para o projeto são Node.js ${supportedMajors.join(', ')}.`,
       `Versão atual detectada: ${version}.`,
-      'Se ocorrer erro de build/dev, troque para Node 20 LTS.',
+      `Se ocorrer erro de build/dev, prefira Node ${preferredMajor}.x.`,
     ].join('\n'),
   );
 }

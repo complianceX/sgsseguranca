@@ -205,6 +205,7 @@ export default function EmployeesPage() {
             <input
               type="text"
               placeholder="Pesquisar por nome ou CPF"
+              aria-label="Pesquisar funcionários por nome ou CPF"
               className={searchInputClassName}
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}

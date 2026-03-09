@@ -256,6 +256,7 @@ export function StoredFilesPanel({
         </div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5">
           <select
+            aria-label="Filtrar arquivos por empresa"
             value={companyId}
             onChange={(event) => setCompanyId(event.target.value)}
             className={inputClassName}
@@ -272,6 +273,7 @@ export function StoredFilesPanel({
             min={2020}
             max={2100}
             placeholder="Ano"
+            aria-label="Filtrar arquivos por ano"
             value={year}
             onChange={(event) => setYear(event.target.value)}
             className={inputClassName}
@@ -281,11 +283,13 @@ export function StoredFilesPanel({
             min={1}
             max={53}
             placeholder="Semana ISO"
+            aria-label="Filtrar arquivos por semana ISO"
             value={week}
             onChange={(event) => setWeek(event.target.value)}
             className={inputClassName}
           />
           <select
+            aria-label="Quantidade de arquivos por página"
             value={pageSize}
             onChange={(event) => setPageSize(Number(event.target.value))}
             className={inputClassName}

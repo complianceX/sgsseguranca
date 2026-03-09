@@ -892,6 +892,7 @@ export function AprForm({ id }: AprFormProps) {
               <input
                 type="file"
                 accept="image/*"
+                aria-label="Selecionar foto da evidência da APR"
                 onChange={(e) => setEvidenceFile(e.target.files?.[0] || null)}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
@@ -902,6 +903,7 @@ export function AprForm({ id }: AprFormProps) {
                 value={evidenceLatitude}
                 onChange={(e) => setEvidenceLatitude(e.target.value)}
                 placeholder="Latitude"
+                aria-label="Latitude da evidência"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
               <input
@@ -909,6 +911,7 @@ export function AprForm({ id }: AprFormProps) {
                 value={evidenceLongitude}
                 onChange={(e) => setEvidenceLongitude(e.target.value)}
                 placeholder="Longitude"
+                aria-label="Longitude da evidência"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
@@ -918,6 +921,7 @@ export function AprForm({ id }: AprFormProps) {
                 value={evidenceAccuracy}
                 onChange={(e) => setEvidenceAccuracy(e.target.value)}
                 placeholder="Precisão (m)"
+                aria-label="Precisão do GPS da evidência"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
               <button
@@ -1000,6 +1004,7 @@ export function AprForm({ id }: AprFormProps) {
                 value={hashToVerify}
                 onChange={(e) => setHashToVerify(e.target.value)}
                 placeholder="Cole o hash SHA-256 da evidência"
+                aria-label="Hash SHA-256 para verificação"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
               <button
@@ -1110,6 +1115,7 @@ export function AprForm({ id }: AprFormProps) {
               <input
                 type="file"
                 accept="application/pdf"
+                aria-label="Selecionar PDF da APR"
                 onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
                 className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
               />

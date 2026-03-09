@@ -184,6 +184,7 @@ export default function SitesPage() {
             <input
               type="text"
               placeholder="Buscar obras/setores..."
+              aria-label="Buscar obras ou setores por nome ou cidade"
               className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}

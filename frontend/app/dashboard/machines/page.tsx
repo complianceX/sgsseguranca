@@ -176,6 +176,7 @@ export default function MachinesPage() {
             <Input
               type="text"
               placeholder="Buscar máquinas..."
+              aria-label="Buscar máquinas por nome ou placa"
               className="pl-10"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}

@@ -282,6 +282,7 @@ export default function DocumentRegistryPage() {
           </div>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
             <select
+              aria-label="Selecionar empresa do pacote semanal"
               value={companyId}
               onChange={(event) => setCompanyId(event.target.value)}
               className={inputClassName}
@@ -297,6 +298,7 @@ export default function DocumentRegistryPage() {
               type="number"
               min={2020}
               max={2100}
+              aria-label="Selecionar ano documental"
               value={year}
               onChange={(event) => setYear(event.target.value)}
               placeholder="Ano"
@@ -306,6 +308,7 @@ export default function DocumentRegistryPage() {
               type="number"
               min={1}
               max={53}
+              aria-label="Selecionar semana ISO"
               value={week}
               onChange={(event) => setWeek(event.target.value)}
               placeholder="Semana ISO"
@@ -318,6 +321,7 @@ export default function DocumentRegistryPage() {
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="Buscar no índice"
+                aria-label="Buscar documentos no índice central"
                 className={cn(inputClassName, 'pl-10')}
               />
             </div>

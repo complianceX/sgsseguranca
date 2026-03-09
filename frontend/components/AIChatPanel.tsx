@@ -20,7 +20,7 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Olá! Sou sua IA especialista em SST. Posso apoiar com NRs, APR, PT, NC, treinamentos e conformidade operacional.',
+      content: 'Olá! Sou a  COMPLIANCEX. Posso apoiar com NRs, APR, PT, NC, treinamentos e conformidade operacional.',
       timestamp: new Date(),
     },
   ]);
@@ -250,6 +250,7 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
           <input
             ref={fileInputRef}
             type="file"
+            aria-label="Selecionar imagem para análise de risco"
             accept="image/jpeg,image/png,image/webp"
             onChange={handleSelectImage}
             className="hidden"

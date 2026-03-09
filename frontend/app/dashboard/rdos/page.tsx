@@ -663,19 +663,23 @@ export default function RdosPage() {
               {currentStep === 0 && (
                 <div className="space-y-4">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Data *</label>
+                    <label htmlFor="rdo-data" className="mb-1 block text-sm font-medium text-gray-700">Data *</label>
                     <input
+                      id="rdo-data"
                       type="date"
                       value={form.data}
                       onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))}
+                      aria-label="Data do RDO"
                       className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Obra/Setor</label>
+                    <label htmlFor="rdo-site-id" className="mb-1 block text-sm font-medium text-gray-700">Obra/Setor</label>
                     <select
+                      id="rdo-site-id"
                       value={form.site_id}
                       onChange={(e) => setForm((f) => ({ ...f, site_id: e.target.value }))}
+                      aria-label="Obra ou setor do RDO"
                       className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     >
                       <option value="">Selecionar obra...</option>
@@ -685,10 +689,12 @@ export default function RdosPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Responsável</label>
+                    <label htmlFor="rdo-responsavel-id" className="mb-1 block text-sm font-medium text-gray-700">Responsável</label>
                     <select
+                      id="rdo-responsavel-id"
                       value={form.responsavel_id}
                       onChange={(e) => setForm((f) => ({ ...f, responsavel_id: e.target.value }))}
+                      aria-label="Responsável pelo RDO"
                       className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                     >
                       <option value="">Selecionar responsável...</option>
@@ -705,10 +711,12 @@ export default function RdosPage() {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Clima manhã</label>
+                      <label htmlFor="rdo-clima-manha" className="mb-1 block text-sm font-medium text-gray-700">Clima manhã</label>
                       <select
+                        id="rdo-clima-manha"
                         value={form.clima_manha}
                         onChange={(e) => setForm((f) => ({ ...f, clima_manha: e.target.value }))}
+                        aria-label="Clima da manhã"
                         className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                       >
                         <option value="">Selecionar...</option>
@@ -718,10 +726,12 @@ export default function RdosPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Clima tarde</label>
+                      <label htmlFor="rdo-clima-tarde" className="mb-1 block text-sm font-medium text-gray-700">Clima tarde</label>
                       <select
+                        id="rdo-clima-tarde"
                         value={form.clima_tarde}
                         onChange={(e) => setForm((f) => ({ ...f, clima_tarde: e.target.value }))}
+                        aria-label="Clima da tarde"
                         className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                       >
                         <option value="">Selecionar...</option>
@@ -731,27 +741,32 @@ export default function RdosPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Temp. mín (°C)</label>
+                      <label htmlFor="rdo-temperatura-min" className="mb-1 block text-sm font-medium text-gray-700">Temp. mín (°C)</label>
                       <input
+                        id="rdo-temperatura-min"
                         type="number"
                         value={form.temperatura_min}
                         onChange={(e) => setForm((f) => ({ ...f, temperatura_min: e.target.value }))}
+                        aria-label="Temperatura mínima"
                         className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Temp. máx (°C)</label>
+                      <label htmlFor="rdo-temperatura-max" className="mb-1 block text-sm font-medium text-gray-700">Temp. máx (°C)</label>
                       <input
+                        id="rdo-temperatura-max"
                         type="number"
                         value={form.temperatura_max}
                         onChange={(e) => setForm((f) => ({ ...f, temperatura_max: e.target.value }))}
+                        aria-label="Temperatura máxima"
                         className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Condição do terreno</label>
+                    <label htmlFor="rdo-condicao-terreno" className="mb-1 block text-sm font-medium text-gray-700">Condição do terreno</label>
                     <input
+                      id="rdo-condicao-terreno"
                       type="text"
                       value={form.condicao_terreno}
                       onChange={(e) => setForm((f) => ({ ...f, condicao_terreno: e.target.value }))}
@@ -981,10 +996,11 @@ export default function RdosPage() {
                       <span className="font-medium text-amber-600">Houve paralisação</span>
                     </label>
                   </div>
-                  {form.houve_paralisacao && (
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Motivo da paralisação</label>
+                {form.houve_paralisacao && (
+                  <div>
+                      <label htmlFor="rdo-motivo-paralisacao" className="mb-1 block text-sm font-medium text-gray-700">Motivo da paralisação</label>
                       <input
+                        id="rdo-motivo-paralisacao"
                         type="text"
                         value={form.motivo_paralisacao}
                         onChange={(e) => setForm((f) => ({ ...f, motivo_paralisacao: e.target.value }))}
@@ -1038,20 +1054,24 @@ export default function RdosPage() {
                     </button>
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Observações gerais</label>
+                    <label htmlFor="rdo-observacoes" className="mb-1 block text-sm font-medium text-gray-700">Observações gerais</label>
                     <textarea
+                      id="rdo-observacoes"
                       value={form.observacoes}
                       onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))}
+                      aria-label="Observações gerais do RDO"
                       rows={3}
                       className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                       placeholder="Observações relevantes do dia..."
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Programa para amanhã</label>
+                    <label htmlFor="rdo-programa-amanha" className="mb-1 block text-sm font-medium text-gray-700">Programa para amanhã</label>
                     <textarea
+                      id="rdo-programa-amanha"
                       value={form.programa_servicos_amanha}
                       onChange={(e) => setForm((f) => ({ ...f, programa_servicos_amanha: e.target.value }))}
+                      aria-label="Programa de serviços para amanhã"
                       rows={2}
                       className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                       placeholder="Serviços planejados para o próximo dia..."

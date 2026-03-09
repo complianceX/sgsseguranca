@@ -181,6 +181,7 @@ export default function ActivitiesPage() {
             <input
               type="text"
               placeholder="Buscar atividades..."
+              aria-label="Buscar atividades por nome ou descrição"
               className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}

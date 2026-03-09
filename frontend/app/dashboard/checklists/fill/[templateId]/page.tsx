@@ -239,38 +239,44 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
         {/* Informações Básicas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="checklist-titulo" className="block text-sm font-medium text-gray-700 mb-2">
               Título *
             </label>
             <input
+              id="checklist-titulo"
               type="text"
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
+              aria-label="Título do checklist"
               className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="checklist-data" className="block text-sm font-medium text-gray-700 mb-2">
               Data *
             </label>
             <input
+              id="checklist-data"
               type="date"
               value={data}
               onChange={(e) => setData(e.target.value)}
+              aria-label="Data do checklist"
               className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="checklist-site" className="block text-sm font-medium text-gray-700 mb-2">
               Obra/Setor *
             </label>
             <select
+              id="checklist-site"
               value={siteId}
               onChange={(e) => setSiteId(e.target.value)}
+              aria-label="Obra ou setor do checklist"
               className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >
@@ -284,12 +290,14 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="checklist-inspetor" className="block text-sm font-medium text-gray-700 mb-2">
               Inspetor *
             </label>
             <select
+              id="checklist-inspetor"
               value={inspetorId}
               onChange={(e) => setInspetorId(e.target.value)}
+              aria-label="Inspetor responsável"
               className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >
@@ -304,13 +312,15 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
 
           {equipamento && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="checklist-equipamento" className="block text-sm font-medium text-gray-700 mb-2">
                 Equipamento
               </label>
               <input
+                id="checklist-equipamento"
                 type="text"
                 value={equipamento}
                 onChange={(e) => setEquipamento(e.target.value)}
+                aria-label="Equipamento do checklist"
                 className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -318,13 +328,15 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
 
           {maquina && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="checklist-maquina" className="block text-sm font-medium text-gray-700 mb-2">
                 Máquina
               </label>
               <input
+                id="checklist-maquina"
                 type="text"
                 value={maquina}
                 onChange={(e) => setMaquina(e.target.value)}
+                aria-label="Máquina do checklist"
                 className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -332,12 +344,14 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="checklist-descricao" className="block text-sm font-medium text-gray-700 mb-2">
             Descrição
           </label>
           <textarea
+            id="checklist-descricao"
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
+            aria-label="Descrição do checklist"
             rows={3}
             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -345,13 +359,15 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
 
         {/* Foto do Equipamento */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="checklist-foto-equipamento" className="block text-sm font-medium text-gray-700 mb-2">
             Foto do Equipamento
           </label>
           <input
+            id="checklist-foto-equipamento"
             type="file"
             accept="image/*"
             onChange={handlePhotoChange}
+            aria-label="Foto do equipamento"
             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {fotoEquipamento && (
@@ -373,12 +389,14 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor={`checklist-item-status-${index}`} className="block text-sm font-medium text-gray-700 mb-2">
                       Status
                     </label>
                     <select
+                      id={`checklist-item-status-${index}`}
                       value={String(item.status)}
                       onChange={(e) => handleItemChange(index, 'status', e.target.value)}
+                      aria-label={`Status do item ${item.item}`}
                       className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       {item.tipo_resposta === 'sim_nao_na' ? (
@@ -398,13 +416,15 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor={`checklist-item-observacao-${index}`} className="block text-sm font-medium text-gray-700 mb-2">
                       Observação
                     </label>
                     <input
+                      id={`checklist-item-observacao-${index}`}
                       type="text"
                       value={item.observacao || ''}
                       onChange={(e) => handleItemChange(index, 'observacao', e.target.value)}
+                      aria-label={`Observação do item ${item.item}`}
                       className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Observações adicionais..."
                     />

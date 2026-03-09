@@ -438,9 +438,11 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 {/* Título */}
                 <div className="md:col-span-2">
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Título do Checklist</label>
+                    <label htmlFor="checklist-form-titulo" className="mb-1 block text-sm font-medium text-gray-700">Título do Checklist</label>
                     <input
+                        id="checklist-form-titulo"
                         {...register('titulo')}
+                        aria-invalid={errors.titulo ? 'true' : undefined}
                         className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
                         placeholder="Ex: Checklist de Furadeira"
                     />
@@ -449,8 +451,9 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
 
                 {/* Empresa */}
                 <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Empresa</label>
+                    <label htmlFor="checklist-form-company-id" className="mb-1 block text-sm font-medium text-gray-700">Empresa</label>
                     <select
+                        id="checklist-form-company-id"
                         {...register('company_id', {
                             onChange: (e) => {
                                 const value = e.target.value;
@@ -459,6 +462,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                                 setValue('inspetor_id', '');
                             },
                         })}
+                        aria-invalid={errors.company_id ? 'true' : undefined}
                         className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
                     >
                         <option value="">Selecione uma empresa</option>
@@ -472,20 +476,24 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                 </div>
                 {/* Data */}
                 <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Data</label>
+                    <label htmlFor="checklist-form-data" className="mb-1 block text-sm font-medium text-gray-700">Data</label>
                     <input
+                        id="checklist-form-data"
                         type="date"
                         {...register('data')}
+                        aria-invalid={errors.data ? 'true' : undefined}
                         className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
                     />
                     {errors.data && <p className="mt-1 text-xs text-red-500">{errors.data.message}</p>}
                 </div>
                 {/* Obra/Setor */}
                 <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Obra/Setor</label>
+                    <label htmlFor="checklist-form-site-id" className="mb-1 block text-sm font-medium text-gray-700">Obra/Setor</label>
                     <select
+                        id="checklist-form-site-id"
                         {...register('site_id')}
                         disabled={!selectedCompanyId}
+                        aria-label="Obra ou setor do checklist"
                         className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none disabled:bg-gray-50"
                     >
                         <option value="">{selectedCompanyId ? 'Selecione uma obra' : 'Selecione uma empresa primeiro'}</option>
@@ -498,10 +506,12 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                 </div>
                 {/* Inspetor */}
                 <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Inspetor</label>
+                    <label htmlFor="checklist-form-inspetor-id" className="mb-1 block text-sm font-medium text-gray-700">Inspetor</label>
                     <select
+                        id="checklist-form-inspetor-id"
                         {...register('inspetor_id')}
                         disabled={!selectedCompanyId}
+                        aria-label="Inspetor do checklist"
                         className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none disabled:bg-gray-50"
                     >
                         <option value="">{selectedCompanyId ? 'Selecione um inspetor' : 'Selecione uma empresa primeiro'}</option>
@@ -514,8 +524,9 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                 </div>
             </div>
             <div className="mt-6">
-                <label className="mb-1 block text-sm font-medium text-gray-700">Foto do Equipamento</label>
+                <label htmlFor="checklist-form-foto-equipamento" className="mb-1 block text-sm font-medium text-gray-700">Foto do Equipamento</label>
                 <input
+                    id="checklist-form-foto-equipamento"
                     type="file"
                     accept="image/*"
                     onChange={handlePhotoChange}
@@ -713,8 +724,9 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
             </p>
             
             <div className="mb-6">
-                <label className="mb-1 block text-sm font-medium text-gray-700">Email de Destino</label>
+                <label htmlFor="checklist-form-email-destino" className="mb-1 block text-sm font-medium text-gray-700">Email de Destino</label>
                 <input 
+                  id="checklist-form-email-destino"
                   type="email" 
                   value={emailTo}
                   onChange={(e) => setEmailTo(e.target.value)}

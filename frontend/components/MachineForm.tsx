@@ -205,7 +205,7 @@ export function MachineForm({ id }: MachineFormProps) {
               <Select
                 id="company_id"
                 {...register('company_id')}
-                aria-invalid={Boolean(errors.company_id)}
+                aria-invalid={errors.company_id ? 'true' : undefined}
               >
                 <option value="">Selecione uma empresa</option>
                 {companies.map((company) => (
@@ -228,7 +228,7 @@ export function MachineForm({ id }: MachineFormProps) {
                 id="nome"
                 type="text"
                 {...register('nome')}
-                aria-invalid={Boolean(errors.nome)}
+                aria-invalid={errors.nome ? 'true' : undefined}
                 placeholder="Ex: Escavadeira Caterpillar"
               />
             </FormField>
@@ -258,7 +258,7 @@ export function MachineForm({ id }: MachineFormProps) {
                 type="number"
                 step="0.1"
                 {...register('horimetro_atual', { valueAsNumber: true })}
-                aria-invalid={Boolean(errors.horimetro_atual)}
+                aria-invalid={errors.horimetro_atual ? 'true' : undefined}
               />
             </FormField>
           </CardContent>

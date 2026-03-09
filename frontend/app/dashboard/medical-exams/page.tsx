@@ -569,10 +569,12 @@ export default function MedicalExamsPage() {
 
             <CardContent className="grid gap-4 px-6 py-6 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className={labelClassName}>Funcionário *</label>
+                <label htmlFor="medical-exam-user-id" className={labelClassName}>Funcionário *</label>
                 <select
+                  id="medical-exam-user-id"
                   value={form.user_id}
                   onChange={(event) => setForm({ ...form, user_id: event.target.value })}
+                  aria-label="Funcionário do exame médico"
                   className={fieldClassName}
                   disabled={saving}
                 >
@@ -586,10 +588,12 @@ export default function MedicalExamsPage() {
               </div>
 
               <div>
-                <label className={labelClassName}>Tipo de exame *</label>
+                <label htmlFor="medical-exam-tipo" className={labelClassName}>Tipo de exame *</label>
                 <select
+                  id="medical-exam-tipo"
                   value={form.tipo_exame}
                   onChange={(event) => setForm({ ...form, tipo_exame: event.target.value })}
+                  aria-label="Tipo de exame"
                   className={fieldClassName}
                   disabled={saving}
                 >
@@ -602,10 +606,12 @@ export default function MedicalExamsPage() {
               </div>
 
               <div>
-                <label className={labelClassName}>Resultado *</label>
+                <label htmlFor="medical-exam-resultado" className={labelClassName}>Resultado *</label>
                 <select
+                  id="medical-exam-resultado"
                   value={form.resultado}
                   onChange={(event) => setForm({ ...form, resultado: event.target.value })}
+                  aria-label="Resultado do exame"
                   className={fieldClassName}
                   disabled={saving}
                 >
@@ -618,30 +624,35 @@ export default function MedicalExamsPage() {
               </div>
 
               <div>
-                <label className={labelClassName}>Data de realização *</label>
+                <label htmlFor="medical-exam-data-realizacao" className={labelClassName}>Data de realização *</label>
                 <input
+                  id="medical-exam-data-realizacao"
                   type="date"
                   value={form.data_realizacao}
                   onChange={(event) => setForm({ ...form, data_realizacao: event.target.value })}
+                  aria-label="Data de realização do exame"
                   className={fieldClassName}
                   disabled={saving}
                 />
               </div>
 
               <div>
-                <label className={labelClassName}>Data de vencimento</label>
+                <label htmlFor="medical-exam-data-vencimento" className={labelClassName}>Data de vencimento</label>
                 <input
+                  id="medical-exam-data-vencimento"
                   type="date"
                   value={form.data_vencimento}
                   onChange={(event) => setForm({ ...form, data_vencimento: event.target.value })}
+                  aria-label="Data de vencimento do exame"
                   className={fieldClassName}
                   disabled={saving}
                 />
               </div>
 
               <div>
-                <label className={labelClassName}>Médico responsável</label>
+                <label htmlFor="medical-exam-medico" className={labelClassName}>Médico responsável</label>
                 <input
+                  id="medical-exam-medico"
                   type="text"
                   value={form.medico_responsavel}
                   onChange={(event) =>
@@ -654,11 +665,13 @@ export default function MedicalExamsPage() {
               </div>
 
               <div>
-                <label className={labelClassName}>CRM</label>
+                <label htmlFor="medical-exam-crm" className={labelClassName}>CRM</label>
                 <input
+                  id="medical-exam-crm"
                   type="text"
                   value={form.crm_medico}
                   onChange={(event) => setForm({ ...form, crm_medico: event.target.value })}
+                  aria-label="CRM do médico"
                   placeholder="CRM/SP 123456"
                   className={fieldClassName}
                   disabled={saving}
@@ -666,10 +679,12 @@ export default function MedicalExamsPage() {
               </div>
 
               <div className="md:col-span-2">
-                <label className={labelClassName}>Observações</label>
+                <label htmlFor="medical-exam-observacoes" className={labelClassName}>Observações</label>
                 <textarea
+                  id="medical-exam-observacoes"
                   value={form.observacoes}
                   onChange={(event) => setForm({ ...form, observacoes: event.target.value })}
+                  aria-label="Observações do exame médico"
                   rows={4}
                   className={fieldClassName}
                   disabled={saving}

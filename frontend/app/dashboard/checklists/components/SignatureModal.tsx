@@ -213,7 +213,13 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
                     </div>
                     <span className="text-sm font-medium text-gray-600">Clique para selecionar imagem</span>
                     <span className="text-xs text-gray-400">PNG, JPG ou JPEG</span>
-                    <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      aria-label="Selecionar imagem de assinatura"
+                      onChange={handleFileUpload}
+                    />
                   </label>
                 )}
               </div>

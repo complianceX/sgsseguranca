@@ -462,29 +462,35 @@ export default function ServiceOrdersPage() {
             </div>
             <div className="max-h-[70vh] overflow-y-auto space-y-4 p-6">
               <div>
-                <label className="mb-1 block text-sm font-semibold text-gray-700">Título *</label>
+                <label htmlFor="service-order-titulo" className="mb-1 block text-sm font-semibold text-gray-700">Título *</label>
                 <input
+                  id="service-order-titulo"
                   type="text"
                   value={form.titulo}
                   onChange={(e) => setForm({ ...form, titulo: e.target.value })}
+                  aria-label="Título da ordem de serviço"
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold text-gray-700">Descrição das Atividades *</label>
+                <label htmlFor="service-order-descricao-atividades" className="mb-1 block text-sm font-semibold text-gray-700">Descrição das Atividades *</label>
                 <textarea
+                  id="service-order-descricao-atividades"
                   value={form.descricao_atividades}
                   onChange={(e) => setForm({ ...form, descricao_atividades: e.target.value })}
+                  aria-label="Descrição das atividades da ordem de serviço"
                   rows={4}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-gray-700">Obra</label>
+                  <label htmlFor="service-order-site-id" className="mb-1 block text-sm font-semibold text-gray-700">Obra</label>
                   <select
+                    id="service-order-site-id"
                     value={form.site_id}
                     onChange={(e) => setForm({ ...form, site_id: e.target.value })}
+                    aria-label="Obra da ordem de serviço"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                   >
                     <option value="">Selecione...</option>
@@ -494,10 +500,12 @@ export default function ServiceOrdersPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-gray-700">Responsável</label>
+                  <label htmlFor="service-order-responsavel-id" className="mb-1 block text-sm font-semibold text-gray-700">Responsável</label>
                   <select
+                    id="service-order-responsavel-id"
                     value={form.responsavel_id}
                     onChange={(e) => setForm({ ...form, responsavel_id: e.target.value })}
+                    aria-label="Responsável da ordem de serviço"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                   >
                     <option value="">Selecione...</option>
@@ -509,38 +517,46 @@ export default function ServiceOrdersPage() {
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-gray-700">Data Emissão *</label>
+                  <label htmlFor="service-order-data-emissao" className="mb-1 block text-sm font-semibold text-gray-700">Data Emissão *</label>
                   <input
+                    id="service-order-data-emissao"
                     type="date"
                     value={form.data_emissao}
                     onChange={(e) => setForm({ ...form, data_emissao: e.target.value })}
+                    aria-label="Data de emissão"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-gray-700">Data Início</label>
+                  <label htmlFor="service-order-data-inicio" className="mb-1 block text-sm font-semibold text-gray-700">Data Início</label>
                   <input
+                    id="service-order-data-inicio"
                     type="date"
                     value={form.data_inicio}
                     onChange={(e) => setForm({ ...form, data_inicio: e.target.value })}
+                    aria-label="Data de início"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-gray-700">Fim Previsto</label>
+                  <label htmlFor="service-order-data-fim-previsto" className="mb-1 block text-sm font-semibold text-gray-700">Fim Previsto</label>
                   <input
+                    id="service-order-data-fim-previsto"
                     type="date"
                     value={form.data_fim_previsto}
                     onChange={(e) => setForm({ ...form, data_fim_previsto: e.target.value })}
+                    aria-label="Data de fim previsto"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold text-gray-700">Responsabilidades</label>
+                <label htmlFor="service-order-responsabilidades" className="mb-1 block text-sm font-semibold text-gray-700">Responsabilidades</label>
                 <textarea
+                  id="service-order-responsabilidades"
                   value={form.responsabilidades}
                   onChange={(e) => setForm({ ...form, responsabilidades: e.target.value })}
+                  aria-label="Responsabilidades da ordem de serviço"
                   rows={2}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 />
@@ -553,6 +569,7 @@ export default function ServiceOrdersPage() {
                   </span>
                 </label>
                 <textarea
+                  aria-label="Riscos identificados em JSON"
                   value={form.riscos_json}
                   onChange={(e) => setForm({ ...form, riscos_json: e.target.value })}
                   rows={3}
@@ -567,6 +584,7 @@ export default function ServiceOrdersPage() {
                   </span>
                 </label>
                 <textarea
+                  aria-label="EPIs necessários em JSON"
                   value={form.epis_json}
                   onChange={(e) => setForm({ ...form, epis_json: e.target.value })}
                   rows={3}

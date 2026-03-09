@@ -78,11 +78,13 @@ export function BasicInfoSection({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
+          <label htmlFor="pt-numero" className="block text-sm font-semibold text-gray-700 mb-1">
             Número <span className="text-red-500">*</span>
           </label>
           <input
+            id="pt-numero"
             {...register('numero')}
+            aria-invalid={errors.numero ? 'true' : undefined}
             placeholder="Ex: PT-001"
             className={cn(
               'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
@@ -95,11 +97,13 @@ export function BasicInfoSection({
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
+          <label htmlFor="pt-status" className="block text-sm font-semibold text-gray-700 mb-1">
             Status <span className="text-red-500">*</span>
           </label>
           <select
+            id="pt-status"
             {...register('status')}
+            aria-invalid={errors.status ? 'true' : undefined}
             className={cn(
               'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
               errors.status ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
@@ -114,11 +118,13 @@ export function BasicInfoSection({
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
+          <label htmlFor="pt-titulo" className="block text-sm font-semibold text-gray-700 mb-1">
             Título <span className="text-red-500">*</span>
           </label>
           <input
+            id="pt-titulo"
             {...register('titulo')}
+            aria-invalid={errors.titulo ? 'true' : undefined}
             placeholder="Descreva o trabalho a ser executado"
             className={cn(
               'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
@@ -131,11 +137,13 @@ export function BasicInfoSection({
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
+          <label htmlFor="pt-descricao" className="block text-sm font-semibold text-gray-700 mb-1">
             Descrição
           </label>
           <textarea
+            id="pt-descricao"
             {...register('descricao')}
+            aria-label="Descrição da permissão de trabalho"
             rows={3}
             placeholder="Detalhe a atividade, riscos e controles"
             className={cn(
@@ -146,12 +154,14 @@ export function BasicInfoSection({
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
+          <label htmlFor="pt-data-hora-inicio" className="block text-sm font-semibold text-gray-700 mb-1">
             Início <span className="text-red-500">*</span>
           </label>
           <input
+            id="pt-data-hora-inicio"
             type="datetime-local"
             {...register('data_hora_inicio')}
+            aria-invalid={errors.data_hora_inicio ? 'true' : undefined}
             className={cn(
               'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
               errors.data_hora_inicio ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
@@ -160,12 +170,14 @@ export function BasicInfoSection({
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
+          <label htmlFor="pt-data-hora-fim" className="block text-sm font-semibold text-gray-700 mb-1">
             Fim <span className="text-red-500">*</span>
           </label>
           <input
+            id="pt-data-hora-fim"
             type="datetime-local"
             {...register('data_hora_fim')}
+            aria-invalid={errors.data_hora_fim ? 'true' : undefined}
             className={cn(
               'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
               errors.data_hora_fim ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
@@ -174,10 +186,11 @@ export function BasicInfoSection({
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
+          <label htmlFor="pt-company-id" className="block text-sm font-semibold text-gray-700 mb-1">
             Empresa <span className="text-red-500">*</span>
           </label>
           <select
+            id="pt-company-id"
             {...register('company_id')}
             onChange={(e) => {
               setValue('company_id', e.target.value, { shouldValidate: true });
@@ -185,6 +198,7 @@ export function BasicInfoSection({
               setValue('apr_id', '', { shouldValidate: true });
               setValue('responsavel_id', '', { shouldValidate: true });
             }}
+            aria-invalid={errors.company_id ? 'true' : undefined}
             className={cn(
               'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
               errors.company_id ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
@@ -200,12 +214,14 @@ export function BasicInfoSection({
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
+          <label htmlFor="pt-site-id" className="block text-sm font-semibold text-gray-700 mb-1">
             Obra / Site <span className="text-red-500">*</span>
           </label>
           <select
+            id="pt-site-id"
             {...register('site_id')}
             disabled={!companyId}
+            aria-invalid={errors.site_id ? 'true' : undefined}
             className={cn(
               'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:bg-gray-100',
               errors.site_id ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
@@ -221,12 +237,14 @@ export function BasicInfoSection({
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
+          <label htmlFor="pt-apr-id" className="block text-sm font-semibold text-gray-700 mb-1">
             APR (opcional)
           </label>
           <select
+            id="pt-apr-id"
             {...register('apr_id')}
             disabled={!companyId}
+            aria-label="APR vinculada"
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:bg-gray-100"
           >
             <option value="">{companyId ? 'Selecione...' : 'Selecione a empresa'}</option>
@@ -239,12 +257,14 @@ export function BasicInfoSection({
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1">
+          <label htmlFor="pt-responsavel-id" className="block text-sm font-semibold text-gray-700 mb-1">
             Responsável <span className="text-red-500">*</span>
           </label>
           <select
+            id="pt-responsavel-id"
             {...register('responsavel_id')}
             disabled={!companyId}
+            aria-invalid={errors.responsavel_id ? 'true' : undefined}
             className={cn(
               'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:bg-gray-100',
               errors.responsavel_id ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
@@ -277,6 +297,7 @@ export function BasicInfoSection({
             <input
               type="file"
               accept="application/pdf"
+              aria-label="Selecionar PDF da PT"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];

@@ -178,6 +178,7 @@ export default function CompaniesPage() {
             <input
               type="text"
               placeholder="Buscar empresas..."
+              aria-label="Buscar empresas por razão social ou CNPJ"
               className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}

@@ -162,7 +162,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                 errors.razao_social ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
-              aria-invalid={Boolean(errors.razao_social)}
+              aria-invalid={errors.razao_social ? 'true' : undefined}
               placeholder="Ex: Empresa de Engenharia LTDA"
             />
             {errors.razao_social && (
@@ -181,7 +181,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                 errors.cnpj ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
-              aria-invalid={Boolean(errors.cnpj)}
+              aria-invalid={errors.cnpj ? 'true' : undefined}
               placeholder="00.000.000/0000-00"
             />
             {errors.cnpj && (

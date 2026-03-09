@@ -225,11 +225,12 @@ export function TrainingForm({ id }: TrainingFormProps) {
             <label htmlFor="company_id" className="text-sm font-medium text-gray-700">
               Empresa
             </label>
-            <select
-              id="company_id"
-              {...register('company_id')}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-            >
+              <select
+                id="company_id"
+                {...register('company_id')}
+                aria-invalid={errors.company_id ? 'true' : undefined}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
               <option value="">Selecione uma empresa</option>
               {companies.map((company) => (
                 <option key={company.id} value={company.id}>
@@ -251,6 +252,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
                 id="user_id"
                 {...register('user_id')}
                 disabled={!selectedCompanyId}
+                aria-invalid={errors.user_id ? 'true' : undefined}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-50"
                 onChange={(e) => {
                   setValue('user_id', e.target.value);
@@ -300,6 +302,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
               id="nome"
               type="text"
               {...register('nome')}
+              aria-invalid={errors.nome ? 'true' : undefined}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="Ex: NR-35 Trabalho em Altura"
             />
@@ -316,6 +319,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
               id="data_conclusao"
               type="date"
               {...register('data_conclusao')}
+              aria-invalid={errors.data_conclusao ? 'true' : undefined}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             />
             {errors.data_conclusao && (
@@ -331,6 +335,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
               id="data_vencimento"
               type="date"
               {...register('data_vencimento')}
+              aria-invalid={errors.data_vencimento ? 'true' : undefined}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             />
             {errors.data_vencimento && (

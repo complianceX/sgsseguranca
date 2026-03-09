@@ -349,6 +349,7 @@ export default function CatsPage() {
                     <div className="flex items-center justify-end gap-2">
                       <input
                         type="file"
+                        aria-label="Selecionar anexo da CAT"
                         ref={(el) => {
                           fileInputRefs.current[cat.id] = el;
                         }}

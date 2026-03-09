@@ -588,45 +588,52 @@ export function DdsForm({ id }: DdsFormProps) {
           </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Tema do DDS</label>
+              <label htmlFor="dds-tema" className="block text-sm font-medium text-gray-700">Tema do DDS</label>
               <input
+                id="dds-tema"
                 type="text"
                 {...register('tema')}
                 className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                   errors.tema ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
                 }`}
-                aria-invalid={Boolean(errors.tema)}
+                aria-invalid={errors.tema ? 'true' : undefined}
                 placeholder="Ex: Importância do uso de EPIs"
               />
               {errors.tema && <p className="mt-1 text-xs text-red-500">{errors.tema.message}</p>}
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Conteúdo / Resumo</label>
+              <label htmlFor="dds-conteudo" className="block text-sm font-medium text-gray-700">Conteúdo / Resumo</label>
               <textarea
+                id="dds-conteudo"
                 {...register('conteudo')}
                 rows={5}
+                aria-label="Conteúdo do DDS"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 placeholder="Descreva brevemente os pontos abordados no DDS..."
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Data</label>
+              <label htmlFor="dds-data" className="block text-sm font-medium text-gray-700">Data</label>
               <input
+                id="dds-data"
                 type="date"
                 {...register('data')}
+                aria-label="Data do DDS"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label htmlFor="dds-pdf-file" className="block text-sm font-medium text-gray-700">
                 PDF do DDS (opcional)
               </label>
               <input
+                id="dds-pdf-file"
                 type="file"
                 accept="application/pdf"
+                aria-label="Selecionar PDF do DDS"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   setDdsPdfFile(file || null);
@@ -639,8 +646,9 @@ export function DdsForm({ id }: DdsFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Empresa</label>
+              <label htmlFor="dds-company-id" className="block text-sm font-medium text-gray-700">Empresa</label>
               <select
+                id="dds-company-id"
                 {...register('company_id')}
                 onChange={(e) => {
                   setValue('company_id', e.target.value);
@@ -651,7 +659,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                   errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
                 }`}
-                aria-invalid={Boolean(errors.company_id)}
+                aria-invalid={errors.company_id ? 'true' : undefined}
               >
                 <option value="">Selecione uma empresa</option>
                 {companies.map(company => (
@@ -662,15 +670,17 @@ export function DdsForm({ id }: DdsFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Site/Unidade</label>
+              <label htmlFor="dds-site-id" className="block text-sm font-medium text-gray-700">Site/Unidade</label>
               <select
+                id="dds-site-id"
                 {...register('site_id')}
                 disabled={!selectedCompanyId}
+                aria-label="Site ou unidade do DDS"
                 className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                   !selectedCompanyId ? 'bg-gray-100 cursor-not-allowed border-gray-300' : 
                   errors.site_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
                 }`}
-                aria-invalid={Boolean(errors.site_id)}
+                aria-invalid={errors.site_id ? 'true' : undefined}
               >
                 <option value="">{selectedCompanyId ? 'Selecione um site' : 'Selecione uma empresa primeiro'}</option>
                 {filteredSites.map(site => (
@@ -681,15 +691,17 @@ export function DdsForm({ id }: DdsFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Facilitador</label>
+              <label htmlFor="dds-facilitador-id" className="block text-sm font-medium text-gray-700">Facilitador</label>
               <select
+                id="dds-facilitador-id"
                 {...register('facilitador_id')}
                 disabled={!selectedCompanyId}
+                aria-label="Facilitador do DDS"
                 className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                   !selectedCompanyId ? 'bg-gray-100 cursor-not-allowed border-gray-300' :
                   errors.facilitador_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
                 }`}
-                aria-invalid={Boolean(errors.facilitador_id)}
+                aria-invalid={errors.facilitador_id ? 'true' : undefined}
               >
                 <option value="">{selectedCompanyId ? 'Selecione um facilitador' : 'Selecione uma empresa primeiro'}</option>
                 {filteredUsers.map(user => (
@@ -750,7 +762,7 @@ export function DdsForm({ id }: DdsFormProps) {
               <input
                 type="file"
                 accept="image/*"
-                capture="environment"
+                aria-label="Selecionar fotos da equipe para o DDS"
                 multiple
                 className="hidden"
                 onChange={handleTeamPhotoChange}

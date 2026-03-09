@@ -211,6 +211,7 @@ export function UserForm({ id }: UserFormProps) {
               id="nome"
               type="text"
               {...register('nome')}
+              aria-invalid={errors.nome ? 'true' : undefined}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="Nome do usuário"
             />
@@ -228,6 +229,7 @@ export function UserForm({ id }: UserFormProps) {
                 id="email"
                 type="email"
                 {...register('email')}
+                aria-invalid={errors.email ? 'true' : undefined}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 placeholder="email@exemplo.com"
               />
@@ -245,6 +247,7 @@ export function UserForm({ id }: UserFormProps) {
               id="cpf"
               type="text"
               {...register('cpf')}
+              aria-invalid={errors.cpf ? 'true' : undefined}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="000.000.000-00"
             />
@@ -261,6 +264,7 @@ export function UserForm({ id }: UserFormProps) {
               id="funcao"
               type="text"
               {...register('funcao')}
+              aria-invalid={errors.funcao ? 'true' : undefined}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="Ex: Engenheiro de Segurança"
             />
@@ -274,6 +278,7 @@ export function UserForm({ id }: UserFormProps) {
               <select
                 id="role"
                 {...register('role')}
+                aria-label="Regra de acesso"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               >
                 <option value="">Selecione uma regra</option>
@@ -296,6 +301,7 @@ export function UserForm({ id }: UserFormProps) {
                   setValue('site_id', '');
                 },
               })}
+              aria-invalid={errors.company_id ? 'true' : undefined}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             >
               <option value="">Selecione uma empresa</option>
@@ -317,6 +323,7 @@ export function UserForm({ id }: UserFormProps) {
             <select
               id="site_id"
               {...register('site_id')}
+              aria-label="Obra ou setor"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               disabled={!selectedCompanyId}
             >
@@ -337,6 +344,7 @@ export function UserForm({ id }: UserFormProps) {
               <select
                 id="profile_id"
                 {...register('profile_id')}
+                aria-label="Perfil de acesso"
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               >
                 <option value="">Selecione um perfil</option>
@@ -358,6 +366,7 @@ export function UserForm({ id }: UserFormProps) {
                 id="password"
                 type="password"
                 {...register('password')}
+                aria-invalid={errors.password ? 'true' : undefined}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 placeholder="******"
               />

@@ -203,25 +203,28 @@ export function AuditForm({ id }: AuditFormProps) {
         </h2>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-bold text-gray-700">Título</label>
+            <label htmlFor="audit-titulo" className="mb-2 block text-sm font-bold text-gray-700">Título</label>
             <input
+              id="audit-titulo"
               {...register('titulo')}
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                 errors.titulo ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
-              aria-invalid={Boolean(errors.titulo)}
+              aria-invalid={errors.titulo ? 'true' : undefined}
             />
             {errors.titulo && <p className="mt-1 text-xs text-red-500">{errors.titulo.message}</p>}
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Unidade/Site</label>
+            <label htmlFor="audit-site-id" className="mb-2 block text-sm font-bold text-gray-700">Unidade/Site</label>
             <select
+              id="audit-site-id"
               {...register('site_id')}
+              aria-label="Unidade ou site da auditoria"
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                 errors.site_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
-              aria-invalid={Boolean(errors.site_id)}
+              aria-invalid={errors.site_id ? 'true' : undefined}
             >
               <option value="">Selecione um site</option>
               {sites.map((site) => (
@@ -232,22 +235,26 @@ export function AuditForm({ id }: AuditFormProps) {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Data da Auditoria</label>
+            <label htmlFor="audit-data-auditoria" className="mb-2 block text-sm font-bold text-gray-700">Data da Auditoria</label>
             <input
+              id="audit-data-auditoria"
               type="date"
               {...register('data_auditoria')}
+              aria-label="Data da auditoria"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Tipo de Auditoria</label>
+            <label htmlFor="audit-tipo-auditoria" className="mb-2 block text-sm font-bold text-gray-700">Tipo de Auditoria</label>
             <select
+              id="audit-tipo-auditoria"
               {...register('tipo_auditoria')}
+              aria-label="Tipo de auditoria"
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                 errors.tipo_auditoria ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
-              aria-invalid={Boolean(errors.tipo_auditoria)}
+              aria-invalid={errors.tipo_auditoria ? 'true' : undefined}
             >
               <option value="Interna">Interna</option>
               <option value="Externa">Externa</option>
@@ -259,13 +266,15 @@ export function AuditForm({ id }: AuditFormProps) {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Auditor Responsável</label>
+            <label htmlFor="audit-auditor-id" className="mb-2 block text-sm font-bold text-gray-700">Auditor Responsável</label>
             <select
+              id="audit-auditor-id"
               {...register('auditor_id')}
+              aria-label="Auditor responsável"
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                 errors.auditor_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
-              aria-invalid={Boolean(errors.auditor_id)}
+              aria-invalid={errors.auditor_id ? 'true' : undefined}
             >
               <option value="">Selecione o auditor</option>
               {users.map((user) => (
@@ -276,19 +285,23 @@ export function AuditForm({ id }: AuditFormProps) {
           </div>
 
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-bold text-gray-700">Representantes da Empresa</label>
+            <label htmlFor="audit-representantes-empresa" className="mb-2 block text-sm font-bold text-gray-700">Representantes da Empresa</label>
             <textarea
+              id="audit-representantes-empresa"
               {...register('representantes_empresa')}
               rows={2}
+              aria-label="Representantes da empresa"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="Nomes dos representantes que acompanharam a auditoria"
             />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-bold text-gray-700">Anexar PDF da Auditoria (opcional)</label>
+            <label htmlFor="audit-pdf-file" className="mb-2 block text-sm font-bold text-gray-700">Anexar PDF da Auditoria (opcional)</label>
             <input
+              id="audit-pdf-file"
               type="file"
               accept="application/pdf"
+              aria-label="Selecionar PDF da auditoria"
               onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
             />

@@ -179,9 +179,11 @@ export function InspectionForm({ id }: InspectionFormProps) {
         <h2 className="mb-4 text-lg font-bold text-gray-900">1. IDENTIFICAÇÃO DA EMPRESA</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Site / Unidade</label>
+            <label htmlFor="inspection-site-id" className="mb-2 block text-sm font-bold text-gray-700">Site / Unidade</label>
             <select
+              id="inspection-site-id"
               {...register('site_id')}
+              aria-label="Selecionar site da inspeção"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             >
               <option value="">Selecione o site</option>
@@ -193,9 +195,11 @@ export function InspectionForm({ id }: InspectionFormProps) {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Setor / Área</label>
+            <label htmlFor="inspection-setor-area" className="mb-2 block text-sm font-bold text-gray-700">Setor / Área</label>
             <input
+              id="inspection-setor-area"
               {...register('setor_area')}
+              aria-label="Informar setor ou área da inspeção"
               placeholder="Ex: Almoxarifado, Produção, etc."
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             />
@@ -209,9 +213,11 @@ export function InspectionForm({ id }: InspectionFormProps) {
         <h2 className="mb-4 text-lg font-bold text-gray-900">2. IDENTIFICAÇÃO DA INSPEÇÃO</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Tipo de Inspeção</label>
+            <label htmlFor="inspection-tipo" className="mb-2 block text-sm font-bold text-gray-700">Tipo de Inspeção</label>
             <select
+              id="inspection-tipo"
               {...register('tipo_inspecao')}
+              aria-label="Selecionar tipo de inspeção"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             >
               <option value="Rotina">Rotina</option>
@@ -222,27 +228,33 @@ export function InspectionForm({ id }: InspectionFormProps) {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Data</label>
+            <label htmlFor="inspection-data" className="mb-2 block text-sm font-bold text-gray-700">Data</label>
             <input
+              id="inspection-data"
               type="date"
               {...register('data_inspecao')}
+              aria-label="Selecionar data da inspeção"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Horário</label>
+            <label htmlFor="inspection-horario" className="mb-2 block text-sm font-bold text-gray-700">Horário</label>
             <input
+              id="inspection-horario"
               type="time"
               {...register('horario')}
+              aria-label="Selecionar horário da inspeção"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Responsável</label>
+            <label htmlFor="inspection-responsavel" className="mb-2 block text-sm font-bold text-gray-700">Responsável</label>
             <select
+              id="inspection-responsavel"
               {...register('responsavel_id')}
+              aria-label="Selecionar responsável pela inspeção"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             >
               <option value="">Selecione o responsável</option>
@@ -258,9 +270,12 @@ export function InspectionForm({ id }: InspectionFormProps) {
       {/* 3. OBJETIVO DO RELATÓRIO */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-bold text-gray-900">3. OBJETIVO DO RELATÓRIO</h2>
+        <label htmlFor="inspection-objetivo" className="sr-only">Objetivo do relatório</label>
         <textarea
+          id="inspection-objetivo"
           {...register('objetivo')}
           rows={3}
+          aria-label="Objetivo do relatório de inspeção"
           className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           placeholder="Descreva o objetivo desta inspeção..."
         />
@@ -269,9 +284,12 @@ export function InspectionForm({ id }: InspectionFormProps) {
       {/* 4. DESCRIÇÃO DO LOCAL E DAS ATIVIDADES */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-bold text-gray-900">4. DESCRIÇÃO DO LOCAL E DAS ATIVIDADES</h2>
+        <label htmlFor="inspection-descricao-local" className="sr-only">Descrição do local e das atividades</label>
         <textarea
+          id="inspection-descricao-local"
           {...register('descricao_local_atividades')}
           rows={3}
+          aria-label="Descrição do local e das atividades"
           className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           placeholder="Descreva o local e as atividades observadas..."
         />
@@ -341,6 +359,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Grupo de Risco</label>
                   <select
                     {...register(`perigos_riscos.${index}.grupo_risco` as const)}
+                    aria-label={`Grupo de risco ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   >
                     <option value="">Selecione</option>
@@ -351,6 +370,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Perigo / Fator de Risco</label>
                   <input
                     {...register(`perigos_riscos.${index}.perigo_fator_risco` as const)}
+                    aria-label={`Perigo ou fator de risco ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -358,6 +378,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Fonte / Circunstância</label>
                   <input
                     {...register(`perigos_riscos.${index}.fonte_circunstancia` as const)}
+                    aria-label={`Fonte ou circunstância ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -365,6 +386,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Trabalhadores Expostos</label>
                   <input
                     {...register(`perigos_riscos.${index}.trabalhadores_expostos` as const)}
+                    aria-label={`Trabalhadores expostos ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -372,6 +394,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Tipo de Exposição</label>
                   <select
                     {...register(`perigos_riscos.${index}.tipo_exposicao` as const)}
+                    aria-label={`Tipo de exposição ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   >
                     <option value="">Selecione</option>
@@ -382,6 +405,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Medidas Existentes</label>
                   <input
                     {...register(`perigos_riscos.${index}.medidas_existentes` as const)}
+                    aria-label={`Medidas existentes ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -389,6 +413,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Severidade</label>
                   <input
                     {...register(`perigos_riscos.${index}.severidade` as const)}
+                    aria-label={`Severidade ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -396,6 +421,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Probabilidade</label>
                   <input
                     {...register(`perigos_riscos.${index}.probabilidade` as const)}
+                    aria-label={`Probabilidade ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -403,6 +429,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Nível de Risco</label>
                   <select
                     {...register(`perigos_riscos.${index}.nivel_risco` as const)}
+                    aria-label={`Nível de risco ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   >
                     <option value="">Selecione</option>
@@ -413,6 +440,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Classificação</label>
                   <select
                     {...register(`perigos_riscos.${index}.classificacao_risco` as const)}
+                    aria-label={`Classificação de risco ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   >
                     <option value="">Selecione</option>
@@ -423,6 +451,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Ações Necessárias</label>
                   <input
                     {...register(`perigos_riscos.${index}.acoes_necessarias` as const)}
+                    aria-label={`Ações necessárias ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -430,6 +459,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Prazo</label>
                   <input
                     {...register(`perigos_riscos.${index}.prazo` as const)}
+                    aria-label={`Prazo do risco ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -437,6 +467,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Responsável</label>
                   <input
                     {...register(`perigos_riscos.${index}.responsavel` as const)}
+                    aria-label={`Responsável do risco ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -483,6 +514,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Ação</label>
                   <input
                     {...register(`plano_acao.${index}.acao` as const)}
+                    aria-label={`Ação do plano ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -490,6 +522,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Responsável</label>
                   <input
                     {...register(`plano_acao.${index}.responsavel` as const)}
+                    aria-label={`Responsável da ação ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -497,6 +530,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Prazo</label>
                   <input
                     {...register(`plano_acao.${index}.prazo` as const)}
+                    aria-label={`Prazo da ação ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                   />
                 </div>
@@ -541,6 +575,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Descrição da Evidência</label>
                   <input
                     {...register(`evidencias.${index}.descricao` as const)}
+                    aria-label={`Descrição da evidência ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                     placeholder="Ex: Foto do extintor descarregado"
                   />
@@ -549,6 +584,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">URL da Imagem (Opcional)</label>
                   <input
                     {...register(`evidencias.${index}.url` as const)}
+                    aria-label={`URL da evidência ${index + 1}`}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                     placeholder="Link da imagem..."
                   />
@@ -562,9 +598,12 @@ export function InspectionForm({ id }: InspectionFormProps) {
       {/* 9. CONCLUSÃO */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-bold text-gray-900">9. CONCLUSÃO</h2>
+        <label htmlFor="inspection-conclusao" className="sr-only">Conclusão da inspeção</label>
         <textarea
+          id="inspection-conclusao"
           {...register('conclusao')}
           rows={4}
+          aria-label="Conclusão da inspeção"
           className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           placeholder="Apresente as conclusões finais do relatório de inspeção..."
         />

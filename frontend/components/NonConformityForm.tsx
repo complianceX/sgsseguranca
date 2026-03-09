@@ -306,24 +306,27 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         <h2 className="mb-4 text-lg font-bold text-gray-900">1. Identificação da Não Conformidade</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Código da NC</label>
+            <label htmlFor="nc-codigo" className="mb-2 block text-sm font-bold text-gray-700">Código da NC</label>
             <input
+              id="nc-codigo"
               {...register('codigo_nc')}
               className={`w-full rounded-md border px-3 py-2 text-sm ${
                 errors.codigo_nc ? 'border-red-500' : 'border-gray-300'
               }`}
-              aria-invalid={Boolean(errors.codigo_nc)}
+              aria-invalid={errors.codigo_nc ? 'true' : undefined}
             />
             {errors.codigo_nc && <p className="mt-1 text-xs text-red-500">{errors.codigo_nc.message}</p>}
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Tipo</label>
+            <label htmlFor="nc-tipo" className="mb-2 block text-sm font-bold text-gray-700">Tipo</label>
             <select
+              id="nc-tipo"
               {...register('tipo')}
+              aria-label="Tipo da não conformidade"
               className={`w-full rounded-md border px-3 py-2 text-sm ${
                 errors.tipo ? 'border-red-500' : 'border-gray-300'
               }`}
-              aria-invalid={Boolean(errors.tipo)}
+              aria-invalid={errors.tipo ? 'true' : undefined}
             >
               {tiposNc.map((tipo) => (
                 <option key={tipo} value={tipo}>{tipo}</option>
@@ -332,17 +335,21 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             {errors.tipo && <p className="mt-1 text-xs text-red-500">{errors.tipo.message}</p>}
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Data da identificação</label>
+            <label htmlFor="nc-data-identificacao" className="mb-2 block text-sm font-bold text-gray-700">Data da identificação</label>
             <input
+              id="nc-data-identificacao"
               type="date"
               {...register('data_identificacao')}
+              aria-label="Data da identificação"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-bold text-gray-700">Site / Unidade</label>
+            <label htmlFor="nc-site-id" className="mb-2 block text-sm font-bold text-gray-700">Site / Unidade</label>
             <select
+              id="nc-site-id"
               {...register('site_id')}
+              aria-label="Site ou unidade da não conformidade"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             >
               <option value="">Selecione o site</option>
@@ -352,54 +359,60 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Local / Setor / Área</label>
+            <label htmlFor="nc-local-setor-area" className="mb-2 block text-sm font-bold text-gray-700">Local / Setor / Área</label>
             <input
+              id="nc-local-setor-area"
               {...register('local_setor_area')}
               className={`w-full rounded-md border px-3 py-2 text-sm ${
                 errors.local_setor_area ? 'border-red-500' : 'border-gray-300'
               }`}
-              aria-invalid={Boolean(errors.local_setor_area)}
+              aria-invalid={errors.local_setor_area ? 'true' : undefined}
             />
             {errors.local_setor_area && <p className="mt-1 text-xs text-red-500">{errors.local_setor_area.message}</p>}
           </div>
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-bold text-gray-700">Atividade envolvida</label>
+            <label htmlFor="nc-atividade-envolvida" className="mb-2 block text-sm font-bold text-gray-700">Atividade envolvida</label>
             <input
+              id="nc-atividade-envolvida"
               {...register('atividade_envolvida')}
               className={`w-full rounded-md border px-3 py-2 text-sm ${
                 errors.atividade_envolvida ? 'border-red-500' : 'border-gray-300'
               }`}
-              aria-invalid={Boolean(errors.atividade_envolvida)}
+              aria-invalid={errors.atividade_envolvida ? 'true' : undefined}
             />
             {errors.atividade_envolvida && <p className="mt-1 text-xs text-red-500">{errors.atividade_envolvida.message}</p>}
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Responsável pela área</label>
+            <label htmlFor="nc-responsavel-area" className="mb-2 block text-sm font-bold text-gray-700">Responsável pela área</label>
             <input
+              id="nc-responsavel-area"
               {...register('responsavel_area')}
               className={`w-full rounded-md border px-3 py-2 text-sm ${
                 errors.responsavel_area ? 'border-red-500' : 'border-gray-300'
               }`}
-              aria-invalid={Boolean(errors.responsavel_area)}
+              aria-invalid={errors.responsavel_area ? 'true' : undefined}
             />
             {errors.responsavel_area && <p className="mt-1 text-xs text-red-500">{errors.responsavel_area.message}</p>}
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Auditor / Técnico / Inspetor</label>
+            <label htmlFor="nc-auditor-responsavel" className="mb-2 block text-sm font-bold text-gray-700">Auditor / Técnico / Inspetor</label>
             <input
+              id="nc-auditor-responsavel"
               {...register('auditor_responsavel')}
               className={`w-full rounded-md border px-3 py-2 text-sm ${
                 errors.auditor_responsavel ? 'border-red-500' : 'border-gray-300'
               }`}
-              aria-invalid={Boolean(errors.auditor_responsavel)}
+              aria-invalid={errors.auditor_responsavel ? 'true' : undefined}
             />
             {errors.auditor_responsavel && <p className="mt-1 text-xs text-red-500">{errors.auditor_responsavel.message}</p>}
           </div>
           <div className="md:col-span-3">
-            <label className="mb-2 block text-sm font-bold text-gray-700">Anexar PDF da NC (opcional)</label>
+            <label htmlFor="nc-pdf-file" className="mb-2 block text-sm font-bold text-gray-700">Anexar PDF da NC (opcional)</label>
             <input
+              id="nc-pdf-file"
               type="file"
               accept="application/pdf"
+              aria-label="Selecionar PDF da não conformidade"
               onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
             />
@@ -428,36 +441,44 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         <h2 className="mb-4 text-lg font-bold text-gray-900">3. Descrição da Não Conformidade</h2>
         <div className="space-y-4">
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Descrição</label>
+            <label htmlFor="nc-descricao" className="mb-2 block text-sm font-bold text-gray-700">Descrição</label>
             <textarea
+              id="nc-descricao"
               {...register('descricao')}
+              aria-label="Descrição da não conformidade"
               rows={3}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
             {errors.descricao && <p className="mt-1 text-xs text-red-500">{errors.descricao.message}</p>}
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Evidência observada</label>
+            <label htmlFor="nc-evidencia-observada" className="mb-2 block text-sm font-bold text-gray-700">Evidência observada</label>
             <textarea
+              id="nc-evidencia-observada"
               {...register('evidencia_observada')}
+              aria-label="Evidência observada"
               rows={3}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
             {errors.evidencia_observada && <p className="mt-1 text-xs text-red-500">{errors.evidencia_observada.message}</p>}
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Condição insegura identificada</label>
+            <label htmlFor="nc-condicao-insegura" className="mb-2 block text-sm font-bold text-gray-700">Condição insegura identificada</label>
             <textarea
+              id="nc-condicao-insegura"
               {...register('condicao_insegura')}
+              aria-label="Condição insegura identificada"
               rows={2}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
             {errors.condicao_insegura && <p className="mt-1 text-xs text-red-500">{errors.condicao_insegura.message}</p>}
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Ato inseguro</label>
+            <label htmlFor="nc-ato-inseguro" className="mb-2 block text-sm font-bold text-gray-700">Ato inseguro</label>
             <textarea
+              id="nc-ato-inseguro"
               {...register('ato_inseguro')}
+              aria-label="Ato inseguro"
               rows={2}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
@@ -469,31 +490,35 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         <h2 className="mb-4 text-lg font-bold text-gray-900">4. Requisito Não Atendido</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Norma Regulamentadora</label>
+            <label htmlFor="nc-requisito-nr" className="mb-2 block text-sm font-bold text-gray-700">Norma Regulamentadora</label>
             <input
+              id="nc-requisito-nr"
               {...register('requisito_nr')}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
             {errors.requisito_nr && <p className="mt-1 text-xs text-red-500">{errors.requisito_nr.message}</p>}
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Item / Subitem</label>
+            <label htmlFor="nc-requisito-item" className="mb-2 block text-sm font-bold text-gray-700">Item / Subitem</label>
             <input
+              id="nc-requisito-item"
               {...register('requisito_item')}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
             {errors.requisito_item && <p className="mt-1 text-xs text-red-500">{errors.requisito_item.message}</p>}
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Procedimento interno</label>
+            <label htmlFor="nc-requisito-procedimento" className="mb-2 block text-sm font-bold text-gray-700">Procedimento interno</label>
             <input
+              id="nc-requisito-procedimento"
               {...register('requisito_procedimento')}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Política de SST</label>
+            <label htmlFor="nc-requisito-politica" className="mb-2 block text-sm font-bold text-gray-700">Política de SST</label>
             <input
+              id="nc-requisito-politica"
               {...register('requisito_politica')}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
@@ -505,16 +530,18 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         <h2 className="mb-4 text-lg font-bold text-gray-900">5. Análise de Risco Associada</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Perigo identificado</label>
+            <label htmlFor="nc-risco-perigo" className="mb-2 block text-sm font-bold text-gray-700">Perigo identificado</label>
             <input
+              id="nc-risco-perigo"
               {...register('risco_perigo')}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
             {errors.risco_perigo && <p className="mt-1 text-xs text-red-500">{errors.risco_perigo.message}</p>}
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Risco associado</label>
+            <label htmlFor="nc-risco-associado" className="mb-2 block text-sm font-bold text-gray-700">Risco associado</label>
             <input
+              id="nc-risco-associado"
               {...register('risco_associado')}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
@@ -538,8 +565,9 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           </div>
         </div>
         <div className="mt-4">
-          <label className="mb-2 block text-sm font-bold text-gray-700">Nível de risco</label>
+          <label htmlFor="nc-risco-nivel" className="mb-2 block text-sm font-bold text-gray-700">Nível de risco</label>
           <select
+            id="nc-risco-nivel"
             {...register('risco_nivel')}
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           >
@@ -567,8 +595,9 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           ))}
         </div>
         <div className="mt-4">
-          <label className="mb-2 block text-sm font-bold text-gray-700">Outro (descrever)</label>
+          <label htmlFor="nc-causa-outro" className="mb-2 block text-sm font-bold text-gray-700">Outro (descrever)</label>
           <input
+            id="nc-causa-outro"
             {...register('causa_outro')}
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
           />
@@ -579,31 +608,35 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         <h2 className="mb-4 text-lg font-bold text-gray-900">7. Ação Corretiva Imediata</h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-bold text-gray-700">Medida adotada</label>
+            <label htmlFor="nc-acao-imediata-descricao" className="mb-2 block text-sm font-bold text-gray-700">Medida adotada</label>
             <textarea
+              id="nc-acao-imediata-descricao"
               {...register('acao_imediata_descricao')}
               rows={2}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Data da ação</label>
+            <label htmlFor="nc-acao-imediata-data" className="mb-2 block text-sm font-bold text-gray-700">Data da ação</label>
             <input
+              id="nc-acao-imediata-data"
               type="date"
               {...register('acao_imediata_data')}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Responsável</label>
+            <label htmlFor="nc-acao-imediata-responsavel" className="mb-2 block text-sm font-bold text-gray-700">Responsável</label>
             <input
+              id="nc-acao-imediata-responsavel"
               {...register('acao_imediata_responsavel')}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">Status</label>
+            <label htmlFor="nc-acao-imediata-status" className="mb-2 block text-sm font-bold text-gray-700">Status</label>
             <select
+              id="nc-acao-imediata-status"
               {...register('acao_imediata_status')}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             >

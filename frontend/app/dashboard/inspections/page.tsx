@@ -298,6 +298,7 @@ export default function InspectionsPage() {
             <input
               type="text"
               placeholder="Buscar por setor, tipo, site ou responsável"
+              aria-label="Buscar inspeções por setor, tipo, site ou responsável"
               className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}

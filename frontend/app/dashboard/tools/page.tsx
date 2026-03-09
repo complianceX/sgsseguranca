@@ -178,6 +178,7 @@ export default function ToolsPage() {
             <input
               type="text"
               placeholder="Buscar ferramentas..."
+              aria-label="Buscar ferramentas por nome ou número de série"
               className={cn(inputClassName, 'pl-10')}
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}

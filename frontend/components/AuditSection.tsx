@@ -20,8 +20,9 @@ export function AuditSection<T extends AuditFields & FieldValues>({ register, au
       <h2 className="mb-4 text-lg font-bold text-gray-900">Seção de Auditoria</h2>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Auditado por</label>
+          <label htmlFor="auditado_por_id" className="block text-sm font-medium text-gray-700">Auditado por</label>
           <select
+            id="auditado_por_id"
             {...register('auditado_por_id' as Path<T>)}
             disabled={disabled}
             className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
@@ -36,8 +37,9 @@ export function AuditSection<T extends AuditFields & FieldValues>({ register, au
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Data da Auditoria</label>
+          <label htmlFor="data_auditoria" className="block text-sm font-medium text-gray-700">Data da Auditoria</label>
           <input
+            id="data_auditoria"
             type="date"
             {...register('data_auditoria' as Path<T>)}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
@@ -45,8 +47,9 @@ export function AuditSection<T extends AuditFields & FieldValues>({ register, au
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Resultado da Auditoria</label>
+          <label htmlFor="resultado_auditoria" className="block text-sm font-medium text-gray-700">Resultado da Auditoria</label>
           <select
+            id="resultado_auditoria"
             {...register('resultado_auditoria' as Path<T>)}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           >
@@ -58,8 +61,9 @@ export function AuditSection<T extends AuditFields & FieldValues>({ register, au
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700">Notas da Auditoria</label>
+          <label htmlFor="notas_auditoria" className="block text-sm font-medium text-gray-700">Notas da Auditoria</label>
           <textarea
+            id="notas_auditoria"
             {...register('notas_auditoria' as Path<T>)}
             rows={2}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"

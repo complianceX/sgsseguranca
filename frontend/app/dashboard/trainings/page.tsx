@@ -375,6 +375,7 @@ export default function TrainingsPage() {
               <input
                 type="text"
                 placeholder="Buscar por treinamento ou colaborador"
+                aria-label="Buscar treinamentos por nome do treinamento ou colaborador"
                 className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] py-2 pl-10 pr-4 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}

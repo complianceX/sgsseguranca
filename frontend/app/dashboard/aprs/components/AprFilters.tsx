@@ -29,6 +29,7 @@ export const AprFilters = React.memo(({ searchTerm, onSearchChange, statusFilter
           <input
             type="text"
             placeholder="Pesquisar APRs..."
+            aria-label="Pesquisar APRs"
             className={cn(inputClassName, 'pl-10')}
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -37,6 +38,7 @@ export const AprFilters = React.memo(({ searchTerm, onSearchChange, statusFilter
 
         <select
           title="Filtrar por status"
+          aria-label="Filtrar APRs por status"
           value={statusFilter}
           onChange={(e) => onStatusChange(e.target.value)}
           className={cn(inputClassName, 'min-w-[180px] pr-8')}
