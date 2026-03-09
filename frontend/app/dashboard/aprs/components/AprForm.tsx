@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Apr, aprsService } from '@/services/aprsService';
 import { activitiesService, Activity } from '@/services/activitiesService';
 import { risksService, Risk } from '@/services/risksService';
@@ -13,7 +13,20 @@ import { usersService, User } from '@/services/usersService';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, ArrowLeft, Sparkles, Loader2, Plus, Trash2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import {
+  Save,
+  ArrowLeft,
+  Sparkles,
+  Loader2,
+  Plus,
+  Trash2,
+  AlertTriangle,
+  CheckCircle2,
+  ArrowRight,
+  ClipboardList,
+  ShieldCheck,
+  FileText,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -25,6 +38,7 @@ import { AuditSection } from '@/components/AuditSection';
 import { cn } from '@/lib/utils';
 import { attachPdfIfProvided } from '@/lib/document-upload';
 import { AprLogEntry, AprTimeline } from './AprTimeline';
+import { useAuth } from '@/context/AuthContext';
 
 const aprSchema = z.object({
   numero: z.string().min(1, 'O número é obrigatório'),
@@ -67,6 +81,27 @@ interface AprFormProps {
   id?: string;
 }
 
+const APR_STEPS = [
+  {
+    id: 1,
+    title: 'Dados básicos',
+    description: 'Identificação da APR, empresa, obra, responsável e escopo.',
+    icon: FileText,
+  },
+  {
+    id: 2,
+    title: 'Riscos e controles',
+    description: 'Atividades, riscos, EPIs, participantes e planilha técnica da APR.',
+    icon: ClipboardList,
+  },
+  {
+    id: 3,
+    title: 'Governança',
+    description: 'Auditoria, revisão final e persistência da análise.',
+    icon: ShieldCheck,
+  },
+] as const;
+
 function calculateRiskCategory(probabilidade?: string, severidade?: string) {
   const p = Number(probabilidade || 0);
   const s = Number(severidade || 0);
@@ -96,6 +131,7 @@ function getCategoriaBadgeClass(categoria?: string) {
 
 export function AprForm({ id }: AprFormProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const [fetching, setFetching] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
@@ -163,6 +199,8 @@ export function AprForm({ id }: AprFormProps) {
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [currentSigningUser, setCurrentSigningUser] = useState<User | null>(null);
   const [signatures, setSignatures] = useState<Record<string, { data: string; type: string }>>({});
+  const [currentStep, setCurrentStep] = useState(1);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   const {
     register,
@@ -171,6 +209,7 @@ export function AprForm({ id }: AprFormProps) {
     control,
     setValue,
     watch,
+    trigger,
     formState: { errors },
   } = useForm<AprFormData>({
     resolver: zodResolver(aprSchema),
@@ -208,6 +247,10 @@ export function AprForm({ id }: AprFormProps) {
   const filteredEpis = epis.filter(epi => epi.company_id === selectedCompanyId);
   const filteredTools = tools.filter(tool => tool.company_id === selectedCompanyId);
   const filteredMachines = machines.filter(machine => machine.company_id === selectedCompanyId);
+  const draftStorageKey = useMemo(
+    () => (id ? null : `compliancex.apr.wizard.draft.${user?.company_id || 'default'}`),
+    [id, user?.company_id],
+  );
   
   const selectedActivityIds = watch('activities') || [];
   const selectedRiskIds = watch('risks') || [];
@@ -230,6 +273,8 @@ export function AprForm({ id }: AprFormProps) {
     control,
     name: 'itens_risco',
   });
+  const totalRiskLines = riskFields.length;
+  const completedSignatures = Object.keys(signatures).length;
 
   const { handleSubmit: onSubmit, loading } = useFormSubmit(
     async (data: AprFormData) => {
@@ -289,6 +334,11 @@ export function AprForm({ id }: AprFormProps) {
       successMessage: id ? 'APR atualizada com sucesso!' : 'APR cadastrada com sucesso!',
       redirectTo: '/dashboard/aprs',
       context: 'APR',
+      onSuccess: () => {
+        if (draftStorageKey && typeof window !== 'undefined') {
+          window.localStorage.removeItem(draftStorageKey);
+        }
+      },
     }
   );
 
@@ -588,46 +638,6 @@ export function AprForm({ id }: AprFormProps) {
         setTools(toolData);
         setMachines(machineData);
 
-        if (!id) {
-          const aprData = await aprsService.findAll();
-          const defaultAprItem = aprData.find((apr) => apr.is_modelo_padrao);
-          if (defaultAprItem) {
-            const defaultApr = await aprsService.findOne(defaultAprItem.id);
-            setValue('company_id', defaultApr.company_id);
-            setValue('titulo', defaultApr.titulo);
-            setValue('descricao', defaultApr.descricao || '');
-            setValue(
-              'activities',
-              (defaultApr.activities || []).map((activity) => activity.id),
-            );
-            setValue(
-              'risks',
-              (defaultApr.risks || []).map((risk) => risk.id),
-            );
-            setValue(
-              'epis',
-              (defaultApr.epis || []).map((epi) => epi.id),
-            );
-            setValue(
-              'tools',
-              (defaultApr.tools || []).map((tool) => tool.id),
-            );
-            setValue(
-              'machines',
-              (defaultApr.machines || []).map((machine) => machine.id),
-            );
-            setValue(
-              'participants',
-              (defaultApr.participants || []).map((participant) => participant.id),
-            );
-            if (defaultApr.itens_risco && defaultApr.itens_risco.length > 0) {
-              replaceRisk(defaultApr.itens_risco);
-            } else {
-              replaceRisk([]);
-            }
-          }
-        }
-
         if (id) {
           setLoadingTimeline(true);
           const [apr, sigs] = await Promise.all([
@@ -684,6 +694,73 @@ export function AprForm({ id }: AprFormProps) {
             notas_auditoria: apr.notas_auditoria || '',
           });
           setLoadingTimeline(false);
+        } else if (draftStorageKey && typeof window !== 'undefined') {
+          const rawDraft = window.localStorage.getItem(draftStorageKey);
+
+          if (rawDraft) {
+            const parsedDraft = JSON.parse(rawDraft) as {
+              values?: Partial<AprFormData>;
+              step?: number;
+              signatures?: Record<string, { data: string; type: string }>;
+            };
+
+            if (parsedDraft.values) {
+              reset({
+                ...watch(),
+                ...parsedDraft.values,
+              });
+              replaceRisk(
+                parsedDraft.values.itens_risco && parsedDraft.values.itens_risco.length > 0
+                  ? parsedDraft.values.itens_risco
+                  : [],
+              );
+            }
+
+            if (parsedDraft.step && parsedDraft.step >= 1 && parsedDraft.step <= 3) {
+              setCurrentStep(parsedDraft.step);
+            }
+
+            if (parsedDraft.signatures) {
+              setSignatures(parsedDraft.signatures);
+            }
+
+            setDraftRestored(true);
+          } else {
+            const aprData = await aprsService.findAll();
+            const defaultAprItem = aprData.find((apr) => apr.is_modelo_padrao);
+
+            if (defaultAprItem) {
+              const defaultApr = await aprsService.findOne(defaultAprItem.id);
+              setValue('company_id', defaultApr.company_id);
+              setValue('titulo', defaultApr.titulo);
+              setValue('descricao', defaultApr.descricao || '');
+              setValue(
+                'activities',
+                (defaultApr.activities || []).map((activity) => activity.id),
+              );
+              setValue(
+                'risks',
+                (defaultApr.risks || []).map((risk) => risk.id),
+              );
+              setValue(
+                'epis',
+                (defaultApr.epis || []).map((epi) => epi.id),
+              );
+              setValue(
+                'tools',
+                (defaultApr.tools || []).map((tool) => tool.id),
+              );
+              setValue(
+                'machines',
+                (defaultApr.machines || []).map((machine) => machine.id),
+              );
+              setValue(
+                'participants',
+                (defaultApr.participants || []).map((participant) => participant.id),
+              );
+              replaceRisk(defaultApr.itens_risco && defaultApr.itens_risco.length > 0 ? defaultApr.itens_risco : []);
+            }
+          }
         }
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -694,7 +771,55 @@ export function AprForm({ id }: AprFormProps) {
       }
     }
     loadData();
-  }, [id, reset, setValue, replaceRisk]);
+  }, [draftStorageKey, id, replaceRisk, reset, setValue, watch]);
+
+  useEffect(() => {
+    if (id || selectedCompanyId) return;
+    const companyId = user?.company_id;
+    if (!companyId) return;
+    setValue('company_id', companyId);
+    if (user?.site_id) {
+      setValue('site_id', user.site_id);
+    }
+    if (user?.id) {
+      setValue('elaborador_id', user.id);
+      setValue('participants', [user.id]);
+    }
+  }, [id, selectedCompanyId, setValue, user?.company_id, user?.id, user?.site_id]);
+
+  useEffect(() => {
+    if (!draftStorageKey || typeof window === 'undefined' || id) {
+      return;
+    }
+
+    const subscription = watch((values) => {
+      window.localStorage.setItem(
+        draftStorageKey,
+        JSON.stringify({
+          step: currentStep,
+          values,
+          signatures,
+        }),
+      );
+    });
+
+    return () => subscription.unsubscribe();
+  }, [currentStep, draftStorageKey, id, signatures, watch]);
+
+  useEffect(() => {
+    if (!draftStorageKey || typeof window === 'undefined' || id) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      draftStorageKey,
+      JSON.stringify({
+        step: currentStep,
+        values: watch(),
+        signatures,
+      }),
+    );
+  }, [currentStep, draftStorageKey, id, signatures, watch]);
 
   const toggleSelection = useCallback((field: 'activities' | 'risks' | 'epis' | 'tools' | 'machines' | 'participants', value: string) => {
     const current = watch(field) || [];
@@ -735,6 +860,27 @@ export function AprForm({ id }: AprFormProps) {
       toast.success(`Assinatura de ${currentSigningUser.nome} capturada!`);
     }
   }, [currentSigningUser, setValue, watch]);
+
+  const nextStep = useCallback(async () => {
+    let fields: (keyof AprFormData)[] = [];
+
+    if (currentStep === 1) {
+      fields = ['numero', 'titulo', 'company_id', 'site_id', 'elaborador_id', 'data_inicio', 'data_fim'];
+    } else if (currentStep === 2) {
+      fields = ['activities', 'risks', 'epis', 'participants', 'itens_risco'];
+    }
+
+    const isValid = await trigger(fields);
+    if (!isValid) return;
+
+    setCurrentStep((prev) => prev + 1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentStep, trigger]);
+
+  const prevStep = useCallback(() => {
+    setCurrentStep((prev) => prev - 1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   if (fetching) {
     return (
@@ -1050,28 +1196,152 @@ export function AprForm({ id }: AprFormProps) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-        <div className="rounded-xl border bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              Informações Básicas
-              <span className="h-2 w-2 rounded-full bg-blue-600"></span>
-            </h2>
-            <button
-              type="button"
-              onClick={handleAiAnalysis}
-              disabled={analyzing}
-              className="flex items-center justify-center space-x-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-700 px-4 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:scale-105 active:scale-95 disabled:opacity-50 group"
-            >
-              {analyzing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4 group-hover:rotate-12 transition-transform" />
-              )}
-              <span>Analisar com COMPLIANCE X</span>
-            </button>
+      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
+          <div className="ds-dashboard-panel overflow-hidden">
+            <div className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/16 px-5 py-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                Wizard operacional
+              </p>
+              <h2 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
+                Emissão guiada de APR
+              </h2>
+              <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                Conduza a análise por etapas para garantir consistência técnica, revisão e rastreabilidade.
+              </p>
+            </div>
+            <div className="space-y-3 px-4 py-4">
+              {APR_STEPS.map((step) => {
+                const Icon = step.icon;
+                const isActive = currentStep === step.id;
+                const isCompleted = currentStep > step.id;
+
+                return (
+                  <button
+                    key={step.id}
+                    type="button"
+                    onClick={() => {
+                      if (step.id <= currentStep) {
+                        setCurrentStep(step.id);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }
+                    }}
+                    className={`w-full rounded-[var(--ds-radius-lg)] border px-4 py-3 text-left transition-all ${
+                      isActive
+                        ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/12 shadow-[var(--ds-shadow-sm)]'
+                        : isCompleted
+                          ? 'border-emerald-400/25 bg-emerald-500/8 hover:border-emerald-300/40'
+                          : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/75'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
+                          isActive
+                            ? 'bg-[var(--ds-color-action-primary)] text-white'
+                            : isCompleted
+                              ? 'bg-emerald-500/18 text-emerald-200'
+                              : 'bg-[var(--ds-color-surface-muted)]/22 text-[var(--ds-color-text-muted)]'
+                        }`}
+                      >
+                        {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{step.title}</p>
+                        <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">{step.description}</p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+
+          <div className="ds-dashboard-panel px-5 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                  Resumo da APR
+                </p>
+                <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  {tituloApr || 'Título ainda não definido'}
+                </p>
+              </div>
+              {draftStorageKey && draftRestored ? (
+                <span className="rounded-full border border-amber-400/25 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-200">
+                  Rascunho restaurado
+                </span>
+              ) : null}
+            </div>
+
+            <div className="mt-4 space-y-3 text-sm text-[var(--ds-color-text-secondary)]">
+              <SummaryRow label="Empresa" value={selectedCompany?.razao_social || 'Não definida'} />
+              <SummaryRow label="Obra" value={selectedSite?.nome || 'Não definida'} />
+              <SummaryRow label="Elaborador" value={selectedElaborador?.nome || 'Não definido'} />
+              <SummaryRow label="Status" value={watch('status') || 'Pendente'} />
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <WizardMetric label="Atividades" value={String(selectedActivityIds.length)} tone="info" />
+              <WizardMetric label="Riscos" value={String(selectedRiskIds.length)} tone="warning" />
+              <WizardMetric label="Linhas APR" value={String(totalRiskLines)} tone="default" />
+              <WizardMetric label="Assinaturas" value={String(completedSignatures)} tone="success" />
+            </div>
+
+            {selectedParticipantIds.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {selectedParticipantIds.slice(0, 5).map((participantId) => {
+                  const participant = filteredUsers.find((item) => item.id === participantId);
+                  return (
+                    <span
+                      key={participantId}
+                      className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/20 px-2.5 py-1 text-[11px] font-semibold text-[var(--ds-color-text-secondary)]"
+                    >
+                      {participant?.nome || 'Participante'}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-[var(--ds-radius-lg)] border border-amber-400/20 bg-amber-500/8 px-3 py-2 text-xs text-amber-100">
+                Defina participantes e assinaturas antes de concluir a APR.
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-[var(--ds-radius-xl)] border border-red-400/18 bg-red-500/8 px-4 py-3 text-sm text-red-100">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>
+                Não finalize a APR sem revisar a matriz de risco, controles sugeridos e evidências associadas ao trabalho.
+              </p>
+            </div>
+          </div>
+        </aside>
+
+        <div className="space-y-8">
+          {currentStep === 1 && (
+            <div className="rounded-xl border bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+              <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  Informações Básicas
+                  <span className="h-2 w-2 rounded-full bg-blue-600"></span>
+                </h2>
+                <button
+                  type="button"
+                  onClick={handleAiAnalysis}
+                  disabled={analyzing}
+                  className="flex items-center justify-center space-x-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-700 px-4 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:scale-105 active:scale-95 disabled:opacity-50 group"
+                >
+                  {analyzing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+                  )}
+                  <span>Analisar com COMPLIANCE X</span>
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">Número da APR</label>
               <input
@@ -1240,11 +1510,13 @@ export function AprForm({ id }: AprFormProps) {
                 </label>
               )}
             </div>
-          </div>
-        </div>
+              </div>
+            </div>
+          )}
 
-        {/* Atividades, Riscos, EPIs, Ferramentas, Máquinas e Participantes */}
-        <div className="space-y-6">
+          {currentStep === 2 && (
+            <>
+              <div className="space-y-6">
           <SectionGrid
             title="Atividades"
             items={filteredActivities}
@@ -1614,33 +1886,102 @@ export function AprForm({ id }: AprFormProps) {
             </div>
           </div>
         </div>
+            </>
+          )}
 
-        {/* Auditoria */}
-        <AuditSection
-          register={register}
-          auditors={filteredUsers}
-        />
+          {currentStep === 3 && (
+            <>
+              <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                  Revisão operacional
+                </p>
+                <h3 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
+                  Validação final da APR
+                </h3>
+                <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                  Revise a coerência da matriz de risco, os participantes assinantes e os anexos antes de persistir a análise.
+                </p>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                      Matriz de risco
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      {totalRiskLines > 0 ? `${totalRiskLines} linha(s) preenchidas` : 'Nenhuma linha cadastrada'}
+                    </p>
+                  </div>
+                  <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                      Participantes
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      {selectedParticipantIds.length} selecionado(s) · {completedSignatures} assinatura(s)
+                    </p>
+                  </div>
+                  <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                      Evidência documental
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      {pdfFile ? pdfFile.name : currentApr?.pdf_file_key ? 'PDF já anexado' : 'Sem PDF anexado'}
+                    </p>
+                  </div>
+                </div>
+              </div>
 
+              <AuditSection
+                register={register}
+                auditors={filteredUsers}
+              />
+            </>
+          )}
 
-        <div className="flex items-center justify-end space-x-4 pt-4 border-t">
-          <Link
-            href="/dashboard/aprs"
-            className="rounded-lg px-6 py-2.5 text-sm font-bold text-gray-600 transition-all hover:bg-gray-100 active:scale-95"
-          >
-            Cancelar
-          </Link>
-          <button
-            type="submit"
-            disabled={loading || isApproved}
-            className="flex items-center space-x-2 rounded-lg bg-blue-600 px-8 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50"
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            <span>{isApproved ? 'APR bloqueada (aprovada)' : id ? 'Atualizar APR' : 'Salvar APR'}</span>
-          </button>
+          <div className="flex flex-col gap-4 border-t border-[var(--ds-color-border-subtle)] pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-2">
+              {currentStep > 1 ? (
+                <button
+                  type="button"
+                  onClick={prevStep}
+                  className="rounded-lg px-4 py-2.5 text-sm font-medium text-[#374151] transition-colors hover:bg-[#E5E7EB] border border-gray-300"
+                >
+                  Voltar
+                </button>
+              ) : (
+                <Link
+                  href="/dashboard/aprs"
+                  className="rounded-lg px-4 py-2.5 text-sm font-medium text-[#374151] transition-colors hover:bg-[#E5E7EB] border border-gray-300"
+                >
+                  Cancelar
+                </Link>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-0 sm:space-x-4">
+              {currentStep < 3 ? (
+                <button
+                  type="button"
+                  onClick={nextStep}
+                  className="flex items-center justify-center space-x-2 rounded-lg bg-[#2563EB] px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-[#1E40AF]"
+                >
+                  <span>Próximo</span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={loading || isApproved}
+                  className="flex items-center justify-center space-x-2 rounded-lg bg-blue-600 px-8 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  <span>{isApproved ? 'APR bloqueada (aprovada)' : id ? 'Atualizar APR' : 'Salvar APR'}</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </form>
 
@@ -1661,6 +2002,43 @@ function MiniStat({ label, value }: { label: string; value: number }) {
         {label}
       </p>
       <p className="text-lg font-bold text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+        {label}
+      </span>
+      <span className="max-w-[13rem] truncate text-right text-sm font-medium text-[var(--ds-color-text-primary)]">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function WizardMetric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: 'default' | 'info' | 'warning' | 'success';
+}) {
+  const tones = {
+    default: 'bg-[var(--ds-color-surface-muted)]/18 text-[var(--ds-color-text-secondary)]',
+    info: 'bg-sky-500/10 text-sky-100',
+    warning: 'bg-amber-500/10 text-amber-100',
+    success: 'bg-emerald-500/10 text-emerald-100',
+  };
+
+  return (
+    <div className={`rounded-[var(--ds-radius-lg)] px-3 py-3 ${tones[tone]}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] opacity-80">{label}</p>
+      <p className="mt-2 text-lg font-semibold">{value}</p>
     </div>
   );
 }

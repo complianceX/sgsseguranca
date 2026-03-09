@@ -621,10 +621,11 @@ export class SstAgentService {
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.geminiApiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          // Credencial via header — nunca expor em query string (logs, proxies, traces)
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.geminiApiKey },
           body: JSON.stringify({
             systemInstruction: {
               parts: [{ text: SST_SYSTEM_PROMPT }],
@@ -749,10 +750,11 @@ export class SstAgentService {
     }
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // Credencial via header — nunca expor em query string (logs, proxies, traces)
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.geminiApiKey },
         body: JSON.stringify({
           systemInstruction: {
             parts: [{ text: SST_IMAGE_ANALYSIS_PROMPT }],
