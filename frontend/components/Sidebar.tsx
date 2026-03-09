@@ -26,6 +26,7 @@ import {
   ClipboardList,
   Radio,
   Archive,
+  CalendarDays,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -39,6 +40,7 @@ const menuItems = [
   { icon: GraduationCap, label: 'Treinamentos', href: '/dashboard/trainings' },
   { icon: BarChart3, label: 'Relatórios COMPLIANCE X', href: '/dashboard/reports' },
   { type: 'divider', label: 'Gestão & Controle', adminOnly: true },
+  { icon: CalendarDays, label: 'Calendário SST', href: '/dashboard/calendar', adminOnly: true },
   { icon: BarChart2, label: 'KPIs SST', href: '/dashboard/kpis' },
   { icon: BarChart2, label: 'Cockpit Executivo', href: '/dashboard/executive' },
   { icon: Map, label: 'Mapa de Risco', href: '/dashboard/risk-map' },

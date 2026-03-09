@@ -72,6 +72,7 @@ import { ObservabilityModule } from './common/observability/observability.module
 import { RbacModule } from './rbac/rbac.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DocumentRegistryModule } from './document-registry/document-registry.module';
+import { CalendarModule } from './calendar/calendar.module';
 // QueueServicesModule removido do AppModule — registra as mesmas filas que
 // MailModule/ReportsModule/TasksModule, causando conflito de DI no NestJS.
 // Fica apenas no WorkerModule onde tem acesso completo a todas as filas.
@@ -540,6 +541,7 @@ const validationSchema = Joi.object({
     RbacModule,
     DashboardModule,
     DocumentRegistryModule,
+    CalendarModule,
   ],
   controllers: [AppController],
   providers: [
