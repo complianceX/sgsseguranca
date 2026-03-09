@@ -8,9 +8,9 @@ const textareaVariants = cva(
     variants: {
       tone: {
         default:
-          'border-[var(--ds-color-border-strong)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-bg-canvas)_78%,var(--ds-color-surface-base)_22%),color-mix(in_srgb,var(--ds-color-surface-base)_90%,transparent))] text-[var(--ds-color-text-primary)] shadow-[0_10px_24px_rgba(15,23,42,0.14)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]',
+          'border-[var(--ds-color-border-default)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-elevated)_84%,white_16%),color-mix(in_srgb,var(--ds-color-surface-base)_96%,transparent))] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]',
         subtle:
-          'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/92 text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]',
+          'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/96 text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]',
       },
     },
     defaultVariants: {

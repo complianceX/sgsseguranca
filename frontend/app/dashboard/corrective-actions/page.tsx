@@ -10,6 +10,10 @@ import {
 } from '@/services/correctiveActionsService';
 import { usersService, User } from '@/services/usersService';
 import { Plus, CheckCircle2, AlertTriangle, Clock3 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { handleApiError } from '@/lib/error-handler';
 
@@ -135,14 +139,23 @@ export default function CorrectiveActionsPage() {
   };
 
   const statusLabel = (status: CorrectiveActionStatus) =>
-    STATUS_OPTIONS.find((s) => s.value === status)?.label || status;
+    STATUS_OPTIONS.find((option) => option.value === status)?.label || status;
+
+  const priorityVariant = (priority: CorrectiveActionPriority) =>
+    priority === 'critical'
+      ? 'danger'
+      : priority === 'high'
+        ? 'warning'
+        : priority === 'medium'
+          ? 'accent'
+          : 'neutral';
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <h1 className="text-2xl font-bold text-gray-900">Ações Corretivas (CAPA)</h1>
-        <p className="text-gray-500">Planeje, acompanhe e conclua ações corretivas com SLA.</p>
-      </div>
+      <Card tone="elevated">
+        <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Ações Corretivas (CAPA)</h1>
+        <p className="text-[var(--ds-color-text-muted)]">Planeje, acompanhe e conclua ações corretivas com SLA.</p>
+      </Card>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <KpiCard label="Total" value={summary.total} icon={<Clock3 className="h-4 w-4" />} />
@@ -152,18 +165,14 @@ export default function CorrectiveActionsPage() {
         <KpiCard label="Vencidas" value={summary.overdue} icon={<AlertTriangle className="h-4 w-4" />} />
       </div>
 
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
+      <Card tone="elevated">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
             SLA Operacional
           </h2>
-          <button
-            type="button"
-            onClick={handleRunEscalation}
-            className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100"
-          >
+          <Button type="button" onClick={handleRunEscalation} variant="outline" size="sm">
             Executar escalonamento agora
-          </button>
+          </Button>
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           <KpiCard label="Vencidas" value={slaOverview.overdue} icon={<AlertTriangle className="h-4 w-4" />} />
@@ -172,38 +181,32 @@ export default function CorrectiveActionsPage() {
           <KpiCard label="Altas abertas" value={slaOverview.highOpen} icon={<Clock3 className="h-4 w-4" />} />
           <KpiCard label="Média resolução (dias)" value={Number(slaOverview.avgResolutionDays)} icon={<CheckCircle2 className="h-4 w-4" />} />
         </div>
-      </div>
+      </Card>
 
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Nova ação</h2>
+      <Card tone="elevated">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Nova ação</h2>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
-          <input
-            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
+          <Input
+            className="md:col-span-2"
             placeholder="Título"
             value={form.title}
-            onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
           />
-          <input
-            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
+          <Input
+            className="md:col-span-2"
             placeholder="Descrição"
             value={form.description}
-            onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
           />
-          <input
+          <Input
             type="date"
-            className="rounded-md border px-3 py-2 text-sm"
             value={form.due_date}
-            onChange={(e) => setForm((p) => ({ ...p, due_date: e.target.value }))}
+            onChange={(e) => setForm((prev) => ({ ...prev, due_date: e.target.value }))}
           />
           <select
-            className="rounded-md border px-3 py-2 text-sm"
+            className="h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
             value={form.priority}
-            onChange={(e) =>
-              setForm((p) => ({
-                ...p,
-                priority: e.target.value as CorrectiveActionPriority,
-              }))
-            }
+            onChange={(e) => setForm((prev) => ({ ...prev, priority: e.target.value as CorrectiveActionPriority }))}
           >
             <option value="low">Baixa</option>
             <option value="medium">Média</option>
@@ -211,31 +214,24 @@ export default function CorrectiveActionsPage() {
             <option value="critical">Crítica</option>
           </select>
           <select
-            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
+            className="h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)] md:col-span-2"
             value={form.responsible_user_id}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, responsible_user_id: e.target.value }))
-            }
+            onChange={(e) => setForm((prev) => ({ ...prev, responsible_user_id: e.target.value }))}
           >
             <option value="">Responsável (opcional)</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.nome}
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.nome}
               </option>
             ))}
           </select>
-          <button
-            type="button"
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-            onClick={handleCreate}
-            disabled={saving}
-          >
+          <Button type="button" onClick={handleCreate} disabled={saving} loading={saving}>
             {saving ? 'Salvando...' : 'Criar CAPA'}
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
 
-      <div className="rounded-xl border bg-white shadow-sm">
+      <Card tone="elevated" padding="none" className="overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -250,13 +246,13 @@ export default function CorrectiveActionsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-gray-500">
+                <TableCell colSpan={6} className="py-10 text-center text-[var(--ds-color-text-muted)]">
                   Carregando...
                 </TableCell>
               </TableRow>
             ) : actions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-gray-500">
+                <TableCell colSpan={6} className="py-10 text-center text-[var(--ds-color-text-muted)]">
                   Nenhuma ação corretiva cadastrada.
                 </TableCell>
               </TableRow>
@@ -265,18 +261,18 @@ export default function CorrectiveActionsPage() {
                 <TableRow key={action.id}>
                   <TableCell className="font-medium">{action.title}</TableCell>
                   <TableCell>{new Date(action.due_date).toLocaleDateString('pt-BR')}</TableCell>
-                  <TableCell>{action.priority}</TableCell>
-                  <TableCell>{action.responsible_user?.nome || action.responsible_name || '-'}</TableCell>
                   <TableCell>
-                    Nível {action.escalation_level || 0}
+                    <Badge variant={priorityVariant(action.priority) as 'danger' | 'warning' | 'accent' | 'neutral'}>
+                      {action.priority}
+                    </Badge>
                   </TableCell>
+                  <TableCell>{action.responsible_user?.nome || action.responsible_name || '-'}</TableCell>
+                  <TableCell>Nível {action.escalation_level || 0}</TableCell>
                   <TableCell>
                     <select
-                      className="rounded-md border px-2 py-1 text-xs"
+                      className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-2 py-1 text-xs text-[var(--ds-color-text-primary)]"
                       value={action.status}
-                      onChange={(e) =>
-                        handleStatusChange(action.id, e.target.value as CorrectiveActionStatus)
-                      }
+                      onChange={(e) => handleStatusChange(action.id, e.target.value as CorrectiveActionStatus)}
                     >
                       {STATUS_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -284,49 +280,49 @@ export default function CorrectiveActionsPage() {
                         </option>
                       ))}
                     </select>
-                    <span className="ml-2 text-xs text-gray-500">{statusLabel(action.status)}</span>
+                    <span className="ml-2 text-xs text-[var(--ds-color-text-muted)]">{statusLabel(action.status)}</span>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-      </div>
+      </Card>
 
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+      <Card tone="elevated">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
           SLA por Obra/Setor
         </h2>
         {slaBySite.length === 0 ? (
-          <p className="text-sm text-gray-500">Sem dados de SLA por obra ainda.</p>
+          <p className="text-sm text-[var(--ds-color-text-muted)]">Sem dados de SLA por obra ainda.</p>
         ) : (
           <div className="space-y-2">
             {slaBySite.map((item) => (
               <div
                 key={item.site}
-                className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                className="flex items-center justify-between rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-3 py-2 text-sm"
               >
-                <span className="font-medium">{item.site}</span>
-                <span className="text-gray-600">
+                <span className="font-medium text-[var(--ds-color-text-primary)]">{item.site}</span>
+                <span className="text-[var(--ds-color-text-secondary)]">
                   Total: {item.total} | Vencidas: {item.overdue} | Críticas abertas: {item.criticalOpen}
                 </span>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }
 
 function KpiCard({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
   return (
-    <div className="rounded-lg border bg-white p-3 shadow-sm">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+    <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/92 p-3 shadow-[var(--ds-shadow-sm)]">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
         {icon}
         <span>{label}</span>
       </div>
-      <div className="mt-1 text-2xl font-bold text-gray-900">{value}</div>
+      <div className="mt-1 text-2xl font-bold text-[var(--ds-color-text-primary)]">{value}</div>
     </div>
   );
 }

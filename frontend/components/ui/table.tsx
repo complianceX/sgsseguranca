@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0.01))] shadow-[var(--ds-shadow-sm)]">
+    <div className="relative w-full overflow-auto rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] shadow-[var(--ds-shadow-sm)]">
       <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   ),
@@ -29,7 +29,7 @@ const TableFooter = React.forwardRef<HTMLTableSectionElement, React.HTMLAttribut
     <tfoot
       ref={ref}
       className={cn(
-        'border-t border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 font-medium [&>tr]:last:border-b-0',
+        'border-t border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/28 font-medium [&>tr]:last:border-b-0',
         className,
       )}
       {...props}
@@ -43,7 +43,7 @@ const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTML
     <tr
       ref={ref}
       className={cn(
-        'border-b border-[var(--ds-color-border-subtle)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/55 data-[state=selected]:bg-[color:var(--ds-color-surface-muted)]/70',
+        'border-b border-[var(--ds-color-border-subtle)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)] data-[state=selected]:bg-[color:var(--ds-color-primary-subtle)]/90',
         className,
       )}
       {...props}
@@ -57,7 +57,7 @@ const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<
     <th
       ref={ref}
       className={cn(
-        'h-12 bg-[linear-gradient(135deg,var(--ds-color-action-primary),#4338ca)] px-4 text-left align-middle text-[11px] font-bold uppercase tracking-[0.1em] text-white [&:has([role=checkbox])]:pr-0',
+        'h-12 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-elevated)] px-4 text-left align-middle text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--ds-color-text-muted)] [&:has([role=checkbox])]:pr-0',
         className,
       )}
       {...props}

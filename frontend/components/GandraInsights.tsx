@@ -5,6 +5,8 @@ import { Sparkles, ArrowRight, AlertTriangle, CheckCircle, Info, Loader2 } from 
 import { aiService } from '@/services/aiService';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { Badge } from './ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 
 export interface Insight {
   type: 'warning' | 'success' | 'info';
@@ -40,35 +42,37 @@ export function GandraInsights() {
 
   if (loading) {
     return (
-      <div className="flex h-48 items-center justify-center rounded-xl border border-blue-100 bg-white shadow-sm">
+      <Card tone="elevated" padding="lg" className="flex h-48 items-center justify-center">
         <div className="flex flex-col items-center space-y-2">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          <p className="text-sm font-medium text-gray-500">COMPLIANCE X analisando dados...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--ds-color-action-primary)]" />
+          <p className="text-sm font-medium text-[var(--ds-color-text-muted)]">COMPLIANCE X analisando dados...</p>
         </div>
-      </div>
+      </Card>
     );
   }
 
   if (!data) return null;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-blue-100 bg-white shadow-sm transition-all hover:shadow-md">
-      {/* Header */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-blue-100">
+    <Card tone="elevated" padding="none" interactive className="overflow-hidden">
+      <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-6 py-4">
         <div className="flex items-center space-x-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[image:var(--ds-gradient-brand)] text-white shadow-sm">
             <span className="text-lg font-black italic">G</span>
           </div>
-          <h2 className="text-lg font-bold text-gray-800">COMPLIANCE X Insights</h2>
+          <div>
+            <CardTitle className="text-lg">COMPLIANCE X Insights</CardTitle>
+            <CardDescription>Sintetiza tendências, riscos e pendências operacionais.</CardDescription>
+          </div>
         </div>
-        <div className="flex items-center space-x-1 rounded-full bg-blue-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-700">
+        <Badge variant="accent" className="text-[10px] uppercase tracking-[0.12em]">
           <Sparkles className="h-3 w-3" />
           <span>IA Ativa</span>
-        </div>
+        </Badge>
       </div>
 
-      <div className="p-6">
-        <p className="mb-6 text-sm leading-relaxed text-gray-600">
+      <CardContent className="p-6">
+        <p className="mb-6 text-sm leading-relaxed text-[var(--ds-color-text-secondary)]">
           {data.summary}
         </p>
 
@@ -77,27 +81,30 @@ export function GandraInsights() {
             <div 
               key={index}
               className={cn(
-                "group relative flex flex-col justify-between rounded-xl p-4 transition-all hover:scale-[1.02]",
-                insight.type === 'warning' && "bg-amber-50 border border-amber-100",
-                insight.type === 'success' && "bg-emerald-50 border border-emerald-100",
-                insight.type === 'info' && "bg-blue-50 border border-blue-100"
+                'group relative flex flex-col justify-between rounded-xl border p-4 transition-all hover:-translate-y-px',
+                insight.type === 'warning' &&
+                  'border-[color:var(--ds-color-warning)]/18 bg-[var(--ds-color-warning-subtle)]',
+                insight.type === 'success' &&
+                  'border-[color:var(--ds-color-success)]/18 bg-[var(--ds-color-success-subtle)]',
+                insight.type === 'info' &&
+                  'border-[color:var(--ds-color-info)]/18 bg-[var(--ds-color-info-subtle)]',
               )}
             >
               <div className="mb-4">
                 <div className="mb-2 flex items-center space-x-2">
-                  {insight.type === 'warning' && <AlertTriangle className="h-4 w-4 text-amber-600" />}
-                  {insight.type === 'success' && <CheckCircle className="h-4 w-4 text-emerald-600" />}
-                  {insight.type === 'info' && <Info className="h-4 w-4 text-blue-600" />}
+                  {insight.type === 'warning' && <AlertTriangle className="h-4 w-4 text-[var(--ds-color-warning)]" />}
+                  {insight.type === 'success' && <CheckCircle className="h-4 w-4 text-[var(--ds-color-success)]" />}
+                  {insight.type === 'info' && <Info className="h-4 w-4 text-[var(--ds-color-info)]" />}
                   <h3 className={cn(
-                    "text-xs font-bold uppercase tracking-wider",
-                    insight.type === 'warning' && "text-amber-800",
-                    insight.type === 'success' && "text-emerald-800",
-                    insight.type === 'info' && "text-blue-800"
+                    'text-xs font-bold uppercase tracking-wider',
+                    insight.type === 'warning' && 'text-[var(--ds-color-warning)]',
+                    insight.type === 'success' && 'text-[var(--ds-color-success)]',
+                    insight.type === 'info' && 'text-[var(--ds-color-info)]',
                   )}>
                     {insight.title}
                   </h3>
                 </div>
-                <p className="text-xs leading-relaxed text-gray-700">
+                <p className="text-xs leading-relaxed text-[var(--ds-color-text-secondary)]">
                   {insight.message}
                 </p>
               </div>
@@ -105,10 +112,10 @@ export function GandraInsights() {
               <Link 
                 href={insight.action}
                 className={cn(
-                  "flex items-center text-[11px] font-bold uppercase transition-all group-hover:translate-x-1",
-                  insight.type === 'warning' && "text-amber-700",
-                  insight.type === 'success' && "text-emerald-700",
-                  insight.type === 'info' && "text-blue-700"
+                  'flex items-center text-[11px] font-bold uppercase transition-all group-hover:translate-x-1',
+                  insight.type === 'warning' && 'text-[var(--ds-color-warning)]',
+                  insight.type === 'success' && 'text-[var(--ds-color-success)]',
+                  insight.type === 'info' && 'text-[var(--ds-color-info)]',
                 )}
               >
                 Ver Detalhes <ArrowRight className="ml-1 h-3 w-3" />
@@ -116,7 +123,7 @@ export function GandraInsights() {
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

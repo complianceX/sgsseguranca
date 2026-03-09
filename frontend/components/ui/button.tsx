@@ -9,21 +9,21 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          'bg-gradient-to-r from-[var(--ds-color-action-primary)] to-[var(--primary-dark)] text-[var(--ds-color-action-primary-foreground)] hover:from-[var(--ds-color-action-primary-hover)] hover:to-[var(--ds-color-action-primary)] hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]',
+          'bg-[image:var(--ds-gradient-brand)] text-[var(--ds-color-action-primary-foreground)] hover:-translate-y-px hover:brightness-105 hover:shadow-[var(--ds-shadow-md)]',
         primary:
-          'bg-gradient-to-r from-[var(--ds-color-action-primary)] to-[var(--primary-dark)] text-[var(--ds-color-action-primary-foreground)] hover:from-[var(--ds-color-action-primary-hover)] hover:to-[var(--ds-color-action-primary)] hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]',
+          'bg-[image:var(--ds-gradient-brand)] text-[var(--ds-color-action-primary-foreground)] hover:-translate-y-px hover:brightness-105 hover:shadow-[var(--ds-shadow-md)]',
         success:
-          'bg-gradient-to-r from-[var(--ds-color-success)] to-[var(--ds-color-success-hover)] text-white hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]',
+          'bg-gradient-to-r from-[var(--ds-color-success)] to-[color:color-mix(in_srgb,var(--ds-color-success-hover)_78%,#0f766e_22%)] text-white hover:-translate-y-px hover:brightness-105 hover:shadow-[var(--ds-shadow-md)]',
         warning:
-          'bg-gradient-to-r from-[var(--ds-color-warning)] to-[var(--ds-color-warning-hover)] text-[#111827] hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]',
+          'bg-gradient-to-r from-[var(--ds-color-warning)] to-[color:color-mix(in_srgb,var(--ds-color-warning-hover)_76%,#c2410c_24%)] text-white hover:-translate-y-px hover:brightness-105 hover:shadow-[var(--ds-shadow-md)]',
         secondary:
-          'bg-[var(--ds-color-action-secondary)] text-[var(--ds-color-action-secondary-foreground)] hover:bg-[var(--ds-color-action-secondary-hover)] hover:border-[var(--ds-color-border-strong)]',
+          'border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-elevated)_84%,white_16%),color-mix(in_srgb,var(--ds-color-surface-base)_95%,transparent))] text-[var(--ds-color-text-primary)] hover:-translate-y-px hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--ds-color-action-secondary-hover)]/65',
         destructive:
-          'bg-gradient-to-r from-[var(--ds-color-danger)] to-[var(--ds-color-danger-hover)] text-white hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]',
+          'bg-gradient-to-r from-[var(--ds-color-danger)] to-[color:color-mix(in_srgb,var(--ds-color-danger-hover)_84%,#7f1d1d_16%)] text-white hover:-translate-y-px hover:brightness-105 hover:shadow-[var(--ds-shadow-md)]',
         ghost:
-          'bg-transparent text-[var(--ds-color-text-secondary)] shadow-none hover:bg-[color:var(--ds-color-surface-muted)]/70 hover:text-[var(--ds-color-text-primary)]',
+          'bg-transparent text-[var(--ds-color-text-secondary)] shadow-none hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]',
         outline:
-          'border border-[var(--ds-color-border-strong)] bg-[color:var(--ds-color-surface-base)]/92 text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-surface-elevated)] hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-text-primary)]',
+          'border border-[var(--ds-color-border-strong)] bg-[color:var(--ds-color-surface-base)]/92 text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-surface-elevated)] hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)]',
       },
       size: {
         sm: 'h-8 px-3 text-xs',

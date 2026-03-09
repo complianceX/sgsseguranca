@@ -8,14 +8,14 @@ const cardVariants = cva(
     variants: {
       tone: {
         default:
-          'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/96',
+          'border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)]',
         elevated:
-          'border-[color:var(--ds-color-border-strong)]/80 bg-gradient-to-b from-[color:var(--ds-color-surface-elevated)] to-[color:var(--ds-color-surface-base)] shadow-[var(--ds-shadow-md)]',
+          'border-[color:var(--ds-color-border-strong)]/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-elevated)_88%,white_12%),color-mix(in_srgb,var(--ds-color-surface-base)_98%,transparent))] shadow-[var(--ds-shadow-md)]',
         muted:
-          'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/45',
+          'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/38',
       },
       interactive: {
-        true: 'hover:-translate-y-px hover:border-[var(--ds-color-action-primary)]/60 hover:shadow-[var(--ds-shadow-md)]',
+        true: 'hover:-translate-y-px hover:border-[var(--ds-color-action-primary)]/45 hover:shadow-[var(--ds-shadow-md)]',
         false: '',
       },
       padding: {

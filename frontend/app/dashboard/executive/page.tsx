@@ -14,12 +14,24 @@ import {
   YAxis,
 } from 'recharts';
 import { dashboardService, DashboardHeatmapResponse, DashboardKpisResponse } from '@/services/dashboardService';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
-function scoreClass(score: number) {
-  if (score >= 61) return 'bg-red-100 text-red-700';
-  if (score >= 31) return 'bg-orange-100 text-orange-700';
-  if (score >= 11) return 'bg-amber-100 text-amber-700';
-  return 'bg-emerald-100 text-emerald-700';
+const CHART_TOKENS = {
+  grid: 'color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)',
+  axis: 'var(--ds-color-text-muted)',
+  surface: 'var(--ds-color-surface-elevated)',
+  border: 'var(--ds-color-border-subtle)',
+  risk: 'var(--ds-color-action-primary)',
+  riskFill: 'color-mix(in srgb, var(--ds-color-action-primary) 26%, transparent)',
+  warning: 'var(--ds-color-warning)',
+};
+
+function scoreVariant(score: number): 'danger' | 'warning' | 'accent' | 'success' {
+  if (score >= 61) return 'danger';
+  if (score >= 31) return 'warning';
+  if (score >= 11) return 'accent';
+  return 'success';
 }
 
 export default function ExecutiveDashboardPage() {
@@ -60,117 +72,151 @@ export default function ExecutiveDashboardPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--ds-color-action-primary)] border-t-transparent" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Cockpit Executivo SST</h1>
-        <p className="text-sm text-gray-500">Indicadores leading e lagging por obra.</p>
-      </div>
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-2">
+          <Badge variant="accent" className="w-fit">Visão executiva</Badge>
+          <CardTitle className="text-2xl">Cockpit Executivo SST</CardTitle>
+          <CardDescription>Indicadores leading e lagging por obra.</CardDescription>
+        </CardHeader>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-3">
         {leadingCards.map((card) => (
-          <div key={card.label} className="rounded-xl border bg-white p-4 shadow-sm">
-            <p className="text-xs uppercase text-gray-500">{card.label}</p>
-            <p className="mt-1 text-3xl font-bold text-gray-900">{card.value}</p>
-            <p className="text-xs text-gray-500">{card.helper}</p>
+          <div key={card.label} className="ds-kpi-card ds-kpi-card--primary">
+            <p className="text-xs uppercase text-[var(--ds-color-text-muted)]">{card.label}</p>
+            <p className="mt-1 text-3xl font-bold text-[var(--ds-color-text-primary)]">{card.value}</p>
+            <p className="text-xs text-[var(--ds-color-text-secondary)]">{card.helper}</p>
           </div>
         ))}
       </div>
 
       {kpis && (
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-xl border bg-red-50 p-4 shadow-sm">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase text-red-700">
+          <div className="ds-kpi-card ds-kpi-card--danger">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--ds-color-danger)]">
               <ShieldAlert className="h-4 w-4" /> NC recorrente
             </p>
-            <p className="mt-2 text-3xl font-bold text-red-700">{kpis.lagging.recurring_nc}</p>
+            <p className="mt-2 text-3xl font-bold text-[var(--ds-color-text-primary)]">{kpis.lagging.recurring_nc}</p>
           </div>
-          <div className="rounded-xl border bg-orange-50 p-4 shadow-sm">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase text-orange-700">
+          <div className="ds-kpi-card ds-kpi-card--warning">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--ds-color-warning)]">
               <Siren className="h-4 w-4" /> Incidentes
             </p>
-            <p className="mt-2 text-3xl font-bold text-orange-700">{kpis.lagging.incidents}</p>
+            <p className="mt-2 text-3xl font-bold text-[var(--ds-color-text-primary)]">{kpis.lagging.incidents}</p>
           </div>
-          <div className="rounded-xl border bg-amber-50 p-4 shadow-sm">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase text-amber-700">
+          <div className="ds-kpi-card ds-kpi-card--accent">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--ds-color-accent)]">
               <Timer className="h-4 w-4" /> PT bloqueadas
             </p>
-            <p className="mt-2 text-3xl font-bold text-amber-700">{kpis.lagging.blocked_pt}</p>
+            <p className="mt-2 text-3xl font-bold text-[var(--ds-color-text-primary)]">{kpis.lagging.blocked_pt}</p>
           </div>
         </div>
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <p className="mb-3 text-sm font-semibold text-gray-700">Tendência de risco</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={kpis?.trends.risk || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Area type="monotone" dataKey="risk_score" stroke="#2563eb" fill="#bfdbfe" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <p className="mb-3 text-sm font-semibold text-gray-700">Não conformidades por mês</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={kpis?.trends.nc || []}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="count" fill="#f59e0b" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <Card tone="elevated">
+          <CardHeader>
+            <CardTitle className="text-sm">Tendência de risco</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={kpis?.trends.risk || []}>
+                <CartesianGrid stroke={CHART_TOKENS.grid} strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="month" tick={{ fill: CHART_TOKENS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: CHART_TOKENS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 16,
+                    border: `1px solid ${CHART_TOKENS.border}`,
+                    background: CHART_TOKENS.surface,
+                    color: 'var(--ds-color-text-primary)',
+                  }}
+                />
+                <Area type="monotone" dataKey="risk_score" stroke={CHART_TOKENS.risk} fill={CHART_TOKENS.riskFill} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card tone="elevated">
+          <CardHeader>
+            <CardTitle className="text-sm">Não conformidades por mês</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={kpis?.trends.nc || []}>
+                <CartesianGrid stroke={CHART_TOKENS.grid} strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="month" tick={{ fill: CHART_TOKENS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: CHART_TOKENS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 16,
+                    border: `1px solid ${CHART_TOKENS.border}`,
+                    background: CHART_TOKENS.surface,
+                    color: 'var(--ds-color-text-primary)',
+                  }}
+                />
+                <Bar dataKey="count" fill={CHART_TOKENS.warning} radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <p className="mb-3 text-sm font-semibold text-gray-700">Heatmap por obra</p>
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {heatmap.map((item) => (
-            <div key={item.site_id} className="rounded-lg border p-3">
-              <p className="text-sm font-semibold text-gray-800">{item.site_name}</p>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-xs text-gray-500">Risco médio</span>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${scoreClass(item.risk_score)}`}>
-                  {item.risk_score.toFixed(1)}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-gray-500">
-                NC: {item.nc_count ?? 0} • Compliance: {(item.training_compliance ?? 0).toFixed(1)}%
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <p className="mb-3 text-sm font-semibold text-gray-700">Painel de alertas</p>
-        <div className="space-y-2">
-          {(kpis?.alerts || []).map((alert) => (
-            <div key={alert.id} className="flex items-start gap-2 rounded-md border border-amber-100 bg-amber-50 p-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-700" />
-              <div>
-                <p className="text-sm text-gray-800">{alert.message}</p>
-                <p className="text-xs text-gray-500">
-                  {new Date(alert.created_at).toLocaleString('pt-BR')}
+      <Card tone="elevated">
+        <CardHeader>
+          <CardTitle className="text-sm">Heatmap por obra</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {heatmap.map((item) => (
+              <div key={item.site_id} className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-3">
+                <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{item.site_name}</p>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-xs text-[var(--ds-color-text-muted)]">Risco médio</span>
+                  <Badge variant={scoreVariant(item.risk_score)}>
+                    {item.risk_score.toFixed(1)}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                  NC: {item.nc_count ?? 0} • Compliance: {(item.training_compliance ?? 0).toFixed(1)}%
                 </p>
               </div>
-            </div>
-          ))}
-          {(kpis?.alerts || []).length === 0 && (
-            <p className="text-sm text-gray-500">Nenhum alerta pendente.</p>
-          )}
-        </div>
-      </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card tone="elevated">
+        <CardHeader>
+          <CardTitle className="text-sm">Painel de alertas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {(kpis?.alerts || []).map((alert) => (
+              <div key={alert.id} className="flex items-start gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning)]/18 bg-[var(--ds-color-warning-subtle)] p-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 text-[var(--ds-color-warning)]" />
+                <div>
+                  <p className="text-sm text-[var(--ds-color-text-primary)]">{alert.message}</p>
+                  <p className="text-xs text-[var(--ds-color-text-muted)]">
+                    {new Date(alert.created_at).toLocaleString('pt-BR')}
+                  </p>
+                </div>
+              </div>
+            ))}
+            {(kpis?.alerts || []).length === 0 && (
+              <p className="text-sm text-[var(--ds-color-text-muted)]">Nenhum alerta pendente.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

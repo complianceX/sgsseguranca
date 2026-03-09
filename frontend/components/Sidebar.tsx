@@ -101,13 +101,13 @@ export function Sidebar({
       />
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-full w-72 flex-col border-r border-[color:var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,#081326_0%,#0d1f39_46%,#12284a_100%)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-lg)] transition-transform duration-[var(--ds-motion-base)] xl:static xl:z-auto xl:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex h-full w-72 flex-col border-r border-[color:var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,var(--ds-color-bg-canvas)_0%,var(--ds-color-bg-subtle)_42%,var(--ds-color-surface-base)_100%)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-lg)] transition-transform duration-[var(--ds-motion-base)] xl:static xl:z-auto xl:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
       <div className="border-b border-[color:var(--ds-color-border-subtle)]/80 px-6 py-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--ds-color-action-primary)] text-sm font-black text-white shadow-[0_8px_24px_rgba(59,127,232,0.32)]">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[image:var(--ds-gradient-brand)] text-sm font-black text-white shadow-[0_8px_24px_rgba(47,111,237,0.3)]">
             CX
           </div>
           <div className="min-w-0">
@@ -165,7 +165,7 @@ export function Sidebar({
                 className={cn(
                   'group flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-sm font-medium transition-all duration-[var(--ds-motion-base)]',
                   active
-                    ? 'border-[color:var(--ds-color-action-primary)]/50 bg-[linear-gradient(90deg,var(--ds-color-action-primary),var(--ds-color-action-primary-hover))] text-white shadow-[0_8px_20px_rgba(59,127,232,0.28)]'
+                    ? 'border-[color:var(--ds-color-action-primary)]/45 bg-[image:var(--ds-gradient-brand)] text-white shadow-[0_8px_20px_rgba(47,111,237,0.24)]'
                     : 'border-transparent text-[var(--ds-color-text-muted)] hover:border-[color:var(--ds-color-border-strong)]/70 hover:bg-[color:var(--ds-color-surface-elevated)]/72 hover:text-white'
                 )}
               >
@@ -173,7 +173,7 @@ export function Sidebar({
                   className={cn(
                     'flex h-9 w-9 items-center justify-center rounded-xl border transition-colors duration-[var(--ds-motion-base)]',
                     active
-                      ? 'border-white/20 bg-white/12 text-white'
+                    ? 'border-white/18 bg-white/10 text-white'
                       : 'border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/70 text-[var(--ds-color-text-secondary)] group-hover:border-[color:var(--ds-color-border-strong)] group-hover:text-white'
                   )}
                 >
@@ -192,7 +192,7 @@ export function Sidebar({
           <div className="flex-1 overflow-hidden">
             <p className="truncate text-sm font-semibold text-[var(--ds-color-text-primary)]">{user?.nome}</p>
             <p className="truncate text-xs text-[var(--ds-color-text-muted)]">{user?.profile?.nome}</p>
-            <div className="mt-3 inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-500/12 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-emerald-300">
+            <div className="mt-3 inline-flex items-center rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-emerald-300">
               tenant seguro
             </div>
           </div>

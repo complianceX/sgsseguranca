@@ -394,7 +394,7 @@ export function Header({
               <p className="text-sm font-semibold text-white">{user?.nome}</p>
               <p className="text-xs text-[var(--ds-color-text-muted)]">{user?.profile?.nome || 'Perfil não definido'}</p>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--ds-color-action-primary),#8b5cf6)] text-sm font-bold text-white shadow-[0_14px_28px_rgba(37,99,235,0.32)]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[image:var(--ds-gradient-brand)] text-sm font-bold text-white shadow-[0_14px_28px_rgba(47,111,237,0.28)]">
               {userInitials || <User className="h-5 w-5" />}
             </div>
           </div>

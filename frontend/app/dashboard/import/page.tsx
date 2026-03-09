@@ -1,13 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Upload, FileText, CheckCircle, AlertTriangle, Loader2, ArrowRight } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertTriangle, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 import api from '@/lib/api';
-import { toast } from 'sonner'; // Usando sonner que vi no package.json
+import { toast } from 'sonner';
 import { sitesService, Site } from '@/services/sitesService';
 import { usersService, User } from '@/services/usersService';
 import { useAuth } from '@/context/AuthContext';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 interface ExtractedData {
   type: 'APR' | 'PT' | 'CHECKLIST' | 'DDS' | 'UNKNOWN';
@@ -37,6 +41,7 @@ export default function ImportPage() {
   const [saving, setSaving] = useState(false);
   const [isModel, setIsModel] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+
   const uploadConfig = {
     headers: {
       'Content-Type': 'multipart/form-data',
@@ -47,43 +52,33 @@ export default function ImportPage() {
   const shouldRetryUpload = (error: unknown) => {
     if (!axios.isAxiosError(error)) return false;
     const status = error.response?.status;
-    return (
-      error.code === 'ECONNABORTED' ||
-      !status ||
-      (status >= 500 && status <= 599)
-    );
+    return error.code === 'ECONNABORTED' || !status || (status >= 500 && status <= 599);
   };
 
   const uploadWithRetry = async (formData: FormData) => {
     const maxAttempts = 3;
     let lastError: unknown;
+
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
-        return await api.post<ExtractedData>(
-          '/imports/upload',
-          formData,
-          uploadConfig,
-        );
+        return await api.post<ExtractedData>('/imports/upload', formData, uploadConfig);
       } catch (error) {
         lastError = error;
         if (!shouldRetryUpload(error) || attempt === maxAttempts) {
           throw error;
         }
-        const backoffMs =
-          400 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 150);
+        const backoffMs = 400 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 150);
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }
     }
+
     throw lastError;
   };
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [sitesData, usersData] = await Promise.all([
-          sitesService.findAll(),
-          usersService.findAll(),
-        ]);
+        const [sitesData, usersData] = await Promise.all([sitesService.findAll(), usersService.findAll()]);
         setSites(sitesData);
         setUsers(usersData);
         if (user?.id && !responsibleId) {
@@ -99,6 +94,7 @@ export default function ImportPage() {
         toast.error('Erro ao carregar sites e usuários.');
       }
     }
+
     loadData();
   }, [siteId, user?.id, user?.site_id, responsibleId]);
 
@@ -113,9 +109,9 @@ export default function ImportPage() {
     }
   }, [result, date, title]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setFile(event.target.files[0]);
       setResult(null);
       setIsModel(false);
       setShowErrors(false);
@@ -151,6 +147,7 @@ export default function ImportPage() {
       toast.error('Preencha os campos obrigatórios antes de importar.');
       return;
     }
+
     setSaving(true);
     const formData = new FormData();
     formData.append('file', file);
@@ -173,12 +170,9 @@ export default function ImportPage() {
     if (isModel && (result.type === 'DDS' || result.type === 'CHECKLIST')) {
       formData.append('is_modelo', 'true');
     }
+
     try {
-      const response = await api.post<ExtractedData>(
-        '/imports/upload',
-        formData,
-        uploadConfig,
-      );
+      const response = await api.post<ExtractedData>('/imports/upload', formData, uploadConfig);
       setResult(response.data);
       toast.success('Documento importado com sucesso!');
     } catch (error) {
@@ -204,21 +198,11 @@ export default function ImportPage() {
 
   const getImportValidation = (type: ExtractedData['type']) => {
     const errors: Record<string, string> = {};
-    if (!siteId) {
-      errors.siteId = 'Selecione a obra/setor.';
-    }
-    if (!responsibleId) {
-      errors.responsibleId = `Selecione ${getResponsibleLabel(type).toLowerCase()}.`;
-    }
-    if (!title) {
-      errors.title = `Informe ${getTitleLabel(type).toLowerCase()}.`;
-    }
-    if (!date) {
-      errors.date = 'Informe a data.';
-    }
-    if ((type === 'APR' || type === 'PT') && !number) {
-      errors.number = 'Informe o número.';
-    }
+    if (!siteId) errors.siteId = 'Selecione a obra/setor.';
+    if (!responsibleId) errors.responsibleId = `Selecione ${getResponsibleLabel(type).toLowerCase()}.`;
+    if (!title) errors.title = `Informe ${getTitleLabel(type).toLowerCase()}.`;
+    if (!date) errors.date = 'Informe a data.';
+    if ((type === 'APR' || type === 'PT') && !number) errors.number = 'Informe o número.';
     return { isValid: Object.keys(errors).length === 0, errors };
   };
 
@@ -247,30 +231,31 @@ export default function ImportPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Importação Inteligente</h1>
-          <p className="text-gray-500">
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Importação Inteligente</h1>
+          <p className="text-[var(--ds-color-text-muted)]">
             Transforme documentos (PDF, Word, Excel) em registros do sistema usando IA.
           </p>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Área de Upload */}
         <div className="space-y-6">
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">1. Selecione o Documento</h2>
-            
+          <Card tone="elevated" padding="lg">
+            <CardHeader className="mb-4 px-0 pt-0">
+              <CardTitle className="text-lg">1. Selecione o Documento</CardTitle>
+            </CardHeader>
+
             <div className="flex w-full items-center justify-center">
               <label
                 htmlFor="dropzone-file"
-                className="flex h-64 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100"
+                className="flex h-64 w-full cursor-pointer flex-col items-center justify-center rounded-[var(--ds-radius-lg)] border-2 border-dashed border-[var(--ds-color-border-strong)] bg-[var(--ds-color-surface-muted)]/18 transition-colors hover:bg-[var(--ds-color-surface-muted)]/28"
               >
                 <div className="flex flex-col items-center justify-center pb-6 pt-5">
-                  <Upload className="mb-4 h-10 w-10 text-gray-400" />
-                  <p className="mb-2 text-sm text-gray-500">
+                  <Upload className="mb-4 h-10 w-10 text-[var(--ds-color-text-muted)]" />
+                  <p className="mb-2 text-sm text-[var(--ds-color-text-secondary)]">
                     <span className="font-semibold">Clique para enviar</span> ou arraste o arquivo
                   </p>
-                  <p className="text-xs text-gray-500">PDF, DOCX, XLSX (Máx. 10MB)</p>
+                  <p className="text-xs text-[var(--ds-color-text-muted)]">PDF, DOCX, XLSX (Máx. 10MB)</p>
                 </div>
                 <input
                   id="dropzone-file"
@@ -283,81 +268,72 @@ export default function ImportPage() {
             </div>
 
             {file && (
-              <div className="mt-4 flex items-center justify-between rounded-lg border border-blue-100 bg-blue-50 p-4">
+              <div className="mt-4 flex items-center justify-between rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-primary-subtle)] bg-[var(--ds-color-primary-subtle)]/46 p-4">
                 <div className="flex items-center gap-3">
-                  <FileText className="h-6 w-6 text-blue-600" />
+                  <FileText className="h-6 w-6 text-[var(--ds-color-action-primary)]" />
                   <div>
-                    <p className="text-sm font-medium text-blue-900">{file.name}</p>
-                    <p className="text-xs text-blue-700">{(file.size / 1024).toFixed(1)} KB</p>
+                    <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">{file.name}</p>
+                    <p className="text-xs text-[var(--ds-color-text-secondary)]">{(file.size / 1024).toFixed(1)} KB</p>
                   </div>
                 </div>
-                <button
-                  onClick={handleUpload}
-                  disabled={analyzing}
-                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {analyzing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Analisando...
-                    </>
-                  ) : (
-                    <>
-                      Processar
-                      <ArrowRight className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
+                <Button onClick={handleUpload} disabled={analyzing} rightIcon={!analyzing ? <ArrowRight className="h-4 w-4" /> : undefined} loading={analyzing}>
+                  {analyzing ? 'Analisando...' : 'Processar'}
+                </Button>
               </div>
             )}
-          </div>
+          </Card>
         </div>
 
-        {/* Área de Resultado */}
         <div className="space-y-6">
           {result && (
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm animate-in fade-in slide-in-from-bottom-4">
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">2. Resultado da Análise</h2>
-              
-              <div className="mb-6 flex items-center gap-4 rounded-lg bg-gray-50 p-4">
-                <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                  result.confidence > 0.8 ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'
-                }`}>
+            <Card tone="elevated" padding="lg" className="animate-in fade-in slide-in-from-bottom-4">
+              <CardHeader className="mb-4 px-0 pt-0">
+                <CardTitle className="text-lg">2. Resultado da Análise</CardTitle>
+              </CardHeader>
+
+              <div className="mb-6 flex items-center gap-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-4">
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                    result.confidence > 0.8
+                      ? 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
+                      : 'bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]'
+                  }`}
+                >
                   {result.confidence > 0.8 ? <CheckCircle className="h-6 w-6" /> : <AlertTriangle className="h-6 w-6" />}
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Tipo Identificado</p>
-                  <p className="text-xl font-bold text-gray-900">{result.type}</p>
+                  <p className="text-sm text-[var(--ds-color-text-muted)]">Tipo Identificado</p>
+                  <p className="text-xl font-bold text-[var(--ds-color-text-primary)]">{result.type}</p>
                 </div>
                 <div className="ml-auto text-right">
-                  <p className="text-sm text-gray-500">Confiança</p>
-                  <p className="text-lg font-semibold text-gray-900">{(result.confidence * 100).toFixed(0)}%</p>
+                  <p className="text-sm text-[var(--ds-color-text-muted)]">Confiança</p>
+                  <p className="text-lg font-semibold text-[var(--ds-color-text-primary)]">{(result.confidence * 100).toFixed(0)}%</p>
                 </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700">Metadados Extraídos</h3>
+                  <h3 className="text-sm font-medium text-[var(--ds-color-text-secondary)]">Metadados Extraídos</h3>
                   <div className="mt-2 grid grid-cols-2 gap-4">
-                    <div className="rounded-lg border border-gray-200 p-3">
-                      <p className="text-xs text-gray-500">Data</p>
-                      <p className="font-medium">{result.metadata.date || 'Não encontrada'}</p>
+                    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] p-3">
+                      <p className="text-xs text-[var(--ds-color-text-muted)]">Data</p>
+                      <p className="font-medium text-[var(--ds-color-text-primary)]">{result.metadata.date || 'Não encontrada'}</p>
                     </div>
-                    <div className="rounded-lg border border-gray-200 p-3">
-                      <p className="text-xs text-gray-500">Responsável</p>
-                      <p className="font-medium">{result.metadata.responsibles?.[0] || 'Não identificado'}</p>
+                    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] p-3">
+                      <p className="text-xs text-[var(--ds-color-text-muted)]">Responsável</p>
+                      <p className="font-medium text-[var(--ds-color-text-primary)]">{result.metadata.responsibles?.[0] || 'Não identificado'}</p>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700">Campos de Importação</h3>
-                  <div className="mt-2 grid grid-cols-1 gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <h3 className="text-sm font-medium text-[var(--ds-color-text-secondary)]">Campos de Importação</h3>
+                  <div className="mt-2 grid grid-cols-1 gap-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-4">
                     <div>
-                      <label htmlFor="import-site" className="text-xs text-gray-500">Obra/Setor</label>
+                      <label htmlFor="import-site" className="text-xs text-[var(--ds-color-text-muted)]">Obra/Setor</label>
                       <select
                         id="import-site"
-                        className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        className="mt-1 h-11 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
                         value={siteId}
                         onChange={(e) => setSiteId(e.target.value)}
                       >
@@ -367,74 +343,61 @@ export default function ImportPage() {
                           </option>
                         ))}
                       </select>
-                      {showErrors && validation.errors.siteId && (
-                        <p className="mt-1 text-xs text-red-500">{validation.errors.siteId}</p>
-                      )}
+                      {showErrors && validation.errors.siteId && <p className="mt-1 text-xs text-red-500">{validation.errors.siteId}</p>}
                     </div>
+
                     <div>
-                      <label htmlFor="import-responsible" className="text-xs text-gray-500">{getResponsibleLabel(result.type)}</label>
+                      <label htmlFor="import-responsible" className="text-xs text-[var(--ds-color-text-muted)]">{getResponsibleLabel(result.type)}</label>
                       <select
                         id="import-responsible"
-                        className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        className="mt-1 h-11 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
                         value={responsibleId}
                         onChange={(e) => setResponsibleId(e.target.value)}
                       >
                         <option value="">Selecione</option>
-                        {users.map((user) => (
-                          <option key={user.id} value={user.id}>
-                            {user.nome}
+                        {users.map((entry) => (
+                          <option key={entry.id} value={entry.id}>
+                            {entry.nome}
                           </option>
                         ))}
                       </select>
-                      {showErrors && validation.errors.responsibleId && (
-                        <p className="mt-1 text-xs text-red-500">{validation.errors.responsibleId}</p>
-                      )}
+                      {showErrors && validation.errors.responsibleId && <p className="mt-1 text-xs text-red-500">{validation.errors.responsibleId}</p>}
                     </div>
+
                     <div>
-                      <label htmlFor="import-title" className="text-xs text-gray-500">
-                        {getTitleLabel(result.type)}
-                      </label>
-                      <input
+                      <label htmlFor="import-title" className="text-xs text-[var(--ds-color-text-muted)]">{getTitleLabel(result.type)}</label>
+                      <Input
                         id="import-title"
                         type="text"
-                        className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        className="mt-1"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         placeholder={result.type === 'DDS' ? 'Tema do DDS' : 'Título do documento'}
                       />
-                      {showErrors && validation.errors.title && (
-                        <p className="mt-1 text-xs text-red-500">{validation.errors.title}</p>
-                      )}
+                      {showErrors && validation.errors.title && <p className="mt-1 text-xs text-red-500">{validation.errors.title}</p>}
                     </div>
+
                     {(result.type === 'APR' || result.type === 'PT') && (
                       <div>
-                        <label htmlFor="import-number" className="text-xs text-gray-500">Número</label>
-                        <input
+                        <label htmlFor="import-number" className="text-xs text-[var(--ds-color-text-muted)]">Número</label>
+                        <Input
                           id="import-number"
                           type="text"
-                          className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                          className="mt-1"
                           value={number}
                           onChange={(e) => setNumber(e.target.value)}
                           placeholder="Número do documento"
                         />
-                        {showErrors && validation.errors.number && (
-                          <p className="mt-1 text-xs text-red-500">{validation.errors.number}</p>
-                        )}
+                        {showErrors && validation.errors.number && <p className="mt-1 text-xs text-red-500">{validation.errors.number}</p>}
                       </div>
                     )}
+
                     <div>
-                      <label htmlFor="import-date" className="text-xs text-gray-500">Data</label>
-                      <input
-                        id="import-date"
-                        type="date"
-                        className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                      />
-                      {showErrors && validation.errors.date && (
-                        <p className="mt-1 text-xs text-red-500">{validation.errors.date}</p>
-                      )}
+                      <label htmlFor="import-date" className="text-xs text-[var(--ds-color-text-muted)]">Data</label>
+                      <Input id="import-date" type="date" className="mt-1" value={date} onChange={(e) => setDate(e.target.value)} />
+                      {showErrors && validation.errors.date && <p className="mt-1 text-xs text-red-500">{validation.errors.date}</p>}
                     </div>
+
                     {(result.type === 'DDS' || result.type === 'CHECKLIST') && (
                       <div className="flex items-center gap-2">
                         <input
@@ -444,7 +407,7 @@ export default function ImportPage() {
                           onChange={(e) => setIsModel(e.target.checked)}
                           className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
-                        <label htmlFor="is-model" className="text-sm text-gray-700">
+                        <label htmlFor="is-model" className="text-sm text-[var(--ds-color-text-secondary)]">
                           Salvar como modelo
                         </label>
                       </div>
@@ -453,39 +416,35 @@ export default function ImportPage() {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700">Campos Específicos</h3>
-                  <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                    <pre className="overflow-x-auto text-xs text-gray-600">
-                      {JSON.stringify(result.fields, null, 2)}
-                    </pre>
+                  <h3 className="text-sm font-medium text-[var(--ds-color-text-secondary)]">Campos Específicos</h3>
+                  <div className="mt-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-3">
+                    <pre className="overflow-x-auto text-xs text-[var(--ds-color-text-secondary)]">{JSON.stringify(result.fields, null, 2)}</pre>
                   </div>
                 </div>
 
                 <div className="pt-4">
-                  <button
-                    disabled={
-                      saving ||
-                      result.type === 'UNKNOWN' ||
-                        !validation.isValid
-                    }
+                  <Button
+                    disabled={saving || result.type === 'UNKNOWN' || !validation.isValid}
                     onClick={handleImport}
-                    className="w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    variant="success"
+                    className="w-full"
+                    loading={saving}
                   >
                     {saving ? 'Importando...' : `Importar como ${result.type}`}
-                  </button>
+                  </Button>
                 </div>
               </div>
-            </div>
+            </Card>
           )}
 
           {!result && !analyzing && (
-            <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 p-12 text-center">
+            <Card tone="muted" className="flex h-full items-center justify-center border-dashed p-12 text-center">
               <div>
-                <FileText className="mx-auto mb-4 h-12 w-12 text-gray-300" />
-                <h3 className="text-lg font-medium text-gray-900">Aguardando documento</h3>
-                <p className="text-gray-500">Faça o upload para ver a análise da IA.</p>
+                <FileText className="mx-auto mb-4 h-12 w-12 text-[var(--ds-color-text-muted)]/40" />
+                <h3 className="text-lg font-medium text-[var(--ds-color-text-primary)]">Aguardando documento</h3>
+                <p className="text-[var(--ds-color-text-muted)]">Faça o upload para ver a análise da IA.</p>
               </div>
-            </div>
+            </Card>
           )}
         </div>
       </div>

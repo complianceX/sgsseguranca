@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { Building2, Search, LogOut, ChevronRight, Loader2 } from 'lucide-react';
 import { companiesService, Company } from '@/services/companiesService';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
+import { Input } from './ui/input';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 
 interface Props {
   open: boolean;
@@ -34,10 +37,9 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-5 text-white">
+    <div className="ds-modal-overlay z-50">
+      <div className="ds-modal-shell mx-4 max-w-lg">
+        <div className="bg-[image:var(--ds-gradient-brand)] px-6 py-5 text-white">
           <div className="flex items-center gap-3 mb-1">
             <Building2 className="h-6 w-6" />
             <h2 className="text-lg font-bold">Selecionar Empresa</h2>
@@ -51,12 +53,12 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
         <div className="px-6 pt-4 pb-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
+            <Input
               type="text"
               placeholder="Buscar empresa..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="pl-9"
               autoFocus
             />
           </div>
@@ -65,12 +67,12 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
         {/* List */}
         <div className="px-6 pb-4 max-h-72 overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center py-10 text-gray-400">
-              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+            <div className="flex items-center justify-center py-10 text-[var(--ds-color-text-muted)]">
+              <Loader2 className="mr-2 h-6 w-6 animate-spin" />
               <span className="text-sm">Carregando empresas...</span>
             </div>
           ) : filtered.length === 0 ? (
-            <p className="text-center text-sm text-gray-400 py-8">
+            <p className="py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
               {search ? 'Nenhuma empresa encontrada.' : 'Sem empresas cadastradas.'}
             </p>
           ) : (
@@ -86,29 +88,27 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
                       }}
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors ${
                         isActive
-                          ? 'bg-blue-50 border border-blue-200'
-                          : 'hover:bg-gray-50 border border-transparent'
+                          ? 'border border-[var(--ds-color-action-primary)]/20 bg-[var(--ds-color-primary-subtle)]'
+                          : 'border border-transparent hover:bg-[var(--ds-color-surface-muted)]/18'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          isActive ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'
+                          isActive ? 'bg-[image:var(--ds-gradient-brand)] text-white' : 'bg-[var(--ds-color-surface-muted)]/35 text-[var(--ds-color-text-muted)]'
                         }`}>
                           <Building2 className="h-4 w-4" />
                         </div>
                         <div className="min-w-0">
-                          <p className={`text-sm font-medium truncate ${isActive ? 'text-blue-700' : 'text-gray-800'}`}>
+                          <p className={`truncate text-sm font-medium ${isActive ? 'text-[var(--ds-color-action-primary)]' : 'text-[var(--ds-color-text-primary)]'}`}>
                             {company.razao_social}
                           </p>
-                          <p className="text-xs text-gray-400 truncate">CNPJ: {company.cnpj}</p>
+                          <p className="truncate text-xs text-[var(--ds-color-text-muted)]">CNPJ: {company.cnpj}</p>
                         </div>
                       </div>
                       {isActive ? (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex-shrink-0 ml-2">
-                          Atual
-                        </span>
+                        <Badge variant="primary" className="ml-2 flex-shrink-0">Atual</Badge>
                       ) : (
-                        <ChevronRight className="h-4 w-4 text-gray-300 flex-shrink-0 ml-2" />
+                        <ChevronRight className="ml-2 h-4 w-4 flex-shrink-0 text-[var(--ds-color-text-muted)]" />
                       )}
                     </button>
                   </li>
@@ -119,17 +119,19 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
-          <span className="text-xs text-gray-400">
+        <div className="ds-modal-footer items-center justify-between">
+          <span className="text-xs text-[var(--ds-color-text-muted)]">
             {companies.length} empresa{companies.length !== 1 ? 's' : ''} cadastrada{companies.length !== 1 ? 's' : ''}
           </span>
-          <button
+          <Button
+            type="button"
             onClick={onLogout}
-            className="flex items-center gap-2 text-sm text-red-500 hover:text-red-700 transition-colors"
+            variant="ghost"
+            className="gap-2 text-[var(--ds-color-danger)] hover:text-[var(--ds-color-danger)]"
           >
             <LogOut className="h-4 w-4" />
             Sair
-          </button>
+          </Button>
         </div>
       </div>
     </div>

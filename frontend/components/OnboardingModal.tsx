@@ -11,6 +11,8 @@ import {
   ChevronLeft,
   CheckCircle2,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const STORAGE_KEY = 'cx_onboarding_done_v1';
 
@@ -82,13 +84,13 @@ export function OnboardingModal({ userId }: Props) {
   const isLast = step === STEPS.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-      <div className="relative w-full max-w-md rounded-2xl bg-[#1E293B] border border-[#334155] shadow-2xl overflow-hidden">
+    <div className="ds-modal-overlay z-[200] px-4">
+      <div className="ds-modal-shell relative w-full max-w-md overflow-hidden p-0">
         {/* Fechar */}
         <button
           type="button"
           onClick={dismiss}
-          className="absolute top-4 right-4 text-[#64748B] hover:text-[#F1F5F9] transition-colors"
+          className="ds-modal-close absolute right-4 top-4"
           aria-label="Fechar"
         >
           <X className="h-5 w-5" />
@@ -102,20 +104,23 @@ export function OnboardingModal({ userId }: Props) {
           </div>
 
           {/* Título e descrição */}
-          <h2 className="text-center text-xl font-bold text-[#F1F5F9]">{current.title}</h2>
-          <p className="mt-3 text-center text-sm text-[#94A3B8] leading-relaxed">{current.description}</p>
+          <h2 className="text-center text-xl font-bold text-[var(--ds-color-text-primary)]">{current.title}</h2>
+          <p className="mt-3 text-center text-sm leading-relaxed text-[var(--ds-color-text-muted)]">{current.description}</p>
 
           {/* Dica */}
           {current.highlight && (
-            <div className="mt-4 flex items-start gap-2 rounded-xl border border-[#334155] bg-[#0F172A] px-4 py-3">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-              <p className="text-xs text-[#CBD5E1]">{current.highlight}</p>
+            <div className="mt-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/26 px-4 py-3">
+              <Badge variant="success" className="mb-2">
+                <CheckCircle2 className="h-4 w-4" />
+                Dica rápida
+              </Badge>
+              <p className="text-xs text-[var(--ds-color-text-secondary)]">{current.highlight}</p>
             </div>
           )}
         </div>
 
         {/* Footer com indicadores e navegação */}
-        <div className="border-t border-[#334155] bg-[#0F172A] px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center justify-between border-t border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-6 py-4">
           {/* Dots */}
           <div className="flex gap-1.5">
             {STEPS.map((_, i) => (
@@ -124,7 +129,7 @@ export function OnboardingModal({ userId }: Props) {
                 type="button"
                 onClick={() => setStep(i)}
                 className={`h-2 rounded-full transition-all ${
-                  i === step ? 'w-5 bg-blue-500' : 'w-2 bg-[#334155] hover:bg-[#475569]'
+                  i === step ? 'w-5 bg-[var(--ds-color-action-primary)]' : 'w-2 bg-[var(--ds-color-border-default)] hover:bg-[var(--ds-color-border-strong)]'
                 }`}
                 aria-label={`Passo ${i + 1}`}
               />
@@ -134,33 +139,34 @@ export function OnboardingModal({ userId }: Props) {
           {/* Botões */}
           <div className="flex items-center gap-2">
             {step > 0 && (
-              <button
+              <Button
                 type="button"
                 onClick={() => setStep((s) => s - 1)}
-                className="flex items-center gap-1 rounded-lg border border-[#334155] px-3 py-1.5 text-sm text-[#94A3B8] hover:border-[#475569] hover:text-[#F1F5F9] transition-colors"
+                variant="outline"
+                size="sm"
+                leftIcon={<ChevronLeft className="h-4 w-4" />}
               >
-                <ChevronLeft className="h-4 w-4" />
                 Anterior
-              </button>
+              </Button>
             )}
             {isLast ? (
-              <button
+              <Button
                 type="button"
                 onClick={dismiss}
-                className="flex items-center gap-1 rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+                size="sm"
+                rightIcon={<CheckCircle2 className="h-4 w-4" />}
               >
                 Começar
-                <CheckCircle2 className="h-4 w-4" />
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
                 onClick={() => setStep((s) => s + 1)}
-                className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+                size="sm"
+                rightIcon={<ChevronRight className="h-4 w-4" />}
               >
                 Próximo
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              </Button>
             )}
           </div>
         </div>

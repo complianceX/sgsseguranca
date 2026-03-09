@@ -8,6 +8,11 @@ import { generateChecklistPdf } from '@/lib/pdf/checklistGenerator';
 import { Plus, Pencil, Trash2, Search, PlayCircle, Copy, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { SendMailModal } from '@/components/SendMailModal';
+import { Badge } from '@/components/ui/badge';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 export default function ChecklistModelsPage() {
   const [models, setModels] = useState<Checklist[]>([]);
@@ -121,23 +126,23 @@ export default function ChecklistModelsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Checklists</h1>
-          <p className="text-gray-500">Gerencie seus modelos e checklists.</p>
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Checklists</h1>
+          <p className="text-[var(--ds-color-text-muted)]">Gerencie seus modelos e checklists.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             type="button"
             onClick={handleBootstrapTemplates}
             disabled={bootstrapping}
-            className="inline-flex items-center space-x-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+            variant="secondary"
+            leftIcon={<Plus className="h-4 w-4" />}
             title="Criar templates por atividade"
           >
-            <Plus className="h-4 w-4" />
             <span>{bootstrapping ? 'Criando...' : 'Templates por atividade'}</span>
-          </button>
+          </Button>
           <Link
             href="/dashboard/checklist-models/new"
-            className="inline-flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className={cn(buttonVariants({ variant: 'primary' }), 'gap-2')}
             title="Novo Checklist"
           >
             <Plus className="h-4 w-4" />
@@ -146,24 +151,24 @@ export default function ChecklistModelsPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
+      <Card tone="elevated" padding="lg">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
+            <Input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por título, equipamento ou máquina..."
               aria-label="Buscar modelos de checklist por título, equipamento ou máquina"
-              className="w-full rounded-lg border border-gray-200 py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none"
+              className="pl-9"
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">Filtro</span>
+            <span className="text-xs text-[var(--ds-color-text-muted)]">Filtro</span>
             <select
               aria-label="Filtro de modelos"
-              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none"
+              className="h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
               value={modelFilter}
               onChange={(e) => setModelFilter(e.target.value as 'all' | 'model' | 'regular')}
             >
@@ -176,41 +181,39 @@ export default function ChecklistModelsPage() {
 
         <table className="w-full table-fixed">
           <thead>
-            <tr className="border-b">
-              <th className="w-1/3 px-6 py-3 text-left font-medium">Título</th>
-              <th className="w-1/3 px-6 py-3 text-left font-medium">Equipamento / Máquina</th>
-              <th className="px-6 py-3 text-left font-medium">Ações</th>
+            <tr className="border-b border-[var(--ds-color-border-subtle)]">
+              <th className="w-1/3 px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-muted)]">Título</th>
+              <th className="w-1/3 px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-muted)]">Equipamento / Máquina</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-muted)]">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-[var(--ds-color-border-subtle)]">
             {loading ? (
               <tr>
                 <td colSpan={3} className="py-10 text-center">
-                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+                  <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={3} className="py-6 text-center text-gray-500">
+                <td colSpan={3} className="py-6 text-center text-[var(--ds-color-text-muted)]">
                   Nenhum modelo encontrado.
                 </td>
               </tr>
             ) : (
               filtered.map((m) => (
-                <tr key={m.id} className="hover:bg-gray-50">
+                <tr key={m.id} className="transition-colors hover:bg-[var(--ds-color-primary-subtle)]/18">
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="font-medium text-gray-900">{m.titulo}</div>
+                      <div className="font-medium text-[var(--ds-color-text-primary)]">{m.titulo}</div>
                       {m.is_modelo && (
-                        <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
-                          Modelo
-                        </span>
+                        <Badge variant="accent">Modelo</Badge>
                       )}
                     </div>
-                    <div className="text-xs text-gray-500">{m.descricao}</div>
+                    <div className="text-xs text-[var(--ds-color-text-muted)]">{m.descricao}</div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-700">
+                    <div className="text-sm text-[var(--ds-color-text-secondary)]">
                       {m.equipamento || '-'}
                       {m.maquina ? ` / ${m.maquina}` : ''}
                     </div>
@@ -219,14 +222,14 @@ export default function ChecklistModelsPage() {
                     <div className="flex items-center gap-3">
                       <Link
                         href={`/dashboard/checklist-models/new?templateId=${m.id}`}
-                        className="text-green-600 hover:text-green-800"
+                        className="text-[var(--ds-color-success)] transition-colors hover:text-[var(--ds-color-success-hover)]"
                         title="Preencher Checklist"
                       >
                         <PlayCircle className="h-4 w-4" />
                       </Link>
                       <Link
                         href={`/dashboard/checklist-models/edit/${m.id}`}
-                        className="text-indigo-600 hover:text-indigo-800"
+                        className="text-[var(--ds-color-accent)] transition-colors hover:brightness-110"
                         title="Editar modelo"
                       >
                         <Pencil className="h-4 w-4" />
@@ -234,7 +237,7 @@ export default function ChecklistModelsPage() {
                       <button
                         type="button"
                         onClick={() => handleDuplicate(m)}
-                        className="text-blue-600 hover:text-blue-800"
+                        className="text-[var(--ds-color-action-primary)] transition-colors hover:text-[var(--ds-color-action-primary-hover)]"
                         title="Duplicar modelo"
                       >
                         <Copy className="h-4 w-4" />
@@ -243,7 +246,7 @@ export default function ChecklistModelsPage() {
                         type="button"
                         onClick={() => handleSendEmail(m)}
                         disabled={printingId === m.id}
-                        className="text-gray-600 hover:text-gray-800 disabled:opacity-50"
+                        className="text-[var(--ds-color-text-secondary)] transition-colors hover:text-[var(--ds-color-text-primary)] disabled:opacity-50"
                         title="Enviar por E-mail"
                       >
                         <Mail className="h-4 w-4" />
@@ -251,7 +254,7 @@ export default function ChecklistModelsPage() {
                       <button
                         type="button"
                         onClick={() => handleDelete(m.id)}
-                        className="text-red-600 hover:text-red-800"
+                        className="text-[var(--ds-color-danger)] transition-colors hover:text-[var(--ds-color-danger-hover)]"
                         title="Excluir modelo"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -263,7 +266,7 @@ export default function ChecklistModelsPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </Card>
 
       {selectedDoc && (
         <SendMailModal

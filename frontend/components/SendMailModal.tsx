@@ -3,6 +3,7 @@ import { Mail, X, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
 import api from '@/lib/api';
+import { Input } from './ui/input';
 
 interface SendMailModalProps {
   isOpen: boolean;
@@ -61,46 +62,45 @@ export function SendMailModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="ds-modal-overlay z-[100] animate-in fade-in duration-200">
       <div
-        className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        className="ds-modal-shell max-w-md animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+        <div className="ds-modal-header">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 rounded-lg">
-              <Mail className="h-5 w-5 text-blue-600" />
+            <div className="rounded-lg bg-[var(--ds-color-primary-subtle)] p-2">
+              <Mail className="h-5 w-5 text-[var(--ds-color-action-primary)]" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900">Enviar Documento</h3>
+            <h3 className="text-lg font-bold text-[var(--ds-color-text-primary)]">Enviar Documento</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="ds-modal-close"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSend} className="p-6">
+        <form onSubmit={handleSend} className="ds-modal-body">
           <div className="mb-6">
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="mb-4 text-sm text-[var(--ds-color-text-secondary)]">
               O documento{' '}
-              <span className="font-semibold text-gray-900">{documentName}</span>{' '}
+              <span className="font-semibold text-[var(--ds-color-text-primary)]">{documentName}</span>{' '}
               será enviado para o e-mail abaixo como anexo PDF.
             </p>
             <label
               htmlFor="send-mail-email"
-              className="block text-sm font-semibold text-gray-700 mb-2"
+              className="mb-2 block text-sm font-semibold text-[var(--ds-color-text-secondary)]"
             >
               E-mail de Destino
             </label>
-            <input
+            <Input
               id="send-mail-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="exemplo@email.com"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
               autoFocus
               required
             />

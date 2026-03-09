@@ -5,6 +5,9 @@ import { Send, X, Loader2, Sparkles, ImagePlus, TriangleAlert } from 'lucide-rea
 import { aiService } from '@/services/aiService';
 import { cn } from '@/lib/utils';
 import type { AiRouteContext } from '@/lib/ai-context';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -170,9 +173,9 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
   const ContextIcon = context.icon;
 
   return (
-    <div className="fixed bottom-[8.5rem] left-4 right-4 z-50 flex h-[min(38rem,calc(100vh-10rem))] flex-col overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-2xl transition-all animate-in slide-in-from-bottom-4 sm:bottom-24 sm:left-6 sm:right-auto sm:w-[420px]">
+    <div className="fixed bottom-[8.5rem] left-4 right-4 z-50 flex h-[min(38rem,calc(100vh-10rem))] flex-col overflow-hidden rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-elevated)_94%,white_6%),color-mix(in_srgb,var(--ds-color-surface-base)_96%,transparent))] shadow-[var(--ds-shadow-xl)] transition-all animate-in slide-in-from-bottom-4 sm:bottom-24 sm:left-6 sm:right-auto sm:w-[420px]">
       {/* Header */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-indigo-700 px-4 py-3 text-white">
+      <div className="flex items-center justify-between border-b border-white/10 bg-[image:var(--ds-gradient-brand)] px-4 py-3 text-white">
         <div className="flex items-center space-x-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-white backdrop-blur-sm">
             <ContextIcon className="h-4.5 w-4.5" />
@@ -181,7 +184,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
             <h3 className="text-sm font-bold">{context.title}</h3>
             <div className="flex items-center space-x-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-[10px] text-blue-100">{context.subtitle}</span>
+              <span className="text-[10px] text-slate-100/90">{context.subtitle}</span>
             </div>
           </div>
         </div>
@@ -196,14 +199,14 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4">
+      <div className="flex-1 space-y-4 overflow-y-auto bg-[color:var(--ds-color-surface-muted)]/22 p-4">
         <div className="flex flex-wrap gap-2">
           {context.suggestions.map((suggestion) => (
             <button
               key={suggestion}
               type="button"
               onClick={() => setInput(suggestion)}
-              className="rounded-full border border-blue-100 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-50"
+              className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/92 px-3 py-1.5 text-xs font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:border-[var(--ds-color-action-primary)]/35 hover:bg-[var(--ds-color-primary-subtle)]/20 hover:text-[var(--ds-color-text-primary)]"
             >
               {suggestion}
             </button>
@@ -221,15 +224,15 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
               className={cn(
                 "max-w-[80%] rounded-2xl px-4 py-2 text-sm shadow-sm",
                 message.role === 'user'
-                  ? "bg-blue-600 text-white rounded-tr-none"
-                  : "bg-white text-gray-800 rounded-tl-none border border-gray-100"
+                  ? "rounded-tr-none bg-[image:var(--ds-gradient-brand)] text-white"
+                  : "rounded-tl-none border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/95 text-[var(--ds-color-text-primary)]"
               )}
             >
               {message.content}
               <div
                 className={cn(
                   "mt-1 text-[10px]",
-                  message.role === 'user' ? "text-blue-100" : "text-gray-400"
+                  message.role === 'user' ? "text-slate-100/85" : "text-[var(--ds-color-text-muted)]"
                 )}
               >
                 {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -239,9 +242,9 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
         ))}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="flex items-center space-x-2 rounded-2xl bg-white border border-gray-100 px-4 py-2 shadow-sm">
-              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-              <span className="text-xs text-gray-500 italic">Analisando contexto SST...</span>
+            <div className="flex items-center space-x-2 rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/95 px-4 py-2 shadow-[var(--ds-shadow-sm)]">
+              <Loader2 className="h-4 w-4 animate-spin text-[var(--ds-color-action-primary)]" />
+              <span className="text-xs italic text-[var(--ds-color-text-muted)]">Analisando contexto SST...</span>
             </div>
           </div>
         )}
@@ -249,18 +252,18 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
       </div>
 
       {/* Input */}
-      <div className="border-t bg-white p-4">
+      <div className="border-t border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/95 p-4">
         {selectedImagePreview ? (
-          <div className="mb-3 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+          <div className="mb-3 rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/32 p-3">
             <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-medium text-gray-600">
-                <TriangleAlert className="h-3.5 w-3.5 text-amber-500" />
+              <Badge variant="warning" className="text-[11px]">
+                <TriangleAlert className="h-3.5 w-3.5" />
                 Foto pronta para análise de risco
-              </div>
+              </Badge>
               <button
                 type="button"
                 onClick={clearSelectedImage}
-                className="rounded-full p-1 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
+                className="rounded-full p-1 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
                 title="Remover imagem"
               >
                 <X className="h-4 w-4" />
@@ -286,33 +289,34 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading}
-            className="absolute left-1 rounded-full p-2 text-gray-500 transition-all hover:bg-gray-100 hover:text-blue-600 disabled:opacity-50"
+            className="absolute left-1 rounded-full p-2 text-[var(--ds-color-text-muted)] transition-all hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-action-primary)] disabled:opacity-50"
             title="Anexar foto para análise"
             aria-label="Anexar foto para análise"
           >
             <ImagePlus className="h-4 w-4" />
           </button>
-          <input
+          <Input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
             placeholder={`Pergunte sobre ${context.title.toLowerCase()}...`}
-            className="w-full rounded-full border border-gray-200 bg-gray-50 py-2 pl-11 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="rounded-full bg-[color:var(--ds-color-surface-muted)]/26 py-2 pl-11 pr-10"
           />
-          <button
+          <Button
             onClick={handleSend}
             disabled={(!input.trim() && !selectedImage) || isLoading}
-            className="absolute right-1 rounded-full bg-blue-600 p-1.5 text-white transition-all hover:bg-blue-700 disabled:bg-gray-300"
+            size="icon"
+            className="absolute right-1 h-8 w-8 rounded-full"
             title="Enviar mensagem"
             aria-label="Enviar mensagem"
           >
             <Send className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
         <div className="mt-2 flex items-center justify-center space-x-1">
-          <Sparkles className="h-3 w-3 text-blue-600" />
-          <span className="text-[10px] text-gray-400">
+          <Sparkles className="h-3 w-3 text-[var(--ds-color-accent)]" />
+          <span className="text-[10px] text-[var(--ds-color-text-muted)]">
             IA especialista em SST com contexto da tela e análise de fotos
           </span>
         </div>

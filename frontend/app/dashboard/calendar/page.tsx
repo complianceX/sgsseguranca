@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -11,6 +11,9 @@ import {
   EVENT_TYPE_COLOR,
   EVENT_TYPE_HREF,
 } from '@/services/calendarService';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -19,15 +22,13 @@ const MONTH_NAMES = [
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-const ALL_TYPES: CalendarEventType[] = [
-  'training', 'medical_exam', 'dds', 'rdo', 'cat', 'service_order',
-];
+const ALL_TYPES: CalendarEventType[] = ['training', 'medical_exam', 'dds', 'rdo', 'cat', 'service_order'];
 
 function buildCalendarGrid(year: number, month: number): (number | null)[] {
   const firstDay = new Date(year, month - 1, 1).getDay();
   const daysInMonth = new Date(year, month, 0).getDate();
   const cells: (number | null)[] = Array(firstDay).fill(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  for (let day = 1; day <= daysInMonth; day += 1) cells.push(day);
   while (cells.length % 7 !== 0) cells.push(null);
   return cells;
 }
@@ -43,33 +44,39 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const [activeFilters, setActiveFilters] = useState<Set<CalendarEventType>>(
-    new Set(ALL_TYPES),
-  );
+  const [activeFilters, setActiveFilters] = useState<Set<CalendarEventType>>(new Set(ALL_TYPES));
 
   useEffect(() => {
     setLoading(true);
     setSelectedDay(null);
     calendarService
       .getEvents(year, month)
-      .then((res) => setEvents(res.data))
+      .then((response) => setEvents(response.data))
       .catch(() => setEvents([]))
       .finally(() => setLoading(false));
   }, [year, month]);
 
   function prevMonth() {
-    if (month === 1) { setMonth(12); setYear(y => y - 1); }
-    else setMonth(m => m - 1);
+    if (month === 1) {
+      setMonth(12);
+      setYear((currentYear) => currentYear - 1);
+      return;
+    }
+    setMonth((currentMonth) => currentMonth - 1);
   }
 
   function nextMonth() {
-    if (month === 12) { setMonth(1); setYear(y => y + 1); }
-    else setMonth(m => m + 1);
+    if (month === 12) {
+      setMonth(1);
+      setYear((currentYear) => currentYear + 1);
+      return;
+    }
+    setMonth((currentMonth) => currentMonth + 1);
   }
 
   function toggleFilter(type: CalendarEventType) {
-    setActiveFilters(prev => {
-      const next = new Set(prev);
+    setActiveFilters((previous) => {
+      const next = new Set(previous);
       if (next.has(type)) next.delete(type);
       else next.add(type);
       return next;
@@ -77,50 +84,48 @@ export default function CalendarPage() {
   }
 
   const filteredEvents = useMemo(
-    () => events.filter(e => activeFilters.has(e.type)),
+    () => events.filter((event) => activeFilters.has(event.type)),
     [events, activeFilters],
   );
 
   const eventsByDate = useMemo(() => {
     const map: Record<string, CalendarEvent[]> = {};
-    for (const ev of filteredEvents) {
-      if (!map[ev.date]) map[ev.date] = [];
-      map[ev.date].push(ev);
+    for (const event of filteredEvents) {
+      if (!map[event.date]) map[event.date] = [];
+      map[event.date].push(event);
     }
     return map;
   }, [filteredEvents]);
 
   const grid = buildCalendarGrid(year, month);
-
   const today = formatDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
-
   const selectedDateStr = selectedDay ? formatDate(year, month, selectedDay) : null;
   const selectedEvents = selectedDateStr ? (eventsByDate[selectedDateStr] ?? []) : [];
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
+    <div className="space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <CalendarDays className="h-7 w-7 text-blue-600" />
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]">
+          <CalendarDays className="h-6 w-6" />
+        </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Calendário SST</h1>
-          <p className="text-sm text-gray-500">Treinamentos, exames, DDS, RDOs, CATs e ordens de serviço</p>
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Calendário SST</h1>
+          <p className="text-sm text-[var(--ds-color-text-muted)]">Treinamentos, exames, DDS, RDOs, CATs e ordens de serviço</p>
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-2">
-        {ALL_TYPES.map(type => {
+        {ALL_TYPES.map((type) => {
           const color = EVENT_TYPE_COLOR[type];
           const active = activeFilters.has(type);
           return (
             <button
               key={type}
               onClick={() => toggleFilter(type)}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition-all ${
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all ${
                 active
-                  ? `${color.bg} ${color.text} border-transparent`
-                  : 'bg-white text-gray-400 border-gray-200'
+                  ? `${color.bg} ${color.text} border-transparent shadow-[var(--ds-shadow-sm)]`
+                  : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-muted)]'
               }`}
             >
               <span className={`h-2 w-2 rounded-full ${active ? color.dot : 'bg-gray-300'}`} />
@@ -131,44 +136,33 @@ export default function CalendarPage() {
       </div>
 
       <div className="flex gap-6">
-        {/* Calendar */}
-        <div className="flex-1 min-w-0">
-          {/* Navigation */}
-          <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={prevMonth}
-              className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
-            >
+        <div className="min-w-0 flex-1">
+          <div className="mb-4 flex items-center justify-between">
+            <Button onClick={prevMonth} variant="ghost" size="icon" className="text-[var(--ds-color-text-secondary)]">
               <ChevronLeft className="h-5 w-5" />
-            </button>
-            <h2 className="text-lg font-semibold text-gray-800">
+            </Button>
+            <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
               {MONTH_NAMES[month - 1]} {year}
             </h2>
-            <button
-              onClick={nextMonth}
-              className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
-            >
+            <Button onClick={nextMonth} variant="ghost" size="icon" className="text-[var(--ds-color-text-secondary)]">
               <ChevronRight className="h-5 w-5" />
-            </button>
+            </Button>
           </div>
 
-          {/* Grid */}
-          <div className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
-            {/* Weekday headers */}
-            <div className="grid grid-cols-7 border-b border-gray-100">
-              {WEEKDAYS.map(d => (
-                <div key={d} className="py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  {d}
+          <Card tone="elevated" padding="none" className="overflow-hidden">
+            <div className="grid grid-cols-7 border-b border-[var(--ds-color-border-subtle)]">
+              {WEEKDAYS.map((weekday) => (
+                <div key={weekday} className="py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                  {weekday}
                 </div>
               ))}
             </div>
 
-            {/* Day cells */}
             {loading ? (
-              <div className="py-20 text-center text-gray-400 text-sm">Carregando...</div>
+              <div className="py-20 text-center text-sm text-[var(--ds-color-text-muted)]">Carregando...</div>
             ) : (
               <div className="grid grid-cols-7">
-                {grid.map((day, idx) => {
+                {grid.map((day, index) => {
                   const dateStr = day ? formatDate(year, month, day) : null;
                   const dayEvents = dateStr ? (eventsByDate[dateStr] ?? []) : [];
                   const isToday = dateStr === today;
@@ -176,42 +170,42 @@ export default function CalendarPage() {
 
                   return (
                     <div
-                      key={idx}
+                      key={index}
                       onClick={() => day && setSelectedDay(day === selectedDay ? null : day)}
-                      className={`min-h-[80px] p-1.5 border-b border-r border-gray-100 last:border-r-0 transition-colors ${
+                      className={`min-h-[80px] border-b border-r border-[var(--ds-color-border-subtle)] p-1.5 transition-colors last:border-r-0 ${
                         day
-                          ? `cursor-pointer ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`
-                          : 'bg-gray-50/50'
+                          ? `cursor-pointer ${isSelected ? 'bg-[var(--ds-color-primary-subtle)]/30' : 'hover:bg-[var(--ds-color-surface-muted)]/18'}`
+                          : 'bg-[var(--ds-color-surface-muted)]/16'
                       }`}
                     >
                       {day && (
                         <>
-                          <div className={`flex h-6 w-6 items-center justify-center rounded-full text-sm font-medium mb-1 ${
-                            isToday
-                              ? 'bg-blue-600 text-white'
-                              : isSelected
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'text-gray-700'
-                          }`}>
+                          <div
+                            className={`mb-1 flex h-6 w-6 items-center justify-center rounded-full text-sm font-medium ${
+                              isToday
+                                ? 'bg-[image:var(--ds-gradient-brand)] text-white'
+                                : isSelected
+                                  ? 'bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]'
+                                  : 'text-[var(--ds-color-text-secondary)]'
+                            }`}
+                          >
                             {day}
                           </div>
                           <div className="space-y-0.5">
-                            {dayEvents.slice(0, 3).map(ev => {
-                              const color = EVENT_TYPE_COLOR[ev.type];
+                            {dayEvents.slice(0, 3).map((event) => {
+                              const color = EVENT_TYPE_COLOR[event.type];
                               return (
                                 <div
-                                  key={ev.id}
+                                  key={event.id}
                                   className={`truncate rounded px-1 py-0.5 text-[10px] font-medium ${color.bg} ${color.text}`}
-                                  title={ev.title}
+                                  title={event.title}
                                 >
-                                  {ev.title}
+                                  {event.title}
                                 </div>
                               );
                             })}
                             {dayEvents.length > 3 && (
-                              <div className="text-[10px] text-gray-400 pl-1">
-                                +{dayEvents.length - 3} mais
-                              </div>
+                              <div className="pl-1 text-[10px] text-[var(--ds-color-text-muted)]">+{dayEvents.length - 3} mais</div>
                             )}
                           </div>
                         </>
@@ -221,12 +215,11 @@ export default function CalendarPage() {
                 })}
               </div>
             )}
-          </div>
+          </Card>
 
-          {/* Legend */}
           <div className="mt-3 flex flex-wrap gap-3">
-            {ALL_TYPES.map(type => (
-              <div key={type} className="flex items-center gap-1 text-xs text-gray-500">
+            {ALL_TYPES.map((type) => (
+              <div key={type} className="flex items-center gap-1 text-xs text-[var(--ds-color-text-muted)]">
                 <span className={`h-2.5 w-2.5 rounded-full ${EVENT_TYPE_COLOR[type].dot}`} />
                 {EVENT_TYPE_LABEL[type]}
               </div>
@@ -234,57 +227,43 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        {/* Day detail panel */}
         <div className="w-72 shrink-0">
-          <div className="rounded-xl border border-gray-200 bg-white shadow-sm h-fit">
+          <Card tone="elevated" padding="none" className="h-fit overflow-hidden">
             {selectedDay ? (
               <>
-                <div className="border-b border-gray-100 px-4 py-3">
-                  <p className="font-semibold text-gray-800">
+                <div className="border-b border-[var(--ds-color-border-subtle)] px-4 py-3">
+                  <p className="font-semibold text-[var(--ds-color-text-primary)]">
                     {selectedDay} de {MONTH_NAMES[month - 1]}
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-[var(--ds-color-text-muted)]">
                     {selectedEvents.length} evento{selectedEvents.length !== 1 ? 's' : ''}
                   </p>
                 </div>
-                <div className="divide-y divide-gray-50 max-h-[520px] overflow-y-auto">
+                <div className="max-h-[520px] divide-y divide-[var(--ds-color-border-subtle)] overflow-y-auto">
                   {selectedEvents.length === 0 ? (
-                    <p className="px-4 py-6 text-sm text-gray-400 text-center">
-                      Nenhum evento neste dia.
-                    </p>
+                    <p className="px-4 py-6 text-center text-sm text-[var(--ds-color-text-muted)]">Nenhum evento neste dia.</p>
                   ) : (
-                    selectedEvents.map(ev => {
-                      const color = EVENT_TYPE_COLOR[ev.type];
+                    selectedEvents.map((event) => {
+                      const color = EVENT_TYPE_COLOR[event.type];
                       return (
-                        <div key={ev.id} className="px-4 py-3">
+                        <div key={event.id} className="px-4 py-3">
                           <div className="flex items-start gap-2">
                             <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${color.dot}`} />
                             <div className="min-w-0">
-                              <p className="text-sm font-medium text-gray-800 leading-snug break-words">
-                                {ev.title}
+                              <p className="break-words text-sm font-medium leading-snug text-[var(--ds-color-text-primary)]">
+                                {event.title}
                               </p>
                               <div className="mt-1 flex flex-wrap items-center gap-1">
-                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${color.bg} ${color.text}`}>
-                                  {EVENT_TYPE_LABEL[ev.type]}
-                                </span>
-                                {ev.subtype === 'vencimento' && (
-                                  <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">
-                                    Vencimento
-                                  </span>
-                                )}
-                                {ev.status && (
-                                  <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-600">
-                                    {ev.status}
-                                  </span>
-                                )}
+                                <Badge variant="primary" className={`${color.bg} ${color.text}`}>
+                                  {EVENT_TYPE_LABEL[event.type]}
+                                </Badge>
+                                {event.subtype === 'vencimento' && <Badge variant="warning">Vencimento</Badge>}
+                                {event.status && <Badge variant="neutral">{event.status}</Badge>}
                               </div>
                             </div>
                           </div>
                           <div className="mt-2 pl-4">
-                            <Link
-                              href={EVENT_TYPE_HREF[ev.type]}
-                              className="text-[11px] text-blue-600 hover:underline"
-                            >
+                            <Link href={EVENT_TYPE_HREF[event.type]} className="text-[11px] text-[var(--ds-color-action-primary)] hover:underline">
                               Ver módulo →
                             </Link>
                           </div>
@@ -296,13 +275,11 @@ export default function CalendarPage() {
               </>
             ) : (
               <div className="px-4 py-8 text-center">
-                <CalendarDays className="mx-auto mb-3 h-10 w-10 text-gray-200" />
-                <p className="text-sm text-gray-400">
-                  Clique em um dia para ver os eventos
-                </p>
+                <CalendarDays className="mx-auto mb-3 h-10 w-10 text-[var(--ds-color-text-muted)]/35" />
+                <p className="text-sm text-[var(--ds-color-text-muted)]">Clique em um dia para ver os eventos</p>
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </div>
     </div>
