@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import { useRouter } from 'next/navigation';
-import { Archive, ClipboardCheck, Command, FileText, GraduationCap, Radio, Search, Settings, ShieldCheck, Stethoscope, Users, X } from 'lucide-react';
+import { Archive, ClipboardCheck, Command, FileText, GraduationCap, Radio, Search, Settings, ShieldCheck, Stethoscope, UserRound, Users, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 
@@ -74,6 +74,13 @@ const baseCommands: CommandItem[] = [
     keywords: ['funcionarios', 'mobilizacao', 'colaborador'],
   },
   {
+    id: 'worker-timeline',
+    title: 'Abrir Timeline do trabalhador',
+    subtitle: 'Consulta consolidada por CPF com prontidão operacional',
+    href: '/dashboard/workers/timeline',
+    keywords: ['timeline', 'cpf', 'trabalhador', 'mobilizacao'],
+  },
+  {
     id: 'settings',
     title: 'Abrir Configurações',
     subtitle: 'Parâmetros, regras e ajustes do tenant',
@@ -91,6 +98,7 @@ const iconMap = {
   trainings: GraduationCap,
   medical: Stethoscope,
   employees: Users,
+  'worker-timeline': UserRound,
   settings: Settings,
 } satisfies Record<string, ComponentType<{ className?: string }>>;
 

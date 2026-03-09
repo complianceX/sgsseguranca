@@ -8,6 +8,8 @@ import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
 import { Training } from '../trainings/entities/training.entity';
 import { EpiAssignment } from '../epi-assignments/entities/epi-assignment.entity';
 import { WorkerOperationalStatusService } from './worker-operational-status.service';
+import { WorkerTimelineService } from './worker-timeline.service';
+import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
 
 @Module({
   imports: [
@@ -17,10 +19,11 @@ import { WorkerOperationalStatusService } from './worker-operational-status.serv
       MedicalExam,
       Training,
       EpiAssignment,
+      DocumentRegistryEntry,
     ]),
   ],
   controllers: [UsersController],
-  providers: [UsersService, WorkerOperationalStatusService],
-  exports: [UsersService, WorkerOperationalStatusService],
+  providers: [UsersService, WorkerOperationalStatusService, WorkerTimelineService],
+  exports: [UsersService, WorkerOperationalStatusService, WorkerTimelineService],
 })
 export class UsersModule {}

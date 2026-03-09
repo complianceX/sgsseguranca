@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useDeferredValue, useMemo } from 'rea
 import { usersService, User } from '@/services/usersService';
 import {
   Building2,
+  Clock3,
   Map as MapIcon,
   Pencil,
   Plus,
@@ -294,6 +295,13 @@ export default function EmployeesPage() {
                           title="Editar funcionário"
                         >
                           <Pencil className="h-4 w-4" />
+                        </Link>
+                        <Link
+                          href={`/dashboard/workers/timeline?cpf=${employee.cpf ?? ''}`}
+                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                          title="Abrir timeline operacional"
+                        >
+                          <Clock3 className="h-4 w-4" />
                         </Link>
                         <Button
                           type="button"

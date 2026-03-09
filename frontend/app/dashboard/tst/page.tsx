@@ -405,6 +405,12 @@ export default function TstFieldPage() {
                     </ul>
                   </div>
                 ) : null}
+
+                <Link href={`/dashboard/workers/timeline?cpf=${workerStatus.user.cpf || cpf}`}>
+                  <Button type="button" variant="outline" className="w-full justify-center">
+                    Abrir timeline completa do trabalhador
+                  </Button>
+                </Link>
               </div>
             ) : null}
           </CardContent>

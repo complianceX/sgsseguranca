@@ -70,6 +70,47 @@ export interface WorkerOperationalStatus {
   };
 }
 
+export interface WorkerTimelineResponse {
+  worker: {
+    id: string;
+    nome: string;
+    cpf: string | null;
+    email: string | null;
+    funcao: string | null;
+    companyId: string;
+    companyName: string | null;
+    siteId: string | null;
+    siteName: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  status: WorkerOperationalStatus;
+  summary: {
+    trainingsTotal: number;
+    expiredTrainings: number;
+    activeEpis: number;
+    expiringEpis: number;
+    medicalExamStatus: WorkerOperationalStatus['medicalExam']['status'];
+    relatedDocuments: number;
+  };
+  documents: Array<{
+    id: string;
+    module: string;
+    title: string;
+    documentCode: string | null;
+    documentDate: string | null;
+    originalName: string | null;
+  }>;
+  timeline: Array<{
+    id: string;
+    type: 'worker_created' | 'medical_exam' | 'training' | 'epi_assignment' | 'document';
+    title: string;
+    description: string;
+    status: 'info' | 'success' | 'warning' | 'danger';
+    date: string;
+  }>;
+}
+
 export const usersService = {
   findPaginated: async (opts?: { page?: number; limit?: number; search?: string }): Promise<PaginatedResponse<User>> => {
     const response = await api.get<PaginatedResponse<User>>('/users', {
@@ -99,6 +140,18 @@ export const usersService = {
     const response = await api.get<WorkerOperationalStatus>(
       `/users/worker-status/cpf/${cpf}`,
     );
+    return response.data;
+  },
+
+  getWorkerTimelineByCpf: async (cpf: string) => {
+    const response = await api.get<WorkerTimelineResponse>(
+      `/users/worker-status/cpf/${cpf}/timeline`,
+    );
+    return response.data;
+  },
+
+  getWorkerTimelineById: async (id: string) => {
+    const response = await api.get<WorkerTimelineResponse>(`/users/${id}/timeline`);
     return response.data;
   },
 

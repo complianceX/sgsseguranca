@@ -21,6 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { WorkerOperationalStatusService } from './worker-operational-status.service';
+import { WorkerTimelineService } from './worker-timeline.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -41,6 +42,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly workerOperationalStatusService: WorkerOperationalStatusService,
+    private readonly workerTimelineService: WorkerTimelineService,
   ) {}
 
   @Post()
@@ -130,6 +132,15 @@ export class UsersController {
     return this.workerOperationalStatusService.getByCpf(cpf);
   }
 
+  @Get('worker-status/cpf/:cpf/timeline')
+  @Authorize('can_view_users')
+  @ApiOperation({ summary: 'Consultar timeline operacional do trabalhador por CPF' })
+  @ApiResponse({ status: 200, description: 'Timeline operacional retornada com sucesso' })
+  @ApiResponse({ status: 404, description: 'Trabalhador não encontrado' })
+  getWorkerTimelineByCpf(@Param('cpf') cpf: string) {
+    return this.workerTimelineService.getByCpf(cpf);
+  }
+
   @Get(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
   @Authorize('can_view_users')
@@ -145,6 +156,16 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
   findOne(@Param('id', new ParseUUIDPipe()) id: string): Promise<UserResponseDto> {
     return this.usersService.findOne(id);
+  }
+
+  @Get(':id/timeline')
+  @Authorize('can_view_users')
+  @ApiOperation({ summary: 'Consultar timeline operacional do trabalhador por ID' })
+  @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
+  @ApiResponse({ status: 200, description: 'Timeline operacional retornada com sucesso' })
+  @ApiResponse({ status: 404, description: 'Trabalhador não encontrado' })
+  getWorkerTimeline(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.workerTimelineService.getByUserId(id);
   }
 
   @Patch(':id')
