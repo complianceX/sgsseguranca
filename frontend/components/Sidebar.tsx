@@ -14,19 +14,27 @@ import {
   ClipboardCheck,
   LogOut,
   Map,
+  MapPin,
   GraduationCap,
   BarChart3,
-  BarChart2,
+  LineChart,
+  Activity,
   Settings,
   Upload,
   AlertCircle,
+  AlertOctagon,
   CheckSquare,
   BookOpen,
   Stethoscope,
   ClipboardList,
+  ClipboardX,
   Radio,
   Archive,
   CalendarDays,
+  ShieldCheck,
+  FileLock2,
+  MessageSquare,
+  Wrench,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -41,31 +49,28 @@ const menuItems = [
   { icon: BarChart3, label: 'Relatórios COMPLIANCE X', href: '/dashboard/reports' },
   { type: 'divider', label: 'Gestão & Controle', adminOnly: true },
   { icon: CalendarDays, label: 'Calendário SST', href: '/dashboard/calendar', adminOnly: true },
-  { icon: BarChart2, label: 'KPIs SST', href: '/dashboard/kpis' },
-  { icon: BarChart2, label: 'Cockpit Executivo', href: '/dashboard/executive' },
-  { icon: Map, label: 'Mapa de Risco', href: '/dashboard/risk-map' },
+  { icon: Activity, label: 'KPIs SST', href: '/dashboard/kpis' },
+  { icon: LineChart, label: 'Cockpit Executivo', href: '/dashboard/executive' },
+  { icon: MapPin, label: 'Mapa de Risco', href: '/dashboard/risk-map' },
   { icon: ClipboardCheck, label: 'Inspeções de SST', href: '/dashboard/inspections' },
-  { icon: ClipboardCheck, label: 'Auditoria HSE', href: '/dashboard/audits' },
+  { icon: ClipboardX, label: 'Auditoria HSE', href: '/dashboard/audits' },
   { icon: AlertTriangle, label: 'Não Conformidades', href: '/dashboard/nonconformities' },
   { icon: AlertCircle, label: 'CATs (Acidentes)', href: '/dashboard/cats' },
   { icon: CheckSquare, label: 'Ações Corretivas', href: '/dashboard/corrective-actions' },
   { type: 'divider', label: 'Módulos Técnicos', adminOnly: true },
   { icon: Stethoscope, label: 'Exames (PCMSO)', href: '/dashboard/medical-exams' },
   { icon: HardHat, label: 'Atividades', href: '/dashboard/activities', adminOnly: true },
-  { icon: AlertTriangle, label: 'Riscos', href: '/dashboard/risks', adminOnly: true },
-  { icon: Shield, label: 'EPIs', href: '/dashboard/epis', adminOnly: true },
+  { icon: AlertOctagon, label: 'Riscos', href: '/dashboard/risks', adminOnly: true },
+  { icon: ShieldCheck, label: 'EPIs', href: '/dashboard/epis', adminOnly: true },
   { icon: HardHat, label: 'Fichas de EPI', href: '/dashboard/epi-fichas', adminOnly: true },
-  // { icon: Wrench, label: 'Ferramentas', href: '/dashboard/tools', adminOnly: true },
-  // { icon: Construction, label: 'Máquinas', href: '/dashboard/machines', adminOnly: true },
   { type: 'divider', label: 'Documentos Operacionais' },
   { icon: Upload, label: 'Importar Docs (IA)', href: '/dashboard/documentos/importar' },
   { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
-  { icon: FileText, label: 'PTs', href: '/dashboard/pts' },
-  { icon: FileText, label: 'DDS', href: '/dashboard/dds' },
-  // { icon: ClipboardCheck, label: 'Checklists', href: '/dashboard/checklists' },
-  { icon: ClipboardCheck, label: 'Checklists', href: '/dashboard/checklist-models' },
+  { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
+  { icon: MessageSquare, label: 'DDS', href: '/dashboard/dds' },
+  { icon: ClipboardList, label: 'Checklists', href: '/dashboard/checklist-models' },
   { icon: BookOpen, label: 'RDO', href: '/dashboard/rdos' },
-  { icon: ClipboardList, label: 'OS (NR-1)', href: '/dashboard/service-orders' },
+  { icon: Wrench, label: 'OS (NR-1)', href: '/dashboard/service-orders' },
   { icon: Archive, label: 'Registry documental', href: '/dashboard/document-registry' },
   { type: 'divider', label: 'Conta & Sistema' },
   { icon: Settings, label: 'Configurações', href: '/dashboard/settings' },
@@ -102,24 +107,17 @@ export function Sidebar({
       >
       <div className="border-b border-[color:var(--ds-color-border-subtle)]/80 px-6 py-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--ds-color-action-primary),#7c3aed)] text-sm font-black text-white shadow-[0_16px_32px_rgba(37,99,235,0.36)]">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--ds-color-action-primary)] text-sm font-black text-white shadow-[0_8px_24px_rgba(59,127,232,0.32)]">
             CX
           </div>
           <div className="min-w-0">
-            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.24em] text-[var(--ds-color-text-muted)]">
-              SaaS SST
+            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--ds-color-text-disabled)]">
+              Gestão SST
             </p>
             <h1 className="truncate text-lg font-bold tracking-[-0.03em] text-white">Compliance X</h1>
           </div>
         </div>
-        <div className="mt-4 rounded-2xl border border-[color:var(--ds-color-border-subtle)]/80 bg-[color:var(--ds-color-surface-elevated)]/65 px-4 py-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
-            Operação ativa
-          </p>
-          <p className="mt-1 text-sm font-medium text-[var(--ds-color-text-secondary)]">
-            Navegação operacional e documental por tenant.
-          </p>
-        </div>
+        <div className="mt-3 h-px bg-[color:var(--ds-color-border-subtle)]/60" />
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-5">
@@ -167,7 +165,7 @@ export function Sidebar({
                 className={cn(
                   'group flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-sm font-medium transition-all duration-[var(--ds-motion-base)]',
                   active
-                    ? 'border-[color:var(--ds-color-action-primary)]/70 bg-[linear-gradient(135deg,var(--ds-color-action-primary),#4f46e5)] text-white shadow-[0_18px_36px_rgba(37,99,235,0.32)]'
+                    ? 'border-[color:var(--ds-color-action-primary)]/50 bg-[linear-gradient(90deg,var(--ds-color-action-primary),var(--ds-color-action-primary-hover))] text-white shadow-[0_8px_20px_rgba(59,127,232,0.28)]'
                     : 'border-transparent text-[var(--ds-color-text-muted)] hover:border-[color:var(--ds-color-border-strong)]/70 hover:bg-[color:var(--ds-color-surface-elevated)]/72 hover:text-white'
                 )}
               >

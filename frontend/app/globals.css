@@ -84,6 +84,22 @@
   --risk-attention: #38bdf8;
   --risk-substantial: #f97316;
   --risk-critical: var(--ds-color-danger);
+  /* Acento único (Indigo) — substitui os múltiplos roxos hardcoded */
+  --ds-color-accent: #6366f1;
+  --ds-color-accent-hover: #4f52e0;
+  --ds-color-accent-subtle: rgba(99, 102, 241, 0.12);
+  /* Variantes sutis para uso em badges e fundos de alerta */
+  --ds-color-primary-subtle: rgba(59, 127, 232, 0.12);
+  --ds-color-success-subtle: rgba(34, 197, 94, 0.12);
+  --ds-color-warning-subtle: rgba(245, 158, 11, 0.12);
+  --ds-color-danger-subtle: rgba(239, 68, 68, 0.12);
+  --ds-color-info-subtle: rgba(56, 189, 248, 0.12);
+  /* Superfície para modais e overlays */
+  --ds-color-surface-overlay: #1e2d44;
+  /* Borda intermediária */
+  --ds-color-border-default: #2e4468;
+  /* Texto desabilitado */
+  --ds-color-text-disabled: #3d5578;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -109,31 +125,47 @@
 
 :root[data-theme='light'],
 .theme-light {
-  --ds-color-bg-canvas: #f6f9ff;
-  --ds-color-bg-subtle: #e8f0ff;
+  --ds-color-bg-canvas: #f4f7fc;
+  --ds-color-bg-subtle: #eaeff8;
   --ds-color-surface-base: #ffffff;
-  --ds-color-surface-elevated: #ffffff;
+  --ds-color-surface-elevated: #f9fbff;
+  --ds-color-surface-overlay: #ffffff;
   --ds-color-surface-muted: #dbeafe;
   --ds-color-surface-muted-hover: #bfdbfe;
-  --ds-color-border-subtle: #cbdcf7;
-  --ds-color-border-strong: #93b4ea;
-  --ds-color-text-primary: #0b1324;
+  --ds-color-border-subtle: #dce6f2;
+  --ds-color-border-default: #c4d4ea;
+  --ds-color-border-strong: #9ab5d8;
+  --ds-color-text-primary: #0a1628;
   --ds-color-text-secondary: #1e3a5f;
-  --ds-color-text-muted: #4d6b8c;
-  --ds-color-action-primary: #2563eb;
-  --ds-color-action-primary-hover: #1d4ed8;
+  --ds-color-text-muted: #52718f;
+  --ds-color-text-disabled: #9ab5cc;
+  --ds-color-action-primary: #1e68e3;
+  --ds-color-action-primary-hover: #155cc7;
   --ds-color-action-primary-foreground: #ffffff;
-  --ds-color-action-secondary: #e8f0ff;
+  --ds-color-action-secondary: #eaeff8;
   --ds-color-action-secondary-hover: #d6e6ff;
   --ds-color-action-secondary-foreground: #12345d;
+  --ds-color-accent: #4f46e5;
+  --ds-color-accent-hover: #4338ca;
+  --ds-color-accent-subtle: rgba(79, 70, 229, 0.10);
+  --ds-color-primary-subtle: rgba(30, 104, 227, 0.10);
   --ds-color-success: #16a34a;
   --ds-color-success-hover: #15803d;
-  --ds-color-warning: #f59e0b;
-  --ds-color-warning-hover: #d97706;
+  --ds-color-success-subtle: rgba(22, 163, 74, 0.10);
+  --ds-color-warning: #d97706;
+  --ds-color-warning-hover: #b45309;
+  --ds-color-warning-subtle: rgba(217, 119, 6, 0.10);
   --ds-color-danger: #dc2626;
   --ds-color-danger-hover: #b91c1c;
+  --ds-color-danger-subtle: rgba(220, 38, 38, 0.10);
   --ds-color-info: #0284c7;
-  --ds-color-focus-ring: rgba(37, 99, 235, 0.18);
+  --ds-color-info-subtle: rgba(2, 132, 199, 0.10);
+  --ds-color-focus: #1e68e3;
+  --ds-color-focus-ring: rgba(30, 104, 227, 0.20);
+  /* Sombras calibradas para light mode (fundo claro) */
+  --ds-shadow-sm: 0 1px 3px rgba(10, 22, 40, 0.08), 0 1px 2px rgba(10, 22, 40, 0.04);
+  --ds-shadow-md: 0 4px 12px rgba(10, 22, 40, 0.10), 0 2px 6px rgba(10, 22, 40, 0.06);
+  --ds-shadow-lg: 0 16px 40px rgba(10, 22, 40, 0.12), 0 6px 16px rgba(10, 22, 40, 0.08);
 }
 
 * {
@@ -193,33 +225,33 @@ html[data-theme='light'] {
   }
 
   table thead th {
-    color: #ffffff !important;
-    font-weight: 700 !important;
-    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
-    border-bottom: 1px solid #2563eb !important;
+    color: var(--ds-color-text-muted) !important;
+    font-weight: 600 !important;
+    background: var(--ds-color-surface-elevated) !important;
+    border-bottom: 1px solid var(--ds-color-border-subtle) !important;
     text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
   }
 
   table tbody td {
     color: var(--ds-color-text-secondary) !important;
     border-bottom: 1px solid var(--ds-color-border-subtle);
-    background-color: color-mix(in srgb, var(--ds-color-surface-base) 92%, transparent);
+    background-color: var(--ds-color-surface-base);
   }
 
   table tbody tr:nth-child(even) td {
-    background-color: color-mix(in srgb, var(--ds-color-surface-base) 78%, var(--ds-color-action-primary) 22%);
+    background-color: color-mix(in srgb, var(--ds-color-surface-base) 96%, var(--ds-color-bg-canvas) 4%);
   }
 
   table tbody tr:hover td {
-    background-color: color-mix(in srgb, var(--ds-color-surface-base) 58%, var(--ds-color-info) 42%) !important;
+    background-color: color-mix(in srgb, var(--ds-color-surface-base) 88%, var(--ds-color-action-primary) 12%) !important;
   }
 
   input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea {
-    border-color: var(--ds-color-border-strong) !important;
+    border-color: var(--ds-color-border-subtle) !important;
     background:
       linear-gradient(
         180deg,
@@ -228,7 +260,7 @@ html[data-theme='light'] {
       ) !important;
     color: var(--ds-color-text-primary) !important;
     font-weight: 500 !important;
-    border-radius: 0.85rem !important;
+    border-radius: var(--ds-radius-md) !important;
     transition: all 0.2s ease;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.04),
