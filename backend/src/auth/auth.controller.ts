@@ -24,6 +24,7 @@ import { Throttle } from '@nestjs/throttler';
 import { UsersService } from '../users/users.service';
 import { BruteForceService } from './brute-force.service';
 import { RbacService } from '../rbac/rbac.service';
+import { getRequestIp } from '../common/utils/request-ip.util';
 
 const isProd = process.env.NODE_ENV === 'production';
 const LOGIN_THROTTLE_LIMIT = Number(
@@ -58,20 +59,20 @@ export class AuthController {
     @Body() body: LoginDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const ip = req.ip || '';
-    await this.bruteForceService.assertAllowed(ip);
+    const tracker = getRequestIp(req);
+    await this.bruteForceService.assertAllowed(tracker);
     const user = (await this.authService.validateUser(
       body.cpf,
       body.password,
     )) as User;
     if (!user) {
-      await this.bruteForceService.registerFailure(ip);
+      await this.bruteForceService.registerFailure(tracker);
       const maskedCpf = body.cpf.replace(/\d(?=\d{2})/g, '*');
       this.logger.warn({ event: 'login_failed', cpf: maskedCpf });
       throw new UnauthorizedException('Credenciais inválidas');
     }
     this.logger.log({ event: 'login_success', userId: user.id });
-    await this.bruteForceService.reset(ip);
+    await this.bruteForceService.reset(tracker);
 
     const result = await this.authService.login(user, {
       userAgent: String(req.headers['user-agent'] || ''),

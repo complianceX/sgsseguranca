@@ -1,8 +1,10 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { RedisService } from '../common/redis/redis.service';
 
 @Injectable()
 export class BruteForceService {
+  private readonly logger = new Logger(BruteForceService.name);
+
   constructor(private readonly redisService: RedisService) {}
 
   private getMaxAttempts(): number {
@@ -28,10 +30,21 @@ export class BruteForceService {
     return `auth:bf:block:${ip}`;
   }
 
-  async assertAllowed(ip: string) {
-    if (!ip) return;
+  async assertAllowed(tracker: string | null) {
+    if (!tracker) {
+      this.logger.error(
+        'BruteForce: identificador do cliente indisponível — bloqueando tentativa de login (fail-closed)',
+      );
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          message: 'Serviço temporariamente indisponível. Tente novamente.',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
     const client = this.redisService.getClient();
-    const blocked = await client.get(this.keyBlock(ip));
+    const blocked = await client.get(this.keyBlock(tracker));
     if (blocked) {
       throw new HttpException(
         {
@@ -44,10 +57,15 @@ export class BruteForceService {
     }
   }
 
-  async registerFailure(ip: string) {
-    if (!ip) return;
+  async registerFailure(tracker: string | null) {
+    if (!tracker) {
+      this.logger.error(
+        'BruteForce: identificador do cliente indisponível — falha de login não pôde ser registrada',
+      );
+      return;
+    }
     const client = this.redisService.getClient();
-    const key = this.keyCounter(ip);
+    const key = this.keyCounter(tracker);
     const max = this.getMaxAttempts();
     const windowSeconds = this.getWindowSeconds();
     const blockSeconds = this.getBlockSeconds();
@@ -58,14 +76,17 @@ export class BruteForceService {
     }
 
     if (count >= max) {
-      await client.multi().del(key).set(this.keyBlock(ip), '1', 'EX', blockSeconds).exec();
+      await client
+        .multi()
+        .del(key)
+        .set(this.keyBlock(tracker), '1', 'EX', blockSeconds)
+        .exec();
     }
   }
 
-  async reset(ip: string) {
-    if (!ip) return;
+  async reset(tracker: string | null) {
+    if (!tracker) return;
     const client = this.redisService.getClient();
-    await client.del(this.keyCounter(ip), this.keyBlock(ip));
+    await client.del(this.keyCounter(tracker), this.keyBlock(tracker));
   }
 }
-
