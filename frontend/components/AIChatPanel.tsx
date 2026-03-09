@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, type ChangeEvent } from 'react';
 import { Send, X, Loader2, Sparkles, ImagePlus, TriangleAlert } from 'lucide-react';
 import { aiService } from '@/services/aiService';
 import { cn } from '@/lib/utils';
+import type { AiRouteContext } from '@/lib/ai-context';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -14,13 +15,14 @@ interface Message {
 interface AIChatPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  context: AiRouteContext;
 }
 
-export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([
+export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
+  const [messages, setMessages] = useState<Message[]>(() => [
     {
       role: 'assistant',
-      content: 'Olá! Sou a  COMPLIANCEX. Posso apoiar com NRs, APR, PT, NC, treinamentos e conformidade operacional.',
+      content: context.assistantIntro,
       timestamp: new Date(),
     },
   ]);
@@ -30,6 +32,16 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
   const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMessages([
+      {
+        role: 'assistant',
+        content: context.assistantIntro,
+        timestamp: new Date(),
+      },
+    ]);
+  }, [context.assistantIntro]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -104,6 +116,7 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
     if ((!input.trim() && !selectedImage) || isLoading) return;
 
     const prompt = input.trim() || 'Analise os riscos visíveis nesta imagem.';
+    const contextualPrompt = `${context.promptPrefix}\n\nSolicitação do usuário: ${prompt}`;
 
     const userMessage: Message = {
       role: 'user',
@@ -124,9 +137,9 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
       }));
 
       const assistantContent = selectedImage
-        ? formatImageAnalysis(await aiService.analyzeImageRisk(selectedImage, prompt))
+        ? formatImageAnalysis(await aiService.analyzeImageRisk(selectedImage, contextualPrompt))
         : (
-            await aiService.chat(prompt, {
+            await aiService.chat(contextualPrompt, {
               conversationHistory,
             })
           ).answer;
@@ -154,19 +167,21 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
 
   if (!isOpen) return null;
 
+  const ContextIcon = context.icon;
+
   return (
-    <div className="fixed bottom-24 left-6 z-50 flex h-[500px] w-[380px] flex-col overflow-hidden rounded-2xl border border-blue-100 bg-white shadow-2xl transition-all animate-in slide-in-from-bottom-4">
+    <div className="fixed bottom-[8.5rem] left-4 right-4 z-50 flex h-[min(38rem,calc(100vh-10rem))] flex-col overflow-hidden rounded-3xl border border-blue-100 bg-white shadow-2xl transition-all animate-in slide-in-from-bottom-4 sm:bottom-24 sm:left-6 sm:right-auto sm:w-[420px]">
       {/* Header */}
       <div className="flex items-center justify-between bg-gradient-to-r from-blue-600 to-indigo-700 px-4 py-3 text-white">
         <div className="flex items-center space-x-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-white backdrop-blur-sm">
-            <span className="text-lg font-black italic">G</span>
+            <ContextIcon className="h-4.5 w-4.5" />
           </div>
           <div>
-            <h3 className="text-sm font-bold">Especialista SST</h3>
+            <h3 className="text-sm font-bold">{context.title}</h3>
             <div className="flex items-center space-x-1">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-[10px] text-blue-100">Online</span>
+              <span className="text-[10px] text-blue-100">{context.subtitle}</span>
             </div>
           </div>
         </div>
@@ -182,6 +197,18 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {context.suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => setInput(suggestion)}
+              className="rounded-full border border-blue-100 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-50"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
         {messages.map((message, index) => (
           <div
             key={index}
@@ -270,7 +297,7 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Pergunte sobre SST ou anexe uma foto para análise de risco..."
+            placeholder={`Pergunte sobre ${context.title.toLowerCase()}...`}
             className="w-full rounded-full border border-gray-200 bg-gray-50 py-2 pl-11 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
           <button
@@ -285,7 +312,9 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
         </div>
         <div className="mt-2 flex items-center justify-center space-x-1">
           <Sparkles className="h-3 w-3 text-blue-600" />
-          <span className="text-[10px] text-gray-400">IA especialista em SST com análise de fotos</span>
+          <span className="text-[10px] text-gray-400">
+            IA especialista em SST com contexto da tela e análise de fotos
+          </span>
         </div>
       </div>
     </div>

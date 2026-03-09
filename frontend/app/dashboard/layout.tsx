@@ -12,6 +12,8 @@ import { useEffect, useState } from 'react';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { Company } from '@/services/companiesService';
 import { Building2, ChevronsUpDown } from 'lucide-react';
+import { MobileFieldNav } from '@/components/MobileFieldNav';
+import { CommandPalette } from '@/components/CommandPalette';
 
 export default function DashboardLayout({
   children,
@@ -25,6 +27,7 @@ export default function DashboardLayout({
 
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState(() => selectedTenantStore.get());
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Abre seletor automaticamente se Admin Geral sem empresa escolhida
   useEffect(() => {
@@ -71,6 +74,10 @@ export default function DashboardLayout({
     }
   }, [user, loading, router, pathname, hasPermission]);
 
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
+
   const handleCompanySelect = (company: Company) => {
     selectedTenantStore.set({ companyId: company.id, companyName: company.razao_social });
     setSelectedTenant({ companyId: company.id, companyName: company.razao_social });
@@ -107,9 +114,9 @@ export default function DashboardLayout({
 
   return (
     <div className="ds-shell-backdrop flex h-screen">
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header />
+        <Header onOpenMobileNav={() => setSidebarOpen(true)} />
         {/* Badge da empresa selecionada para Admin Geral */}
         {isAdminGeral && (
           <div className="border-b border-indigo-400/15 bg-indigo-500/10 px-6 py-3 flex items-center justify-between backdrop-blur-sm">
@@ -134,10 +141,12 @@ export default function DashboardLayout({
           </div>
         )}
         <ApiStatusBanner />
-        <main className="flex-1 overflow-y-auto px-5 py-6 sm:px-6 xl:px-8">
+        <main className="flex-1 overflow-y-auto px-4 py-5 pb-28 sm:px-6 xl:px-8 xl:pb-6">
           {children}
         </main>
         <AIButton />
+        <CommandPalette />
+        <MobileFieldNav />
       </div>
 
       <CompanySelectorModal

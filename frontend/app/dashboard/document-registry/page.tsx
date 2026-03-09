@@ -10,8 +10,9 @@ import {
   Filter,
   Printer,
   Search,
+  Sparkles,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, getISOWeek, getISOWeekYear, subWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { companiesService, Company } from '@/services/companiesService';
@@ -43,6 +44,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { selectedTenantStore } from '@/lib/selectedTenantStore';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
@@ -62,9 +64,9 @@ export default function DocumentRegistryPage() {
   const [loading, setLoading] = useState(true);
   const [loadingBundle, setLoadingBundle] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [companyId, setCompanyId] = useState('');
-  const [year, setYear] = useState(String(new Date().getFullYear()));
-  const [week, setWeek] = useState('');
+  const [companyId, setCompanyId] = useState(() => selectedTenantStore.get()?.companyId || '');
+  const [year, setYear] = useState(String(getISOWeekYear(new Date())));
+  const [week, setWeek] = useState(String(getISOWeek(new Date())));
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedModules, setSelectedModules] = useState<string[]>([]);
 
@@ -96,6 +98,15 @@ export default function DocumentRegistryPage() {
     loadPageData();
   }, [loadPageData]);
 
+  useEffect(() => {
+    const unsubscribe = selectedTenantStore.subscribe((tenant) => {
+      setCompanyId((current) => current || tenant?.companyId || '');
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   const filteredEntries = useMemo(() => {
     const normalizedTerm = searchTerm.trim().toLowerCase();
     if (!normalizedTerm) {
@@ -126,12 +137,42 @@ export default function DocumentRegistryPage() {
     };
   }, [entries]);
 
+  const activeCompanyName = useMemo(() => {
+    if (!companyId) {
+      return selectedTenantStore.get()?.companyName || 'Todas as empresas disponíveis';
+    }
+    return companies.find((company) => company.id === companyId)?.razao_social || 'Empresa filtrada';
+  }, [companies, companyId]);
+
+  const weeklyHighlights = useMemo(
+    () =>
+      moduleOptions
+        .map((option) => ({
+          ...option,
+          count: entries.filter((entry) => entry.module === option.value).length,
+        }))
+        .filter((item) => item.count > 0),
+    [entries],
+  );
+
   const handleToggleModule = (moduleName: string) => {
     setSelectedModules((current) =>
       current.includes(moduleName)
         ? current.filter((item) => item !== moduleName)
         : [...current, moduleName],
     );
+  };
+
+  const applyCurrentWeek = () => {
+    const now = new Date();
+    setYear(String(getISOWeekYear(now)));
+    setWeek(String(getISOWeek(now)));
+  };
+
+  const applyPreviousWeek = () => {
+    const target = subWeeks(new Date(), 1);
+    setYear(String(getISOWeekYear(target)));
+    setWeek(String(getISOWeek(target)));
   };
 
   const handleDownloadBundle = async () => {
@@ -225,6 +266,22 @@ export default function DocumentRegistryPage() {
             <CardDescription>
               Índice central de documentos SST por empresa, semana e módulo, com pacote consolidado.
             </CardDescription>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <button
+                type="button"
+                onClick={applyCurrentWeek}
+                className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-100 transition-colors hover:border-sky-300/40 hover:bg-sky-500/15"
+              >
+                Semana atual
+              </button>
+              <button
+                type="button"
+                onClick={applyPreviousWeek}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
+              >
+                Semana anterior
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -271,6 +328,39 @@ export default function DocumentRegistryPage() {
           icon={<Building2 className="h-4 w-4" />}
         />
       </div>
+
+      <Card tone="default" padding="md">
+        <CardHeader className="space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <CardTitle className="text-lg">Pacote operacional ativo</CardTitle>
+              <CardDescription>
+                Empresa: {activeCompanyName} · Semana {String(week || '—').padStart(2, '0')}/{year || '—'}
+              </CardDescription>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-violet-400/25 bg-violet-500/10 px-3 py-1 text-xs font-semibold text-violet-100">
+              <Sparkles className="h-3.5 w-3.5" />
+              {selectedModules.length > 0 ? `${selectedModules.length} módulo(s) filtrado(s)` : 'Todos os módulos'}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {weeklyHighlights.length > 0 ? (
+              weeklyHighlights.map((item) => (
+                <span
+                  key={item.value}
+                  className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/20 px-3 py-1 text-xs font-semibold text-[var(--ds-color-text-secondary)]"
+                >
+                  {item.label}: {item.count}
+                </span>
+              ))
+            ) : (
+              <span className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/20 px-3 py-1 text-xs font-semibold text-[var(--ds-color-text-muted)]">
+                Sem documentos no recorte atual
+              </span>
+            )}
+          </div>
+        </CardHeader>
+      </Card>
 
       <Card tone="default" padding="none">
         <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
@@ -334,6 +424,7 @@ export default function DocumentRegistryPage() {
                   key={option.value}
                   type="button"
                   onClick={() => handleToggleModule(option.value)}
+                  aria-pressed={active}
                   className={cn(
                     'rounded-full border px-3 py-1.5 text-sm transition-colors',
                     active
@@ -360,48 +451,86 @@ export default function DocumentRegistryPage() {
               compact
             />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Módulo</TableHead>
-                  <TableHead>Título</TableHead>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Arquivo</TableHead>
-                  <TableHead>Semana</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                  {filteredEntries.length} documento(s) encontrado(s) no índice consolidado.
+                </p>
+              </div>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Módulo</TableHead>
+                      <TableHead>Título</TableHead>
+                      <TableHead>Código</TableHead>
+                      <TableHead>Arquivo</TableHead>
+                      <TableHead>Semana</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredEntries.map((entry) => (
+                      <TableRow key={entry.id}>
+                        <TableCell>
+                          {entry.document_date
+                            ? format(new Date(entry.document_date), 'dd/MM/yyyy', {
+                                locale: ptBR,
+                              })
+                            : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <span className="rounded-full bg-[color:var(--ds-color-surface-muted)] px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
+                            {entry.module}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
+                          {entry.title}
+                        </TableCell>
+                        <TableCell className="text-[var(--ds-color-text-secondary)]">
+                          {entry.document_code || '—'}
+                        </TableCell>
+                        <TableCell className="text-[var(--ds-color-text-secondary)]">
+                          {entry.original_name || '—'}
+                        </TableCell>
+                        <TableCell className="text-[var(--ds-color-text-secondary)]">
+                          {String(entry.iso_week).padStart(2, '0')}/{entry.iso_year}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="space-y-3 md:hidden">
                 {filteredEntries.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>
-                      {entry.document_date
-                        ? format(new Date(entry.document_date), 'dd/MM/yyyy', {
-                            locale: ptBR,
-                          })
-                        : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <span className="rounded-full bg-[color:var(--ds-color-surface-muted)] px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
+                  <div
+                    key={entry.id}
+                    className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                          {entry.title}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
+                          {entry.document_date
+                            ? format(new Date(entry.document_date), 'dd/MM/yyyy', { locale: ptBR })
+                            : 'Sem data documental'}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-[color:var(--ds-color-surface-muted)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                         {entry.module}
                       </span>
-                    </TableCell>
-                    <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
-                      {entry.title}
-                    </TableCell>
-                    <TableCell className="text-[var(--ds-color-text-secondary)]">
-                      {entry.document_code || '—'}
-                    </TableCell>
-                    <TableCell className="text-[var(--ds-color-text-secondary)]">
-                      {entry.original_name || '—'}
-                    </TableCell>
-                    <TableCell className="text-[var(--ds-color-text-secondary)]">
-                      {String(entry.iso_week).padStart(2, '0')}/{entry.iso_year}
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                    <div className="mt-3 space-y-1 text-xs text-[var(--ds-color-text-secondary)]">
+                      <p>Código: {entry.document_code || '—'}</p>
+                      <p>Arquivo: {entry.original_name || '—'}</p>
+                      <p>Semana: {String(entry.iso_week).padStart(2, '0')}/{entry.iso_year}</p>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

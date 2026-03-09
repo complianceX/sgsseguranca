@@ -71,13 +71,35 @@ const menuItems = [
   { icon: Settings, label: 'Configurações', href: '/dashboard/settings' },
 ];
 
-export function Sidebar() {
+export function Sidebar({
+  isOpen = false,
+  onClose,
+}: {
+  isOpen?: boolean;
+  onClose?: () => void;
+}) {
   const pathname = usePathname();
   const { logout, user, hasPermission } = useAuth();
   const isAdmin = user?.profile?.nome === 'Administrador Geral';
 
   return (
-    <div className="flex h-full w-72 flex-col border-r border-[color:var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,#081326_0%,#0d1f39_46%,#12284a_100%)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-lg)]">
+    <>
+      <button
+        type="button"
+        aria-hidden={!isOpen}
+        tabIndex={isOpen ? 0 : -1}
+        onClick={onClose}
+        className={cn(
+          'fixed inset-0 z-40 bg-[#020817]/70 backdrop-blur-sm transition-opacity xl:hidden',
+          isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      />
+      <div
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex h-full w-72 flex-col border-r border-[color:var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,#081326_0%,#0d1f39_46%,#12284a_100%)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-lg)] transition-transform duration-[var(--ds-motion-base)] xl:static xl:z-auto xl:translate-x-0',
+          isOpen ? 'translate-x-0' : '-translate-x-full',
+        )}
+      >
       <div className="border-b border-[color:var(--ds-color-border-subtle)]/80 px-6 py-5">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--ds-color-action-primary),#7c3aed)] text-sm font-black text-white shadow-[0_16px_32px_rgba(37,99,235,0.36)]">
@@ -141,6 +163,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href!}
+                onClick={onClose}
                 className={cn(
                   'group flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-sm font-medium transition-all duration-[var(--ds-motion-base)]',
                   active
@@ -187,6 +210,7 @@ export function Sidebar() {
           Sair
         </button>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

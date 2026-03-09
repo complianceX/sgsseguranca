@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   Bell,
   Search,
@@ -15,6 +16,7 @@ import {
   ShieldCheck,
   WifiOff,
   RefreshCw,
+  Menu,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -23,11 +25,17 @@ import { useApiReconnect } from '@/hooks/useApiReconnect';
 import { notificationsService, AppNotification } from '@/services/notificationsService';
 import { flushOfflineQueue, getOfflineQueueCount } from '@/lib/offline-sync';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
+import { ThemeToggle } from './ThemeToggle';
 
 const POLL_INTERVAL_MS = 30_000;
 
-export function Header() {
+export function Header({
+  onOpenMobileNav,
+}: {
+  onOpenMobileNav?: () => void;
+}) {
   const { user } = useAuth();
+  const pathname = usePathname();
   const { isOffline, apiBaseUrl } = useApiStatus();
   const { isReconnecting, reconnect } = useApiReconnect(apiBaseUrl);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -173,23 +181,39 @@ export function Header() {
     }
   };
 
+  const openCommandPalette = () => {
+    window.dispatchEvent(new CustomEvent('app:command-palette-open'));
+  };
+
   return (
     <header className="ds-topbar">
       <div className="flex flex-1 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex min-w-0 flex-1 items-center gap-4">
-          <div className="ds-topbar-search hidden lg:flex">
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            className="ds-topbar-search hidden lg:flex"
+            aria-label="Abrir command palette"
+          >
             <Search className="h-4 w-4 text-[var(--ds-color-text-muted)]" />
-            <input
-              type="text"
-              placeholder="Pesquisar módulos, documentos, colaboradores ou ações..."
-              className="min-w-0 flex-1 border-0 bg-transparent text-sm text-[var(--ds-color-text-primary)] placeholder:text-[var(--ds-color-text-muted)] focus:outline-none"
-              aria-label="Pesquisa global"
-            />
+            <span className="min-w-0 flex-1 text-left text-sm text-[var(--ds-color-text-muted)]">
+              Pesquisar módulos, documentos, colaboradores ou ações...
+            </span>
             <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-[var(--ds-color-text-muted)]">
               <Command className="h-3 w-3" />
               Ctrl K
             </span>
-          </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenMobileNav}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-white/10 hover:text-white xl:hidden"
+            aria-label="Abrir navegação"
+            title="Abrir navegação"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
 
           <div className="hidden min-w-0 items-center gap-3 xl:flex">
             <div className="ds-topbar-chip">
@@ -204,6 +228,40 @@ export function Header() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full items-center gap-2 xl:hidden">
+            <div className="ds-topbar-chip min-w-0 flex-1 justify-center">
+              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <span className="truncate">
+                {selectedTenant?.companyName || user?.company?.razao_social || 'Tenant não selecionado'}
+              </span>
+            </div>
+            <div className="ds-topbar-chip">
+              <CalendarDays className="h-4 w-4 text-[var(--ds-color-info)]" />
+              {currentDateLabel}
+            </div>
+          </div>
+
+          <div className="ds-topbar-mobile-context xl:hidden">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+              Contexto ativo
+            </p>
+            <p className="mt-1 text-sm font-medium text-white">
+              {pathname === '/dashboard'
+                ? 'Cockpit operacional'
+                : pathname.replace('/dashboard/', '').replaceAll('-', ' ')}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            className="ds-topbar-chip xl:hidden"
+            title="Abrir command palette"
+          >
+            <Command className="h-4 w-4 text-[var(--ds-color-info)]" />
+            Busca rápida
+          </button>
+
           <div className="hidden items-center gap-2 2xl:flex">
             <Link href="/dashboard/aprs/new" className="ds-topbar-action">
               <FilePlus2 className="h-4 w-4" />
@@ -251,6 +309,8 @@ export function Header() {
               {isReconnecting ? 'Reconectando' : 'Reconectar'}
             </button>
           )}
+
+          <ThemeToggle />
 
           <div className="relative" ref={popoverRef}>
             <button

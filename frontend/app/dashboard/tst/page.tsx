@@ -2,10 +2,44 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, ClipboardCheck, FileText, Search, ShieldAlert, UserRoundSearch } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  ClipboardCheck,
+  FileText,
+  RefreshCw,
+  Search,
+  ShieldAlert,
+  UserRoundSearch,
+  Wifi,
+  WifiOff,
+} from 'lucide-react';
 import { dashboardService, TstDayDashboard } from '@/services/dashboardService';
 import { usersService, WorkerOperationalStatus } from '@/services/usersService';
-import { getOfflineQueueCount } from '@/lib/offline-sync';
+import { flushOfflineQueue, getOfflineQueueCount, getOfflineQueueSnapshot } from '@/lib/offline-sync';
+import { useApiStatus } from '@/hooks/useApiStatus';
+import { useApiReconnect } from '@/hooks/useApiReconnect';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState, ErrorState, InlineLoadingState, PageLoadingState } from '@/components/ui/state';
+
+const fieldActionCards = [
+  {
+    title: 'Abrir APR',
+    description: 'Registrar risco e controles ainda em campo.',
+    href: '/dashboard/aprs/new',
+  },
+  {
+    title: 'Emitir PT',
+    description: 'Liberar trabalho com bloqueios e evidências.',
+    href: '/dashboard/pts/new',
+  },
+  {
+    title: 'Pacote semanal',
+    description: 'Baixar ou imprimir documentos da semana.',
+    href: '/dashboard/document-registry',
+  },
+];
 
 export default function TstFieldPage() {
   const [dashboard, setDashboard] = useState<TstDayDashboard | null>(null);
@@ -15,28 +49,46 @@ export default function TstFieldPage() {
   const [workerLoading, setWorkerLoading] = useState(false);
   const [workerError, setWorkerError] = useState<string | null>(null);
   const [offlineCount, setOfflineCount] = useState(0);
+  const [syncingOfflineQueue, setSyncingOfflineQueue] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { isOffline, apiBaseUrl } = useApiStatus();
+  const { isReconnecting, reconnect } = useApiReconnect(apiBaseUrl);
+
+  const loadDashboard = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await dashboardService.getTstDay();
+      setDashboard(data);
+    } catch {
+      setError('Não foi possível carregar a operação do dia.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await dashboardService.getTstDay();
-        setDashboard(data);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void load();
+    void loadDashboard();
     setOfflineCount(getOfflineQueueCount());
 
     const onQueueUpdate = (event: Event) => {
       const detail = (event as CustomEvent<{ count?: number }>).detail;
       setOfflineCount(detail?.count ?? getOfflineQueueCount());
     };
+    const onSyncStarted = () => setSyncingOfflineQueue(true);
+    const onSyncCompleted = () => {
+      setSyncingOfflineQueue(false);
+      setOfflineCount(getOfflineQueueCount());
+    };
 
     window.addEventListener('app:offline-queue-updated', onQueueUpdate as EventListener);
+    window.addEventListener('app:offline-sync-started', onSyncStarted as EventListener);
+    window.addEventListener('app:offline-sync-completed', onSyncCompleted as EventListener);
+
     return () => {
       window.removeEventListener('app:offline-queue-updated', onQueueUpdate as EventListener);
+      window.removeEventListener('app:offline-sync-started', onSyncStarted as EventListener);
+      window.removeEventListener('app:offline-sync-completed', onSyncCompleted as EventListener);
     };
   }, []);
 
@@ -47,27 +99,52 @@ export default function TstFieldPage() {
         value: dashboard?.summary.pendingPtApprovals ?? 0,
         icon: FileText,
         href: '/dashboard/pts',
+        tone: 'text-amber-300',
       },
       {
         label: 'NCs críticas',
         value: dashboard?.summary.criticalNonConformities ?? 0,
         icon: ShieldAlert,
         href: '/dashboard/nonconformities',
+        tone: 'text-rose-300',
       },
       {
         label: 'Inspeções atrasadas',
         value: dashboard?.summary.overdueInspections ?? 0,
         icon: ClipboardCheck,
         href: '/dashboard/inspections',
+        tone: 'text-sky-300',
       },
       {
         label: 'Docs vencendo',
         value: dashboard?.summary.expiringDocuments ?? 0,
         icon: AlertTriangle,
         href: '/dashboard/medical-exams',
+        tone: 'text-orange-300',
       },
     ],
     [dashboard],
+  );
+
+  const workerQuickFacts = useMemo(
+    () => [
+      {
+        label: 'ASO',
+        value: workerStatus?.medicalExam.status ?? 'Sem consulta',
+      },
+      {
+        label: 'Treinamentos bloqueantes',
+        value:
+          workerStatus && workerStatus.trainings.expiredBlocking.length > 0
+            ? String(workerStatus.trainings.expiredBlocking.length)
+            : '0',
+      },
+      {
+        label: 'EPIs ativos',
+        value: workerStatus ? String(workerStatus.epis.totalActive) : '0',
+      },
+    ],
+    [workerStatus],
   );
 
   const handleSearch = async (event: React.FormEvent) => {
@@ -86,238 +163,408 @@ export default function TstFieldPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <PageLoadingState
+        title="Carregando cockpit de campo"
+        description="Preparando bloqueios, pendências e status operacional do dia."
+        cards={4}
+        tableRows={6}
+      />
+    );
+  }
+
+  if (error) {
+    return (
+      <ErrorState
+        title="Falha ao carregar operação de campo"
+        description={error}
+        action={
+          <Button type="button" onClick={() => void loadDashboard()}>
+            Recarregar
+          </Button>
+        }
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">TST em campo</h1>
-          <p className="text-sm text-gray-500">
-            Pendências do dia, bloqueios de liberação e consulta operacional por CPF.
-          </p>
-        </div>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Fila offline pendente: <span className="font-semibold">{offlineCount}</span>
-        </div>
-      </div>
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-200">
+              {isOffline ? <WifiOff className="h-3.5 w-3.5" /> : <Wifi className="h-3.5 w-3.5" />}
+              operação de campo
+            </div>
+            <div>
+              <CardTitle className="text-3xl">TST em campo</CardTitle>
+              <CardDescription className="mt-2 max-w-2xl">
+                Pendências do dia, decisão operacional por CPF, fila offline e atalhos de execução
+                para APR, PT e documentos semanais.
+              </CardDescription>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <OperationalChip
+              label="Fila offline"
+              value={String(offlineCount)}
+              tone={offlineCount > 0 ? 'warning' : 'default'}
+            />
+            <OperationalChip
+              label="API"
+              value={isOffline ? 'Offline' : 'Online'}
+              tone={isOffline ? 'danger' : 'success'}
+            />
+            <OperationalChip
+              label="Sincronização"
+              value={syncingOfflineQueue ? 'Em curso' : 'Estável'}
+              tone={syncingOfflineQueue ? 'info' : 'default'}
+            />
+          </div>
+        </CardHeader>
+        <CardContent className="mt-0 grid gap-3 lg:grid-cols-[1.4fr_1fr]">
+          <div className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-black/10 p-4">
+            <p className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+              Próximas ações de maior impacto
+            </p>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              {fieldActionCards.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-white/5 p-4 transition-colors hover:border-sky-400/35 hover:bg-white/10"
+                >
+                  <p className="text-sm font-semibold text-white">{item.title}</p>
+                  <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">{item.description}</p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-sky-200">
+                    Abrir fluxo
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-black/10 p-4">
+            <p className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+              Modo operacional
+            </p>
+            <div className="mt-3 space-y-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-center"
+                onClick={() => void flushOfflineQueue()}
+                disabled={syncingOfflineQueue || offlineCount === 0}
+                leftIcon={syncingOfflineQueue ? <RefreshCw className="h-4 w-4 animate-spin" /> : <WifiOff className="h-4 w-4" />}
+              >
+                {syncingOfflineQueue ? 'Sincronizando fila offline' : 'Sincronizar dados locais'}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-center"
+                onClick={reconnect}
+                disabled={isReconnecting || !isOffline}
+                leftIcon={<RefreshCw className={`h-4 w-4 ${isReconnecting ? 'animate-spin' : ''}`} />}
+              >
+                {isReconnecting ? 'Reconectando API' : 'Testar conectividade'}
+              </Button>
+              <p className="text-xs text-[var(--ds-color-text-muted)]">
+                {isOffline
+                  ? `API indisponível${apiBaseUrl ? ` em ${apiBaseUrl}` : ''}. Continue no modo offline e sincronize quando voltar.`
+                  : 'Conectividade estável. A fila offline será enviada automaticamente quando necessário.'}
+              </p>
+              {getOfflineQueueSnapshot().length > 0 ? (
+                <p className="text-xs text-amber-200">
+                  Há itens aguardando envio. Priorize sincronização antes de encerrar o turno.
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => (
-          <Link
-            key={card.label}
-            href={card.href}
-            className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-500">{card.label}</span>
-              <card.icon className="h-5 w-5 text-blue-600" />
-            </div>
-            <div className="mt-4 text-3xl font-bold text-gray-900">
-              {loading ? '...' : card.value}
-            </div>
+          <Link key={card.label} href={card.href}>
+            <Card interactive padding="md">
+              <CardHeader className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <CardDescription>{card.label}</CardDescription>
+                  <card.icon className={`h-5 w-5 ${card.tone}`} />
+                </div>
+                <CardTitle className="text-3xl">{card.value}</CardTitle>
+              </CardHeader>
+            </Card>
           </Link>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm xl:col-span-1">
-          <div className="mb-4 flex items-center gap-2">
-            <UserRoundSearch className="h-5 w-5 text-blue-600" />
-            <h2 className="text-lg font-bold text-gray-900">Consulta do trabalhador</h2>
-          </div>
-          <form className="space-y-4" onSubmit={handleSearch}>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">CPF</label>
-              <input
-                value={cpf}
-                onChange={(event) => setCpf(event.target.value)}
-                className="w-full rounded-xl border border-gray-200 px-4 py-3 outline-none ring-0 transition focus:border-blue-500"
-                placeholder="Digite o CPF"
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr_1.35fr]">
+        <Card tone="default" padding="none">
+          <CardHeader className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
+            <div className="flex items-center gap-2">
+              <UserRoundSearch className="h-5 w-5 text-[var(--ds-color-action-primary)]" />
+              <div>
+                <CardTitle>Consulta do trabalhador</CardTitle>
+                <CardDescription>
+                  Verifique prontidão operacional por CPF antes da mobilização ou liberação.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <form className="space-y-4" onSubmit={handleSearch}>
+              <div>
+                <label htmlFor="tst-worker-cpf" className="mb-2 block text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                  CPF
+                </label>
+                <input
+                  id="tst-worker-cpf"
+                  value={cpf}
+                  onChange={(event) => setCpf(event.target.value)}
+                  className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3 text-sm text-[var(--ds-color-text-primary)] outline-none transition focus:border-[var(--ds-color-focus)] focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
+                  placeholder="Digite o CPF"
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full justify-center"
+                leftIcon={<Search className="h-4 w-4" />}
+                disabled={workerLoading || cpf.trim().length < 11}
+              >
+                {workerLoading ? 'Consultando status operacional' : 'Consultar status operacional'}
+              </Button>
+            </form>
+
+            {workerLoading ? <InlineLoadingState label="Buscando dados do trabalhador" /> : null}
+
+            {workerError ? (
+              <div className="rounded-[var(--ds-radius-lg)] border border-red-300/35 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {workerError}
+              </div>
+            ) : null}
+
+            {!workerStatus && !workerError && !workerLoading ? (
+              <EmptyState
+                title="Consulta pronta"
+                description="Digite um CPF para validar ASO, treinamentos, EPIs e bloqueios operacionais."
+                compact
               />
-            </div>
-            <button
-              type="submit"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-medium text-white"
-              disabled={workerLoading || cpf.trim().length < 11}
-            >
-              <Search className="h-4 w-4" />
-              {workerLoading ? 'Consultando...' : 'Consultar status operacional'}
-            </button>
-          </form>
+            ) : null}
 
-          {workerError ? (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {workerError}
-            </div>
-          ) : null}
-
-          {workerStatus ? (
-            <div className="mt-6 space-y-4">
-              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{workerStatus.user.nome}</p>
-                    <p className="text-xs text-gray-500">{workerStatus.user.funcao || 'Função não informada'}</p>
-                  </div>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      workerStatus.blocked
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-emerald-100 text-emerald-700'
-                    }`}
-                  >
-                    {workerStatus.operationalStatus}
-                  </span>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-gray-100 p-4">
-                <p className="text-sm font-semibold text-gray-900">ASO</p>
-                <p className="mt-1 text-sm text-gray-600">
-                  Status: <span className="font-medium">{workerStatus.medicalExam.status}</span>
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-gray-100 p-4">
-                <p className="text-sm font-semibold text-gray-900">Treinamentos bloqueantes</p>
-                <p className="mt-1 text-sm text-gray-600">
-                  {workerStatus.trainings.expiredBlocking.length > 0
-                    ? workerStatus.trainings.expiredBlocking.map((item) => item.nome).join(', ')
-                    : 'Nenhum treinamento vencido bloqueando operação.'}
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-gray-100 p-4">
-                <p className="text-sm font-semibold text-gray-900">EPIs ativos</p>
-                <p className="mt-1 text-sm text-gray-600">
-                  {workerStatus.epis.totalActive} entrega(s) ativa(s)
-                </p>
-              </div>
-
-              {workerStatus.reasons.length > 0 ? (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-                  <p className="text-sm font-semibold text-red-800">Motivos de bloqueio</p>
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-700">
-                    {workerStatus.reasons.map((reason) => (
-                      <li key={reason}>{reason}</li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="space-y-6 xl:col-span-2">
-          <section className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">PTs pendentes de liberação</h2>
-              <Link href="/dashboard/pts" className="text-sm font-semibold text-blue-600">
-                Ver PTs
-              </Link>
-            </div>
-            <div className="space-y-3">
-              {(dashboard?.pendingPtApprovals || []).map((pt) => (
-                <div key={pt.id} className="rounded-xl border border-gray-100 p-4">
+            {workerStatus ? (
+              <div className="space-y-4">
+                <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">{pt.numero} - {pt.titulo}</p>
-                      <p className="text-xs text-gray-500">
-                        {pt.site || 'Sem obra'} · {pt.responsavel || 'Sem responsável'}
+                      <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                        {workerStatus.user.nome}
+                      </p>
+                      <p className="text-xs text-[var(--ds-color-text-muted)]">
+                        {workerStatus.user.funcao || 'Função não informada'}
                       </p>
                     </div>
-                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                      {pt.residual_risk || 'Sem risco'}
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        workerStatus.blocked
+                          ? 'bg-red-500/15 text-red-200'
+                          : 'bg-emerald-500/15 text-emerald-200'
+                      }`}
+                    >
+                      {workerStatus.operationalStatus}
                     </span>
                   </div>
                 </div>
-              ))}
-              {dashboard && dashboard.pendingPtApprovals.length === 0 ? (
-                <p className="text-sm text-gray-500">Nenhuma PT pendente.</p>
-              ) : null}
-            </div>
-          </section>
 
-          <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">NCs críticas</h2>
-                <Link href="/dashboard/nonconformities" className="text-sm font-semibold text-blue-600">
-                  Ver NCs
-                </Link>
-              </div>
-              <div className="space-y-3">
-                {(dashboard?.criticalNonConformities || []).map((item) => (
-                  <div key={item.id} className="rounded-xl border border-gray-100 p-4">
-                    <p className="text-sm font-semibold text-gray-900">{item.codigo_nc}</p>
-                    <p className="text-xs text-gray-500">{item.local_setor_area} · {item.site || 'Sem obra'}</p>
-                    <p className="mt-2 text-xs font-medium text-red-700">{item.risco_nivel}</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  {workerQuickFacts.map((fact) => (
+                    <div
+                      key={fact.label}
+                      className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4"
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                        {fact.label}
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-primary)]">
+                        {fact.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {workerStatus.reasons.length > 0 ? (
+                  <div className="rounded-[var(--ds-radius-lg)] border border-red-300/35 bg-red-500/10 p-4">
+                    <p className="text-sm font-semibold text-red-100">Motivos de bloqueio</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-200">
+                      {workerStatus.reasons.map((reason) => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                    </ul>
                   </div>
-                ))}
-                {dashboard && dashboard.criticalNonConformities.length === 0 ? (
-                  <p className="text-sm text-gray-500">Nenhuma NC crítica aberta.</p>
                 ) : null}
               </div>
-            </div>
+            ) : null}
+          </CardContent>
+        </Card>
 
-            <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">Documentos vencendo</h2>
-                <Link href="/dashboard/trainings" className="text-sm font-semibold text-blue-600">
-                  Ver documentos
-                </Link>
-              </div>
-              <div className="space-y-3">
-                {(dashboard?.expiringDocuments.medicalExams || []).map((item) => (
-                  <div key={item.id} className="rounded-xl border border-gray-100 p-4">
-                    <p className="text-sm font-semibold text-gray-900">{item.workerName || 'Colaborador'}</p>
-                    <p className="text-xs text-gray-500">
-                      ASO {item.tipo_exame} · {item.data_vencimento ? new Date(item.data_vencimento).toLocaleDateString('pt-BR') : 'sem vencimento'}
-                    </p>
-                  </div>
-                ))}
-                {(dashboard?.expiringDocuments.trainings || []).map((item) => (
-                  <div key={item.id} className="rounded-xl border border-gray-100 p-4">
-                    <p className="text-sm font-semibold text-gray-900">{item.workerName || 'Colaborador'}</p>
-                    <p className="text-xs text-gray-500">
-                      {item.nome} · {new Date(item.data_vencimento).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-                ))}
-                {dashboard &&
-                dashboard.expiringDocuments.medicalExams.length === 0 &&
-                dashboard.expiringDocuments.trainings.length === 0 ? (
-                  <p className="text-sm text-gray-500">Nenhum documento vencendo nos próximos 7 dias.</p>
-                ) : null}
-              </div>
-            </div>
+        <div className="space-y-6">
+          <OperationalListCard
+            title="PTs pendentes de liberação"
+            description="Permissões com bloqueio ou validação pendente antes da execução."
+            href="/dashboard/pts"
+            emptyLabel="Nenhuma PT pendente."
+            items={(dashboard?.pendingPtApprovals || []).map((pt) => ({
+              id: pt.id,
+              title: `${pt.numero} - ${pt.titulo}`,
+              subtitle: `${pt.site || 'Sem obra'} · ${pt.responsavel || 'Sem responsável'}`,
+              badge: pt.residual_risk || 'Sem risco',
+            }))}
+          />
 
-            <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">Inspeções atrasadas</h2>
-                <Link href="/dashboard/inspections" className="text-sm font-semibold text-blue-600">
-                  Ver inspeções
-                </Link>
-              </div>
-              <div className="space-y-3">
-                {(dashboard?.overdueInspections || []).map((item) => (
-                  <div key={item.id} className="rounded-xl border border-gray-100 p-4">
-                    <p className="text-sm font-semibold text-gray-900">{item.setor_area}</p>
-                    <p className="text-xs text-gray-500">
-                      {item.site || 'Sem obra'} · {new Date(item.data_inspecao).toLocaleDateString('pt-BR')}
-                    </p>
-                    <p className="mt-2 text-xs text-gray-600">
-                      {item.responsavel || 'Responsável não informado'}
-                    </p>
-                  </div>
-                ))}
-                {dashboard && dashboard.overdueInspections.length === 0 ? (
-                  <p className="text-sm text-gray-500">Nenhuma inspeção com plano em atraso.</p>
-                ) : null}
-              </div>
-            </div>
-          </section>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <OperationalListCard
+              title="NCs críticas"
+              description="Desvios críticos que exigem contenção imediata."
+              href="/dashboard/nonconformities"
+              emptyLabel="Nenhuma NC crítica aberta."
+              items={(dashboard?.criticalNonConformities || []).map((item) => ({
+                id: item.id,
+                title: item.codigo_nc,
+                subtitle: `${item.local_setor_area} · ${item.site || 'Sem obra'}`,
+                badge: item.risco_nivel,
+              }))}
+              compact
+            />
+
+            <OperationalListCard
+              title="Documentos vencendo"
+              description="Vencimentos próximos de ASO e treinamento."
+              href="/dashboard/trainings"
+              emptyLabel="Nenhum documento vencendo nos próximos 7 dias."
+              items={[
+                ...((dashboard?.expiringDocuments.medicalExams || []).map((item) => ({
+                  id: item.id,
+                  title: item.workerName || 'Colaborador',
+                  subtitle: `ASO ${item.tipo_exame} · ${
+                    item.data_vencimento
+                      ? new Date(item.data_vencimento).toLocaleDateString('pt-BR')
+                      : 'sem vencimento'
+                  }`,
+                })) ?? []),
+                ...((dashboard?.expiringDocuments.trainings || []).map((item) => ({
+                  id: item.id,
+                  title: item.workerName || 'Colaborador',
+                  subtitle: `${item.nome} · ${new Date(item.data_vencimento).toLocaleDateString('pt-BR')}`,
+                })) ?? []),
+              ]}
+              compact
+            />
+
+            <OperationalListCard
+              title="Inspeções atrasadas"
+              description="Ações de campo com plano pendente ou em atraso."
+              href="/dashboard/inspections"
+              emptyLabel="Nenhuma inspeção com plano em atraso."
+              items={(dashboard?.overdueInspections || []).map((item) => ({
+                id: item.id,
+                title: item.setor_area,
+                subtitle: `${item.site || 'Sem obra'} · ${new Date(item.data_inspecao).toLocaleDateString('pt-BR')}`,
+                extra: item.responsavel || 'Responsável não informado',
+              }))}
+              compact
+            />
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function OperationalChip({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: 'default' | 'warning' | 'danger' | 'success' | 'info';
+}) {
+  const tones = {
+    default: 'border-white/10 bg-white/5 text-white',
+    warning: 'border-amber-300/35 bg-amber-500/10 text-amber-100',
+    danger: 'border-red-300/35 bg-red-500/10 text-red-100',
+    success: 'border-emerald-300/35 bg-emerald-500/10 text-emerald-100',
+    info: 'border-sky-300/35 bg-sky-500/10 text-sky-100',
+  };
+
+  return (
+    <div className={`rounded-[var(--ds-radius-lg)] border px-4 py-3 ${tones[tone]}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-80">{label}</p>
+      <p className="mt-2 text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function OperationalListCard({
+  title,
+  description,
+  href,
+  emptyLabel,
+  items,
+  compact = false,
+}: {
+  title: string;
+  description: string;
+  href: string;
+  emptyLabel: string;
+  items: Array<{ id: string; title: string; subtitle: string; badge?: string; extra?: string }>;
+  compact?: boolean;
+}) {
+  return (
+    <Card tone="default" padding="none">
+      <CardHeader className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <CardTitle>{title}</CardTitle>
+            <CardDescription className="mt-1">{description}</CardDescription>
+          </div>
+          <Link href={href} className="text-sm font-semibold text-[var(--ds-color-action-primary)]">
+            Ver lista
+          </Link>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {items.length === 0 ? (
+          <EmptyState title={emptyLabel} description="Sem pendências para o recorte atual." compact />
+        ) : (
+          items.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className={`font-semibold text-[var(--ds-color-text-primary)] ${compact ? 'text-sm' : 'text-base'}`}>
+                    {item.title}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">{item.subtitle}</p>
+                  {item.extra ? (
+                    <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">{item.extra}</p>
+                  ) : null}
+                </div>
+                {item.badge ? (
+                  <span className="rounded-full bg-amber-500/12 px-3 py-1 text-xs font-semibold text-amber-100">
+                    {item.badge}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
   );
 }
