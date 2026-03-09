@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { dossiersService } from '@/services/dossiersService';
 import { sitesService, Site } from '@/services/sitesService';
@@ -8,24 +8,24 @@ import { usersService, User } from '@/services/usersService';
 import { FileDown } from 'lucide-react';
 
 export default function DossiersPage() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [userOptions, setUserOptions] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<null | 'employee' | 'site' | 'contract'>(
     null,
   );
+  const [userSearch, setUserSearch] = useState('');
+  const deferredUserSearch = useDeferredValue(userSearch);
+  const [siteSearch, setSiteSearch] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedSiteId, setSelectedSiteId] = useState('');
 
   useEffect(() => {
-    const loadData = async () => {
+    const loadSites = async () => {
       try {
         setLoading(true);
-        const [usersData, sitesData] = await Promise.all([
-          usersService.findAll(),
-          sitesService.findAll(),
-        ]);
-        setUsers(usersData);
+        const sitesData = await sitesService.findAll();
         setSites(sitesData);
       } catch (error) {
         console.error('Erro ao carregar dossies:', error);
@@ -35,8 +35,43 @@ export default function DossiersPage() {
       }
     };
 
-    void loadData();
+    void loadSites();
   }, []);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const usersPage = await usersService.findPaginated({
+          page: 1,
+          limit: 20,
+          search: deferredUserSearch || undefined,
+        });
+        setUserOptions(usersPage.data);
+      } catch (error) {
+        console.error('Erro ao carregar colaboradores para dossie:', error);
+        toast.error('Erro ao carregar colaboradores para dossie.');
+      }
+    };
+
+    void loadUsers();
+  }, [deferredUserSearch]);
+
+  const availableUsers = useMemo(() => {
+    if (!selectedUser) {
+      return userOptions;
+    }
+
+    return [selectedUser, ...userOptions.filter((item) => item.id !== selectedUser.id)];
+  }, [selectedUser, userOptions]);
+
+  const filteredSites = useMemo(() => {
+    const term = siteSearch.trim().toLowerCase();
+    if (!term) {
+      return sites;
+    }
+
+    return sites.filter((item) => item.nome.toLowerCase().includes(term));
+  }, [siteSearch, sites]);
 
   const downloadEmployee = async () => {
     if (!selectedUserId) {
@@ -86,14 +121,28 @@ export default function DossiersPage() {
           <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Dossie por colaborador
           </p>
+          <input
+            type="text"
+            value={userSearch}
+            onChange={(e) => setUserSearch(e.target.value)}
+            disabled={loading}
+            className="mt-3 w-full rounded-md border px-3 py-2 text-sm"
+            placeholder="Buscar colaborador por nome ou CPF"
+          />
           <select
             value={selectedUserId}
-            onChange={(e) => setSelectedUserId(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSelectedUser(
+                availableUsers.find((item) => item.id === value) || null,
+              );
+              setSelectedUserId(value);
+            }}
             disabled={loading}
             className="mt-3 w-full rounded-md border px-3 py-2 text-sm"
           >
             <option value="">Selecione um colaborador</option>
-            {users.map((item) => (
+            {availableUsers.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.nome}
               </option>
@@ -114,6 +163,14 @@ export default function DossiersPage() {
           <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Dossie por obra/setor
           </p>
+          <input
+            type="text"
+            value={siteSearch}
+            onChange={(e) => setSiteSearch(e.target.value)}
+            disabled={loading}
+            className="mt-3 w-full rounded-md border px-3 py-2 text-sm"
+            placeholder="Filtrar obra/setor"
+          />
           <select
             value={selectedSiteId}
             onChange={(e) => setSelectedSiteId(e.target.value)}
@@ -121,7 +178,7 @@ export default function DossiersPage() {
             className="mt-3 w-full rounded-md border px-3 py-2 text-sm"
           >
             <option value="">Selecione uma obra/setor</option>
-            {sites.map((item) => (
+            {filteredSites.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.nome}
               </option>

@@ -52,11 +52,15 @@ export class EpiAssignmentsController {
   @Get()
   @Authorize('can_view_epi_assignments')
   findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('status') status?: 'entregue' | 'devolvido' | 'substituido',
     @Query('user_id') userId?: string,
     @Query('epi_id') epiId?: string,
   ) {
-    return this.assignmentsService.findAll({
+    return this.assignmentsService.findPaginated({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
       status,
       user_id: userId,
       epi_id: epiId,

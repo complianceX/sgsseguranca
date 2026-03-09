@@ -9,6 +9,10 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
 import { TenantService } from '../common/tenant/tenant.service';
+import {
+  normalizeOffsetPagination,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
 import { Epi } from '../epis/entities/epi.entity';
 import { User } from '../users/entities/user.entity';
 import {
@@ -98,17 +102,53 @@ export class EpiAssignmentsService {
     user_id?: string;
     epi_id?: string;
   }): Promise<EpiAssignment[]> {
-    const companyId = this.getTenantIdOrThrow();
-    return this.assignmentsRepository.find({
-      where: {
-        company_id: companyId,
-        ...(filters?.status ? { status: filters.status } : {}),
-        ...(filters?.user_id ? { user_id: filters.user_id } : {}),
-        ...(filters?.epi_id ? { epi_id: filters.epi_id } : {}),
-      },
-      relations: ['epi', 'user', 'site'],
-      order: { created_at: 'DESC' },
+    const page = await this.findPaginated({
+      ...filters,
+      page: 1,
+      limit: 100,
     });
+    return page.data;
+  }
+
+  async findPaginated(filters?: {
+    status?: 'entregue' | 'devolvido' | 'substituido';
+    user_id?: string;
+    epi_id?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const companyId = this.getTenantIdOrThrow();
+    const { page, limit, skip } = normalizeOffsetPagination(filters, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const query = this.assignmentsRepository
+      .createQueryBuilder('assignment')
+      .leftJoinAndSelect('assignment.epi', 'epi')
+      .leftJoinAndSelect('assignment.user', 'user')
+      .leftJoinAndSelect('assignment.site', 'site')
+      .where('assignment.company_id = :companyId', { companyId })
+      .orderBy('assignment.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    if (filters?.status) {
+      query.andWhere('assignment.status = :status', { status: filters.status });
+    }
+
+    if (filters?.user_id) {
+      query.andWhere('assignment.user_id = :userId', {
+        userId: filters.user_id,
+      });
+    }
+
+    if (filters?.epi_id) {
+      query.andWhere('assignment.epi_id = :epiId', { epiId: filters.epi_id });
+    }
+
+    const [data, total] = await query.getManyAndCount();
+    return toOffsetPage(data, total, page, limit);
   }
 
   async findOne(id: string): Promise<EpiAssignment> {

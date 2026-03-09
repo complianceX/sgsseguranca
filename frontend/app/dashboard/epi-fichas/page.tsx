@@ -1,15 +1,29 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { toast } from 'sonner';
+import { PaginationControls } from '@/components/PaginationControls';
 import { SignatureModal } from '@/components/SignatureModal';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { episService, Epi } from '@/services/episService';
 import {
   epiAssignmentsService,
   EpiAssignment,
 } from '@/services/epiAssignmentsService';
 import { usersService, User } from '@/services/usersService';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus } from 'lucide-react';
 
 type SignatureTarget =
@@ -19,9 +33,15 @@ type SignatureTarget =
 export default function EpiFichasPage() {
   const [assignments, setAssignments] = useState<EpiAssignment[]>([]);
   const [epis, setEpis] = useState<Epi[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [userOptions, setUserOptions] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const deferredUserSearch = useDeferredValue(userSearch);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
   const [summary, setSummary] = useState({
     total: 0,
     entregue: 0,
@@ -36,33 +56,39 @@ export default function EpiFichasPage() {
     observacoes: '',
   });
   const [deliverySignature, setDeliverySignature] = useState('');
-  const [deliverySignatureType, setDeliverySignatureType] = useState<'digital' | 'upload' | 'facial'>('digital');
+  const [deliverySignatureType, setDeliverySignatureType] = useState<
+    'digital' | 'upload' | 'facial'
+  >('digital');
   const [signatureTarget, setSignatureTarget] = useState<SignatureTarget | null>(
     null,
   );
 
+  const availableUsers = useMemo(() => {
+    if (!selectedUser) {
+      return userOptions;
+    }
+
+    return [selectedUser, ...userOptions.filter((item) => item.id !== selectedUser.id)];
+  }, [selectedUser, userOptions]);
   const usersMap = useMemo(
-    () => new Map(users.map((item) => [item.id, item.nome])),
-    [users],
+    () => new Map(availableUsers.map((item) => [item.id, item.nome])),
+    [availableUsers],
   );
   const episMap = useMemo(
     () => new Map(epis.map((item) => [item.id, item.nome])),
     [epis],
   );
 
-  const loadData = async () => {
+  const loadAssignments = useCallback(async () => {
     try {
       setLoading(true);
-      const [assignmentsData, episData, usersData, summaryData] =
-        await Promise.all([
-          epiAssignmentsService.findAll(),
-          episService.findAll(),
-          usersService.findAll(),
-          epiAssignmentsService.getSummary(),
-        ]);
-      setAssignments(assignmentsData);
-      setEpis(episData);
-      setUsers(usersData);
+      const [assignmentsPage, summaryData] = await Promise.all([
+        epiAssignmentsService.findPaginated({ page, limit: 20 }),
+        epiAssignmentsService.getSummary(),
+      ]);
+      setAssignments(assignmentsPage.data);
+      setTotal(assignmentsPage.total);
+      setLastPage(assignmentsPage.lastPage);
       setSummary(summaryData);
     } catch (error) {
       console.error('Erro ao carregar fichas EPI:', error);
@@ -70,11 +96,43 @@ export default function EpiFichasPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   useEffect(() => {
-    void loadData();
+    void loadAssignments();
+  }, [loadAssignments]);
+
+  useEffect(() => {
+    const loadEpis = async () => {
+      try {
+        const episData = await episService.findAll();
+        setEpis(episData);
+      } catch (error) {
+        console.error('Erro ao carregar EPIs:', error);
+        toast.error('Erro ao carregar catálogo de EPIs.');
+      }
+    };
+
+    void loadEpis();
   }, []);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const usersPage = await usersService.findPaginated({
+          page: 1,
+          limit: 20,
+          search: deferredUserSearch || undefined,
+        });
+        setUserOptions(usersPage.data);
+      } catch (error) {
+        console.error('Erro ao carregar colaboradores da ficha EPI:', error);
+        toast.error('Erro ao carregar colaboradores.');
+      }
+    };
+
+    void loadUsers();
+  }, [deferredUserSearch]);
 
   const handleCreate = async () => {
     if (!form.epi_id || !form.user_id) {
@@ -102,7 +160,13 @@ export default function EpiFichasPage() {
       setForm({ epi_id: '', user_id: '', quantidade: 1, observacoes: '' });
       setDeliverySignature('');
       setDeliverySignatureType('digital');
-      await loadData();
+      setSelectedUser(null);
+      setUserSearch('');
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
+      await loadAssignments();
     } catch (error) {
       console.error('Erro ao criar ficha EPI:', error);
       toast.error('Falha ao registrar ficha de EPI.');
@@ -111,7 +175,11 @@ export default function EpiFichasPage() {
     }
   };
 
-  const handleReturn = async (assignment: EpiAssignment, signatureData: string, signatureType: string) => {
+  const handleReturn = async (
+    assignment: EpiAssignment,
+    signatureData: string,
+    signatureType: string,
+  ) => {
     const reason = window.prompt('Motivo da devolucao (opcional):', '');
     try {
       await epiAssignmentsService.returnAssignment(assignment.id, {
@@ -123,7 +191,7 @@ export default function EpiFichasPage() {
         motivo_devolucao: reason || undefined,
       });
       toast.success('Devolucao registrada.');
-      await loadData();
+      await loadAssignments();
     } catch (error) {
       console.error('Erro ao devolver EPI:', error);
       toast.error('Falha ao registrar devolucao.');
@@ -143,7 +211,7 @@ export default function EpiFichasPage() {
         motivo_substituicao: reason.trim(),
       });
       toast.success('Ficha marcada como substituida.');
-      await loadData();
+      await loadAssignments();
     } catch (error) {
       console.error('Erro ao substituir EPI:', error);
       toast.error('Falha ao marcar substituicao.');
@@ -194,11 +262,17 @@ export default function EpiFichasPage() {
           </select>
           <select
             value={form.user_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, user_id: e.target.value }))}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSelectedUser(
+                availableUsers.find((item) => item.id === value) || null,
+              );
+              setForm((prev) => ({ ...prev, user_id: value }));
+            }}
             className="rounded-md border px-3 py-2 text-sm"
           >
             <option value="">Colaborador</option>
-            {users.map((item) => (
+            {availableUsers.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.nome}
               </option>
@@ -233,6 +307,13 @@ export default function EpiFichasPage() {
           >
             {deliverySignature ? 'Assinatura capturada' : 'Assinar entrega'}
           </button>
+          <input
+            type="text"
+            value={userSearch}
+            onChange={(e) => setUserSearch(e.target.value)}
+            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
+            placeholder="Buscar colaborador"
+          />
           <button
             type="button"
             disabled={creating}
@@ -322,6 +403,15 @@ export default function EpiFichasPage() {
             )}
           </TableBody>
         </Table>
+        {!loading && assignments.length > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </div>
 
       <SignatureModal
@@ -331,8 +421,12 @@ export default function EpiFichasPage() {
           signatureTarget?.mode === 'create'
             ? usersMap.get(form.user_id) || 'Colaborador'
             : signatureTarget?.mode === 'return'
-              ? assignments.find((item) => item.id === signatureTarget.assignmentId)?.user?.nome ||
-                usersMap.get(assignments.find((item) => item.id === signatureTarget.assignmentId)?.user_id || '') ||
+              ? assignments.find((item) => item.id === signatureTarget.assignmentId)
+                  ?.user?.nome ||
+                usersMap.get(
+                  assignments.find((item) => item.id === signatureTarget.assignmentId)
+                    ?.user_id || '',
+                ) ||
                 'Colaborador'
               : 'Colaborador'
         }
@@ -365,7 +459,9 @@ export default function EpiFichasPage() {
 function Kpi({ title, value }: { title: string; value: number }) {
   return (
     <div className="rounded-lg border bg-white p-3 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {title}
+      </p>
       <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
     </div>
   );

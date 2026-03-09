@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export type EpiAssignmentStatus = 'entregue' | 'devolvido' | 'substituido';
 
@@ -45,15 +46,45 @@ export interface EpiSignatureInput {
 }
 
 export const epiAssignmentsService = {
+  findPaginated: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: EpiAssignmentStatus;
+    user_id?: string;
+    epi_id?: string;
+  }) => {
+    const response = await api.get<PaginatedResponse<EpiAssignment>>(
+      '/epi-assignments',
+      {
+        params: {
+          page: params?.page ?? 1,
+          limit: params?.limit ?? 20,
+          ...(params?.status ? { status: params.status } : {}),
+          ...(params?.user_id ? { user_id: params.user_id } : {}),
+          ...(params?.epi_id ? { epi_id: params.epi_id } : {}),
+        },
+      },
+    );
+    return response.data;
+  },
+
   findAll: async (params?: {
     status?: EpiAssignmentStatus;
     user_id?: string;
     epi_id?: string;
   }) => {
-    const response = await api.get<EpiAssignment[]>('/epi-assignments', {
-      params,
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        epiAssignmentsService.findPaginated({
+          page,
+          limit,
+          status: params?.status,
+          user_id: params?.user_id,
+          epi_id: params?.epi_id,
+        }),
+      limit: 100,
+      maxPages: 50,
     });
-    return response.data;
   },
 
   findOne: async (id: string) => {

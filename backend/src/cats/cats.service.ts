@@ -11,6 +11,10 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { StorageService } from '../common/services/storage.service';
 import { TenantService } from '../common/tenant/tenant.service';
+import {
+  normalizeOffsetPagination,
+  toOffsetPage,
+} from '../common/utils/offset-pagination.util';
 import { User } from '../users/entities/user.entity';
 import { CloseCatDto } from './dto/close-cat.dto';
 import { CreateCatDto } from './dto/create-cat.dto';
@@ -66,23 +70,55 @@ export class CatsService {
     worker_id?: string;
     site_id?: string;
   }): Promise<Cat[]> {
-    const companyId = this.getTenantIdOrThrow();
-    return this.catsRepository.find({
-      where: {
-        company_id: companyId,
-        ...(filters?.status ? { status: filters.status } : {}),
-        ...(filters?.worker_id ? { worker_id: filters.worker_id } : {}),
-        ...(filters?.site_id ? { site_id: filters.site_id } : {}),
-      },
-      relations: [
-        'site',
-        'worker',
-        'opened_by',
-        'investigated_by',
-        'closed_by',
-      ],
-      order: { created_at: 'DESC' },
+    const page = await this.findPaginated({
+      ...filters,
+      page: 1,
+      limit: 100,
     });
+    return page.data;
+  }
+
+  async findPaginated(filters?: {
+    status?: CatStatus;
+    worker_id?: string;
+    site_id?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    const companyId = this.getTenantIdOrThrow();
+    const { page, limit, skip } = normalizeOffsetPagination(filters, {
+      defaultLimit: 20,
+      maxLimit: 100,
+    });
+
+    const query = this.catsRepository
+      .createQueryBuilder('cat')
+      .leftJoinAndSelect('cat.site', 'site')
+      .leftJoinAndSelect('cat.worker', 'worker')
+      .leftJoinAndSelect('cat.opened_by', 'opened_by')
+      .leftJoinAndSelect('cat.investigated_by', 'investigated_by')
+      .leftJoinAndSelect('cat.closed_by', 'closed_by')
+      .where('cat.company_id = :companyId', { companyId })
+      .orderBy('cat.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    if (filters?.status) {
+      query.andWhere('cat.status = :status', { status: filters.status });
+    }
+
+    if (filters?.worker_id) {
+      query.andWhere('cat.worker_id = :workerId', {
+        workerId: filters.worker_id,
+      });
+    }
+
+    if (filters?.site_id) {
+      query.andWhere('cat.site_id = :siteId', { siteId: filters.site_id });
+    }
+
+    const [data, total] = await query.getManyAndCount();
+    return toOffsetPage(data, total, page, limit);
   }
 
   async findOne(id: string): Promise<Cat> {

@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { fetchAllPages, PaginatedResponse } from './pagination';
 
 export type CatStatus = 'aberta' | 'investigacao' | 'fechada';
 export type CatTipo = 'tipico' | 'trajeto' | 'doenca_ocupacional' | 'outros';
@@ -52,13 +53,42 @@ export interface CatRecord {
 }
 
 export const catsService = {
+  findPaginated: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: CatStatus;
+    worker_id?: string;
+    site_id?: string;
+  }) => {
+    const response = await api.get<PaginatedResponse<CatRecord>>('/cats', {
+      params: {
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 20,
+        ...(params?.status ? { status: params.status } : {}),
+        ...(params?.worker_id ? { worker_id: params.worker_id } : {}),
+        ...(params?.site_id ? { site_id: params.site_id } : {}),
+      },
+    });
+    return response.data;
+  },
+
   findAll: async (params?: {
     status?: CatStatus;
     worker_id?: string;
     site_id?: string;
   }) => {
-    const response = await api.get<CatRecord[]>('/cats', { params });
-    return response.data;
+    return fetchAllPages({
+      fetchPage: (page, limit) =>
+        catsService.findPaginated({
+          page,
+          limit,
+          status: params?.status,
+          worker_id: params?.worker_id,
+          site_id: params?.site_id,
+        }),
+      limit: 100,
+      maxPages: 50,
+    });
   },
 
   findOne: async (id: string) => {

@@ -1,19 +1,40 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { toast } from 'sonner';
+import { PaginationControls } from '@/components/PaginationControls';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { catsService, CatRecord } from '@/services/catsService';
-import { usersService, User } from '@/services/usersService';
 import { sitesService, Site } from '@/services/sitesService';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Upload, Eye } from 'lucide-react';
+import { usersService, User } from '@/services/usersService';
+import { Eye, Plus, Upload } from 'lucide-react';
 
 export default function CatsPage() {
   const [cats, setCats] = useState<CatRecord[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [workerOptions, setWorkerOptions] = useState<User[]>([]);
+  const [selectedWorker, setSelectedWorker] = useState<User | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [workerSearch, setWorkerSearch] = useState('');
+  const deferredWorkerSearch = useDeferredValue(workerSearch);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
   const [summary, setSummary] = useState({
     total: 0,
     aberta: 0,
@@ -33,27 +54,31 @@ export default function CatsPage() {
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const usersMap = useMemo(
-    () => new Map(users.map((item) => [item.id, item.nome])),
-    [users],
-  );
   const sitesMap = useMemo(
     () => new Map(sites.map((item) => [item.id, item.nome])),
     [sites],
   );
+  const availableWorkers = useMemo(() => {
+    if (!selectedWorker) {
+      return workerOptions;
+    }
 
-  const loadData = async () => {
+    return [
+      selectedWorker,
+      ...workerOptions.filter((item) => item.id !== selectedWorker.id),
+    ];
+  }, [selectedWorker, workerOptions]);
+
+  const loadCats = useCallback(async () => {
     try {
       setLoading(true);
-      const [catsData, usersData, sitesData, summaryData] = await Promise.all([
-        catsService.findAll(),
-        usersService.findAll(),
-        sitesService.findAll(),
+      const [catsPage, summaryData] = await Promise.all([
+        catsService.findPaginated({ page, limit: 20 }),
         catsService.getSummary(),
       ]);
-      setCats(catsData);
-      setUsers(usersData);
-      setSites(sitesData);
+      setCats(catsPage.data);
+      setTotal(catsPage.total);
+      setLastPage(catsPage.lastPage);
       setSummary(summaryData);
     } catch (error) {
       console.error('Erro ao carregar CATs:', error);
@@ -61,11 +86,43 @@ export default function CatsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   useEffect(() => {
-    void loadData();
+    void loadCats();
+  }, [loadCats]);
+
+  useEffect(() => {
+    const loadSites = async () => {
+      try {
+        const sitesData = await sitesService.findAll();
+        setSites(sitesData);
+      } catch (error) {
+        console.error('Erro ao carregar obras/setores:', error);
+        toast.error('Erro ao carregar obras/setores.');
+      }
+    };
+
+    void loadSites();
   }, []);
+
+  useEffect(() => {
+    const loadWorkers = async () => {
+      try {
+        const workersPage = await usersService.findPaginated({
+          page: 1,
+          limit: 20,
+          search: deferredWorkerSearch || undefined,
+        });
+        setWorkerOptions(workersPage.data);
+      } catch (error) {
+        console.error('Erro ao carregar colaboradores da CAT:', error);
+        toast.error('Erro ao carregar colaboradores.');
+      }
+    };
+
+    void loadWorkers();
+  }, [deferredWorkerSearch]);
 
   const handleCreate = async () => {
     if (!form.descricao.trim()) {
@@ -95,7 +152,13 @@ export default function CatsPage() {
         site_id: '',
         acao_imediata: '',
       });
-      await loadData();
+      setSelectedWorker(null);
+      setWorkerSearch('');
+      if (page !== 1) {
+        setPage(1);
+        return;
+      }
+      await loadCats();
     } catch (error) {
       console.error('Erro ao abrir CAT:', error);
       toast.error('Nao foi possivel abrir a CAT.');
@@ -119,7 +182,7 @@ export default function CatsPage() {
         causa_raiz: causaRaiz?.trim() || undefined,
       });
       toast.success('CAT movida para investigacao.');
-      await loadData();
+      await loadCats();
     } catch (error) {
       console.error('Erro ao iniciar investigacao:', error);
       toast.error('Falha ao iniciar investigacao da CAT.');
@@ -134,14 +197,17 @@ export default function CatsPage() {
     if (!plano?.trim()) {
       return;
     }
-    const licoes = window.prompt('Licoes aprendidas (opcional):', cat.licoes_aprendidas || '');
+    const licoes = window.prompt(
+      'Licoes aprendidas (opcional):',
+      cat.licoes_aprendidas || '',
+    );
     try {
       await catsService.close(cat.id, {
         plano_acao_fechamento: plano.trim(),
         licoes_aprendidas: licoes?.trim() || undefined,
       });
       toast.success('CAT fechada com sucesso.');
-      await loadData();
+      await loadCats();
     } catch (error) {
       console.error('Erro ao fechar CAT:', error);
       toast.error('Falha ao fechar CAT.');
@@ -155,7 +221,7 @@ export default function CatsPage() {
     try {
       await catsService.uploadAttachment(catId, file, 'geral');
       toast.success('Anexo enviado.');
-      await loadData();
+      await loadCats();
     } catch (error) {
       console.error('Erro ao enviar anexo:', error);
       toast.error('Falha ao anexar arquivo na CAT.');
@@ -218,7 +284,9 @@ export default function CatsPage() {
           </select>
           <select
             value={form.gravidade}
-            onChange={(e) => setForm((prev) => ({ ...prev, gravidade: e.target.value }))}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, gravidade: e.target.value }))
+            }
             className="rounded-md border px-3 py-2 text-sm"
           >
             <option value="leve">Leve</option>
@@ -228,11 +296,17 @@ export default function CatsPage() {
           </select>
           <select
             value={form.worker_id}
-            onChange={(e) => setForm((prev) => ({ ...prev, worker_id: e.target.value }))}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSelectedWorker(
+                availableWorkers.find((item) => item.id === value) || null,
+              );
+              setForm((prev) => ({ ...prev, worker_id: value }));
+            }}
             className="rounded-md border px-3 py-2 text-sm"
           >
             <option value="">Colaborador</option>
-            {users.map((item) => (
+            {availableWorkers.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.nome}
               </option>
@@ -261,6 +335,13 @@ export default function CatsPage() {
           </button>
           <input
             type="text"
+            value={workerSearch}
+            onChange={(e) => setWorkerSearch(e.target.value)}
+            placeholder="Buscar colaborador"
+            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
+          />
+          <input
+            type="text"
             value={form.local_ocorrencia}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, local_ocorrencia: e.target.value }))
@@ -271,7 +352,9 @@ export default function CatsPage() {
           <input
             type="text"
             value={form.acao_imediata}
-            onChange={(e) => setForm((prev) => ({ ...prev, acao_imediata: e.target.value }))}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, acao_imediata: e.target.value }))
+            }
             placeholder="Acao imediata"
             className="rounded-md border px-3 py-2 text-sm md:col-span-2"
           />
@@ -280,7 +363,7 @@ export default function CatsPage() {
             value={form.descricao}
             onChange={(e) => setForm((prev) => ({ ...prev, descricao: e.target.value }))}
             placeholder="Descricao da ocorrencia"
-            className="rounded-md border px-3 py-2 text-sm md:col-span-2"
+            className="rounded-md border px-3 py-2 text-sm md:col-span-6"
           />
         </div>
       </div>
@@ -318,9 +401,7 @@ export default function CatsPage() {
                   <TableCell>
                     {new Date(cat.data_ocorrencia).toLocaleString('pt-BR')}
                   </TableCell>
-                  <TableCell>
-                    {cat.worker?.nome || usersMap.get(cat.worker_id || '') || '-'}
-                  </TableCell>
+                  <TableCell>{cat.worker?.nome || '-'}</TableCell>
                   <TableCell>
                     {cat.local_ocorrencia || sitesMap.get(cat.site_id || '') || '-'}
                   </TableCell>
@@ -391,6 +472,15 @@ export default function CatsPage() {
             )}
           </TableBody>
         </Table>
+        {!loading && cats.length > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -399,7 +489,9 @@ export default function CatsPage() {
 function Kpi({ title, value }: { title: string; value: number }) {
   return (
     <div className="rounded-lg border bg-white p-3 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {title}
+      </p>
       <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
     </div>
   );

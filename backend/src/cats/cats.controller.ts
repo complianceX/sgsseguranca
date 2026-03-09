@@ -54,11 +54,15 @@ export class CatsController {
   @Get()
   @Authorize('can_view_cats')
   findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
     @Query('status') status?: 'aberta' | 'investigacao' | 'fechada',
     @Query('worker_id') workerId?: string,
     @Query('site_id') siteId?: string,
   ) {
-    return this.catsService.findAll({
+    return this.catsService.findPaginated({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
       status,
       worker_id: workerId,
       site_id: siteId,
