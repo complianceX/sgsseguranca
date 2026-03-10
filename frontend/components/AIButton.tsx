@@ -17,7 +17,7 @@ export function AIButton() {
       <div className="fixed bottom-24 left-4 z-50 sm:bottom-6 sm:left-6">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="group relative flex h-14 items-center justify-center gap-2 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 px-4 text-white shadow-xl transition-all hover:scale-[1.03] active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="group relative flex h-14 items-center justify-center gap-2 rounded-full bg-[image:var(--ds-gradient-brand)] px-4 text-white shadow-[var(--ds-shadow-lg)] transition-all hover:-translate-y-px hover:brightness-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[color:var(--ds-color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--ds-color-bg-canvas)]"
           title={isOpen ? 'Fechar especialista SST' : context.title}
         >
           {isOpen ? (
@@ -35,14 +35,14 @@ export function AIButton() {
           
           {/* Pulse effect */}
           {!isOpen && (
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-20"></span>
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[color:var(--ds-color-primary-subtle)] opacity-50"></span>
           )}
           
           {/* Tooltip hint */}
           {!isOpen && (
-            <span className="absolute bottom-full left-0 mb-3 hidden w-max rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white shadow-lg group-hover:block">
+            <span className="absolute bottom-full left-0 mb-3 hidden w-max rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] px-3 py-1.5 text-xs font-medium text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-md)] group-hover:block">
               <span className="flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-sky-300" />
+                <Sparkles className="h-3.5 w-3.5 text-[var(--ds-color-accent)]" />
                 {context.subtitle}
               </span>
             </span>

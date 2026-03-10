@@ -147,7 +147,7 @@ export function MachineForm({ id }: MachineFormProps) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="ds-form-page mx-auto max-w-4xl space-y-6">
       <Card tone="elevated" padding="lg">
         <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
           <div className="flex items-center space-x-4">

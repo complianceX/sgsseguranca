@@ -64,7 +64,7 @@ export function BasicInfoSection({
           onClick={onAiAnalysis}
           disabled={analyzing}
           className={cn(
-            'inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:from-purple-700 hover:to-blue-700 disabled:opacity-60',
+            'inline-flex items-center gap-2 rounded-xl bg-[image:var(--ds-gradient-brand)] px-4 py-2.5 text-sm font-bold text-white shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:brightness-105 disabled:opacity-60',
           )}
         >
           {analyzing ? (

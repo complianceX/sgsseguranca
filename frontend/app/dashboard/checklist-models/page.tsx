@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { PaginationControls } from '@/components/PaginationControls';
 import { cn } from '@/lib/utils';
 
 export default function ChecklistModelsPage() {
@@ -23,10 +24,13 @@ export default function ChecklistModelsPage() {
   const [bootstrapping, setBootstrapping] = useState(false);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [lastPage, setLastPage] = useState(1);
 
   useEffect(() => {
     loadModels(modelFilter);
-  }, [modelFilter]);
+  }, [modelFilter, page]);
 
   async function loadModels(filter: 'all' | 'model' | 'regular') {
     try {
@@ -37,8 +41,14 @@ export default function ChecklistModelsPage() {
           : filter === 'regular'
             ? { excludeTemplates: true }
             : undefined;
-      const data = await checklistsService.findAll(options);
-      setModels(data);
+      const response = await checklistsService.findPaginated({
+        ...options,
+        page,
+        limit: 10,
+      });
+      setModels(response.data);
+      setTotal(response.total);
+      setLastPage(response.lastPage);
     } catch (error) {
       console.error('Erro ao carregar modelos:', error);
       toast.error('Não foi possível carregar os modelos de checklist.');
@@ -51,7 +61,11 @@ export default function ChecklistModelsPage() {
     if (confirm('Excluir este modelo?')) {
       try {
         await checklistsService.delete(id);
-        setModels(models.filter(m => m.id !== id));
+        if (models.length === 1 && page > 1) {
+          setPage((current) => current - 1);
+        } else {
+          await loadModels(modelFilter);
+        }
         toast.success('Modelo excluído com sucesso!');
       } catch (error) {
         console.error('Erro ao excluir modelo:', error);
@@ -86,6 +100,7 @@ export default function ChecklistModelsPage() {
       toast.success(
         `Templates operacionais processados. Criados: ${result.created}. Ignorados: ${result.skipped}.`,
       );
+      setPage(1);
       await loadModels(modelFilter);
     } catch (error) {
       console.error('Erro ao criar templates operacionais:', error);
@@ -170,7 +185,10 @@ export default function ChecklistModelsPage() {
               aria-label="Filtro de modelos"
               className="h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
               value={modelFilter}
-              onChange={(e) => setModelFilter(e.target.value as 'all' | 'model' | 'regular')}
+              onChange={(e) => {
+                setModelFilter(e.target.value as 'all' | 'model' | 'regular');
+                setPage(1);
+              }}
             >
               <option value="model">Modelos</option>
               <option value="regular">Registros</option>
@@ -266,6 +284,15 @@ export default function ChecklistModelsPage() {
             )}
           </tbody>
         </table>
+        {!loading && total > 0 ? (
+          <PaginationControls
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            onPrev={() => setPage((current) => Math.max(1, current - 1))}
+            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+          />
+        ) : null}
       </Card>
 
       {selectedDoc && (

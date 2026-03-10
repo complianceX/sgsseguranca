@@ -173,7 +173,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
   const classificacoesRisco = ['Aceitável', 'Tolerável', 'Moderado', 'Substancial', 'Intolerável'];
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 pb-12">
+    <form onSubmit={handleSubmit(onSubmit)} className="ds-form-page space-y-8 pb-12">
       {/* 1. IDENTIFICAÇÃO DA EMPRESA */}
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h2 className="mb-4 text-lg font-bold text-gray-900">1. IDENTIFICAÇÃO DA EMPRESA</h2>

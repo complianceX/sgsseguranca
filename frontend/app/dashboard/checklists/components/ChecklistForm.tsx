@@ -485,7 +485,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   };
 
   return (
-    <div className="mx-auto max-w-4xl print:max-w-none print:p-0">
+    <div className="ds-form-page mx-auto max-w-4xl print:max-w-none print:p-0">
       <div className="mb-6 flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
           <Link

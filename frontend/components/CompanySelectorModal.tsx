@@ -44,7 +44,7 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
             <Building2 className="h-6 w-6" />
             <h2 className="text-lg font-bold">Selecionar Empresa</h2>
           </div>
-          <p className="text-blue-100 text-sm">
+          <p className="text-sm text-white/80">
             Escolha a empresa para operar como Administrador Geral
           </p>
         </div>

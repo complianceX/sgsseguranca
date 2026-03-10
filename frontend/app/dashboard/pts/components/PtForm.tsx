@@ -642,7 +642,7 @@ export function PtForm({ id }: PtFormProps) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="ds-form-page mx-auto max-w-7xl space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Link
@@ -875,7 +875,7 @@ export function PtForm({ id }: PtFormProps) {
                   <div className="sst-card p-6 transition-shadow hover:shadow-md">
                     <h2 className="mb-6 text-lg font-bold text-gray-900 flex items-center gap-2">
                       Auditoria do Trabalho
-                      <span className="h-2 w-2 rounded-full bg-purple-500"></span>
+                      <span className="h-2 w-2 rounded-full bg-violet-600"></span>
                     </h2>
                     <AuditSection 
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any

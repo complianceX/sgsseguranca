@@ -41,7 +41,7 @@ const getStatusIcon = (status: string) => {
     case 'Aprovada':
       return <CheckCircle className="h-4 w-4 text-white" />;
     case 'Pendente':
-      return <Clock className="h-4 w-4 text-[#111827]" />;
+      return <Clock className="h-4 w-4 text-white" />;
     case 'Cancelada':
       return <AlertTriangle className="h-4 w-4 text-white" />;
     case 'Encerrada':
@@ -58,7 +58,7 @@ const getStatusClass = (status: string) => {
     case 'Aprovada':
       return 'bg-[var(--ds-color-success)] text-white';
     case 'Pendente':
-      return 'bg-[var(--ds-color-warning)] text-[#111827]';
+      return 'bg-[var(--ds-color-warning)] text-white';
     case 'Cancelada':
       return 'bg-[var(--ds-color-danger)] text-white';
     case 'Encerrada':

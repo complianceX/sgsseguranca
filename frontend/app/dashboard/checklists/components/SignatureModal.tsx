@@ -123,7 +123,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div className="ds-form-page fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
           <div>

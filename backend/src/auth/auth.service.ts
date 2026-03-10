@@ -392,19 +392,22 @@ export class AuthService {
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
 
     const html = `
-      <div style="font-family: Arial, sans-serif; color: #1f2937; max-width: 520px; margin: 0 auto;">
-        <h2 style="color: #1d4ed8;">Redefinição de Senha — COMPLIANCE X</h2>
+      <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
+        <div style="display: inline-block; margin-bottom: 16px; padding: 6px 10px; border-radius: 999px; background-color: #dbeafe; color: #1d4ed8; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+          Compliance X
+        </div>
+        <h2 style="margin: 0 0 12px; color: #0f172a;">Redefinição de Senha</h2>
         <p>Olá, <strong>${user.nome || 'usuário'}</strong>.</p>
         <p>Recebemos uma solicitação para redefinir a senha da sua conta. Clique no botão abaixo para continuar:</p>
         <div style="margin: 28px 0;">
           <a href="${resetUrl}"
-             style="background-color: #2563eb; color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+             style="background-color: #1d4ed8; color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; box-shadow: 0 10px 20px rgba(29, 78, 216, 0.18);">
             Redefinir Senha
           </a>
         </div>
-        <p style="font-size: 13px; color: #6b7280;">Este link é válido por <strong>1 hora</strong>. Caso não tenha solicitado, ignore este e-mail — sua senha permanece inalterada.</p>
-        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
-        <p style="font-size: 11px; color: #9ca3af;">© 2026 Compliance X · Todos os direitos reservados</p>
+        <p style="font-size: 13px; color: #475569;">Este link é válido por <strong>1 hora</strong>. Caso não tenha solicitado, ignore este e-mail; sua senha permanece inalterada.</p>
+        <hr style="border: none; border-top: 1px solid #d9e2ec; margin: 24px 0;" />
+        <p style="font-size: 11px; color: #64748b;">© 2026 Compliance X · Todos os direitos reservados</p>
       </div>
     `;
 

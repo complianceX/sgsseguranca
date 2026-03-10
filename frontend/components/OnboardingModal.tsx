@@ -46,8 +46,8 @@ const STEPS = [
   },
   {
     icon: BarChart2,
-    iconColor: 'text-purple-400',
-    iconBg: 'bg-purple-500/15',
+    iconColor: 'text-[var(--ds-color-accent)]',
+    iconBg: 'bg-[color:var(--ds-color-accent-subtle)]',
     title: 'KPIs e Relatórios SST',
     description:
       'Acompanhe indicadores de desempenho em segurança: acidentabilidade, não conformidades, ações corretivas e treinamentos — tudo em gráficos interativos.',

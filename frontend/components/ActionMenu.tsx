@@ -34,14 +34,14 @@ export function ActionMenu({ items }: ActionMenuProps) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="rounded-md p-2 text-[#94A3B8] transition-colors hover:bg-[#334155] hover:text-[#F1F5F9]"
+        className="rounded-md p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/72 hover:text-[var(--ds-color-text-primary)]"
         title="Ações"
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-1 w-48 overflow-hidden rounded-lg border border-[#334155] bg-[#1E293B] shadow-xl">
+        <div className="absolute right-0 z-50 mt-1 w-48 overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] shadow-[var(--ds-shadow-md)]">
           {items.map((item, i) => (
             <button
               key={i}
@@ -53,8 +53,8 @@ export function ActionMenu({ items }: ActionMenuProps) {
               className={cn(
                 'flex w-full items-center gap-2 px-4 py-2.5 text-sm transition-colors',
                 item.variant === 'danger'
-                  ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300'
-                  : 'text-[#CBD5E1] hover:bg-[#0F172A] hover:text-[#F1F5F9]',
+                  ? 'text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]'
+                  : 'text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)]/76 hover:text-[var(--ds-color-text-primary)]',
               )}
             >
               <span className="h-4 w-4 shrink-0">{item.icon}</span>

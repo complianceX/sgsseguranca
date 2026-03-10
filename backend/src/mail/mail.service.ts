@@ -137,17 +137,20 @@ export class MailService {
     );
 
     const html = `
-      <div style="font-family: sans-serif; color: #333;">
-        <h2>${docName}</h2>
+      <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
+        <div style="display: inline-block; margin-bottom: 16px; padding: 6px 10px; border-radius: 999px; background-color: #dbeafe; color: #1d4ed8; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+          Compliance X
+        </div>
+        <h2 style="margin: 0 0 12px; color: #0f172a;">${docName}</h2>
         <p>Olá,</p>
         <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma COMPLIANCE X.</p>
         <p>Clique no botão abaixo para visualizar ou baixar o arquivo:</p>
         <div style="margin: 25px 0;">
-          <a href="${downloadUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+          <a href="${downloadUrl}" style="background-color: #1d4ed8; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; box-shadow: 0 10px 20px rgba(29, 78, 216, 0.18);">
             Acessar Documento
           </a>
         </div>
-        <p style="font-size: 12px; color: #666;">Este link é seguro e expira em 7 dias.</p>
+        <p style="font-size: 12px; color: #475569;">Este link é seguro e expira em 7 dias.</p>
       </div>
     `;
 
@@ -183,17 +186,20 @@ export class MailService {
     );
 
     const html = `
-      <div style="font-family: sans-serif; color: #333;">
-        <h2>${docName}</h2>
+      <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
+        <div style="display: inline-block; margin-bottom: 16px; padding: 6px 10px; border-radius: 999px; background-color: #dbeafe; color: #1d4ed8; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+          Compliance X
+        </div>
+        <h2 style="margin: 0 0 12px; color: #0f172a;">${docName}</h2>
         <p>Olá,</p>
         <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma COMPLIANCE X.</p>
         <p>Clique no botão abaixo para visualizar ou baixar o arquivo:</p>
         <div style="margin: 25px 0;">
-          <a href="${downloadUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+          <a href="${downloadUrl}" style="background-color: #1d4ed8; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; box-shadow: 0 10px 20px rgba(29, 78, 216, 0.18);">
             Acessar Documento
           </a>
         </div>
-        <p style="font-size: 12px; color: #666;">Este link é seguro e expira em 7 dias.</p>
+        <p style="font-size: 12px; color: #475569;">Este link é seguro e expira em 7 dias.</p>
       </div>
     `;
 

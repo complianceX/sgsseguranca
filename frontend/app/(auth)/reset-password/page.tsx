@@ -5,6 +5,23 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import axios from 'axios';
 
+const AUTH_SHELL_STYLE = {
+  background: [
+    'radial-gradient(circle at top left, rgba(37, 99, 235, 0.24), transparent 24%)',
+    'radial-gradient(circle at bottom right, rgba(15, 118, 110, 0.18), transparent 30%)',
+    'linear-gradient(135deg, #0B1220 0%, #111827 46%, #0F1E35 100%)',
+  ].join(', '),
+};
+
+const authCardClass =
+  'w-full max-w-md rounded-[28px] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] p-8 shadow-[var(--ds-shadow-lg)] backdrop-blur-xl';
+
+const authInputClass =
+  'w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-bg-subtle)] p-3 text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-4 focus:ring-[var(--ds-color-focus-ring)]';
+
+const primaryButtonClass =
+  'w-full rounded-xl bg-[image:var(--ds-gradient-brand)] p-3 font-semibold text-white shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50';
+
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -19,12 +36,12 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl text-center">
-        <p className="text-red-600 font-semibold">Link inválido ou expirado.</p>
+      <div className={`${authCardClass} text-center`}>
+        <p className="font-semibold text-[var(--ds-color-danger)]">Link inválido ou expirado.</p>
         <button
           type="button"
           onClick={() => router.push('/forgot-password')}
-          className="mt-4 w-full rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+          className={`mt-4 ${primaryButtonClass}`}
         >
           Solicitar novo link
         </button>
@@ -65,20 +82,20 @@ function ResetPasswordForm() {
 
   if (done) {
     return (
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl space-y-4">
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-center text-sm text-green-800">
-          <svg className="mx-auto mb-2 h-8 w-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className={`${authCardClass} space-y-4`}>
+        <div className="rounded-2xl border border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success)]/10 p-4 text-center text-sm">
+          <svg className="mx-auto mb-2 h-8 w-8 text-[var(--ds-color-success)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="font-semibold">Senha redefinida com sucesso!</p>
-          <p className="mt-1 text-xs text-green-700">
+          <p className="font-semibold text-[var(--ds-color-text-primary)]">Senha redefinida com sucesso!</p>
+          <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
             Você já pode fazer login com a nova senha.
           </p>
         </div>
         <button
           type="button"
           onClick={() => router.push('/login')}
-          className="w-full rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+          className={primaryButtonClass}
         >
           Ir para o login
         </button>
@@ -87,20 +104,20 @@ function ResetPasswordForm() {
   }
 
   return (
-    <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl">
+    <div className={authCardClass}>
       <div className="mb-6 text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-xl font-bold text-white">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[image:var(--ds-gradient-brand)] text-xl font-bold text-white shadow-[var(--ds-shadow-sm)]">
           G
         </div>
-        <h1 className="text-xl font-bold text-gray-900">Nova Senha</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">Nova Senha</h1>
+        <p className="mt-1 text-sm text-[var(--ds-color-text-muted)]">
           Defina uma nova senha para sua conta
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label htmlFor="newPassword" className="mb-2 block text-sm font-semibold text-gray-700">
+          <label htmlFor="newPassword" className="mb-2 block text-sm font-semibold text-[var(--ds-color-text-secondary)]">
             Nova senha
           </label>
           <div className="relative">
@@ -109,7 +126,7 @@ function ResetPasswordForm() {
               type={showPassword ? 'text' : 'password'}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-gray-50 p-3 pr-12 text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition"
+              className={`${authInputClass} pr-12`}
               placeholder="••••••••"
               required
               minLength={8}
@@ -118,7 +135,7 @@ function ResetPasswordForm() {
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--ds-color-text-muted)] transition-colors hover:text-[var(--ds-color-text-secondary)]"
               tabIndex={-1}
             >
               {showPassword ? (
@@ -133,13 +150,13 @@ function ResetPasswordForm() {
               )}
             </button>
           </div>
-          <p className="mt-1.5 text-xs text-gray-500">
+          <p className="mt-1.5 text-xs text-[var(--ds-color-text-muted)]">
             Mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas e números.
           </p>
         </div>
 
         <div>
-          <label htmlFor="confirmPassword" className="mb-2 block text-sm font-semibold text-gray-700">
+          <label htmlFor="confirmPassword" className="mb-2 block text-sm font-semibold text-[var(--ds-color-text-secondary)]">
             Confirmar nova senha
           </label>
           <input
@@ -147,14 +164,14 @@ function ResetPasswordForm() {
             type={showPassword ? 'text' : 'password'}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-gray-50 p-3 text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none transition"
+            className={authInputClass}
             placeholder="••••••••"
             required
           />
         </div>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <div className="flex items-start gap-2 rounded-xl border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/10 p-3 text-sm text-[var(--ds-color-danger)]">
             <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -165,7 +182,7 @@ function ResetPasswordForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 p-3 font-semibold text-white shadow-lg transition hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={primaryButtonClass}
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2">
@@ -186,15 +203,15 @@ function ResetPasswordForm() {
 
 function Fallback() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#0F172A] to-[#1E3A5F]">
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/30 border-t-white" />
+    <div className="flex min-h-screen items-center justify-center" style={AUTH_SHELL_STYLE}>
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/25 border-t-[var(--ds-color-action-primary)]" />
     </div>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#0F172A] to-[#1E3A5F] p-6">
+    <div className="flex min-h-screen items-center justify-center p-6" style={AUTH_SHELL_STYLE}>
       <Suspense fallback={<Fallback />}>
         <ResetPasswordForm />
       </Suspense>

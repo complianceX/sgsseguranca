@@ -1056,7 +1056,7 @@ export function AprForm({ id }: AprFormProps) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="ds-form-page mx-auto max-w-4xl space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Link
@@ -1496,7 +1496,7 @@ export function AprForm({ id }: AprFormProps) {
                   type="button"
                   onClick={handleAiAnalysis}
                   disabled={analyzing}
-                  className="flex items-center justify-center space-x-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-700 px-4 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:scale-105 active:scale-95 disabled:opacity-50 group"
+                  className="flex items-center justify-center space-x-2 rounded-lg bg-[image:var(--ds-gradient-brand)] px-4 py-2.5 text-sm font-bold text-white shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:brightness-105 active:scale-95 disabled:opacity-50 group"
                 >
                   {analyzing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -2228,30 +2228,30 @@ interface SectionGridProps {
 // Subcomponente para os grids de seleção
 function SectionGrid({ title, items, selectedIds, onToggle, error, signatures, color = 'blue' }: SectionGridProps) {
   const accentDotClasses: Record<string, string> = {
-    blue: 'bg-[#2563EB]',
-    red: 'bg-[#DC2626]',
-    emerald: 'bg-[#16A34A]',
-    slate: 'bg-[#6B7280]',
-    indigo: 'bg-[#1E3A8A]',
-    violet: 'bg-[#7C3AED]',
+    blue: 'bg-blue-600',
+    red: 'bg-red-600',
+    emerald: 'bg-emerald-600',
+    slate: 'bg-slate-800',
+    indigo: 'bg-blue-600',
+    violet: 'bg-violet-600',
   };
 
   const colorClasses: Record<string, string> = {
-    blue: 'bg-[#DBEAFE] text-[#1E3A8A] border-[#BFDBFE] ring-[#2563EB]/10 hover:bg-[#BFDBFE]',
-    red: 'bg-[#FEE2E2] text-[#B91C1C] border-[#FCA5A5] ring-[#DC2626]/10 hover:bg-[#FECACA]',
-    emerald: 'bg-[#DCFCE7] text-[#166534] border-[#86EFAC] ring-[#16A34A]/10 hover:bg-[#BBF7D0]',
-    slate: 'bg-[#E5E7EB] text-[#374151] border-[#CBD5E1] ring-[#6B7280]/10 hover:bg-[#D1D5DB]',
-    indigo: 'bg-[#E0E7FF] text-[#3730A3] border-[#C7D2FE] ring-[#1E3A8A]/10 hover:bg-[#C7D2FE]',
-    violet: 'bg-[#EDE9FE] text-[#6D28D9] border-[#DDD6FE] ring-[#7C3AED]/10 hover:bg-[#DDD6FE]',
+    blue: 'bg-blue-50 text-blue-700 border-blue-200',
+    red: 'bg-red-50 text-red-700 border-red-200',
+    emerald: 'bg-emerald-50 text-emerald-700 border-green-200',
+    slate: 'bg-gray-50 text-gray-700 border-gray-300',
+    indigo: 'bg-blue-50 text-blue-800 border-blue-200',
+    violet: 'bg-[#EDE9FE] text-violet-700 border-[#DDD6FE]',
   };
 
   const selectedColorClasses: Record<string, string> = {
-    blue: 'bg-[#2563EB] text-white border-[#2563EB] ring-[#2563EB]/20',
-    red: 'bg-[#DC2626] text-white border-[#DC2626] ring-[#DC2626]/20',
-    emerald: 'bg-[#16A34A] text-white border-[#16A34A] ring-[#16A34A]/20',
-    slate: 'bg-[#6B7280] text-white border-[#6B7280] ring-[#6B7280]/20',
-    indigo: 'bg-[#1E3A8A] text-white border-[#1E3A8A] ring-[#1E3A8A]/20',
-    violet: 'bg-[#7C3AED] text-white border-[#7C3AED] ring-[#7C3AED]/20',
+    blue: 'bg-blue-600 text-white border-transparent',
+    red: 'bg-red-600 text-white border-transparent',
+    emerald: 'bg-emerald-600 text-white border-transparent',
+    slate: 'bg-slate-800 text-white border-transparent',
+    indigo: 'bg-blue-600 text-white border-transparent',
+    violet: 'bg-violet-600 text-white border-transparent',
   };
 
   return (

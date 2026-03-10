@@ -44,7 +44,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
     loadTemplate();
     loadSites();
     loadUsers();
-  }, [templateId]);
+  }, [templateId, user?.id]);
 
   const loadTemplate = async () => {
     try {
@@ -74,8 +74,8 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
 
   const loadSites = async () => {
     try {
-      const data = await sitesService.findAll();
-      setSites(data);
+      const page = await sitesService.findPaginated({ page: 1, limit: 100 });
+      setSites(page.data);
     } catch (error) {
       console.error('Erro ao carregar obras:', error);
     }
@@ -83,8 +83,19 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
 
   const loadUsers = async () => {
     try {
-      const data = await usersService.findAll();
-      setUsers(data);
+      const page = await usersService.findPaginated({ page: 1, limit: 100 });
+      let nextUsers = page.data;
+
+      if (user?.id && !nextUsers.some((currentUser) => currentUser.id === user.id)) {
+        try {
+          const currentUser = await usersService.findOne(user.id);
+          nextUsers = [currentUser, ...nextUsers];
+        } catch {}
+      }
+
+      setUsers(
+        Array.from(new Map(nextUsers.map((currentUser) => [currentUser.id, currentUser])).values()),
+      );
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
     }

@@ -548,7 +548,7 @@ export function DdsForm({ id }: DdsFormProps) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="ds-form-page mx-auto max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Link

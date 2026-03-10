@@ -72,11 +72,11 @@ export function RiskForm({ id }: RiskFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const companiesData = await companiesService.findAll();
-        setCompanies(companiesData);
+        let selectedCompanyId = '';
 
         if (id) {
           const data = await risksService.findOne(id);
+          selectedCompanyId = data.company_id || '';
           reset({
             nome: data.nome,
             categoria: data.categoria || '',
@@ -94,6 +94,26 @@ export function RiskForm({ id }: RiskFormProps) {
             company_id: data.company_id || '',
           });
         }
+
+        const companiesPage = await companiesService.findPaginated({
+          page: 1,
+          limit: 100,
+        });
+        let nextCompanies = companiesPage.data;
+
+        if (
+          selectedCompanyId &&
+          !nextCompanies.some((company) => company.id === selectedCompanyId)
+        ) {
+          try {
+            const selectedCompany = await companiesService.findOne(selectedCompanyId);
+            nextCompanies = [selectedCompany, ...nextCompanies];
+          } catch {}
+        }
+
+        setCompanies(
+          Array.from(new Map(nextCompanies.map((company) => [company.id, company])).values()),
+        );
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
         toast.error('Erro ao carregar dados do formulário.');
@@ -130,7 +150,7 @@ export function RiskForm({ id }: RiskFormProps) {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="ds-form-page mx-auto max-w-2xl space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Link

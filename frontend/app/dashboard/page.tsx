@@ -133,9 +133,9 @@ export default function DashboardPage() {
         if (expSummaryR.status === 'fulfilled') {
           const summary = expSummaryR.value;
           setTrainingSummaryData([
-            { name: 'Em dia', value: summary.valid, fill: '#10b981' },
-            { name: 'Vencendo', value: summary.expiringSoon, fill: '#f59e0b' },
-            { name: 'Vencidos', value: summary.expired, fill: '#ef4444' },
+            { name: 'Em dia', value: summary.valid, fill: CHART_TOKENS.success },
+            { name: 'Vencendo', value: summary.expiringSoon, fill: CHART_TOKENS.warning },
+            { name: 'Vencidos', value: summary.expired, fill: CHART_TOKENS.danger },
           ]);
         }
       } catch (error) {

@@ -26,17 +26,17 @@ export class AppErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="mx-auto mt-10 max-w-xl rounded-lg border border-red-200 bg-red-50 p-6 text-center">
-          <h2 className="text-lg font-semibold text-red-800">
+        <div className="mx-auto mt-10 max-w-xl rounded-2xl border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger-subtle)] p-6 text-center shadow-[var(--ds-shadow-sm)]">
+          <h2 className="text-lg font-semibold text-[var(--ds-color-danger)]">
             Ocorreu um erro inesperado na interface.
           </h2>
-          <p className="mt-2 text-sm text-red-700">
+          <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
             Recarregue a página. Se persistir, contate o suporte com o horário
             do erro.
           </p>
           <button
             type="button"
-            className="mt-4 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            className="mt-4 rounded-xl bg-[var(--ds-color-danger)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--ds-color-danger-hover)]"
             onClick={() => window.location.reload()}
           >
             Recarregar
@@ -48,4 +48,3 @@ export class AppErrorBoundary extends React.Component<
     return this.props.children;
   }
 }
-

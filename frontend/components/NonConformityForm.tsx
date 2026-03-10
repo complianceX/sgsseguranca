@@ -296,7 +296,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
   const resultadoEficacia = ['Sim', 'Parcialmente', 'Não'];
 
   return (
-    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-8 pb-12">
+    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="ds-form-page space-y-8 pb-12">
       {submitError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {submitError}

@@ -87,23 +87,23 @@ export default function DashboardLayout({
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#0F172A] px-6 text-center text-white">
-        <div className="max-w-md rounded-2xl border border-[#334155] bg-[#1E293B] p-6 shadow-xl">
-          <h2 className="text-lg font-bold">Sessão não encontrada</h2>
-          <p className="mt-2 text-sm text-[#CBD5E1]">
+      <div className="flex h-screen items-center justify-center bg-[var(--ds-color-bg-canvas)] px-6 text-center text-[var(--ds-color-text-primary)]">
+        <div className="max-w-md rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-6 shadow-[var(--ds-shadow-md)]">
+          <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">Sessão não encontrada</h2>
+          <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
             Sua sessão expirou ou o acesso não foi carregado corretamente. Volte para o login e tente novamente.
           </p>
           <button
             type="button"
             onClick={() => router.push('/login')}
-            className="mt-5 w-full rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
+            className="mt-5 w-full rounded-xl bg-[image:var(--ds-gradient-brand)] px-4 py-2 text-sm font-semibold text-white transition-all hover:-translate-y-px hover:brightness-105"
           >
             Ir para login
           </button>
@@ -113,27 +113,27 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="ds-shell-backdrop flex h-screen">
+    <div className="ds-shell-backdrop ds-system-scope flex h-screen">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenMobileNav={() => setSidebarOpen(true)} />
         {/* Badge da empresa selecionada para Admin Geral */}
         {isAdminGeral && (
-          <div className="border-b border-indigo-400/15 bg-indigo-500/10 px-6 py-3 flex items-center justify-between backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-indigo-100 text-sm">
-              <Building2 className="h-4 w-4 text-indigo-400" />
+          <div className="flex items-center justify-between border-b border-[color:var(--ds-color-info)]/18 bg-[color:var(--ds-color-info)]/10 px-6 py-3 backdrop-blur-sm">
+            <div className="flex items-center gap-2 text-sm text-[var(--ds-color-text-secondary)]">
+              <Building2 className="h-4 w-4 text-[var(--ds-color-info)]" />
               {selectedTenant ? (
                 <span>
-                  Operando em: <span className="font-semibold text-white">{selectedTenant.companyName}</span>
+                  Operando em: <span className="font-semibold text-[var(--ds-color-text-primary)]">{selectedTenant.companyName}</span>
                 </span>
               ) : (
-                <span className="text-yellow-300">Nenhuma empresa selecionada</span>
+                <span className="text-[var(--ds-color-warning)]">Nenhuma empresa selecionada</span>
               )}
             </div>
             <button
               type="button"
               onClick={() => setSelectorOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-indigo-300/15 bg-indigo-900/40 px-3 py-2 text-xs font-semibold text-indigo-100 transition-colors hover:bg-indigo-700/50 hover:text-white"
+              className="flex items-center gap-1.5 rounded-xl border border-[color:var(--ds-color-info)]/20 bg-[color:var(--ds-color-info)]/10 px-3 py-2 text-xs font-semibold text-[var(--ds-color-info)] transition-colors hover:bg-[color:var(--ds-color-info)]/16 hover:text-[var(--ds-color-text-primary)]"
             >
               <ChevronsUpDown className="h-3.5 w-3.5" />
               Trocar empresa
