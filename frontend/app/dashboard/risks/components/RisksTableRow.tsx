@@ -15,17 +15,19 @@ export const RisksTableRow = React.memo(({
   onDelete,
 }: RisksTableRowProps) => {
   return (
-    <tr className="hover:bg-gray-50 transition-colors">
-      <td className="px-6 py-4 font-medium text-gray-900">{risk.nome}</td>
-      <td className="px-6 py-4 text-gray-500 max-w-xs truncate">{risk.descricao || '-'}</td>
-      <td className="px-6 py-4 text-gray-500">
+    <tr className="transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/28">
+      <td className="px-5 py-4 font-medium text-[var(--ds-color-text-primary)]">{risk.nome}</td>
+      <td className="max-w-xs truncate px-5 py-4 text-[var(--ds-color-text-secondary)]">
+        {risk.descricao || '-'}
+      </td>
+      <td className="px-5 py-4 text-[var(--ds-color-text-secondary)]">
         {risk.created_at ? new Date(risk.created_at).toLocaleDateString('pt-BR') : '-'}
       </td>
-      <td className="px-6 py-4 text-right">
+      <td className="px-5 py-4 text-right">
         <div className="flex justify-end space-x-2">
           <Link
             href={`/dashboard/risks/edit/${risk.id}`}
-            className="rounded p-1.5 text-blue-600 hover:bg-blue-50 transition-colors"
+            className="rounded p-1.5 text-[var(--ds-color-action-primary)] transition-colors hover:bg-[color:var(--ds-color-action-primary)]/10"
             title="Editar Risco"
           >
             <Pencil className="h-4 w-4" />
@@ -33,7 +35,7 @@ export const RisksTableRow = React.memo(({
           <button
             type="button"
             onClick={() => onDelete(risk.id)}
-            className="rounded p-1.5 text-red-600 hover:bg-red-50 transition-colors"
+            className="rounded p-1.5 text-[var(--ds-color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger)]/10"
             title="Excluir Risco"
           >
             <Trash2 className="h-4 w-4" />

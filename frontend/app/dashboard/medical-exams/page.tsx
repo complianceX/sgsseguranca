@@ -302,21 +302,22 @@ export default function MedicalExamsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+    <div className="ds-crud-page">
+      <Card tone="elevated" padding="lg" className="ds-crud-hero">
+        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
+          <div className="ds-crud-hero__lead">
+            <div className="ds-crud-hero__icon">
               <Stethoscope className="h-5 w-5" />
             </div>
-            <div className="space-y-2">
+            <div className="ds-crud-hero__copy">
+              <span className="ds-crud-hero__eyebrow">Saúde ocupacional</span>
               <CardTitle className="text-2xl">Exames Médicos (PCMSO)</CardTitle>
               <CardDescription>
                 Controle de ASOs conforme NR-7, com visão de vencimentos e status ocupacional.
               </CardDescription>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="ds-crud-hero__actions">
             <Button
               type="button"
               variant="outline"
@@ -338,45 +339,53 @@ export default function MedicalExamsPage() {
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Total monitorado</CardDescription>
-            <CardTitle className="text-3xl">{summary.total}</CardTitle>
+      <div className="ds-crud-stats xl:grid-cols-4">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Total monitorado</CardDescription>
+            <CardTitle className="ds-crud-stat__value">{summary.total}</CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              ASOs registrados no recorte atual.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>ASOs vencidos</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-danger)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--danger">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">ASOs vencidos</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-danger)]">
               {summary.expired}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Colaboradores já fora de conformidade ocupacional.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Vencendo em 30 dias</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--warning">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Vencendo em 30 dias</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-warning)]">
               {summary.expiringSoon}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Prioridade de agenda para evitar bloqueios.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Exames válidos</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Exames válidos</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
               {summary.valid}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              População liberada dentro do PCMSO.
+            </CardDescription>
           </CardHeader>
         </Card>
       </div>
 
       {summary.expired > 0 ? (
-        <Card
-          tone="muted"
-          padding="md"
-          className="border-[color:var(--ds-color-danger)]/25 bg-[color:var(--ds-color-danger)]/10"
-        >
+        <Card tone="muted" padding="md" className="ds-crud-callout ds-crud-callout--danger">
           <CardHeader className="gap-2">
             <div className="flex items-center gap-2">
               <ShieldAlert className="h-4 w-4 text-[var(--ds-color-danger)]" />
@@ -390,15 +399,15 @@ export default function MedicalExamsPage() {
         </Card>
       ) : null}
 
-      <Card tone="default" padding="none">
-        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <Card tone="default" padding="none" className="ds-crud-filter-card">
+        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <CardTitle>Exames registrados</CardTitle>
             <CardDescription>
               {total} registro(s) monitorados com filtros por tipo e resultado.
             </CardDescription>
           </div>
-          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+          <div className="ds-crud-filter-bar md:w-auto md:flex-row">
             <select
               value={filterTipo}
               onChange={(event) => {

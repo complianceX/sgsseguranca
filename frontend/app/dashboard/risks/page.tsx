@@ -1,11 +1,14 @@
 'use client';
 
 import { useRisks } from './hooks/useRisks';
-import { Plus } from 'lucide-react';
+import { AlertTriangle, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { RisksFilters } from './components/RisksFilters';
 import { RisksTable } from './components/RisksTable';
 import { PaginationControls } from '@/components/PaginationControls';
+import { buttonVariants } from '@/components/ui/button';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 export default function RisksPage() {
   const {
@@ -21,26 +24,54 @@ export default function RisksPage() {
   } = useRisks();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Riscos</h1>
-          <p className="text-gray-500">Gerencie os riscos identificados no sistema.</p>
-        </div>
-        <Link
-          href="/dashboard/risks/new"
-          className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 shadow-sm"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Risco
-        </Link>
+    <div className="ds-crud-page">
+      <Card tone="elevated" padding="lg" className="ds-crud-hero">
+        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
+          <div className="ds-crud-hero__lead">
+            <div className="ds-crud-hero__icon">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div className="ds-crud-hero__copy">
+              <span className="ds-crud-hero__eyebrow">Mapa de riscos</span>
+              <CardTitle className="text-2xl">Riscos</CardTitle>
+              <CardDescription>Gerencie os riscos identificados no sistema.</CardDescription>
+            </div>
+          </div>
+          <Link
+            href="/dashboard/risks/new"
+            className={cn(buttonVariants(), 'inline-flex items-center')}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Novo risco
+          </Link>
+        </CardHeader>
+      </Card>
+
+      <div className="ds-crud-stats">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Total monitorado</CardDescription>
+            <CardTitle className="ds-crud-stat__value">{total}</CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Quantidade disponível no recorte atual.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--primary">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Resultados visíveis</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-action-primary)]">
+              {filteredRisks.length}
+            </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Itens exibidos após aplicar a busca.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
 
-      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
-        <RisksFilters
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-        />
+      <Card tone="default" padding="none" className="ds-crud-filter-card">
+        <RisksFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} />
 
         <RisksTable
           risks={filteredRisks}
@@ -56,7 +87,7 @@ export default function RisksPage() {
             onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
           />
         ) : null}
-      </div>
+      </Card>
     </div>
   );
 }

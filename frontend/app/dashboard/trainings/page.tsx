@@ -277,16 +277,22 @@ export default function TrainingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-2">
-            <CardTitle className="text-2xl">Monitor de Treinamentos</CardTitle>
-            <CardDescription>
-              Controle validade de NRs, bloqueios operacionais e disparo de alertas automáticos.
-            </CardDescription>
+    <div className="ds-crud-page">
+      <Card tone="elevated" padding="lg" className="ds-crud-hero">
+        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
+          <div className="ds-crud-hero__lead">
+            <div className="ds-crud-hero__icon">
+              <Calendar className="h-5 w-5" />
+            </div>
+            <div className="ds-crud-hero__copy">
+              <span className="ds-crud-hero__eyebrow">Validade e bloqueio</span>
+              <CardTitle className="text-2xl">Monitor de Treinamentos</CardTitle>
+              <CardDescription>
+                Controle validade de NRs, bloqueios operacionais e disparo de alertas automáticos.
+              </CardDescription>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="ds-crud-hero__actions">
             <Button
               type="button"
               variant="outline"
@@ -318,35 +324,44 @@ export default function TrainingsPage() {
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Treinamentos vencidos</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-danger)]">
+      <div className="ds-crud-stats xl:grid-cols-3">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--danger">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Treinamentos vencidos</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-danger)]">
               {expirySummary.expired}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Colaboradores em risco de bloqueio operacional.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Vencendo em breve</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--warning">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Vencendo em breve</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-warning)]">
               {expirySummary.expiringSoon}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Janela de ação para renovação preventiva.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Treinamentos válidos</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Treinamentos válidos</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
               {expirySummary.valid}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Capacitações regulares e sem vencimento próximo.
+            </CardDescription>
           </CardHeader>
         </Card>
       </div>
 
       {blockingUsers.length > 0 ? (
-        <Card tone="muted" padding="md" className="border-[color:var(--ds-color-danger)]/25 bg-[color:var(--ds-color-danger)]/10">
+        <Card tone="muted" padding="md" className="ds-crud-callout ds-crud-callout--danger">
           <CardHeader className="gap-2">
             <div className="flex items-center gap-2">
               <ShieldAlert className="h-4 w-4 text-[var(--ds-color-danger)]" />
@@ -361,16 +376,16 @@ export default function TrainingsPage() {
         </Card>
       ) : null}
 
-      <Card tone="default" padding="none">
-        <CardHeader className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <Card tone="default" padding="none" className="ds-crud-filter-card">
+        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <CardTitle>Treinamentos registrados</CardTitle>
             <CardDescription>
               {filteredTrainings.length} resultado(s) exibidos nesta página.
             </CardDescription>
           </div>
-          <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
-            <div className="relative min-w-[240px] flex-1 md:flex-none">
+          <div className="ds-crud-filter-bar md:w-auto">
+            <div className="ds-crud-search ds-crud-search--wide min-w-[240px] flex-1 md:flex-none">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
               <input
                 type="text"

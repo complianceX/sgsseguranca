@@ -127,14 +127,15 @@ export default function SitesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+    <div className="ds-crud-page">
+      <Card tone="elevated" padding="lg" className="ds-crud-hero">
+        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
+          <div className="ds-crud-hero__lead">
+            <div className="ds-crud-hero__icon">
               <MapPinned className="h-5 w-5" />
             </div>
-            <div className="space-y-2">
+            <div className="ds-crud-hero__copy">
+              <span className="ds-crud-hero__eyebrow">Estrutura de campo</span>
               <CardTitle className="text-2xl">Obras/Setores</CardTitle>
               <CardDescription>
                 Gerencie as obras e setores usados nos fluxos de campo, mobilização e DDS.
@@ -151,40 +152,49 @@ export default function SitesPage() {
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Total cadastrado</CardDescription>
-            <CardTitle className="text-3xl">{summary.total}</CardTitle>
+      <div className="ds-crud-stats">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Total cadastrado</CardDescription>
+            <CardTitle className="ds-crud-stat__value">{summary.total}</CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Obras e setores disponíveis no ambiente.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Resultados visíveis</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--primary">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Resultados visíveis</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-action-primary)]">
               {summary.visiveis}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Registros no recorte atual da busca.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Com cidade informada</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Com cidade informada</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
               {summary.comCidade}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Estruturas com localização mais completa.
+            </CardDescription>
           </CardHeader>
         </Card>
       </div>
 
-      <Card tone="default" padding="none">
-        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <Card tone="default" padding="none" className="ds-crud-filter-card">
+        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <CardTitle>Base de obras/setores</CardTitle>
             <CardDescription>
               {total} obra(s)/setor(es) encontrada(s) com busca por nome, cidade e UF.
             </CardDescription>
           </div>
-          <div className="relative w-full md:w-[360px]">
+          <div className="ds-crud-search">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
             <input
               type="text"

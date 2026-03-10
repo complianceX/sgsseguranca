@@ -136,14 +136,15 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+    <div className="ds-crud-page">
+      <Card tone="elevated" padding="lg" className="ds-crud-hero">
+        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
+          <div className="ds-crud-hero__lead">
+            <div className="ds-crud-hero__icon">
               <UserRound className="h-5 w-5" />
             </div>
-            <div className="space-y-2">
+            <div className="ds-crud-hero__copy">
+              <span className="ds-crud-hero__eyebrow">Base de pessoas</span>
               <CardTitle className="text-2xl">Funcionários</CardTitle>
               <CardDescription>
                 Gerencie colaboradores por empresa, obra/setor e contexto operacional.
@@ -160,48 +161,60 @@ export default function EmployeesPage() {
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Funcionários no recorte</CardDescription>
-            <CardTitle className="text-3xl">{total}</CardTitle>
+      <div className="ds-crud-stats xl:grid-cols-4">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Funcionários no recorte</CardDescription>
+            <CardTitle className="ds-crud-stat__value">{total}</CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Colaboradores operacionais visíveis nesta página.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Empresas no recorte</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--primary">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Empresas no recorte</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-action-primary)]">
               {summary.companies}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Diversidade de vínculo empresarial na amostra.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Vinculados à obra</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Vinculados à obra</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
               {summary.withSite}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Colaboradores com contexto de campo definido.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Sem obra vinculada</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--warning">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Sem obra vinculada</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-warning)]">
               {summary.withoutSite}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Pendências de alocação operacional.
+            </CardDescription>
           </CardHeader>
         </Card>
       </div>
 
-      <Card tone="default" padding="none">
-        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <Card tone="default" padding="none" className="ds-crud-filter-card">
+        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <CardTitle>Base de funcionários</CardTitle>
             <CardDescription>
               {displayedEmployees.length} registro(s) visíveis nesta página, com administrador geral oculto da visão operacional.
             </CardDescription>
           </div>
-          <div className="relative w-full md:w-[320px]">
+          <div className="ds-crud-search">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
             <input
               type="text"
@@ -334,7 +347,7 @@ export default function EmployeesPage() {
       </Card>
 
       {summary.withoutSite > 0 ? (
-        <Card tone="muted" padding="md" className="border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/10">
+        <Card tone="muted" padding="md" className="ds-crud-callout ds-crud-callout--warning">
           <CardHeader className="gap-2">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-[var(--ds-color-warning)]" />

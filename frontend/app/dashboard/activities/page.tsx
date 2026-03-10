@@ -121,14 +121,15 @@ export default function ActivitiesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+    <div className="ds-crud-page">
+      <Card tone="elevated" padding="lg" className="ds-crud-hero">
+        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
+          <div className="ds-crud-hero__lead">
+            <div className="ds-crud-hero__icon">
               <ClipboardList className="h-5 w-5" />
             </div>
-            <div className="space-y-2">
+            <div className="ds-crud-hero__copy">
+              <span className="ds-crud-hero__eyebrow">Cadastro operacional</span>
               <CardTitle className="text-2xl">Atividades</CardTitle>
               <CardDescription>
                 Gerencie o cadastro base de atividades utilizado nos fluxos operacionais do sistema.
@@ -137,7 +138,7 @@ export default function ActivitiesPage() {
           </div>
           <Link
             href="/dashboard/activities/new"
-            className={cn(buttonVariants(), 'inline-flex items-center')}
+            className={cn(buttonVariants(), 'ds-crud-hero__actions inline-flex items-center')}
           >
             <Plus className="mr-2 h-4 w-4" />
             Nova atividade
@@ -145,40 +146,49 @@ export default function ActivitiesPage() {
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Total cadastrado</CardDescription>
-            <CardTitle className="text-3xl">{summary.total}</CardTitle>
+      <div className="ds-crud-stats">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Total cadastrado</CardDescription>
+            <CardTitle className="ds-crud-stat__value">{summary.total}</CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Base total disponível no tenant.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Resultados visíveis</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--primary">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Resultados visíveis</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-action-primary)]">
               {summary.visiveis}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Retorno do filtro aplicado na listagem.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Com descrição</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Com descrição</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
               {summary.comDescricao}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Registros mais completos para uso operacional.
+            </CardDescription>
           </CardHeader>
         </Card>
       </div>
 
-      <Card tone="default" padding="none">
-        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <Card tone="default" padding="none" className="ds-crud-filter-card">
+        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <CardTitle>Base de atividades</CardTitle>
             <CardDescription>
               {total} atividade(s) encontrada(s) com busca por nome e descrição.
             </CardDescription>
           </div>
-          <div className="relative w-full md:w-[360px]">
+          <div className="ds-crud-search">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
             <input
               type="text"

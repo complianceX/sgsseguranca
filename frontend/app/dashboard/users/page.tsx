@@ -5,6 +5,7 @@ import { UsersHeader } from './components/UsersHeader';
 import { UsersFilters } from './components/UsersFilters';
 import { UsersTable } from './components/UsersTable';
 import { PaginationControls } from '@/components/PaginationControls';
+import { Card } from '@/components/ui/card';
 
 export default function UsersPage() {
   const {
@@ -20,10 +21,10 @@ export default function UsersPage() {
   } = useUsers();
 
   return (
-    <div className="space-y-6">
+    <div className="ds-crud-page">
       <UsersHeader />
 
-      <div className="rounded-xl border bg-white shadow-sm">
+      <Card tone="default" padding="none" className="ds-crud-filter-card">
         <UsersFilters
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -44,7 +45,7 @@ export default function UsersPage() {
             onNext={() => setPage((p) => Math.min(lastPage, p + 1))}
           />
         )}
-      </div>
+      </Card>
     </div>
   );
 }

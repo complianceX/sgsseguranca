@@ -287,21 +287,22 @@ export default function ServiceOrdersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+    <div className="ds-crud-page">
+      <Card tone="elevated" padding="lg" className="ds-crud-hero">
+        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
+          <div className="ds-crud-hero__lead">
+            <div className="ds-crud-hero__icon">
               <ClipboardList className="h-5 w-5" />
             </div>
-            <div>
+            <div className="ds-crud-hero__copy">
+              <span className="ds-crud-hero__eyebrow">Execução formalizada</span>
               <CardTitle className="text-2xl">Ordens de Serviço (NR-1)</CardTitle>
               <CardDescription>
                 Documentação obrigatória de atividades, riscos, responsáveis e execução planejada.
               </CardDescription>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="ds-crud-hero__actions">
             <Button
               type="button"
               variant="outline"
@@ -321,48 +322,60 @@ export default function ServiceOrdersPage() {
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Total</CardDescription>
-            <CardTitle className="text-3xl">{total}</CardTitle>
+      <div className="ds-crud-stats md:grid-cols-4">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Total</CardDescription>
+            <CardTitle className="ds-crud-stat__value">{total}</CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Ordens disponíveis no recorte filtrado.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Ativas</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--primary">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Ativas</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-action-primary)]">
               {summary.ativo}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Execuções em andamento com OS aberta.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Concluídas</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Concluídas</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
               {summary.concluido}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Atividades finalizadas e registradas.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Canceladas</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-text-secondary)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Canceladas</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-text-secondary)]">
               {summary.cancelado}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Ordens encerradas sem execução.
+            </CardDescription>
           </CardHeader>
         </Card>
       </div>
 
-      <Card tone="default" padding="none">
-        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <Card tone="default" padding="none" className="ds-crud-filter-card">
+        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <CardTitle>Base de ordens de serviço</CardTitle>
             <CardDescription>
               {total} registro(s) no recorte atual com filtros por status e obra.
             </CardDescription>
           </div>
-          <div className="grid w-full grid-cols-1 gap-3 md:w-auto md:grid-cols-2">
+          <div className="ds-crud-filter-bar grid grid-cols-1 md:w-auto md:grid-cols-2">
           <select
             value={filterStatus}
             onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}

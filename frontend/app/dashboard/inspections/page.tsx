@@ -211,14 +211,15 @@ export default function InspectionsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+    <div className="ds-crud-page">
+      <Card tone="elevated" padding="lg" className="ds-crud-hero">
+        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
+          <div className="ds-crud-hero__lead">
+            <div className="ds-crud-hero__icon">
               <ClipboardList className="h-5 w-5" />
             </div>
-            <div className="space-y-2">
+            <div className="ds-crud-hero__copy">
+              <span className="ds-crud-hero__eyebrow">Inspeção e rastreio</span>
               <CardTitle className="text-2xl">Relatórios de Inspeção</CardTitle>
               <CardDescription>
                 Gerencie inspeções de segurança, riscos observados e ações recomendadas por área.
@@ -235,45 +236,53 @@ export default function InspectionsPage() {
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Total de inspeções</CardDescription>
-            <CardTitle className="text-3xl">{summary.total}</CardTitle>
+      <div className="ds-crud-stats xl:grid-cols-4">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Total de inspeções</CardDescription>
+            <CardTitle className="ds-crud-stat__value">{summary.total}</CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Volume total carregado no recorte atual.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Tipos na página</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--primary">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Tipos na página</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-action-primary)]">
               {summary.tipos}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Cobertura de modalidades no recorte exibido.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Com plano na página</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--warning">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Com plano na página</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-warning)]">
               {summary.comPlano}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Inspeções com tratativa já registrada.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Sites na página</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Sites na página</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
               {summary.sites}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Frentes de trabalho cobertas nesta amostra.
+            </CardDescription>
           </CardHeader>
         </Card>
       </div>
 
       {summary.comRiscos > 0 ? (
-        <Card
-          tone="muted"
-          padding="md"
-          className="border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/10"
-        >
+        <Card tone="muted" padding="md" className="ds-crud-callout ds-crud-callout--warning">
           <CardHeader className="gap-2">
             <div className="flex items-center gap-2">
               <ShieldAlert className="h-4 w-4 text-[var(--ds-color-warning)]" />
@@ -286,15 +295,15 @@ export default function InspectionsPage() {
         </Card>
       ) : null}
 
-      <Card tone="default" padding="none">
-        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <Card tone="default" padding="none" className="ds-crud-filter-card">
+        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <CardTitle>Base de inspeções</CardTitle>
             <CardDescription>
               {total} relatório(s) encontrados com busca por setor, tipo, site e responsável.
             </CardDescription>
           </div>
-          <div className="relative w-full md:w-[360px]">
+          <div className="ds-crud-search ds-crud-search--wide">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
             <input
               type="text"

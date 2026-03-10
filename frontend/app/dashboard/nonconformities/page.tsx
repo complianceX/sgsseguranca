@@ -208,16 +208,22 @@ export default function NonConformitiesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-2">
-            <CardTitle className="text-2xl">Não Conformidades</CardTitle>
-            <CardDescription>
-              Registre, acompanhe e encerre desvios operacionais com trilha documental e ação corretiva.
-            </CardDescription>
+    <div className="ds-crud-page">
+      <Card tone="elevated" padding="lg" className="ds-crud-hero">
+        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
+          <div className="ds-crud-hero__lead">
+            <div className="ds-crud-hero__icon">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div className="ds-crud-hero__copy">
+              <span className="ds-crud-hero__eyebrow">Desvios e tratativas</span>
+              <CardTitle className="text-2xl">Não Conformidades</CardTitle>
+              <CardDescription>
+                Registre, acompanhe e encerre desvios operacionais com trilha documental e ação corretiva.
+              </CardDescription>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="ds-crud-hero__actions">
             <Button
               type="button"
               variant="outline"
@@ -240,45 +246,53 @@ export default function NonConformitiesPage() {
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Total monitorado</CardDescription>
-            <CardTitle className="text-3xl">{summary.total}</CardTitle>
+      <div className="ds-crud-stats xl:grid-cols-4">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Total monitorado</CardDescription>
+            <CardTitle className="ds-crud-stat__value">{summary.total}</CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Não conformidades carregadas nesta página.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Abertas na página</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-danger)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--danger">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Abertas na página</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-danger)]">
               {summary.abertas}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Desvios ainda sem tratativa concluída.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Em andamento na página</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-warning)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--warning">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Em andamento na página</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-warning)]">
               {summary.andamento + summary.aguardando}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Itens em execução ou aguardando validação.
+            </CardDescription>
           </CardHeader>
         </Card>
-        <Card interactive padding="md">
-          <CardHeader>
-            <CardDescription>Encerradas na página</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
+          <CardHeader className="gap-2">
+            <CardDescription className="ds-crud-stat__label">Encerradas na página</CardDescription>
+            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
               {summary.encerradas}
             </CardTitle>
+            <CardDescription className="ds-crud-stat__note">
+              Desvios já finalizados no recorte atual.
+            </CardDescription>
           </CardHeader>
         </Card>
       </div>
 
       {(summary.abertas > 0 || summary.andamento > 0 || summary.aguardando > 0) ? (
-        <Card
-          tone="muted"
-          padding="md"
-          className="border-[color:var(--ds-color-danger)]/25 bg-[color:var(--ds-color-danger)]/10"
-        >
+        <Card tone="muted" padding="md" className="ds-crud-callout ds-crud-callout--danger">
           <CardHeader className="gap-2">
             <div className="flex items-center gap-2">
               <ShieldAlert className="h-4 w-4 text-[var(--ds-color-danger)]" />
@@ -292,15 +306,15 @@ export default function NonConformitiesPage() {
         </Card>
       ) : null}
 
-      <Card tone="default" padding="none">
-        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <Card tone="default" padding="none" className="ds-crud-filter-card">
+        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <CardTitle>Base de não conformidades</CardTitle>
             <CardDescription>
               {total} registro(s) encontrados com busca por código, local, tipo e status.
             </CardDescription>
           </div>
-          <div className="relative w-full md:w-[360px]">
+          <div className="ds-crud-search ds-crud-search--wide">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
             <input
               type="text"
