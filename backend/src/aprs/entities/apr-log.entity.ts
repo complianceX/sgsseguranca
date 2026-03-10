@@ -20,7 +20,7 @@ export class AprLog {
   @JoinColumn({ name: 'apr_id' })
   apr: Apr;
 
-  @Column({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   usuario_id?: string | null;
 
   @Column({ length: 100 })

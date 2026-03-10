@@ -1,643 +1,1660 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { inspectionsService } from '@/services/inspectionsService';
-import { sitesService, Site } from '@/services/sitesService';
-import { usersService, User } from '@/services/usersService';
-import { useForm, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { Save, Plus, Trash2, Loader2, Camera } from 'lucide-react';
-import Link from 'next/link';
-import { toast } from 'sonner';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { useRouter } from "next/navigation";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
+import type { FieldErrors } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import {
+  AlertTriangle,
+  Camera,
+  CheckCircle2,
+  ClipboardCheck,
+  ClipboardList,
+  Plus,
+  Save,
+  ShieldAlert,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+import { inspectionsService } from "@/services/inspectionsService";
+import { sitesService, Site } from "@/services/sitesService";
+import { usersService, User } from "@/services/usersService";
+import { getFormErrorMessage } from "@/lib/error-handler";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { ErrorState, PageLoadingState } from "@/components/ui/state";
 
-const perigoRiscoSchema = z.object({
-  grupo_risco: z.string().min(1, 'O grupo de risco é obrigatório'),
-  perigo_fator_risco: z.string().min(1, 'O perigo/fator de risco é obrigatório'),
-  fonte_circunstancia: z.string().min(1, 'A fonte/circunstância é obrigatória'),
-  trabalhadores_expostos: z.string().min(1, 'Informe os trabalhadores expostos'),
-  tipo_exposicao: z.string().min(1, 'O tipo de exposição é obrigatório'),
-  medidas_existentes: z.string().min(1, 'As medidas existentes são obrigatórias'),
-  severidade: z.string().min(1, 'A severidade é obrigatória'),
-  probabilidade: z.string().min(1, 'A probabilidade é obrigatória'),
-  nivel_risco: z.string().min(1, 'O nível de risco é obrigatório'),
-  classificacao_risco: z.string().min(1, 'A classificação de risco é obrigatória'),
-  acoes_necessarias: z.string().min(1, 'As ações necessárias são obrigatórias'),
-  prazo: z.string().min(1, 'O prazo é obrigatório'),
-  responsavel: z.string().min(1, 'O responsável é obrigatório'),
+const methodologyOptions = [
+  "Observação direta em campo",
+  "Entrevista com trabalhadores",
+  "Checklist de conformidade",
+  "Verificação de documentos",
+  "Análise de processo e layout",
+  "Registro fotográfico",
+] as const;
+
+const inspectionTypeOptions = [
+  "Rotina",
+  "Programada",
+  "Especial",
+  "Atendimento a NR",
+] as const;
+const riskGroupOptions = [
+  "Físico",
+  "Químico",
+  "Biológico",
+  "Ergonômico",
+  "Acidente",
+] as const;
+const exposureTypeOptions = [
+  "Permanente",
+  "Intermitente",
+  "Ocasional",
+] as const;
+const severityOptions = ["Baixa", "Moderada", "Alta", "Crítica"] as const;
+const probabilityOptions = ["Baixa", "Média", "Alta"] as const;
+const riskLevelOptions = ["Baixo", "Médio", "Alto", "Muito Alto"] as const;
+const riskClassificationOptions = [
+  "Aceitável",
+  "Tolerável",
+  "Moderado",
+  "Substancial",
+  "Intolerável",
+] as const;
+const actionStatusOptions = [
+  "Pendente",
+  "Em andamento",
+  "Concluída",
+  "Cancelada",
+] as const;
+
+const riscoSchema = z.object({
+  grupo_risco: z.string().min(1, "Selecione o grupo de risco."),
+  perigo_fator_risco: z.string().min(1, "Descreva o perigo ou fator de risco."),
+  fonte_circunstancia: z.string().min(1, "Informe a fonte ou circunstância."),
+  trabalhadores_expostos: z.string().min(1, "Informe quem está exposto."),
+  tipo_exposicao: z.string().min(1, "Selecione o tipo de exposição."),
+  medidas_existentes: z.string().min(1, "Descreva as medidas existentes."),
+  severidade: z.string().min(1, "Selecione a severidade."),
+  probabilidade: z.string().min(1, "Selecione a probabilidade."),
+  nivel_risco: z.string().min(1, "Informe o nível de risco."),
+  classificacao_risco: z.string().min(1, "Informe a classificação do risco."),
+  acoes_necessarias: z.string().min(1, "Descreva as ações necessárias."),
+  prazo: z.string().min(1, "Informe o prazo da ação."),
+  responsavel: z.string().min(1, "Informe o responsável pela ação."),
 });
 
 const planoAcaoSchema = z.object({
-  acao: z.string().min(1, 'A ação é obrigatória'),
-  responsavel: z.string().min(1, 'O responsável é obrigatório'),
-  prazo: z.string().min(1, 'O prazo é obrigatório'),
-  status: z.string().min(1, 'O status é obrigatório'),
+  acao: z.string().min(1, "Descreva a ação."),
+  responsavel: z.string().min(1, "Informe o responsável."),
+  prazo: z.string().min(1, "Informe o prazo."),
+  status: z.string().min(1, "Selecione o status."),
 });
 
 const evidenciaSchema = z.object({
-  descricao: z.string().min(1, 'A descrição é obrigatória'),
+  descricao: z.string().min(1, "Descreva a evidência."),
   url: z.string().optional(),
 });
 
 const inspectionSchema = z.object({
-  site_id: z.string().min(1, 'Selecione um site'),
-  setor_area: z.string().min(1, 'O setor/área é obrigatório'),
-  tipo_inspecao: z.string().min(1, 'O tipo de inspeção é obrigatório'),
-  data_inspecao: z.string(),
-  horario: z.string().min(1, 'O horário é obrigatório'),
-  responsavel_id: z.string().min(1, 'Selecione o responsável'),
+  site_id: z.string().min(1, "Selecione um site."),
+  setor_area: z.string().min(1, "Informe o setor ou área."),
+  tipo_inspecao: z.string().min(1, "Selecione o tipo de inspeção."),
+  data_inspecao: z.string().min(1, "Informe a data da inspeção."),
+  horario: z.string().min(1, "Informe o horário da inspeção."),
+  responsavel_id: z.string().min(1, "Selecione o responsável."),
   objetivo: z.string().optional(),
   descricao_local_atividades: z.string().optional(),
   metodologia: z.array(z.string()).optional(),
-  perigos_riscos: z.array(perigoRiscoSchema).optional(),
+  perigos_riscos: z.array(riscoSchema).optional(),
   plano_acao: z.array(planoAcaoSchema).optional(),
   evidencias: z.array(evidenciaSchema).optional(),
   conclusao: z.string().optional(),
 });
 
 type InspectionFormData = z.infer<typeof inspectionSchema>;
+type RiskFormItem = NonNullable<InspectionFormData["perigos_riscos"]>[number];
+type ActionFormItem = NonNullable<InspectionFormData["plano_acao"]>[number];
+type EvidenceFormItem = NonNullable<InspectionFormData["evidencias"]>[number];
+
+type RiskSuggestion = {
+  score: number;
+  nivel: (typeof riskLevelOptions)[number];
+  classificacao: (typeof riskClassificationOptions)[number];
+  label: string;
+};
 
 interface InspectionFormProps {
   id?: string;
 }
 
+function todayInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function currentTimeInputValue() {
+  const now = new Date();
+  return `${`${now.getHours()}`.padStart(2, "0")}:${`${now.getMinutes()}`.padStart(2, "0")}`;
+}
+
+function normalizeDateInput(value?: string | null) {
+  if (!value) return todayInputValue();
+  return value.includes("T") ? value.slice(0, 10) : value;
+}
+
+function normalizeTimeInput(value?: string | null) {
+  if (!value) return currentTimeInputValue();
+  const match = value.match(/^\d{2}:\d{2}/);
+  return match ? match[0] : value;
+}
+
+function buildDefaultRisk(): RiskFormItem {
+  return {
+    grupo_risco: "",
+    perigo_fator_risco: "",
+    fonte_circunstancia: "",
+    trabalhadores_expostos: "",
+    tipo_exposicao: "",
+    medidas_existentes: "",
+    severidade: "",
+    probabilidade: "",
+    nivel_risco: "",
+    classificacao_risco: "",
+    acoes_necessarias: "",
+    prazo: "",
+    responsavel: "",
+  };
+}
+
+function buildDefaultAction(): ActionFormItem {
+  return { acao: "", responsavel: "", prazo: "", status: "Pendente" };
+}
+
+function buildDefaultEvidence(): EvidenceFormItem {
+  return { descricao: "", url: "" };
+}
+
+function buildDefaultValues(
+  inspection?: Partial<InspectionFormData> & {
+    data_inspecao?: string;
+    horario?: string;
+  },
+): InspectionFormData {
+  return {
+    site_id: inspection?.site_id || "",
+    setor_area: inspection?.setor_area || "",
+    tipo_inspecao: inspection?.tipo_inspecao || "Rotina",
+    data_inspecao: normalizeDateInput(inspection?.data_inspecao),
+    horario: normalizeTimeInput(inspection?.horario),
+    responsavel_id: inspection?.responsavel_id || "",
+    objetivo: inspection?.objetivo || "",
+    descricao_local_atividades: inspection?.descricao_local_atividades || "",
+    metodologia: inspection?.metodologia || [],
+    perigos_riscos: inspection?.perigos_riscos || [],
+    plano_acao: inspection?.plano_acao || [],
+    evidencias: inspection?.evidencias || [],
+    conclusao: inspection?.conclusao || "",
+  };
+}
+
+function sortByName<T extends { nome: string }>(items: T[]) {
+  return [...items].sort((left, right) =>
+    left.nome.localeCompare(right.nome, "pt-BR"),
+  );
+}
+
+function getRiskSuggestion(
+  severidade?: string,
+  probabilidade?: string,
+): RiskSuggestion | null {
+  const severityWeights: Record<string, number> = {
+    Baixa: 1,
+    Moderada: 2,
+    Alta: 3,
+    Crítica: 4,
+  };
+  const probabilityWeights: Record<string, number> = {
+    Baixa: 1,
+    Média: 2,
+    Alta: 3,
+  };
+  if (!severidade || !probabilidade) return null;
+  const score =
+    (severityWeights[severidade] || 0) *
+    (probabilityWeights[probabilidade] || 0);
+  if (!score) return null;
+  if (score <= 2)
+    return {
+      score,
+      nivel: "Baixo",
+      classificacao: "Aceitável",
+      label: "Baixo / Aceitável",
+    };
+  if (score <= 4)
+    return {
+      score,
+      nivel: "Médio",
+      classificacao: "Tolerável",
+      label: "Médio / Tolerável",
+    };
+  if (score <= 8)
+    return {
+      score,
+      nivel: "Alto",
+      classificacao: "Substancial",
+      label: "Alto / Substancial",
+    };
+  return {
+    score,
+    nivel: "Muito Alto",
+    classificacao: "Intolerável",
+    label: "Muito Alto / Intolerável",
+  };
+}
+
+function isClosedStatus(status?: string) {
+  const normalized = status?.trim().toLowerCase();
+  return (
+    normalized === "concluída" ||
+    normalized === "concluida" ||
+    normalized === "cancelada"
+  );
+}
+
+function findFirstErrorPath(errors: unknown, prefix = ""): string | null {
+  if (!errors || typeof errors !== "object") return null;
+  for (const [key, value] of Object.entries(
+    errors as Record<string, unknown>,
+  )) {
+    const nextPrefix = prefix ? `${prefix}.${key}` : key;
+    if (
+      value &&
+      typeof value === "object" &&
+      "message" in (value as Record<string, unknown>)
+    ) {
+      return nextPrefix;
+    }
+    const nested = findFirstErrorPath(value, nextPrefix);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function FieldErrorText({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <p className="mt-1 text-[11px] font-medium text-[var(--ds-color-danger)]">
+      {message}
+    </p>
+  );
+}
+
+function SectionHeader({
+  title,
+  description,
+  icon,
+  badge,
+}: {
+  title: string;
+  description: string;
+  icon: ReactNode;
+  badge?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-subtle)] pb-4 md:flex-row md:items-start md:justify-between">
+      <div className="flex gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]">
+          {icon}
+        </div>
+        <div>
+          <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">
+            {title}
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm text-[var(--ds-color-text-muted)]">
+            {description}
+          </p>
+        </div>
+      </div>
+      {badge ? (
+        <span className="inline-flex items-center rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
+          {badge}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+const labelClassName =
+  "mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]";
+const nativeSelectClassName =
+  "flex h-10 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-elevated)_84%,white_16%),color-mix(in_srgb,var(--ds-color-surface-base)_96%,transparent))] px-3 text-[13px] font-medium text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60";
+
 export function InspectionForm({ id }: InspectionFormProps) {
   const router = useRouter();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [cameraTargetIndex, setCameraTargetIndex] = useState<number | null>(
+    null,
+  );
 
   const {
     register,
-    handleSubmit,
     control,
+    handleSubmit,
     reset,
-    formState: { errors },
+    setFocus,
+    setValue,
+    getValues,
+    formState: { errors, isSubmitting },
   } = useForm<InspectionFormData>({
     resolver: zodResolver(inspectionSchema),
-    defaultValues: {
-      data_inspecao: new Date().toISOString().split('T')[0],
-      horario: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      tipo_inspecao: 'Rotina',
-      metodologia: [],
-      perigos_riscos: [],
-      plano_acao: [],
-      evidencias: [],
-    },
+    mode: "onBlur",
+    reValidateMode: "onBlur",
+    defaultValues: buildDefaultValues(),
   });
 
-  const { fields: prFields, append: appendPR, remove: removePR } = useFieldArray({
+  const {
+    fields: riskFields,
+    append: appendRisk,
+    remove: removeRisk,
+  } = useFieldArray({
     control,
-    name: 'perigos_riscos',
+    name: "perigos_riscos",
   });
-
-  const { fields: paFields, append: appendPA, remove: removePA } = useFieldArray({
+  const {
+    fields: actionFields,
+    append: appendAction,
+    remove: removeAction,
+  } = useFieldArray({
     control,
-    name: 'plano_acao',
+    name: "plano_acao",
   });
-
-  const { fields: evFields, append: appendEV, remove: removeEV } = useFieldArray({
+  const {
+    fields: evidenceFields,
+    append: appendEvidence,
+    remove: removeEvidence,
+  } = useFieldArray({
     control,
-    name: 'evidencias',
+    name: "evidencias",
   });
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [sitesData, usersData] = await Promise.all([
-          sitesService.findAll(),
-          usersService.findAll(),
-        ]);
-        setSites(sitesData);
-        setUsers(usersData);
+  const watchedMetodologia = useWatch({
+    control,
+    name: "metodologia",
+    defaultValue: [],
+  });
+  const watchedRiscos = useWatch({
+    control,
+    name: "perigos_riscos",
+    defaultValue: [],
+  });
+  const watchedPlanoAcao = useWatch({
+    control,
+    name: "plano_acao",
+    defaultValue: [],
+  });
+  const watchedEvidencias = useWatch({
+    control,
+    name: "evidencias",
+    defaultValue: [],
+  });
+  const metodologiaSelecionada = watchedMetodologia ?? [];
+  const riscos = watchedRiscos ?? [];
+  const evidencias = watchedEvidencias ?? [];
 
-        if (id) {
-          const inspection = await inspectionsService.findOne(id);
-          reset({
-            ...inspection,
-            data_inspecao: new Date(inspection.data_inspecao).toISOString().split('T')[0],
-          });
-        }
-      } catch (error) {
-        console.error('Error loading data:', error);
-        toast.error('Erro ao carregar dados');
-      } finally {
-        setFetching(false);
+  const pendingActions = useMemo(
+    () =>
+      (watchedPlanoAcao ?? []).filter((item) => !isClosedStatus(item?.status))
+        .length,
+    [watchedPlanoAcao],
+  );
+  const highRiskCount = useMemo(
+    () =>
+      (watchedRiscos ?? []).filter((item) =>
+        ["Alto", "Muito Alto"].includes(item?.nivel_risco || ""),
+      ).length,
+    [watchedRiscos],
+  );
+
+  const loadData = useCallback(async () => {
+    try {
+      setFetching(true);
+      setLoadError(null);
+      const [sitesData, usersData] = await Promise.all([
+        sitesService.findAll(),
+        usersService.findAll(),
+      ]);
+
+      setSites(sortByName(sitesData));
+      setUsers(sortByName(usersData));
+
+      if (id) {
+        const inspection = await inspectionsService.findOne(id);
+        reset(
+          buildDefaultValues({
+            site_id: inspection.site_id,
+            setor_area: inspection.setor_area,
+            tipo_inspecao: inspection.tipo_inspecao,
+            data_inspecao: inspection.data_inspecao,
+            horario: inspection.horario,
+            responsavel_id: inspection.responsavel_id,
+            objetivo: inspection.objetivo || "",
+            descricao_local_atividades:
+              inspection.descricao_local_atividades || "",
+            metodologia: inspection.metodologia || [],
+            perigos_riscos: inspection.perigos_riscos || [],
+            plano_acao: inspection.plano_acao || [],
+            evidencias: inspection.evidencias || [],
+            conclusao: inspection.conclusao || "",
+          }),
+        );
+      } else {
+        reset(buildDefaultValues());
       }
-    };
-
-    loadData();
+    } catch (error) {
+      console.error("Erro ao carregar formulário de inspeção:", error);
+      setLoadError(
+        "Não foi possível carregar os dados necessários para a inspeção.",
+      );
+      toast.error("Erro ao carregar o formulário de inspeção.");
+    } finally {
+      setFetching(false);
+    }
   }, [id, reset]);
 
-  const onSubmit = async (data: InspectionFormData) => {
-    setLoading(true);
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    const currentVideo = videoRef.current;
+
+    return () => {
+      if (currentVideo?.srcObject) {
+        const stream = currentVideo.srcObject as MediaStream;
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
+  const openCamera = async (index: number) => {
     try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setCameraTargetIndex(index);
+    } catch (error) {
+      console.error("Erro ao acessar câmera:", error);
+      toast.error("Não foi possível acessar a câmera deste dispositivo.");
+    }
+  };
+
+  const closeCamera = () => {
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setCameraTargetIndex(null);
+  };
+
+  const capturePhoto = () => {
+    if (cameraTargetIndex === null || !videoRef.current || !canvasRef.current) {
+      return;
+    }
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      toast.error("Não foi possível gerar a imagem capturada.");
+      return;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL("image/jpeg", 0.88);
+
+    setValue(`evidencias.${cameraTargetIndex}.url`, imageData, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+
+    if (!getValues(`evidencias.${cameraTargetIndex}.descricao`)) {
+      setValue(
+        `evidencias.${cameraTargetIndex}.descricao`,
+        "Registro fotográfico da inspeção",
+        {
+          shouldDirty: true,
+          shouldValidate: true,
+        },
+      );
+    }
+
+    toast.success("Foto capturada e vinculada à evidência.");
+    closeCamera();
+  };
+
+  const toggleMetodologia = (option: string) => {
+    const current = getValues("metodologia") || [];
+    const next = current.includes(option)
+      ? current.filter((item) => item !== option)
+      : [...current, option];
+    setValue("metodologia", next, { shouldDirty: true, shouldValidate: true });
+  };
+
+  const applyRiskSuggestion = (index: number) => {
+    const currentRisk = getValues(`perigos_riscos.${index}`);
+    const suggestion = getRiskSuggestion(
+      currentRisk?.severidade,
+      currentRisk?.probabilidade,
+    );
+
+    if (!suggestion) {
+      toast.error(
+        "Selecione severidade e probabilidade antes de aplicar a sugestão.",
+      );
+      return;
+    }
+
+    setValue(`perigos_riscos.${index}.nivel_risco`, suggestion.nivel, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    setValue(
+      `perigos_riscos.${index}.classificacao_risco`,
+      suggestion.classificacao,
+      {
+        shouldDirty: true,
+        shouldValidate: true,
+      },
+    );
+    toast.success(`Sugestão aplicada: ${suggestion.label}.`);
+  };
+
+  const createActionFromRisk = (index: number) => {
+    const risk = getValues(`perigos_riscos.${index}`);
+    if (!risk?.perigo_fator_risco && !risk?.acoes_necessarias) {
+      toast.error(
+        "Preencha o risco ou a ação necessária antes de gerar uma ação.",
+      );
+      return;
+    }
+
+    appendAction({
+      acao:
+        risk.acoes_necessarias ||
+        `Tratar risco identificado: ${risk.perigo_fator_risco}`.trim(),
+      responsavel: risk.responsavel || "",
+      prazo: risk.prazo || "",
+      status: "Pendente",
+    });
+    toast.success("Ação adicionada ao plano a partir do risco selecionado.");
+  };
+
+  const onSubmit = async (data: InspectionFormData) => {
+    try {
+      setLoading(true);
+      setSubmitError(null);
+
       if (id) {
         await inspectionsService.update(id, data);
-        toast.success('Relatório de inspeção atualizado com sucesso');
+        toast.success("Relatório de inspeção atualizado com sucesso.");
       } else {
         await inspectionsService.create(data);
-        toast.success('Relatório de inspeção criado com sucesso');
+        toast.success("Relatório de inspeção criado com sucesso.");
       }
-      router.push('/dashboard/inspections');
+
+      router.push("/dashboard/inspections");
+      router.refresh();
     } catch (error) {
-      console.error('Error saving inspection:', error);
-      toast.error('Erro ao salvar relatório de inspeção');
+      console.error("Erro ao salvar relatório de inspeção:", error);
+      const message = getFormErrorMessage(error, {
+        badRequest:
+          "Os dados da inspeção estão inválidos. Revise site, responsável, riscos e plano de ação.",
+        unauthorized: "Sua sessão expirou. Faça login novamente.",
+        forbidden:
+          "Você não tem permissão para salvar este relatório de inspeção.",
+        server:
+          "Erro interno ao salvar a inspeção. Tente novamente em instantes.",
+        fallback: "Não foi possível salvar a inspeção. Tente novamente.",
+      });
+      setSubmitError(message);
+      toast.error("Erro ao salvar relatório de inspeção.");
     } finally {
       setLoading(false);
     }
   };
 
+  const onInvalid = (formErrors: FieldErrors<InspectionFormData>) => {
+    const firstError = findFirstErrorPath(formErrors);
+    if (firstError) {
+      setFocus(firstError as never);
+    }
+    toast.error("Revise os campos obrigatórios antes de salvar.");
+  };
+
   if (fetching) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-amber-700" />
-      </div>
+      <PageLoadingState
+        title="Carregando formulário de inspeção"
+        description="Buscando site, responsáveis e estrutura do relatório."
+        cards={4}
+        tableRows={0}
+      />
     );
   }
 
-  const metodologiaOptions = [
-    'Observação Direta',
-    'Entrevistas com Colaboradores',
-    'Análise de Documentação',
-    'Medições Ambientais',
-    'Checklist de Conformidade',
-    'Análise de Processos',
-  ];
-
-  const gruposRisco = ['Físico', 'Químico', 'Biológico', 'Ergonômico', 'Acidente'];
-  const tiposExposicao = ['Permanente', 'Intermitente', 'Ocasional'];
-  const niveisRisco = ['Baixo', 'Médio', 'Alto', 'Muito Alto'];
-  const classificacoesRisco = ['Aceitável', 'Tolerável', 'Moderado', 'Substancial', 'Intolerável'];
+  if (loadError) {
+    return (
+      <ErrorState
+        title="Falha ao carregar o relatório de inspeção"
+        description={loadError}
+        action={
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => void loadData()}
+          >
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="ds-form-page space-y-8 pb-12">
-      {/* 1. IDENTIFICAÇÃO DA EMPRESA */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">1. IDENTIFICAÇÃO DA EMPRESA</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label htmlFor="inspection-site-id" className="mb-2 block text-sm font-bold text-gray-700">Site / Unidade</label>
-            <select
-              id="inspection-site-id"
-              {...register('site_id')}
-              aria-label="Selecionar site da inspeção"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-            >
-              <option value="">Selecione o site</option>
-              {sites.map((site) => (
-                <option key={site.id} value={site.id}>{site.nome}</option>
+    <>
+      <form
+        onSubmit={handleSubmit(onSubmit, onInvalid)}
+        className="ds-form-page space-y-6 pb-12"
+      >
+        <Card tone="elevated" padding="lg" className="overflow-hidden">
+          <CardHeader className="gap-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="flex gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]">
+                  <ClipboardList className="h-6 w-6" />
+                </div>
+                <div>
+                  <CardTitle className="text-[1.15rem]">
+                    {id
+                      ? "Edição do relatório de inspeção"
+                      : "Novo relatório de inspeção"}
+                  </CardTitle>
+                  <CardDescription className="mt-1 max-w-2xl">
+                    Organizamos o fluxo para registrar contexto, avaliar riscos,
+                    desdobrar ações e fechar a inspeção com mais clareza.
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => router.push("/dashboard/inspections")}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" loading={loading || isSubmitting}>
+                  <Save className="h-4 w-4" />
+                  {id ? "Salvar alterações" : "Salvar relatório"}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Card tone="muted" padding="md">
+              <CardDescription>Metodologias</CardDescription>
+              <CardTitle className="mt-2 text-2xl">
+                {metodologiaSelecionada.length}
+              </CardTitle>
+            </Card>
+            <Card tone="muted" padding="md">
+              <CardDescription>Riscos</CardDescription>
+              <CardTitle className="mt-2 text-2xl">{riscos.length}</CardTitle>
+              <CardDescription className="mt-2">
+                {highRiskCount} altos ou muito altos
+              </CardDescription>
+            </Card>
+            <Card tone="muted" padding="md">
+              <CardDescription>Ações pendentes</CardDescription>
+              <CardTitle className="mt-2 text-2xl">{pendingActions}</CardTitle>
+            </Card>
+            <Card tone="muted" padding="md">
+              <CardDescription>Evidências</CardDescription>
+              <CardTitle className="mt-2 text-2xl">
+                {evidencias.length}
+              </CardTitle>
+            </Card>
+          </CardContent>
+        </Card>
+
+        {submitError ? (
+          <div className="rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-danger)]/30 bg-[color:var(--ds-color-danger)]/10 px-4 py-3 text-sm text-[var(--ds-color-text-primary)]">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 text-[var(--ds-color-danger)]" />
+              <div>
+                <p className="font-semibold">
+                  Não conseguimos salvar este relatório.
+                </p>
+                <p className="mt-1 text-[13px] text-[var(--ds-color-text-secondary)]">
+                  {submitError}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <Card tone="default" padding="lg">
+          <CardContent className="mt-0 space-y-6">
+            <SectionHeader
+              title="Contexto da inspeção"
+              description="Defina onde a inspeção ocorreu, quem conduziu a avaliação e qual é o recorte do relatório."
+              icon={<ClipboardCheck className="h-5 w-5" />}
+              badge="Etapa 1"
+            />
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="xl:col-span-2">
+                <label htmlFor="inspection-site-id" className={labelClassName}>
+                  Site / unidade
+                </label>
+                <select
+                  id="inspection-site-id"
+                  {...register("site_id")}
+                  className={nativeSelectClassName}
+                  aria-invalid={errors.site_id ? "true" : undefined}
+                >
+                  <option value="">Selecione o site</option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.nome}
+                    </option>
+                  ))}
+                </select>
+                <FieldErrorText message={errors.site_id?.message} />
+              </div>
+              <div>
+                <label htmlFor="inspection-type" className={labelClassName}>
+                  Tipo de inspeção
+                </label>
+                <select
+                  id="inspection-type"
+                  {...register("tipo_inspecao")}
+                  className={nativeSelectClassName}
+                >
+                  {inspectionTypeOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <FieldErrorText message={errors.tipo_inspecao?.message} />
+              </div>
+              <div>
+                <label htmlFor="inspection-area" className={labelClassName}>
+                  Setor / área
+                </label>
+                <Input
+                  id="inspection-area"
+                  placeholder="Ex.: Central de concreto"
+                  {...register("setor_area")}
+                />
+                <FieldErrorText message={errors.setor_area?.message} />
+              </div>
+              <div>
+                <label htmlFor="inspection-date" className={labelClassName}>
+                  Data da inspeção
+                </label>
+                <Input
+                  id="inspection-date"
+                  type="date"
+                  {...register("data_inspecao")}
+                />
+                <FieldErrorText message={errors.data_inspecao?.message} />
+              </div>
+              <div>
+                <label htmlFor="inspection-time" className={labelClassName}>
+                  Horário
+                </label>
+                <Input
+                  id="inspection-time"
+                  type="time"
+                  {...register("horario")}
+                />
+                <FieldErrorText message={errors.horario?.message} />
+              </div>
+              <div className="md:col-span-2">
+                <label
+                  htmlFor="inspection-responsible"
+                  className={labelClassName}
+                >
+                  Responsável pela inspeção
+                </label>
+                <select
+                  id="inspection-responsible"
+                  {...register("responsavel_id")}
+                  className={nativeSelectClassName}
+                >
+                  <option value="">Selecione o responsável</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.nome}
+                      {user.funcao ? ` • ${user.funcao}` : ""}
+                    </option>
+                  ))}
+                </select>
+                <FieldErrorText message={errors.responsavel_id?.message} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card tone="default" padding="lg">
+          <CardContent className="mt-0 space-y-6">
+            <SectionHeader
+              title="Objetivo, escopo e metodologia"
+              description="Registre o propósito da inspeção, o contexto operacional e as técnicas que sustentaram a avaliação."
+              icon={<Sparkles className="h-5 w-5" />}
+              badge="Etapa 2"
+            />
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div>
+                <label htmlFor="inspection-goal" className={labelClassName}>
+                  Objetivo do relatório
+                </label>
+                <Textarea
+                  id="inspection-goal"
+                  rows={5}
+                  placeholder="Ex.: Verificar conformidade de frentes de trabalho, EPCs, organização e condições seguras."
+                  {...register("objetivo")}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="inspection-context" className={labelClassName}>
+                  Descrição do local e das atividades
+                </label>
+                <Textarea
+                  id="inspection-context"
+                  rows={5}
+                  placeholder="Descreva a frente de serviço, as atividades observadas, equipamentos, interferências e pontos relevantes."
+                  {...register("descricao_local_atividades")}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <p className={labelClassName}>Metodologia utilizada</p>
+                <p className="text-sm text-[var(--ds-color-text-muted)]">
+                  Selecione apenas as abordagens efetivamente usadas. Isso
+                  melhora a consistência do relatório e do PDF.
+                </p>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {methodologyOptions.map((option) => {
+                  const checked = metodologiaSelecionada.includes(option);
+
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => toggleMetodologia(option)}
+                      className={cn(
+                        "flex items-start gap-3 rounded-[var(--ds-radius-md)] border px-4 py-3 text-left transition-all duration-[var(--ds-motion-base)]",
+                        checked
+                          ? "border-[var(--ds-color-action-primary)] bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)]"
+                          : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--ds-color-surface-elevated)]",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border text-[10px]",
+                          checked
+                            ? "border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-white"
+                            : "border-[var(--ds-color-border-default)] text-transparent",
+                        )}
+                      >
+                        <CheckCircle2 className="h-3 w-3" />
+                      </span>
+                      <span className="text-sm font-medium">{option}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card tone="default" padding="lg">
+          <CardContent className="mt-0 space-y-6">
+            <SectionHeader
+              title="Perigos, riscos e controles"
+              description="Para cada achado, registre o cenário, os expostos, os controles existentes e a ação necessária."
+              icon={<ShieldAlert className="h-5 w-5" />}
+              badge="Etapa 3"
+            />
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-[var(--ds-color-text-muted)]">
+                Use a sugestão de risco para acelerar a classificação, mas
+                revise antes de salvar.
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                leftIcon={<Plus className="h-4 w-4" />}
+                onClick={() => appendRisk(buildDefaultRisk())}
+              >
+                Adicionar risco
+              </Button>
+            </div>
+
+            {riskFields.length === 0 ? (
+              <div className="rounded-[var(--ds-radius-lg)] border border-dashed border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/30 px-5 py-8 text-center">
+                <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Nenhum risco foi adicionado ainda.
+                </p>
+                <p className="mt-2 text-sm text-[var(--ds-color-text-muted)]">
+                  Comece pelos riscos mais críticos da frente de serviço e
+                  transforme cada um em ação quando necessário.
+                </p>
+              </div>
+            ) : null}
+
+            <div className="space-y-4">
+              {riskFields.map((field, index) => {
+                const currentRisk = riscos[index];
+                const suggestion = getRiskSuggestion(
+                  currentRisk?.severidade,
+                  currentRisk?.probabilidade,
+                );
+
+                return (
+                  <Card key={field.id} tone="muted" padding="md">
+                    <CardHeader className="gap-3">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <CardTitle>Risco #{index + 1}</CardTitle>
+                          <CardDescription>
+                            Estruture o achado e deixe o plano de ação pronto
+                            para execução.
+                          </CardDescription>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {suggestion ? (
+                            <span className="inline-flex items-center rounded-full border border-[color:var(--ds-color-warning)]/30 bg-[color:var(--ds-color-warning)]/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-primary)]">
+                              Score {suggestion.score}: {suggestion.label}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
+                              Defina severidade e probabilidade
+                            </span>
+                          )}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeRisk(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Remover
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-5">
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <div>
+                          <label className={labelClassName}>
+                            Grupo de risco
+                          </label>
+                          <select
+                            {...register(`perigos_riscos.${index}.grupo_risco`)}
+                            className={nativeSelectClassName}
+                          >
+                            <option value="">Selecione</option>
+                            {riskGroupOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                          <FieldErrorText
+                            message={
+                              errors.perigos_riscos?.[index]?.grupo_risco
+                                ?.message
+                            }
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className={labelClassName}>
+                            Perigo / fator de risco
+                          </label>
+                          <Input
+                            placeholder="Ex.: trabalho em altura sem proteção completa"
+                            {...register(
+                              `perigos_riscos.${index}.perigo_fator_risco`,
+                            )}
+                          />
+                          <FieldErrorText
+                            message={
+                              errors.perigos_riscos?.[index]?.perigo_fator_risco
+                                ?.message
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClassName}>
+                            Fonte / circunstância
+                          </label>
+                          <Input
+                            placeholder="Ex.: guarda-corpo incompleto"
+                            {...register(
+                              `perigos_riscos.${index}.fonte_circunstancia`,
+                            )}
+                          />
+                          <FieldErrorText
+                            message={
+                              errors.perigos_riscos?.[index]
+                                ?.fonte_circunstancia?.message
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClassName}>
+                            Trabalhadores expostos
+                          </label>
+                          <Input
+                            placeholder="Ex.: equipe de montagem"
+                            {...register(
+                              `perigos_riscos.${index}.trabalhadores_expostos`,
+                            )}
+                          />
+                          <FieldErrorText
+                            message={
+                              errors.perigos_riscos?.[index]
+                                ?.trabalhadores_expostos?.message
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClassName}>
+                            Tipo de exposição
+                          </label>
+                          <select
+                            {...register(
+                              `perigos_riscos.${index}.tipo_exposicao`,
+                            )}
+                            className={nativeSelectClassName}
+                          >
+                            <option value="">Selecione</option>
+                            {exposureTypeOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                          <FieldErrorText
+                            message={
+                              errors.perigos_riscos?.[index]?.tipo_exposicao
+                                ?.message
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className={labelClassName}>
+                          Medidas existentes
+                        </label>
+                        <Textarea
+                          rows={3}
+                          placeholder="Descreva EPCs, EPIs, sinalização, procedimentos ou barreiras já existentes."
+                          {...register(
+                            `perigos_riscos.${index}.medidas_existentes`,
+                          )}
+                        />
+                        <FieldErrorText
+                          message={
+                            errors.perigos_riscos?.[index]?.medidas_existentes
+                              ?.message
+                          }
+                        />
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <div>
+                          <label className={labelClassName}>Severidade</label>
+                          <select
+                            {...register(`perigos_riscos.${index}.severidade`)}
+                            className={nativeSelectClassName}
+                          >
+                            <option value="">Selecione</option>
+                            {severityOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                          <FieldErrorText
+                            message={
+                              errors.perigos_riscos?.[index]?.severidade
+                                ?.message
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClassName}>
+                            Probabilidade
+                          </label>
+                          <select
+                            {...register(
+                              `perigos_riscos.${index}.probabilidade`,
+                            )}
+                            className={nativeSelectClassName}
+                          >
+                            <option value="">Selecione</option>
+                            {probabilityOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                          <FieldErrorText
+                            message={
+                              errors.perigos_riscos?.[index]?.probabilidade
+                                ?.message
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClassName}>
+                            Nível de risco
+                          </label>
+                          <select
+                            {...register(`perigos_riscos.${index}.nivel_risco`)}
+                            className={nativeSelectClassName}
+                          >
+                            <option value="">Selecione</option>
+                            {riskLevelOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                          <FieldErrorText
+                            message={
+                              errors.perigos_riscos?.[index]?.nivel_risco
+                                ?.message
+                            }
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClassName}>
+                            Classificação
+                          </label>
+                          <select
+                            {...register(
+                              `perigos_riscos.${index}.classificacao_risco`,
+                            )}
+                            className={nativeSelectClassName}
+                          >
+                            <option value="">Selecione</option>
+                            {riskClassificationOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                          <FieldErrorText
+                            message={
+                              errors.perigos_riscos?.[index]
+                                ?.classificacao_risco?.message
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => applyRiskSuggestion(index)}
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          Aplicar sugestão de risco
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => createActionFromRisk(index)}
+                        >
+                          <Plus className="h-4 w-4" />
+                          Criar ação no plano
+                        </Button>
+                        <p className="text-xs text-[var(--ds-color-text-muted)]">
+                          A sugestão usa severidade x probabilidade para
+                          acelerar a classificação.
+                        </p>
+                      </div>
+
+                      <div className="grid gap-4 xl:grid-cols-3">
+                        <div className="xl:col-span-2">
+                          <label className={labelClassName}>
+                            Ações necessárias
+                          </label>
+                          <Textarea
+                            rows={3}
+                            placeholder="Descreva a correção ou bloqueio operacional necessário."
+                            {...register(
+                              `perigos_riscos.${index}.acoes_necessarias`,
+                            )}
+                          />
+                          <FieldErrorText
+                            message={
+                              errors.perigos_riscos?.[index]?.acoes_necessarias
+                                ?.message
+                            }
+                          />
+                        </div>
+                        <div className="space-y-4">
+                          <div>
+                            <label className={labelClassName}>Prazo</label>
+                            <Input
+                              type="date"
+                              {...register(`perigos_riscos.${index}.prazo`)}
+                            />
+                            <FieldErrorText
+                              message={
+                                errors.perigos_riscos?.[index]?.prazo?.message
+                              }
+                            />
+                          </div>
+                          <div>
+                            <label className={labelClassName}>
+                              Responsável pela ação
+                            </label>
+                            <Input
+                              placeholder="Ex.: Supervisor da frente"
+                              {...register(
+                                `perigos_riscos.${index}.responsavel`,
+                              )}
+                            />
+                            <FieldErrorText
+                              message={
+                                errors.perigos_riscos?.[index]?.responsavel
+                                  ?.message
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card tone="default" padding="lg">
+          <CardContent className="mt-0 space-y-6">
+            <SectionHeader
+              title="Plano de ação"
+              description="Consolide as ações corretivas e acompanhe o status de execução diretamente no relatório."
+              icon={<ClipboardCheck className="h-5 w-5" />}
+              badge="Etapa 4"
+            />
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-[var(--ds-color-text-muted)]">
+                Use o plano para acompanhar pendências. Ações concluídas ou
+                canceladas saem da contagem pendente.
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                leftIcon={<Plus className="h-4 w-4" />}
+                onClick={() => appendAction(buildDefaultAction())}
+              >
+                Adicionar ação
+              </Button>
+            </div>
+
+            {actionFields.length === 0 ? (
+              <div className="rounded-[var(--ds-radius-lg)] border border-dashed border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/30 px-5 py-8 text-center">
+                <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Nenhuma ação cadastrada.
+                </p>
+                <p className="mt-2 text-sm text-[var(--ds-color-text-muted)]">
+                  Gere ações a partir dos riscos ou cadastre uma ação manual
+                  para acompanhamento.
+                </p>
+              </div>
+            ) : null}
+
+            <div className="space-y-4">
+              {actionFields.map((field, index) => (
+                <Card key={field.id} tone="muted" padding="md">
+                  <CardHeader className="flex flex-row items-start justify-between gap-3">
+                    <div>
+                      <CardTitle>Ação #{index + 1}</CardTitle>
+                      <CardDescription>
+                        Descreva claramente o que precisa acontecer e quem
+                        conduz.
+                      </CardDescription>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeAction(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Remover
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className={labelClassName}>Ação</label>
+                      <Textarea
+                        rows={3}
+                        placeholder="Ex.: instalar guarda-corpo completo e reforçar bloqueio da área."
+                        {...register(`plano_acao.${index}.acao`)}
+                      />
+                      <FieldErrorText
+                        message={errors.plano_acao?.[index]?.acao?.message}
+                      />
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div>
+                        <label className={labelClassName}>Responsável</label>
+                        <Input
+                          placeholder="Ex.: encarregado da obra"
+                          {...register(`plano_acao.${index}.responsavel`)}
+                        />
+                        <FieldErrorText
+                          message={
+                            errors.plano_acao?.[index]?.responsavel?.message
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClassName}>Prazo</label>
+                        <Input
+                          type="date"
+                          {...register(`plano_acao.${index}.prazo`)}
+                        />
+                        <FieldErrorText
+                          message={errors.plano_acao?.[index]?.prazo?.message}
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClassName}>Status</label>
+                        <select
+                          {...register(`plano_acao.${index}.status`)}
+                          className={nativeSelectClassName}
+                        >
+                          {actionStatusOptions.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                        <FieldErrorText
+                          message={errors.plano_acao?.[index]?.status?.message}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
-            </select>
-            {errors.site_id && <p className="mt-1 text-xs text-red-500">{errors.site_id.message}</p>}
-          </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          <div>
-            <label htmlFor="inspection-setor-area" className="mb-2 block text-sm font-bold text-gray-700">Setor / Área</label>
-            <input
-              id="inspection-setor-area"
-              {...register('setor_area')}
-              aria-label="Informar setor ou área da inspeção"
-              placeholder="Ex: Almoxarifado, Produção, etc."
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+        <Card tone="default" padding="lg">
+          <CardContent className="mt-0 space-y-6">
+            <SectionHeader
+              title="Evidências e conclusão"
+              description="Feche a inspeção com rastreabilidade. Inclua evidências e uma conclusão objetiva sobre a condição observada."
+              icon={<Camera className="h-5 w-5" />}
+              badge="Etapa 5"
             />
-            {errors.setor_area && <p className="mt-1 text-xs text-red-500">{errors.setor_area.message}</p>}
-          </div>
-        </div>
-      </div>
 
-      {/* 2. IDENTIFICAÇÃO DA INSPEÇÃO */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">2. IDENTIFICAÇÃO DA INSPEÇÃO</h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <label htmlFor="inspection-tipo" className="mb-2 block text-sm font-bold text-gray-700">Tipo de Inspeção</label>
-            <select
-              id="inspection-tipo"
-              {...register('tipo_inspecao')}
-              aria-label="Selecionar tipo de inspeção"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-            >
-              <option value="Rotina">Rotina</option>
-              <option value="Programada">Programada</option>
-              <option value="Especial">Especial</option>
-              <option value="Atendimento a NR">Atendimento a NR</option>
-            </select>
-          </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-[var(--ds-color-text-muted)]">
+                Adicione links, fotos e outras evidências relevantes. O PDF
+                passa a refletir melhor esse conteúdo.
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                leftIcon={<Plus className="h-4 w-4" />}
+                onClick={() => appendEvidence(buildDefaultEvidence())}
+              >
+                Adicionar evidência
+              </Button>
+            </div>
 
-          <div>
-            <label htmlFor="inspection-data" className="mb-2 block text-sm font-bold text-gray-700">Data</label>
-            <input
-              id="inspection-data"
-              type="date"
-              {...register('data_inspecao')}
-              aria-label="Selecionar data da inspeção"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-            />
-          </div>
+            {evidenceFields.length === 0 ? (
+              <div className="rounded-[var(--ds-radius-lg)] border border-dashed border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/30 px-5 py-8 text-center">
+                <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Nenhuma evidência registrada.
+                </p>
+                <p className="mt-2 text-sm text-[var(--ds-color-text-muted)]">
+                  Sempre que possível, registre foto ou link de apoio para
+                  sustentar os achados da inspeção.
+                </p>
+              </div>
+            ) : null}
 
-          <div>
-            <label htmlFor="inspection-horario" className="mb-2 block text-sm font-bold text-gray-700">Horário</label>
-            <input
-              id="inspection-horario"
-              type="time"
-              {...register('horario')}
-              aria-label="Selecionar horário da inspeção"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-            />
-          </div>
+            <div className="space-y-4">
+              {evidenceFields.map((field, index) => {
+                const evidenceUrl = evidencias[index]?.url || "";
+                const isImage = evidenceUrl.startsWith("data:image");
 
-          <div>
-            <label htmlFor="inspection-responsavel" className="mb-2 block text-sm font-bold text-gray-700">Responsável</label>
-            <select
-              id="inspection-responsavel"
-              {...register('responsavel_id')}
-              aria-label="Selecionar responsável pela inspeção"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-            >
-              <option value="">Selecione o responsável</option>
-              {users.filter(u => u.role === 'admin' || u.role === 'manager').map((user) => (
-                <option key={user.id} value={user.id}>{user.nome}</option>
-              ))}
-            </select>
-            {errors.responsavel_id && <p className="mt-1 text-xs text-red-500">{errors.responsavel_id.message}</p>}
-          </div>
-        </div>
-      </div>
+                return (
+                  <Card key={field.id} tone="muted" padding="md">
+                    <CardHeader className="flex flex-row items-start justify-between gap-3">
+                      <div>
+                        <CardTitle>Evidência #{index + 1}</CardTitle>
+                        <CardDescription>
+                          Descreva o que a evidência comprova e como acessá-la.
+                        </CardDescription>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeEvidence(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Remover
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <label className={labelClassName}>Descrição</label>
+                        <Input
+                          placeholder="Ex.: Foto do guarda-corpo com abertura lateral"
+                          {...register(`evidencias.${index}.descricao`)}
+                        />
+                        <FieldErrorText
+                          message={
+                            errors.evidencias?.[index]?.descricao?.message
+                          }
+                        />
+                      </div>
+                      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto]">
+                        <div>
+                          <label className={labelClassName}>
+                            URL ou referência
+                          </label>
+                          <Input
+                            placeholder="https://... ou link interno"
+                            {...register(`evidencias.${index}.url`)}
+                          />
+                          <FieldErrorText
+                            message={errors.evidencias?.[index]?.url?.message}
+                          />
+                        </div>
+                        <div className="flex items-end gap-2">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => openCamera(index)}
+                          >
+                            <Camera className="h-4 w-4" />
+                            Usar câmera
+                          </Button>
+                        </div>
+                      </div>
+                      {isImage ? (
+                        <div className="overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={evidenceUrl}
+                            alt={`Pré-visualização da evidência ${index + 1}`}
+                            className="max-h-72 w-full object-cover"
+                          />
+                        </div>
+                      ) : null}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
 
-      {/* 3. OBJETIVO DO RELATÓRIO */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">3. OBJETIVO DO RELATÓRIO</h2>
-        <label htmlFor="inspection-objetivo" className="sr-only">Objetivo do relatório</label>
-        <textarea
-          id="inspection-objetivo"
-          {...register('objetivo')}
-          rows={3}
-          aria-label="Objetivo do relatório de inspeção"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-          placeholder="Descreva o objetivo desta inspeção..."
-        />
-      </div>
-
-      {/* 4. DESCRIÇÃO DO LOCAL E DAS ATIVIDADES */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">4. DESCRIÇÃO DO LOCAL E DAS ATIVIDADES</h2>
-        <label htmlFor="inspection-descricao-local" className="sr-only">Descrição do local e das atividades</label>
-        <textarea
-          id="inspection-descricao-local"
-          {...register('descricao_local_atividades')}
-          rows={3}
-          aria-label="Descrição do local e das atividades"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-          placeholder="Descreva o local e as atividades observadas..."
-        />
-      </div>
-
-      {/* 5. METODOLOGIA UTILIZADA */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">5. METODOLOGIA UTILIZADA</h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {metodologiaOptions.map((option) => (
-            <label key={option} className="flex items-center space-x-3 text-sm">
-              <input
-                type="checkbox"
-                value={option}
-                {...register('metodologia')}
-                className="h-4 w-4 rounded border-gray-300 text-amber-700 focus:ring-amber-500"
+            <div>
+              <label htmlFor="inspection-conclusion" className={labelClassName}>
+                Conclusão
+              </label>
+              <Textarea
+                id="inspection-conclusion"
+                rows={5}
+                placeholder="Feche o relatório informando o cenário geral, os principais riscos encontrados e o nível de urgência das ações."
+                {...register("conclusao")}
               />
-              <span className="text-gray-700">{option}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* 6. IDENTIFICAÇÃO DE PERIGOS, AVALIAÇÃO E CONTROLE DOS RISCOS */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">6. IDENTIFICAÇÃO DE PERIGOS, AVALIAÇÃO E CONTROLE DOS RISCOS</h2>
-          <button
-            type="button"
-            onClick={() => appendPR({
-              grupo_risco: '',
-              perigo_fator_risco: '',
-              fonte_circunstancia: '',
-              trabalhadores_expostos: '',
-              tipo_exposicao: '',
-              medidas_existentes: '',
-              severidade: '',
-              probabilidade: '',
-              nivel_risco: '',
-              classificacao_risco: '',
-              acoes_necessarias: '',
-              prazo: '',
-              responsavel: '',
-            })}
-            className="flex items-center space-x-2 text-sm font-medium text-amber-700 hover:text-amber-700"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Adicionar Risco</span>
-          </button>
-        </div>
-
-        <div className="space-y-6">
-          {prFields.map((field, index) => (
-            <div key={field.id} className="relative rounded-lg border border-gray-100 bg-gray-50 p-4 pt-8">
-              <button
-                type="button"
-                onClick={() => removePR(index)}
-                className="absolute right-2 top-2 text-gray-400 hover:text-red-500"
-                title="Remover Risco"
-                aria-label="Remover Risco"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3 lg:grid-cols-4">
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Grupo de Risco</label>
-                  <select
-                    {...register(`perigos_riscos.${index}.grupo_risco` as const)}
-                    aria-label={`Grupo de risco ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-                  >
-                    <option value="">Selecione</option>
-                    {gruposRisco.map(g => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Perigo / Fator de Risco</label>
-                  <input
-                    {...register(`perigos_riscos.${index}.perigo_fator_risco` as const)}
-                    aria-label={`Perigo ou fator de risco ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Fonte / Circunstância</label>
-                  <input
-                    {...register(`perigos_riscos.${index}.fonte_circunstancia` as const)}
-                    aria-label={`Fonte ou circunstância ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Trabalhadores Expostos</label>
-                  <input
-                    {...register(`perigos_riscos.${index}.trabalhadores_expostos` as const)}
-                    aria-label={`Trabalhadores expostos ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Tipo de Exposição</label>
-                  <select
-                    {...register(`perigos_riscos.${index}.tipo_exposicao` as const)}
-                    aria-label={`Tipo de exposição ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-                  >
-                    <option value="">Selecione</option>
-                    {tiposExposicao.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div className="md:col-span-2 lg:col-span-3">
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Medidas Existentes</label>
-                  <input
-                    {...register(`perigos_riscos.${index}.medidas_existentes` as const)}
-                    aria-label={`Medidas existentes ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Severidade</label>
-                  <input
-                    {...register(`perigos_riscos.${index}.severidade` as const)}
-                    aria-label={`Severidade ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Probabilidade</label>
-                  <input
-                    {...register(`perigos_riscos.${index}.probabilidade` as const)}
-                    aria-label={`Probabilidade ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Nível de Risco</label>
-                  <select
-                    {...register(`perigos_riscos.${index}.nivel_risco` as const)}
-                    aria-label={`Nível de risco ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-                  >
-                    <option value="">Selecione</option>
-                    {niveisRisco.map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Classificação</label>
-                  <select
-                    {...register(`perigos_riscos.${index}.classificacao_risco` as const)}
-                    aria-label={`Classificação de risco ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-                  >
-                    <option value="">Selecione</option>
-                    {classificacoesRisco.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="md:col-span-2 lg:col-span-2">
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Ações Necessárias</label>
-                  <input
-                    {...register(`perigos_riscos.${index}.acoes_necessarias` as const)}
-                    aria-label={`Ações necessárias ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Prazo</label>
-                  <input
-                    {...register(`perigos_riscos.${index}.prazo` as const)}
-                    aria-label={`Prazo do risco ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Responsável</label>
-                  <input
-                    {...register(`perigos_riscos.${index}.responsavel` as const)}
-                    aria-label={`Responsável do risco ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </div>
-              </div>
             </div>
-          ))}
-        </div>
-      </div>
+          </CardContent>
+        </Card>
 
-      {/* 7. PLANO DE AÇÃO */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">7. PLANO DE AÇÃO</h2>
-          <button
-            type="button"
-            onClick={() => appendPA({
-              acao: '',
-              responsavel: '',
-              prazo: '',
-              status: 'Pendente',
-            })}
-            className="flex items-center space-x-2 text-sm font-medium text-amber-700 hover:text-amber-700"
+        <div className="sticky bottom-4 z-10">
+          <Card
+            tone="elevated"
+            padding="md"
+            className="border-[var(--ds-color-border-strong)]"
           >
-            <Plus className="h-4 w-4" />
-            <span>Adicionar Ação</span>
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          {paFields.map((field, index) => (
-            <div key={field.id} className="relative rounded-lg border border-gray-100 bg-gray-50 p-4 pt-8">
-              <button
-                type="button"
-                onClick={() => removePA(index)}
-                className="absolute right-2 top-2 text-gray-400 hover:text-red-500"
-                title="Remover Ação"
-                aria-label="Remover Ação"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-                <div className="md:col-span-2">
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Ação</label>
-                  <input
-                    {...register(`plano_acao.${index}.acao` as const)}
-                    aria-label={`Ação do plano ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Responsável</label>
-                  <input
-                    {...register(`plano_acao.${index}.responsavel` as const)}
-                    aria-label={`Responsável da ação ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Prazo</label>
-                  <input
-                    {...register(`plano_acao.${index}.prazo` as const)}
-                    aria-label={`Prazo da ação ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  />
-                </div>
+            <CardContent className="mt-0 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Relatório pronto para salvar
+                </p>
+                <p className="text-sm text-[var(--ds-color-text-muted)]">
+                  Revise riscos críticos, ações pendentes e evidências antes de
+                  concluir.
+                </p>
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 8. EVIDÊNCIAS */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">8. EVIDÊNCIAS (FOTOS / OBSERVAÇÕES)</h2>
-          <button
-            type="button"
-            onClick={() => appendEV({
-              descricao: '',
-              url: '',
-            })}
-            className="flex items-center space-x-2 text-sm font-medium text-amber-700 hover:text-amber-700"
-          >
-            <Camera className="h-4 w-4" />
-            <span>Adicionar Evidência</span>
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          {evFields.map((field, index) => (
-            <div key={field.id} className="relative rounded-lg border border-gray-100 bg-gray-50 p-4 pt-8">
-              <button
-                type="button"
-                onClick={() => removeEV(index)}
-                className="absolute right-2 top-2 text-gray-400 hover:text-red-500"
-                title="Remover Evidência"
-                aria-label="Remover Evidência"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">Descrição da Evidência</label>
-                  <input
-                    {...register(`evidencias.${index}.descricao` as const)}
-                    aria-label={`Descrição da evidência ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                    placeholder="Ex: Foto do extintor descarregado"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-bold text-gray-500 text-uppercase">URL da Imagem (Opcional)</label>
-                  <input
-                    {...register(`evidencias.${index}.url` as const)}
-                    aria-label={`URL da evidência ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                    placeholder="Link da imagem..."
-                  />
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => router.push("/dashboard/inspections")}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" loading={loading || isSubmitting}>
+                  <Save className="h-4 w-4" />
+                  {id ? "Salvar alterações" : "Salvar relatório"}
+                </Button>
               </div>
-            </div>
-          ))}
+            </CardContent>
+          </Card>
         </div>
-      </div>
+      </form>
 
-      {/* 9. CONCLUSÃO */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">9. CONCLUSÃO</h2>
-        <label htmlFor="inspection-conclusao" className="sr-only">Conclusão da inspeção</label>
-        <textarea
-          id="inspection-conclusao"
-          {...register('conclusao')}
-          rows={4}
-          aria-label="Conclusão da inspeção"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
-          placeholder="Apresente as conclusões finais do relatório de inspeção..."
-        />
-      </div>
-
-      {/* 10. ENCERRAMENTO */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">10. ENCERRAMENTO</h2>
-        <p className="text-sm text-gray-500">
-          Este relatório consolida as observações realizadas durante a inspeção. As ações corretivas devem ser acompanhadas conforme os prazos estabelecidos no Plano de Ação.
-        </p>
-      </div>
-
-      {/* Botões de Ação */}
-      <div className="flex items-center justify-end space-x-4">
-        <Link
-          href="/dashboard/inspections"
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Cancelar
-        </Link>
-        <button
-          type="submit"
-          disabled={loading}
-          className="flex items-center space-x-2 rounded-lg bg-amber-600 px-6 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
-        >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          <span>{id ? 'Atualizar Relatório' : 'Salvar Relatório'}</span>
-        </button>
-      </div>
-    </form>
+      {cameraTargetIndex !== null ? (
+        <div className="ds-form-page fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <Card tone="elevated" padding="lg" className="w-full max-w-3xl">
+            <CardHeader className="flex flex-row items-start justify-between gap-3">
+              <div>
+                <CardTitle>Capturar evidência fotográfica</CardTitle>
+                <CardDescription>
+                  Posicione a câmera para registrar o achado e anexe a imagem
+                  diretamente ao relatório.
+                </CardDescription>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={closeCamera}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-black">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="max-h-[60vh] w-full object-cover"
+                />
+              </div>
+              <canvas ref={canvasRef} className="hidden" />
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button type="button" variant="secondary" onClick={closeCamera}>
+                  Cancelar
+                </Button>
+                <Button type="button" onClick={capturePhoto}>
+                  <Camera className="h-4 w-4" />
+                  Capturar foto
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
+    </>
   );
 }

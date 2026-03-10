@@ -95,10 +95,6 @@ class EvidenciaDto {
 export class CreateInspectionDto {
   @IsUUID()
   @IsNotEmpty()
-  company_id: string;
-
-  @IsUUID()
-  @IsNotEmpty()
   site_id: string;
 
   @IsString()

@@ -1,6 +1,11 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { plainToClass } from 'class-transformer';
 import { Inspection } from './entities/inspection.entity';
 import { InspectionResponseDto } from './dto/inspection-response.dto';
@@ -11,6 +16,8 @@ import {
 
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import { TenantService } from '../common/tenant/tenant.service';
+import { Site } from '../sites/entities/site.entity';
+import { User } from '../users/entities/user.entity';
 import {
   TenantRepository,
   TenantRepositoryFactory,
@@ -29,6 +36,10 @@ export class InspectionsService {
   constructor(
     @InjectRepository(Inspection)
     private inspectionsRepository: Repository<Inspection>,
+    @InjectRepository(Site)
+    private sitesRepository: Repository<Site>,
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
     private notificationsGateway: NotificationsGateway,
     private tenantService: TenantService,
     tenantRepositoryFactory: TenantRepositoryFactory,
@@ -36,14 +47,186 @@ export class InspectionsService {
     this.tenantRepo = tenantRepositoryFactory.wrap(this.inspectionsRepository);
   }
 
+  private normalizeText(value?: string | null): string | null {
+    const normalized = value?.trim();
+    return normalized ? normalized : null;
+  }
+
+  private normalizeRequiredText(value: string): string {
+    return value.trim();
+  }
+
+  private normalizeStringArray(values?: string[]): string[] {
+    return Array.from(
+      new Set((values ?? []).map((value) => value.trim()).filter(Boolean)),
+    );
+  }
+
+  private normalizePerigosRiscos(
+    values?: CreateInspectionDto['perigos_riscos'],
+  ): Inspection['perigos_riscos'] {
+    return (values ?? [])
+      .map((item) => ({
+        grupo_risco: this.normalizeRequiredText(item.grupo_risco),
+        perigo_fator_risco: this.normalizeRequiredText(item.perigo_fator_risco),
+        fonte_circunstancia: this.normalizeRequiredText(
+          item.fonte_circunstancia,
+        ),
+        trabalhadores_expostos: this.normalizeRequiredText(
+          item.trabalhadores_expostos,
+        ),
+        tipo_exposicao: this.normalizeRequiredText(item.tipo_exposicao),
+        medidas_existentes: this.normalizeRequiredText(item.medidas_existentes),
+        severidade: this.normalizeRequiredText(item.severidade),
+        probabilidade: this.normalizeRequiredText(item.probabilidade),
+        nivel_risco: this.normalizeRequiredText(item.nivel_risco),
+        classificacao_risco: this.normalizeRequiredText(
+          item.classificacao_risco,
+        ),
+        acoes_necessarias: this.normalizeRequiredText(item.acoes_necessarias),
+        prazo: this.normalizeRequiredText(item.prazo),
+        responsavel: this.normalizeRequiredText(item.responsavel),
+      }))
+      .filter(
+        (item) =>
+          item.grupo_risco ||
+          item.perigo_fator_risco ||
+          item.acoes_necessarias ||
+          item.responsavel,
+      );
+  }
+
+  private normalizePlanoAcao(
+    values?: CreateInspectionDto['plano_acao'],
+  ): Inspection['plano_acao'] {
+    return (values ?? [])
+      .map((item) => ({
+        acao: this.normalizeRequiredText(item.acao),
+        responsavel: this.normalizeRequiredText(item.responsavel),
+        prazo: this.normalizeRequiredText(item.prazo),
+        status: this.normalizeText(item.status) || 'Pendente',
+      }))
+      .filter((item) => item.acao || item.responsavel || item.prazo);
+  }
+
+  private normalizeEvidencias(
+    values?: CreateInspectionDto['evidencias'],
+  ): Inspection['evidencias'] {
+    return (values ?? [])
+      .map((item) => ({
+        descricao: this.normalizeRequiredText(item.descricao),
+        url: this.normalizeText(item.url) || undefined,
+      }))
+      .filter((item) => item.descricao || item.url);
+  }
+
+  private buildCreatePayload(
+    dto: CreateInspectionDto,
+    companyId: string,
+  ): Partial<Inspection> {
+    return {
+      company_id: companyId,
+      site_id: dto.site_id,
+      setor_area: this.normalizeRequiredText(dto.setor_area),
+      tipo_inspecao: this.normalizeRequiredText(dto.tipo_inspecao),
+      data_inspecao: dto.data_inspecao as unknown as Date,
+      horario: this.normalizeRequiredText(dto.horario),
+      responsavel_id: dto.responsavel_id,
+      objetivo: this.normalizeText(dto.objetivo),
+      descricao_local_atividades: this.normalizeText(
+        dto.descricao_local_atividades,
+      ),
+      metodologia: this.normalizeStringArray(dto.metodologia),
+      perigos_riscos: this.normalizePerigosRiscos(dto.perigos_riscos),
+      plano_acao: this.normalizePlanoAcao(dto.plano_acao),
+      evidencias: this.normalizeEvidencias(dto.evidencias),
+      conclusao: this.normalizeText(dto.conclusao),
+    };
+  }
+
+  private buildUpdatePayload(dto: UpdateInspectionDto): Partial<Inspection> {
+    const payload: Partial<Inspection> = {};
+
+    if (dto.site_id !== undefined) payload.site_id = dto.site_id;
+    if (dto.setor_area !== undefined) {
+      payload.setor_area = this.normalizeRequiredText(dto.setor_area);
+    }
+    if (dto.tipo_inspecao !== undefined) {
+      payload.tipo_inspecao = this.normalizeRequiredText(dto.tipo_inspecao);
+    }
+    if (dto.data_inspecao !== undefined) {
+      payload.data_inspecao = dto.data_inspecao as unknown as Date;
+    }
+    if (dto.horario !== undefined) {
+      payload.horario = this.normalizeRequiredText(dto.horario);
+    }
+    if (dto.responsavel_id !== undefined)
+      payload.responsavel_id = dto.responsavel_id;
+    if (dto.objetivo !== undefined)
+      payload.objetivo = this.normalizeText(dto.objetivo);
+    if (dto.descricao_local_atividades !== undefined) {
+      payload.descricao_local_atividades = this.normalizeText(
+        dto.descricao_local_atividades,
+      );
+    }
+    if (dto.metodologia !== undefined) {
+      payload.metodologia = this.normalizeStringArray(dto.metodologia);
+    }
+    if (dto.perigos_riscos !== undefined) {
+      payload.perigos_riscos = this.normalizePerigosRiscos(dto.perigos_riscos);
+    }
+    if (dto.plano_acao !== undefined) {
+      payload.plano_acao = this.normalizePlanoAcao(dto.plano_acao);
+    }
+    if (dto.evidencias !== undefined) {
+      payload.evidencias = this.normalizeEvidencias(dto.evidencias);
+    }
+    if (dto.conclusao !== undefined)
+      payload.conclusao = this.normalizeText(dto.conclusao);
+
+    return payload;
+  }
+
+  private async validateLinkedRecords(
+    payload: Partial<Inspection>,
+    companyId: string,
+  ): Promise<void> {
+    if (payload.site_id) {
+      const site = await this.sitesRepository.findOne({
+        where: { id: payload.site_id, company_id: companyId, status: true },
+      });
+      if (!site) {
+        throw new BadRequestException(
+          'O site informado não pertence à empresa selecionada.',
+        );
+      }
+    }
+
+    if (payload.responsavel_id) {
+      const responsavel = await this.usersRepository.findOne({
+        where: {
+          id: payload.responsavel_id,
+          company_id: companyId,
+          status: true,
+          deletedAt: IsNull(),
+        },
+      });
+      if (!responsavel) {
+        throw new BadRequestException(
+          'O responsável informado não está ativo ou não pertence à empresa selecionada.',
+        );
+      }
+    }
+  }
+
   async create(
     createInspectionDto: CreateInspectionDto,
     companyId: string,
   ): Promise<InspectionResponseDto> {
-    const inspection = this.inspectionsRepository.create({
-      ...createInspectionDto,
-      company_id: companyId,
-    });
+    const payload = this.buildCreatePayload(createInspectionDto, companyId);
+    await this.validateLinkedRecords(payload, companyId);
+
+    const inspection = this.inspectionsRepository.create(payload);
     const saved = await this.inspectionsRepository.save(inspection);
 
     // Notificar em tempo real
@@ -123,7 +306,7 @@ export class InspectionsService {
     const params = resolvedCompanyId ? [resolvedCompanyId] : [];
     const where = resolvedCompanyId ? 'WHERE i.company_id = $1' : '';
 
-    const rows = (await this.inspectionsRepository.query(
+    const rows: unknown = await this.inspectionsRepository.query(
       `
         SELECT COALESCE(
           SUM(
@@ -140,9 +323,17 @@ export class InspectionsService {
         ${where}
       `,
       params,
-    )) as Array<{ total?: number | string }>;
+    );
 
-    return Number(rows[0]?.total ?? 0);
+    const firstRow =
+      Array.isArray(rows) && rows[0] && typeof rows[0] === 'object'
+        ? (rows[0] as Record<string, unknown>)
+        : undefined;
+    const total = firstRow?.total;
+
+    return Number(
+      typeof total === 'number' || typeof total === 'string' ? total : 0,
+    );
   }
 
   async findOne(id: string, companyId: string): Promise<InspectionResponseDto> {
@@ -168,7 +359,9 @@ export class InspectionsService {
     companyId: string,
   ): Promise<InspectionResponseDto> {
     const inspection = await this.findOneEntity(id, companyId);
-    Object.assign(inspection, updateInspectionDto);
+    const payload = this.buildUpdatePayload(updateInspectionDto);
+    await this.validateLinkedRecords(payload, companyId);
+    Object.assign(inspection, payload);
     const saved = await this.inspectionsRepository.save(inspection);
     return plainToClass(InspectionResponseDto, saved);
   }

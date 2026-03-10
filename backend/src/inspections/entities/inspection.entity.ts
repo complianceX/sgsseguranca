@@ -53,53 +53,59 @@ export class Inspection {
 
   // 3. OBJETIVO DO RELATÓRIO
   @Column({ type: 'text', nullable: true })
-  objetivo: string;
+  objetivo: string | null;
 
   // 4. DESCRIÇÃO DO LOCAL E DAS ATIVIDADES
   @Column({ type: 'text', nullable: true })
-  descricao_local_atividades: string;
+  descricao_local_atividades: string | null;
 
   // 5. METODOLOGIA UTILIZADA
   @Column({ type: 'json', nullable: true })
-  metodologia: string[]; // Array of strings (options checked)
+  metodologia: string[] | null; // Array of strings (options checked)
 
   // 6. IDENTIFICAÇÃO DE PERIGOS, AVALIAÇÃO E CONTROLE DOS RISCOS
   @Column({ type: 'json', nullable: true })
-  perigos_riscos: {
-    grupo_risco: string; // Físico / Químico / Biológico / Ergonômico / Acidente
-    perigo_fator_risco: string;
-    fonte_circunstancia: string;
-    trabalhadores_expostos: string;
-    tipo_exposicao: string; // Permanente / Intermitente / Ocasional
-    medidas_existentes: string;
-    severidade: string;
-    probabilidade: string;
-    nivel_risco: string;
-    classificacao_risco: string; // Baixo / Médio / Alto
-    acoes_necessarias: string;
-    prazo: string;
-    responsavel: string;
-  }[];
+  perigos_riscos:
+    | {
+        grupo_risco: string; // Físico / Químico / Biológico / Ergonômico / Acidente
+        perigo_fator_risco: string;
+        fonte_circunstancia: string;
+        trabalhadores_expostos: string;
+        tipo_exposicao: string; // Permanente / Intermitente / Ocasional
+        medidas_existentes: string;
+        severidade: string;
+        probabilidade: string;
+        nivel_risco: string;
+        classificacao_risco: string; // Baixo / Médio / Alto
+        acoes_necessarias: string;
+        prazo: string;
+        responsavel: string;
+      }[]
+    | null;
 
   // 7. PLANO DE AÇÃO
   @Column({ type: 'json', nullable: true })
-  plano_acao: {
-    acao: string;
-    responsavel: string;
-    prazo: string;
-    status: string;
-  }[];
+  plano_acao:
+    | {
+        acao: string;
+        responsavel: string;
+        prazo: string;
+        status: string;
+      }[]
+    | null;
 
   // 8. EVIDÊNCIAS
   @Column({ type: 'json', nullable: true })
-  evidencias: {
-    descricao: string;
-    url?: string;
-  }[];
+  evidencias:
+    | {
+        descricao: string;
+        url?: string;
+      }[]
+    | null;
 
   // 9. CONCLUSÃO
   @Column({ type: 'text', nullable: true })
-  conclusao: string;
+  conclusao: string | null;
 
   @CreateDateColumn()
   created_at: Date;
