@@ -14,13 +14,13 @@ const AUTH_SHELL_STYLE = {
 };
 
 const authCardClass =
-  'w-full max-w-md rounded-[28px] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] p-8 shadow-[var(--ds-shadow-lg)] backdrop-blur-xl';
+  'w-full max-w-[27rem] rounded-[24px] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] p-6 shadow-[var(--ds-shadow-lg)] backdrop-blur-xl';
 
 const authInputClass =
-  'w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-bg-subtle)] p-3 text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-4 focus:ring-[var(--ds-color-focus-ring)]';
+  'w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-bg-subtle)] px-3 py-2.5 text-[13px] text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-4 focus:ring-[var(--ds-color-focus-ring)]';
 
 const primaryButtonClass =
-  'w-full rounded-xl bg-[image:var(--ds-gradient-brand)] p-3 font-semibold text-white shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50';
+  'w-full rounded-xl bg-[image:var(--ds-gradient-brand)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50';
 
 function formatCpf(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11);
@@ -56,21 +56,21 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6" style={AUTH_SHELL_STYLE}>
+    <div className="flex min-h-screen items-center justify-center p-5" style={AUTH_SHELL_STYLE}>
       <div className={authCardClass}>
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[image:var(--ds-gradient-brand)] text-xl font-bold text-white shadow-[var(--ds-shadow-sm)]">
+        <div className="mb-5 text-center">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[image:var(--ds-gradient-brand)] text-lg font-bold text-white shadow-[var(--ds-shadow-sm)]">
             G
           </div>
-          <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">Recuperação de Senha</h1>
-          <p className="mt-1 text-sm text-[var(--ds-color-text-muted)]">
+          <h1 className="text-lg font-bold text-[var(--ds-color-text-primary)]">Recuperação de Senha</h1>
+          <p className="mt-1 text-[13px] text-[var(--ds-color-text-muted)]">
             Informe seu CPF para receber as instruções por e-mail
           </p>
         </div>
 
         {sent ? (
           <div className="space-y-4">
-            <div className="rounded-2xl border border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success)]/10 p-4 text-center">
+            <div className="rounded-2xl border border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success)]/10 p-3.5 text-center">
               <svg className="mx-auto mb-2 h-8 w-8 text-[var(--ds-color-success)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -88,9 +88,9 @@ export default function ForgotPasswordPage() {
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="cpf" className="mb-2 block text-sm font-semibold text-[var(--ds-color-text-secondary)]">
+              <label htmlFor="cpf" className="mb-2 block text-[13px] font-semibold text-[var(--ds-color-text-secondary)]">
                 CPF
               </label>
               <input
@@ -107,7 +107,7 @@ export default function ForgotPasswordPage() {
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 rounded-xl border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/10 p-3 text-sm text-[var(--ds-color-danger)]">
+              <div className="flex items-start gap-2 rounded-xl border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/10 p-3 text-[13px] text-[var(--ds-color-danger)]">
                 <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -136,7 +136,7 @@ export default function ForgotPasswordPage() {
             <button
               type="button"
               onClick={() => router.push('/login')}
-              className="w-full text-center text-sm text-[var(--ds-color-text-muted)] transition-colors hover:text-[var(--ds-color-text-secondary)]"
+              className="w-full text-center text-[13px] text-[var(--ds-color-text-muted)] transition-colors hover:text-[var(--ds-color-text-secondary)]"
             >
               Voltar para o login
             </button>

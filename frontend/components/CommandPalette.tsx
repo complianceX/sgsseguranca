@@ -164,11 +164,11 @@ export function CommandPalette() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-[#020817]/72 px-4 pt-[12vh] backdrop-blur-md">
-      <div className="w-full max-w-2xl overflow-hidden rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,17,31,0.96),rgba(12,24,48,0.98))] shadow-[0_28px_70px_rgba(2,6,23,0.56)]">
-        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/5 text-[var(--ds-color-text-muted)]">
-            <Search className="h-5 w-5" />
+    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-[#020817]/72 px-4 pt-[10vh] backdrop-blur-md">
+      <div className="w-full max-w-[42rem] overflow-hidden rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,17,31,0.96),rgba(12,24,48,0.98))] shadow-[0_28px_70px_rgba(2,6,23,0.56)]">
+        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-[var(--ds-color-text-muted)]">
+            <Search className="h-4.5 w-4.5" />
           </div>
           <div className="min-w-0 flex-1">
             <input
@@ -177,29 +177,29 @@ export function CommandPalette() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar módulo, ação ou fluxo..."
-              className="w-full border-0 bg-transparent text-base text-white outline-none placeholder:text-[var(--ds-color-text-muted)]"
+              className="w-full border-0 bg-transparent text-[15px] text-white outline-none placeholder:text-[var(--ds-color-text-muted)]"
               aria-label="Buscar ações rápidas"
             />
-            <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
+            <p className="mt-1 text-[11px] text-[var(--ds-color-text-muted)]">
               Atalho global do produto para navegação e execução rápida.
             </p>
           </div>
           <button
             type="button"
             onClick={() => setIsOpen(false)}
-            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/5 text-[var(--ds-color-text-muted)] transition-colors hover:bg-white/10 hover:text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-[var(--ds-color-text-muted)] transition-colors hover:bg-white/10 hover:text-white"
             aria-label="Fechar palette"
           >
-            <X className="h-4.5 w-4.5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="max-h-[26rem] overflow-y-auto p-3">
+        <div className="max-h-[24rem] overflow-y-auto p-2.5">
           {commands.length === 0 ? (
-            <div className="rounded-2xl border border-white/8 bg-white/5 px-4 py-8 text-center">
-              <Command className="mx-auto h-10 w-10 text-[var(--ds-color-text-muted)]" />
-              <p className="mt-3 text-sm font-semibold text-white">Nenhuma ação encontrada</p>
-              <p className="mt-1 text-sm text-[var(--ds-color-text-muted)]">
+            <div className="rounded-xl border border-white/8 bg-white/5 px-4 py-7 text-center">
+              <Command className="mx-auto h-9 w-9 text-[var(--ds-color-text-muted)]" />
+              <p className="mt-3 text-[13px] font-semibold text-white">Nenhuma ação encontrada</p>
+              <p className="mt-1 text-[13px] text-[var(--ds-color-text-muted)]">
                 Ajuste o termo de busca para localizar outro fluxo.
               </p>
             </div>
@@ -214,16 +214,16 @@ export function CommandPalette() {
                     type="button"
                     onClick={() => handleSelect(command.href)}
                     className={cn(
-                      'flex w-full items-center gap-4 rounded-2xl border border-transparent px-4 py-3 text-left transition-colors',
+                      'flex w-full items-center gap-3.5 rounded-xl border border-transparent px-3.5 py-2.5 text-left transition-colors',
                       'bg-white/4 hover:border-white/10 hover:bg-white/8',
                     )}
                   >
-                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/8 text-sky-200">
-                      <Icon className="h-5 w-5" />
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/8 text-sky-200">
+                      <Icon className="h-4.5 w-4.5" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-white">{command.title}</span>
-                      <span className="block truncate text-xs text-[var(--ds-color-text-muted)]">
+                      <span className="block text-[13px] font-semibold text-white">{command.title}</span>
+                      <span className="block truncate text-[11px] text-[var(--ds-color-text-muted)]">
                         {command.subtitle}
                       </span>
                     </span>

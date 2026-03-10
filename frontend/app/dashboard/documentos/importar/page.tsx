@@ -147,10 +147,10 @@ export default function DocumentImportPage() {
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-8">
+    <div className="ds-form-page mx-auto max-w-6xl space-y-8 p-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Importação Inteligente de PDF</h1>
-        <p className="text-slate-500">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Importação Inteligente de PDF</h1>
+        <p className="text-sm text-slate-500">
           Faça upload de documentos SST (APR, PGR, PCMSO, ASO) para extração automática e validação.
         </p>
       </div>
@@ -163,7 +163,7 @@ export default function DocumentImportPage() {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={`
-              relative border-2 border-dashed rounded-xl p-8 transition-all duration-200
+              relative border-2 border-dashed rounded-xl p-6 transition-all duration-200
               flex flex-col items-center justify-center text-center gap-4 cursor-pointer
               ${isDragging ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300 bg-slate-50'}
               ${file ? 'border-green-500 bg-green-50' : ''}
@@ -180,15 +180,15 @@ export default function DocumentImportPage() {
               aria-label="Upload de arquivo PDF"
             />
             
-            <div className={`p-4 rounded-full ${file ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-              {file ? <FileCheck size={32} /> : <Upload size={32} />}
+            <div className={`rounded-full p-3.5 ${file ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+              {file ? <FileCheck size={28} /> : <Upload size={28} />}
             </div>
 
             <div className="space-y-1">
-              <p className="font-semibold text-slate-900">
+              <p className="text-sm font-semibold text-slate-900">
                 {file ? file.name : 'Clique ou arraste o PDF aqui'}
               </p>
-              <p className="text-sm text-slate-500">Apenas arquivos PDF até 10MB</p>
+              <p className="text-[13px] text-slate-500">Apenas arquivos PDF até 10MB</p>
             </div>
 
             {file && !uploading && !result && (
@@ -198,7 +198,7 @@ export default function DocumentImportPage() {
                   e.stopPropagation();
                   handleUpload();
                 }}
-                className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-blue-700"
               >
                 Começar Processamento <ChevronRight size={18} />
               </button>
@@ -230,7 +230,7 @@ export default function DocumentImportPage() {
                   e.stopPropagation();
                   reset();
                 }}
-                className="mt-4 w-full border border-slate-200 hover:bg-white text-slate-600 font-medium py-2 px-4 rounded-lg transition-colors"
+                className="mt-3.5 w-full rounded-lg border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-white"
               >
                 Importar outro arquivo
               </button>
@@ -255,22 +255,22 @@ export default function DocumentImportPage() {
           {result ? (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* Header de Resultado */}
-              <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+              <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                 <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-xl ${
+                  <div className={`rounded-xl p-2.5 ${
                     result.validation.status === 'VALIDO' ? 'bg-green-100 text-green-600' :
                     result.validation.status === 'COM_PENDENCIAS' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'
                   }`}>
-                    {result.validation.status === 'VALIDO' ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
+                    {result.validation.status === 'VALIDO' ? <CheckCircle2 size={22} /> : <AlertCircle size={22} />}
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-slate-900">{result.tipoDocumentoDescricao}</h2>
-                    <p className="text-sm text-slate-500">Status da Validação: <span className="font-semibold">{result.validation.status}</span></p>
+                    <h2 className="text-lg font-bold text-slate-900">{result.tipoDocumentoDescricao}</h2>
+                    <p className="text-[13px] text-slate-500">Status da Validação: <span className="font-semibold">{result.validation.status}</span></p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm text-slate-500 mb-1">Score de Confiança</div>
-                  <div className={`text-2xl font-black ${
+                  <div className="mb-1 text-[13px] text-slate-500">Score de Confiança</div>
+                  <div className={`text-[1.5rem] font-black ${
                     result.validation.scoreConfianca > 0.8 ? 'text-green-600' :
                     result.validation.scoreConfianca > 0.5 ? 'text-amber-600' : 'text-red-600'
                   }`}>
@@ -282,7 +282,7 @@ export default function DocumentImportPage() {
               {/* Grid de Detalhes */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Informações Gerais */}
-                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
                   <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                     <Search size={18} className="text-blue-500" /> Informações Extraídas
                   </h3>
@@ -295,14 +295,14 @@ export default function DocumentImportPage() {
                 </div>
 
                 {/* Pendências / Validação */}
-                <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
                   <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                     <ShieldCheck size={18} className="text-blue-500" /> Validação Técnica
                   </h3>
                   {result.validation.pendencias.length > 0 ? (
                     <div className="space-y-2">
                       {result.validation.pendencias.map((pendencia, i) => (
-                        <div key={i} className="flex gap-2 text-sm text-amber-700 bg-amber-50 p-2 rounded-lg">
+                          <div key={i} className="flex gap-2 rounded-lg bg-amber-50 p-2 text-[13px] text-amber-700">
                           <AlertCircle size={16} className="shrink-0 mt-0.5" />
                           {pendencia}
                         </div>
@@ -311,14 +311,14 @@ export default function DocumentImportPage() {
                   ) : (
                     <div className="flex flex-col items-center justify-center py-6 text-center">
                       <CheckCircle2 size={32} className="text-green-500 mb-2" />
-                      <p className="text-sm text-green-700 font-medium">Nenhuma pendência crítica identificada.</p>
+                      <p className="text-[13px] font-medium text-green-700">Nenhuma pendência crítica identificada.</p>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Tags e Listas */}
-              <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-6">
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div>
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Riscos Identificados</h4>
@@ -361,10 +361,10 @@ export default function DocumentImportPage() {
               </div>
             </div>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-12 text-slate-400">
+            <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-10 text-slate-400">
               <FileText size={64} className="mb-4 opacity-20" />
-              <p className="text-lg font-medium">Aguardando envio de arquivo para análise</p>
-              <p className="text-sm">Os resultados da IA aparecerão aqui após o processamento.</p>
+              <p className="text-base font-medium">Aguardando envio de arquivo para análise</p>
+              <p className="text-[13px]">Os resultados da IA aparecerão aqui após o processamento.</p>
             </div>
           )}
         </div>

@@ -66,17 +66,17 @@
   min-height: 100vh;
   max-width: 1280px;
   margin: 0 auto;
-  padding: 32px;
+  padding: 24px;
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
-  gap: 48px;
+  gap: 36px;
   align-items: center;
 }
 
 .institutionalPanel {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 .brandRow {
@@ -86,8 +86,8 @@
 }
 
 .brandBadge {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: 12px;
   display: inline-flex;
   align-items: center;
@@ -101,7 +101,7 @@
 }
 
 .brandName {
-  font-size: 1.8rem;
+  font-size: 1.65rem;
   font-weight: 600;
   line-height: 1.1;
   letter-spacing: -0.03em;
@@ -111,8 +111,8 @@
 .heroTitle {
   margin: 0;
   max-width: 620px;
-  font-size: clamp(2rem, 5vw, 3.5rem);
-  line-height: 1.05;
+  font-size: clamp(1.85rem, 4.7vw, 3.1rem);
+  line-height: 1.02;
   font-weight: 600;
   letter-spacing: -0.04em;
   color: var(--cx-text);
@@ -121,8 +121,8 @@
 .heroSubtitle {
   margin: 0;
   max-width: 560px;
-  font-size: clamp(1rem, 1.8vw, 1.16rem);
-  line-height: 1.6;
+  font-size: clamp(0.94rem, 1.55vw, 1.05rem);
+  line-height: 1.5;
   color: var(--cx-text-muted);
 }
 
@@ -187,13 +187,13 @@
 
 .loginCard {
   width: 100%;
-  max-width: 470px;
-  border-radius: 24px;
+  max-width: 448px;
+  border-radius: 22px;
   border: 1px solid var(--cx-border);
   background: var(--cx-surface);
   backdrop-filter: blur(20px);
   box-shadow: 0 28px 60px rgba(2, 6, 23, 0.45);
-  padding: 32px;
+  padding: 28px;
   transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -203,14 +203,14 @@
 }
 
 .mobileBrand {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   display: flex;
   justify-content: center;
 }
 
 .loginTitle {
   margin: 0;
-  font-size: 2rem;
+  font-size: 1.8rem;
   line-height: 1.1;
   font-weight: 600;
   letter-spacing: -0.03em;
@@ -219,15 +219,15 @@
 }
 
 .loginSubtitle {
-  margin: 8px 0 24px;
-  font-size: 0.96rem;
+  margin: 8px 0 20px;
+  font-size: 0.9rem;
   line-height: 1.4;
   text-align: center;
   color: var(--cx-text-dim);
 }
 
 .warningBanner {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -235,25 +235,25 @@
   border: 1px solid var(--cx-warning-border);
   background: var(--cx-warning-bg);
   color: var(--cx-warning-text);
-  padding: 10px 12px;
-  font-size: 0.86rem;
+  padding: 9px 11px;
+  font-size: 0.82rem;
   line-height: 1.45;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .label {
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   font-weight: 600;
   color: var(--cx-text-dim);
 }
@@ -264,8 +264,8 @@
   border: 1px solid var(--cx-border) !important;
   background: rgba(11, 18, 32, 0.58) !important;
   color: var(--cx-text) !important;
-  padding: 12px 14px !important;
-  font-size: 0.98rem;
+  padding: 10px 12px !important;
+  font-size: 0.9rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease !important;
 }
 
@@ -284,12 +284,12 @@
 }
 
 .passwordWrap .inputField {
-  padding-right: 46px !important;
+  padding-right: 42px !important;
 }
 
 .passwordToggle {
   position: absolute;
-  right: 12px;
+  right: 10px;
   top: 50%;
   transform: translateY(-50%);
   border: 0;
@@ -310,7 +310,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: var(--cx-warning-text);
 }
 
@@ -318,14 +318,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
 }
 
 .rememberRow {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   color: var(--cx-text-dim);
   user-select: none;
 }
@@ -340,7 +340,7 @@
   border: 0;
   background: transparent;
   color: #93c5fd;
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   font-weight: 500;
   transition: color 0.2s ease;
 }
@@ -359,8 +359,8 @@
   border: 1px solid var(--cx-danger-border);
   background: var(--cx-danger-bg);
   color: var(--cx-danger-text);
-  padding: 10px 12px;
-  font-size: 0.86rem;
+  padding: 9px 11px;
+  font-size: 0.82rem;
   line-height: 1.45;
 }
 
@@ -369,8 +369,8 @@
   width: 100%;
   border: 0;
   border-radius: 12px;
-  padding: 13px 16px;
-  font-size: 1rem;
+  padding: 11px 14px;
+  font-size: 0.92rem;
   font-weight: 600;
   color: #ffffff;
   background: linear-gradient(90deg, var(--cx-primary), var(--cx-primary-2));
@@ -404,7 +404,7 @@
 }
 
 .securityTrust {
-  margin-top: 6px;
+  margin-top: 4px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -416,20 +416,20 @@
   gap: 6px;
   border: 1px solid var(--cx-border);
   border-radius: 999px;
-  padding: 7px 10px;
-  font-size: 0.76rem;
+  padding: 6px 9px;
+  font-size: 0.72rem;
   color: var(--cx-text-muted);
   background: rgba(17, 24, 39, 0.34);
 }
 
 .footer {
-  margin-top: 22px;
+  margin-top: 18px;
   text-align: center;
 }
 
 .footer p {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   line-height: 1.55;
   color: var(--cx-text-dim);
 }
@@ -526,7 +526,7 @@
   }
 
   .loginCard {
-    max-width: 560px;
+    max-width: 520px;
     margin: 0 auto;
   }
 }
@@ -541,12 +541,12 @@
   }
 
   .loginCard {
-    padding: 22px 18px;
+    padding: 20px 16px;
     border-radius: 18px;
   }
 
   .loginTitle {
-    font-size: 1.7rem;
+    font-size: 1.55rem;
   }
 
   .assistRow {

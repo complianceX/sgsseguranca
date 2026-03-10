@@ -103,11 +103,11 @@ export default function PublicHashVerifyPage() {
     mode === 'evidence' ? Boolean(evidenceResult?.verified) : Boolean(signatureResult?.valid);
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-12">
+    <main className="min-h-screen bg-[var(--ds-color-bg-subtle)] px-4 py-10">
       <div className="mx-auto max-w-3xl space-y-6">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-bold text-slate-900">Validação Pública por Hash</h1>
-          <p className="mt-1 text-sm text-slate-600">
+        <section className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
+          <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">Validação Pública por Hash</h1>
+          <p className="mt-1 text-[13px] text-[var(--ds-color-text-secondary)]">
             Consulte autenticidade de evidências APR e assinaturas PDF sem login.
           </p>
 
@@ -121,8 +121,8 @@ export default function PublicHashVerifyPage() {
                 }}
                 className={`rounded-lg px-3 py-2 text-sm font-semibold ${
                   mode === 'evidence'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-700'
+                    ? 'bg-[var(--ds-color-action-primary)] text-white'
+                    : 'bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]'
                 }`}
               >
                 Evidência APR
@@ -135,8 +135,8 @@ export default function PublicHashVerifyPage() {
                 }}
                 className={`rounded-lg px-3 py-2 text-sm font-semibold ${
                   mode === 'signature'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-slate-100 text-slate-700'
+                    ? 'bg-[var(--ds-color-success)] text-white'
+                    : 'bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]'
                 }`}
               >
                 Assinatura PDF
@@ -149,12 +149,12 @@ export default function PublicHashVerifyPage() {
                 value={hash}
                 onChange={(e) => setHash(e.target.value)}
                 placeholder="Cole o hash SHA-256"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-[13px] text-[var(--ds-color-text-primary)]"
               />
               <button
                 type="submit"
                 disabled={loading}
-                className="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                className="inline-flex items-center gap-1 rounded-lg bg-[var(--ds-color-action-secondary)] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
               >
                 <Search className="h-4 w-4" />
                 {loading ? 'Consultando...' : 'Validar'}
@@ -164,21 +164,21 @@ export default function PublicHashVerifyPage() {
         </section>
 
         {(error || evidenceResult || signatureResult) && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
             {error ? (
-              <div className="flex items-start gap-2 text-red-600">
+              <div className="flex items-start gap-2 text-[var(--ds-color-danger)]">
                 <ShieldAlert className="mt-0.5 h-5 w-5" />
-                <p className="text-sm font-medium">{error}</p>
+                <p className="text-[13px] font-medium">{error}</p>
               </div>
             ) : isValid ? (
               <div className="space-y-3">
-                <div className="flex items-start gap-2 text-emerald-700">
+                <div className="flex items-start gap-2 text-[var(--ds-color-success)]">
                   <ShieldCheck className="mt-0.5 h-5 w-5" />
-                  <p className="text-sm font-semibold">Registro validado com sucesso.</p>
+                  <p className="text-[13px] font-semibold">Registro validado com sucesso.</p>
                 </div>
 
                 {mode === 'evidence' && evidenceResult?.evidence && (
-                  <div className="rounded-lg bg-emerald-50 p-3 text-sm text-slate-700">
+                  <div className="rounded-lg bg-[color:var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
                     <p>APR: {evidenceResult.evidence.apr_numero || '-'}</p>
                     <p>Versão: {evidenceResult.evidence.apr_versao ?? '-'}</p>
                     <p>
@@ -193,7 +193,7 @@ export default function PublicHashVerifyPage() {
                 )}
 
                 {mode === 'signature' && signatureResult?.signature && (
-                  <div className="rounded-lg bg-emerald-50 p-3 text-sm text-slate-700">
+                  <div className="rounded-lg bg-[color:var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
                     <p>Documento: {signatureResult.signature.original_name || '-'}</p>
                     <p>Assinado em: {signatureResult.signature.signed_at || '-'}</p>
                     <p>Hash: {signatureResult.signature.hash}</p>
@@ -201,9 +201,9 @@ export default function PublicHashVerifyPage() {
                 )}
               </div>
             ) : (
-              <div className="flex items-start gap-2 text-amber-700">
+              <div className="flex items-start gap-2 text-[var(--ds-color-warning)]">
                 <ShieldAlert className="mt-0.5 h-5 w-5" />
-                <p className="text-sm font-medium">
+                <p className="text-[13px] font-medium">
                   {mode === 'evidence'
                     ? evidenceResult?.message || 'Hash não localizado.'
                     : signatureResult?.message || 'Assinatura não localizada.'}
@@ -213,7 +213,7 @@ export default function PublicHashVerifyPage() {
           </section>
         )}
 
-        <p className="flex items-center gap-1 text-xs text-slate-500">
+        <p className="flex items-center gap-1 text-[11px] text-[var(--ds-color-text-muted)]">
           <CheckCircle2 className="h-3.5 w-3.5" />
           Endpoint público de auditoria externa ativo.
         </p>

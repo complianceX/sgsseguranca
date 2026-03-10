@@ -436,6 +436,45 @@ html[data-theme='light'] {
     color: var(--ds-color-text-secondary);
   }
 
+  .ds-form-page .p-6 {
+    padding: 1.25rem;
+  }
+
+  .ds-form-page .p-8 {
+    padding: 1.5rem;
+  }
+
+  .ds-form-page .gap-6 {
+    gap: 1.25rem;
+  }
+
+  .ds-form-page .gap-8 {
+    gap: 1.5rem;
+  }
+
+  .ds-form-page .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1.25rem;
+  }
+
+  .ds-form-page .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1.5rem;
+  }
+
+  .ds-form-page .text-lg {
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+
+  .ds-form-page .text-xl {
+    font-size: 1.125rem;
+    line-height: 1.25;
+  }
+
+  .ds-form-page .h-11.w-11 {
+    height: 2.5rem;
+    width: 2.5rem;
+  }
+
   .ds-form-page .bg-white,
   .ds-form-page [class*='bg-white'] {
     background-color: var(--ds-color-surface-base);
@@ -1427,6 +1466,10 @@ html[data-theme='light'] {
     padding: 1.25rem;
   }
 
+  .ds-density-compact .p-8 {
+    padding: 1.5rem;
+  }
+
   .ds-density-compact .px-6 {
     padding-left: 1.25rem;
     padding-right: 1.25rem;
@@ -1441,8 +1484,16 @@ html[data-theme='light'] {
     gap: 1.25rem;
   }
 
+  .ds-density-compact .gap-8 {
+    gap: 1.5rem;
+  }
+
   .ds-density-compact .space-y-6 > :not([hidden]) ~ :not([hidden]) {
     margin-top: 1.25rem;
+  }
+
+  .ds-density-compact .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1.5rem;
   }
 
   .ds-density-compact .text-xs {
