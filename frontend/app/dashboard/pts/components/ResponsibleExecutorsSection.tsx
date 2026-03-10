@@ -28,14 +28,14 @@ export function ResponsibleExecutorsSection({
     <div className="sst-card p-6 transition-shadow hover:shadow-md">
       <h2 className="mb-2 text-lg font-bold text-gray-900 flex items-center gap-2">
         Executantes e Assinaturas
-        <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+        <span className="h-2 w-2 rounded-full bg-emerald-600"></span>
       </h2>
       <p className="mb-6 text-sm text-gray-600">
         Selecione os executantes e colete as assinaturas necessárias.
       </p>
 
       {!selectedCompanyId ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           Selecione uma empresa na etapa anterior para listar os colaboradores.
         </div>
       ) : usersList.length === 0 ? (
@@ -55,7 +55,7 @@ export function ResponsibleExecutorsSection({
                 onClick={() => onToggleExecutante(u.id)}
                 className={cn(
                   'flex w-full items-center justify-between rounded-xl border p-4 text-left transition-all hover:bg-gray-50',
-                  isSelected ? 'border-blue-200 bg-blue-50/40 ring-2 ring-blue-500/10' : 'border-gray-200',
+                  isSelected ? 'border-blue-200 bg-blue-50/40 ring-2 ring-blue-500/10 shadow-[var(--ds-shadow-sm)]' : 'border-gray-200',
                 )}
               >
                 <div className="min-w-0">
@@ -65,7 +65,7 @@ export function ResponsibleExecutorsSection({
 
                 <div className="ml-3 flex items-center gap-2">
                   {hasSignature ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
                       <CheckCircle2 className="h-4 w-4" />
                       Assinado
                     </span>

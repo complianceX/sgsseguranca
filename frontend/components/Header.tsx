@@ -196,10 +196,10 @@ export function Header({
             aria-label="Abrir command palette"
           >
             <Search className="h-4 w-4 text-[var(--ds-color-text-muted)]" />
-            <span className="min-w-0 flex-1 text-left text-sm text-[var(--ds-color-text-muted)]">
+            <span className="min-w-0 flex-1 text-left text-[13px] text-[var(--ds-color-text-muted)]">
               Pesquisar módulos, documentos, colaboradores ou ações...
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-[var(--ds-color-text-muted)]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-[var(--ds-color-text-muted)]">
               <Command className="h-3 w-3" />
               Ctrl K
             </span>
@@ -208,7 +208,7 @@ export function Header({
           <button
             type="button"
             onClick={onOpenMobileNav}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-white/10 hover:text-white xl:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-white/10 hover:text-white xl:hidden"
             aria-label="Abrir navegação"
             title="Abrir navegação"
           >
@@ -317,7 +317,7 @@ export function Header({
               type="button"
               title="Notificações"
               onClick={handleOpen}
-              className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-white/10 hover:text-white"
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-white/10 hover:text-white"
             >
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
@@ -328,8 +328,8 @@ export function Header({
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 z-50 mt-3 w-[22rem] overflow-hidden rounded-3xl border border-white/10 bg-[linear-gradient(180deg,#0d1d35_0%,#122845_100%)] shadow-[var(--ds-shadow-lg)]">
-                <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <div className="absolute right-0 z-50 mt-3 w-[20.5rem] overflow-hidden rounded-[1.4rem] border border-white/10 bg-[linear-gradient(180deg,#0d1d35_0%,#122845_100%)] shadow-[var(--ds-shadow-lg)]">
+                <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5">
                   <div>
                     <h3 className="text-sm font-semibold text-white">Notificações</h3>
                     <p className="text-xs text-[var(--ds-color-text-muted)]">Eventos recentes da operação SST</p>
@@ -346,7 +346,7 @@ export function Header({
                         key={notification.id}
                         type="button"
                         onClick={() => !notification.read && handleMarkOne(notification.id)}
-                        className={`w-full border-b border-white/5 px-5 py-4 text-left transition-colors hover:bg-white/[0.04] ${
+                        className={`w-full border-b border-white/5 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.04] ${
                           !notification.read ? 'bg-[var(--ds-color-action-primary)]/8' : ''
                         }`}
                       >
@@ -368,14 +368,14 @@ export function Header({
                       </button>
                     ))
                   ) : (
-                    <div className="p-8 text-center">
+                    <div className="p-6 text-center">
                       <CheckCircle className="mx-auto h-12 w-12 text-[var(--ds-color-border-strong)]" />
                       <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">Nenhuma notificação no momento.</p>
                     </div>
                   )}
                 </div>
 
-                <div className="bg-black/10 px-5 py-3 text-center">
+                <div className="bg-black/10 px-4 py-2.5 text-center">
                   <button
                     type="button"
                     onClick={handleMarkAllAsRead}
@@ -389,12 +389,12 @@ export function Header({
             )}
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5">
+          <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
             <div className="text-right">
-              <p className="text-sm font-semibold text-white">{user?.nome}</p>
+              <p className="text-[13px] font-semibold text-white">{user?.nome}</p>
               <p className="text-xs text-[var(--ds-color-text-muted)]">{user?.profile?.nome || 'Perfil não definido'}</p>
             </div>
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[image:var(--ds-gradient-brand)] text-sm font-bold text-white shadow-[0_14px_28px_rgba(47,111,237,0.28)]">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[image:var(--ds-gradient-brand)] text-[13px] font-bold text-white shadow-[0_14px_28px_rgba(47,111,237,0.28)]">
               {userInitials || <User className="h-5 w-5" />}
             </div>
           </div>

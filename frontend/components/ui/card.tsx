@@ -20,9 +20,9 @@ const cardVariants = cva(
       },
       padding: {
         none: '',
-        sm: 'p-4',
-        md: 'p-5',
-        lg: 'p-6',
+        sm: 'p-3',
+        md: 'p-4',
+        lg: 'p-5',
       },
     },
     defaultVariants: {
@@ -50,7 +50,7 @@ Card.displayName = 'Card';
 
 const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex flex-col gap-1.5', className)} {...props} />
+    <div ref={ref} className={cn('flex flex-col gap-1', className)} {...props} />
   ),
 );
 CardHeader.displayName = 'CardHeader';
@@ -60,7 +60,7 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTML
     <h3
       ref={ref}
       className={cn(
-        'text-base font-semibold tracking-[-0.02em] text-[var(--ds-color-text-primary)]',
+        'text-[0.95rem] font-semibold tracking-[-0.02em] text-[var(--ds-color-text-primary)]',
         className,
       )}
       {...props}
@@ -75,7 +75,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn('text-sm leading-6 text-[var(--ds-color-text-muted)]', className)}
+    className={cn('text-[13px] leading-5 text-[var(--ds-color-text-muted)]', className)}
     {...props}
   />
 ));
@@ -83,7 +83,7 @@ CardDescription.displayName = 'CardDescription';
 
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('mt-4', className)} {...props} />
+    <div ref={ref} className={cn('mt-3', className)} {...props} />
   ),
 );
 CardContent.displayName = 'CardContent';
@@ -93,7 +93,7 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
     <div
       ref={ref}
       className={cn(
-        'mt-5 flex items-center gap-3 border-t border-[var(--ds-color-border-subtle)] pt-4',
+        'mt-4 flex items-center gap-2.5 border-t border-[var(--ds-color-border-subtle)] pt-3',
         className,
       )}
       {...props}

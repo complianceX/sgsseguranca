@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center rounded-[var(--ds-radius-md)] font-semibold transition-all duration-[var(--ds-motion-base)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-bg-canvas)] disabled:pointer-events-none disabled:opacity-50 shadow-[var(--ds-shadow-sm)] active:translate-y-0',
+  'inline-flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] text-[13px] font-semibold leading-none transition-all duration-[var(--ds-motion-base)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-bg-canvas)] disabled:pointer-events-none disabled:opacity-50 shadow-[var(--ds-shadow-sm)] active:translate-y-0',
   {
     variants: {
       variant: {
@@ -26,10 +26,10 @@ const buttonVariants = cva(
           'border border-[var(--ds-color-border-strong)] bg-[color:var(--ds-color-surface-base)]/92 text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-surface-elevated)] hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)]',
       },
       size: {
-        sm: 'h-8 px-3 text-xs',
-        md: 'h-10 px-4 text-sm',
-        lg: 'h-12 px-6 text-base',
-        icon: 'h-10 w-10 p-0',
+        sm: 'h-8 px-2.5 text-[11px]',
+        md: 'h-9 px-3.5 text-[13px]',
+        lg: 'h-10 px-5 text-sm',
+        icon: 'h-9 w-9 p-0',
       },
     },
     defaultVariants: {
@@ -56,10 +56,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={loading || props.disabled}
         {...props}
       >
-        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {!loading && leftIcon && <span className="mr-2">{leftIcon}</span>}
+        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+        {!loading && leftIcon && <span>{leftIcon}</span>}
         {children}
-        {!loading && rightIcon && <span className="ml-2">{rightIcon}</span>}
+        {!loading && rightIcon && <span>{rightIcon}</span>}
       </button>
     );
   }

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
     <div className="relative w-full overflow-auto rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] shadow-[var(--ds-shadow-sm)]">
-      <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
+      <table ref={ref} className={cn('w-full caption-bottom text-[13px]', className)} {...props} />
     </div>
   ),
 );
@@ -57,7 +57,7 @@ const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<
     <th
       ref={ref}
       className={cn(
-        'h-12 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-elevated)] px-4 text-left align-middle text-[11px] font-bold uppercase tracking-[0.08em] text-[var(--ds-color-text-muted)] [&:has([role=checkbox])]:pr-0',
+        'h-10 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-elevated)] px-3.5 text-left align-middle text-[10.5px] font-bold uppercase tracking-[0.08em] text-[var(--ds-color-text-muted)] [&:has([role=checkbox])]:pr-0',
         className,
       )}
       {...props}
@@ -70,7 +70,7 @@ const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<
   ({ className, ...props }, ref) => (
     <td
       ref={ref}
-      className={cn('px-4 py-3.5 align-middle text-[var(--ds-color-text-secondary)] [&:has([role=checkbox])]:pr-0', className)}
+      className={cn('px-3.5 py-3 align-middle text-[var(--ds-color-text-secondary)] [&:has([role=checkbox])]:pr-0', className)}
       {...props}
     />
   ),
@@ -81,7 +81,7 @@ const TableCaption = React.forwardRef<HTMLTableCaptionElement, React.HTMLAttribu
   ({ className, ...props }, ref) => (
     <caption
       ref={ref}
-      className={cn('mt-4 text-sm text-[var(--ds-color-text-muted)]', className)}
+      className={cn('mt-3 text-[13px] text-[var(--ds-color-text-muted)]', className)}
       {...props}
     />
   ),

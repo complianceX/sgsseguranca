@@ -24,8 +24,8 @@ export const RiskTypesSection = () => {
           <label
             key={item.id}
             className={cn(
-              "flex items-center space-x-3 rounded-xl border p-4 transition-all cursor-pointer select-none hover:bg-gray-50",
-              watch(item.id) ? "border-blue-200 bg-blue-50/50 ring-2 ring-blue-500/10" : "border-gray-200"
+              "flex cursor-pointer select-none items-center space-x-3 rounded-xl border p-4 transition-all hover:bg-gray-50",
+              watch(item.id) ? "border-blue-200 bg-blue-50/50 ring-2 ring-blue-500/10 shadow-[var(--ds-shadow-sm)]" : "border-gray-200"
             )}
           >
             <input

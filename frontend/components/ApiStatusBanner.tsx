@@ -22,22 +22,22 @@ export function ApiStatusBanner() {
   if (!isOffline) return null;
 
   return (
-    <div className="mx-8 mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    <div className="mx-6 mt-3 rounded-xl border border-[color:var(--ds-color-warning)]/22 bg-[color:var(--ds-color-warning-subtle)] px-3.5 py-2.5 text-[13px] text-[var(--ds-color-warning)] shadow-[var(--ds-shadow-sm)]">
       <div className="flex items-center justify-between gap-4">
-        <p>{offlineMessage}</p>
+        <p className="text-[var(--ds-color-text-primary)]">{offlineMessage}</p>
         <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={reconnect}
             disabled={isReconnecting}
-            className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg border border-[color:var(--ds-color-warning)]/24 bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-[11px] font-semibold text-[var(--ds-color-warning)] transition-colors hover:bg-[color:var(--ds-color-warning-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isReconnecting ? 'Reconectando...' : 'Reconectar'}
           </button>
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded-md border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+            className="rounded-lg border border-[color:var(--ds-color-warning)]/24 bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-[11px] font-semibold text-[var(--ds-color-warning)] transition-colors hover:bg-[color:var(--ds-color-warning-subtle)]"
           >
             Recarregar
           </button>

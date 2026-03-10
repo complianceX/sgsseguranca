@@ -183,8 +183,8 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
           <div>
             <h3 className="text-sm font-bold">{context.title}</h3>
             <div className="flex items-center space-x-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-[10px] text-slate-100/90">{context.subtitle}</span>
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--ds-color-accent)] animate-pulse"></span>
+              <span className="text-[10px] text-white/88">{context.subtitle}</span>
             </div>
           </div>
         </div>
@@ -232,7 +232,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
               <div
                 className={cn(
                   "mt-1 text-[10px]",
-                  message.role === 'user' ? "text-slate-100/85" : "text-[var(--ds-color-text-muted)]"
+                  message.role === 'user' ? "text-white/82" : "text-[var(--ds-color-text-muted)]"
                 )}
               >
                 {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

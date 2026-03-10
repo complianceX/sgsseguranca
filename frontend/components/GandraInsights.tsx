@@ -55,13 +55,13 @@ export function GandraInsights() {
 
   return (
     <Card tone="elevated" padding="none" interactive className="overflow-hidden">
-      <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-6 py-4">
+      <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-5 py-3.5">
         <div className="flex items-center space-x-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[image:var(--ds-gradient-brand)] text-white shadow-sm">
-            <span className="text-lg font-black italic">G</span>
+            <span className="text-base font-black italic">G</span>
           </div>
           <div>
-            <CardTitle className="text-lg">COMPLIANCE X Insights</CardTitle>
+            <CardTitle className="text-base">COMPLIANCE X Insights</CardTitle>
             <CardDescription>Sintetiza tendências, riscos e pendências operacionais.</CardDescription>
           </div>
         </div>
@@ -71,17 +71,17 @@ export function GandraInsights() {
         </Badge>
       </div>
 
-      <CardContent className="p-6">
-        <p className="mb-6 text-sm leading-relaxed text-[var(--ds-color-text-secondary)]">
+      <CardContent className="p-5">
+        <p className="mb-5 text-sm leading-relaxed text-[var(--ds-color-text-secondary)]">
           {data.summary}
         </p>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
           {data.insights.map((insight, index) => (
             <div 
               key={index}
               className={cn(
-                'group relative flex flex-col justify-between rounded-xl border p-4 transition-all hover:-translate-y-px',
+                'group relative flex flex-col justify-between rounded-xl border p-3.5 transition-all hover:-translate-y-px',
                 insight.type === 'warning' &&
                   'border-[color:var(--ds-color-warning)]/18 bg-[var(--ds-color-warning-subtle)]',
                 insight.type === 'success' &&
@@ -90,7 +90,7 @@ export function GandraInsights() {
                   'border-[color:var(--ds-color-info)]/18 bg-[var(--ds-color-info-subtle)]',
               )}
             >
-              <div className="mb-4">
+              <div className="mb-3.5">
                 <div className="mb-2 flex items-center space-x-2">
                   {insight.type === 'warning' && <AlertTriangle className="h-4 w-4 text-[var(--ds-color-warning)]" />}
                   {insight.type === 'success' && <CheckCircle className="h-4 w-4 text-[var(--ds-color-success)]" />}

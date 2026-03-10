@@ -191,17 +191,17 @@ export default function DashboardPage() {
 
   return (
     <div className="ds-dashboard-shell">
-      <div className="ds-dashboard-panel ds-hero-panel overflow-hidden p-6 lg:p-7">
-        <div className="relative z-[1] flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+      <div className="ds-dashboard-panel ds-hero-panel overflow-hidden p-5 lg:p-6">
+        <div className="relative z-[1] flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
-            <div className="mb-3 inline-flex items-center rounded-full border border-[color:var(--ds-color-border-strong)]/70 bg-[color:var(--ds-color-surface-muted)]/55 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--ds-color-text-secondary)]">
+            <div className="mb-2.5 inline-flex items-center rounded-full border border-[color:var(--ds-color-border-strong)]/70 bg-[color:var(--ds-color-surface-muted)]/55 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
               cockpit operacional
             </div>
-            <h1 className="text-3xl font-bold tracking-[-0.03em] text-white lg:text-[2.2rem]">Gestão SST com visão executiva e resposta rápida.</h1>
-            <p className="mt-3 max-w-2xl text-sm text-[var(--ds-color-text-secondary)]">
+            <h1 className="text-2xl font-bold tracking-[-0.03em] text-white lg:text-[2rem]">Gestão SST com visão executiva e resposta rápida.</h1>
+            <p className="mt-2.5 max-w-2xl text-[13px] text-[var(--ds-color-text-secondary)]">
               Visão executiva com conformidade, documentação crítica, treinamentos e ações prioritárias em um único painel.
             </p>
-            <div className="mt-5 flex flex-wrap gap-3">
+            <div className="mt-4 flex flex-wrap gap-2.5">
               <div className="ds-topbar-chip">
                 <Clock3 className="h-4 w-4 text-sky-300" />
                 Acompanhamento em tempo real
@@ -216,28 +216,28 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[26rem]">
+          <div className="grid gap-2.5 sm:grid-cols-3 xl:min-w-[25rem]">
             {operationalHighlights.map((item) => (
               <div key={item.label} className="ds-stat-tile">
                 <div className="flex items-center justify-between">
                   <item.icon className={`h-4 w-4 ${item.tone}`} />
                   <ArrowUpRight className="h-4 w-4 text-white/40" />
                 </div>
-                <p className="mt-6 text-2xl font-bold text-white">{item.value}</p>
-                <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                <p className="mt-5 text-[1.45rem] font-bold text-white">{item.value}</p>
+                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                   {item.label}
                 </p>
-                <p className="mt-2 text-xs text-[var(--ds-color-text-muted)]">{item.hint}</p>
+                <p className="mt-1.5 text-[11px] text-[var(--ds-color-text-muted)]">{item.hint}</p>
               </div>
             ))}
           </div>
         </div>
-        <div className="relative z-[1] mt-6 flex flex-wrap gap-3">
+        <div className="relative z-[1] mt-5 flex flex-wrap gap-2.5">
           {quickActions.map((action, index) => (
             <Link 
               key={index} 
               href={action.href}
-              className={`${action.color} flex items-center space-x-2 rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(15,23,42,0.22)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_20px_36px_rgba(15,23,42,0.3)]`}
+              className={`${action.color} flex items-center space-x-2 rounded-xl border border-white/10 px-3.5 py-2.5 text-[13px] font-semibold text-white shadow-[0_16px_32px_rgba(15,23,42,0.22)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_20px_36px_rgba(15,23,42,0.3)]`}
             >
               <action.icon className="h-4 w-4" />
               <span>{action.label}</span>
@@ -248,13 +248,13 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Card de Score de Segurança */}
-        <div className="ds-dashboard-panel flex flex-col items-center justify-center p-6 text-center">
-          <div className="mb-4 flex items-center space-x-2">
+        <div className="ds-dashboard-panel flex flex-col items-center justify-center p-5 text-center">
+          <div className="mb-3 flex items-center space-x-2">
             <TrendingUp className="h-5 w-5 text-[var(--ds-color-action-primary)]" />
-            <h3 className="text-lg font-bold text-[var(--ds-color-text-primary)]">Compliance SST</h3>
+            <h3 className="text-base font-bold text-[var(--ds-color-text-primary)]">Compliance SST</h3>
           </div>
           
-          <div className="relative mb-4 h-32 w-32">
+          <div className="relative mb-3 h-28 w-28">
             <svg className="h-full w-full" viewBox="0 0 36 36">
               <path
                 className="stroke-gray-100 fill-none"
@@ -270,12 +270,12 @@ export default function DashboardPage() {
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-bold text-[var(--ds-color-text-primary)]">{safetyScore}%</span>
+              <span className="text-2xl font-bold text-[var(--ds-color-text-primary)]">{safetyScore}%</span>
               <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--ds-color-text-muted)]">Score</span>
             </div>
           </div>
           
-          <p className="px-4 text-sm text-[var(--ds-color-text-secondary)]">
+          <p className="px-3 text-sm text-[var(--ds-color-text-secondary)]">
             {safetyScore > 80 
               ? 'Sua empresa está com um excelente nível de conformidade.' 
               : safetyScore > 50 
@@ -292,23 +292,23 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {stats.map((stat, index) => (
-          <div key={index} className="ds-dashboard-panel ds-dashboard-stat p-5 transition-all hover:-translate-y-0.5 hover:shadow-[var(--ds-shadow-lg)]">
+          <div key={index} className="ds-dashboard-panel ds-dashboard-stat p-4 transition-all hover:-translate-y-0.5 hover:shadow-[var(--ds-shadow-lg)]">
             <div className="flex items-center justify-between">
-              <div className={`ds-kpi-card ${stat.tone} rounded-2xl p-3 shadow-[0_16px_32px_rgba(15,23,42,0.18)]`}>
-                <stat.icon className="h-6 w-6 text-white" />
+              <div className={`ds-kpi-card ${stat.tone} rounded-xl p-2.5 shadow-[0_16px_32px_rgba(15,23,42,0.18)]`}>
+                <stat.icon className="h-5 w-5 text-white" />
               </div>
             </div>
-            <div className="mt-4">
-              <p className="text-2xl font-bold text-[var(--ds-color-text-primary)]">{stat.value}</p>
-              <p className="text-xs font-medium uppercase tracking-wider text-[var(--ds-color-text-muted)]">{stat.label}</p>
+            <div className="mt-3">
+              <p className="text-xl font-bold text-[var(--ds-color-text-primary)]">{stat.value}</p>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--ds-color-text-muted)]">{stat.label}</p>
             </div>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="ds-dashboard-panel p-6">
-          <h2 className="flex items-center text-lg font-bold text-[var(--ds-color-text-primary)]">
+        <div className="ds-dashboard-panel p-5">
+          <h2 className="flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
             <AlertTriangle className="mr-2 h-5 w-5 text-[var(--ds-color-warning)]" />
             Pendências de Aprovação
           </h2>
@@ -338,9 +338,9 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="ds-dashboard-panel p-6 lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-gray-900">Plano de Ação Prioritário</h2>
+        <div className="ds-dashboard-panel p-5 lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-base font-bold text-gray-900">Plano de Ação Prioritário</h2>
             <Link href="/dashboard/inspections" className="text-sm font-semibold text-blue-600 hover:underline">
               Ver ações
             </Link>
@@ -353,7 +353,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {actionPlanItems.map((item) => (
-                <Link key={item.id} href={item.href} className="flex flex-col rounded-lg border border-gray-100 bg-gray-50 p-3 hover:border-blue-200">
+                <Link key={item.id} href={item.href} className="flex flex-col rounded-lg border border-gray-100 bg-gray-50 p-2.5 hover:border-blue-200">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-blue-700">{item.source}</span>
                     <span className="text-xs text-gray-400">{item.prazo ? format(new Date(item.prazo), 'dd/MM/yyyy') : 'Sem prazo'}</span>
@@ -372,37 +372,37 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="ds-dashboard-panel p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-gray-900">Matriz de Risco</h2>
+        <div className="ds-dashboard-panel p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-base font-bold text-gray-900">Matriz de Risco</h2>
             <Link href="/dashboard/risks" className="text-sm font-semibold text-blue-600 hover:underline">
               Ver riscos
             </Link>
           </div>
           <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg bg-red-50 px-4 py-3">
+            <div className="flex items-center justify-between rounded-lg bg-red-50 px-3.5 py-2.5">
               <span className="text-sm font-semibold text-red-700">Alto</span>
               <span className="text-lg font-bold text-red-700">{riskSummary.alto}</span>
             </div>
-            <div className="flex items-center justify-between rounded-lg bg-amber-50 px-4 py-3">
+            <div className="flex items-center justify-between rounded-lg bg-amber-50 px-3.5 py-2.5">
               <span className="text-sm font-semibold text-amber-700">Médio</span>
               <span className="text-lg font-bold text-amber-700">{riskSummary.medio}</span>
             </div>
-            <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-4 py-3">
+            <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3.5 py-2.5">
               <span className="text-sm font-semibold text-emerald-700">Baixo</span>
               <span className="text-lg font-bold text-emerald-700">{riskSummary.baixo}</span>
             </div>
           </div>
         </div>
 
-        <div className="ds-dashboard-panel p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-gray-900">Evidências Registradas</h2>
+        <div className="ds-dashboard-panel p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-base font-bold text-gray-900">Evidências Registradas</h2>
             <Link href="/dashboard/inspections" className="ds-section-link">
               Ver evidências
             </Link>
           </div>
-          <div className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-4">
+          <div className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 px-3.5 py-3.5">
             <div>
               <p className="text-sm text-[var(--ds-color-text-muted)]">Total</p>
               <p className="text-2xl font-bold text-[var(--ds-color-text-primary)]">{evidenceSummary.total}</p>
@@ -415,9 +415,9 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="ds-dashboard-panel p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">Biblioteca de Modelos</h2>
+        <div className="ds-dashboard-panel p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Biblioteca de Modelos</h2>
             <Link href="/dashboard/checklist-models" className="ds-section-link">
               Ver modelos
             </Link>
@@ -445,9 +445,9 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="ds-dashboard-panel p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center">
+        <div className="ds-dashboard-panel p-5">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="flex items-center text-base font-bold text-gray-900">
               <AlertCircle className="mr-2 h-5 w-5 text-amber-500" />
               EPIs Vencidos ou Próximos do Vencimento
             </h2>
@@ -458,14 +458,14 @@ export default function DashboardPage() {
           
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+              <div className="h-7 w-7 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
             </div>
           ) : expiringEpis.length > 0 ? (
             <div className="space-y-4">
               {expiringEpis.map((epi) => {
                 const isExpired = isBefore(new Date(epi.validade_ca || ''), new Date());
                 return (
-                <div key={epi.id} className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 p-3">
+                <div key={epi.id} className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 p-2.5">
                   <div className="flex items-center space-x-3">
                     <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-red-500' : 'bg-amber-500'}`}></div>
                     <div>
@@ -490,9 +490,9 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="ds-dashboard-panel p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center">
+        <div className="ds-dashboard-panel p-5">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="flex items-center text-base font-bold text-gray-900">
               <GraduationCap className="mr-2 h-5 w-5 text-amber-500" />
               Treinamentos Vencidos ou Próximos do Vencimento
             </h2>
@@ -503,14 +503,14 @@ export default function DashboardPage() {
 
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+              <div className="h-7 w-7 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
             </div>
           ) : expiringTrainings.length > 0 ? (
             <div className="space-y-4">
               {expiringTrainings.map((training) => {
                 const isExpired = isBefore(new Date(training.data_vencimento), new Date());
                 return (
-                <div key={training.id} className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 p-3">
+                <div key={training.id} className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 p-2.5">
                   <div className="flex items-center space-x-3">
                     <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-red-500' : 'bg-amber-500'}`}></div>
                     <div>
@@ -537,9 +537,9 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="ds-dashboard-panel p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center">
+        <div className="ds-dashboard-panel p-5">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="flex items-center text-base font-bold text-gray-900">
               <MapPin className="mr-2 h-5 w-5 text-blue-500" />
               Benchmark de Conformidade por Obra
             </h2>
@@ -550,12 +550,12 @@ export default function DashboardPage() {
 
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+              <div className="h-7 w-7 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
             </div>
           ) : siteCompliance.length > 0 ? (
             <div className="space-y-4">
               {siteCompliance.map((site) => (
-                <div key={site.id} className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 p-3">
+                <div key={site.id} className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 p-2.5">
                   <div className="flex items-center space-x-3">
                     <div className="h-2 w-2 rounded-full bg-[var(--ds-color-action-primary)]"></div>
                     <div>
@@ -577,9 +577,9 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="ds-dashboard-panel p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-gray-900">Trilha de Auditoria</h2>
+        <div className="ds-dashboard-panel p-5">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-base font-bold text-gray-900">Trilha de Auditoria</h2>
             <Link href="/dashboard/reports" className="ds-section-link">
               Ver relatórios
             </Link>
@@ -592,7 +592,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-4">
               {recentActivities.map((activity) => (
-                <Link key={activity.id} href={activity.href} className="flex items-start space-x-3 rounded-lg p-3 hover:bg-[color:var(--ds-color-surface-muted)]/18">
+                <Link key={activity.id} href={activity.href} className="flex items-start space-x-3 rounded-lg p-2.5 hover:bg-[color:var(--ds-color-surface-muted)]/18">
                   <div className={`mt-1 h-2 w-2 rounded-full ${activity.color}`}></div>
                   <div>
                     <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">{activity.title}</p>
@@ -607,9 +607,9 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="ds-dashboard-panel p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-gray-900">Relatórios Recentes</h2>
+        <div className="ds-dashboard-panel p-5">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-base font-bold text-gray-900">Relatórios Recentes</h2>
             <Link href="/dashboard/reports" className="ds-section-link">
               Ver relatórios
             </Link>
@@ -622,7 +622,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {recentReports.map((report) => (
-                <Link key={report.id} href="/dashboard/reports" className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3 hover:border-[var(--ds-color-action-primary)]/35">
+                <Link key={report.id} href="/dashboard/reports" className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-3.5 py-2.5 hover:border-[var(--ds-color-action-primary)]/35">
                   <div>
                     <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{report.titulo}</p>
                     <p className="text-xs text-[var(--ds-color-text-muted)]">{report.mes}/{report.ano}</p>
@@ -633,9 +633,9 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-        <div className="ds-dashboard-panel p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-gray-900">Aprovação e Assinaturas</h2>
+        <div className="ds-dashboard-panel p-5">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-base font-bold text-gray-900">Aprovação e Assinaturas</h2>
             <Link href="/dashboard/settings" className="ds-section-link">
               Configurar
             </Link>
@@ -654,16 +654,16 @@ export default function DashboardPage() {
       </div>
 
       {/* SST Indicators Section */}
-      <div className="ds-dashboard-panel p-6">
-        <h2 className="mb-6 flex items-center text-lg font-bold text-[var(--ds-color-text-primary)]">
+      <div className="ds-dashboard-panel p-5">
+        <h2 className="mb-5 flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
           <TrendingUp className="mr-2 h-5 w-5 text-[var(--ds-color-action-primary)]" />
           Indicadores SST
         </h2>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           {/* Chart 1: Conformidade por Obra */}
           <div>
             <p className="mb-3 text-sm font-semibold text-[var(--ds-color-text-secondary)]">Conformidade por Obra (%)</p>
-            <ResponsiveContainer width="100%" height={180}>
+            <ResponsiveContainer width="100%" height={168}>
               <BarChart data={siteCompliance} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
                 <XAxis dataKey="nome" tick={{ fontSize: 10, fill: CHART_TOKENS.axis }} axisLine={false} tickLine={false} />
@@ -677,7 +677,7 @@ export default function DashboardPage() {
           {/* Chart 2: Evolução de NCs */}
           <div>
             <p className="mb-3 text-sm font-semibold text-[var(--ds-color-text-secondary)]">Não Conformidades (últimos 12 meses)</p>
-            <ResponsiveContainer width="100%" height={180}>
+            <ResponsiveContainer width="100%" height={168}>
               <LineChart data={ncMonthlyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
                 <XAxis dataKey="mes" tick={{ fontSize: 9, fill: CHART_TOKENS.axis }} axisLine={false} tickLine={false} />
@@ -691,7 +691,7 @@ export default function DashboardPage() {
           {/* Chart 3: Status de Treinamentos */}
           <div>
             <p className="mb-3 text-sm font-semibold text-[var(--ds-color-text-secondary)]">Status de Treinamentos</p>
-            <ResponsiveContainer width="100%" height={180}>
+            <ResponsiveContainer width="100%" height={168}>
               <BarChart data={trainingSummaryData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
                 <XAxis type="number" tick={{ fontSize: 10, fill: CHART_TOKENS.axis }} axisLine={false} tickLine={false} allowDecimals={false} />
