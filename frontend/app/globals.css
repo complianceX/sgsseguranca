@@ -3,16 +3,16 @@
 :root,
 :root[data-theme='dark'],
 .theme-dark {
-  /* ── Base — industrial dark navy ─────────────────────── */
-  --ds-color-bg-canvas: #0b1014;
-  --ds-color-bg-subtle: #10181f;
-  --ds-color-surface-base: #15202c;
-  --ds-color-surface-elevated: #1a2a38;
-  --ds-color-surface-muted: #1e3040;
-  --ds-color-surface-muted-hover: #253848;
+  /* ── Base — industrial dark grey ─────────────────────── */
+  --ds-color-bg-canvas: #1c1c1c;
+  --ds-color-bg-subtle: #242424;
+  --ds-color-surface-base: #2c2c2c;
+  --ds-color-surface-elevated: #333333;
+  --ds-color-surface-muted: #383838;
+  --ds-color-surface-muted-hover: #404040;
   /* ── Borders ─────────────────────────────────────────── */
-  --ds-color-border-subtle: #22334a;
-  --ds-color-border-strong: #3a526a;
+  --ds-color-border-subtle: #3a3a3a;
+  --ds-color-border-strong: #555555;
   /* ── Text ────────────────────────────────────────────── */
   --ds-color-text-primary: #f4f2ee;
   --ds-color-text-secondary: #c4bfb6;

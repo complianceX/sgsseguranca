@@ -4,12 +4,27 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   ManyToMany,
   JoinTable,
   OneToMany,
 } from 'typeorm';
+
+export enum AprStatus {
+  PENDENTE = 'Pendente',
+  APROVADA = 'Aprovada',
+  CANCELADA = 'Cancelada',
+  ENCERRADA = 'Encerrada',
+}
+
+export const APR_ALLOWED_TRANSITIONS: Record<AprStatus, AprStatus[]> = {
+  [AprStatus.PENDENTE]: [AprStatus.APROVADA, AprStatus.CANCELADA],
+  [AprStatus.APROVADA]: [AprStatus.ENCERRADA, AprStatus.CANCELADA],
+  [AprStatus.CANCELADA]: [],
+  [AprStatus.ENCERRADA]: [],
+};
 import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
 import { Activity } from '../../activities/entities/activity.entity';
@@ -200,6 +215,9 @@ export class Apr {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @DeleteDateColumn({ nullable: true })
+  deleted_at?: Date;
 
   @OneToMany(() => AprLog, (log) => log.apr)
   logs: AprLog[];

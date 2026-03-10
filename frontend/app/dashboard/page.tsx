@@ -19,6 +19,7 @@ import {
   FileStack,
   Clock3,
   ArrowUpRight,
+  MessageSquare,
 } from 'lucide-react';
 import { dashboardService, DashboardSummaryResponse } from '@/services/dashboardService';
 import { nonConformitiesService } from '@/services/nonConformitiesService';
@@ -163,6 +164,7 @@ export default function DashboardPage() {
     { label: 'Novo Checklist', href: '/dashboard/checklists', icon: ClipboardCheck, color: 'bg-[image:var(--ds-kpi-violet)]' },
     { label: 'Novo EPI', href: '/dashboard/epis', icon: Shield, color: 'bg-[image:var(--ds-kpi-emerald)]' },
     { label: 'Nova NC', href: '/dashboard/nonconformities/new', icon: AlertTriangle, color: 'bg-[image:var(--ds-kpi-amber)]' },
+    { label: 'Novo DDS', href: '/dashboard/dds', icon: MessageSquare, color: 'bg-[image:var(--ds-kpi-amber)]' },
   ];
 
   const operationalHighlights = [

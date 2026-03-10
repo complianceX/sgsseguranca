@@ -15,7 +15,10 @@ import {
   Header,
   StreamableFile,
   BadRequestException,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { PtsService } from './pts.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -149,6 +152,29 @@ export class PtsController {
   @Authorize('can_manage_pt')
   updateApprovalRules(@Body() payload: UpdatePtApprovalRulesDto) {
     return this.ptsService.updateApprovalRules(payload);
+  }
+
+  /** Retorna URL assinada (S3) ou null do PDF armazenado */
+  @Get(':id/pdf')
+  @Authorize('can_view_pt')
+  getPdfAccess(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.ptsService.getPdfAccess(id);
+  }
+
+  /** Anexa PDF a uma PT existente */
+  @Post(':id/file')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR, Role.COLABORADOR)
+  @Authorize('can_manage_pt')
+  @UseInterceptors(
+    FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }),
+  )
+  async attachFile(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    if (!file) throw new BadRequestException('Nenhum arquivo enviado');
+    return this.ptsService.attachPdf(id, file, req.user?.id);
   }
 
   @Get(':id')

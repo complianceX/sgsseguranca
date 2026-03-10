@@ -4,11 +4,28 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   ManyToMany,
   JoinTable,
 } from 'typeorm';
+
+export enum PtStatus {
+  PENDENTE = 'Pendente',
+  APROVADA = 'Aprovada',
+  CANCELADA = 'Cancelada',
+  ENCERRADA = 'Encerrada',
+  EXPIRADA = 'Expirada',
+}
+
+export const PT_ALLOWED_TRANSITIONS: Record<PtStatus, PtStatus[]> = {
+  [PtStatus.PENDENTE]: [PtStatus.APROVADA, PtStatus.CANCELADA],
+  [PtStatus.APROVADA]: [PtStatus.ENCERRADA, PtStatus.CANCELADA],
+  [PtStatus.CANCELADA]: [],
+  [PtStatus.ENCERRADA]: [],
+  [PtStatus.EXPIRADA]: [],
+};
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
@@ -231,4 +248,7 @@ export class Pt {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @DeleteDateColumn({ nullable: true })
+  deleted_at?: Date;
 }

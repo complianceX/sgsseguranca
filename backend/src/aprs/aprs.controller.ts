@@ -14,7 +14,11 @@ import {
   UnauthorizedException,
   Header,
   StreamableFile,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { AprsService } from './aprs.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -66,9 +70,7 @@ export class AprsController {
       status: status || undefined,
       companyId: companyId || undefined,
       isModeloPadrao:
-        isModeloPadrao === undefined
-          ? undefined
-          : isModeloPadrao === 'true',
+        isModeloPadrao === undefined ? undefined : isModeloPadrao === 'true',
     });
   }
 
@@ -98,7 +100,6 @@ export class AprsController {
       year: year ? Number(year) : undefined,
       week: week ? Number(week) : undefined,
     });
-
     return new StreamableFile(buffer, {
       disposition: `attachment; filename="${fileName}"`,
       type: 'application/pdf',
@@ -135,18 +136,116 @@ export class AprsController {
     return this.aprsService.getControlSuggestions(payload);
   }
 
+  /** Analytics overview para o dashboard */
+  @Get('analytics/overview')
+  @Authorize('can_view_apr')
+  getAnalyticsOverview() {
+    return this.aprsService.getAnalyticsOverview();
+  }
+
   @Get(':id')
   @Authorize('can_view_apr')
   async findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: any) {
-    // Check rate limit for mass data access/PDF generation
     try {
-      if (req.user && req.user.id) {
+      if (req.user?.id) {
         await this.pdfRateLimitService.checkDownloadLimit(req.user.id, req.ip);
       }
     } catch (error) {
       throw new UnauthorizedException(error.message);
     }
     return this.aprsService.findOne(id);
+  }
+
+  /** Retorna URL assinada (S3) ou null do PDF armazenado */
+  @Get(':id/pdf')
+  @Authorize('can_view_apr')
+  getPdfAccess(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.aprsService.getPdfAccess(id);
+  }
+
+  /** Histórico de ações/logs da APR */
+  @Get(':id/logs')
+  @Authorize('can_view_apr')
+  getLogs(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.aprsService.getLogs(id);
+  }
+
+  /** Histórico de versões (todas as versões da mesma raiz) */
+  @Get(':id/versions')
+  @Authorize('can_view_apr')
+  getVersionHistory(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.aprsService.getVersionHistory(id);
+  }
+
+  /** Anexa PDF a uma APR existente */
+  @Post(':id/file')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR, Role.COLABORADOR)
+  @Authorize('can_create_apr')
+  @UseInterceptors(
+    FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }),
+  )
+  async attachFile(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    if (!file) throw new BadRequestException('Nenhum arquivo enviado');
+    return this.aprsService.attachPdf(id, file, req.user?.id);
+  }
+
+  /** Aprova a APR — Pendente → Aprovada */
+  @Post(':id/approve')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_create_apr')
+  async approve(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body('reason') reason: string | undefined,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) throw new UnauthorizedException('Usuário não identificado');
+    return this.aprsService.approve(id, userId, reason);
+  }
+
+  /** Reprova/Cancela a APR — Pendente → Cancelada */
+  @Post(':id/reject')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_create_apr')
+  async reject(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body('reason') reason: string,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) throw new UnauthorizedException('Usuário não identificado');
+    if (!reason) throw new BadRequestException('Motivo de reprovação obrigatório');
+    return this.aprsService.reject(id, userId, reason);
+  }
+
+  /** Encerra a APR — Aprovada → Encerrada */
+  @Post(':id/finalize')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_create_apr')
+  async finalize(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) throw new UnauthorizedException('Usuário não identificado');
+    return this.aprsService.finalize(id, userId);
+  }
+
+  /** Cria nova versão a partir de APR Aprovada */
+  @Post(':id/new-version')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR, Role.COLABORADOR)
+  @Authorize('can_create_apr')
+  async createNewVersion(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: any,
+  ) {
+    const userId = req.user?.id || req.user?.sub;
+    if (!userId) throw new UnauthorizedException('Usuário não identificado');
+    return this.aprsService.createNewVersion(id, userId);
   }
 
   @Patch(':id')
@@ -158,14 +257,17 @@ export class AprsController {
     Role.COLABORADOR,
   )
   @Authorize('can_create_apr')
-  update(@Param('id', new ParseUUIDPipe()) id: string, @Body() updateAprDto: UpdateAprDto) {
+  update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() updateAprDto: UpdateAprDto,
+  ) {
     return this.aprsService.update(id, updateAprDto);
   }
 
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_create_apr')
-  remove(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.aprsService.remove(id);
+  remove(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: any) {
+    return this.aprsService.remove(id, req.user?.id);
   }
 }

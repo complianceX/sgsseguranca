@@ -7,7 +7,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
-import { Pt } from './entities/pt.entity';
+import { Pt, PtStatus, PT_ALLOWED_TRANSITIONS } from './entities/pt.entity';
+import { S3Service } from '../common/storage/s3.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreatePtDto } from './dto/create-pt.dto';
 import { UpdatePtDto } from './dto/update-pt.dto';
@@ -49,6 +50,7 @@ export class PtsService {
     private readonly auditService: AuditService,
     private readonly workerOperationalStatusService: WorkerOperationalStatusService,
     private readonly documentBundleService: DocumentBundleService,
+    private readonly s3Service: S3Service,
   ) {}
 
   async create(createPtDto: CreatePtDto): Promise<Pt> {
@@ -179,11 +181,75 @@ export class PtsService {
     return saved;
   }
 
+  async attachPdf(
+    id: string,
+    file: Express.Multer.File,
+    userId?: string,
+  ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
+    const pt = await this.findOne(id);
+    const key = this.s3Service.generateDocumentKey(
+      pt.company_id,
+      'pts',
+      id,
+      file.originalname,
+    );
+
+    try {
+      await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
+    } catch {
+      this.logger.warn(`S3 desabilitado, armazenando referência local: ${key}`);
+    }
+
+    const folder = `pts/${pt.company_id}`;
+    await this.ptsRepository.update(id, {
+      pdf_file_key: key,
+      pdf_folder_path: folder,
+      pdf_original_name: file.originalname,
+    });
+    this.logger.log({ event: 'pt_pdf_anexado', ptId: id, userId, fileKey: key });
+
+    return { fileKey: key, folderPath: folder, originalName: file.originalname };
+  }
+
+  async getPdfAccess(id: string): Promise<{
+    entityId: string;
+    fileKey: string;
+    folderPath: string;
+    originalName: string;
+    url: string | null;
+  }> {
+    const pt = await this.findOne(id);
+    if (!pt.pdf_file_key) {
+      throw new NotFoundException(`PT ${id} não possui PDF armazenado`);
+    }
+
+    let url: string | null = null;
+    try {
+      url = await this.s3Service.getSignedUrl(pt.pdf_file_key, 3600);
+    } catch {
+      url = null;
+    }
+
+    return {
+      entityId: pt.id,
+      fileKey: pt.pdf_file_key,
+      folderPath: pt.pdf_folder_path,
+      originalName: pt.pdf_original_name,
+      url,
+    };
+  }
+
   async approve(id: string, approvedByUserId: string, reason?: string): Promise<Pt> {
     const pt = await this.findOne(id);
+    const allowed = PT_ALLOWED_TRANSITIONS[pt.status as PtStatus];
+    if (!allowed?.includes(PtStatus.APROVADA)) {
+      throw new BadRequestException(
+        `Transição inválida: ${pt.status} → Aprovada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
+      );
+    }
     const before = { ...pt };
     await this.assertCanApprove(pt, pt.company_id);
-    pt.status = 'Aprovada';
+    pt.status = PtStatus.APROVADA;
     pt.aprovado_por_id = approvedByUserId;
     pt.aprovado_em = new Date();
     pt.aprovado_motivo = reason || undefined;
@@ -203,8 +269,14 @@ export class PtsService {
 
   async reject(id: string, rejectedByUserId: string, reason: string): Promise<Pt> {
     const pt = await this.findOne(id);
+    const allowed = PT_ALLOWED_TRANSITIONS[pt.status as PtStatus];
+    if (!allowed?.includes(PtStatus.CANCELADA)) {
+      throw new BadRequestException(
+        `Transição inválida: ${pt.status} → Cancelada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
+      );
+    }
     const before = { ...pt };
-    pt.status = 'Cancelada';
+    pt.status = PtStatus.CANCELADA;
     pt.reprovado_por_id = rejectedByUserId;
     pt.reprovado_em = new Date();
     pt.reprovado_motivo = reason;
@@ -220,8 +292,9 @@ export class PtsService {
   }
 
   async remove(id: string): Promise<void> {
-    const pt = await this.findOne(id);
-    await this.ptsRepository.remove(pt);
+    await this.findOne(id);
+    await this.ptsRepository.softDelete(id);
+    this.logger.log({ event: 'pt_soft_deleted', ptId: id });
   }
 
   async count(options?: any): Promise<number> {

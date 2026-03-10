@@ -21,13 +21,13 @@ export class AprLog {
   apr: Apr;
 
   @Column({ nullable: true })
-  usuario_id: string;
+  usuario_id?: string | null;
 
   @Column({ length: 100 })
   acao: string;
 
   @Column({ type: 'simple-json', nullable: true })
-  metadata: Record<string, unknown>;
+  metadata?: Record<string, unknown> | null;
 
   @CreateDateColumn({ name: 'data_hora' })
   data_hora: Date;
