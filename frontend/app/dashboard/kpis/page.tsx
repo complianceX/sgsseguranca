@@ -52,8 +52,8 @@ const TOOLTIP_STYLE = {
 
 function SectionTitle({ label }: { label: string }) {
   return (
-    <div className="border-b border-[var(--ds-color-border-subtle)] pb-2">
-      <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">{label}</h2>
+    <div className="border-b border-[var(--ds-color-border-subtle)] pb-1.5">
+      <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">{label}</h2>
     </div>
   );
 }
@@ -80,8 +80,8 @@ function KpiCard({
 
   return (
     <div className={`ds-kpi-card ${toneClass}`}>
-      <p className="text-xs font-medium uppercase text-[var(--ds-color-text-muted)]">{label}</p>
-      <p className="mt-1 text-3xl font-bold text-[var(--ds-color-text-primary)]">{value}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/72">{label}</p>
+      <p className="mt-1 text-[1.55rem] font-bold text-white">{value}</p>
     </div>
   );
 }
@@ -166,22 +166,29 @@ export default function KpisPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       <Card tone="elevated">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]">
-            <BarChart2 className="h-5 w-5" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]">
+              <BarChart2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">KPIs SST</h1>
+              <p className="text-sm text-[var(--ds-color-text-muted)]">Indicadores de Segurança e Saúde no Trabalho</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">KPIs SST</h1>
-            <p className="text-sm text-[var(--ds-color-text-muted)]">Indicadores de Segurança e Saúde no Trabalho</p>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="primary">Operação</Badge>
+            <Badge variant="warning">Ações</Badge>
+            <Badge variant="danger">Incidentes</Badge>
           </div>
         </div>
       </Card>
 
       <div className="space-y-4">
         <SectionTitle label="Acidentabilidade (CATs)" />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <KpiCard label="Total de CATs" value={catStats?.total ?? 0} />
           <KpiCard label="Graves / Fatais" value={catStats?.fatalCount ?? 0} tone="danger" />
           <KpiCard label="Em Aberto" value={catStats?.openCount ?? 0} tone="warning" />
@@ -189,11 +196,12 @@ export default function KpisPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <Card tone="elevated">
             <CardHeader>
-              <CardTitle className="text-sm">CATs por Mês (últimos 12 meses)</CardTitle>
+              <CardTitle className="text-base">CATs por mês</CardTitle>
+              <CardDescription>Recorte móvel dos últimos 12 meses.</CardDescription>
             </CardHeader>
             <CardContent>
               {catStats?.byMonth && catStats.byMonth.length > 0 ? (
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={204}>
                   <LineChart data={catStats.byMonth}>
                     <CartesianGrid stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)" strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--ds-color-text-muted)' }} axisLine={false} tickLine={false} />
@@ -210,11 +218,11 @@ export default function KpisPage() {
 
           <Card tone="elevated">
             <CardHeader>
-              <CardTitle className="text-sm">Por Gravidade</CardTitle>
+              <CardTitle className="text-base">Por gravidade</CardTitle>
             </CardHeader>
             <CardContent>
               {catByGravidadeChart.length > 0 ? (
-                <ResponsiveContainer width="100%" height={220}>
+                <ResponsiveContainer width="100%" height={204}>
                   <BarChart data={catByGravidadeChart} layout="vertical" margin={{ left: 60 }}>
                     <CartesianGrid stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)" strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--ds-color-text-muted)' }} allowDecimals={false} axisLine={false} tickLine={false} />
@@ -235,11 +243,11 @@ export default function KpisPage() {
 
           <Card tone="elevated">
             <CardHeader>
-              <CardTitle className="text-sm">Por Tipo</CardTitle>
+              <CardTitle className="text-base">Por tipo</CardTitle>
             </CardHeader>
             <CardContent>
               {catByTipoChart.length > 0 ? (
-                <ResponsiveContainer width="100%" height={180}>
+                <ResponsiveContainer width="100%" height={172}>
                   <BarChart data={catByTipoChart} layout="vertical" margin={{ left: 100 }}>
                     <CartesianGrid stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)" strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--ds-color-text-muted)' }} allowDecimals={false} axisLine={false} tickLine={false} />
@@ -260,11 +268,12 @@ export default function KpisPage() {
         <SectionTitle label="Não Conformidades" />
         <Card tone="elevated">
           <CardHeader>
-            <CardTitle className="text-sm">NCs por Mês (últimos 12 meses)</CardTitle>
+            <CardTitle className="text-base">NCs por mês</CardTitle>
+            <CardDescription>Evolução mensal dos registros de não conformidade.</CardDescription>
           </CardHeader>
           <CardContent>
             {ncMonthly.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={204}>
                 <LineChart data={ncMonthly.map((item) => ({ ...item, name: item.mes }))}>
                   <CartesianGrid stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)" strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--ds-color-text-muted)' }} axisLine={false} tickLine={false} />
@@ -282,7 +291,7 @@ export default function KpisPage() {
 
       <div className="space-y-4">
         <SectionTitle label="Ações Corretivas" />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <KpiCard label="Total" value={caSummary?.total ?? 0} />
           <KpiCard label="Vencidas" value={caSummary?.overdue ?? 0} tone="danger" />
           <KpiCard label="Taxa Conformidade" value={`${conformidadeCa}%`} tone="success" />
@@ -290,10 +299,11 @@ export default function KpisPage() {
         {caSlaBySite.length > 0 && (
           <Card tone="elevated">
             <CardHeader>
-              <CardTitle className="text-sm">Conformidade por Obra</CardTitle>
+              <CardTitle className="text-base">Conformidade por obra</CardTitle>
+              <CardDescription>Total x vencidas por site.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={204}>
                 <BarChart data={caSlaBySite} layout="vertical" margin={{ left: 120 }}>
                   <CartesianGrid stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)" strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--ds-color-text-muted)' }} allowDecimals={false} axisLine={false} tickLine={false} />
@@ -311,7 +321,7 @@ export default function KpisPage() {
 
       <div className="space-y-4">
         <SectionTitle label="Treinamentos" />
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard label="Total" value={trainingSummary?.total ?? 0} />
           <KpiCard label="Em Dia" value={trainingSummary?.valid ?? 0} tone="success" />
           <KpiCard label="Vencendo (30d)" value={trainingSummary?.expiringSoon ?? 0} tone="warning" />
@@ -321,7 +331,7 @@ export default function KpisPage() {
           <Card tone="elevated">
             <CardHeader className="flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-sm">Distribuição de Status</CardTitle>
+                <CardTitle className="text-base">Distribuição de status</CardTitle>
                 <CardDescription>Panorama de validade dos treinamentos.</CardDescription>
               </div>
               <div className="flex gap-2">
@@ -331,7 +341,7 @@ export default function KpisPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={160}>
+              <ResponsiveContainer width="100%" height={152}>
                 <BarChart data={trainingChart} layout="vertical" margin={{ left: 80 }}>
                   <CartesianGrid stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)" strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--ds-color-text-muted)' }} allowDecimals={false} axisLine={false} tickLine={false} />

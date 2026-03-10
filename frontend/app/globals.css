@@ -119,6 +119,7 @@
   --ds-kpi-violet: linear-gradient(135deg, #1d4ed8, #0f766e);
   --ds-kpi-emerald: linear-gradient(135deg, #166534, #0f766e);
   --ds-kpi-amber: linear-gradient(135deg, #b45309, #92400e);
+  --ds-kpi-danger: linear-gradient(135deg, #b91c1c, #7f1d1d);
   --primary: var(--ds-color-action-primary);
   --primary-hover: var(--ds-color-action-primary-hover);
   --secondary: var(--ds-color-action-secondary);
@@ -1334,6 +1335,7 @@ html[data-theme='light'] {
   .ds-kpi-card--accent { background: var(--ds-kpi-violet); }
   .ds-kpi-card--success { background: var(--ds-kpi-emerald); }
   .ds-kpi-card--warning { background: var(--ds-kpi-amber); }
+  .ds-kpi-card--danger { background: var(--ds-kpi-danger); }
 
   .ds-section-link {
     color: var(--ds-color-action-primary);

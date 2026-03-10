@@ -193,12 +193,12 @@ export default function TstFieldPage() {
       <Card tone="elevated" padding="lg">
         <CardHeader className="gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-200">
+            <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-200">
               {isOffline ? <WifiOff className="h-3.5 w-3.5" /> : <Wifi className="h-3.5 w-3.5" />}
               operação de campo
             </div>
             <div>
-              <CardTitle className="text-3xl">TST em campo</CardTitle>
+              <CardTitle className="text-2xl">TST em campo</CardTitle>
               <CardDescription className="mt-2 max-w-2xl">
                 Pendências do dia, decisão operacional por CPF, fila offline e atalhos de execução
                 para APR, PT e documentos semanais.
@@ -224,7 +224,7 @@ export default function TstFieldPage() {
           </div>
         </CardHeader>
         <CardContent className="mt-0 grid gap-3 lg:grid-cols-[1.4fr_1fr]">
-          <div className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-black/10 p-4">
+          <div className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-black/10 p-3.5">
             <p className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Próximas ações de maior impacto
             </p>
@@ -233,11 +233,11 @@ export default function TstFieldPage() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-white/5 p-4 transition-colors hover:border-sky-400/35 hover:bg-white/10"
+                  className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-white/5 p-3.5 transition-colors hover:border-sky-400/35 hover:bg-white/10"
                 >
-                  <p className="text-sm font-semibold text-white">{item.title}</p>
-                  <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">{item.description}</p>
-                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-sky-200">
+                  <p className="text-[13px] font-semibold text-white">{item.title}</p>
+                  <p className="mt-2 text-[13px] text-[var(--ds-color-text-secondary)]">{item.description}</p>
+                  <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-sky-200">
                     Abrir fluxo
                     <ArrowRight className="h-3.5 w-3.5" />
                   </span>
@@ -246,7 +246,7 @@ export default function TstFieldPage() {
             </div>
           </div>
 
-          <div className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-black/10 p-4">
+          <div className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-black/10 p-3.5">
             <p className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Modo operacional
             </p>
@@ -295,7 +295,7 @@ export default function TstFieldPage() {
                   <CardDescription>{card.label}</CardDescription>
                   <card.icon className={`h-5 w-5 ${card.tone}`} />
                 </div>
-                <CardTitle className="text-3xl">{card.value}</CardTitle>
+                <CardTitle className="text-2xl">{card.value}</CardTitle>
               </CardHeader>
             </Card>
           </Link>
@@ -304,7 +304,7 @@ export default function TstFieldPage() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.05fr_1.35fr]">
         <Card tone="default" padding="none">
-          <CardHeader className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
+          <CardHeader className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3.5">
             <div className="flex items-center gap-2">
               <UserRoundSearch className="h-5 w-5 text-[var(--ds-color-action-primary)]" />
               <div>
@@ -318,14 +318,14 @@ export default function TstFieldPage() {
           <CardContent className="space-y-5">
             <form className="space-y-4" onSubmit={handleSearch}>
               <div>
-                <label htmlFor="tst-worker-cpf" className="mb-2 block text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                <label htmlFor="tst-worker-cpf" className="mb-2 block text-[13px] font-medium text-[var(--ds-color-text-secondary)]">
                   CPF
                 </label>
                 <input
                   id="tst-worker-cpf"
                   value={cpf}
                   onChange={(event) => setCpf(event.target.value)}
-                  className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3 text-sm text-[var(--ds-color-text-primary)] outline-none transition focus:border-[var(--ds-color-focus)] focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
+                  className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-[13px] text-[var(--ds-color-text-primary)] outline-none transition focus:border-[var(--ds-color-focus)] focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
                   placeholder="Digite o CPF"
                 />
               </div>
@@ -357,7 +357,7 @@ export default function TstFieldPage() {
 
             {workerStatus ? (
               <div className="space-y-4">
-                <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-4">
+                <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-3.5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -383,7 +383,7 @@ export default function TstFieldPage() {
                   {workerQuickFacts.map((fact) => (
                     <div
                       key={fact.label}
-                      className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4"
+                      className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3.5"
                     >
                       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
                         {fact.label}
@@ -396,7 +396,7 @@ export default function TstFieldPage() {
                 </div>
 
                 {workerStatus.reasons.length > 0 ? (
-                  <div className="rounded-[var(--ds-radius-lg)] border border-red-300/35 bg-red-500/10 p-4">
+                  <div className="rounded-[var(--ds-radius-lg)] border border-red-300/35 bg-red-500/10 p-3.5">
                     <p className="text-sm font-semibold text-red-100">Motivos de bloqueio</p>
                     <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-200">
                       {workerStatus.reasons.map((reason) => (
@@ -507,9 +507,9 @@ function OperationalChip({
   };
 
   return (
-    <div className={`rounded-[var(--ds-radius-lg)] border px-4 py-3 ${tones[tone]}`}>
+    <div className={`rounded-[var(--ds-radius-lg)] border px-3.5 py-2.5 ${tones[tone]}`}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] opacity-80">{label}</p>
-      <p className="mt-2 text-lg font-semibold">{value}</p>
+      <p className="mt-1.5 text-base font-semibold">{value}</p>
     </div>
   );
 }
@@ -531,13 +531,13 @@ function OperationalListCard({
 }) {
   return (
     <Card tone="default" padding="none">
-      <CardHeader className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
+      <CardHeader className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3.5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <CardTitle>{title}</CardTitle>
             <CardDescription className="mt-1">{description}</CardDescription>
           </div>
-          <Link href={href} className="text-sm font-semibold text-[var(--ds-color-action-primary)]">
+          <Link href={href} className="text-[13px] font-semibold text-[var(--ds-color-action-primary)]">
             Ver lista
           </Link>
         </div>
@@ -549,7 +549,7 @@ function OperationalListCard({
           items.map((item) => (
             <div
               key={item.id}
-              className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4"
+              className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3.5"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>

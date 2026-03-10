@@ -112,14 +112,14 @@ export default function RiskMapPage() {
               <Map className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Mapa de Risco</h1>
+              <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">Mapa de Risco</h1>
               <p className="text-sm text-[var(--ds-color-text-muted)]">Matriz de probabilidade × severidade por APR</p>
             </div>
           </div>
           <select
             value={filterSite}
             onChange={(e) => setFilterSite(e.target.value)}
-            className="h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
+            className="h-10 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-[13px] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
           >
             <option value="">Todas as obras</option>
             {sites.map((s) => (
@@ -131,23 +131,23 @@ export default function RiskMapPage() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <div className="ds-kpi-card ds-kpi-card--primary">
-          <p className="text-xs font-medium uppercase text-[var(--ds-color-text-muted)]">Total de Riscos</p>
-          <p className="mt-1 text-3xl font-bold text-[var(--ds-color-text-primary)]">{totalRiscos}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/72">Total de riscos</p>
+          <p className="mt-1 text-[1.55rem] font-bold text-white">{totalRiscos}</p>
         </div>
         <div className="ds-kpi-card ds-kpi-card--danger">
-          <p className="text-xs font-medium uppercase text-[var(--ds-color-danger)]">Risco Alto/Crítico</p>
-          <p className="mt-1 text-3xl font-bold text-[var(--ds-color-text-primary)]">{highRisks}</p>
-          <p className="text-xs text-[var(--ds-color-text-secondary)]">Score ≥ 17</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/72">Risco alto/crítico</p>
+          <p className="mt-1 text-[1.55rem] font-bold text-white">{highRisks}</p>
+          <p className="text-[11px] text-white/72">Score ≥ 17</p>
         </div>
         <div className="ds-kpi-card ds-kpi-card--accent">
-          <p className="text-xs font-medium uppercase text-[var(--ds-color-accent)]">Categorias</p>
-          <p className="mt-1 text-3xl font-bold text-[var(--ds-color-text-primary)]">{chartData.length}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/72">Categorias</p>
+          <p className="mt-1 text-[1.55rem] font-bold text-white">{chartData.length}</p>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2">
         <Card tone="elevated" padding="lg">
           <CardHeader className="mb-4 px-0 pt-0">
             <CardTitle className="text-base">Matriz Probabilidade × Severidade</CardTitle>
@@ -206,6 +206,7 @@ export default function RiskMapPage() {
         <Card tone="elevated" padding="lg">
           <CardHeader className="mb-4 px-0 pt-0">
             <CardTitle className="text-base">Riscos por Categoria</CardTitle>
+            <CardDescription>Concentração de riscos por tema operacional.</CardDescription>
           </CardHeader>
           {loading ? (
             <div className="flex h-48 items-center justify-center">
@@ -214,7 +215,7 @@ export default function RiskMapPage() {
           ) : chartData.length === 0 ? (
             <div className="flex h-48 items-center justify-center text-sm text-[var(--ds-color-text-muted)]">Nenhum risco encontrado</div>
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={248}>
               <BarChart data={chartData} layout="vertical" margin={{ left: 80, right: 20 }}>
                 <CartesianGrid stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)" strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--ds-color-text-muted)' }} axisLine={false} tickLine={false} />

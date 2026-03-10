@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { reportsService, Report } from '@/services/reportsService';
 import { FileText, Trash2, Calendar, BrainCircuit, Download, BarChart3, Mail, Printer } from 'lucide-react';
 import { toast } from 'sonner';
@@ -11,6 +11,9 @@ import autoTable from 'jspdf-autotable';
 import { SendMailModal } from '@/components/SendMailModal';
 import { openPdfForPrint } from '@/lib/print-utils';
 import { PaginationControls } from '@/components/PaginationControls';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -208,129 +211,115 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Relatórios COMPLIANCE X</h1>
-          <p className="text-gray-500">Relatórios inteligentes e estatísticas mensais</p>
-        </div>
-        <button
-          onClick={handleGenerateReport}
-          disabled={generating}
-          className="flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {generating ? (
-            <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-          ) : (
-            <BrainCircuit className="mr-2 h-4 w-4" />
-          )}
-          Gerar Relatório Mensal
-        </button>
-      </div>
+      <Card tone="elevated" padding="lg">
+        <CardHeader className="gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="space-y-3">
+            <Badge variant="accent" className="w-fit">
+              <BrainCircuit className="h-3.5 w-3.5" />
+              Inteligência mensal
+            </Badge>
+            <div>
+              <CardTitle className="text-xl">Relatórios COMPLIANCE X</CardTitle>
+              <CardDescription className="mt-1 max-w-2xl">
+                Relatórios executivos mensais com consolidação operacional, estatísticas de emissão
+                e síntese automática da IA.
+              </CardDescription>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <div className="ds-badge ds-badge--info">Total: {total}</div>
+            <Button
+              type="button"
+              onClick={handleGenerateReport}
+              disabled={generating}
+              leftIcon={
+                generating ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <BrainCircuit className="h-4 w-4" />
+                )
+              }
+            >
+              {generating ? 'Gerando relatório' : 'Gerar relatório mensal'}
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {loading ? (
           <div className="col-span-full flex justify-center py-10">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
           </div>
         ) : reports.length === 0 ? (
-          <div className="col-span-full rounded-xl border-2 border-dashed p-10 text-center">
-            <FileText className="mx-auto h-12 w-12 text-gray-300" />
-            <h3 className="mt-4 text-lg font-medium text-gray-900">Nenhum relatório gerado</h3>
-            <p className="mt-2 text-gray-500">Clique no botão acima para gerar seu primeiro relatório inteligente.</p>
-          </div>
+          <Card tone="muted" className="col-span-full border-dashed p-10 text-center">
+            <FileText className="mx-auto h-12 w-12 text-[var(--ds-color-text-muted)]/40" />
+            <h3 className="mt-4 text-base font-semibold text-[var(--ds-color-text-primary)]">Nenhum relatório gerado</h3>
+            <p className="mt-2 text-sm text-[var(--ds-color-text-muted)]">
+              Gere o primeiro relatório mensal para consolidar indicadores e insights.
+            </p>
+          </Card>
         ) : (
           reports.map((report) => (
-            <div key={report.id} className="flex flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all hover:shadow-md">
-              <div className="border-b bg-gray-50/50 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 text-indigo-600">
-                    <Calendar className="h-4 w-4" />
-                    <span className="text-xs font-semibold uppercase tracking-wider">
-                      {report.mes}/{report.ano}
-                    </span>
+            <Card key={report.id} tone="default" padding="none" interactive className="overflow-hidden">
+              <div className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="primary" className="text-[10px] uppercase tracking-[0.12em]">
+                        <Calendar className="h-3 w-3" />
+                        {report.mes}/{report.ano}
+                      </Badge>
+                      <span className="text-[10px] text-[var(--ds-color-text-muted)]">
+                        {format(new Date(report.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </span>
+                    </div>
+                    <h3 className="mt-2 text-[0.95rem] font-semibold text-[var(--ds-color-text-primary)]">
+                      {report.titulo}
+                    </h3>
                   </div>
                   <button
                     onClick={() => handleDelete(report.id)}
-                    className="text-gray-400 hover:text-red-600 transition-colors"
+                    className="rounded-lg border border-transparent p-1.5 text-[var(--ds-color-text-muted)] transition-colors hover:border-[color:var(--ds-color-danger)]/20 hover:bg-[var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
                     title="Excluir relatório"
                     aria-label="Excluir relatório"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-                <h3 className="mt-2 font-bold text-gray-900">{report.titulo}</h3>
               </div>
-              
-              <div className="flex-1 p-4 space-y-4">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-lg bg-blue-50 p-2 text-center">
-                    <p className="text-[10px] font-medium text-blue-600 uppercase">APRs</p>
-                    <p className="text-lg font-bold text-blue-900">{report.estatisticas.aprs_count}</p>
-                  </div>
-                  <div className="rounded-lg bg-amber-50 p-2 text-center">
-                    <p className="text-[10px] font-medium text-amber-600 uppercase">PTs</p>
-                    <p className="text-lg font-bold text-amber-900">{report.estatisticas.pts_count}</p>
-                  </div>
-                  <div className="rounded-lg bg-green-50 p-2 text-center">
-                    <p className="text-[10px] font-medium text-green-600 uppercase">DDS</p>
-                    <p className="text-lg font-bold text-green-900">{report.estatisticas.dds_count}</p>
-                  </div>
-                  <div className="rounded-lg bg-purple-50 p-2 text-center">
-                    <p className="text-[10px] font-medium text-purple-600 uppercase">Checks</p>
-                    <p className="text-lg font-bold text-purple-900">{report.estatisticas.checklists_count}</p>
-                  </div>
+
+              <CardContent className="space-y-3.5 p-4">
+                <div className="grid grid-cols-2 gap-2.5">
+                  <MetricCell label="APRs" value={report.estatisticas.aprs_count} variant="primary" />
+                  <MetricCell label="PTs" value={report.estatisticas.pts_count} variant="warning" />
+                  <MetricCell label="DDS" value={report.estatisticas.dds_count} variant="success" />
+                  <MetricCell label="Checks" value={report.estatisticas.checklists_count} variant="accent" />
                 </div>
 
-                <div className="rounded-lg border border-indigo-100 bg-indigo-50/30 p-3">
-                  <div className="flex items-center mb-2">
-                    <BrainCircuit className="h-3 w-3 text-indigo-600 mr-1.5" />
-                    <span className="text-[10px] font-bold text-indigo-700 uppercase">Insight COMPLIANCE X</span>
+                <div className="rounded-xl border border-[color:var(--ds-color-action-primary)]/16 bg-[var(--ds-color-primary-subtle)] p-3">
+                  <div className="mb-2 flex items-center gap-1.5">
+                    <BrainCircuit className="h-3.5 w-3.5 text-[var(--ds-color-action-primary)]" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ds-color-action-primary)]">
+                      Insight COMPLIANCE X
+                    </span>
                   </div>
-                  <p className="text-xs text-gray-600 leading-relaxed line-clamp-4">
+                  <p className="line-clamp-4 text-[12px] leading-relaxed text-[var(--ds-color-text-secondary)]">
                     {report.analise_gandra}
                   </p>
                 </div>
-              </div>
+              </CardContent>
 
-              <div className="border-t p-3 bg-gray-50/30 flex items-center justify-between">
-                <span className="text-[10px] text-gray-400">
-                  Gerado em {format(new Date(report.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                </span>
-                <div className="flex space-x-2">
-                  <button 
-                    onClick={() => handlePrint(report)}
-                    className="rounded p-1.5 text-gray-500 hover:bg-white hover:text-indigo-600 transition-all border border-transparent hover:border-indigo-100"
-                    title="Imprimir relatório"
-                    aria-label="Imprimir relatório"
-                  >
-                    <Printer className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleSendEmail(report)}
-                    className="rounded p-1.5 text-gray-500 hover:bg-white hover:text-indigo-600 transition-all border border-transparent hover:border-indigo-100"
-                    title="Enviar relatório"
-                    aria-label="Enviar relatório"
-                  >
-                    <Mail className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleDownloadPdf(report)}
-                    className="rounded p-1.5 text-gray-500 hover:bg-white hover:text-indigo-600 transition-all border border-transparent hover:border-indigo-100"
-                    title="Baixar relatório"
-                    aria-label="Baixar relatório"
-                  >
-                    <Download className="h-4 w-4" />
-                  </button>
-                  <button 
-                    className="rounded p-1.5 text-gray-500 hover:bg-white hover:text-indigo-600 transition-all border border-transparent hover:border-indigo-100"
-                    title="Ver estatísticas"
-                    aria-label="Ver estatísticas"
-                  >
-                    <BarChart3 className="h-4 w-4" />
-                  </button>
+              <div className="flex items-center justify-between border-t border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/12 px-3.5 py-3">
+                <span className="text-[10px] text-[var(--ds-color-text-muted)]">Exportar ou compartilhar</span>
+                <div className="flex gap-1.5">
+                  <ActionIcon onClick={() => handlePrint(report)} title="Imprimir relatório" icon={<Printer className="h-4 w-4" />} />
+                  <ActionIcon onClick={() => handleSendEmail(report)} title="Enviar relatório" icon={<Mail className="h-4 w-4" />} />
+                  <ActionIcon onClick={() => handleDownloadPdf(report)} title="Baixar relatório" icon={<Download className="h-4 w-4" />} />
+                  <ActionIcon title="Ver estatísticas" icon={<BarChart3 className="h-4 w-4" />} />
                 </div>
               </div>
-            </div>
+            </Card>
           ))
         )}
       </div>
@@ -358,5 +347,53 @@ export default function ReportsPage() {
         />
       )}
     </div>
+  );
+}
+
+function MetricCell({
+  label,
+  value,
+  variant,
+}: {
+  label: string;
+  value: number;
+  variant: 'primary' | 'warning' | 'success' | 'accent';
+}) {
+  const classes =
+    variant === 'warning'
+      ? 'bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]'
+      : variant === 'success'
+        ? 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
+        : variant === 'accent'
+          ? 'bg-[var(--ds-color-accent-subtle)] text-[var(--ds-color-accent)]'
+          : 'bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]';
+
+  return (
+    <div className={`rounded-xl border border-[var(--ds-color-border-subtle)] p-2.5 text-center ${classes}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em]">{label}</p>
+      <p className="mt-1 text-[1.1rem] font-bold">{value}</p>
+    </div>
+  );
+}
+
+function ActionIcon({
+  onClick,
+  title,
+  icon,
+}: {
+  onClick?: () => void;
+  title: string;
+  icon: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-lg border border-transparent p-1.5 text-[var(--ds-color-text-muted)] transition-colors hover:border-[color:var(--ds-color-action-primary)]/18 hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-action-primary)]"
+      title={title}
+      aria-label={title}
+    >
+      {icon}
+    </button>
   );
 }

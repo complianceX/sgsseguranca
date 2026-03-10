@@ -80,53 +80,71 @@ export default function ExecutiveDashboardPage() {
   return (
     <div className="space-y-6">
       <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-2">
-          <Badge variant="accent" className="w-fit">Visão executiva</Badge>
-          <CardTitle className="text-2xl">Cockpit Executivo SST</CardTitle>
-          <CardDescription>Indicadores leading e lagging por obra.</CardDescription>
+        <CardHeader className="gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="space-y-2">
+            <Badge variant="accent" className="w-fit">Visão executiva</Badge>
+            <div>
+              <CardTitle className="text-xl">Cockpit Executivo SST</CardTitle>
+              <CardDescription className="mt-1">
+                Indicadores leading e lagging por obra, com leitura rápida de tendência, desvios
+                e saturação de risco.
+              </CardDescription>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ExecutivePill label="Obras no heatmap" value={String(heatmap.length)} />
+            <ExecutivePill label="Alertas ativos" value={String(kpis?.alerts.length ?? 0)} variant="warning" />
+            <ExecutivePill label="Risco em tendência" value={String(kpis?.trends.risk.length ?? 0)} variant="info" />
+          </div>
         </CardHeader>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {leadingCards.map((card) => (
-          <div key={card.label} className="ds-kpi-card ds-kpi-card--primary">
-            <p className="text-xs uppercase text-[var(--ds-color-text-muted)]">{card.label}</p>
-            <p className="mt-1 text-3xl font-bold text-[var(--ds-color-text-primary)]">{card.value}</p>
-            <p className="text-xs text-[var(--ds-color-text-secondary)]">{card.helper}</p>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {leadingCards.map((card, index) => (
+          <div
+            key={card.label}
+            className={`ds-kpi-card ${
+              index === 1 ? 'ds-kpi-card--success' : index === 2 ? 'ds-kpi-card--accent' : 'ds-kpi-card--primary'
+            }`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/72">{card.label}</p>
+            <p className="mt-1 text-[1.6rem] font-bold text-white">{card.value}</p>
+            <p className="text-[11px] text-white/72">{card.helper}</p>
           </div>
         ))}
       </div>
 
       {kpis && (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div className="ds-kpi-card ds-kpi-card--danger">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--ds-color-danger)]">
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/78">
               <ShieldAlert className="h-4 w-4" /> NC recorrente
             </p>
-            <p className="mt-2 text-3xl font-bold text-[var(--ds-color-text-primary)]">{kpis.lagging.recurring_nc}</p>
+            <p className="mt-2 text-[1.6rem] font-bold text-white">{kpis.lagging.recurring_nc}</p>
           </div>
           <div className="ds-kpi-card ds-kpi-card--warning">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--ds-color-warning)]">
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/78">
               <Siren className="h-4 w-4" /> Incidentes
             </p>
-            <p className="mt-2 text-3xl font-bold text-[var(--ds-color-text-primary)]">{kpis.lagging.incidents}</p>
+            <p className="mt-2 text-[1.6rem] font-bold text-white">{kpis.lagging.incidents}</p>
           </div>
           <div className="ds-kpi-card ds-kpi-card--accent">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase text-[var(--ds-color-accent)]">
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/78">
               <Timer className="h-4 w-4" /> PT bloqueadas
             </p>
-            <p className="mt-2 text-3xl font-bold text-[var(--ds-color-text-primary)]">{kpis.lagging.blocked_pt}</p>
+            <p className="mt-2 text-[1.6rem] font-bold text-white">{kpis.lagging.blocked_pt}</p>
           </div>
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2">
         <Card tone="elevated">
           <CardHeader>
-            <CardTitle className="text-sm">Tendência de risco</CardTitle>
+            <CardTitle className="text-base">Tendência de risco</CardTitle>
+            <CardDescription>Score agregado por mês para leitura de inclinação do risco.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={208}>
               <AreaChart data={kpis?.trends.risk || []}>
                 <CartesianGrid stroke={CHART_TOKENS.grid} strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="month" tick={{ fill: CHART_TOKENS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -147,10 +165,11 @@ export default function ExecutiveDashboardPage() {
 
         <Card tone="elevated">
           <CardHeader>
-            <CardTitle className="text-sm">Não conformidades por mês</CardTitle>
+            <CardTitle className="text-base">Não conformidades por mês</CardTitle>
+            <CardDescription>Evolução mensal de desvios críticos e reincidências.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={208}>
               <BarChart data={kpis?.trends.nc || []}>
                 <CartesianGrid stroke={CHART_TOKENS.grid} strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="month" tick={{ fill: CHART_TOKENS.axis, fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -172,20 +191,21 @@ export default function ExecutiveDashboardPage() {
 
       <Card tone="elevated">
         <CardHeader>
-          <CardTitle className="text-sm">Heatmap por obra</CardTitle>
+          <CardTitle className="text-base">Heatmap por obra</CardTitle>
+          <CardDescription>Recorte por site com risco médio, NCs e aderência de treinamento.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {heatmap.map((item) => (
-              <div key={item.site_id} className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-3">
-                <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{item.site_name}</p>
+              <div key={item.site_id} className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-3.5">
+                <p className="text-[13px] font-semibold text-[var(--ds-color-text-primary)]">{item.site_name}</p>
                 <div className="mt-2 flex items-center justify-between">
-                  <span className="text-xs text-[var(--ds-color-text-muted)]">Risco médio</span>
+                  <span className="text-[11px] text-[var(--ds-color-text-muted)]">Risco médio</span>
                   <Badge variant={scoreVariant(item.risk_score)}>
                     {item.risk_score.toFixed(1)}
                   </Badge>
                 </div>
-                <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                <p className="mt-1 text-[11px] text-[var(--ds-color-text-secondary)]">
                   NC: {item.nc_count ?? 0} • Compliance: {(item.training_compliance ?? 0).toFixed(1)}%
                 </p>
               </div>
@@ -196,16 +216,17 @@ export default function ExecutiveDashboardPage() {
 
       <Card tone="elevated">
         <CardHeader>
-          <CardTitle className="text-sm">Painel de alertas</CardTitle>
+          <CardTitle className="text-base">Painel de alertas</CardTitle>
+          <CardDescription>Sinais de atenção imediata para coordenação de obra e liderança SST.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
             {(kpis?.alerts || []).map((alert) => (
-              <div key={alert.id} className="flex items-start gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning)]/18 bg-[var(--ds-color-warning-subtle)] p-3">
+              <div key={alert.id} className="flex items-start gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning)]/18 bg-[var(--ds-color-warning-subtle)] p-2.5">
                 <AlertTriangle className="mt-0.5 h-4 w-4 text-[var(--ds-color-warning)]" />
                 <div>
-                  <p className="text-sm text-[var(--ds-color-text-primary)]">{alert.message}</p>
-                  <p className="text-xs text-[var(--ds-color-text-muted)]">
+                  <p className="text-[13px] text-[var(--ds-color-text-primary)]">{alert.message}</p>
+                  <p className="text-[11px] text-[var(--ds-color-text-muted)]">
                     {new Date(alert.created_at).toLocaleString('pt-BR')}
                   </p>
                 </div>
@@ -217,6 +238,30 @@ export default function ExecutiveDashboardPage() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function ExecutivePill({
+  label,
+  value,
+  variant = 'neutral',
+}: {
+  label: string;
+  value: string;
+  variant?: 'neutral' | 'warning' | 'info';
+}) {
+  const tone =
+    variant === 'warning'
+      ? 'border-[color:var(--ds-color-warning)]/20 bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]'
+      : variant === 'info'
+        ? 'border-[color:var(--ds-color-info)]/20 bg-[var(--ds-color-info-subtle)] text-[var(--ds-color-info)]'
+        : 'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/28 text-[var(--ds-color-text-secondary)]';
+
+  return (
+    <div className={`rounded-full border px-3 py-1.5 ${tone}`}>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.12em]">{label}</span>
+      <span className="ml-2 text-[13px] font-semibold">{value}</span>
     </div>
   );
 }
