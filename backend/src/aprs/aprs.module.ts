@@ -9,6 +9,7 @@ import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
 import { CommonModule } from '../common/common.module';
 import { AuthModule } from '../auth/auth.module';
 import { Company } from '../companies/entities/company.entity';
+import { StorageModule } from '../common/storage/storage.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { Company } from '../companies/entities/company.entity';
     ]),
     CommonModule,
     AuthModule,
+    StorageModule,
   ],
   controllers: [AprsController],
   providers: [AprsService],
