@@ -69,7 +69,7 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
                       name={`${name}-${index}`}
                       checked={field.resposta === responseValue}
                       onChange={() => setValue(`${name}.${index}.resposta`, responseValue, { shouldValidate: true })}
-                      className="h-4 w-4 text-blue-600"
+                      className="h-4 w-4 text-amber-700"
                     />
                     <span>{responseValue}</span>
                   </label>

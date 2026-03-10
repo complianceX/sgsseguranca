@@ -180,7 +180,7 @@ export default function DocumentImportPage() {
               aria-label="Upload de arquivo PDF"
             />
             
-            <div className={`rounded-full p-3.5 ${file ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+            <div className={`rounded-full p-3.5 ${file ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-700'}`}>
               {file ? <FileCheck size={28} /> : <Upload size={28} />}
             </div>
 
@@ -198,7 +198,7 @@ export default function DocumentImportPage() {
                   e.stopPropagation();
                   handleUpload();
                 }}
-                className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-blue-700"
+                className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-amber-700"
               >
                 Começar Processamento <ChevronRight size={18} />
               </button>
@@ -213,10 +213,10 @@ export default function DocumentImportPage() {
                 <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
                   <div 
                     ref={progressBarRef}
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                    className="bg-amber-600 h-2 rounded-full transition-all duration-300" 
                   />
                 </div>
-                <div className="flex items-center justify-center gap-2 text-sm text-blue-600 animate-pulse">
+                <div className="flex items-center justify-center gap-2 text-sm text-amber-700 animate-pulse">
                   <Loader2 size={16} className="animate-spin" />
                   IA analisando o conteúdo...
                 </div>
@@ -237,11 +237,11 @@ export default function DocumentImportPage() {
             )}
           </div>
 
-          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-blue-900 flex items-center gap-2">
+          <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-amber-900 flex items-center gap-2">
               <Info size={16} /> Como funciona?
             </h3>
-            <ul className="text-xs text-blue-800 space-y-2 list-disc pl-4">
+            <ul className="text-xs text-amber-800 space-y-2 list-disc pl-4">
               <li>Extraímos todo o texto do documento usando OCR e Processamento de Linguagem Natural.</li>
               <li>Nossa IA classifica automaticamente o tipo do documento.</li>
               <li>Identificamos riscos, EPIs, empresas, datas e assinaturas.</li>
@@ -284,7 +284,7 @@ export default function DocumentImportPage() {
                 {/* Informações Gerais */}
                 <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
                   <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                    <Search size={18} className="text-blue-500" /> Informações Extraídas
+                    <Search size={18} className="text-amber-600" /> Informações Extraídas
                   </h3>
                   <div className="space-y-3">
                     <DetailItem label="Empresa" value={result.analysis.empresa} />
@@ -297,7 +297,7 @@ export default function DocumentImportPage() {
                 {/* Pendências / Validação */}
                 <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
                   <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                    <ShieldCheck size={18} className="text-blue-500" /> Validação Técnica
+                    <ShieldCheck size={18} className="text-amber-600" /> Validação Técnica
                   </h3>
                   {result.validation.pendencias.length > 0 ? (
                     <div className="space-y-2">
@@ -351,7 +351,7 @@ export default function DocumentImportPage() {
                   <div className="flex flex-wrap gap-2">
                     {result.analysis.nrsCitadas.length > 0 ? (
                       result.analysis.nrsCitadas.map((nr, i) => (
-                        <span key={i} className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-md border border-blue-100">
+                        <span key={i} className="px-2 py-1 bg-amber-50 text-amber-700 text-xs font-medium rounded-md border border-amber-100">
                           {nr}
                         </span>
                       ))

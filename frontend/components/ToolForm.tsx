@@ -119,7 +119,7 @@ export function ToolForm({ id }: ToolFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-600 border-t-transparent"></div>
       </div>
     );
   }
@@ -157,7 +157,7 @@ export function ToolForm({ id }: ToolFormProps) {
               id="company_id"
               {...register('company_id')}
               className={`w-full rounded-md border bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:bg-white focus:outline-none ${
-                errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-400 focus:border-blue-600'
+                errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-400 focus:border-amber-600'
               }`}
               aria-invalid={errors.company_id ? 'true' : undefined}
             >
@@ -182,7 +182,7 @@ export function ToolForm({ id }: ToolFormProps) {
               type="text"
               {...register('nome')}
               className={`w-full rounded-md border bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:bg-white focus:outline-none ${
-                errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-400 focus:border-blue-600'
+                errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-400 focus:border-amber-600'
               }`}
               aria-invalid={errors.nome ? 'true' : undefined}
               placeholder="Ex: Furadeira Bosch"
@@ -200,7 +200,7 @@ export function ToolForm({ id }: ToolFormProps) {
               id="numero_serie"
               type="text"
               {...register('numero_serie')}
-              className="w-full rounded-md border border-gray-400 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:border-blue-600 focus:bg-white focus:outline-none"
+              className="w-full rounded-md border border-gray-400 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:border-amber-600 focus:bg-white focus:outline-none"
               placeholder="Ex: SN123456"
             />
           </div>
@@ -213,7 +213,7 @@ export function ToolForm({ id }: ToolFormProps) {
               id="descricao"
               rows={3}
               {...register('descricao')}
-              className="w-full rounded-md border border-gray-400 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:border-blue-600 focus:bg-white focus:outline-none"
+              className="w-full rounded-md border border-gray-400 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:border-amber-600 focus:bg-white focus:outline-none"
               placeholder="Opcional"
             />
           </div>
@@ -229,7 +229,7 @@ export function ToolForm({ id }: ToolFormProps) {
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            className="flex items-center rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
           >
             {loading ? (
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>

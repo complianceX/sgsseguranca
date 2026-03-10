@@ -3,32 +3,39 @@
 :root,
 :root[data-theme='dark'],
 .theme-dark {
-  --ds-color-bg-canvas: #0b1220;
-  --ds-color-bg-subtle: #111827;
-  --ds-color-surface-base: #121b2b;
-  --ds-color-surface-elevated: #182235;
-  --ds-color-surface-muted: #22314a;
-  --ds-color-surface-muted-hover: #2a3c59;
-  --ds-color-border-subtle: #26364f;
-  --ds-color-border-strong: #3e5373;
-  --ds-color-text-primary: #f8fbff;
-  --ds-color-text-secondary: #d9e2ec;
-  --ds-color-text-muted: #94a3b8;
-  --ds-color-action-primary: #2563eb;
-  --ds-color-action-primary-hover: #1d4ed8;
-  --ds-color-action-primary-foreground: #ffffff;
-  --ds-color-action-secondary: #1e293b;
-  --ds-color-action-secondary-hover: #334155;
-  --ds-color-action-secondary-foreground: #e2e8f0;
-  --ds-color-success: #166534;
-  --ds-color-success-hover: #14532d;
-  --ds-color-warning: #b45309;
-  --ds-color-warning-hover: #92400e;
-  --ds-color-danger: #b91c1c;
-  --ds-color-danger-hover: #991b1b;
-  --ds-color-info: #0f5e9c;
-  --ds-color-focus: #60a5fa;
-  --ds-color-focus-ring: rgba(96, 165, 250, 0.28);
+  /* ── Base — industrial dark navy ─────────────────────── */
+  --ds-color-bg-canvas: #0b1014;
+  --ds-color-bg-subtle: #10181f;
+  --ds-color-surface-base: #15202c;
+  --ds-color-surface-elevated: #1a2a38;
+  --ds-color-surface-muted: #1e3040;
+  --ds-color-surface-muted-hover: #253848;
+  /* ── Borders ─────────────────────────────────────────── */
+  --ds-color-border-subtle: #22334a;
+  --ds-color-border-strong: #3a526a;
+  /* ── Text ────────────────────────────────────────────── */
+  --ds-color-text-primary: #f4f2ee;
+  --ds-color-text-secondary: #c4bfb6;
+  --ds-color-text-muted: #7a8fa4;
+  /* ── Primary — Âmbar de Segurança (NR-26 / coletes / capacetes) ── */
+  --ds-color-action-primary: #f59e0b;
+  --ds-color-action-primary-hover: #d97706;
+  --ds-color-action-primary-foreground: #0f0800;
+  /* ── Secondary ───────────────────────────────────────── */
+  --ds-color-action-secondary: rgba(245, 158, 11, 0.10);
+  --ds-color-action-secondary-hover: rgba(245, 158, 11, 0.18);
+  --ds-color-action-secondary-foreground: #fcd34d;
+  /* ── Semânticos NR-26 vibrantes ──────────────────────── */
+  --ds-color-success: #22c55e;        /* Verde saída/seguro */
+  --ds-color-success-hover: #16a34a;
+  --ds-color-warning: #fb923c;        /* Laranja atenção/máquinas */
+  --ds-color-warning-hover: #f97316;
+  --ds-color-danger: #f87171;         /* Vermelho proibição/emergência */
+  --ds-color-danger-hover: #ef4444;
+  --ds-color-info: #60a5fa;           /* Azul obrigação/EPI */
+  /* ── Focus — âmbar ───────────────────────────────────── */
+  --ds-color-focus: #f59e0b;
+  --ds-color-focus-ring: rgba(245, 158, 11, 0.32);
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;
   --ds-radius-lg: 1rem;
@@ -88,38 +95,40 @@
   --warning-hover: var(--ds-color-warning-hover);
   --warning-foreground: #ffffff;
   --danger-hover: var(--ds-color-danger-hover);
-  --primary-dark: #1e40af;
+  --primary-dark: #b45309;
   --primary-hover: var(--ds-color-action-primary-hover);
-  --risk-acceptable: var(--ds-color-success);
-  --risk-attention: var(--ds-color-info);
-  --risk-substantial: var(--ds-color-warning);
-  --risk-critical: var(--ds-color-danger);
-  --ds-color-accent: #14b8a6;
-  --ds-color-accent-hover: #0d9488;
-  --ds-color-accent-subtle: rgba(20, 184, 166, 0.16);
-  /* Variantes sutis para uso em badges e fundos de alerta */
-  --ds-color-primary-subtle: rgba(37, 99, 235, 0.16);
-  --ds-color-success-subtle: rgba(22, 101, 52, 0.16);
-  --ds-color-warning-subtle: rgba(180, 83, 9, 0.18);
-  --ds-color-danger-subtle: rgba(185, 28, 28, 0.16);
-  --ds-color-info-subtle: rgba(15, 94, 156, 0.18);
-  /* Superfície para modais e overlays */
-  --ds-color-surface-overlay: #182235;
-  /* Borda intermediária */
-  --ds-color-border-default: #31445f;
-  /* Texto desabilitado */
-  --ds-color-text-disabled: #64748b;
-  --ds-gradient-brand: linear-gradient(135deg, #1d4ed8 0%, #2563eb 52%, #0f766e 100%);
+  /* ── Matriz de Risco — NR-26 alinhada ───────────────── */
+  --risk-acceptable: #22c55e;         /* Verde seguro */
+  --risk-attention: #f59e0b;          /* Amarelo atenção */
+  --risk-substantial: #fb923c;        /* Laranja substancial */
+  --risk-critical: #f87171;           /* Vermelho crítico */
+  /* ── Acento — Laranja Construtivo ───────────────────── */
+  --ds-color-accent: #ea580c;
+  --ds-color-accent-hover: #c2410c;
+  --ds-color-accent-subtle: rgba(234, 88, 12, 0.14);
+  /* ── Variantes sutis ─────────────────────────────────── */
+  --ds-color-primary-subtle: rgba(245, 158, 11, 0.14);
+  --ds-color-success-subtle: rgba(34, 197, 94, 0.14);
+  --ds-color-warning-subtle: rgba(251, 146, 60, 0.14);
+  --ds-color-danger-subtle: rgba(248, 113, 113, 0.14);
+  --ds-color-info-subtle: rgba(96, 165, 250, 0.14);
+  /* ── Superfície/Borda extra ──────────────────────────── */
+  --ds-color-surface-overlay: #1a2a38;
+  --ds-color-border-default: #2c4158;
+  --ds-color-text-disabled: #3e5470;
+  /* ── Gradientes SST ──────────────────────────────────── */
+  --ds-gradient-brand: linear-gradient(135deg, #b45309 0%, #f59e0b 50%, #ea580c 100%);
   --ds-gradient-surface: linear-gradient(
     180deg,
     color-mix(in srgb, var(--ds-color-surface-elevated) 94%, white 6%),
     color-mix(in srgb, var(--ds-color-surface-base) 96%, transparent)
   );
-  --ds-kpi-blue: linear-gradient(135deg, #2563eb, #0f5e9c);
-  --ds-kpi-violet: linear-gradient(135deg, #1d4ed8, #0f766e);
-  --ds-kpi-emerald: linear-gradient(135deg, #166534, #0f766e);
-  --ds-kpi-amber: linear-gradient(135deg, #b45309, #92400e);
-  --ds-kpi-danger: linear-gradient(135deg, #b91c1c, #7f1d1d);
+  /* ── KPI gradients — domínio SST ────────────────────── */
+  --ds-kpi-blue: linear-gradient(135deg, #3b82f6, #1d4ed8);         /* Informação/EPI */
+  --ds-kpi-violet: linear-gradient(135deg, #8b5cf6, #6d28d9);       /* Análise/Conformidade */
+  --ds-kpi-emerald: linear-gradient(135deg, #22c55e, #15803d);       /* Seguro/OK */
+  --ds-kpi-amber: linear-gradient(135deg, #f59e0b, #d97706);         /* Atenção/Âmbar */
+  --ds-kpi-danger: linear-gradient(135deg, #ef4444, #b91c1c);        /* Crítico/Emergência */
   --primary: var(--ds-color-action-primary);
   --primary-hover: var(--ds-color-action-primary-hover);
   --secondary: var(--ds-color-action-secondary);
@@ -157,46 +166,59 @@
 
 :root[data-theme='light'],
 .theme-light {
-  --ds-color-bg-canvas: #f8fafc;
-  --ds-color-bg-subtle: #eff4fa;
+  /* ── Base — light industrial ─────────────────────────── */
+  --ds-color-bg-canvas: #f7f4f0;
+  --ds-color-bg-subtle: #ede9e2;
   --ds-color-surface-base: #ffffff;
-  --ds-color-surface-elevated: #fdfeff;
+  --ds-color-surface-elevated: #fdfcfa;
   --ds-color-surface-overlay: #ffffff;
-  --ds-color-surface-muted: #eef4ff;
-  --ds-color-surface-muted-hover: #e2ebf8;
-  --ds-color-border-subtle: #d9e2ec;
-  --ds-color-border-default: #c7d2e0;
-  --ds-color-border-strong: #94a3b8;
-  --ds-color-text-primary: #0f172a;
-  --ds-color-text-secondary: #334155;
-  --ds-color-text-muted: #64748b;
-  --ds-color-text-disabled: #94a3b8;
-  --ds-color-action-primary: #1d4ed8;
-  --ds-color-action-primary-hover: #1e40af;
+  --ds-color-surface-muted: #f2ede5;
+  --ds-color-surface-muted-hover: #e8e0d4;
+  /* ── Borders ─────────────────────────────────────────── */
+  --ds-color-border-subtle: #ddd5c8;
+  --ds-color-border-default: #c8bcad;
+  --ds-color-border-strong: #a8987e;
+  /* ── Text ────────────────────────────────────────────── */
+  --ds-color-text-primary: #1a120a;
+  --ds-color-text-secondary: #3d2e1c;
+  --ds-color-text-muted: #6d5d48;
+  --ds-color-text-disabled: #b8a898;
+  /* ── Primary — Âmbar escuro (leitura sobre claro) ────── */
+  --ds-color-action-primary: #b45309;
+  --ds-color-action-primary-hover: #92400e;
   --ds-color-action-primary-foreground: #ffffff;
-  --ds-color-action-secondary: #e2e8f0;
-  --ds-color-action-secondary-hover: #cbd5e1;
-  --ds-color-action-secondary-foreground: #1e293b;
-  --ds-color-accent: #0f766e;
-  --ds-color-accent-hover: #115e59;
-  --ds-color-accent-subtle: rgba(15, 118, 110, 0.12);
-  --ds-color-primary-subtle: rgba(29, 78, 216, 0.10);
-  --ds-color-success: #166534;
-  --ds-color-success-hover: #14532d;
-  --ds-color-success-subtle: rgba(22, 101, 52, 0.10);
-  --ds-color-warning: #b45309;
-  --ds-color-warning-hover: #92400e;
-  --ds-color-warning-subtle: rgba(180, 83, 9, 0.12);
-  --ds-color-danger: #b91c1c;
-  --ds-color-danger-hover: #991b1b;
-  --ds-color-danger-subtle: rgba(185, 28, 28, 0.10);
-  --ds-color-info: #0f5e9c;
-  --ds-color-info-subtle: rgba(15, 94, 156, 0.10);
-  --ds-color-focus: #1d4ed8;
-  --ds-color-focus-ring: rgba(29, 78, 216, 0.18);
-  /* Sombras calibradas para light mode (fundo claro) */
-  --ds-shadow-sm: 0 1px 3px rgba(10, 22, 40, 0.07), 0 1px 2px rgba(10, 22, 40, 0.03);
-  --ds-shadow-md: 0 8px 24px rgba(10, 22, 40, 0.08), 0 2px 6px rgba(10, 22, 40, 0.05);
+  /* ── Secondary ───────────────────────────────────────── */
+  --ds-color-action-secondary: rgba(180, 83, 9, 0.08);
+  --ds-color-action-secondary-hover: rgba(180, 83, 9, 0.15);
+  --ds-color-action-secondary-foreground: #b45309;
+  /* ── Acento — laranja ────────────────────────────────── */
+  --ds-color-accent: #c2410c;
+  --ds-color-accent-hover: #9a3412;
+  --ds-color-accent-subtle: rgba(194, 65, 12, 0.10);
+  --ds-color-primary-subtle: rgba(180, 83, 9, 0.10);
+  /* ── Semânticos NR-26 (tom saturado para fundo claro) ── */
+  --ds-color-success: #15803d;
+  --ds-color-success-hover: #166534;
+  --ds-color-success-subtle: rgba(21, 128, 61, 0.10);
+  --ds-color-warning: #d97706;
+  --ds-color-warning-hover: #b45309;
+  --ds-color-warning-subtle: rgba(217, 119, 6, 0.10);
+  --ds-color-danger: #dc2626;
+  --ds-color-danger-hover: #b91c1c;
+  --ds-color-danger-subtle: rgba(220, 38, 38, 0.10);
+  --ds-color-info: #1d4ed8;
+  --ds-color-info-subtle: rgba(29, 78, 216, 0.10);
+  /* ── Focus ───────────────────────────────────────────── */
+  --ds-color-focus: #b45309;
+  --ds-color-focus-ring: rgba(180, 83, 9, 0.22);
+  /* ── Risk matrix (light) ─────────────────────────────── */
+  --risk-acceptable: #15803d;
+  --risk-attention: #b45309;
+  --risk-substantial: #d97706;
+  --risk-critical: #dc2626;
+  /* ── Sombras calibradas para fundo quente ────────────── */
+  --ds-shadow-sm: 0 1px 3px rgba(26, 18, 10, 0.08), 0 1px 2px rgba(26, 18, 10, 0.04);
+  --ds-shadow-md: 0 8px 24px rgba(26, 18, 10, 0.10), 0 2px 6px rgba(26, 18, 10, 0.06);
   --ds-shadow-lg: 0 18px 44px rgba(10, 22, 40, 0.12), 0 8px 20px rgba(10, 22, 40, 0.06);
 }
 

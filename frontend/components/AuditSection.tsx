@@ -26,7 +26,7 @@ export function AuditSection<T extends AuditFields & FieldValues>({ register, au
             {...register('auditado_por_id' as Path<T>)}
             disabled={disabled}
             className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-              disabled ? 'bg-gray-100 cursor-not-allowed border-gray-300' : 'border-gray-300 focus:border-blue-500'
+              disabled ? 'bg-gray-100 cursor-not-allowed border-gray-300' : 'border-gray-300 focus:border-amber-500'
             }`}
           >
             <option value="">{disabled ? 'Selecione uma empresa primeiro' : 'Selecione um auditor'}</option>
@@ -42,7 +42,7 @@ export function AuditSection<T extends AuditFields & FieldValues>({ register, au
             id="data_auditoria"
             type="date"
             {...register('data_auditoria' as Path<T>)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
           />
         </div>
 
@@ -51,7 +51,7 @@ export function AuditSection<T extends AuditFields & FieldValues>({ register, au
           <select
             id="resultado_auditoria"
             {...register('resultado_auditoria' as Path<T>)}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
           >
             <option value="">Selecione o resultado</option>
             <option value="Conforme">Conforme</option>
@@ -66,7 +66,7 @@ export function AuditSection<T extends AuditFields & FieldValues>({ register, au
             id="notas_auditoria"
             {...register('notas_auditoria' as Path<T>)}
             rows={2}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
             placeholder="Observações adicionais da auditoria..."
           />
         </div>

@@ -122,7 +122,7 @@ export function SiteForm({ id }: SiteFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-600 border-t-transparent"></div>
       </div>
     );
   }
@@ -160,7 +160,7 @@ export function SiteForm({ id }: SiteFormProps) {
               id="company_id"
               {...register('company_id')}
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+                errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
               }`}
               aria-invalid={errors.company_id ? 'true' : undefined}
             >
@@ -185,7 +185,7 @@ export function SiteForm({ id }: SiteFormProps) {
               type="text"
               {...register('nome')}
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+                errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
               }`}
               aria-invalid={errors.nome ? 'true' : undefined}
               placeholder="Ex: Obra Centro"
@@ -203,7 +203,7 @@ export function SiteForm({ id }: SiteFormProps) {
               id="endereco"
               type="text"
               {...register('endereco')}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
               placeholder="Rua, Número, Bairro"
             />
           </div>
@@ -216,7 +216,7 @@ export function SiteForm({ id }: SiteFormProps) {
               id="cidade"
               type="text"
               {...register('cidade')}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
             />
           </div>
 
@@ -229,7 +229,7 @@ export function SiteForm({ id }: SiteFormProps) {
               type="text"
               maxLength={2}
               {...register('estado')}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
               placeholder="Ex: MG"
             />
           </div>
@@ -245,7 +245,7 @@ export function SiteForm({ id }: SiteFormProps) {
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            className="flex items-center rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
           >
             {loading ? (
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>

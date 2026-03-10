@@ -55,7 +55,7 @@ export function ResponsibleExecutorsSection({
                 onClick={() => onToggleExecutante(u.id)}
                 className={cn(
                   'flex w-full items-center justify-between rounded-xl border p-4 text-left transition-all hover:bg-gray-50',
-                  isSelected ? 'border-blue-200 bg-blue-50/40 ring-2 ring-blue-500/10 shadow-[var(--ds-shadow-sm)]' : 'border-gray-200',
+                  isSelected ? 'border-amber-200 bg-amber-50/40 ring-2 ring-amber-500/10 shadow-[var(--ds-shadow-sm)]' : 'border-gray-200',
                 )}
               >
                 <div className="min-w-0">

@@ -417,7 +417,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   if (fetching) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-600 border-t-transparent" />
       </div>
     );
   }
@@ -528,7 +528,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                         id="checklist-form-titulo"
                         {...register('titulo')}
                         aria-invalid={errors.titulo ? 'true' : undefined}
-                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-amber-500 focus:outline-none"
                         placeholder="Ex: Checklist de Furadeira"
                     />
                     {errors.titulo && <p className="mt-1 text-xs text-red-500">{errors.titulo.message}</p>}
@@ -548,7 +548,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                             },
                         })}
                         aria-invalid={errors.company_id ? 'true' : undefined}
-                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-amber-500 focus:outline-none"
                     >
                         <option value="">Selecione uma empresa</option>
                         {companies.map(company => (
@@ -567,7 +567,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                         type="date"
                         {...register('data')}
                         aria-invalid={errors.data ? 'true' : undefined}
-                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-amber-500 focus:outline-none"
                     />
                     {errors.data && <p className="mt-1 text-xs text-red-500">{errors.data.message}</p>}
                 </div>
@@ -579,7 +579,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                         {...register('site_id')}
                         disabled={!selectedCompanyId}
                         aria-label="Obra ou setor do checklist"
-                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none disabled:bg-gray-50"
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-amber-500 focus:outline-none disabled:bg-gray-50"
                     >
                         <option value="">{selectedCompanyId ? 'Selecione uma obra' : 'Selecione uma empresa primeiro'}</option>
                         {filteredSites.map(site => (
@@ -597,7 +597,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                         {...register('inspetor_id')}
                         disabled={!selectedCompanyId}
                         aria-label="Inspetor do checklist"
-                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none disabled:bg-gray-50"
+                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-amber-500 focus:outline-none disabled:bg-gray-50"
                     >
                         <option value="">{selectedCompanyId ? 'Selecione um inspetor' : 'Selecione uma empresa primeiro'}</option>
                         {filteredInspectors.map(u => (
@@ -615,7 +615,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                     type="file"
                     accept="image/*"
                     onChange={handlePhotoChange}
-                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100"
                     title="Foto do equipamento"
                     aria-label="Foto do equipamento"
                 />
@@ -665,7 +665,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
             <button
                 type="button"
                 onClick={() => append({ item: '', status: 'ok', tipo_resposta: 'conforme', obrigatorio: true, peso: 1, observacao: '' })}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-blue-600"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-amber-700"
             >
                 <Plus className="h-4 w-4" />
                 Adicionar Item
@@ -816,7 +816,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                   value={emailTo}
                   onChange={(e) => setEmailTo(e.target.value)}
                   placeholder="exemplo@empresa.com"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-amber-500 focus:outline-none"
                   autoFocus
                 />
             </div>

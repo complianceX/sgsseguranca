@@ -517,7 +517,7 @@ export default function ServiceOrdersPage() {
                   value={form.titulo}
                   onChange={(e) => setForm({ ...form, titulo: e.target.value })}
                   aria-label="Título da ordem de serviço"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                 />
               </div>
               <div>
@@ -528,7 +528,7 @@ export default function ServiceOrdersPage() {
                   onChange={(e) => setForm({ ...form, descricao_atividades: e.target.value })}
                   aria-label="Descrição das atividades da ordem de serviço"
                   rows={4}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -539,7 +539,7 @@ export default function ServiceOrdersPage() {
                     value={form.site_id}
                     onChange={(e) => setForm({ ...form, site_id: e.target.value })}
                     aria-label="Obra da ordem de serviço"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                   >
                     <option value="">Selecione...</option>
                     {sites.map((s) => (
@@ -554,7 +554,7 @@ export default function ServiceOrdersPage() {
                     value={form.responsavel_id}
                     onChange={(e) => setForm({ ...form, responsavel_id: e.target.value })}
                     aria-label="Responsável da ordem de serviço"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                   >
                     <option value="">Selecione...</option>
                     {users.map((u) => (
@@ -572,7 +572,7 @@ export default function ServiceOrdersPage() {
                     value={form.data_emissao}
                     onChange={(e) => setForm({ ...form, data_emissao: e.target.value })}
                     aria-label="Data de emissão"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -583,7 +583,7 @@ export default function ServiceOrdersPage() {
                     value={form.data_inicio}
                     onChange={(e) => setForm({ ...form, data_inicio: e.target.value })}
                     aria-label="Data de início"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                   />
                 </div>
                 <div>
@@ -594,7 +594,7 @@ export default function ServiceOrdersPage() {
                     value={form.data_fim_previsto}
                     onChange={(e) => setForm({ ...form, data_fim_previsto: e.target.value })}
                     aria-label="Data de fim previsto"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -606,7 +606,7 @@ export default function ServiceOrdersPage() {
                   onChange={(e) => setForm({ ...form, responsabilidades: e.target.value })}
                   aria-label="Responsabilidades da ordem de serviço"
                   rows={2}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                 />
               </div>
               <div>
@@ -621,7 +621,7 @@ export default function ServiceOrdersPage() {
                   value={form.riscos_json}
                   onChange={(e) => setForm({ ...form, riscos_json: e.target.value })}
                   rows={3}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-xs focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-xs focus:border-amber-500 focus:outline-none"
                 />
               </div>
               <div>
@@ -636,7 +636,7 @@ export default function ServiceOrdersPage() {
                   value={form.epis_json}
                   onChange={(e) => setForm({ ...form, epis_json: e.target.value })}
                   rows={3}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-xs focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-xs focus:border-amber-500 focus:outline-none"
                 />
               </div>
             </div>
@@ -650,7 +650,7 @@ export default function ServiceOrdersPage() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="rounded-lg bg-amber-600 px-6 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
               >
                 {saving ? 'Salvando...' : editId ? 'Salvar' : 'Criar OS'}
               </button>

@@ -153,7 +153,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
   if (fetching) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-amber-700" />
       </div>
     );
   }
@@ -184,7 +184,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
               id="inspection-site-id"
               {...register('site_id')}
               aria-label="Selecionar site da inspeção"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
             >
               <option value="">Selecione o site</option>
               {sites.map((site) => (
@@ -201,7 +201,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
               {...register('setor_area')}
               aria-label="Informar setor ou área da inspeção"
               placeholder="Ex: Almoxarifado, Produção, etc."
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
             />
             {errors.setor_area && <p className="mt-1 text-xs text-red-500">{errors.setor_area.message}</p>}
           </div>
@@ -218,7 +218,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
               id="inspection-tipo"
               {...register('tipo_inspecao')}
               aria-label="Selecionar tipo de inspeção"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
             >
               <option value="Rotina">Rotina</option>
               <option value="Programada">Programada</option>
@@ -234,7 +234,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
               type="date"
               {...register('data_inspecao')}
               aria-label="Selecionar data da inspeção"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
             />
           </div>
 
@@ -245,7 +245,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
               type="time"
               {...register('horario')}
               aria-label="Selecionar horário da inspeção"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
             />
           </div>
 
@@ -255,7 +255,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
               id="inspection-responsavel"
               {...register('responsavel_id')}
               aria-label="Selecionar responsável pela inspeção"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
             >
               <option value="">Selecione o responsável</option>
               {users.filter(u => u.role === 'admin' || u.role === 'manager').map((user) => (
@@ -276,7 +276,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
           {...register('objetivo')}
           rows={3}
           aria-label="Objetivo do relatório de inspeção"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
           placeholder="Descreva o objetivo desta inspeção..."
         />
       </div>
@@ -290,7 +290,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
           {...register('descricao_local_atividades')}
           rows={3}
           aria-label="Descrição do local e das atividades"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
           placeholder="Descreva o local e as atividades observadas..."
         />
       </div>
@@ -305,7 +305,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                 type="checkbox"
                 value={option}
                 {...register('metodologia')}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="h-4 w-4 rounded border-gray-300 text-amber-700 focus:ring-amber-500"
               />
               <span className="text-gray-700">{option}</span>
             </label>
@@ -334,7 +334,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
               prazo: '',
               responsavel: '',
             })}
-            className="flex items-center space-x-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+            className="flex items-center space-x-2 text-sm font-medium text-amber-700 hover:text-amber-700"
           >
             <Plus className="h-4 w-4" />
             <span>Adicionar Risco</span>
@@ -360,7 +360,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <select
                     {...register(`perigos_riscos.${index}.grupo_risco` as const)}
                     aria-label={`Grupo de risco ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                   >
                     <option value="">Selecione</option>
                     {gruposRisco.map(g => <option key={g} value={g}>{g}</option>)}
@@ -395,7 +395,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <select
                     {...register(`perigos_riscos.${index}.tipo_exposicao` as const)}
                     aria-label={`Tipo de exposição ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                   >
                     <option value="">Selecione</option>
                     {tiposExposicao.map(t => <option key={t} value={t}>{t}</option>)}
@@ -430,7 +430,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <select
                     {...register(`perigos_riscos.${index}.nivel_risco` as const)}
                     aria-label={`Nível de risco ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                   >
                     <option value="">Selecione</option>
                     {niveisRisco.map(n => <option key={n} value={n}>{n}</option>)}
@@ -441,7 +441,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <select
                     {...register(`perigos_riscos.${index}.classificacao_risco` as const)}
                     aria-label={`Classificação de risco ${index + 1}`}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                   >
                     <option value="">Selecione</option>
                     {classificacoesRisco.map(c => <option key={c} value={c}>{c}</option>)}
@@ -489,7 +489,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
               prazo: '',
               status: 'Pendente',
             })}
-            className="flex items-center space-x-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+            className="flex items-center space-x-2 text-sm font-medium text-amber-700 hover:text-amber-700"
           >
             <Plus className="h-4 w-4" />
             <span>Adicionar Ação</span>
@@ -550,7 +550,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
               descricao: '',
               url: '',
             })}
-            className="flex items-center space-x-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+            className="flex items-center space-x-2 text-sm font-medium text-amber-700 hover:text-amber-700"
           >
             <Camera className="h-4 w-4" />
             <span>Adicionar Evidência</span>
@@ -604,7 +604,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
           {...register('conclusao')}
           rows={4}
           aria-label="Conclusão da inspeção"
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
           placeholder="Apresente as conclusões finais do relatório de inspeção..."
         />
       </div>
@@ -628,7 +628,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
         <button
           type="submit"
           disabled={loading}
-          className="flex items-center space-x-2 rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="flex items-center space-x-2 rounded-lg bg-amber-600 px-6 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />

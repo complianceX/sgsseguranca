@@ -19,8 +19,8 @@ const STORAGE_KEY = 'cx_onboarding_done_v1';
 const STEPS = [
   {
     icon: ShieldCheck,
-    iconColor: 'text-blue-400',
-    iconBg: 'bg-blue-500/15',
+    iconColor: 'text-amber-400',
+    iconBg: 'bg-amber-600/15',
     title: 'Bem-vindo ao COMPLIANCE X',
     description:
       'Sua plataforma completa de gestão de Segurança e Saúde do Trabalho. Gerencie treinamentos, exames, EPIs, laudos e muito mais em um único lugar.',

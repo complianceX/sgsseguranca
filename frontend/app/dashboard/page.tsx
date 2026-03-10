@@ -211,7 +211,7 @@ export default function DashboardPage() {
                 Multiempresa seguro
               </div>
               <div className="ds-topbar-chip">
-                <FileText className="h-4 w-4 text-violet-300" />
+                <FileText className="h-4 w-4 text-orange-300" />
                 Documentos com rastreabilidade
               </div>
             </div>
@@ -341,7 +341,7 @@ export default function DashboardPage() {
         <div className="ds-dashboard-panel p-5 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-bold text-gray-900">Plano de Ação Prioritário</h2>
-            <Link href="/dashboard/inspections" className="text-sm font-semibold text-blue-600 hover:underline">
+            <Link href="/dashboard/inspections" className="text-sm font-semibold text-amber-700 hover:underline">
               Ver ações
             </Link>
           </div>
@@ -353,9 +353,9 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {actionPlanItems.map((item) => (
-                <Link key={item.id} href={item.href} className="flex flex-col rounded-lg border border-gray-100 bg-gray-50 p-2.5 hover:border-blue-200">
+                <Link key={item.id} href={item.href} className="flex flex-col rounded-lg border border-gray-100 bg-gray-50 p-2.5 hover:border-amber-200">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-blue-700">{item.source}</span>
+                    <span className="text-xs font-semibold text-amber-700">{item.source}</span>
                     <span className="text-xs text-gray-400">{item.prazo ? format(new Date(item.prazo), 'dd/MM/yyyy') : 'Sem prazo'}</span>
                   </div>
                   <p className="mt-1 text-sm font-semibold text-gray-800">{item.action}</p>
@@ -375,7 +375,7 @@ export default function DashboardPage() {
         <div className="ds-dashboard-panel p-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-bold text-gray-900">Matriz de Risco</h2>
-            <Link href="/dashboard/risks" className="text-sm font-semibold text-blue-600 hover:underline">
+            <Link href="/dashboard/risks" className="text-sm font-semibold text-amber-700 hover:underline">
               Ver riscos
             </Link>
           </div>
@@ -458,7 +458,7 @@ export default function DashboardPage() {
           
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-7 w-7 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+              <div className="h-7 w-7 animate-spin rounded-full border-4 border-amber-500 border-t-transparent"></div>
             </div>
           ) : expiringEpis.length > 0 ? (
             <div className="space-y-4">
@@ -503,7 +503,7 @@ export default function DashboardPage() {
 
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-7 w-7 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+              <div className="h-7 w-7 animate-spin rounded-full border-4 border-amber-500 border-t-transparent"></div>
             </div>
           ) : expiringTrainings.length > 0 ? (
             <div className="space-y-4">
@@ -540,7 +540,7 @@ export default function DashboardPage() {
         <div className="ds-dashboard-panel p-5">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="flex items-center text-base font-bold text-gray-900">
-              <MapPin className="mr-2 h-5 w-5 text-blue-500" />
+              <MapPin className="mr-2 h-5 w-5 text-amber-600" />
               Benchmark de Conformidade por Obra
             </h2>
             <Link href="/dashboard/checklists" className="ds-section-link">
@@ -550,7 +550,7 @@ export default function DashboardPage() {
 
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-7 w-7 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+              <div className="h-7 w-7 animate-spin rounded-full border-4 border-amber-500 border-t-transparent"></div>
             </div>
           ) : siteCompliance.length > 0 ? (
             <div className="space-y-4">

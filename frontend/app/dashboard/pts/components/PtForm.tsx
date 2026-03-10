@@ -574,7 +574,7 @@ export function PtForm({ id }: PtFormProps) {
       toast.success('COMPLIANCE X analisou os riscos da PT!', {
         description: (
           <div className="mt-2 space-y-2">
-            <p className="font-bold text-blue-700">{result.summary}</p>
+            <p className="font-bold text-amber-700">{result.summary}</p>
             <ul className="list-inside list-disc text-xs">
               {result.suggestions.map((s: string, i: number) => (
                 <li key={i}>{s}</li>
@@ -636,7 +636,7 @@ export function PtForm({ id }: PtFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-20">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-amber-600 border-t-transparent"></div>
       </div>
     );
   }
@@ -875,7 +875,7 @@ export function PtForm({ id }: PtFormProps) {
                   <div className="sst-card p-6 transition-shadow hover:shadow-md">
                     <h2 className="mb-6 text-lg font-bold text-gray-900 flex items-center gap-2">
                       Auditoria do Trabalho
-                      <span className="h-2 w-2 rounded-full bg-violet-600"></span>
+                      <span className="h-2 w-2 rounded-full bg-orange-600"></span>
                     </h2>
                     <AuditSection 
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -923,7 +923,7 @@ export function PtForm({ id }: PtFormProps) {
                   <button
                     type="button"
                     onClick={nextStep}
-                    className="flex items-center justify-center space-x-2 rounded-lg bg-[#2563EB] px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-[#1E40AF]"
+                    className="flex items-center justify-center space-x-2 rounded-lg bg-amber-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-[#1E40AF]"
                   >
                     <span>Próximo</span>
                     <ArrowRight className="h-4 w-4" />
@@ -932,7 +932,7 @@ export function PtForm({ id }: PtFormProps) {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex items-center justify-center space-x-2 rounded-lg bg-[#2563EB] px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-[#1E40AF] disabled:opacity-50"
+                    className="flex items-center justify-center space-x-2 rounded-lg bg-amber-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-[#1E40AF] disabled:opacity-50"
                   >
                     {loading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

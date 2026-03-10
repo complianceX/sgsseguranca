@@ -637,9 +637,9 @@ export default function RdosPage() {
                       onClick={() => setCurrentStep(idx)}
                       className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors ${
                         idx === currentStep
-                          ? 'bg-[#2563EB] text-white'
+                          ? 'bg-amber-600 text-white'
                           : idx < currentStep
-                          ? 'bg-blue-100 text-blue-700'
+                          ? 'bg-amber-100 text-amber-700'
                           : 'bg-gray-100 text-gray-400'
                       }`}
                       title={step.label}
@@ -648,7 +648,7 @@ export default function RdosPage() {
                     </button>
                     {idx < STEPS.length - 1 && (
                       <div
-                        className={`h-0.5 w-4 ${idx < currentStep ? 'bg-blue-300' : 'bg-gray-200'}`}
+                        className={`h-0.5 w-4 ${idx < currentStep ? 'bg-amber-300' : 'bg-gray-200'}`}
                       />
                     )}
                   </div>
@@ -670,7 +670,7 @@ export default function RdosPage() {
                       value={form.data}
                       onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))}
                       aria-label="Data do RDO"
-                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                     />
                   </div>
                   <div>
@@ -680,7 +680,7 @@ export default function RdosPage() {
                       value={form.site_id}
                       onChange={(e) => setForm((f) => ({ ...f, site_id: e.target.value }))}
                       aria-label="Obra ou setor do RDO"
-                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                     >
                       <option value="">Selecionar obra...</option>
                       {sites.map((s) => (
@@ -695,7 +695,7 @@ export default function RdosPage() {
                       value={form.responsavel_id}
                       onChange={(e) => setForm((f) => ({ ...f, responsavel_id: e.target.value }))}
                       aria-label="Responsável pelo RDO"
-                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                     >
                       <option value="">Selecionar responsável...</option>
                       {users.map((u) => (
@@ -717,7 +717,7 @@ export default function RdosPage() {
                         value={form.clima_manha}
                         onChange={(e) => setForm((f) => ({ ...f, clima_manha: e.target.value }))}
                         aria-label="Clima da manhã"
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                       >
                         <option value="">Selecionar...</option>
                         {CLIMA_OPTIONS.map((o) => (
@@ -732,7 +732,7 @@ export default function RdosPage() {
                         value={form.clima_tarde}
                         onChange={(e) => setForm((f) => ({ ...f, clima_tarde: e.target.value }))}
                         aria-label="Clima da tarde"
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                       >
                         <option value="">Selecionar...</option>
                         {CLIMA_OPTIONS.map((o) => (
@@ -748,7 +748,7 @@ export default function RdosPage() {
                         value={form.temperatura_min}
                         onChange={(e) => setForm((f) => ({ ...f, temperatura_min: e.target.value }))}
                         aria-label="Temperatura mínima"
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                       />
                     </div>
                     <div>
@@ -759,7 +759,7 @@ export default function RdosPage() {
                         value={form.temperatura_max}
                         onChange={(e) => setForm((f) => ({ ...f, temperatura_max: e.target.value }))}
                         aria-label="Temperatura máxima"
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -771,7 +771,7 @@ export default function RdosPage() {
                       value={form.condicao_terreno}
                       onChange={(e) => setForm((f) => ({ ...f, condicao_terreno: e.target.value }))}
                       placeholder="Ex: seco, molhado, enlameado..."
-                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -832,7 +832,7 @@ export default function RdosPage() {
                       </div>
                     </div>
                   ))}
-                  <button onClick={addMaoDeObra} className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+                  <button onClick={addMaoDeObra} className="flex items-center gap-1 text-sm text-amber-700 hover:underline">
                     <Plus className="h-4 w-4" /> Adicionar função
                   </button>
                 </div>
@@ -880,7 +880,7 @@ export default function RdosPage() {
                       </div>
                     </div>
                   ))}
-                  <button onClick={addEquipamento} className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+                  <button onClick={addEquipamento} className="flex items-center gap-1 text-sm text-amber-700 hover:underline">
                     <Plus className="h-4 w-4" /> Adicionar equipamento
                   </button>
                 </div>
@@ -928,7 +928,7 @@ export default function RdosPage() {
                       </div>
                     </div>
                   ))}
-                  <button onClick={addMaterial} className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+                  <button onClick={addMaterial} className="flex items-center gap-1 text-sm text-amber-700 hover:underline">
                     <Plus className="h-4 w-4" /> Adicionar material
                   </button>
                 </div>
@@ -967,7 +967,7 @@ export default function RdosPage() {
                       </div>
                     </div>
                   ))}
-                  <button onClick={addServico} className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+                  <button onClick={addServico} className="flex items-center gap-1 text-sm text-amber-700 hover:underline">
                     <Plus className="h-4 w-4" /> Adicionar serviço
                   </button>
                 </div>
@@ -1004,7 +1004,7 @@ export default function RdosPage() {
                         type="text"
                         value={form.motivo_paralisacao}
                         onChange={(e) => setForm((f) => ({ ...f, motivo_paralisacao: e.target.value }))}
-                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                       />
                     </div>
                   )}
@@ -1049,7 +1049,7 @@ export default function RdosPage() {
                         </div>
                       </div>
                     ))}
-                    <button onClick={addOcorrencia} className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+                    <button onClick={addOcorrencia} className="flex items-center gap-1 text-sm text-amber-700 hover:underline">
                       <Plus className="h-4 w-4" /> Adicionar ocorrência
                     </button>
                   </div>
@@ -1061,7 +1061,7 @@ export default function RdosPage() {
                       onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))}
                       aria-label="Observações gerais do RDO"
                       rows={3}
-                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                       placeholder="Observações relevantes do dia..."
                     />
                   </div>
@@ -1073,7 +1073,7 @@ export default function RdosPage() {
                       onChange={(e) => setForm((f) => ({ ...f, programa_servicos_amanha: e.target.value }))}
                       aria-label="Programa de serviços para amanhã"
                       rows={2}
-                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
                       placeholder="Serviços planejados para o próximo dia..."
                     />
                   </div>
@@ -1101,7 +1101,7 @@ export default function RdosPage() {
                 {currentStep < STEPS.length - 1 ? (
                   <button
                     onClick={() => setCurrentStep((s) => s + 1)}
-                    className="flex items-center gap-1 rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    className="flex items-center gap-1 rounded-xl bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
                   >
                     Próximo <ChevronRight className="h-4 w-4" />
                   </button>
@@ -1109,7 +1109,7 @@ export default function RdosPage() {
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    className="rounded-xl bg-amber-600 px-5 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
                   >
                     {saving ? 'Salvando...' : 'Criar RDO'}
                   </button>

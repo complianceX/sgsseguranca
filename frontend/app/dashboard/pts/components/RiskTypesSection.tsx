@@ -25,17 +25,17 @@ export const RiskTypesSection = () => {
             key={item.id}
             className={cn(
               "flex cursor-pointer select-none items-center space-x-3 rounded-xl border p-4 transition-all hover:bg-gray-50",
-              watch(item.id) ? "border-blue-200 bg-blue-50/50 ring-2 ring-blue-500/10 shadow-[var(--ds-shadow-sm)]" : "border-gray-200"
+              watch(item.id) ? "border-amber-200 bg-amber-50/50 ring-2 ring-amber-500/10 shadow-[var(--ds-shadow-sm)]" : "border-gray-200"
             )}
           >
             <input
               type="checkbox"
               {...register(item.id)}
-              className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 transition-all"
+              className="h-5 w-5 rounded border-gray-300 text-amber-700 focus:ring-amber-500 transition-all"
             />
             <span className={cn(
               "text-sm font-medium transition-colors",
-              watch(item.id) ? "text-blue-700" : "text-gray-700"
+              watch(item.id) ? "text-amber-700" : "text-gray-700"
             )}>{item.label}</span>
           </label>
         ))}

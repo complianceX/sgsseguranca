@@ -217,7 +217,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Carregando template...</p>
         </div>
       </div>
@@ -259,7 +259,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
               aria-label="Título do checklist"
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
               required
             />
           </div>
@@ -274,7 +274,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
               value={data}
               onChange={(e) => setData(e.target.value)}
               aria-label="Data do checklist"
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
               required
             />
           </div>
@@ -288,7 +288,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
               value={siteId}
               onChange={(e) => setSiteId(e.target.value)}
               aria-label="Obra ou setor do checklist"
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
               required
             >
               <option value="">Selecione...</option>
@@ -309,7 +309,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
               value={inspetorId}
               onChange={(e) => setInspetorId(e.target.value)}
               aria-label="Inspetor responsável"
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
               required
             >
               <option value="">Selecione...</option>
@@ -332,7 +332,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
                 value={equipamento}
                 onChange={(e) => setEquipamento(e.target.value)}
                 aria-label="Equipamento do checklist"
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>
           )}
@@ -348,7 +348,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
                 value={maquina}
                 onChange={(e) => setMaquina(e.target.value)}
                 aria-label="Máquina do checklist"
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>
           )}
@@ -364,7 +364,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
             onChange={(e) => setDescricao(e.target.value)}
             aria-label="Descrição do checklist"
             rows={3}
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
         </div>
 
@@ -379,7 +379,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
             accept="image/*"
             onChange={handlePhotoChange}
             aria-label="Foto do equipamento"
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
           {fotoEquipamento && (
             <img
@@ -408,7 +408,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
                       value={String(item.status)}
                       onChange={(e) => handleItemChange(index, 'status', e.target.value)}
                       aria-label={`Status do item ${item.item}`}
-                      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                     >
                       {item.tipo_resposta === 'sim_nao_na' ? (
                         <>
@@ -436,7 +436,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
                       value={item.observacao || ''}
                       onChange={(e) => handleItemChange(index, 'observacao', e.target.value)}
                       aria-label={`Observação do item ${item.item}`}
-                      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                       placeholder="Observações adicionais..."
                     />
                   </div>
@@ -451,7 +451,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="h-5 w-5" />
             {saving ? 'Salvando...' : 'Salvar e Assinar'}
@@ -507,7 +507,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
                     handleSign(signatureData);
                   }
                 }}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
               >
                 Confirmar
               </button>
