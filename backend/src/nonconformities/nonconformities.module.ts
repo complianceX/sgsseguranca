@@ -7,10 +7,11 @@ import { CommonModule } from '../common/common.module';
 import { Company } from '../companies/entities/company.entity';
 import { AuditModule } from '../audit/audit.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
+import { Site } from '../sites/entities/site.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NonConformity, Company]),
+    TypeOrmModule.forFeature([NonConformity, Company, Site]),
     CommonModule,
     AuditModule,
     DocumentRegistryModule,

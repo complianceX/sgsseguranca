@@ -6,6 +6,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateNonConformityDto {
   @IsString()
@@ -197,4 +198,6 @@ export class CreateNonConformityDto {
   site_id?: string;
 }
 
-export class UpdateNonConformityDto extends CreateNonConformityDto {}
+export class UpdateNonConformityDto extends PartialType(
+  CreateNonConformityDto,
+) {}

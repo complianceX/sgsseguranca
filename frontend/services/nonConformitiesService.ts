@@ -1,9 +1,13 @@
-import api from '@/lib/api';
-import { AxiosError } from 'axios';
-import { Site } from './sitesService';
-import { enqueueOfflineMutation } from '@/lib/offline-sync';
-import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
-import { fetchAllPages, PaginatedResponse } from './pagination';
+import api from "@/lib/api";
+import { AxiosError } from "axios";
+import { Site } from "./sitesService";
+import { enqueueOfflineMutation } from "@/lib/offline-sync";
+import {
+  getOfflineCache,
+  isOfflineRequestError,
+  setOfflineCache,
+} from "@/lib/offline-cache";
+import { fetchAllPages, PaginatedResponse } from "./pagination";
 
 export interface NonConformity {
   id: string;
@@ -64,24 +68,24 @@ export interface NonConformity {
 }
 
 export enum NcStatus {
-  ABERTA = 'ABERTA',
-  EM_ANDAMENTO = 'EM_ANDAMENTO',
-  AGUARDANDO_VALIDACAO = 'AGUARDANDO_VALIDACAO',
-  ENCERRADA = 'ENCERRADA',
+  ABERTA = "ABERTA",
+  EM_ANDAMENTO = "EM_ANDAMENTO",
+  AGUARDANDO_VALIDACAO = "AGUARDANDO_VALIDACAO",
+  ENCERRADA = "ENCERRADA",
 }
 
 export const NC_STATUS_LABEL: Record<NcStatus, string> = {
-  [NcStatus.ABERTA]: 'Aberta',
-  [NcStatus.EM_ANDAMENTO]: 'Em Andamento',
-  [NcStatus.AGUARDANDO_VALIDACAO]: 'Aguard. Validação',
-  [NcStatus.ENCERRADA]: 'Encerrada',
+  [NcStatus.ABERTA]: "Aberta",
+  [NcStatus.EM_ANDAMENTO]: "Em Andamento",
+  [NcStatus.AGUARDANDO_VALIDACAO]: "Aguard. Validação",
+  [NcStatus.ENCERRADA]: "Encerrada",
 };
 
 export const NC_STATUS_COLORS: Record<NcStatus, string> = {
-  [NcStatus.ABERTA]: 'bg-red-100 text-red-700 border-red-200',
-  [NcStatus.EM_ANDAMENTO]: 'bg-amber-100 text-amber-700 border-amber-200',
-  [NcStatus.AGUARDANDO_VALIDACAO]: 'bg-blue-100 text-blue-700 border-blue-200',
-  [NcStatus.ENCERRADA]: 'bg-green-100 text-green-700 border-green-200',
+  [NcStatus.ABERTA]: "bg-red-100 text-red-700 border-red-200",
+  [NcStatus.EM_ANDAMENTO]: "bg-amber-100 text-amber-700 border-amber-200",
+  [NcStatus.AGUARDANDO_VALIDACAO]: "bg-blue-100 text-blue-700 border-blue-200",
+  [NcStatus.ENCERRADA]: "bg-green-100 text-green-700 border-green-200",
 };
 
 export const NC_ALLOWED_TRANSITIONS: Record<NcStatus, NcStatus[]> = {
@@ -91,6 +95,41 @@ export const NC_ALLOWED_TRANSITIONS: Record<NcStatus, NcStatus[]> = {
   [NcStatus.ENCERRADA]: [NcStatus.ABERTA],
 };
 
+export function normalizeNcStatus(value?: string | null): NcStatus {
+  const normalized =
+    value
+      ?.trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Za-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .toUpperCase() || "";
+
+  switch (normalized) {
+    case NcStatus.ABERTA:
+    case "ABERTA":
+      return NcStatus.ABERTA;
+    case NcStatus.EM_ANDAMENTO:
+    case "EM_TRATAMENTO":
+      return NcStatus.EM_ANDAMENTO;
+    case NcStatus.AGUARDANDO_VALIDACAO:
+      return NcStatus.AGUARDANDO_VALIDACAO;
+    case NcStatus.ENCERRADA:
+    case "FINALIZADA":
+    case "CONCLUIDA":
+      return NcStatus.ENCERRADA;
+    default:
+      return NcStatus.ABERTA;
+  }
+}
+
+function normalizeNonConformity(item: NonConformity): NonConformity {
+  return {
+    ...item,
+    status: normalizeNcStatus(item.status),
+  };
+}
+
 export const nonConformitiesService = {
   findPaginated: async (opts?: {
     page?: number;
@@ -98,7 +137,7 @@ export const nonConformitiesService = {
     search?: string;
   }): Promise<PaginatedResponse<NonConformity>> => {
     const response = await api.get<PaginatedResponse<NonConformity>>(
-      '/nonconformities',
+      "/nonconformities",
       {
         params: {
           page: opts?.page ?? 1,
@@ -107,11 +146,14 @@ export const nonConformitiesService = {
         },
       },
     );
-    return response.data;
+    return {
+      ...response.data,
+      data: response.data.data.map(normalizeNonConformity),
+    };
   },
 
   findAll: async () => {
-    const cacheKey = 'nonconformities.all';
+    const cacheKey = "nonconformities.all";
     try {
       const all = await fetchAllPages({
         fetchPage: (page, limit) =>
@@ -138,8 +180,9 @@ export const nonConformitiesService = {
     const cacheKey = `nonconformities.one.${id}`;
     try {
       const response = await api.get<NonConformity>(`/nonconformities/${id}`);
-      setOfflineCache(cacheKey, response.data);
-      return response.data;
+      const normalized = normalizeNonConformity(response.data);
+      setOfflineCache(cacheKey, normalized);
+      return normalized;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
@@ -152,19 +195,19 @@ export const nonConformitiesService = {
 
   create: async (data: Partial<NonConformity>) => {
     try {
-      const response = await api.post<NonConformity>('/nonconformities', data);
-      return response.data;
+      const response = await api.post<NonConformity>("/nonconformities", data);
+      return normalizeNonConformity(response.data);
     } catch (error) {
       const axiosError = error as AxiosError;
-      if (axiosError.code !== 'ERR_NETWORK') {
+      if (axiosError.code !== "ERR_NETWORK") {
         throw error;
       }
 
       const queued = enqueueOfflineMutation({
-        url: '/nonconformities',
-        method: 'post',
+        url: "/nonconformities",
+        method: "post",
         data,
-        label: 'NC',
+        label: "NC",
       });
 
       return {
@@ -179,19 +222,22 @@ export const nonConformitiesService = {
 
   update: async (id: string, data: Partial<NonConformity>) => {
     try {
-      const response = await api.patch<NonConformity>(`/nonconformities/${id}`, data);
-      return response.data;
+      const response = await api.patch<NonConformity>(
+        `/nonconformities/${id}`,
+        data,
+      );
+      return normalizeNonConformity(response.data);
     } catch (error) {
       const axiosError = error as AxiosError;
-      if (axiosError.code !== 'ERR_NETWORK') {
+      if (axiosError.code !== "ERR_NETWORK") {
         throw error;
       }
 
       const queued = enqueueOfflineMutation({
         url: `/nonconformities/${id}`,
-        method: 'patch',
+        method: "patch",
         data,
-        label: 'NC',
+        label: "NC",
       });
 
       return {
@@ -206,9 +252,9 @@ export const nonConformitiesService = {
 
   attachFile: async (id: string, file: File) => {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
     const response = await api.post(`/nonconformities/${id}/file`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data;
   },
@@ -229,7 +275,9 @@ export const nonConformitiesService = {
     year?: number;
     week?: number;
   }) => {
-    const response = await api.get('/nonconformities/files/list', { params: filters });
+    const response = await api.get("/nonconformities/files/list", {
+      params: filters,
+    });
     return response.data;
   },
 
@@ -238,9 +286,9 @@ export const nonConformitiesService = {
     year: number;
     week: number;
   }) => {
-    const response = await api.get('/nonconformities/files/weekly-bundle', {
+    const response = await api.get("/nonconformities/files/weekly-bundle", {
       params: filters,
-      responseType: 'blob',
+      responseType: "blob",
     });
     return response.data as Blob;
   },
@@ -250,12 +298,12 @@ export const nonConformitiesService = {
       `/nonconformities/${id}/status`,
       { status },
     );
-    return response.data;
+    return normalizeNonConformity(response.data);
   },
 
   getMonthlyAnalytics: async (): Promise<{ mes: string; total: number }[]> => {
     const response = await api.get<{ mes: string; total: number }[]>(
-      '/nonconformities/analytics/monthly',
+      "/nonconformities/analytics/monthly",
     );
     return response.data;
   },

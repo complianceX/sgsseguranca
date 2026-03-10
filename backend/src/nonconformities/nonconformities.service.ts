@@ -4,8 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindManyOptions, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
 import { NonConformity } from './entities/nonconformity.entity';
 import {
   CreateNonConformityDto,
@@ -21,6 +22,7 @@ import { DocumentRegistryService } from '../document-registry/document-registry.
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { RequestContext } from '../common/middleware/request-context.middleware';
+import { Site } from '../sites/entities/site.entity';
 import {
   normalizeOffsetPagination,
   OffsetPage,
@@ -40,13 +42,14 @@ const ALLOWED_TRANSITIONS: Record<NcStatus, NcStatus[]> = {
   [NcStatus.AGUARDANDO_VALIDACAO]: [NcStatus.ENCERRADA, NcStatus.ABERTA],
   [NcStatus.ENCERRADA]: [NcStatus.ABERTA],
 };
-import { format, startOfWeek, endOfWeek } from 'date-fns';
 
 @Injectable()
 export class NonConformitiesService {
   constructor(
     @InjectRepository(NonConformity)
     private nonConformitiesRepository: Repository<NonConformity>,
+    @InjectRepository(Site)
+    private sitesRepository: Repository<Site>,
     private tenantService: TenantService,
     private storageService: StorageService,
     private readonly documentBundleService: DocumentBundleService,
@@ -54,11 +57,384 @@ export class NonConformitiesService {
     private readonly auditService: AuditService,
   ) {}
 
-  async create(createNonConformityDto: CreateNonConformityDto) {
-    const nonConformity = this.nonConformitiesRepository.create({
-      ...createNonConformityDto,
-      company_id: this.tenantService.getTenantId(),
+  private getTenantIdOrThrow(): string {
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      throw new BadRequestException(
+        'Contexto de empresa não identificado para a não conformidade.',
+      );
+    }
+    return tenantId;
+  }
+
+  private normalizeRequiredText(value: string): string {
+    return value.trim();
+  }
+
+  private normalizeOptionalText(value?: string | null): string | undefined {
+    const normalized = value?.trim();
+    return normalized ? normalized : undefined;
+  }
+
+  private normalizeStringArray(values?: string[]): string[] {
+    return Array.from(
+      new Set((values ?? []).map((value) => value.trim()).filter(Boolean)),
+    );
+  }
+
+  private canonicalizeStatus(value?: string | null): string {
+    return (
+      value
+        ?.trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^A-Za-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .toUpperCase() || ''
+    );
+  }
+
+  private normalizeStatus(value?: string | null): NcStatus {
+    const normalized = this.canonicalizeStatus(value);
+    const statusMap: Record<string, NcStatus> = {
+      ABERTA: NcStatus.ABERTA,
+      EM_ANDAMENTO: NcStatus.EM_ANDAMENTO,
+      EM_TRATAMENTO: NcStatus.EM_ANDAMENTO,
+      AGUARDANDO_VALIDACAO: NcStatus.AGUARDANDO_VALIDACAO,
+      AGUARDANDO_VALIDACAO_FINAL: NcStatus.AGUARDANDO_VALIDACAO,
+      ENCERRADA: NcStatus.ENCERRADA,
+      FINALIZADA: NcStatus.ENCERRADA,
+      CONCLUIDA: NcStatus.ENCERRADA,
+    };
+    const mappedStatus = statusMap[normalized];
+
+    if (mappedStatus) {
+      return mappedStatus;
+    }
+
+    throw new BadRequestException('Status de não conformidade inválido.');
+  }
+
+  private buildCreatePayload(
+    dto: CreateNonConformityDto,
+    tenantId: string,
+  ): Partial<NonConformity> {
+    return {
+      company_id: tenantId,
+      codigo_nc: this.normalizeRequiredText(dto.codigo_nc),
+      tipo: this.normalizeRequiredText(dto.tipo),
+      data_identificacao: dto.data_identificacao as unknown as Date,
+      site_id: dto.site_id,
+      local_setor_area: this.normalizeRequiredText(dto.local_setor_area),
+      atividade_envolvida: this.normalizeRequiredText(dto.atividade_envolvida),
+      responsavel_area: this.normalizeRequiredText(dto.responsavel_area),
+      auditor_responsavel: this.normalizeRequiredText(dto.auditor_responsavel),
+      classificacao: this.normalizeStringArray(dto.classificacao),
+      descricao: this.normalizeRequiredText(dto.descricao),
+      evidencia_observada: this.normalizeRequiredText(dto.evidencia_observada),
+      condicao_insegura: this.normalizeRequiredText(dto.condicao_insegura),
+      ato_inseguro: this.normalizeOptionalText(dto.ato_inseguro),
+      requisito_nr: this.normalizeRequiredText(dto.requisito_nr),
+      requisito_item: this.normalizeRequiredText(dto.requisito_item),
+      requisito_procedimento: this.normalizeOptionalText(
+        dto.requisito_procedimento,
+      ),
+      requisito_politica: this.normalizeOptionalText(dto.requisito_politica),
+      risco_perigo: this.normalizeRequiredText(dto.risco_perigo),
+      risco_associado: this.normalizeRequiredText(dto.risco_associado),
+      risco_consequencias: this.normalizeStringArray(dto.risco_consequencias),
+      risco_nivel: this.normalizeRequiredText(dto.risco_nivel),
+      causa: this.normalizeStringArray(dto.causa),
+      causa_outro: this.normalizeOptionalText(dto.causa_outro),
+      acao_imediata_descricao: this.normalizeOptionalText(
+        dto.acao_imediata_descricao,
+      ),
+      acao_imediata_data: dto.acao_imediata_data as unknown as Date,
+      acao_imediata_responsavel: this.normalizeOptionalText(
+        dto.acao_imediata_responsavel,
+      ),
+      acao_imediata_status: this.normalizeOptionalText(
+        dto.acao_imediata_status,
+      ),
+      acao_definitiva_descricao: this.normalizeOptionalText(
+        dto.acao_definitiva_descricao,
+      ),
+      acao_definitiva_prazo: dto.acao_definitiva_prazo as unknown as Date,
+      acao_definitiva_responsavel: this.normalizeOptionalText(
+        dto.acao_definitiva_responsavel,
+      ),
+      acao_definitiva_recursos: this.normalizeOptionalText(
+        dto.acao_definitiva_recursos,
+      ),
+      acao_definitiva_data_prevista:
+        dto.acao_definitiva_data_prevista as unknown as Date,
+      acao_preventiva_medidas: this.normalizeOptionalText(
+        dto.acao_preventiva_medidas,
+      ),
+      acao_preventiva_treinamento: this.normalizeOptionalText(
+        dto.acao_preventiva_treinamento,
+      ),
+      acao_preventiva_revisao_procedimento: this.normalizeOptionalText(
+        dto.acao_preventiva_revisao_procedimento,
+      ),
+      acao_preventiva_melhoria_processo: this.normalizeOptionalText(
+        dto.acao_preventiva_melhoria_processo,
+      ),
+      acao_preventiva_epc_epi: this.normalizeOptionalText(
+        dto.acao_preventiva_epc_epi,
+      ),
+      verificacao_resultado: this.normalizeOptionalText(
+        dto.verificacao_resultado,
+      ),
+      verificacao_evidencias: this.normalizeOptionalText(
+        dto.verificacao_evidencias,
+      ),
+      verificacao_data: dto.verificacao_data as unknown as Date,
+      verificacao_responsavel: this.normalizeOptionalText(
+        dto.verificacao_responsavel,
+      ),
+      status: this.normalizeStatus(dto.status),
+      observacoes_gerais: this.normalizeOptionalText(dto.observacoes_gerais),
+      anexos: this.normalizeStringArray(dto.anexos),
+      assinatura_responsavel_area: this.normalizeOptionalText(
+        dto.assinatura_responsavel_area,
+      ),
+      assinatura_tecnico_auditor: this.normalizeOptionalText(
+        dto.assinatura_tecnico_auditor,
+      ),
+      assinatura_gestao: this.normalizeOptionalText(dto.assinatura_gestao),
+    };
+  }
+
+  private buildUpdatePayload(
+    dto: UpdateNonConformityDto,
+  ): Partial<NonConformity> {
+    const payload: Partial<NonConformity> = {};
+
+    if (dto.codigo_nc !== undefined)
+      payload.codigo_nc = this.normalizeRequiredText(dto.codigo_nc);
+    if (dto.tipo !== undefined)
+      payload.tipo = this.normalizeRequiredText(dto.tipo);
+    if (dto.data_identificacao !== undefined) {
+      payload.data_identificacao = dto.data_identificacao as unknown as Date;
+    }
+    if (dto.site_id !== undefined) payload.site_id = dto.site_id;
+    if (dto.local_setor_area !== undefined) {
+      payload.local_setor_area = this.normalizeRequiredText(
+        dto.local_setor_area,
+      );
+    }
+    if (dto.atividade_envolvida !== undefined) {
+      payload.atividade_envolvida = this.normalizeRequiredText(
+        dto.atividade_envolvida,
+      );
+    }
+    if (dto.responsavel_area !== undefined) {
+      payload.responsavel_area = this.normalizeRequiredText(
+        dto.responsavel_area,
+      );
+    }
+    if (dto.auditor_responsavel !== undefined) {
+      payload.auditor_responsavel = this.normalizeRequiredText(
+        dto.auditor_responsavel,
+      );
+    }
+    if (dto.classificacao !== undefined) {
+      payload.classificacao = this.normalizeStringArray(dto.classificacao);
+    }
+    if (dto.descricao !== undefined)
+      payload.descricao = this.normalizeRequiredText(dto.descricao);
+    if (dto.evidencia_observada !== undefined) {
+      payload.evidencia_observada = this.normalizeRequiredText(
+        dto.evidencia_observada,
+      );
+    }
+    if (dto.condicao_insegura !== undefined) {
+      payload.condicao_insegura = this.normalizeRequiredText(
+        dto.condicao_insegura,
+      );
+    }
+    if (dto.ato_inseguro !== undefined) {
+      payload.ato_inseguro = this.normalizeOptionalText(dto.ato_inseguro);
+    }
+    if (dto.requisito_nr !== undefined) {
+      payload.requisito_nr = this.normalizeRequiredText(dto.requisito_nr);
+    }
+    if (dto.requisito_item !== undefined) {
+      payload.requisito_item = this.normalizeRequiredText(dto.requisito_item);
+    }
+    if (dto.requisito_procedimento !== undefined) {
+      payload.requisito_procedimento = this.normalizeOptionalText(
+        dto.requisito_procedimento,
+      );
+    }
+    if (dto.requisito_politica !== undefined) {
+      payload.requisito_politica = this.normalizeOptionalText(
+        dto.requisito_politica,
+      );
+    }
+    if (dto.risco_perigo !== undefined) {
+      payload.risco_perigo = this.normalizeRequiredText(dto.risco_perigo);
+    }
+    if (dto.risco_associado !== undefined) {
+      payload.risco_associado = this.normalizeRequiredText(dto.risco_associado);
+    }
+    if (dto.risco_consequencias !== undefined) {
+      payload.risco_consequencias = this.normalizeStringArray(
+        dto.risco_consequencias,
+      );
+    }
+    if (dto.risco_nivel !== undefined) {
+      payload.risco_nivel = this.normalizeRequiredText(dto.risco_nivel);
+    }
+    if (dto.causa !== undefined) {
+      payload.causa = this.normalizeStringArray(dto.causa);
+    }
+    if (dto.causa_outro !== undefined) {
+      payload.causa_outro = this.normalizeOptionalText(dto.causa_outro);
+    }
+    if (dto.acao_imediata_descricao !== undefined) {
+      payload.acao_imediata_descricao = this.normalizeOptionalText(
+        dto.acao_imediata_descricao,
+      );
+    }
+    if (dto.acao_imediata_data !== undefined) {
+      payload.acao_imediata_data = dto.acao_imediata_data as unknown as Date;
+    }
+    if (dto.acao_imediata_responsavel !== undefined) {
+      payload.acao_imediata_responsavel = this.normalizeOptionalText(
+        dto.acao_imediata_responsavel,
+      );
+    }
+    if (dto.acao_imediata_status !== undefined) {
+      payload.acao_imediata_status = this.normalizeOptionalText(
+        dto.acao_imediata_status,
+      );
+    }
+    if (dto.acao_definitiva_descricao !== undefined) {
+      payload.acao_definitiva_descricao = this.normalizeOptionalText(
+        dto.acao_definitiva_descricao,
+      );
+    }
+    if (dto.acao_definitiva_prazo !== undefined) {
+      payload.acao_definitiva_prazo =
+        dto.acao_definitiva_prazo as unknown as Date;
+    }
+    if (dto.acao_definitiva_responsavel !== undefined) {
+      payload.acao_definitiva_responsavel = this.normalizeOptionalText(
+        dto.acao_definitiva_responsavel,
+      );
+    }
+    if (dto.acao_definitiva_recursos !== undefined) {
+      payload.acao_definitiva_recursos = this.normalizeOptionalText(
+        dto.acao_definitiva_recursos,
+      );
+    }
+    if (dto.acao_definitiva_data_prevista !== undefined) {
+      payload.acao_definitiva_data_prevista =
+        dto.acao_definitiva_data_prevista as unknown as Date;
+    }
+    if (dto.acao_preventiva_medidas !== undefined) {
+      payload.acao_preventiva_medidas = this.normalizeOptionalText(
+        dto.acao_preventiva_medidas,
+      );
+    }
+    if (dto.acao_preventiva_treinamento !== undefined) {
+      payload.acao_preventiva_treinamento = this.normalizeOptionalText(
+        dto.acao_preventiva_treinamento,
+      );
+    }
+    if (dto.acao_preventiva_revisao_procedimento !== undefined) {
+      payload.acao_preventiva_revisao_procedimento = this.normalizeOptionalText(
+        dto.acao_preventiva_revisao_procedimento,
+      );
+    }
+    if (dto.acao_preventiva_melhoria_processo !== undefined) {
+      payload.acao_preventiva_melhoria_processo = this.normalizeOptionalText(
+        dto.acao_preventiva_melhoria_processo,
+      );
+    }
+    if (dto.acao_preventiva_epc_epi !== undefined) {
+      payload.acao_preventiva_epc_epi = this.normalizeOptionalText(
+        dto.acao_preventiva_epc_epi,
+      );
+    }
+    if (dto.verificacao_resultado !== undefined) {
+      payload.verificacao_resultado = this.normalizeOptionalText(
+        dto.verificacao_resultado,
+      );
+    }
+    if (dto.verificacao_evidencias !== undefined) {
+      payload.verificacao_evidencias = this.normalizeOptionalText(
+        dto.verificacao_evidencias,
+      );
+    }
+    if (dto.verificacao_data !== undefined) {
+      payload.verificacao_data = dto.verificacao_data as unknown as Date;
+    }
+    if (dto.verificacao_responsavel !== undefined) {
+      payload.verificacao_responsavel = this.normalizeOptionalText(
+        dto.verificacao_responsavel,
+      );
+    }
+    if (dto.status !== undefined)
+      payload.status = this.normalizeStatus(dto.status);
+    if (dto.observacoes_gerais !== undefined) {
+      payload.observacoes_gerais = this.normalizeOptionalText(
+        dto.observacoes_gerais,
+      );
+    }
+    if (dto.anexos !== undefined) {
+      payload.anexos = this.normalizeStringArray(dto.anexos);
+    }
+    if (dto.assinatura_responsavel_area !== undefined) {
+      payload.assinatura_responsavel_area = this.normalizeOptionalText(
+        dto.assinatura_responsavel_area,
+      );
+    }
+    if (dto.assinatura_tecnico_auditor !== undefined) {
+      payload.assinatura_tecnico_auditor = this.normalizeOptionalText(
+        dto.assinatura_tecnico_auditor,
+      );
+    }
+    if (dto.assinatura_gestao !== undefined) {
+      payload.assinatura_gestao = this.normalizeOptionalText(
+        dto.assinatura_gestao,
+      );
+    }
+
+    return payload;
+  }
+
+  private async validateLinkedRecords(
+    payload: Partial<NonConformity>,
+    tenantId: string,
+  ): Promise<void> {
+    if (!payload.site_id) {
+      return;
+    }
+
+    const site = await this.sitesRepository.findOne({
+      where: {
+        id: payload.site_id,
+        company_id: tenantId,
+        status: true,
+      },
     });
+
+    if (!site) {
+      throw new BadRequestException(
+        'O site informado não está ativo ou não pertence à empresa selecionada.',
+      );
+    }
+  }
+
+  async create(createNonConformityDto: CreateNonConformityDto) {
+    const tenantId = this.getTenantIdOrThrow();
+    const payload = this.buildCreatePayload(createNonConformityDto, tenantId);
+    await this.validateLinkedRecords(payload, tenantId);
+
+    const nonConformity = this.nonConformitiesRepository.create(payload);
     const saved = await this.nonConformitiesRepository.save(nonConformity);
     await this.logAudit(AuditAction.CREATE, saved.id, null, saved);
     return saved;
@@ -171,7 +547,10 @@ export class NonConformitiesService {
       return acc;
     }, {});
 
-    const total = Object.values(byStatus).reduce((sum, value) => sum + value, 0);
+    const total = Object.values(byStatus).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
     const normalizedStatus = status?.trim().toUpperCase();
 
     return {
@@ -201,7 +580,9 @@ export class NonConformitiesService {
   async update(id: string, updateNonConformityDto: UpdateNonConformityDto) {
     const nonConformity = await this.findOne(id);
     const before = { ...nonConformity };
-    Object.assign(nonConformity, updateNonConformityDto);
+    const payload = this.buildUpdatePayload(updateNonConformityDto);
+    await this.validateLinkedRecords(payload, nonConformity.company_id);
+    Object.assign(nonConformity, payload);
     const saved = await this.nonConformitiesRepository.save(nonConformity);
     await this.logAudit(AuditAction.UPDATE, saved.id, before, saved);
     return saved;
@@ -347,7 +728,7 @@ export class NonConformitiesService {
   async updateStatus(id: string, newStatus: NcStatus): Promise<NonConformity> {
     const nc = await this.findOne(id);
     const before = { ...nc };
-    const current = nc.status as NcStatus;
+    const current = this.normalizeStatus(nc.status);
     const allowed = ALLOWED_TRANSITIONS[current] ?? [];
     if (!allowed.includes(newStatus)) {
       throw new BadRequestException(
@@ -360,7 +741,7 @@ export class NonConformitiesService {
     return saved;
   }
 
-  async count(options?: any): Promise<number> {
+  async count(options?: FindManyOptions<NonConformity>): Promise<number> {
     return this.nonConformitiesRepository.count(options);
   }
 
@@ -369,8 +750,11 @@ export class NonConformitiesService {
     const qb = this.nonConformitiesRepository
       .createQueryBuilder('nc')
       .select([
-        'nc.codigo_nc', 'nc.tipo', 'nc.status',
-        'nc.data_identificacao', 'nc.created_at',
+        'nc.codigo_nc',
+        'nc.tipo',
+        'nc.status',
+        'nc.data_identificacao',
+        'nc.created_at',
       ])
       .orderBy('nc.created_at', 'DESC');
     if (tenantId) qb.where('nc.company_id = :tenantId', { tenantId });
@@ -378,8 +762,8 @@ export class NonConformitiesService {
 
     const rows = ncs.map((n) => ({
       'Código NC': n.codigo_nc,
-      'Tipo': n.tipo ?? '',
-      'Status': n.status,
+      Tipo: n.tipo ?? '',
+      Status: n.status,
       'Data de Identificação': n.data_identificacao
         ? new Date(n.data_identificacao).toLocaleDateString('pt-BR')
         : '',
