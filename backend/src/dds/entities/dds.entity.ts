@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
   ManyToMany,
@@ -12,6 +13,20 @@ import {
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
+
+export enum DdsStatus {
+  RASCUNHO = 'rascunho',
+  PUBLICADO = 'publicado',
+  AUDITADO = 'auditado',
+  ARQUIVADO = 'arquivado',
+}
+
+export const DDS_ALLOWED_TRANSITIONS: Record<DdsStatus, DdsStatus[]> = {
+  [DdsStatus.RASCUNHO]: [DdsStatus.PUBLICADO, DdsStatus.ARQUIVADO],
+  [DdsStatus.PUBLICADO]: [DdsStatus.AUDITADO, DdsStatus.ARQUIVADO],
+  [DdsStatus.AUDITADO]: [DdsStatus.ARQUIVADO],
+  [DdsStatus.ARQUIVADO]: [],
+};
 
 @Entity('dds')
 export class Dds {
@@ -84,9 +99,19 @@ export class Dds {
   @Column({ type: 'text', nullable: true })
   pdf_original_name: string;
 
+  @Column({
+    type: 'varchar',
+    default: DdsStatus.RASCUNHO,
+    enum: DdsStatus,
+  })
+  status: DdsStatus;
+
   @CreateDateColumn()
   created_at: Date;
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @DeleteDateColumn({ nullable: true })
+  deleted_at: Date;
 }

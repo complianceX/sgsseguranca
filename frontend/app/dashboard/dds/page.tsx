@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback, useDeferredValue, useMemo } from 'react';
-import { ddsService, Dds } from '@/services/ddsService';
+import {
+  ddsService,
+  Dds,
+  DdsStatus,
+  DDS_STATUS_LABEL,
+  DDS_STATUS_COLORS,
+  DDS_ALLOWED_TRANSITIONS,
+} from '@/services/ddsService';
 import {
   ChevronLeft,
   ChevronRight,
@@ -215,10 +222,25 @@ export default function DdsPage() {
   const handleDownloadStoredPdf = async (ddsId: string) => {
     try {
       const access = await ddsService.getPdfAccess(ddsId);
+      if (!access.url) {
+        toast.info('PDF armazenado localmente — use o botão Imprimir para gerar.');
+        return;
+      }
       window.open(access.url, '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.error('Erro ao obter link do PDF:', error);
       toast.error('Não foi possível abrir o PDF armazenado.');
+    }
+  };
+
+  const handleStatusChange = async (dds: Dds, newStatus: DdsStatus) => {
+    try {
+      const updated = await ddsService.updateStatus(dds.id, newStatus);
+      setDdsList((prev) => prev.map((d) => (d.id === dds.id ? { ...d, status: updated.status } : d)));
+      toast.success(`DDS movido para "${DDS_STATUS_LABEL[updated.status]}".`);
+    } catch (error) {
+      console.error('Erro ao atualizar status do DDS:', error);
+      toast.error('Não foi possível atualizar o status.');
     }
   };
 
@@ -279,6 +301,10 @@ export default function DdsPage() {
   const handleCopyPdfLink = async (ddsId: string) => {
     try {
       const access = await ddsService.getPdfAccess(ddsId);
+      if (!access.url) {
+        toast.info('PDF sem URL pública — S3 não configurado.');
+        return;
+      }
       await navigator.clipboard.writeText(access.url);
       toast.success('Link do PDF copiado.');
     } catch (error) {
@@ -693,11 +719,15 @@ export default function DdsPage() {
                   <TableHead>Data</TableHead>
                   <TableHead>Tema</TableHead>
                   <TableHead>Participantes</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ddsList.map((dds) => (
+                {ddsList.map((dds) => {
+                  const currentStatus: DdsStatus = dds.status ?? 'rascunho';
+                  const transitions = DDS_ALLOWED_TRANSITIONS[currentStatus];
+                  return (
                   <TableRow key={dds.id}>
                     <TableCell>
                       {format(new Date(dds.data), 'dd/MM/yyyy', { locale: ptBR })}
@@ -716,6 +746,31 @@ export default function DdsPage() {
                       <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
                         <Users className="h-4 w-4" />
                         <span>{dds.participants?.length || 0}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+                          DDS_STATUS_COLORS[currentStatus],
+                        )}>
+                          {DDS_STATUS_LABEL[currentStatus]}
+                        </span>
+                        {transitions.length > 0 && (
+                          <select
+                            aria-label="Mover status"
+                            className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2 py-1 text-xs text-[var(--ds-color-text-muted)] transition-colors hover:border-[var(--ds-color-border-strong)] focus:outline-none"
+                            value=""
+                            onChange={(e) => {
+                              if (e.target.value) handleStatusChange(dds, e.target.value as DdsStatus);
+                            }}
+                          >
+                            <option value="">Mover para...</option>
+                            {transitions.map((s) => (
+                              <option key={s} value={s}>{DDS_STATUS_LABEL[s]}</option>
+                            ))}
+                          </select>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -758,7 +813,8 @@ export default function DdsPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}

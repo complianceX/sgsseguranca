@@ -2,11 +2,35 @@ import api from '@/lib/api';
 import { User } from './usersService';
 import { fetchAllPages, PaginatedResponse } from './pagination';
 
+export type DdsStatus = 'rascunho' | 'publicado' | 'auditado' | 'arquivado';
+
+export const DDS_STATUS_LABEL: Record<DdsStatus, string> = {
+  rascunho: 'Rascunho',
+  publicado: 'Publicado',
+  auditado: 'Auditado',
+  arquivado: 'Arquivado',
+};
+
+export const DDS_STATUS_COLORS: Record<DdsStatus, string> = {
+  rascunho: 'bg-yellow-500/12 text-yellow-300 border-yellow-500/25',
+  publicado: 'bg-blue-500/12 text-blue-300 border-blue-500/25',
+  auditado: 'bg-green-500/12 text-green-300 border-green-500/25',
+  arquivado: 'bg-zinc-500/12 text-zinc-400 border-zinc-500/25',
+};
+
+export const DDS_ALLOWED_TRANSITIONS: Record<DdsStatus, DdsStatus[]> = {
+  rascunho: ['publicado', 'arquivado'],
+  publicado: ['auditado', 'arquivado'],
+  auditado: ['arquivado'],
+  arquivado: [],
+};
+
 export interface Dds {
   id: string;
   tema: string;
   conteudo?: string;
   data: string;
+  status: DdsStatus;
   company_id: string;
   site_id: string;
   facilitador_id: string;
@@ -21,6 +45,7 @@ export interface Dds {
   is_modelo?: boolean;
   created_at: string;
   updated_at: string;
+  deleted_at?: string;
   site?: { nome: string };
   facilitador?: { nome: string };
   auditado_por?: { nome: string };
@@ -108,8 +133,21 @@ export const ddsService = {
       fileKey: string;
       folderPath: string;
       originalName: string;
-      url: string;
+      url: string | null;
     }>(`/dds/${id}/pdf`);
+    return response.data;
+  },
+
+  updateStatus: async (id: string, status: DdsStatus): Promise<Dds> => {
+    const response = await api.patch<Dds>(`/dds/${id}/status`, { status });
+    return response.data;
+  },
+
+  getHistoricalPhotoHashes: async (limit = 100): Promise<{ ddsId: string; hashes: string[] }[]> => {
+    const response = await api.get<{ ddsId: string; hashes: string[] }[]>(
+      '/dds/historical-photo-hashes',
+      { params: { limit } },
+    );
     return response.data;
   },
 

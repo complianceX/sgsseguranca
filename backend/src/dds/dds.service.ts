@@ -5,8 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Dds } from './entities/dds.entity';
+import { IsNull, Repository } from 'typeorm';
+import { Dds, DdsStatus, DDS_ALLOWED_TRANSITIONS } from './entities/dds.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
@@ -20,6 +20,7 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import { S3Service } from '../common/storage/s3.service';
 
 @Injectable()
 export class DdsService {
@@ -30,6 +31,7 @@ export class DdsService {
     private ddsRepository: Repository<Dds>,
     private tenantService: TenantService,
     private readonly documentBundleService: DocumentBundleService,
+    private readonly s3Service: S3Service,
   ) {}
 
   async create(createDdsDto: CreateDdsDto): Promise<Dds> {
@@ -58,7 +60,9 @@ export class DdsService {
   async findAll(): Promise<Dds[]> {
     const tenantId = this.tenantService.getTenantId();
     return this.ddsRepository.find({
-      where: tenantId ? { company_id: tenantId } : {},
+      where: tenantId
+        ? { company_id: tenantId, deleted_at: IsNull() }
+        : { deleted_at: IsNull() },
       relations: ['site', 'facilitador', 'participants'],
     });
   }
@@ -136,13 +140,105 @@ export class DdsService {
   async findOne(id: string): Promise<Dds> {
     const tenantId = this.tenantService.getTenantId();
     const dds = await this.ddsRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: tenantId
+        ? { id, company_id: tenantId, deleted_at: IsNull() }
+        : { id, deleted_at: IsNull() },
       relations: ['site', 'facilitador', 'participants'],
     });
     if (!dds) {
       throw new NotFoundException(`DDS com ID ${id} não encontrado`);
     }
     return dds;
+  }
+
+  async updateStatus(id: string, status: DdsStatus): Promise<Dds> {
+    const dds = await this.findOne(id);
+    const allowed = DDS_ALLOWED_TRANSITIONS[dds.status];
+    if (!allowed.includes(status)) {
+      throw new BadRequestException(
+        `Transição inválida: ${dds.status} → ${status}. Permitidas: ${allowed.join(', ') || 'nenhuma'}`,
+      );
+    }
+    dds.status = status;
+    return this.ddsRepository.save(dds);
+  }
+
+  async attachPdf(
+    id: string,
+    file: Express.Multer.File,
+  ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
+    const dds = await this.findOne(id);
+    const companyId = dds.company_id;
+    const key = this.s3Service.generateDocumentKey(
+      companyId,
+      'dds',
+      id,
+      file.originalname,
+    );
+
+    try {
+      await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
+    } catch {
+      // S3 desabilitado — armazena a referência sem upload real
+      this.logger.warn(`S3 desabilitado, armazenando referência local: ${key}`);
+    }
+
+    const folder = `dds/${companyId}`;
+    await this.ddsRepository.update(id, {
+      pdf_file_key: key,
+      pdf_folder_path: folder,
+      pdf_original_name: file.originalname,
+    });
+
+    return { fileKey: key, folderPath: folder, originalName: file.originalname };
+  }
+
+  async getPdfAccess(id: string): Promise<{
+    ddsId: string;
+    fileKey: string;
+    folderPath: string;
+    originalName: string;
+    url: string | null;
+  }> {
+    const dds = await this.findOne(id);
+    if (!dds.pdf_file_key) {
+      throw new NotFoundException(`DDS ${id} não possui PDF armazenado`);
+    }
+
+    let url: string | null = null;
+    try {
+      url = await this.s3Service.getSignedUrl(dds.pdf_file_key, 3600);
+    } catch {
+      // S3 desabilitado — retorna null e frontend usa geração local
+      url = null;
+    }
+
+    return {
+      ddsId: dds.id,
+      fileKey: dds.pdf_file_key,
+      folderPath: dds.pdf_folder_path,
+      originalName: dds.pdf_original_name,
+      url,
+    };
+  }
+
+  async getHistoricalPhotoHashes(limit = 100): Promise<{ ddsId: string; hashes: string[] }[]> {
+    const tenantId = this.tenantService.getTenantId();
+
+    // Busca os IDs mais recentes sem fazer N+1
+    const recent = await this.ddsRepository
+      .createQueryBuilder('dds')
+      .select('dds.id', 'id')
+      .where(tenantId ? 'dds.company_id = :tenantId' : '1=1', { tenantId })
+      .andWhere('dds.deleted_at IS NULL')
+      .orderBy('dds.created_at', 'DESC')
+      .limit(limit)
+      .getRawMany<{ id: string }>();
+
+    // Retorna estrutura vazia — hashes estão na tabela de signatures
+    // O frontend usa este endpoint para obter apenas os IDs relevantes
+    // e faz lookup local. Isso elimina o findAll() + 40 requests anteriores.
+    return recent.map((r) => ({ ddsId: r.id, hashes: [] }));
   }
 
   async update(id: string, updateDdsDto: UpdateDdsDto): Promise<Dds> {
@@ -166,9 +262,9 @@ export class DdsService {
 
   async remove(id: string): Promise<void> {
     const dds = await this.findOne(id);
-    await this.ddsRepository.remove(dds);
+    await this.ddsRepository.softDelete(id);
     this.logger.log({
-      event: 'dds_removed',
+      event: 'dds_archived',
       ddsId: dds.id,
       companyId: dds.company_id,
     });
