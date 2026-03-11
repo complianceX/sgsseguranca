@@ -166,11 +166,11 @@
 
 :root[data-theme='light'],
 .theme-light {
-  /* ── Base — slate limpo claro ────────────────────────── */
-  --ds-color-bg-canvas: #f8fafc;
-  --ds-color-bg-subtle: #f1f5f9;
+  /* ── Base — fundo branco ─────────────────────────────── */
+  --ds-color-bg-canvas: #ffffff;
+  --ds-color-bg-subtle: #f8fafc;
   --ds-color-surface-base: #ffffff;
-  --ds-color-surface-elevated: #fafcfe;
+  --ds-color-surface-elevated: #ffffff;
   --ds-color-surface-overlay: #ffffff;
   --ds-color-surface-muted: #f1f5f9;
   --ds-color-surface-muted-hover: #e2e8f0;
@@ -1174,10 +1174,7 @@ html[data-theme='light'] {
 
   :root[data-theme='light'] .ds-shell-backdrop,
   .theme-light .ds-shell-backdrop {
-    background:
-      radial-gradient(circle at top, rgba(29, 78, 216, 0.08), transparent 34%),
-      radial-gradient(circle at right top, rgba(15, 118, 110, 0.10), transparent 28%),
-      linear-gradient(180deg, #f8fafc, #eef4fa 82%, #e9f2fb);
+    background: #ffffff;
   }
 
   .ds-topbar {
