@@ -169,7 +169,7 @@ export function Sidebar({
                 className={cn(
                   'group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[13px] font-medium transition-all duration-[var(--ds-motion-base)]',
                   active
-                    ? 'border-[color:var(--ds-color-action-primary)]/50 bg-[image:var(--ds-gradient-brand)] text-white shadow-[0_6px_18px_rgba(15,23,42,0.30)]'
+                    ? 'border-[color:var(--ds-color-action-primary)]/30 bg-[color:var(--ds-color-primary-subtle)] text-[color:var(--ds-color-action-primary)] shadow-[0_2px_8px_rgba(30,58,92,0.12)]'
                     : 'border-transparent text-[var(--ds-color-text-muted)] hover:border-[color:var(--ds-color-border-strong)]/70 hover:bg-[color:var(--ds-color-surface-elevated)]/72 hover:text-[var(--ds-color-text-primary)]'
                 )}
               >
@@ -177,14 +177,14 @@ export function Sidebar({
                   className={cn(
                     'flex h-8 w-8 items-center justify-center rounded-lg border transition-colors duration-[var(--ds-motion-base)]',
                     active
-                    ? 'border-white/20 bg-white/10 text-white'
+                    ? 'border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/10 text-[color:var(--ds-color-action-primary)]'
                       : 'border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/70 text-[var(--ds-color-text-secondary)] group-hover:border-[color:var(--ds-color-border-strong)] group-hover:text-[var(--ds-color-text-primary)]'
                   )}
                 >
                   <Icon className="h-4.5 w-4.5" />
                 </span>
                 <span className="flex-1 truncate">{item.label}</span>
-                {active ? <span className="h-2 w-2 rounded-full bg-white/70 shadow-[0_0_0_5px_rgba(255,255,255,0.14)]" /> : null}
+                {active ? <span className="h-2 w-2 rounded-full bg-[color:var(--ds-color-action-primary)] shadow-[0_0_0_4px_rgba(30,58,92,0.15)]" /> : null}
               </Link>
             );
           })}
