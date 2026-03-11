@@ -45,7 +45,7 @@ export function DocumentEmailModal({
 
   return (
     <div className="ds-modal-overlay z-[100] animate-in fade-in duration-200">
-      <div 
+      <div
         className="ds-modal-shell max-w-md animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
@@ -69,7 +69,7 @@ export function DocumentEmailModal({
             <p className="mb-4 text-sm text-[var(--ds-color-text-secondary)]">
               O documento <span className="font-semibold text-[var(--ds-color-text-primary)]">{documentName}</span> será enviado para o e-mail abaixo como um link seguro.
             </p>
-            
+
             <label htmlFor="email" className="mb-2 block text-sm font-semibold text-[var(--ds-color-text-secondary)]">
               E-mail de Destino
             </label>

@@ -156,9 +156,8 @@ export function ToolForm({ id }: ToolFormProps) {
             <select
               id="company_id"
               {...register('company_id')}
-              className={`w-full rounded-md border bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:bg-white focus:outline-none ${
-                errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-400 focus:border-slate-800'
-              }`}
+              className={`w-full rounded-md border bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:bg-white focus:outline-none ${errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-400 focus:border-slate-800'
+                }`}
               aria-invalid={errors.company_id ? 'true' : undefined}
             >
               <option value="">Selecione uma empresa</option>
@@ -181,9 +180,8 @@ export function ToolForm({ id }: ToolFormProps) {
               id="nome"
               type="text"
               {...register('nome')}
-              className={`w-full rounded-md border bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:bg-white focus:outline-none ${
-                errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-400 focus:border-slate-800'
-              }`}
+              className={`w-full rounded-md border bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:bg-white focus:outline-none ${errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-400 focus:border-slate-800'
+                }`}
               aria-invalid={errors.nome ? 'true' : undefined}
               placeholder="Ex: Furadeira Bosch"
             />

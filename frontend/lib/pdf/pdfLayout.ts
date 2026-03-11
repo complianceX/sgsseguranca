@@ -41,46 +41,46 @@ export const PDF_THEME = {
   contentWidth: 182,
   colors: {
     // Fundo da página — branco puro para melhor legibilidade
-    pageBg:     [255, 255, 255] as Color,
+    pageBg: [255, 255, 255] as Color,
 
     // Header — azul corporativo profundo
-    headerBg:   [10,  22,  40]  as Color,   // #0a1628
-    headerAccent:[15, 30, 58]   as Color,   // faixa interna do header
+    headerBg: [10, 22, 40] as Color,   // #0a1628
+    headerAccent: [15, 30, 58] as Color,   // faixa interna do header
 
     // Identidade SST — azul corporativo como cor primária
-    primary:    [ 30,  58,  92] as Color,   // #1e3a5c  navy
-    primaryDark:[ 22,  45,  72] as Color,   // #162d48  navy-dark
-    primaryBg:  [235, 242, 250] as Color,   // navy-50
+    primary: [30, 58, 92] as Color,   // #1e3a5c  navy
+    primaryDark: [22, 45, 72] as Color,   // #162d48  navy-dark
+    primaryBg: [235, 242, 250] as Color,   // navy-50
 
     // Azul céu operacional — obras, equipamentos
-    accent:     [ 15, 118, 110] as Color,   // #0f766e  teal-700
-    accentBg:   [240, 253, 250] as Color,   // teal-50
+    accent: [15, 118, 110] as Color,   // #0f766e  teal-700
+    accentBg: [240, 253, 250] as Color,   // teal-50
 
     // Verde — saída de emergência, conforme, OK
-    success:    [ 21, 128,  61] as Color,   // #15803d  green-700
-    successBg:  [240, 253, 244] as Color,   // green-50
+    success: [21, 128, 61] as Color,   // #15803d  green-700
+    successBg: [240, 253, 244] as Color,   // green-50
 
     // Vermelho — perigo, interdição, emergência
-    danger:     [185,  28,  28] as Color,   // #b91c1c  red-700
-    dangerBg:   [254, 242, 242] as Color,   // red-50
+    danger: [185, 28, 28] as Color,   // #b91c1c  red-700
+    dangerBg: [254, 242, 242] as Color,   // red-50
 
     // Amarelo — atenção, manutenção
-    warning:    [161, 113,  12] as Color,   // #a1710c  yellow-700
-    warningBg:  [254, 252, 232] as Color,   // yellow-50
+    warning: [161, 113, 12] as Color,   // #a1710c  yellow-700
+    warningBg: [254, 252, 232] as Color,   // yellow-50
 
     // Tipografia
-    text:       [ 15,  23,  42] as Color,   // #0f172a  slate-900 (máxima legibilidade)
-    textSecond: [ 51,  65,  85] as Color,   // #334155  slate-700
-    muted:      [100, 116, 139] as Color,   // #64748b  slate-500
+    text: [15, 23, 42] as Color,   // #0f172a  slate-900 (máxima legibilidade)
+    textSecond: [51, 65, 85] as Color,   // #334155  slate-700
+    muted: [100, 116, 139] as Color,   // #64748b  slate-500
 
     // Superfícies
-    cardBg:     [255, 255, 255] as Color,
-    sectionBg:  [248, 250, 252] as Color,   // slate-50
-    stripeBg:   [241, 245, 249] as Color,   // slate-100
+    cardBg: [255, 255, 255] as Color,
+    sectionBg: [248, 250, 252] as Color,   // slate-50
+    stripeBg: [241, 245, 249] as Color,   // slate-100
 
     // Bordas
-    border:     [203, 213, 225] as Color,   // slate-300
-    borderLight:[226, 232, 240] as Color,   // slate-200
+    border: [203, 213, 225] as Color,   // slate-300
+    borderLight: [226, 232, 240] as Color,   // slate-200
   },
 };
 
@@ -195,11 +195,11 @@ export function drawHeader(doc: PdfDoc, options: HeaderOptions): number {
   doc.text(options.subtitle, textX, 21);
   doc.text(`Data: ${sanitize(options.date)}`, textX, 27);
 
-  // Rodape do header — "<GST> Gestao de Seguranca do Trabalho"
+  // Rodape do header — " GST Gestao de Seguranca do Trabalho"
   doc.setFontSize(7);
   doc.setTextColor(...T.primary);
   doc.setFont('helvetica', 'bold');
-  doc.text('<GST>  ·  GESTAO DE SEGURANCA DO TRABALHO', textX, 33);
+  doc.text(' GST  ·  GESTAO DE SEGURANCA DO TRABALHO', textX, 33);
 
   // Box do código do documento
   const boxW = 52;
@@ -315,8 +315,8 @@ export function drawBadge(
   // Mapeia o tom para as cores SST
   const bgColor: Color =
     tone === 'danger' ? T.danger :
-    tone === 'secondary' ? T.primary :
-    T.accent;
+      tone === 'secondary' ? T.primary :
+        T.accent;
 
   y = ensurePageSpace(doc, y, 14);
 
