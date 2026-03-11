@@ -206,16 +206,16 @@
   ══════════════════════════════════════════════════════ */
 
   /* ── Canvas & Backgrounds ────────────────────────────
-     slate-50 como base: reduz fadiga em uso prolongado
-     vs pure white. Cards brancos criam elevação natural. */
-  --ds-color-bg-canvas: #f5f7fb;          /* background principal                */
-  --ds-color-bg-subtle: #eef2f7;          /* background secundário               */
+     Verde suave corporativo como base para o sistema.
+     Cards brancos mantêm contraste e leitura confortável. */
+  --ds-color-bg-canvas: #e9f7ee;          /* background principal                */
+  --ds-color-bg-subtle: #dff1e6;          /* background secundário               */
   --ds-color-surface-base: #ffffff;       /* cards, modais, inputs               */
   --ds-color-surface-elevated: #ffffff;   /* elevação via shadow, não via cor    */
   --ds-color-surface-overlay: #ffffff;    /* popovers, dropdowns                 */
-  --ds-color-surface-muted: #eef2f7;      /* áreas desabilitadas                 */
-  --ds-color-surface-sunken: #f5f7fb;     /* campos e blocos internos            */
-  --ds-color-surface-muted-hover: #e2e8f0;
+  --ds-color-surface-muted: #e6f4ec;      /* áreas desabilitadas                 */
+  --ds-color-surface-sunken: #f0faf4;     /* campos e blocos internos            */
+  --ds-color-surface-muted-hover: #d4eadf;
 
   /* ── Borders ─────────────────────────────────────────
      3 níveis: divisores sutis → inputs → separadores fortes */
@@ -305,7 +305,7 @@
 
   /* ── Gradiente principal (light) ────────────────────── */
   --ds-gradient-brand: linear-gradient(135deg, #1e40af 0%, #1d4ed8 58%, #1e3a8a 100%);
-  --ds-gradient-surface: linear-gradient(180deg, #ffffff 0%, #f5f7fb 100%);
+  --ds-gradient-surface: linear-gradient(180deg, #ffffff 0%, #e9f7ee 100%);
 
   /* ── KPI Cards — tinted light (substitui gradientes escuros)
      Padrão: fundo suave + ícone colorido + texto escuro.
