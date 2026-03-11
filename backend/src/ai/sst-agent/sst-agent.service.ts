@@ -360,8 +360,19 @@ export class SstAgentService {
       interaction.status = AiInteractionStatus.ERROR;
       interaction.error_message = message;
       interaction.latency_ms = latency;
-      await this.interactionRepo.save(interaction);
-      throw err;
+      try {
+        await this.interactionRepo.save(interaction);
+      } catch (saveErr) {
+        this.logger.warn(
+          `[SstAgent] Falha ao persistir interação com erro (non-fatal): ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`,
+        );
+      }
+
+      return this.toSstChatResponse(
+        this.buildProviderFallbackResponse(question),
+        interaction.id,
+        AiInteractionStatus.ERROR,
+      );
     }
   }
 
@@ -549,8 +560,14 @@ export class SstAgentService {
       interaction.status = AiInteractionStatus.ERROR;
       interaction.error_message = message;
       interaction.latency_ms = Date.now() - startTime;
-      await this.interactionRepo.save(interaction);
-      throw error;
+      try {
+        await this.interactionRepo.save(interaction);
+      } catch (saveErr) {
+        this.logger.warn(
+          `[SstAgent] Falha ao persistir erro da analise de imagem (non-fatal): ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`,
+        );
+      }
+      return this.buildProviderFallbackImageAnalysis();
     }
   }
 
@@ -1219,6 +1236,25 @@ export class SstAgentService {
     };
   }
 
+  private buildProviderFallbackResponse(question: string): SstAgentResponse {
+    const truncatedQuestion =
+      question.length > 120 ? `${question.slice(0, 120)}...` : question;
+
+    return {
+      answer:
+        `Estou com instabilidade momentanea no provedor de IA, mas registrei sua solicitacao: ` +
+        `"${truncatedQuestion}". Tente novamente em instantes.`,
+      confidence: ConfidenceLevel.LOW,
+      needsHumanReview: false,
+      sources: [],
+      suggestedActions: [{ label: 'Ver Dashboard', href: '/dashboard', priority: 'low' }],
+      warnings: [
+        'A SOPHIE entrou em modo degradado porque o provedor de IA nao respondeu corretamente.',
+      ],
+      toolsUsed: [],
+    };
+  }
+
   private buildStubImageAnalysis(): ImageRiskAnalysis {
     return {
       summary: 'Analise de imagem indisponivel no modo stub.',
@@ -1227,6 +1263,20 @@ export class SstAgentService {
       immediateActions: ['Configure um provider de IA para habilitar a analise de imagem.'],
       ppeRecommendations: [],
       notes: 'Configure ANTHROPIC_API_KEY ou GEMINI_API_KEY para usar a analise de fotos.',
+    };
+  }
+
+  private buildProviderFallbackImageAnalysis(): ImageRiskAnalysis {
+    return {
+      summary: 'A SOPHIE nao conseguiu concluir a analise automatica da imagem neste momento.',
+      riskLevel: 'Médio',
+      imminentRisks: [],
+      immediateActions: [
+        'Revisar a imagem manualmente e repetir a analise em instantes.',
+      ],
+      ppeRecommendations: [],
+      notes:
+        'O provedor de IA apresentou instabilidade temporaria. Nenhum risco automatico foi validado.',
     };
   }
 
