@@ -1177,6 +1177,43 @@ html[data-theme='light'] {
     background: #ffffff;
   }
 
+  :root[data-theme='light'] .ds-topbar,
+  .theme-light .ds-topbar {
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    backdrop-filter: none;
+  }
+
+  :root[data-theme='light'] .ds-topbar-search,
+  .theme-light .ds-topbar-search {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    box-shadow: none;
+  }
+
+  :root[data-theme='light'] .ds-topbar-chip,
+  .theme-light .ds-topbar-chip {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #1f2937;
+  }
+
+  :root[data-theme='light'] .ds-topbar-mobile-context,
+  .theme-light .ds-topbar-mobile-context {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+  }
+
+  :root[data-theme='light'] .ds-hero-panel,
+  .theme-light .ds-hero-panel {
+    background: #f1f5f9;
+  }
+
+  :root[data-theme='light'] .ds-hero-panel::after,
+  .theme-light .ds-hero-panel::after {
+    background: none;
+  }
+
   .ds-topbar {
     position: sticky;
     top: 0;
