@@ -1,9 +1,9 @@
 'use client';
 
-import { createElement, useEffect, useState } from 'react';
-import type { CSSProperties } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import Script from 'next/script';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Move, RefreshCw } from 'lucide-react';
 import { aiService } from '@/services/aiService';
 import { Button } from './ui/button';
 
@@ -15,11 +15,90 @@ const elevenLabsAvatarImageUrl =
   process.env.NEXT_PUBLIC_ELEVENLABS_AVATAR_IMAGE_URL?.trim() ||
   '/sophie-avatar.svg';
 
+const POSITION_STORAGE_KEY = 'gst.sophie.widget.position';
+const WIDGET_MARGIN_PX = 12;
+const WIDGET_DRAG_SIZE_PX = 72;
+
 const widgetStyle: CSSProperties = {
   position: 'fixed',
   left: '1rem',
   bottom: '5.75rem',
   zIndex: 55,
+};
+
+type WidgetPosition = {
+  left: number;
+  top: number;
+};
+
+const clampPositionToViewport = (position: WidgetPosition): WidgetPosition => {
+  if (typeof window === 'undefined') {
+    return position;
+  }
+
+  const maxLeft = Math.max(
+    WIDGET_MARGIN_PX,
+    window.innerWidth - WIDGET_DRAG_SIZE_PX - WIDGET_MARGIN_PX,
+  );
+  const maxTop = Math.max(
+    WIDGET_MARGIN_PX,
+    window.innerHeight - WIDGET_DRAG_SIZE_PX - WIDGET_MARGIN_PX,
+  );
+
+  return {
+    left: Math.min(Math.max(position.left, WIDGET_MARGIN_PX), maxLeft),
+    top: Math.min(Math.max(position.top, WIDGET_MARGIN_PX), maxTop),
+  };
+};
+
+const getDefaultWidgetPosition = (): WidgetPosition => {
+  if (typeof window === 'undefined') {
+    return { left: 16, top: 16 };
+  }
+
+  return clampPositionToViewport({
+    left: 16,
+    top: window.innerHeight - 160,
+  });
+};
+
+const readStoredWidgetPosition = (): WidgetPosition | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(POSITION_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<WidgetPosition>;
+    if (
+      typeof parsed?.left !== 'number' ||
+      typeof parsed?.top !== 'number'
+    ) {
+      return null;
+    }
+
+    return clampPositionToViewport({
+      left: parsed.left,
+      top: parsed.top,
+    });
+  } catch {
+    return null;
+  }
+};
+
+const saveWidgetPosition = (position: WidgetPosition) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(
+    POSITION_STORAGE_KEY,
+    JSON.stringify(position),
+  );
 };
 
 export function ElevenLabsWidget() {
@@ -31,6 +110,105 @@ export function ElevenLabsWidget() {
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [widgetPosition, setWidgetPosition] = useState<WidgetPosition | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    origin: WidgetPosition;
+  } | null>(null);
+  const latestPositionRef = useRef<WidgetPosition | null>(null);
+
+  useEffect(() => {
+    const position = readStoredWidgetPosition() || getDefaultWidgetPosition();
+    setWidgetPosition(position);
+    latestPositionRef.current = position;
+  }, []);
+
+  useEffect(() => {
+    if (!widgetPosition || typeof window === 'undefined') {
+      return;
+    }
+
+    const onResize = () => {
+      const next = clampPositionToViewport(widgetPosition);
+      setWidgetPosition(next);
+      latestPositionRef.current = next;
+      saveWidgetPosition(next);
+    };
+
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [widgetPosition]);
+
+  const handleDragStart = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      const current = latestPositionRef.current;
+      if (!current) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.setPointerCapture(event.pointerId);
+
+      dragRef.current = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        origin: current,
+      };
+      setIsDragging(true);
+    },
+    [],
+  );
+
+  const handleDragMove = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) {
+        return;
+      }
+
+      event.preventDefault();
+      const next = clampPositionToViewport({
+        left: dragRef.current.origin.left + (event.clientX - dragRef.current.startX),
+        top: dragRef.current.origin.top + (event.clientY - dragRef.current.startY),
+      });
+
+      latestPositionRef.current = next;
+      setWidgetPosition(next);
+    },
+    [],
+  );
+
+  const handleDragEnd = useCallback(
+    (event: ReactPointerEvent<HTMLButtonElement>) => {
+      if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.releasePointerCapture(event.pointerId);
+      dragRef.current = null;
+      setIsDragging(false);
+
+      const finalPosition = latestPositionRef.current;
+      if (finalPosition) {
+        saveWidgetPosition(finalPosition);
+      }
+    },
+    [],
+  );
+
+  const handleResetPosition = useCallback(() => {
+    const next = getDefaultWidgetPosition();
+    latestPositionRef.current = next;
+    setWidgetPosition(next);
+    saveWidgetPosition(next);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,6 +303,31 @@ export function ElevenLabsWidget() {
     };
   }, [attempt]);
 
+  const widgetWrapperStyle = useMemo<CSSProperties>(() => {
+    if (!widgetPosition) {
+      return widgetStyle;
+    }
+
+    return {
+      position: 'fixed',
+      left: `${widgetPosition.left}px`,
+      top: `${widgetPosition.top}px`,
+      zIndex: 55,
+    };
+  }, [widgetPosition]);
+
+  const embeddedWidgetStyle = useMemo<CSSProperties>(
+    () => ({
+      position: 'relative',
+      left: 0,
+      top: 0,
+      bottom: 'auto',
+      right: 'auto',
+      zIndex: 55,
+    }),
+    [],
+  );
+
   if (mode === 'loading') {
     return (
       <div
@@ -199,22 +402,39 @@ export function ElevenLabsWidget() {
         src="https://unpkg.com/@elevenlabs/convai-widget-embed"
         strategy="afterInteractive"
       />
-      {createElement('elevenlabs-convai', {
-        key: signedUrl || publicAgentId || 'sophie-elevenlabs',
-        ...(mode === 'signed' && signedUrl
-          ? { 'signed-url': signedUrl }
-          : { 'agent-id': publicAgentId }),
-        'action-text': 'Falar com a SOPHIE',
-        'start-call-text': 'Iniciar conversa',
-        'end-call-text': 'Encerrar conversa',
-        'expand-text': 'Abrir assistente de voz',
-        'listening-text': 'Ouvindo...',
-        'speaking-text': 'SOPHIE respondendo',
-        'avatar-image-url': elevenLabsAvatarImageUrl,
-        'avatar-orb-color-1': '#1D4ED8',
-        'avatar-orb-color-2': '#0F766E',
-        style: widgetStyle,
-      })}
+      <div style={widgetWrapperStyle}>
+        <button
+          type="button"
+          aria-label="Mover botão da SOPHIE"
+          title="Arraste para mover a SOPHIE (duplo clique para resetar)"
+          onPointerDown={handleDragStart}
+          onPointerMove={handleDragMove}
+          onPointerUp={handleDragEnd}
+          onPointerCancel={handleDragEnd}
+          onDoubleClick={handleResetPosition}
+          className={`absolute -right-2 -top-2 z-[56] inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-elevated)]/92 text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-sm)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          style={{ touchAction: 'none' }}
+        >
+          <Move className="h-3.5 w-3.5" />
+        </button>
+
+        {createElement('elevenlabs-convai', {
+          key: signedUrl || publicAgentId || 'sophie-elevenlabs',
+          ...(mode === 'signed' && signedUrl
+            ? { 'signed-url': signedUrl }
+            : { 'agent-id': publicAgentId }),
+          'action-text': 'Falar com a SOPHIE',
+          'start-call-text': 'Iniciar conversa',
+          'end-call-text': 'Encerrar conversa',
+          'expand-text': 'Abrir assistente de voz',
+          'listening-text': 'Ouvindo...',
+          'speaking-text': 'SOPHIE respondendo',
+          'avatar-image-url': elevenLabsAvatarImageUrl,
+          'avatar-orb-color-1': '#1D4ED8',
+          'avatar-orb-color-2': '#0F766E',
+          style: embeddedWidgetStyle,
+        })}
+      </div>
     </>
   );
 }
