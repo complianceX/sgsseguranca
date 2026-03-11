@@ -2,9 +2,18 @@
 
 import { useCallback, useState } from 'react';
 
+const RAILWAY_DEFAULT_API_URL =
+  'https://keen-smile-production.up.railway.app';
+
 const getFallbackApiBaseUrl = () => {
   if (typeof window === 'undefined') return 'http://localhost:3011';
   if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (process.env.NEXT_PUBLIC_API_FALLBACK_URL) {
+    return process.env.NEXT_PUBLIC_API_FALLBACK_URL;
+  }
+  if (window.location.hostname.endsWith('.up.railway.app')) {
+    return RAILWAY_DEFAULT_API_URL;
+  }
   return `${window.location.protocol}//${window.location.hostname}:3011`;
 };
 

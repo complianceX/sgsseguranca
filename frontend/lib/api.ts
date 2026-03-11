@@ -4,6 +4,9 @@ import { sessionStore } from './sessionStore';
 import { authRefreshHint } from './authRefreshHint';
 import { selectedTenantStore } from './selectedTenantStore';
 
+const RAILWAY_DEFAULT_API_URL =
+  'https://keen-smile-production.up.railway.app';
+
 const resolveBaseUrl = () => {
   const explicitApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
   const fallbackApiUrl = process.env.NEXT_PUBLIC_API_FALLBACK_URL?.trim();
@@ -20,6 +23,12 @@ const resolveBaseUrl = () => {
     const { protocol, hostname } = window.location;
     const isLocalHost =
       hostname === 'localhost' || hostname === '127.0.0.1';
+    const isRailwayHost = hostname.endsWith('.up.railway.app');
+
+    if (isRailwayHost) {
+      // Fallback legado para deploys Railway sem NEXT_PUBLIC_API_URL configurada.
+      return RAILWAY_DEFAULT_API_URL;
+    }
 
     if (isLocalHost) {
       // Padrão local: backend roda em 3011 (run-local.ps1 / LOCAL_SETUP.md)
