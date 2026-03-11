@@ -51,6 +51,7 @@ export const aiService = {
       '/ai/sst/voice/signed-url',
       {
         params: agentId ? { agentId } : undefined,
+        timeout: 8000,
       },
     );
     return response.data;

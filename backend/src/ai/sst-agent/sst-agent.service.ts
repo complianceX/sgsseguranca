@@ -472,16 +472,38 @@ export class SstAgentService {
       params.set('branch_id', branchId);
     }
 
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?${params.toString()}`,
-      {
-        method: 'GET',
-        headers: {
-          'xi-api-key': apiKey,
-          Accept: 'application/json',
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+
+    let response: Response;
+    try {
+      response = await fetch(
+        `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?${params.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            'xi-api-key': apiKey,
+            Accept: 'application/json',
+          },
+          signal: controller.signal,
         },
-      },
-    );
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Falha de rede ao obter signed_url da ElevenLabs para ${resolvedAgentId}: ${message}. Usando fallback público.`,
+      );
+      clearTimeout(timeout);
+      return {
+        mode: 'public',
+        agentId: resolvedAgentId,
+        signedUrl: null,
+        reason:
+          'Não foi possível validar sessão assinada com a ElevenLabs; usando agent público.',
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const payloadText = await response.text();
     let payload: { signed_url?: string } | null = null;

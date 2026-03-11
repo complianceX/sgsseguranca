@@ -21,7 +21,7 @@ export function ElevenLabsWidget() {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [publicAgentId, setPublicAgentId] = useState<string>(elevenLabsAgentId);
   const [mode, setMode] = useState<'loading' | 'signed' | 'public' | 'unavailable'>(
-    'loading',
+    elevenLabsAgentId ? 'public' : 'loading',
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -54,6 +54,11 @@ export function ElevenLabsWidget() {
       setErrorMessage(null);
       setSignedUrl(null);
       setPublicAgentId(elevenLabsAgentId);
+      if (elevenLabsAgentId) {
+        setMode('public');
+      } else {
+        setMode('loading');
+      }
 
       try {
         const session = await aiService.getElevenLabsSignedUrl(
@@ -111,7 +116,15 @@ export function ElevenLabsWidget() {
   }, [attempt]);
 
   if (mode === 'loading') {
-    return null;
+    return (
+      <div
+        className="fixed bottom-24 left-4 z-[55] w-[min(18rem,calc(100vw-2rem))] rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-elevated)_94%,white_6%),color-mix(in_srgb,var(--ds-color-surface-base)_96%,transparent))] px-4 py-3 text-xs text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-md)] sm:bottom-6 sm:left-6"
+        role="status"
+        aria-live="polite"
+      >
+        Carregando SOPHIE...
+      </div>
+    );
   }
 
   if (mode === 'unavailable') {
