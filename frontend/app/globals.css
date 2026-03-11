@@ -4,12 +4,12 @@
 :root[data-theme='dark'],
 .theme-dark {
   /* ── Base — dark corporativo ─────────────────────────── */
-  --ds-color-bg-canvas: #0b1710;
-  --ds-color-bg-subtle: #10241a;
-  --ds-color-surface-base: #132a1f;
-  --ds-color-surface-elevated: #183224;
-  --ds-color-surface-muted: #1f3f2f;
-  --ds-color-surface-muted-hover: #28523d;
+  --ds-color-bg-canvas: #122318;
+  --ds-color-bg-subtle: #1a3426;
+  --ds-color-surface-base: #1e3d2c;
+  --ds-color-surface-elevated: #254b35;
+  --ds-color-surface-muted: #2d5c42;
+  --ds-color-surface-muted-hover: #376e50;
   /* ── Borders ─────────────────────────────────────────── */
   --ds-color-border-subtle: #2a5742;
   --ds-color-border-default: #356b52;
@@ -22,9 +22,9 @@
   --ds-color-text-inverse: #ffffff;
   --ds-color-text-link: #86efac;
   /* ── Sidebar ─────────────────────────────────────────── */
-  --ds-color-sidebar-bg: #0b1710;
-  --ds-color-sidebar-bg-soft: #10241a;
-  --ds-color-sidebar-surface: #153124;
+  --ds-color-sidebar-bg: #122318;
+  --ds-color-sidebar-bg-soft: #1a3426;
+  --ds-color-sidebar-surface: #1e3d2c;
   --ds-color-sidebar-text: #e4f4ea;
   --ds-color-sidebar-muted: #91b6a3;
   --ds-color-sidebar-border: #2a5742;

@@ -1,7 +1,7 @@
 .page {
-  --cx-bg-start: color-mix(in srgb, var(--ds-color-bg-canvas) 86%, #0f172a 14%);
-  --cx-bg-mid: color-mix(in srgb, var(--ds-color-bg-subtle) 82%, #132035 18%);
-  --cx-bg-end: color-mix(in srgb, var(--ds-color-action-primary) 32%, var(--ds-color-bg-canvas) 68%);
+  --cx-bg-start: #18191c;
+  --cx-bg-mid: #23252b;
+  --cx-bg-end: #2e3038;
   --cx-surface: color-mix(in srgb, var(--ds-color-surface-elevated) 12%, transparent);
   --cx-surface-soft: color-mix(in srgb, var(--ds-color-surface-elevated) 18%, transparent);
   --cx-border: color-mix(in srgb, var(--ds-color-border-subtle) 56%, transparent);
@@ -40,7 +40,7 @@
   height: 360px;
   left: -80px;
   top: -90px;
-  background: rgba(37, 99, 235, 0.22);
+  background: rgba(120, 120, 130, 0.12);
 }
 
 .backgroundGlowB {
@@ -48,7 +48,7 @@
   height: 460px;
   right: -120px;
   bottom: -150px;
-  background: rgba(20, 184, 166, 0.18);
+  background: rgba(100, 100, 110, 0.10);
 }
 
 .backgroundGrid {
