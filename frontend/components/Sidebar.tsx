@@ -169,7 +169,7 @@ export function Sidebar({
                 className={cn(
                   'group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[13px] font-medium transition-all duration-[var(--ds-motion-base)]',
                   active
-                    ? 'border-[color:var(--ds-color-action-primary)]/30 bg-[color:var(--ds-color-primary-subtle)] text-[color:var(--ds-color-action-primary)] shadow-[0_2px_8px_rgba(30,58,92,0.12)]'
+                    ? 'border-[color:var(--ds-color-action-primary)]/30 bg-[color:var(--ds-color-primary-subtle)] text-[color:var(--ds-color-action-primary)] shadow-[0_2px_10px_rgba(20,83,45,0.22)]'
                     : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:border-[color:var(--ds-color-sidebar-border)]/88 hover:bg-[color:var(--ds-color-sidebar-surface)]/76 hover:text-[var(--ds-color-sidebar-text)]'
                 )}
               >
@@ -184,7 +184,7 @@ export function Sidebar({
                   <Icon className="h-4.5 w-4.5" />
                 </span>
                 <span className="flex-1 truncate">{item.label}</span>
-                {active ? <span className="h-2 w-2 rounded-full bg-[color:var(--ds-color-action-primary)] shadow-[0_0_0_4px_rgba(30,58,92,0.15)]" /> : null}
+                {active ? <span className="h-2 w-2 rounded-full bg-[color:var(--ds-color-action-primary)] shadow-[0_0_0_4px_rgba(20,83,45,0.2)]" /> : null}
               </Link>
             );
           })}
