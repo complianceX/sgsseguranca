@@ -14,6 +14,7 @@ import { Building2, ChevronsUpDown } from 'lucide-react';
 import { MobileFieldNav } from '@/components/MobileFieldNav';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ElevenLabsWidget } from '@/components/ElevenLabsWidget';
+import { SystemThemeLoader } from '@/components/SystemThemeLoader';
 
 export default function DashboardLayout({
   children,
@@ -114,6 +115,7 @@ export default function DashboardLayout({
 
   return (
     <div className="ds-shell-backdrop ds-system-scope ds-density-compact flex h-screen">
+      <SystemThemeLoader />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenMobileNav={() => setSidebarOpen(true)} />

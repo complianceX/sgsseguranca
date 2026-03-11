@@ -36,6 +36,7 @@ import {
   FileLock2,
   MessageSquare,
   Wrench,
+  Paintbrush,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -75,6 +76,7 @@ const menuItems = [
   { icon: Archive, label: 'Registry documental', href: '/dashboard/document-registry' },
   { type: 'divider', label: 'Conta & Sistema' },
   { icon: Settings, label: 'Configurações', href: '/dashboard/settings' },
+  { icon: Paintbrush, label: 'Tema do Sistema', href: '/dashboard/system/settings/theme', superAdminOnly: true },
 ];
 
 export function Sidebar({
@@ -128,6 +130,9 @@ export function Sidebar({
         <nav className="space-y-1">
           {menuItems.map((item, index) => {
             if (item.adminOnly && !isAdmin) {
+              return null;
+            }
+            if (item.superAdminOnly && !isAdmin) {
               return null;
             }
 
