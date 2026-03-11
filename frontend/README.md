@@ -20,6 +20,16 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## ElevenLabs Convai
+
+To enable the voice assistant widget in the dashboard, define:
+
+```bash
+NEXT_PUBLIC_ELEVENLABS_AGENT_ID=agent_4701kkd45sy6eb7r4rg7rz7bxypk
+```
+
+The agent must be public in ElevenLabs, with auth disabled and the frontend domain added to the widget allowlist.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

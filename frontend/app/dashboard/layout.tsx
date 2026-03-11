@@ -14,6 +14,7 @@ import { Company } from '@/services/companiesService';
 import { Building2, ChevronsUpDown } from 'lucide-react';
 import { MobileFieldNav } from '@/components/MobileFieldNav';
 import { CommandPalette } from '@/components/CommandPalette';
+import { ElevenLabsWidget } from '@/components/ElevenLabsWidget';
 
 export default function DashboardLayout({
   children,
@@ -145,6 +146,7 @@ export default function DashboardLayout({
           {children}
         </main>
         <AIButton />
+        <ElevenLabsWidget />
         <CommandPalette />
         <MobileFieldNav />
       </div>
