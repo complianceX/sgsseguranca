@@ -181,8 +181,8 @@
   /* ── Text ────────────────────────────────────────────── */
   --ds-color-text-primary: #0f172a;
   --ds-color-text-secondary: #1e293b;
-  --ds-color-text-muted: #475569;
-  --ds-color-text-disabled: #94a3b8;
+  --ds-color-text-muted: #334155;
+  --ds-color-text-disabled: #64748b;
   /* ── Primary — Grafite Profissional ──────────────────── */
   --ds-color-action-primary: #0f172a;
   --ds-color-action-primary-hover: #020617;
@@ -1872,4 +1872,42 @@ html[data-theme='light'] {
 :root[data-theme='dark'] .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
 .theme-dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
   border-color: #31445f;
+}
+
+/* ============================================================
+   Light Theme — Global Tailwind Text Overrides
+   Força texto escuro em todo o sistema no tema claro
+   ============================================================ */
+
+:root[data-theme='light'] .text-gray-400,
+:root[data-theme='light'] .text-gray-500,
+:root[data-theme='light'] .text-slate-400,
+:root[data-theme='light'] .text-slate-500,
+.theme-light .text-gray-400,
+.theme-light .text-gray-500,
+.theme-light .text-slate-400,
+.theme-light .text-slate-500 {
+  color: #334155;
+}
+
+:root[data-theme='light'] .text-gray-600,
+:root[data-theme='light'] .text-gray-700,
+:root[data-theme='light'] .text-slate-600,
+:root[data-theme='light'] .text-slate-700,
+.theme-light .text-gray-600,
+.theme-light .text-gray-700,
+.theme-light .text-slate-600,
+.theme-light .text-slate-700 {
+  color: #1e293b;
+}
+
+:root[data-theme='light'] .text-gray-800,
+:root[data-theme='light'] .text-gray-900,
+:root[data-theme='light'] .text-slate-800,
+:root[data-theme='light'] .text-slate-900,
+.theme-light .text-gray-800,
+.theme-light .text-gray-900,
+.theme-light .text-slate-800,
+.theme-light .text-slate-900 {
+  color: #0f172a;
 }
