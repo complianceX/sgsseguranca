@@ -41,6 +41,16 @@ export interface ImageRiskAnalysis {
 }
 
 export const aiService = {
+  getElevenLabsSignedUrl: async (agentId?: string) => {
+    const response = await api.get<{ signedUrl: string; agentId: string }>(
+      '/ai/sst/voice/signed-url',
+      {
+        params: agentId ? { agentId } : undefined,
+      },
+    );
+    return response.data;
+  },
+
   chat: async (
     message: string,
     options?: {
@@ -98,5 +108,5 @@ export const aiService = {
 
     const response = await api.post('/ai/sst/analyze-image-risk', formData);
     return response.data as ImageRiskAnalysis;
-  }
+  },
 };

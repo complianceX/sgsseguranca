@@ -1,8 +1,10 @@
 'use client';
 
-import { createElement } from 'react';
+import { createElement, useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import Script from 'next/script';
+import { aiService } from '@/services/aiService';
+import { AIButton } from './AIButton';
 
 export const elevenLabsAgentId =
   process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID?.trim() || '';
@@ -15,7 +17,55 @@ const widgetStyle: CSSProperties = {
 };
 
 export function ElevenLabsWidget() {
-  if (!elevenLabsAgentId) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [mode, setMode] = useState<'loading' | 'signed' | 'public' | 'fallback'>(
+    'loading',
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveSignedUrl() {
+      try {
+        const session = await aiService.getElevenLabsSignedUrl(
+          elevenLabsAgentId || undefined,
+        );
+        if (!cancelled) {
+          setSignedUrl(session.signedUrl);
+          setMode('signed');
+        }
+      } catch (error) {
+        if (!cancelled) {
+          if (elevenLabsAgentId) {
+            console.warn(
+              'SOPHIE: signed_url indisponível, usando agent_id público como fallback.',
+              error,
+            );
+            setMode('public');
+            return;
+          }
+
+          console.warn(
+            'SOPHIE: sessão de voz indisponível, usando chat interno como fallback.',
+            error,
+          );
+          setMode('fallback');
+        }
+      }
+    }
+
+    void resolveSignedUrl();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (mode === 'fallback') {
+    return <AIButton />;
+  }
+
+  if (mode === 'loading') {
     return null;
   }
 
@@ -26,7 +76,10 @@ export function ElevenLabsWidget() {
         strategy="afterInteractive"
       />
       {createElement('elevenlabs-convai', {
-        'agent-id': elevenLabsAgentId,
+        key: signedUrl || elevenLabsAgentId || 'sophie-elevenlabs',
+        ...(mode === 'signed' && signedUrl
+          ? { 'signed-url': signedUrl }
+          : { 'agent-id': elevenLabsAgentId }),
         'action-text': 'Falar com a SOPHIE',
         'start-call-text': 'Iniciar conversa',
         'end-call-text': 'Encerrar conversa',

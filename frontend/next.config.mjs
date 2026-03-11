@@ -13,6 +13,16 @@ function buildCsp() {
     !isProd ? 'http://localhost:3011' : null,
     !isProd ? 'ws://localhost:3000' : null,
     !isProd ? 'ws://localhost:3011' : null,
+    'https://api.elevenlabs.io',
+    'wss://api.elevenlabs.io',
+    'https://*.elevenlabs.io',
+    'wss://*.elevenlabs.io',
+  ].filter(Boolean);
+  const scriptSrc = [
+    "'self'",
+    "'unsafe-inline'",
+    !isProd ? "'unsafe-eval'" : null,
+    'https://unpkg.com',
   ].filter(Boolean);
 
   // Observação: Next.js injeta alguns scripts/estilos inline em runtime.
@@ -26,9 +36,10 @@ function buildCsp() {
     `img-src 'self' data: blob: https:`,
     `font-src 'self' data:`,
     `style-src 'self' 'unsafe-inline'`,
-    `script-src 'self' 'unsafe-inline'${!isProd ? " 'unsafe-eval'" : ''}`,
+    `script-src ${scriptSrc.join(' ')}`,
     `connect-src ${connectSrc.join(' ')}`,
-    `worker-src 'self'`,
+    `media-src 'self' blob: data: https:`,
+    `worker-src 'self' blob:`,
     `form-action 'self'`,
     `upgrade-insecure-requests`,
   ];
@@ -64,7 +75,7 @@ const nextConfig = {
       },
       {
         key: 'Permissions-Policy',
-        value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+        value: 'camera=(self), microphone=(self), geolocation=(), payment=(), usb=()',
       },
     ];
 

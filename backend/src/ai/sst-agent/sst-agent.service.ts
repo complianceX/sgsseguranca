@@ -16,6 +16,9 @@ import {
   UnauthorizedException,
   HttpException,
   HttpStatus,
+  BadGatewayException,
+  ServiceUnavailableException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, Repository } from 'typeorm';
@@ -398,6 +401,71 @@ export class SstAgentService {
 
     // NUNCA busca apenas por ID — sempre inclui tenant_id para evitar cross-tenant leaks
     return this.interactionRepo.findOne({ where: { id, tenant_id: tenantId } });
+  }
+
+  async getElevenLabsSignedUrl(agentId?: string) {
+    const apiKey = this.configService.get<string>('ELEVENLABS_API_KEY')?.trim();
+    if (!apiKey) {
+      throw new ServiceUnavailableException(
+        'ELEVENLABS_API_KEY não configurada no backend.',
+      );
+    }
+
+    const configuredAgentId = this.configService
+      .get<string>('ELEVENLABS_AGENT_ID')
+      ?.trim();
+    const resolvedAgentId = configuredAgentId || agentId?.trim();
+
+    if (!resolvedAgentId) {
+      throw new BadRequestException('Agent ID da ElevenLabs não informado.');
+    }
+
+    const params = new URLSearchParams({
+      agent_id: resolvedAgentId,
+      include_conversation_id: 'true',
+    });
+
+    const branchId = this.configService
+      .get<string>('ELEVENLABS_BRANCH_ID')
+      ?.trim();
+    if (branchId) {
+      params.set('branch_id', branchId);
+    }
+
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?${params.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'xi-api-key': apiKey,
+          Accept: 'application/json',
+        },
+      },
+    );
+
+    const payloadText = await response.text();
+    let payload: { signed_url?: string } | null = null;
+    try {
+      payload = payloadText
+        ? (JSON.parse(payloadText) as { signed_url?: string })
+        : null;
+    } catch {
+      payload = null;
+    }
+
+    if (!response.ok || !payload?.signed_url) {
+      this.logger.warn(
+        `Falha ao obter signed_url da ElevenLabs (status ${response.status}) para o agent ${resolvedAgentId}.`,
+      );
+      throw new BadGatewayException(
+        'Não foi possível iniciar a sessão de voz da SOPHIE.',
+      );
+    }
+
+    return {
+      signedUrl: payload.signed_url,
+      agentId: resolvedAgentId,
+    };
   }
 
   async analyzeImageRisk(
