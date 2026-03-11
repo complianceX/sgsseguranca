@@ -18,7 +18,7 @@ export function AIButton() {
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="group relative flex h-12 items-center justify-center gap-2 rounded-full bg-[image:var(--ds-gradient-brand)] px-3.5 text-white shadow-[var(--ds-shadow-lg)] transition-all hover:-translate-y-px hover:brightness-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[color:var(--ds-color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--ds-color-bg-canvas)]"
-          title={isOpen ? 'Fechar especialista SST' : context.title}
+          title={isOpen ? 'Fechar SOPHIE' : context.title}
         >
           {isOpen ? (
             <X className="h-6 w-6 transition-transform" />

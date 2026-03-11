@@ -10,13 +10,13 @@ export type AiRouteContext = {
 };
 
 const defaultContext: AiRouteContext = {
-  title: 'Especialista SST',
-  subtitle: 'Apoio operacional e normativo em segurança do trabalho.',
+  title: 'SOPHIE',
+  subtitle: 'Assistente operacional e normativa em segurança do trabalho.',
   icon: ShieldCheck,
   assistantIntro:
-    'Sou a Especialista SST da Compliance X. Posso apoiar com liberação operacional, conformidade, APR, PT, NC e documentos.',
+    'Sou a SOPHIE da Compliance X. Posso apoiar com liberação operacional, conformidade, APR, PT, NC e documentos.',
   promptPrefix:
-    'Contexto atual: apoio geral de SST no SaaS Compliance X. Responda de forma objetiva, segura e prática.',
+    'Contexto atual: SOPHIE prestando apoio geral de SST no SaaS Compliance X. Responda de forma objetiva, segura e prática.',
   suggestions: [
     'Quais bloqueios impedem liberar esta atividade com segurança?',
     'Monte uma orientação rápida de campo para hoje.',
@@ -28,7 +28,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/tst'),
     context: {
-      title: 'Especialista SST de Campo',
+      title: 'SOPHIE Campo',
       subtitle: 'Bloqueios, pendências do dia e decisão operacional em campo.',
       icon: Radio,
       assistantIntro:
@@ -45,7 +45,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/aprs'),
     context: {
-      title: 'Especialista APR',
+      title: 'SOPHIE APR',
       subtitle: 'Risco residual, controles e análise operacional da atividade.',
       icon: FileText,
       assistantIntro:
@@ -62,7 +62,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/pts'),
     context: {
-      title: 'Especialista PT',
+      title: 'SOPHIE PT',
       subtitle: 'Liberação segura, bloqueios e evidências antes da aprovação.',
       icon: ClipboardCheck,
       assistantIntro:
@@ -79,7 +79,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/nonconformities'),
     context: {
-      title: 'Especialista NC',
+      title: 'SOPHIE NC',
       subtitle: 'Classificação, criticidade, contenção e plano de ação.',
       icon: AlertTriangle,
       assistantIntro:
@@ -96,7 +96,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/document-registry'),
     context: {
-      title: 'Especialista Documental',
+      title: 'SOPHIE Documentos',
       subtitle: 'Pacote semanal, rastreabilidade e conformidade documental.',
       icon: Archive,
       assistantIntro:
@@ -113,7 +113,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/medical-exams'),
     context: {
-      title: 'Especialista ASO e PCMSO',
+      title: 'SOPHIE ASO e PCMSO',
       subtitle: 'Aptidão, vencimentos e bloqueios médicos operacionais.',
       icon: Stethoscope,
       assistantIntro:
@@ -130,7 +130,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/employees'),
     context: {
-      title: 'Especialista Mobilização',
+      title: 'SOPHIE Mobilização',
       subtitle: 'Status operacional do trabalhador e prontidão documental.',
       icon: Users,
       assistantIntro:

@@ -155,7 +155,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Erro no chat do COMPLIANCE X:', error);
+      console.error('Erro no chat da SOPHIE:', error);
       const errorMessage: Message = {
         role: 'assistant',
         content: 'Não consegui responder agora. Tente novamente em instantes.',
@@ -244,7 +244,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
           <div className="flex justify-start">
             <div className="flex items-center space-x-2 rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/95 px-4 py-2 shadow-[var(--ds-shadow-sm)]">
               <Loader2 className="h-4 w-4 animate-spin text-[var(--ds-color-action-primary)]" />
-              <span className="text-xs italic text-[var(--ds-color-text-muted)]">Analisando contexto SST...</span>
+              <span className="text-xs italic text-[var(--ds-color-text-muted)]">SOPHIE analisando contexto...</span>
             </div>
           </div>
         )}
@@ -271,7 +271,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
             </div>
             <img
               src={selectedImagePreview}
-              alt="Pré-visualização da imagem enviada para a IA SST"
+              alt="Pré-visualização da imagem enviada para a SOPHIE"
               className="h-28 w-full rounded-xl object-cover"
             />
           </div>
@@ -317,7 +317,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
         <div className="mt-2 flex items-center justify-center space-x-1">
           <Sparkles className="h-3 w-3 text-[var(--ds-color-accent)]" />
           <span className="text-[10px] text-[var(--ds-color-text-muted)]">
-            IA especialista em SST com contexto da tela e análise de fotos
+            SOPHIE com contexto da tela e análise de fotos
           </span>
         </div>
       </div>

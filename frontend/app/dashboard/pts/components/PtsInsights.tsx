@@ -35,7 +35,7 @@ export const PtsInsights = React.memo(({ insights }: PtsInsightsProps) => {
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
           <CardTitle className="text-sm uppercase tracking-wider text-[var(--ds-color-action-primary)]">
-            Insights da Especialista SST
+            Insights da SOPHIE
           </CardTitle>
         </div>
         <CardDescription>

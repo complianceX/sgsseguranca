@@ -31,7 +31,7 @@ export function GandraInsights() {
         const result = await aiService.getInsights();
         setData(result);
       } catch (error) {
-        console.error('Erro ao carregar insights do COMPLIANCE X:', error);
+        console.error('Erro ao carregar insights da SOPHIE:', error);
       } finally {
         setLoading(false);
       }
@@ -45,7 +45,7 @@ export function GandraInsights() {
       <Card tone="elevated" padding="lg" className="flex h-48 items-center justify-center">
         <div className="flex flex-col items-center space-y-2">
           <Loader2 className="h-8 w-8 animate-spin text-[var(--ds-color-action-primary)]" />
-          <p className="text-sm font-medium text-[var(--ds-color-text-muted)]">COMPLIANCE X analisando dados...</p>
+          <p className="text-sm font-medium text-[var(--ds-color-text-muted)]">SOPHIE analisando dados...</p>
         </div>
       </Card>
     );
@@ -61,13 +61,13 @@ export function GandraInsights() {
             <span className="text-base font-black italic">G</span>
           </div>
           <div>
-            <CardTitle className="text-base">COMPLIANCE X Insights</CardTitle>
+            <CardTitle className="text-base">SOPHIE Insights</CardTitle>
             <CardDescription>Sintetiza tendências, riscos e pendências operacionais.</CardDescription>
           </div>
         </div>
         <Badge variant="accent" className="text-[10px] uppercase tracking-[0.12em]">
           <Sparkles className="h-3 w-3" />
-          <span>IA Ativa</span>
+          <span>SOPHIE ativa</span>
         </Badge>
       </div>
 
