@@ -9,6 +9,8 @@ import { Button } from './ui/button';
 
 export const elevenLabsAgentId =
   process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID?.trim() || '';
+const elevenLabsBranchId =
+  process.env.NEXT_PUBLIC_ELEVENLABS_BRANCH_ID?.trim() || '';
 
 const widgetStyle: CSSProperties = {
   position: 'fixed',
@@ -20,6 +22,7 @@ const widgetStyle: CSSProperties = {
 export function ElevenLabsWidget() {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [publicAgentId, setPublicAgentId] = useState<string>(elevenLabsAgentId);
+  const [resolvedBranchId, setResolvedBranchId] = useState<string>(elevenLabsBranchId);
   const [mode, setMode] = useState<'loading' | 'signed' | 'public' | 'unavailable'>(
     elevenLabsAgentId ? 'public' : 'loading',
   );
@@ -54,6 +57,7 @@ export function ElevenLabsWidget() {
       setErrorMessage(null);
       setSignedUrl(null);
       setPublicAgentId(elevenLabsAgentId);
+      setResolvedBranchId(elevenLabsBranchId);
       if (elevenLabsAgentId) {
         setMode('public');
       } else {
@@ -63,12 +67,14 @@ export function ElevenLabsWidget() {
       try {
         const session = await aiService.getElevenLabsSignedUrl(
           elevenLabsAgentId || undefined,
+          elevenLabsBranchId || undefined,
         );
         if (cancelled) {
           return;
         }
 
         if (session.mode === 'signed' && session.signedUrl) {
+          setResolvedBranchId(session.branchId || elevenLabsBranchId);
           setSignedUrl(session.signedUrl);
           setMode('signed');
           return;
@@ -76,6 +82,7 @@ export function ElevenLabsWidget() {
 
         if (session.mode === 'public' && session.agentId) {
           setPublicAgentId(session.agentId);
+          setResolvedBranchId(session.branchId || elevenLabsBranchId);
           setErrorMessage(session.reason ?? null);
           setMode('public');
           return;
@@ -128,6 +135,14 @@ export function ElevenLabsWidget() {
   }
 
   if (mode === 'unavailable') {
+    const talkToUrl = publicAgentId
+      ? `https://elevenlabs.io/app/talk-to?agent_id=${encodeURIComponent(publicAgentId)}${
+          resolvedBranchId
+            ? `&branch_id=${encodeURIComponent(resolvedBranchId)}`
+            : ''
+        }`
+      : null;
+
     return (
       <div
         className="fixed bottom-24 left-4 z-[55] w-[min(22rem,calc(100vw-2rem))] rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-warning)]/30 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-elevated)_94%,white_6%),color-mix(in_srgb,var(--ds-color-surface-base)_96%,transparent))] p-4 shadow-[var(--ds-shadow-lg)] sm:bottom-6 sm:left-6"
@@ -149,6 +164,16 @@ export function ElevenLabsWidget() {
           </div>
         </div>
         <div className="mt-3 flex items-center justify-end">
+          {talkToUrl ? (
+            <a
+              href={talkToUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mr-2 inline-flex h-8 items-center rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] px-2.5 text-[11px] font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
+            >
+              Abrir no ElevenLabs
+            </a>
+          ) : null}
           <Button
             type="button"
             size="sm"

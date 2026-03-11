@@ -50,12 +50,14 @@ type ElevenLabsVoiceSession =
   | {
       mode: 'signed';
       agentId: string;
+      branchId?: string | null;
       signedUrl: string;
       reason?: string;
     }
   | {
       mode: 'public';
       agentId: string;
+      branchId?: string | null;
       signedUrl: null;
       reason?: string;
     }
@@ -431,12 +433,20 @@ export class SstAgentService {
     return this.interactionRepo.findOne({ where: { id, tenant_id: tenantId } });
   }
 
-  async getElevenLabsSignedUrl(agentId?: string): Promise<ElevenLabsVoiceSession> {
+  async getElevenLabsSignedUrl(
+    agentId?: string,
+    branchId?: string,
+  ): Promise<ElevenLabsVoiceSession> {
     const apiKey = this.configService.get<string>('ELEVENLABS_API_KEY')?.trim();
     const configuredAgentId = this.configService
       .get<string>('ELEVENLABS_AGENT_ID')
       ?.trim();
     const resolvedAgentId = configuredAgentId || agentId?.trim();
+
+    const configuredBranchId = this.configService
+      .get<string>('ELEVENLABS_BRANCH_ID')
+      ?.trim();
+    const resolvedBranchId = configuredBranchId || branchId?.trim() || null;
 
     if (!resolvedAgentId) {
       return {
@@ -454,6 +464,7 @@ export class SstAgentService {
       return {
         mode: 'public',
         agentId: resolvedAgentId,
+        branchId: resolvedBranchId,
         signedUrl: null,
         reason:
           'ELEVENLABS_API_KEY não configurada no backend; usando agent público.',
@@ -465,11 +476,8 @@ export class SstAgentService {
       include_conversation_id: 'true',
     });
 
-    const branchId = this.configService
-      .get<string>('ELEVENLABS_BRANCH_ID')
-      ?.trim();
-    if (branchId) {
-      params.set('branch_id', branchId);
+    if (resolvedBranchId) {
+      params.set('branch_id', resolvedBranchId);
     }
 
     const controller = new AbortController();
@@ -497,6 +505,7 @@ export class SstAgentService {
       return {
         mode: 'public',
         agentId: resolvedAgentId,
+        branchId: resolvedBranchId,
         signedUrl: null,
         reason:
           'Não foi possível validar sessão assinada com a ElevenLabs; usando agent público.',
@@ -519,6 +528,7 @@ export class SstAgentService {
       return {
         mode: 'signed',
         agentId: resolvedAgentId,
+        branchId: resolvedBranchId,
         signedUrl: payload.signed_url,
       };
     }
@@ -534,6 +544,7 @@ export class SstAgentService {
       return {
         mode: 'signed',
         agentId: resolvedAgentId,
+        branchId: resolvedBranchId,
         signedUrl: payload.signed_url,
       };
     }
@@ -541,6 +552,7 @@ export class SstAgentService {
     return {
       mode: 'public',
       agentId: resolvedAgentId,
+      branchId: resolvedBranchId,
       signedUrl: null,
       reason:
         !response.ok
