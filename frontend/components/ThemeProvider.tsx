@@ -25,7 +25,7 @@ const getSystemTheme = (): ResolvedTheme => {
 const resolveTheme = (theme: ThemePreference): ResolvedTheme =>
   theme === 'system' ? getSystemTheme() : theme;
 
-const applyTheme = (resolvedTheme: ResolvedTheme) => {
+const applyDarkLightClass = (resolvedTheme: ResolvedTheme) => {
   if (typeof document === 'undefined') return;
   document.documentElement.dataset.theme = resolvedTheme;
   document.documentElement.classList.remove('theme-light', 'theme-dark');
@@ -43,7 +43,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const initialResolved = resolveTheme(initialTheme);
     setThemeState(initialTheme);
     setResolvedTheme(initialResolved);
-    applyTheme(initialResolved);
+    applyDarkLightClass(initialResolved);
 
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = () => {
@@ -54,7 +54,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       ) {
         const next = getSystemTheme();
         setResolvedTheme(next);
-        applyTheme(next);
+        applyDarkLightClass(next);
       }
     };
 
@@ -68,7 +68,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setResolvedTheme(nextResolved);
     window.localStorage.setItem(STORAGE_KEY, nextTheme);
     window.localStorage.removeItem(LEGACY_STORAGE_KEY);
-    applyTheme(nextResolved);
+    applyDarkLightClass(nextResolved);
   }, []);
 
   const toggleTheme = useCallback(() => {

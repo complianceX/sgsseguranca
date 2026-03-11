@@ -12,7 +12,7 @@ export function SystemThemeLoader() {
   useEffect(() => {
     systemThemeService
       .getTheme()
-      .then(applyTheme)
+      .then(({ id: _id, updatedAt: _updatedAt, ...tokens }) => applyTheme(tokens))
       .catch(() => {
         /* falha silenciosa — globals.css define o tema padrão */
       });
