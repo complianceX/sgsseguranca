@@ -4,9 +4,6 @@ import { sessionStore } from './sessionStore';
 import { authRefreshHint } from './authRefreshHint';
 import { selectedTenantStore } from './selectedTenantStore';
 
-const RAILWAY_DEFAULT_API_URL =
-  'https://keen-smile-production.up.railway.app';
-
 const resolveBaseUrl = () => {
   const explicitApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
   const fallbackApiUrl = process.env.NEXT_PUBLIC_API_FALLBACK_URL?.trim();
@@ -20,11 +17,14 @@ const resolveBaseUrl = () => {
   }
 
   if (typeof window !== 'undefined') {
-    if (window.location.hostname.endsWith('.up.railway.app')) {
-      return RAILWAY_DEFAULT_API_URL;
+    const { protocol, hostname } = window.location;
+    const isLocalHost =
+      hostname === 'localhost' || hostname === '127.0.0.1';
+
+    if (isLocalHost) {
+      // Padrão local: backend roda em 3011 (run-local.ps1 / LOCAL_SETUP.md)
+      return `${protocol}//${hostname}:3011`;
     }
-    // Padrão local: backend roda em 3011 (run-local.ps1 / LOCAL_SETUP.md)
-    return `${window.location.protocol}//${window.location.hostname}:3011`;
   }
 
   return null;
@@ -32,7 +32,7 @@ const resolveBaseUrl = () => {
 
 const API_BASE_URL = resolveBaseUrl();
 const API_BASE_URL_ERROR_MESSAGE =
-  'API não configurada para este ambiente. Defina NEXT_PUBLIC_API_URL (ou NEXT_PUBLIC_API_FALLBACK_URL) no serviço Frontend do Railway.';
+  'API não configurada para este ambiente. Defina NEXT_PUBLIC_API_URL (ou NEXT_PUBLIC_API_FALLBACK_URL) no serviço Frontend.';
 
 type RetryConfig = AxiosRequestConfig & { __retryCount?: number };
 type AuthRetryConfig = RetryConfig & { __authRetry?: boolean };

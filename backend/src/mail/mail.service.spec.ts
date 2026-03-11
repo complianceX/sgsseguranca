@@ -17,6 +17,7 @@ import { TenantService } from '../common/tenant/tenant.service';
 import { StorageService } from '../common/services/storage.service';
 import { ServiceUnavailableException, NotFoundException } from '@nestjs/common';
 import { ReportsService } from '../reports/reports.service';
+import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 
 // Mock do Resend
 const mockResendSend = jest.fn();
@@ -63,6 +64,9 @@ describe('MailService', () => {
   const mockTenantService = {
     run: jest.fn((id, cb) => cb()),
   };
+  const mockIntegrationResilienceService = {
+    execute: jest.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -86,6 +90,10 @@ describe('MailService', () => {
         { provide: CompaniesService, useValue: mockDomainService },
         { provide: TenantService, useValue: mockTenantService },
         { provide: ReportsService, useValue: mockDomainService },
+        {
+          provide: IntegrationResilienceService,
+          useValue: mockIntegrationResilienceService,
+        },
       ],
     }).compile();
 

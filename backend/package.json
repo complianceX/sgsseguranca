@@ -24,11 +24,14 @@
     "migration:revert": "typeorm migration:revert -d dist/data-source.js",
     "verify:rls": "node scripts/verify-tenant-rls.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint:ci": "eslint \"{src,apps,libs,test}/**/*.ts\" --max-warnings=0",
     "test": "jest",
+    "test:ci": "jest --ci --runInBand",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand"
+    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
+    "ci:migration:check": "node scripts/check-migrations.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

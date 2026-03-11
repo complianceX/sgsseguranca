@@ -5,10 +5,12 @@ import { TenantService } from '../common/tenant/tenant.service';
 import { PasswordService } from '../common/services/password.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
+import { Profile } from '../profiles/entities/profile.entity';
 
 describe('UsersService.gdprErasure', () => {
   let service: UsersService;
   let repo: jest.Mocked<Repository<User>>;
+  let profilesRepo: jest.Mocked<Repository<Profile>>;
   let tenantService: Partial<TenantService>;
   let passwordService: Partial<PasswordService>;
   let auditService: Partial<AuditService>;
@@ -19,6 +21,9 @@ describe('UsersService.gdprErasure', () => {
       update: jest.fn(),
       softDelete: jest.fn(),
     } as unknown as jest.Mocked<Repository<User>>;
+    profilesRepo = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<Profile>>;
 
     tenantService = {
       getTenantId: jest.fn().mockReturnValue(undefined),
@@ -30,6 +35,7 @@ describe('UsersService.gdprErasure', () => {
 
     service = new UsersService(
       repo as unknown as Repository<User>,
+      profilesRepo as unknown as Repository<Profile>,
       tenantService as TenantService,
       passwordService as PasswordService,
       auditService as AuditService,

@@ -23,6 +23,16 @@ export class SeedService implements OnApplicationBootstrap {
   ) {}
 
   onApplicationBootstrap() {
+    const isProduction = process.env.NODE_ENV === 'production';
+    const seedOnBootstrap = process.env.SEED_ON_BOOTSTRAP === 'true';
+
+    if (isProduction && !seedOnBootstrap) {
+      this.logger.log(
+        'Seed automático desabilitado em produção. Defina SEED_ON_BOOTSTRAP=true para habilitar.',
+      );
+      return;
+    }
+
     // Não bloquear o bootstrap — seed roda em background (como CacheWarmingService).
     setImmediate(() => {
       void this.runSeed();
@@ -64,7 +74,7 @@ export class SeedService implements OnApplicationBootstrap {
     }
 
     const requiredTables = ['profiles', 'companies', 'users'];
-    const rows = (await this.dataSource.query(
+    const rows = await this.dataSource.query(
       `
         SELECT table_name
         FROM information_schema.tables
@@ -72,7 +82,7 @@ export class SeedService implements OnApplicationBootstrap {
           AND table_name = ANY($1)
       `,
       [requiredTables],
-    )) as Array<{ table_name: string }>;
+    );
 
     const existing = new Set(rows.map((row) => row.table_name));
     return requiredTables.every((table) => existing.has(table));
@@ -109,20 +119,31 @@ export class SeedService implements OnApplicationBootstrap {
 
   private async seedAdmin() {
     try {
-      const targetCpfRaw = process.env.DEV_ADMIN_CPF || '15082302698';
-      const targetPassword =
-        process.env.DEV_ADMIN_PASSWORD || 'GANDRA@2026';
-      const targetCpf = targetCpfRaw.replace(/\D/g, '');
-      const oldCpfs = ['00000000191', '00000000000'];
+      const configuredCpf = (process.env.DEV_ADMIN_CPF || '').replace(
+        /\D/g,
+        '',
+      );
+      const configuredPassword = process.env.DEV_ADMIN_PASSWORD || '';
+      const isProduction = process.env.NODE_ENV === 'production';
 
-      if (targetCpf.length !== 11) {
+      if (
+        !configuredCpf ||
+        configuredCpf.length !== 11 ||
+        !configuredPassword
+      ) {
         this.logger.warn(
-          `DEV_ADMIN_CPF inválido (esperado 11 dígitos). Usando fallback 15082302698.`,
+          isProduction
+            ? 'Seed do admin ignorado em produção: configure DEV_ADMIN_CPF (11 dígitos) e DEV_ADMIN_PASSWORD.'
+            : 'Seed do admin ignorado: configure DEV_ADMIN_CPF (11 dígitos) e DEV_ADMIN_PASSWORD para criar/reconciliar o admin.',
         );
+        return;
       }
-      const TARGET_CPF = targetCpf.length === 11 ? targetCpf : '15082302698';
-      const TARGET_PASSWORD = targetPassword;
-      const hashedAdminPassword = await this.passwordService.hash(TARGET_PASSWORD);
+
+      const oldCpfs = ['00000000191', '00000000000'];
+      const TARGET_CPF = configuredCpf;
+      const TARGET_PASSWORD = configuredPassword;
+      const hashedAdminPassword =
+        await this.passwordService.hash(TARGET_PASSWORD);
 
       // Check if any company exists
       const companies = await this.companiesService.findAll();
@@ -163,17 +184,24 @@ export class SeedService implements OnApplicationBootstrap {
         );
         await this.dataSource.transaction(async (manager) => {
           await manager.query("SET LOCAL app.is_super_admin = 'true'");
-          await manager.update(User, { id: targetAdmin.id }, {
-            password: hashedAdminPassword,
-            profile_id: adminProfile.id,
-            company_id: targetAdmin.company_id || company.id,
-            funcao: targetAdmin.funcao || 'Admin',
-            status: true,
-            deletedAt: null,
-          });
+          await manager.update(
+            User,
+            { id: targetAdmin.id },
+            {
+              password: hashedAdminPassword,
+              profile_id: adminProfile.id,
+              company_id: targetAdmin.company_id || company.id,
+              funcao: targetAdmin.funcao || 'Admin',
+              status: true,
+              deletedAt: null,
+            },
+          );
         });
         await this.tenantService.run(
-          { companyId: targetAdmin.company_id || company.id, isSuperAdmin: true },
+          {
+            companyId: targetAdmin.company_id || company.id,
+            isSuperAdmin: true,
+          },
           async () => {
             const reloaded = await this.usersService.findOneByCpf(TARGET_CPF);
             this.logger.log(
@@ -190,15 +218,19 @@ export class SeedService implements OnApplicationBootstrap {
         );
         await this.dataSource.transaction(async (manager) => {
           await manager.query("SET LOCAL app.is_super_admin = 'true'");
-          await manager.update(User, { id: oldAdmin.id }, {
-            cpf: TARGET_CPF,
-            password: hashedAdminPassword,
-            profile_id: adminProfile.id,
-            company_id: oldAdmin.company_id || company.id,
-            funcao: oldAdmin.funcao || 'Admin',
-            status: true,
-            deletedAt: null,
-          });
+          await manager.update(
+            User,
+            { id: oldAdmin.id },
+            {
+              cpf: TARGET_CPF,
+              password: hashedAdminPassword,
+              profile_id: adminProfile.id,
+              company_id: oldAdmin.company_id || company.id,
+              funcao: oldAdmin.funcao || 'Admin',
+              status: true,
+              deletedAt: null,
+            },
+          );
         });
       } else {
         this.logger.log(
