@@ -107,9 +107,9 @@ export default function ExecutiveDashboardPage() {
               index === 1 ? 'ds-kpi-card--success' : index === 2 ? 'ds-kpi-card--accent' : 'ds-kpi-card--primary'
             }`}
           >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/72">{card.label}</p>
-            <p className="mt-1 text-[1.6rem] font-bold text-white">{card.value}</p>
-            <p className="text-[11px] text-white/72">{card.helper}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">{card.label}</p>
+            <p className="mt-1 text-[1.6rem] font-bold text-current">{card.value}</p>
+            <p className="text-[11px] text-current opacity-80">{card.helper}</p>
           </div>
         ))}
       </div>
@@ -117,22 +117,22 @@ export default function ExecutiveDashboardPage() {
       {kpis && (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <div className="ds-kpi-card ds-kpi-card--danger">
-            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/78">
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-85">
               <ShieldAlert className="h-4 w-4" /> NC recorrente
             </p>
-            <p className="mt-2 text-[1.6rem] font-bold text-white">{kpis.lagging.recurring_nc}</p>
+            <p className="mt-2 text-[1.6rem] font-bold text-current">{kpis.lagging.recurring_nc}</p>
           </div>
           <div className="ds-kpi-card ds-kpi-card--warning">
-            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/78">
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-85">
               <Siren className="h-4 w-4" /> Incidentes
             </p>
-            <p className="mt-2 text-[1.6rem] font-bold text-white">{kpis.lagging.incidents}</p>
+            <p className="mt-2 text-[1.6rem] font-bold text-current">{kpis.lagging.incidents}</p>
           </div>
           <div className="ds-kpi-card ds-kpi-card--accent">
-            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/78">
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-85">
               <Timer className="h-4 w-4" /> PT bloqueadas
             </p>
-            <p className="mt-2 text-[1.6rem] font-bold text-white">{kpis.lagging.blocked_pt}</p>
+            <p className="mt-2 text-[1.6rem] font-bold text-current">{kpis.lagging.blocked_pt}</p>
           </div>
         </div>
       )}

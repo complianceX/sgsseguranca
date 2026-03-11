@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, type ChangeEvent } from 'react';
 import { Send, X, Loader2, Sparkles, ImagePlus, TriangleAlert } from 'lucide-react';
+import Image from 'next/image';
 import { aiService } from '@/services/aiService';
 import { cn } from '@/lib/utils';
 import type { AiRouteContext } from '@/lib/ai-context';
@@ -269,10 +270,13 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <img
+            <Image
               src={selectedImagePreview}
               alt="Pré-visualização da imagem enviada para a SOPHIE"
+              width={640}
+              height={224}
               className="h-28 w-full rounded-xl object-cover"
+              unoptimized
             />
           </div>
         ) : null}

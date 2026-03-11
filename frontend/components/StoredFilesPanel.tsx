@@ -31,7 +31,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { cn } from '@/lib/utils';
 import { openPdfForPrint } from '@/lib/print-utils';
 
 export interface StoredFileItem {

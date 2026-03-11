@@ -253,8 +253,8 @@ export default function EpiFichasPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
+    <div className="ds-system-scope space-y-6">
+      <div className="ds-surface-card p-4">
         <h1 className="text-2xl font-bold text-gray-900">Fichas de EPI</h1>
         <p className="text-gray-500">
           Controle de CA, entrega/devolucao e assinatura eletronica com carimbo de
@@ -270,7 +270,7 @@ export default function EpiFichasPage() {
         <Kpi title="CA expirado" value={summary.caExpirado} />
       </div>
 
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
+      <div className="ds-surface-card p-4">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Nova ficha de entrega
         </h2>
@@ -358,7 +358,7 @@ export default function EpiFichasPage() {
             type="button"
             disabled={creating}
             onClick={() => void handleCreate()}
-            className="flex items-center justify-center rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+            className="flex items-center justify-center rounded-md bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-60"
           >
             <Plus className="mr-2 h-4 w-4" />
             {creating ? 'Salvando...' : 'Registrar'}
@@ -366,7 +366,7 @@ export default function EpiFichasPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border bg-white shadow-sm">
+      <div className="ds-surface-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -430,7 +430,7 @@ export default function EpiFichasPage() {
                       {assignment.status === 'entregue' && (
                         <button
                           type="button"
-                          className="rounded border px-2 py-1 text-xs text-slate-800 hover:bg-blue-50"
+                          className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-primary)] hover:bg-blue-50"
                           onClick={() => void handleReplace(assignment)}
                         >
                           Substituir
@@ -498,7 +498,7 @@ export default function EpiFichasPage() {
 
 function Kpi({ title, value }: { title: string; value: number }) {
   return (
-    <div className="rounded-lg border bg-white p-3 shadow-sm">
+    <div className="ds-surface-card p-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
         {title}
       </p>

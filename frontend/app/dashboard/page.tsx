@@ -161,7 +161,7 @@ export default function DashboardPage() {
   const quickActions = [
     { label: 'Nova APR', href: '/dashboard/aprs', icon: PlusCircle, color: 'bg-[var(--ds-color-action-primary)] hover:bg-[var(--ds-color-action-primary-hover)]' },
     { label: 'Nova PT', href: '/dashboard/pts', icon: FileText, color: 'bg-[var(--ds-color-action-primary)] hover:bg-[var(--ds-color-action-primary-hover)]' },
-    { label: 'Novo Checklist', href: '/dashboard/checklists', icon: ClipboardCheck, color: 'bg-[#7c3aed] hover:bg-[#6d28d9]' },
+    { label: 'Novo Checklist', href: '/dashboard/checklists', icon: ClipboardCheck, color: 'bg-[var(--ds-color-accent)] hover:bg-[var(--ds-color-accent-hover)]' },
     { label: 'Novo EPI', href: '/dashboard/epis', icon: Shield, color: 'bg-[var(--ds-color-success)] hover:bg-[var(--ds-color-success-hover)]' },
     { label: 'Nova NC', href: '/dashboard/nonconformities/new', icon: AlertTriangle, color: 'bg-[var(--ds-color-warning)] hover:bg-[var(--ds-color-warning-hover)]' },
     { label: 'Novo DDS', href: '/dashboard/dds', icon: MessageSquare, color: 'bg-[var(--ds-color-warning)] hover:bg-[var(--ds-color-warning-hover)]' },

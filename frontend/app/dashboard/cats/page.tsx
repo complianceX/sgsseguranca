@@ -261,8 +261,8 @@ export default function CatsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
+    <div className="ds-system-scope space-y-6">
+      <div className="ds-surface-card p-4">
         <h1 className="text-2xl font-bold text-gray-900">CAT - Acidente de Trabalho</h1>
         <p className="text-gray-500">
           Fluxo completo: abertura, investigacao, fechamento e anexos.
@@ -276,7 +276,7 @@ export default function CatsPage() {
         <Kpi title="Fechadas" value={summary.fechada} />
       </div>
 
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
+      <div className="ds-surface-card p-4">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Abrir CAT
         </h2>
@@ -345,7 +345,7 @@ export default function CatsPage() {
             type="button"
             onClick={() => void handleCreate()}
             disabled={creating}
-            className="flex items-center justify-center rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+            className="flex items-center justify-center rounded-md bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-60"
           >
             <Plus className="mr-2 h-4 w-4" />
             {creating ? 'Salvando...' : 'Abrir'}
@@ -392,7 +392,7 @@ export default function CatsPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border bg-white shadow-sm">
+      <div className="ds-surface-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -440,7 +440,7 @@ export default function CatsPage() {
                           key={item.id}
                           type="button"
                           onClick={() => void handleOpenAttachment(cat.id, item.id)}
-                          className="rounded border border-blue-200 px-2 py-0.5 text-xs text-slate-800 hover:bg-blue-50"
+                          className="rounded border border-blue-200 px-2 py-0.5 text-xs text-[var(--ds-color-text-primary)] hover:bg-blue-50"
                         >
                           <Eye className="mr-1 inline h-3 w-3" />
                           {item.file_name}
@@ -477,7 +477,7 @@ export default function CatsPage() {
                       {cat.status !== 'fechada' && (
                         <button
                           type="button"
-                          className="rounded border px-2 py-1 text-xs text-slate-800 hover:bg-blue-50"
+                          className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-primary)] hover:bg-blue-50"
                           onClick={() => void handleStartInvestigation(cat)}
                         >
                           Investigar
@@ -515,7 +515,7 @@ export default function CatsPage() {
 
 function Kpi({ title, value }: { title: string; value: number }) {
   return (
-    <div className="rounded-lg border bg-white p-3 shadow-sm">
+    <div className="ds-surface-card p-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
         {title}
       </p>

@@ -80,8 +80,8 @@ function KpiCard({
 
   return (
     <div className={`ds-kpi-card ${toneClass}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/72">{label}</p>
-      <p className="mt-1 text-[1.55rem] font-bold text-white">{value}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">{label}</p>
+      <p className="mt-1 text-[1.55rem] font-bold text-current">{value}</p>
     </div>
   );
 }

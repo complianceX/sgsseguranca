@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { checklistsService, Checklist } from '@/services/checklistsService';
 import { signaturesService } from '@/services/signaturesService';
@@ -28,11 +28,7 @@ export default function ChecklistModelsPage() {
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
 
-  useEffect(() => {
-    loadModels(modelFilter);
-  }, [modelFilter, page]);
-
-  async function loadModels(filter: 'all' | 'model' | 'regular') {
+  const loadModels = useCallback(async (filter: 'all' | 'model' | 'regular') => {
     try {
       setLoading(true);
       const options =
@@ -55,7 +51,11 @@ export default function ChecklistModelsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [page]);
+
+  useEffect(() => {
+    void loadModels(modelFilter);
+  }, [loadModels, modelFilter]);
 
   async function handleDelete(id: string) {
     if (confirm('Excluir este modelo?')) {
@@ -85,7 +85,7 @@ export default function ChecklistModelsPage() {
           is_modelo: true,
         });
         toast.success('Modelo duplicado com sucesso!');
-        loadModels(modelFilter);
+      void loadModels(modelFilter);
       } catch (error) {
         console.error('Erro ao duplicar modelo:', error);
         toast.error('Erro ao duplicar modelo.');

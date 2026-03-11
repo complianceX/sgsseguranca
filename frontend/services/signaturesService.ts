@@ -3,6 +3,9 @@ import api from '@/lib/api';
 export interface Signature {
   id?: string;
   user_id?: string;
+  user?: {
+    nome?: string;
+  };
   document_id: string;
   document_type: string;
   signature_data: string;

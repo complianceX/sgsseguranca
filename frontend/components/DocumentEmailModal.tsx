@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, X, Send, Loader2 } from 'lucide-react';
+import { Mail, X, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
 import { Input } from './ui/input';

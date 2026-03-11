@@ -1,6 +1,6 @@
 'use client';
 
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { companiesService, Company } from '@/services/companiesService';
 import { Building2, Plus, Pencil, Trash2, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -42,11 +42,7 @@ export default function CompaniesPage() {
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
 
-  useEffect(() => {
-    loadCompanies();
-  }, [page, deferredSearchTerm]);
-
-  async function loadCompanies() {
+  const loadCompanies = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError(null);
@@ -65,7 +61,11 @@ export default function CompaniesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [deferredSearchTerm, page]);
+
+  useEffect(() => {
+    void loadCompanies();
+  }, [loadCompanies]);
 
   async function handleDelete(id: string) {
     if (!confirm('Tem certeza que deseja excluir esta empresa?')) {
@@ -79,7 +79,7 @@ export default function CompaniesPage() {
         setPage((current) => current - 1);
         return;
       }
-      loadCompanies();
+      void loadCompanies();
     } catch (error) {
       console.error('Erro ao excluir empresa:', error);
       toast.error('Erro ao excluir empresa. Verifique dependencias e tente novamente.');
@@ -112,7 +112,7 @@ export default function CompaniesPage() {
         title="Falha ao carregar empresas"
         description={loadError}
         action={
-          <Button type="button" onClick={loadCompanies}>
+          <Button type="button" onClick={() => void loadCompanies()}>
             Tentar novamente
           </Button>
         }

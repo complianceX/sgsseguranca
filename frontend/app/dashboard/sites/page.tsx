@@ -1,6 +1,6 @@
 'use client';
 
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { sitesService, Site } from '@/services/sitesService';
 import { Building2, MapPinned, Plus, Pencil, Trash2, Search, QrCode } from 'lucide-react';
 import Link from 'next/link';
@@ -44,11 +44,7 @@ export default function SitesPage() {
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
 
-  useEffect(() => {
-    loadSites();
-  }, [page, deferredSearchTerm]);
-
-  async function loadSites() {
+  const loadSites = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError(null);
@@ -67,7 +63,11 @@ export default function SitesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [deferredSearchTerm, page]);
+
+  useEffect(() => {
+    void loadSites();
+  }, [loadSites]);
 
   async function handleDelete(id: string) {
     if (!confirm('Tem certeza que deseja excluir esta obra/setor?')) {
@@ -81,7 +81,7 @@ export default function SitesPage() {
         setPage((current) => current - 1);
         return;
       }
-      loadSites();
+      void loadSites();
     } catch (error) {
       console.error('Erro ao excluir site:', error);
       toast.error('Erro ao excluir obra/setor. Verifique dependencias e tente novamente.');
@@ -118,7 +118,7 @@ export default function SitesPage() {
         title="Falha ao carregar obras/setores"
         description={loadError}
         action={
-          <Button type="button" onClick={loadSites}>
+          <Button type="button" onClick={() => void loadSites()}>
             Tentar novamente
           </Button>
         }

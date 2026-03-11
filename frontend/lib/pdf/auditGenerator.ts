@@ -26,7 +26,7 @@ export async function generateAuditPdf(
   const { default: autoTable } = await import('jspdf-autotable');
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const code = buildDocumentCode('AUD', (audit as any).id || audit.titulo);
+  const code = buildDocumentCode('AUD', audit.id || audit.titulo);
   let y = drawHeader(doc, {
     title: 'RELATÓRIO DE AUDITORIA',
     subtitle: sanitize(audit.tipo_auditoria),
@@ -82,12 +82,13 @@ export async function generateAuditPdf(
     );
   }
 
-  y = await drawValidationCard(doc, y, code, buildValidationUrl(code));
+  await drawValidationCard(doc, y, code, buildValidationUrl(code));
   applyFooter(doc, { code, generatedAt: formatDateTime(new Date().toISOString()) });
 
   const filename = buildPdfFilename('AUDITORIA', audit.titulo, audit.data_auditoria);
   if (options?.save === false && options?.output === 'base64') {
-    return { base64: pdfDocToBase64(doc as any), filename };
+    const docOutput = doc as unknown as { output: (type: 'datauri' | 'dataurl') => string };
+    return { base64: pdfDocToBase64(docOutput), filename };
   }
   doc.save(filename);
 }

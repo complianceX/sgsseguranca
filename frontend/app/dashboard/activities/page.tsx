@@ -1,6 +1,6 @@
 'use client';
 
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { activitiesService, Activity } from '@/services/activitiesService';
 import { ClipboardList, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import Link from 'next/link';
@@ -42,11 +42,7 @@ export default function ActivitiesPage() {
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
 
-  useEffect(() => {
-    loadActivities();
-  }, [page, deferredSearchTerm]);
-
-  async function loadActivities() {
+  const loadActivities = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError(null);
@@ -65,7 +61,11 @@ export default function ActivitiesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [deferredSearchTerm, page]);
+
+  useEffect(() => {
+    void loadActivities();
+  }, [loadActivities]);
 
   async function handleDelete(id: string) {
     if (!confirm('Tem certeza que deseja excluir esta atividade?')) {
@@ -79,7 +79,7 @@ export default function ActivitiesPage() {
         setPage((current) => current - 1);
         return;
       }
-      loadActivities();
+      void loadActivities();
     } catch (error) {
       console.error('Erro ao excluir atividade:', error);
       toast.error('Erro ao excluir atividade. Verifique dependencias e tente novamente.');
@@ -112,7 +112,7 @@ export default function ActivitiesPage() {
         title="Falha ao carregar atividades"
         description={loadError}
         action={
-          <Button type="button" onClick={loadActivities}>
+          <Button type="button" onClick={() => void loadActivities()}>
             Tentar novamente
           </Button>
         }

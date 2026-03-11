@@ -183,7 +183,7 @@ export function AuditForm({ id }: AuditFormProps) {
   if (fetching) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#2563EB]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--ds-color-action-primary)]" />
       </div>
     );
   }
@@ -198,7 +198,7 @@ export function AuditForm({ id }: AuditFormProps) {
       {/* 1. Identificação */}
       <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">
-          <ClipboardCheck className="h-5 w-5 text-slate-800" />
+          <ClipboardCheck className="h-5 w-5 text-[var(--ds-color-text-primary)]" />
           1. Identificação do Documento
         </h2>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -311,7 +311,7 @@ export function AuditForm({ id }: AuditFormProps) {
 
       {/* 2 & 3. Objetivo e Escopo */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="sst-card p-6">
           <h2 className="mb-4 text-lg font-bold text-gray-900">2. Objetivo</h2>
           <textarea
             {...register('objetivo')}
@@ -319,7 +319,7 @@ export function AuditForm({ id }: AuditFormProps) {
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           />
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="sst-card p-6">
           <h2 className="mb-4 text-lg font-bold text-gray-900">3. Escopo</h2>
           <textarea
             {...register('escopo')}
@@ -331,13 +331,13 @@ export function AuditForm({ id }: AuditFormProps) {
 
       {/* 4 & 5. Referências e Metodologia */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="sst-card p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-bold text-gray-900">4. Referências</h2>
             <button
               type="button"
               onClick={() => appendRef('')}
-              className="text-slate-800 hover:text-slate-800"
+              className="text-[var(--ds-color-text-primary)] hover:text-[var(--ds-color-text-primary)]"
               title="Adicionar Referência"
               aria-label="Adicionar Referência"
             >
@@ -362,7 +362,7 @@ export function AuditForm({ id }: AuditFormProps) {
             </div>
           ))}
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="sst-card p-6">
           <h2 className="mb-4 text-lg font-bold text-gray-900">5. Metodologia</h2>
           <textarea
             {...register('metodologia')}
@@ -402,7 +402,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <button
             type="button"
             onClick={() => appendDoc('')}
-            className="text-slate-800 hover:text-slate-800"
+            className="text-[var(--ds-color-text-primary)] hover:text-[var(--ds-color-text-primary)]"
             title="Adicionar Documento"
             aria-label="Adicionar Documento"
           >
@@ -589,7 +589,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <button
             type="button"
             onClick={() => appendRisk({ perigo: '', classificacao: '', impactos: '', medidas_controle: '' })}
-            className="flex items-center gap-1 rounded-md bg-slate-900 px-3 py-1 text-sm text-white hover:bg-slate-800"
+            className="flex items-center gap-1 rounded-md bg-[var(--ds-color-action-primary)] px-3 py-1 text-sm text-white hover:bg-[var(--ds-color-action-primary-hover)]"
             title="Adicionar Avaliação de Risco"
             aria-label="Adicionar Avaliação de Risco"
           >
@@ -638,7 +638,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <button
             type="button"
             onClick={() => appendAction({ item: '', acao: '', responsavel: '', prazo: '', status: 'Pendente' })}
-            className="flex items-center gap-1 rounded-md bg-slate-900 px-3 py-1 text-sm text-white hover:bg-slate-800"
+            className="flex items-center gap-1 rounded-md bg-[var(--ds-color-action-primary)] px-3 py-1 text-sm text-white hover:bg-[var(--ds-color-action-primary-hover)]"
             title="Adicionar Ação ao Plano de Ação"
             aria-label="Adicionar Ação ao Plano de Ação"
           >
@@ -704,14 +704,14 @@ export function AuditForm({ id }: AuditFormProps) {
       <div className="flex justify-end space-x-4 border-t pt-6">
         <Link
           href="/dashboard/audits"
-          className="rounded-lg border border-[#E5E7EB] px-6 py-2 text-sm font-medium text-[#374151] hover:bg-[#E5E7EB]"
+          className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
           Cancelar
         </Link>
         <button
           type="submit"
           disabled={loading || isSubmitting || !isValid}
-          className="flex items-center space-x-2 rounded-lg bg-slate-900 px-10 py-2 text-sm font-bold text-white shadow-lg transition-all hover:bg-slate-800 disabled:opacity-50 active:scale-95"
+          className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-10 py-2 text-sm font-bold text-white shadow-lg transition-all hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 active:scale-95"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -724,3 +724,4 @@ export function AuditForm({ id }: AuditFormProps) {
     </form>
   );
 }
+

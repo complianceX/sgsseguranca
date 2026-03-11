@@ -4,8 +4,6 @@ export const size = { width: 180, height: 180 };
 export const contentType = 'image/png';
 
 export default function AppleIcon() {
-  const dimension = size.width;
-
   return new ImageResponse(
     <div
       style={{
@@ -23,7 +21,7 @@ export default function AppleIcon() {
           width: '68%',
           height: '68%',
           borderRadius: '36% 36% 42% 42% / 30% 30% 52% 52%',
-          border: '4px solid rgba(255,255,255,0.78)',
+          border: '4px solid rgba(255, 255, 255, 0.6)',
           background: 'linear-gradient(180deg, #1E3A8A 0%, #0B1B3B 100%)',
           display: 'flex',
           alignItems: 'center',

@@ -17,7 +17,7 @@ export const RiskTypesSection = () => {
     <div className="sst-card p-6 transition-shadow hover:shadow-md">
       <h2 className="mb-6 text-lg font-bold text-gray-900 flex items-center gap-2">
         Riscos Adicionais / Tipos de Trabalho
-        <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+        <span className="h-2 w-2 rounded-full bg-[var(--ds-color-warning)]"></span>
       </h2>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {riskTypes.map((item) => (
@@ -25,13 +25,15 @@ export const RiskTypesSection = () => {
             key={item.id}
             className={cn(
               "flex cursor-pointer select-none items-center space-x-3 rounded-xl border p-4 transition-all hover:bg-gray-50",
-              watch(item.id) ? "border-amber-200 bg-amber-50/50 ring-2 ring-amber-500/10 shadow-[var(--ds-shadow-sm)]" : "border-gray-200"
+              watch(item.id)
+                ? "border-amber-200 bg-amber-50/50 ring-2 ring-amber-500/10 shadow-[var(--ds-shadow-sm)]"
+                : "border-gray-200"
             )}
           >
             <input
               type="checkbox"
               {...register(item.id)}
-              className="h-5 w-5 rounded border-gray-300 text-slate-800 focus:ring-slate-600 transition-all"
+              className="h-5 w-5 rounded border-gray-300 text-[var(--ds-color-text-primary)] focus:ring-blue-500 transition-all"
             />
             <span className={cn(
               "text-sm font-medium transition-colors",

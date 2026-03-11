@@ -6,7 +6,7 @@ import {
   LoaderCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './card';
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from './card';
 import { PageSkeleton } from './skeleton';
 
 type StateTone = 'neutral' | 'danger' | 'success';

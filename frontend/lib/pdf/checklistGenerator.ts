@@ -1,5 +1,6 @@
 import type { Checklist } from '@/services/checklistsService';
 import type { Signature } from '@/services/signaturesService';
+import type { CellHookData } from 'jspdf-autotable';
 import { pdfDocToBase64 } from './pdfBase64';
 import {
   applyFooter,
@@ -43,10 +44,10 @@ export async function generateChecklistPdf(
   const { default: autoTable } = await import('jspdf-autotable');
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const code = buildDocumentCode('CHK', (checklist as any).id || checklist.titulo);
+  const code = buildDocumentCode('CHK', checklist.id || checklist.titulo);
   const totalItems = checklist.itens?.length ?? 0;
-  const conformes = checklist.itens?.filter((item) => isConforme((item as any).status)).length ?? 0;
-  const naoConformes = checklist.itens?.filter((item) => isNaoConforme((item as any).status)).length ?? 0;
+  const conformes = checklist.itens?.filter((item) => isConforme(item.status)).length ?? 0;
+  const naoConformes = checklist.itens?.filter((item) => isNaoConforme(item.status)).length ?? 0;
 
   let y = drawHeader(doc, {
     title: 'CHECKLIST DE INSPEÇÃO',
@@ -83,7 +84,7 @@ export async function generateChecklistPdf(
         sanitize(item.observacao),
       ]),
       {
-        didParseCell: (data: any) => {
+        didParseCell: (data: CellHookData) => {
           if (data.column.index === 3 && data.section === 'body') {
             const value = String(data.cell.raw || '');
             if (value === 'Conforme') data.cell.styles.textColor = [5, 150, 105];
@@ -105,19 +106,20 @@ export async function generateChecklistPdf(
     y,
     signatures.map((signature) => ({
       label: sanitize(signature.type),
-      name: sanitize((signature as any).user?.nome || signature.type),
+      name: sanitize(signature.user?.nome || signature.type),
       role: sanitize(signature.type),
       date: formatDate(signature.signed_at || signature.created_at),
       image: signature.signature_data,
     })),
   );
 
-  y = await drawValidationCard(doc, y, code, buildValidationUrl(code));
+  await drawValidationCard(doc, y, code, buildValidationUrl(code));
   applyFooter(doc, { code, generatedAt: formatDateTime(new Date().toISOString()) });
 
   const filename = buildPdfFilename('CHECKLIST', checklist.titulo, checklist.data);
   if (options?.save === false && options?.output === 'base64') {
-    return { base64: pdfDocToBase64(doc as any), filename };
+    const docOutput = doc as unknown as { output: (type: 'datauri' | 'dataurl') => string };
+    return { base64: pdfDocToBase64(docOutput), filename };
   }
   doc.save(filename);
 }

@@ -28,7 +28,7 @@ export function ResponsibleExecutorsSection({
     <div className="sst-card p-6 transition-shadow hover:shadow-md">
       <h2 className="mb-2 text-lg font-bold text-gray-900 flex items-center gap-2">
         Executantes e Assinaturas
-        <span className="h-2 w-2 rounded-full bg-emerald-600"></span>
+        <span className="h-2 w-2 rounded-full bg-[var(--ds-color-success)]"></span>
       </h2>
       <p className="mb-6 text-sm text-gray-600">
         Selecione os executantes e colete as assinaturas necessárias.

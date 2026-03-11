@@ -20,23 +20,29 @@ interface AprTimelineProps {
 }
 
 const actionMap: Record<string, { label: string; icon: ReactNode }> = {
-  APR_CRIADA: { label: 'APR criada', icon: <FilePlus2 className="h-4 w-4 text-slate-800" /> },
+  APR_CRIADA: {
+    label: 'APR criada',
+    icon: <FilePlus2 className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
+  },
   APR_ATUALIZADA: {
     label: 'APR atualizada',
-    icon: <RefreshCcw className="h-4 w-4 text-slate-800" />,
+    icon: <RefreshCcw className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
   },
-  APR_PDF_ANEXADO: { label: 'PDF anexado', icon: <FileUp className="h-4 w-4 text-slate-800" /> },
+  APR_PDF_ANEXADO: {
+    label: 'PDF anexado',
+    icon: <FileUp className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
+  },
   APR_FINALIZADA: {
     label: 'APR finalizada/aprovada',
-    icon: <FileCheck2 className="h-4 w-4 text-emerald-600" />,
+    icon: <FileCheck2 className="h-4 w-4 text-[var(--ds-color-success)]" />,
   },
   APR_NOVA_VERSAO_GERADA: {
     label: 'Nova versão gerada',
-    icon: <RefreshCcw className="h-4 w-4 text-slate-800" />,
+    icon: <RefreshCcw className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
   },
   APR_CRIADA_POR_VERSAO: {
     label: 'APR criada a partir de versão',
-    icon: <FilePlus2 className="h-4 w-4 text-slate-800" />,
+    icon: <FilePlus2 className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
   },
 };
 
@@ -45,7 +51,10 @@ export function AprTimeline({ logs, loading = false }: AprTimelineProps) {
     return (
       <div className="space-y-3">
         {[1, 2, 3].map((item) => (
-          <div key={item} className="h-10 animate-pulse rounded-lg bg-slate-100" />
+          <div
+            key={item}
+            className="h-10 animate-pulse rounded-lg bg-[var(--ds-color-surface-muted)]"
+          />
         ))}
       </div>
     );
@@ -53,7 +62,7 @@ export function AprTimeline({ logs, loading = false }: AprTimelineProps) {
 
   if (!logs.length) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+      <div className="rounded-lg border border-dashed border-[var(--ds-color-border-subtle)] p-4 text-sm text-[var(--ds-color-text-muted)]">
         Sem eventos registrados para esta APR.
       </div>
     );
@@ -64,17 +73,17 @@ export function AprTimeline({ logs, loading = false }: AprTimelineProps) {
       {logs.map((log) => {
         const mapped = actionMap[log.acao] || {
           label: log.acao,
-          icon: <Clock3 className="h-4 w-4 text-slate-600" />,
+          icon: <Clock3 className="h-4 w-4 text-[var(--ds-color-text-secondary)]" />,
         };
         return (
           <div
             key={log.id}
-            className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3"
+            className="flex items-start gap-3 rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3"
           >
             <div className="mt-0.5">{mapped.icon}</div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-slate-800">{mapped.label}</p>
-              <p className="text-xs text-slate-500">
+              <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{mapped.label}</p>
+              <p className="text-xs text-[var(--ds-color-text-muted)]">
                 {formatDistanceToNow(new Date(log.data_hora), {
                   addSuffix: true,
                   locale: ptBR,

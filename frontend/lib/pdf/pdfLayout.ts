@@ -1,6 +1,7 @@
 import QRCode from 'qrcode';
+import type { jsPDF } from 'jspdf';
 
-type PdfDoc = any;
+type PdfDoc = jsPDF;
 type AutoTableFn = (doc: PdfDoc, options: Record<string, unknown>) => void;
 
 type Color = [number, number, number];
@@ -418,7 +419,8 @@ export function drawModernTable(
     ...overrides,
   });
 
-  return ((doc as any).lastAutoTable?.finalY || y + 20) + 8;
+  const docWithTable = doc as PdfDoc & { lastAutoTable?: { finalY?: number } };
+  return (docWithTable.lastAutoTable?.finalY || y + 20) + 8;
 }
 
 // ─── Card de assinaturas digitais ─────────────────────────────────────────────

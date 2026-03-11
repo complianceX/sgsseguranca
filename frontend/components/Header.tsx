@@ -158,13 +158,13 @@ export function Header({
   const getIcon = (type: string) => {
     switch (type) {
       case 'warning':
-        return <AlertTriangle className="h-5 w-5 text-amber-400" />;
+        return <AlertTriangle className="h-5 w-5 text-[var(--ds-color-warning)]" />;
       case 'danger':
-        return <AlertTriangle className="h-5 w-5 text-red-400" />;
+        return <AlertTriangle className="h-5 w-5 text-[var(--ds-color-danger)]" />;
       case 'success':
-        return <CheckCircle className="h-5 w-5 text-emerald-400" />;
+        return <CheckCircle className="h-5 w-5 text-[var(--ds-color-success)]" />;
       default:
-        return <Info className="h-5 w-5 text-sky-400" />;
+        return <Info className="h-5 w-5 text-[var(--ds-color-info)]" />;
     }
   };
 
@@ -199,7 +199,7 @@ export function Header({
             <span className="min-w-0 flex-1 text-left text-[13px] text-[var(--ds-color-text-muted)]">
               Pesquisar módulos, documentos, colaboradores ou ações...
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-semibold text-[var(--ds-color-text-muted)]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/72 px-2 py-1 text-[10px] font-semibold text-[var(--ds-color-text-muted)]">
               <Command className="h-3 w-3" />
               Ctrl K
             </span>
@@ -208,7 +208,7 @@ export function Header({
           <button
             type="button"
             onClick={onOpenMobileNav}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-white/10 hover:text-white xl:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/74 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/80 hover:text-[var(--ds-color-text-primary)] xl:hidden"
             aria-label="Abrir navegação"
             title="Abrir navegação"
           >
@@ -221,7 +221,7 @@ export function Header({
               {currentDateLabel}
             </div>
             <div className="ds-topbar-chip">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
               {selectedTenant?.companyName || user?.company?.razao_social || 'Tenant não selecionado'}
             </div>
           </div>
@@ -230,7 +230,7 @@ export function Header({
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex w-full items-center gap-2 xl:hidden">
             <div className="ds-topbar-chip min-w-0 flex-1 justify-center">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
               <span className="truncate">
                 {selectedTenant?.companyName || user?.company?.razao_social || 'Tenant não selecionado'}
               </span>
@@ -245,7 +245,7 @@ export function Header({
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
               Contexto ativo
             </p>
-            <p className="mt-1 text-sm font-medium text-white">
+            <p className="mt-1 text-sm font-medium text-[var(--ds-color-text-primary)]">
               {pathname === '/dashboard'
                 ? 'Cockpit operacional'
                 : pathname.replace('/dashboard/', '').replaceAll('-', ' ')}
@@ -281,20 +281,22 @@ export function Header({
             title="Sincronizar itens salvos offline"
           >
             {syncingOfflineQueue ? (
-              <RefreshCw className="h-4 w-4 animate-spin text-amber-300" />
+              <RefreshCw className="h-4 w-4 animate-spin text-[var(--ds-color-warning)]" />
             ) : (
-              <WifiOff className={`h-4 w-4 ${offlineQueueCount > 0 ? 'text-amber-300' : 'text-[var(--ds-color-text-muted)]'}`} />
+              <WifiOff className={`h-4 w-4 ${offlineQueueCount > 0 ? 'text-[var(--ds-color-warning)]' : 'text-[var(--ds-color-text-muted)]'}`} />
             )}
             {syncingOfflineQueue ? 'Sincronizando' : `Offline: ${offlineQueueCount}`}
           </button>
 
           <div
             className={`ds-topbar-chip ${
-              isOffline ? 'border-red-400/25 bg-red-500/10 text-red-200' : 'border-emerald-400/25 bg-emerald-500/10 text-emerald-200'
+              isOffline
+                ? 'border-[color:var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]'
+                : 'border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
             }`}
             title={isOffline ? `API offline${apiBaseUrl ? ` (${apiBaseUrl})` : ''}` : 'API online'}
           >
-            <span className={`h-2 w-2 rounded-full ${isOffline ? 'bg-red-400' : 'bg-emerald-400'}`} />
+            <span className={`h-2 w-2 rounded-full ${isOffline ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-success)]'}`} />
             {isOffline ? 'API offline' : 'API online'}
           </div>
 
@@ -317,25 +319,25 @@ export function Header({
               type="button"
               title="Notificações"
               onClick={handleOpen}
-              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-white/10 hover:text-white"
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/74 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/80 hover:text-[var(--ds-color-text-primary)]"
             >
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
-                <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--ds-color-danger)] text-[10px] font-bold text-white">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 z-50 mt-3 w-[20.5rem] overflow-hidden rounded-[1.4rem] border border-white/10 bg-[linear-gradient(180deg,#0d1d35_0%,#122845_100%)] shadow-[var(--ds-shadow-lg)]">
-                <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5">
+              <div className="absolute right-0 z-50 mt-3 w-[20.5rem] overflow-hidden rounded-[1.4rem] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-lg)]">
+                <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-4 py-3.5">
                   <div>
-                    <h3 className="text-sm font-semibold text-white">Notificações</h3>
+                    <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Notificações</h3>
                     <p className="text-xs text-[var(--ds-color-text-muted)]">Eventos recentes da operação SST</p>
                   </div>
                   <button type="button" title="Fechar" onClick={() => setShowNotifications(false)}>
-                    <X className="h-4 w-4 text-[var(--ds-color-text-muted)] hover:text-white" />
+                    <X className="h-4 w-4 text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)]" />
                   </button>
                 </div>
 
@@ -346,7 +348,7 @@ export function Header({
                         key={notification.id}
                         type="button"
                         onClick={() => !notification.read && handleMarkOne(notification.id)}
-                        className={`w-full border-b border-white/5 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.04] ${
+                        className={`w-full border-b border-[var(--ds-color-border-subtle)] px-4 py-3.5 text-left transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/40 ${
                           !notification.read ? 'bg-[var(--ds-color-action-primary)]/8' : ''
                         }`}
                       >
@@ -354,10 +356,10 @@ export function Header({
                           <div className="mt-0.5 shrink-0">{getIcon(notification.type)}</div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
-                              <p className={`truncate text-sm font-semibold ${notification.read ? 'text-[var(--ds-color-text-secondary)]' : 'text-white'}`}>
+                              <p className={`truncate text-sm font-semibold ${notification.read ? 'text-[var(--ds-color-text-secondary)]' : 'text-[var(--ds-color-text-primary)]'}`}>
                                 {notification.title}
                               </p>
-                              {!notification.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400" />}
+                              {!notification.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--ds-color-info)]" />}
                             </div>
                             <p className="mt-1 line-clamp-2 text-xs text-[var(--ds-color-text-muted)]">{notification.message}</p>
                             <p className="mt-2 text-[10px] uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]/70">
@@ -375,12 +377,12 @@ export function Header({
                   )}
                 </div>
 
-                <div className="bg-black/10 px-4 py-2.5 text-center">
+                <div className="bg-[color:var(--ds-color-surface-muted)]/45 px-4 py-2.5 text-center">
                   <button
                     type="button"
                     onClick={handleMarkAllAsRead}
                     disabled={markingAll || unreadCount === 0}
-                    className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {markingAll ? 'Marcando...' : 'Marcar todas como lidas'}
                   </button>
@@ -389,9 +391,9 @@ export function Header({
             )}
           </div>
 
-          <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+          <div className="flex items-center gap-2.5 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/74 px-3 py-2">
             <div className="text-right">
-              <p className="text-[13px] font-semibold text-white">{user?.nome}</p>
+              <p className="text-[13px] font-semibold text-[var(--ds-color-text-primary)]">{user?.nome}</p>
               <p className="text-xs text-[var(--ds-color-text-muted)]">{user?.profile?.nome || 'Perfil não definido'}</p>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[image:var(--ds-gradient-brand)] text-[13px] font-bold text-white shadow-[0_14px_28px_rgba(47,111,237,0.28)]">

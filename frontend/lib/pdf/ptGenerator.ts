@@ -32,7 +32,7 @@ export async function generatePtPdf(
   const { default: autoTable } = await import('jspdf-autotable');
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const code = buildDocumentCode('PT', (pt as any).id || pt.numero || pt.titulo);
+  const code = buildDocumentCode('PT', pt.id || pt.numero || pt.titulo);
   let y = drawHeader(doc, {
     title: 'PERMISSÃO DE TRABALHO',
     subtitle: 'PT - Segurança do Trabalho',
@@ -105,19 +105,20 @@ export async function generatePtPdf(
     y,
     signatures.map((signature) => ({
       label: sanitize(signature.type),
-      name: sanitize((signature as any).user?.nome || signature.type),
+      name: sanitize(signature.user?.nome || signature.type),
       role: sanitize(signature.type),
       date: formatDate(signature.signed_at || signature.created_at),
       image: signature.signature_data,
     })),
   );
 
-  y = await drawValidationCard(doc, y, code, buildValidationUrl(code));
+  await drawValidationCard(doc, y, code, buildValidationUrl(code));
   applyFooter(doc, { code, generatedAt: formatDateTime(new Date().toISOString()) });
 
   const filename = `PT_${sanitize(pt.numero || code)}.pdf`;
   if (options?.save === false && options?.output === 'base64') {
-    return { base64: pdfDocToBase64(doc as any), filename };
+    const docOutput = doc as unknown as { output: (type: 'datauri' | 'dataurl') => string };
+    return { base64: pdfDocToBase64(docOutput), filename };
   }
   doc.save(filename);
 }

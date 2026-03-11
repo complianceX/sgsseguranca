@@ -1,6 +1,6 @@
 'use client';
 
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { episService, Epi } from '@/services/episService';
 import { Plus, Pencil, Trash2, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
@@ -13,6 +13,9 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
+const panelClassName =
+  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]';
+
 export default function EpisPage() {
   const [epis, setEpis] = useState<Epi[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,11 +25,7 @@ export default function EpisPage() {
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
 
-  useEffect(() => {
-    loadEpis();
-  }, [deferredSearchTerm, page]);
-
-  async function loadEpis() {
+  const loadEpis = useCallback(async () => {
     try {
       setLoading(true);
       const response = await episService.findPaginated({
@@ -43,7 +42,11 @@ export default function EpisPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [deferredSearchTerm, page]);
+
+  useEffect(() => {
+    void loadEpis();
+  }, [loadEpis]);
 
   async function handleDelete(id: string) {
     if (confirm('Tem certeza que deseja excluir este EPI?')) {
@@ -54,7 +57,7 @@ export default function EpisPage() {
           setPage((current) => current - 1);
           return;
         }
-        loadEpis();
+        void loadEpis();
       } catch (error) {
         console.error('Erro ao excluir EPI:', error);
         toast.error('Erro ao excluir EPI. Verifique se existem dependências e tente novamente.');
@@ -83,7 +86,7 @@ export default function EpisPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
+      <div className={`${panelClassName} p-4`}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">EPIs</h1>
@@ -104,11 +107,11 @@ export default function EpisPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border bg-white shadow-sm">
-        <div className="border-b bg-slate-50/70 p-4">
+      <div className={panelClassName}>
+        <div className="border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-4">
           <div className="relative max-w-sm">
             <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-              <Search className="h-4 w-4 text-gray-400" />
+              <Search className="h-4 w-4 text-[var(--ds-color-text-muted)]" />
             </span>
             <Input
               type="text"

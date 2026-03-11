@@ -102,26 +102,26 @@ export function Sidebar({
       />
       <div
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-full w-72 flex-col border-r border-[color:var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,var(--ds-color-bg-canvas)_0%,var(--ds-color-bg-subtle)_42%,var(--ds-color-surface-base)_100%)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-lg)] transition-transform duration-[var(--ds-motion-base)] xl:static xl:z-auto xl:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex h-full w-72 flex-col border-r border-[color:var(--ds-color-sidebar-border)] bg-[linear-gradient(180deg,var(--ds-color-sidebar-bg)_0%,var(--ds-color-sidebar-bg-soft)_42%,var(--ds-color-sidebar-surface)_100%)] text-[var(--ds-color-sidebar-text)] shadow-[var(--ds-shadow-lg)] transition-transform duration-[var(--ds-motion-base)] xl:static xl:z-auto xl:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-      <div className="border-b border-[color:var(--ds-color-border-subtle)]/80 px-5 py-4">
+      <div className="border-b border-[color:var(--ds-color-sidebar-border)]/80 px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-[color:var(--ds-color-surface-elevated)]/70 shadow-[0_8px_24px_rgba(15,23,42,0.22)]">
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-surface)]/90 shadow-[0_8px_24px_rgba(15,23,42,0.22)]">
             <Image src="/logo-gst-mark.svg" alt="Logo GST" width={28} height={28} priority />
           </div>
           <div className="min-w-0">
             <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--ds-color-text-disabled)]">
               Sistema SST
             </p>
-            <h1 className="truncate text-[0.96rem] font-bold tracking-[-0.02em] text-white">&lt;GST&gt;</h1>
-            <p className="truncate text-[0.64rem] font-semibold uppercase tracking-[0.15em] text-[var(--ds-color-text-muted)]">
+            <h1 className="truncate text-[0.96rem] font-bold tracking-[-0.02em] text-[var(--ds-color-sidebar-text)]">&lt;GST&gt;</h1>
+            <p className="truncate text-[0.64rem] font-semibold uppercase tracking-[0.15em] text-[var(--ds-color-sidebar-muted)]">
               Gestão de Segurança do Trabalho
             </p>
           </div>
         </div>
-        <div className="mt-3 h-px bg-[color:var(--ds-color-border-subtle)]/60" />
+        <div className="mt-3 h-px bg-[color:var(--ds-color-sidebar-border)]/60" />
       </div>
 
       <div className="flex-1 overflow-y-auto px-3.5 py-4">
@@ -151,7 +151,7 @@ export function Sidebar({
             if (item.type === 'divider') {
               return (
                 <div key={index} className="pb-1.5 pt-4">
-                  <p className="px-3 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--ds-color-text-muted)]/90">
+                  <p className="px-3 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--ds-color-sidebar-muted)]/90">
                     {item.label}
                   </p>
                 </div>
@@ -170,7 +170,7 @@ export function Sidebar({
                   'group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[13px] font-medium transition-all duration-[var(--ds-motion-base)]',
                   active
                     ? 'border-[color:var(--ds-color-action-primary)]/30 bg-[color:var(--ds-color-primary-subtle)] text-[color:var(--ds-color-action-primary)] shadow-[0_2px_8px_rgba(30,58,92,0.12)]'
-                    : 'border-transparent text-[var(--ds-color-text-muted)] hover:border-[color:var(--ds-color-border-strong)]/70 hover:bg-[color:var(--ds-color-surface-elevated)]/72 hover:text-[var(--ds-color-text-primary)]'
+                    : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:border-[color:var(--ds-color-sidebar-border)]/88 hover:bg-[color:var(--ds-color-sidebar-surface)]/76 hover:text-[var(--ds-color-sidebar-text)]'
                 )}
               >
                 <span
@@ -178,7 +178,7 @@ export function Sidebar({
                     'flex h-8 w-8 items-center justify-center rounded-lg border transition-colors duration-[var(--ds-motion-base)]',
                     active
                     ? 'border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/10 text-[color:var(--ds-color-action-primary)]'
-                      : 'border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/70 text-[var(--ds-color-text-secondary)] group-hover:border-[color:var(--ds-color-border-strong)] group-hover:text-[var(--ds-color-text-primary)]'
+                      : 'border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-surface)]/70 text-[var(--ds-color-sidebar-muted)] group-hover:border-[color:var(--ds-color-sidebar-border)] group-hover:text-[var(--ds-color-sidebar-text)]'
                   )}
                 >
                   <Icon className="h-4.5 w-4.5" />
@@ -191,11 +191,11 @@ export function Sidebar({
         </nav>
       </div>
 
-      <div className="border-t border-[color:var(--ds-color-border-subtle)]/80 p-3.5">
-        <div className="mb-3 rounded-xl border border-[color:var(--ds-color-border-subtle)]/80 bg-[color:var(--ds-color-surface-elevated)]/65 px-3.5 py-2.5">
+      <div className="border-t border-[color:var(--ds-color-sidebar-border)]/80 p-3.5">
+        <div className="mb-3 rounded-xl border border-[color:var(--ds-color-sidebar-border)]/80 bg-[color:var(--ds-color-sidebar-surface)]/65 px-3.5 py-2.5">
           <div className="flex-1 overflow-hidden">
-            <p className="truncate text-[13px] font-semibold text-[var(--ds-color-text-primary)]">{user?.nome}</p>
-            <p className="truncate text-xs text-[var(--ds-color-text-muted)]">{user?.profile?.nome}</p>
+            <p className="truncate text-[13px] font-semibold text-[var(--ds-color-sidebar-text)]">{user?.nome}</p>
+            <p className="truncate text-xs text-[var(--ds-color-sidebar-muted)]">{user?.profile?.nome}</p>
             <div className="mt-2.5 inline-flex items-center rounded-full border border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-success)]">
               tenant seguro
             </div>
@@ -204,9 +204,9 @@ export function Sidebar({
         <button
           type="button"
           onClick={logout}
-          className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-[13px] font-medium text-[var(--ds-color-text-muted)] transition-all duration-[var(--ds-motion-base)] hover:border-[color:var(--ds-color-danger-border)] hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
+          className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-all duration-[var(--ds-motion-base)] hover:border-[color:var(--ds-color-danger-border)] hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/70">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-surface)]/70">
             <LogOut className="h-4.5 w-4.5" />
           </span>
           Sair

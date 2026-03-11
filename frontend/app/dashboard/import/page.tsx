@@ -111,7 +111,7 @@ export default function ImportPage() {
       }
 
       setSites(nextSites);
-      if (!siteId && !!user && !user.site_id && nextSites.length > 0) {
+      if (!siteId && !user?.site_id && nextSites.length > 0) {
         setSiteId(nextSites[0].id);
       }
     } catch (error) {
@@ -488,7 +488,7 @@ export default function ImportPage() {
                           type="checkbox"
                           checked={isModel}
                           onChange={(e) => setIsModel(e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300 text-slate-800 focus:ring-slate-700"
+                          className="h-4 w-4 rounded border-[var(--ds-color-border-default)] text-[var(--ds-color-action-primary)] focus:ring-[var(--ds-color-focus-ring)]"
                         />
                         <label htmlFor="is-model" className="text-sm text-[var(--ds-color-text-secondary)]">
                           Salvar como modelo

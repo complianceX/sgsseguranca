@@ -1,38 +1,52 @@
 import React, { useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { cn } from '@/lib/utils';
-import { initialChecklists } from './pt-schema-and-data';
+import { initialChecklists, type PtFormData } from './pt-schema-and-data';
 
 type RapidRiskChecklistAnswer = 'Sim' | 'Não';
+type RapidRiskChecklistItem = PtFormData['analise_risco_rapida_checklist'][number];
 
 export const RapidRiskAnalysisSection = () => {
-  const { watch, setValue, formState: { errors } } = useFormContext();
+  const { watch, setValue, formState: { errors } } = useFormContext<PtFormData>();
   
-  const rapidRiskChecklist = watch('analise_risco_rapida_checklist');
-  const rapidRiskObservacoes = watch('analise_risco_rapida_observacoes');
+  const rapidRiskChecklist =
+    watch('analise_risco_rapida_checklist') ??
+    initialChecklists.analise_risco_rapida_checklist;
+  const rapidRiskObservacoes = watch('analise_risco_rapida_observacoes') ?? '';
 
   const hasRapidRiskBasicNo = useMemo(
     () =>
-      (rapidRiskChecklist || []).some(
-        (item: any) => item.secao === 'basica' && item.resposta === 'Não',
-      ),
+      rapidRiskChecklist.some((item) => item.secao === 'basica' && item.resposta === 'Não'),
     [rapidRiskChecklist],
   );
 
   const setRapidRiskChecklistAnswer = (index: number, resposta: RapidRiskChecklistAnswer) => {
-      const currentList = rapidRiskChecklist || initialChecklists.analise_risco_rapida_checklist;
-      const updated = [...currentList];
+      const updated = [...rapidRiskChecklist];
       updated[index] = { ...updated[index], resposta };
       setValue('analise_risco_rapida_checklist', updated, {
         shouldValidate: true,
       });
   };
 
+  const getRapidRiskAnswerError = (index: number) => {
+    const checklistErrors = errors.analise_risco_rapida_checklist;
+    if (!Array.isArray(checklistErrors)) return undefined;
+    const itemError = checklistErrors[index];
+    if (!itemError || typeof itemError !== 'object') return undefined;
+    const message = (itemError as { resposta?: { message?: unknown } }).resposta?.message;
+    return typeof message === 'string' ? message : undefined;
+  };
+
+  const rapidRiskObservacoesErrorMessage =
+    typeof errors.analise_risco_rapida_observacoes?.message === 'string'
+      ? errors.analise_risco_rapida_observacoes.message
+      : undefined;
+
   return (
     <div className="sst-card p-6 transition-shadow hover:shadow-md">
       <h2 className="mb-2 text-lg font-bold text-gray-900 flex items-center gap-2">
         Análise de Risco Rápida
-        <span className="h-2 w-2 rounded-full bg-cyan-500"></span>
+        <span className="h-2 w-2 rounded-full bg-[var(--ds-color-info)]"></span>
       </h2>
       <p className="mb-4 text-sm text-gray-600">
         Se respondeu &quot;Não&quot; em alguma verificação básica, o trabalho não deve
@@ -57,22 +71,18 @@ export const RapidRiskAnalysisSection = () => {
               ? 'Verificações'
               : 'Verificações adicionais';
           
-          const sectionItems = (rapidRiskChecklist || [])
-            .map((item: any, index: number) => ({ item, index }))
-            .filter(({ item }: any) => item.secao === secao);
+          const sectionItems = rapidRiskChecklist
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) => item.secao === secao);
 
           return (
             <div key={secao} className="space-y-3">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                 {tituloSecao}
               </h3>
 
-              {sectionItems.map(({ item, index }: any) => {
-                const answerError =
-                  errors.analise_risco_rapida_checklist &&
-                  Array.isArray(errors.analise_risco_rapida_checklist) &&
-                  (errors.analise_risco_rapida_checklist as any)[index]?.resposta
-                    ?.message;
+              {sectionItems.map(({ item, index }: { item: RapidRiskChecklistItem; index: number }) => {
+                const answerError = getRapidRiskAnswerError(index);
 
                 return (
                   <div
@@ -97,7 +107,7 @@ export const RapidRiskAnalysisSection = () => {
                               onChange={() =>
                                 setRapidRiskChecklistAnswer(index, option)
                               }
-                              className="h-4 w-4 text-slate-800"
+                              className="h-4 w-4 text-[var(--ds-color-text-primary)] focus:ring-blue-500"
                             />
                             <span>{option}</span>
                           </label>
@@ -135,15 +145,15 @@ export const RapidRiskAnalysisSection = () => {
           rows={4}
           placeholder="Descreva ações adicionais, medidas corretivas e evidências adotadas."
           className={cn(
-            'block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-slate-600/20 focus:outline-none',
-            (errors.analise_risco_rapida_observacoes as any)
+            'block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
+            rapidRiskObservacoesErrorMessage
               ? 'border-red-500 bg-red-50'
               : 'border-gray-300 focus:border-blue-500',
           )}
         />
-        {(errors.analise_risco_rapida_observacoes as any) && (
+        {rapidRiskObservacoesErrorMessage && (
           <p className="mt-1 text-xs text-red-500">
-            {(errors.analise_risco_rapida_observacoes as any).message}
+            {rapidRiskObservacoesErrorMessage}
           </p>
         )}
       </div>

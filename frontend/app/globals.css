@@ -3,39 +3,68 @@
 :root,
 :root[data-theme='dark'],
 .theme-dark {
-  /* ── Base — slate profissional escuro ────────────────── */
+  /* ── Base — dark corporativo ─────────────────────────── */
   --ds-color-bg-canvas: #0f172a;
-  --ds-color-bg-subtle: #1e293b;
-  --ds-color-surface-base: #1e293b;
-  --ds-color-surface-elevated: #253347;
-  --ds-color-surface-muted: #2d3f52;
-  --ds-color-surface-muted-hover: #344b60;
+  --ds-color-bg-subtle: #132035;
+  --ds-color-surface-base: #14243b;
+  --ds-color-surface-elevated: #1b2d46;
+  --ds-color-surface-muted: #213650;
+  --ds-color-surface-muted-hover: #2a425f;
   /* ── Borders ─────────────────────────────────────────── */
-  --ds-color-border-subtle: #1e3a5f;
-  --ds-color-border-strong: #2e5077;
+  --ds-color-border-subtle: #263a57;
+  --ds-color-border-default: #314a6b;
+  --ds-color-border-strong: #466083;
   /* ── Text ────────────────────────────────────────────── */
-  --ds-color-text-primary: #f1f5f9;
-  --ds-color-text-secondary: #94a3b8;
-  --ds-color-text-muted: #64748b;
-  /* ── Primary — Grafite Profissional ──────────────────── */
-  --ds-color-action-primary: #1e293b;
-  --ds-color-action-primary-hover: #0f172a;
+  --ds-color-text-primary: #e2e8f0;
+  --ds-color-text-secondary: #b8c5d8;
+  --ds-color-text-muted: #7b8ba5;
+  --ds-color-text-disabled: #5f6f88;
+  --ds-color-text-inverse: #ffffff;
+  --ds-color-text-link: #93c5fd;
+  /* ── Sidebar ─────────────────────────────────────────── */
+  --ds-color-sidebar-bg: #0f172a;
+  --ds-color-sidebar-bg-soft: #132035;
+  --ds-color-sidebar-surface: #17273f;
+  --ds-color-sidebar-text: #e2e8f0;
+  --ds-color-sidebar-muted: #8fa2bd;
+  --ds-color-sidebar-border: #2c4361;
+  /* ── Primary — azul institucional ────────────────────── */
+  --ds-color-action-primary: #3b82f6;
+  --ds-color-action-primary-hover: #2563eb;
+  --ds-color-action-primary-active: #1d4ed8;
   --ds-color-action-primary-foreground: #ffffff;
+  --ds-color-primary-subtle: rgba(59, 130, 246, 0.16);
+  --ds-color-primary-subtle-hover: rgba(59, 130, 246, 0.24);
+  --ds-color-primary-border: rgba(59, 130, 246, 0.35);
   /* ── Secondary ───────────────────────────────────────── */
-  --ds-color-action-secondary: rgba(30, 41, 59, 0.10);
-  --ds-color-action-secondary-hover: rgba(30, 41, 59, 0.18);
-  --ds-color-action-secondary-foreground: #cbd5e1;
-  /* ── Semânticos NR-26 ────────────────────────────────── */
-  --ds-color-success: #22c55e;        /* Verde saída/seguro */
+  --ds-color-action-secondary: rgba(148, 163, 184, 0.14);
+  --ds-color-action-secondary-hover: rgba(148, 163, 184, 0.22);
+  --ds-color-action-secondary-foreground: #e2e8f0;
+  --ds-color-action-secondary-border: #3d5474;
+  /* ── Semânticos ──────────────────────────────────────── */
+  --ds-color-success: #22c55e;
   --ds-color-success-hover: #16a34a;
-  --ds-color-warning: #fb923c;        /* Laranja atenção/máquinas */
-  --ds-color-warning-hover: #f97316;
-  --ds-color-danger: #f87171;         /* Vermelho proibição/emergência */
-  --ds-color-danger-hover: #ef4444;
-  --ds-color-info: #60a5fa;           /* Azul obrigação/EPI */
+  --ds-color-success-subtle: rgba(34, 197, 94, 0.16);
+  --ds-color-success-border: rgba(74, 222, 128, 0.42);
+  --ds-color-success-fg: #bbf7d0;
+  --ds-color-warning: #f59e0b;
+  --ds-color-warning-hover: #d97706;
+  --ds-color-warning-subtle: rgba(245, 158, 11, 0.16);
+  --ds-color-warning-border: rgba(251, 191, 36, 0.45);
+  --ds-color-warning-fg: #fde68a;
+  --ds-color-danger: #ef4444;
+  --ds-color-danger-hover: #dc2626;
+  --ds-color-danger-subtle: rgba(239, 68, 68, 0.16);
+  --ds-color-danger-border: rgba(248, 113, 113, 0.42);
+  --ds-color-danger-fg: #fecaca;
+  --ds-color-info: #38bdf8;
+  --ds-color-info-hover: #0ea5e9;
+  --ds-color-info-subtle: rgba(56, 189, 248, 0.16);
+  --ds-color-info-border: rgba(125, 211, 252, 0.42);
+  --ds-color-info-fg: #bae6fd;
   /* ── Focus ───────────────────────────────────────────── */
-  --ds-color-focus: #1e293b;
-  --ds-color-focus-ring: rgba(30, 41, 59, 0.32);
+  --ds-color-focus: #60a5fa;
+  --ds-color-focus-ring: rgba(96, 165, 250, 0.34);
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;
   --ds-radius-lg: 1rem;
@@ -85,10 +114,10 @@
   --ring: var(--ds-color-focus);
   --surface-1: var(--ds-color-surface-base);
   --surface-2: var(--ds-color-bg-canvas);
-  --sidebar: var(--ds-color-bg-canvas);
-  --sidebar-foreground: var(--ds-color-text-primary);
+  --sidebar: var(--ds-color-sidebar-bg);
+  --sidebar-foreground: var(--ds-color-sidebar-text);
   --sidebar-accent: var(--ds-color-action-primary);
-  --sidebar-muted: var(--ds-color-text-muted);
+  --sidebar-muted: var(--ds-color-sidebar-muted);
   --success: var(--ds-color-success);
   --success-hover: var(--ds-color-success-hover);
   --warning: var(--ds-color-warning);
@@ -97,38 +126,31 @@
   --danger-hover: var(--ds-color-danger-hover);
   --primary-dark: #1d4ed8;
   --primary-hover: var(--ds-color-action-primary-hover);
-  /* ── Matriz de Risco — NR-26 alinhada ───────────────── */
-  --risk-acceptable: #22c55e;         /* Verde seguro */
-  --risk-attention: #f59e0b;          /* Amarelo atenção */
-  --risk-substantial: #fb923c;        /* Laranja substancial */
-  --risk-critical: #f87171;           /* Vermelho crítico */
+  /* ── Matriz de Risco ─────────────────────────────────── */
+  --risk-acceptable: #22c55e;
+  --risk-attention: #f59e0b;
+  --risk-substantial: #f97316;
+  --risk-critical: #ef4444;
   /* ── Acento — Teal ───────────────────────────────────── */
-  --ds-color-accent: #0d9488;
-  --ds-color-accent-hover: #0f766e;
-  --ds-color-accent-subtle: rgba(13, 148, 136, 0.14);
-  /* ── Variantes sutis ─────────────────────────────────── */
-  --ds-color-primary-subtle: rgba(30, 41, 59, 0.12);
-  --ds-color-success-subtle: rgba(34, 197, 94, 0.14);
-  --ds-color-warning-subtle: rgba(251, 146, 60, 0.14);
-  --ds-color-danger-subtle: rgba(248, 113, 113, 0.14);
-  --ds-color-info-subtle: rgba(96, 165, 250, 0.14);
+  --ds-color-accent: #14b8a6;
+  --ds-color-accent-hover: #0d9488;
+  --ds-color-accent-subtle: rgba(20, 184, 166, 0.18);
+  --ds-color-accent-border: rgba(45, 212, 191, 0.42);
   /* ── Superfície/Borda extra ──────────────────────────── */
-  --ds-color-surface-overlay: #0f2a42;
-  --ds-color-border-default: #1e3a5f;
-  --ds-color-text-disabled: #334155;
+  --ds-color-surface-overlay: #101f34;
   /* ── Gradientes SST ──────────────────────────────────── */
-  --ds-gradient-brand: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  --ds-gradient-brand: linear-gradient(135deg, #2563eb 0%, #1d4ed8 55%, #1e3a8a 100%);
   --ds-gradient-surface: linear-gradient(
     180deg,
     color-mix(in srgb, var(--ds-color-surface-elevated) 94%, white 6%),
     color-mix(in srgb, var(--ds-color-surface-base) 96%, transparent)
   );
   /* ── KPI gradients — domínio SST ────────────────────── */
-  --ds-kpi-blue: linear-gradient(135deg, #334155, #1e293b);         /* Informação/EPI */
-  --ds-kpi-violet: linear-gradient(135deg, #8b5cf6, #6d28d9);       /* Análise/Conformidade */
-  --ds-kpi-emerald: linear-gradient(135deg, #22c55e, #15803d);       /* Seguro/OK */
-  --ds-kpi-amber: linear-gradient(135deg, #f59e0b, #d97706);         /* Atenção/Âmbar */
-  --ds-kpi-danger: linear-gradient(135deg, #ef4444, #b91c1c);        /* Crítico/Emergência */
+  --ds-kpi-blue: linear-gradient(135deg, #2563eb, #1d4ed8);
+  --ds-kpi-violet: linear-gradient(135deg, #7c3aed, #6d28d9);
+  --ds-kpi-emerald: linear-gradient(135deg, #16a34a, #15803d);
+  --ds-kpi-amber: linear-gradient(135deg, #f59e0b, #d97706);
+  --ds-kpi-danger: linear-gradient(135deg, #dc2626, #991b1b);
   --primary: var(--ds-color-action-primary);
   --primary-hover: var(--ds-color-action-primary-hover);
   --secondary: var(--ds-color-action-secondary);
@@ -160,6 +182,17 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-background-secondary: var(--ds-color-bg-subtle);
+  --color-sidebar: var(--ds-color-sidebar-bg);
+  --color-text-primary: var(--ds-color-text-primary);
+  --color-text-secondary: var(--ds-color-text-secondary);
+  --color-text-muted: var(--ds-color-text-muted);
+  --color-primary-hover: var(--ds-color-action-primary-hover);
+  --color-primary-active: var(--ds-color-action-primary-active);
+  --color-success: var(--ds-color-success);
+  --color-warning: var(--ds-color-warning);
+  --color-danger: var(--ds-color-danger);
+  --color-info: var(--ds-color-info);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -175,87 +208,95 @@
   /* ── Canvas & Backgrounds ────────────────────────────
      slate-50 como base: reduz fadiga em uso prolongado
      vs pure white. Cards brancos criam elevação natural. */
-  --ds-color-bg-canvas: #f8fafc;          /* slate-50  — canvas principal       */
-  --ds-color-bg-subtle: #f1f5f9;          /* slate-100 — seções, painéis internos*/
+  --ds-color-bg-canvas: #f5f7fb;          /* background principal                */
+  --ds-color-bg-subtle: #eef2f7;          /* background secundário               */
   --ds-color-surface-base: #ffffff;       /* cards, modais, inputs               */
   --ds-color-surface-elevated: #ffffff;   /* elevação via shadow, não via cor    */
   --ds-color-surface-overlay: #ffffff;    /* popovers, dropdowns                 */
-  --ds-color-surface-muted: #f1f5f9;      /* slate-100 — áreas desabilitadas     */
-  --ds-color-surface-sunken: #f8fafc;     /* campos input, code blocks           */
-  --ds-color-surface-muted-hover: #e2e8f0;/* slate-200                           */
+  --ds-color-surface-muted: #eef2f7;      /* áreas desabilitadas                 */
+  --ds-color-surface-sunken: #f5f7fb;     /* campos e blocos internos            */
+  --ds-color-surface-muted-hover: #e2e8f0;
 
   /* ── Borders ─────────────────────────────────────────
      3 níveis: divisores sutis → inputs → separadores fortes */
-  --ds-color-border-subtle: #e2e8f0;      /* slate-200 — divisores internos, cards*/
-  --ds-color-border-default: #cbd5e1;     /* slate-300 — inputs em repouso        */
-  --ds-color-border-strong: #94a3b8;      /* slate-400 — separadores, hover       */
+  --ds-color-border-subtle: #d7dfea;      /* divisores internos                   */
+  --ds-color-border-default: #c7d2e2;     /* bordas padrão                        */
+  --ds-color-border-strong: #7b8ba5;      /* bordas fortes/interação              */
   --ds-color-border-focus: #1d4ed8;       /* blue-700  — focus ring primário      */
 
   /* ── Tipografia — hierarquia corrigida (3 níveis reais)
      primary > secondary > muted — contraste decrescente  */
   --ds-color-text-primary: #0f172a;       /* slate-900 — títulos, labels · 19.4:1 AAA */
   --ds-color-text-secondary: #334155;     /* slate-700 — corpo, descrições · 9.7:1 AAA */
-  --ds-color-text-muted: #64748b;         /* slate-500 — auxiliar, placeholder · 4.6:1 AA  */
-  --ds-color-text-disabled: #94a3b8;      /* slate-400 — desabilitado, decorativo */
+  --ds-color-text-muted: #5b6b82;         /* texto auxiliar com AA no background   */
+  --ds-color-text-disabled: #8da0bc;      /* desabilitado                           */
   --ds-color-text-inverse: #ffffff;       /* sobre fundos escuros/primários       */
-  --ds-color-text-link: #1d4ed8;          /* blue-700  — links · 7.2:1 AAA       */
+  --ds-color-text-link: #1e40af;          /* blue-800  — links                     */
+  /* ── Sidebar (fixo escuro para navegação corporativa) ─ */
+  --ds-color-sidebar-bg: #0f172a;
+  --ds-color-sidebar-bg-soft: #132035;
+  --ds-color-sidebar-surface: #17273f;
+  --ds-color-sidebar-text: #e2e8f0;
+  --ds-color-sidebar-muted: #8fa2bd;
+  --ds-color-sidebar-border: #2c4361;
 
   /* ── Primary — Azul Institucional ────────────────────
      #1d4ed8 = blue-700. Claro, acionável, confiável.
      Ratio 7.2:1 sobre branco — WCAG AAA. */
-  --ds-color-action-primary: #1d4ed8;       /* blue-700  — botões, links, CTAs    */
-  --ds-color-action-primary-hover: #1e40af; /* blue-800                           */
-  --ds-color-action-primary-active: #1e3a8a;/* blue-900                           */
+  --ds-color-action-primary: #1e40af;       /* primary                              */
+  --ds-color-action-primary-hover: #1e3a8a; /* hover                                */
+  --ds-color-action-primary-active: #172554;/* active                               */
   --ds-color-action-primary-foreground: #ffffff;
-  --ds-color-primary-subtle: #eff6ff;       /* blue-50   — hover nav, fundo active*/
-  --ds-color-primary-subtle-hover: #dbeafe; /* blue-100                           */
-  --ds-color-primary-border: #bfdbfe;       /* blue-200  — borda elementos primary*/
+  --ds-color-primary-subtle: #eaf0ff;       /* primary subtle                       */
+  --ds-color-primary-subtle-hover: #dce7fb;
+  --ds-color-primary-border: #b7c8f0;
 
   /* ── Secondary ───────────────────────────────────────── */
-  --ds-color-action-secondary: #f1f5f9;          /* slate-100                    */
-  --ds-color-action-secondary-hover: #e2e8f0;    /* slate-200                    */
+  --ds-color-action-secondary: #e2e8f0;
+  --ds-color-action-secondary-hover: #cbd5e1;
+  --ds-color-action-secondary-active: #b6c2d2;
   --ds-color-action-secondary-foreground: #0f172a;/* slate-900                  */
-  --ds-color-action-secondary-border: #cbd5e1;   /* slate-300                    */
+  --ds-color-action-secondary-border: #c7d2e2;
 
   /* ── Acento — Teal (análises, IA, dashboards) ──────── */
-  --ds-color-accent: #0f766e;             /* teal-700                            */
-  --ds-color-accent-hover: #115e59;       /* teal-800                            */
-  --ds-color-accent-subtle: #f0fdfa;      /* teal-50                             */
-  --ds-color-accent-border: #99f6e4;      /* teal-200                            */
+  --ds-color-accent: #0f766e;
+  --ds-color-accent-hover: #115e59;
+  --ds-color-accent-subtle: #ecfeff;
+  --ds-color-accent-border: #a5f3fc;
 
   /* ── Semânticos NR-26 — WCAG AA garantido ────────────
      Todos testados contra #ffffff e fundos sutis.
      NR-26: verde=saída, amarelo=atenção, vermelho=proibição, azul=obrigação */
 
   /* Sucesso — green-600 · ratio 4.5:1 AA ✓ */
-  --ds-color-success: #16a34a;            /* green-600                           */
-  --ds-color-success-hover: #15803d;      /* green-700                           */
-  --ds-color-success-subtle: #f0fdf4;     /* green-50  — fundo alertas/badges    */
-  --ds-color-success-border: #bbf7d0;     /* green-200                           */
+  --ds-color-success: #15803d;            /* AA on white                          */
+  --ds-color-success-hover: #166534;
+  --ds-color-success-subtle: #eaf9ef;
+  --ds-color-success-border: #a7e0b8;
   --ds-color-success-fg: #14532d;         /* green-900 — texto sobre subtle      */
 
   /* Aviso — amber-700 · ratio 5.2:1 AA ✓
      ATENÇÃO: amber-600 (#d97706) falha WCAG AA em texto normal.
      Usar amber-700 (#b45309) para texto, amber-600 para ícones/bordas. */
-  --ds-color-warning: #b45309;            /* amber-700 — texto/ícone · 5.2:1 AA */
-  --ds-color-warning-hover: #92400e;      /* amber-800                           */
-  --ds-color-warning-subtle: #fffbeb;     /* amber-50  — fundo alertas/badges    */
-  --ds-color-warning-border: #fde68a;     /* amber-200                           */
-  --ds-color-warning-fg: #78350f;         /* amber-900 — texto sobre subtle      */
+  --ds-color-warning: #9a3412;            /* AA on white                          */
+  --ds-color-warning-hover: #7c2d12;
+  --ds-color-warning-subtle: #fff4e8;
+  --ds-color-warning-border: #f7c89a;
+  --ds-color-warning-fg: #7c2d12;
 
   /* Perigo — red-600 · ratio 4.5:1 AA ✓ */
-  --ds-color-danger: #dc2626;             /* red-600                             */
-  --ds-color-danger-hover: #b91c1c;       /* red-700                             */
-  --ds-color-danger-subtle: #fef2f2;      /* red-50    — fundo alertas/badges    */
-  --ds-color-danger-border: #fecaca;      /* red-200                             */
+  --ds-color-danger: #b91c1c;
+  --ds-color-danger-hover: #991b1b;
+  --ds-color-danger-subtle: #feecec;
+  --ds-color-danger-border: #f4b4b4;
   --ds-color-danger-fg: #7f1d1d;          /* red-900   — texto sobre subtle      */
 
   /* Info — sky-600 · ratio 4.6:1 AA ✓
      NR-26: azul = obrigação/EPI. Separado do accent teal. */
-  --ds-color-info: #0284c7;               /* sky-600                             */
-  --ds-color-info-hover: #0369a1;         /* sky-700                             */
-  --ds-color-info-subtle: #f0f9ff;        /* sky-50    — fundo alertas/badges    */
-  --ds-color-info-border: #bae6fd;        /* sky-200                             */
+  --ds-color-info: #0369a1;
+  --ds-color-info-hover: #075985;
+  --ds-color-info-subtle: #eaf6ff;
+  --ds-color-info-border: #a9d8f7;
   --ds-color-info-fg: #0c4a6e;            /* sky-900   — texto sobre subtle      */
 
   /* ── Focus ring ─────────────────────────────────────── */
@@ -263,25 +304,25 @@
   --ds-color-focus-ring: rgba(29, 78, 216, 0.20);
 
   /* ── Gradiente principal (light) ────────────────────── */
-  --ds-gradient-brand: linear-gradient(135deg, #1d4ed8 0%, #1e40af 60%, #1e3a8a 100%);
-  --ds-gradient-surface: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  --ds-gradient-brand: linear-gradient(135deg, #1e40af 0%, #1d4ed8 58%, #1e3a8a 100%);
+  --ds-gradient-surface: linear-gradient(180deg, #ffffff 0%, #f5f7fb 100%);
 
   /* ── KPI Cards — tinted light (substitui gradientes escuros)
      Padrão: fundo suave + ícone colorido + texto escuro.
      Muito mais leve e legível em light theme. */
-  --ds-kpi-blue-bg: #eff6ff;    --ds-kpi-blue-fg: #1d4ed8;    --ds-kpi-blue-border: #bfdbfe;
-  --ds-kpi-green-bg: #f0fdf4;   --ds-kpi-green-fg: #16a34a;   --ds-kpi-green-border: #bbf7d0;
-  --ds-kpi-amber-bg: #fffbeb;   --ds-kpi-amber-fg: #b45309;   --ds-kpi-amber-border: #fde68a;
-  --ds-kpi-red-bg: #fef2f2;     --ds-kpi-red-fg: #dc2626;     --ds-kpi-red-border: #fecaca;
+  --ds-kpi-blue-bg: #eaf0ff;    --ds-kpi-blue-fg: #1e40af;    --ds-kpi-blue-border: #b7c8f0;
+  --ds-kpi-green-bg: #eaf9ef;   --ds-kpi-green-fg: #14532d;   --ds-kpi-green-border: #a7e0b8;
+  --ds-kpi-amber-bg: #fff4e8;   --ds-kpi-amber-fg: #7c2d12;   --ds-kpi-amber-border: #f7c89a;
+  --ds-kpi-red-bg: #feecec;     --ds-kpi-red-fg: #7f1d1d;     --ds-kpi-red-border: #f4b4b4;
   --ds-kpi-violet-bg: #f5f3ff;  --ds-kpi-violet-fg: #7c3aed;  --ds-kpi-violet-border: #ddd6fe;
-  --ds-kpi-teal-bg: #f0fdfa;    --ds-kpi-teal-fg: #0f766e;    --ds-kpi-teal-border: #99f6e4;
+  --ds-kpi-teal-bg: #ecfeff;    --ds-kpi-teal-fg: #0f766e;    --ds-kpi-teal-border: #a5f3fc;
 
   /* ── Matriz de Risco — NR-26 (5 níveis) ─────────────── */
-  --risk-negligible: #16a34a;   /* verde      — risco desprezível  */
-  --risk-acceptable: #15803d;   /* verde dark — aceitável          */
-  --risk-attention: #b45309;    /* amber      — atenção necessária */
+  --risk-negligible: #15803d;   /* verde      — risco desprezível  */
+  --risk-acceptable: #166534;   /* verde dark — aceitável          */
+  --risk-attention: #9a3412;    /* amber      — atenção necessária */
   --risk-substantial: #ea580c;  /* orange-600 — substancial        */
-  --risk-critical: #dc2626;     /* red-600    — crítico/CAT        */
+  --risk-critical: #b91c1c;     /* red-700    — crítico/CAT        */
 
   /* ── Sombras — calibradas para canvas slate-50 ───────── */
   --ds-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
@@ -573,18 +614,25 @@ html[data-theme='light'] {
   }
 
   .ds-form-page .border-gray-200,
-  .ds-form-page .border-slate-200 {
+  .ds-form-page .border-slate-200,
+  .ds-form-page [class*='border-[#E5E7EB]'] {
     border-color: var(--ds-color-border-subtle);
   }
 
   .ds-form-page .border-gray-300,
   .ds-form-page .border-gray-400,
-  .ds-form-page .border-slate-300 {
+  .ds-form-page .border-slate-300,
+  .ds-form-page [class*='border-[#D1D5DB]'] {
     border-color: var(--ds-color-border-default);
+  }
+
+  .ds-form-page [class*='border-[#111827]'] {
+    border-color: var(--ds-color-border-strong);
   }
 
   .ds-form-page .text-gray-900,
   .ds-form-page .text-gray-800,
+  .ds-form-page .text-slate-800,
   .ds-form-page .text-slate-900,
   .ds-form-page [class*='text-[#111827]'],
   .ds-form-page [class*='text-[#1F2937]'],
@@ -615,6 +663,10 @@ html[data-theme='light'] {
     background-color: color-mix(in srgb, var(--ds-color-surface-muted) 52%, var(--ds-color-surface-base) 48%);
   }
 
+  .ds-form-page [class*='!bg-[#E5E7EB]'] {
+    background-color: color-mix(in srgb, var(--ds-color-surface-muted) 52%, var(--ds-color-surface-base) 48%) !important;
+  }
+
   .ds-form-page .hover\:bg-gray-50:hover,
   .ds-form-page .hover\:bg-gray-100:hover,
   .ds-form-page [class*='hover:bg-[#E5E7EB]']:hover {
@@ -622,7 +674,8 @@ html[data-theme='light'] {
   }
 
   .ds-form-page .hover\:text-gray-600:hover,
-  .ds-form-page .hover\:text-gray-700:hover {
+  .ds-form-page .hover\:text-gray-700:hover,
+  .ds-form-page .hover\:text-slate-800:hover {
     color: var(--ds-color-text-primary);
   }
 
@@ -663,9 +716,37 @@ html[data-theme='light'] {
     background-color: var(--ds-color-action-primary);
   }
 
+  .ds-form-page [class*='bg-[#0F766E]'] {
+    background-color: var(--ds-color-accent);
+  }
+
+  .ds-form-page [class*='!bg-[#0F766E]'] {
+    background-color: var(--ds-color-accent) !important;
+  }
+
+  .ds-form-page [class*='bg-[#B45309]'] {
+    background-color: var(--ds-color-warning);
+  }
+
+  .ds-form-page [class*='!bg-[#B45309]'] {
+    background-color: var(--ds-color-warning) !important;
+  }
+
+  .ds-form-page [class*='bg-[#1F2937]'] {
+    background-color: var(--ds-color-text-primary);
+  }
+
+  .ds-form-page [class*='!bg-[#1F2937]'] {
+    background-color: var(--ds-color-text-primary) !important;
+  }
+
   .ds-form-page .hover\:bg-blue-700:hover,
   .ds-form-page [class*='hover:bg-[#1E40AF]']:hover {
     background-color: var(--ds-color-action-primary-hover);
+  }
+
+  .ds-form-page [class*='hover:bg-[#DBEAFE]']:hover {
+    background-color: var(--ds-color-primary-subtle-hover);
   }
 
   .ds-form-page .bg-red-50,
@@ -703,6 +784,10 @@ html[data-theme='light'] {
 
   .ds-form-page .hover\:bg-red-700:hover {
     background-color: var(--ds-color-danger-hover);
+  }
+
+  .ds-form-page [class*='hover:bg-[#FCA5A5]/40']:hover {
+    background-color: color-mix(in srgb, var(--ds-color-danger-subtle) 68%, var(--ds-color-danger) 32%);
   }
 
   .ds-form-page .bg-green-50,
@@ -804,6 +889,10 @@ html[data-theme='light'] {
     color: var(--ds-color-accent);
   }
 
+  .ds-form-page [class*='!text-[#111827]'] {
+    color: var(--ds-color-text-primary) !important;
+  }
+
   .ds-form-page [class*='border-[#C7D2FE]'],
   .ds-form-page [class*='border-[#DDD6FE]'] {
     border-color: color-mix(in srgb, var(--ds-color-accent) 24%, var(--ds-color-border-default));
@@ -813,8 +902,16 @@ html[data-theme='light'] {
     background-color: var(--ds-color-action-secondary);
   }
 
+  .ds-form-page .bg-slate-900 {
+    background-color: var(--ds-color-action-primary);
+  }
+
   .ds-form-page .hover\:bg-slate-900:hover {
     background-color: var(--ds-color-action-secondary-hover);
+  }
+
+  .ds-form-page .hover\:bg-slate-800:hover {
+    background-color: var(--ds-color-action-primary-hover);
   }
 
   .ds-form-page .focus\:border-blue-500:focus,
@@ -830,6 +927,11 @@ html[data-theme='light'] {
 
   .ds-form-page .focus\:ring-blue-500\/20:focus {
     --tw-ring-color: color-mix(in srgb, var(--ds-color-focus) 20%, transparent);
+  }
+
+  .ds-form-page .shadow-blue-600\/20,
+  .ds-form-page .shadow-blue-500\/20 {
+    --tw-shadow-color: color-mix(in srgb, var(--ds-color-action-primary) 26%, transparent);
   }
 
   .ds-form-page input[type='checkbox'],
@@ -1245,58 +1347,58 @@ html[data-theme='light'] {
 
   :root[data-theme='light'] .ds-shell-backdrop,
   .theme-light .ds-shell-backdrop {
-    background: #f8fafc;
+    background: var(--ds-color-bg-canvas);
   }
 
   /* Topbar — fundo branco limpo, sem gradiente escuro */
   :root[data-theme='light'] .ds-topbar,
   .theme-light .ds-topbar {
-    background: #ffffff;
-    border-bottom: 1px solid #e2e8f0;
+    background: var(--ds-color-surface-base);
+    border-bottom: 1px solid var(--ds-color-border-subtle);
     backdrop-filter: none;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    box-shadow: var(--ds-shadow-xs);
   }
 
   :root[data-theme='light'] .ds-topbar-search,
   .theme-light .ds-topbar-search {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--ds-color-bg-canvas);
+    border: 1px solid var(--ds-color-border-subtle);
     box-shadow: none;
-    color: #0f172a;
+    color: var(--ds-color-text-primary);
   }
 
   :root[data-theme='light'] .ds-topbar-chip,
   .theme-light .ds-topbar-chip {
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    color: #334155;
+    background: var(--ds-color-action-secondary);
+    border: 1px solid var(--ds-color-border-subtle);
+    color: var(--ds-color-text-secondary);
   }
 
   :root[data-theme='light'] .ds-topbar-action,
   .theme-light .ds-topbar-action {
-    background: linear-gradient(135deg, #1d4ed8, #1e40af);
-    box-shadow: 0 4px 14px rgba(29, 78, 216, 0.30);
+    background: var(--ds-gradient-brand);
+    box-shadow: 0 6px 16px rgba(30, 64, 175, 0.26);
   }
 
   :root[data-theme='light'] .ds-topbar-action--secondary,
   .theme-light .ds-topbar-action--secondary {
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    color: #0f172a;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    background: var(--ds-color-action-secondary);
+    border: 1px solid var(--ds-color-border-subtle);
+    color: var(--ds-color-text-primary);
+    box-shadow: var(--ds-shadow-xs);
   }
 
   :root[data-theme='light'] .ds-topbar-mobile-context,
   .theme-light .ds-topbar-mobile-context {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--ds-color-bg-canvas);
+    border: 1px solid var(--ds-color-border-subtle);
   }
 
   /* Hero panel "Cockpit" — fundo azul ultra suave com borda */
   :root[data-theme='light'] .ds-hero-panel,
   .theme-light .ds-hero-panel {
-    background: linear-gradient(135deg, #f0f7ff 0%, #f8fafc 60%, #f1f5f9 100%);
-    border: 1px solid #e2e8f0;
+    background: linear-gradient(135deg, var(--ds-color-primary-subtle) 0%, var(--ds-color-bg-canvas) 58%, var(--ds-color-bg-subtle) 100%);
+    border: 1px solid var(--ds-color-border-subtle);
   }
 
   :root[data-theme='light'] .ds-hero-panel::after,
@@ -1307,18 +1409,18 @@ html[data-theme='light'] {
   /* Stat tile — fundo branco com borda visível no canvas slate-50 */
   :root[data-theme='light'] .ds-stat-tile,
   .theme-light .ds-stat-tile {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    background: var(--ds-color-surface-base);
+    border: 1px solid var(--ds-color-border-subtle);
+    box-shadow: var(--ds-shadow-xs);
     backdrop-filter: none;
   }
 
   /* Section card — fundo branco limpo */
   :root[data-theme='light'] .ds-section-card,
   .theme-light .ds-section-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    background: var(--ds-color-surface-base);
+    border: 1px solid var(--ds-color-border-subtle);
+    box-shadow: var(--ds-shadow-xs);
   }
 
   .ds-topbar {
@@ -1990,7 +2092,7 @@ html[data-theme='light'] {
 
 :root[data-theme='dark'] .bg-white,
 .theme-dark .bg-white {
-  background-color: #121b2b;
+  background-color: var(--ds-color-surface-base);
 }
 
 :root[data-theme='dark'] .border-gray-100,
@@ -1999,48 +2101,48 @@ html[data-theme='light'] {
 .theme-dark .border-gray-100,
 .theme-dark .border-gray-200,
 .theme-dark .border-gray-300 {
-  border-color: #31445f;
+  border-color: var(--ds-color-border-default);
 }
 
 :root[data-theme='dark'] .text-gray-900,
 :root[data-theme='dark'] .text-gray-800,
 .theme-dark .text-gray-900,
 .theme-dark .text-gray-800 {
-  color: #f8fbff;
+  color: var(--ds-color-text-primary);
 }
 
 :root[data-theme='dark'] .text-gray-700,
 :root[data-theme='dark'] .text-gray-600,
 .theme-dark .text-gray-700,
 .theme-dark .text-gray-600 {
-  color: #d9e2ec;
+  color: var(--ds-color-text-secondary);
 }
 
 :root[data-theme='dark'] .text-gray-500,
 :root[data-theme='dark'] .text-gray-400,
 .theme-dark .text-gray-500,
 .theme-dark .text-gray-400 {
-  color: #94a3b8;
+  color: var(--ds-color-text-muted);
 }
 
 :root[data-theme='dark'] .bg-gray-50,
 .theme-dark .bg-gray-50 {
-  background-color: #0b1220;
+  background-color: var(--ds-color-bg-canvas);
 }
 
 :root[data-theme='dark'] .bg-gray-100,
 .theme-dark .bg-gray-100 {
-  background-color: #121b2b;
+  background-color: var(--ds-color-bg-subtle);
 }
 
 :root[data-theme='dark'] .hover\:bg-gray-50:hover,
 .theme-dark .hover\:bg-gray-50:hover {
-  background-color: #22314a;
+  background-color: var(--ds-color-surface-muted-hover);
 }
 
 :root[data-theme='dark'] .hover\:bg-gray-100:hover,
 .theme-dark .hover\:bg-gray-100:hover {
-  background-color: #22314a;
+  background-color: var(--ds-color-surface-muted-hover);
 }
 
 :root[data-theme='dark'] .shadow-sm,
@@ -2056,13 +2158,13 @@ html[data-theme='light'] {
 /* Card pattern: rounded-xl + border = dark card */
 :root[data-theme='dark'] .rounded-xl.border,
 .theme-dark .rounded-xl.border {
-  background-color: #121b2b;
+  background-color: var(--ds-color-surface-base);
 }
 
 /* Dividers */
 :root[data-theme='dark'] .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
 .theme-dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
-  border-color: #31445f;
+  border-color: var(--ds-color-border-default);
 }
 
 /* ============================================================
@@ -2078,7 +2180,7 @@ html[data-theme='light'] {
 .theme-light .text-gray-500,
 .theme-light .text-slate-400,
 .theme-light .text-slate-500 {
-  color: #374151;
+  color: var(--ds-color-text-muted);
 }
 
 :root[data-theme='light'] .text-gray-600,
@@ -2089,7 +2191,7 @@ html[data-theme='light'] {
 .theme-light .text-gray-700,
 .theme-light .text-slate-600,
 .theme-light .text-slate-700 {
-  color: #1f2937;
+  color: var(--ds-color-text-secondary);
 }
 
 :root[data-theme='light'] .text-gray-800,
@@ -2100,5 +2202,5 @@ html[data-theme='light'] {
 .theme-light .text-gray-900,
 .theme-light .text-slate-800,
 .theme-light .text-slate-900 {
-  color: #111827;
+  color: var(--ds-color-text-primary);
 }

@@ -288,7 +288,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
   if (fetching) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-800" />
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--ds-color-text-primary)]" />
       </div>
     );
   }
@@ -338,7 +338,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           {submitError}
         </div>
       )}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           1. Identificação da Não Conformidade
         </h2>
@@ -533,7 +533,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           2. Classificação da Não Conformidade
         </h2>
@@ -544,7 +544,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                 type="checkbox"
                 value={option}
                 {...register("classificacao")}
-                className="h-4 w-4 rounded border-gray-300 text-slate-800 focus:ring-slate-600"
+                className="h-4 w-4 rounded border-gray-300 text-[var(--ds-color-text-primary)] focus:ring-blue-500"
               />
               <span className="text-gray-700">{option}</span>
             </label>
@@ -552,7 +552,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           3. Descrição da Não Conformidade
         </h2>
@@ -635,7 +635,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           4. Requisito Não Atendido
         </h2>
@@ -705,7 +705,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           5. Análise de Risco Associada
         </h2>
@@ -761,7 +761,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                   type="checkbox"
                   value={option}
                   {...register("risco_consequencias")}
-                  className="h-4 w-4 rounded border-gray-300 text-slate-800 focus:ring-slate-600"
+                  className="h-4 w-4 rounded border-gray-300 text-[var(--ds-color-text-primary)] focus:ring-blue-500"
                 />
                 <span className="text-gray-700">{option}</span>
               </label>
@@ -794,7 +794,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           6. Causa da Não Conformidade
         </h2>
@@ -805,7 +805,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                 type="checkbox"
                 value={option}
                 {...register("causa")}
-                className="h-4 w-4 rounded border-gray-300 text-slate-800 focus:ring-slate-600"
+                className="h-4 w-4 rounded border-gray-300 text-[var(--ds-color-text-primary)] focus:ring-blue-500"
               />
               <span className="text-gray-700">{option}</span>
             </label>
@@ -826,7 +826,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           7. Ação Corretiva Imediata
         </h2>
@@ -894,7 +894,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           8. Ação Corretiva Definitiva
         </h2>
@@ -950,7 +950,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           9. Ação Preventiva
         </h2>
@@ -1004,7 +1004,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           10. Verificação de Eficácia
         </h2>
@@ -1056,7 +1056,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           11. Status da Não Conformidade
         </h2>
@@ -1075,7 +1075,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         )}
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           12. Observações Gerais
         </h2>
@@ -1092,7 +1092,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <button
               type="button"
               onClick={() => appendAnexo({ url: "" })}
-              className="flex items-center space-x-2 text-sm font-medium text-slate-800 hover:text-slate-800"
+              className="flex items-center space-x-2 text-sm font-medium text-[var(--ds-color-text-primary)] hover:text-[var(--ds-color-text-primary)]"
             >
               <Plus className="h-4 w-4" />
               <span>Adicionar anexo</span>
@@ -1102,7 +1102,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <button
               type="button"
               onClick={startCamera}
-              className="inline-flex items-center space-x-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-blue-100"
+              className="inline-flex items-center space-x-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-blue-100"
             >
               <Camera className="h-4 w-4" />
               <span>Capturar foto</span>
@@ -1160,7 +1160,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               <button
                 type="button"
                 onClick={capturePhoto}
-                className="inline-flex items-center space-x-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                className="inline-flex items-center space-x-2 rounded-md bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)]"
               >
                 <Camera className="h-4 w-4" />
                 <span>Capturar</span>
@@ -1170,7 +1170,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       )}
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           13. Assinaturas
         </h2>
@@ -1216,7 +1216,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         <button
           type="submit"
           disabled={loading || isSubmitting || !isValid}
-          className="flex items-center space-x-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+          className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-60"
         >
           {loading ? (
             <>
@@ -1234,3 +1234,4 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     </form>
   );
 }
+

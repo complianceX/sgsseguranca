@@ -30,7 +30,7 @@ export async function generateAprPdf(
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   createPdfDoc();
-  const code = buildDocumentCode('APR', (apr as any).id || apr.numero || apr.titulo);
+  const code = buildDocumentCode('APR', apr.id || apr.numero || apr.titulo);
   let y = drawHeader(doc, {
     title: 'ANÁLISE PRELIMINAR DE RISCO',
     subtitle: `APR - Segurança do Trabalho`,
@@ -101,18 +101,19 @@ export async function generateAprPdf(
     y,
     signatures.map((signature) => ({
       label: sanitize(signature.type),
-      name: sanitize((signature as any).user?.nome || signature.type),
+      name: sanitize(signature.user?.nome || signature.type),
       role: sanitize(signature.type),
       date: formatDate(signature.signed_at || signature.created_at),
       image: signature.signature_data,
     })),
   );
-  y = await drawValidationCard(doc, y, code, buildValidationUrl(code));
+  await drawValidationCard(doc, y, code, buildValidationUrl(code));
   applyFooter(doc, { code, generatedAt: formatDateTime(new Date().toISOString()) });
 
   const filename = `APR_${sanitize(apr.numero || code)}_v${apr.versao ?? 1}.pdf`;
   if (options?.save === false && options?.output === 'base64') {
-    return { base64: pdfDocToBase64(doc as any), filename };
+    const docOutput = doc as unknown as { output: (type: 'datauri' | 'dataurl') => string };
+    return { base64: pdfDocToBase64(docOutput), filename };
   }
   doc.save(filename);
 }

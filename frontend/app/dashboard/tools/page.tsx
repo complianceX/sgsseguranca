@@ -1,6 +1,6 @@
 'use client';
 
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { toolsService, Tool } from '@/services/toolsService';
 import { Plus, Pencil, Trash2, Search, ClipboardList, Wrench } from 'lucide-react';
 import Link from 'next/link';
@@ -42,11 +42,7 @@ export default function ToolsPage() {
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
 
-  useEffect(() => {
-    loadTools();
-  }, [page, deferredSearchTerm]);
-
-  async function loadTools() {
+  const loadTools = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError(null);
@@ -65,7 +61,11 @@ export default function ToolsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [deferredSearchTerm, page]);
+
+  useEffect(() => {
+    void loadTools();
+  }, [loadTools]);
 
   async function handleDelete(id: string) {
     if (!confirm('Tem certeza que deseja excluir esta ferramenta?')) {
@@ -79,7 +79,7 @@ export default function ToolsPage() {
         setPage((current) => current - 1);
         return;
       }
-      loadTools();
+      void loadTools();
     } catch (error) {
       console.error('Erro ao excluir ferramenta:', error);
       toast.error('Erro ao excluir ferramenta. Verifique dependencias e tente novamente.');
@@ -112,7 +112,7 @@ export default function ToolsPage() {
         title="Falha ao carregar ferramentas"
         description={loadError}
         action={
-          <Button type="button" onClick={loadTools}>
+          <Button type="button" onClick={() => void loadTools()}>
             Tentar novamente
           </Button>
         }

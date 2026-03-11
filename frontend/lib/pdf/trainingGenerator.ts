@@ -27,7 +27,7 @@ export async function generateTrainingPdf(
   const { jsPDF } = await import('jspdf');
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const code = buildDocumentCode('TRN', (training as any).id || training.nr_codigo || training.nome);
+  const code = buildDocumentCode('TRN', training.id || training.nr_codigo || training.nome);
   const expiryDate = training.data_vencimento ? new Date(training.data_vencimento) : null;
   const now = new Date();
   const isExpired = expiryDate ? expiryDate.getTime() < now.getTime() : false;
@@ -66,19 +66,20 @@ export async function generateTrainingPdf(
     y,
     signatures.map((signature) => ({
       label: sanitize(signature.type),
-      name: sanitize((signature as any).user?.nome || signature.type),
+      name: sanitize(signature.user?.nome || signature.type),
       role: sanitize(signature.type),
       date: formatDate(signature.signed_at || signature.created_at),
       image: signature.signature_data,
     })),
   );
 
-  y = await drawValidationCard(doc, y, code, buildValidationUrl(code));
+  await drawValidationCard(doc, y, code, buildValidationUrl(code));
   applyFooter(doc, { code, generatedAt: formatDateTime(new Date().toISOString()) });
 
   const filename = buildPdfFilename('TREINAMENTO', `${training.nome}_${training.user?.nome ?? 'colaborador'}`, training.data_conclusao);
   if (options?.save === false && options?.output === 'base64') {
-    return { base64: pdfDocToBase64(doc as any), filename };
+    const docOutput = doc as unknown as { output: (type: 'datauri' | 'dataurl') => string };
+    return { base64: pdfDocToBase64(docOutput), filename };
   }
   doc.save(filename);
 }

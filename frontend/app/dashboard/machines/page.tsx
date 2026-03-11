@@ -1,6 +1,6 @@
 'use client';
 
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { machinesService, Machine } from '@/services/machinesService';
 import { Plus, Pencil, Trash2, Search, ClipboardList, Truck } from 'lucide-react';
 import Link from 'next/link';
@@ -40,11 +40,7 @@ export default function MachinesPage() {
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
 
-  useEffect(() => {
-    loadMachines();
-  }, [page, deferredSearchTerm]);
-
-  async function loadMachines() {
+  const loadMachines = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError(null);
@@ -63,7 +59,11 @@ export default function MachinesPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [deferredSearchTerm, page]);
+
+  useEffect(() => {
+    void loadMachines();
+  }, [loadMachines]);
 
   async function handleDelete(id: string) {
     if (!confirm('Tem certeza que deseja excluir esta máquina?')) {
@@ -77,7 +77,7 @@ export default function MachinesPage() {
         setPage((current) => current - 1);
         return;
       }
-      loadMachines();
+      void loadMachines();
     } catch (error) {
       console.error('Erro ao excluir máquina:', error);
       toast.error('Erro ao excluir máquina. Verifique dependencias e tente novamente.');
@@ -110,7 +110,7 @@ export default function MachinesPage() {
         title="Falha ao carregar máquinas"
         description={loadError}
         action={
-          <Button type="button" onClick={loadMachines}>
+          <Button type="button" onClick={() => void loadMachines()}>
             Tentar novamente
           </Button>
         }

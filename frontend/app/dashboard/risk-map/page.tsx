@@ -133,17 +133,17 @@ export default function RiskMapPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <div className="ds-kpi-card ds-kpi-card--primary">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/72">Total de riscos</p>
-          <p className="mt-1 text-[1.55rem] font-bold text-white">{totalRiscos}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">Total de riscos</p>
+          <p className="mt-1 text-[1.55rem] font-bold text-current">{totalRiscos}</p>
         </div>
         <div className="ds-kpi-card ds-kpi-card--danger">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/72">Risco alto/crítico</p>
-          <p className="mt-1 text-[1.55rem] font-bold text-white">{highRisks}</p>
-          <p className="text-[11px] text-white/72">Score ≥ 17</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">Risco alto/crítico</p>
+          <p className="mt-1 text-[1.55rem] font-bold text-current">{highRisks}</p>
+          <p className="text-[11px] text-current opacity-80">Score ≥ 17</p>
         </div>
         <div className="ds-kpi-card ds-kpi-card--accent">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/72">Categorias</p>
-          <p className="mt-1 text-[1.55rem] font-bold text-white">{chartData.length}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-current opacity-80">Categorias</p>
+          <p className="mt-1 text-[1.55rem] font-bold text-current">{chartData.length}</p>
         </div>
       </div>
 

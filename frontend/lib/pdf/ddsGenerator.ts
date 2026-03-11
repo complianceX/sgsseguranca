@@ -6,7 +6,6 @@ import {
   buildDocumentCode,
   buildPdfFilename,
   buildValidationUrl,
-  createPdfDoc,
   drawBadge,
   drawHeader,
   drawInfoCard,
@@ -30,8 +29,7 @@ export async function generateDdsPdf(
   const { default: autoTable } = await import('jspdf-autotable');
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const { margin } = createPdfDoc();
-  const code = buildDocumentCode('DDS', (dds as any).id || dds.tema);
+  const code = buildDocumentCode('DDS', dds.id || dds.tema);
   let y = drawHeader(doc, {
     title: 'RELATÓRIO DDS',
     subtitle: 'DIÁLOGO DIÁRIO DE SEGURANÇA',
@@ -66,19 +64,20 @@ export async function generateDdsPdf(
     y,
     signatures.map((signature) => ({
       label: sanitize(signature.type),
-      name: sanitize((signature as any).user?.nome || signature.type),
+      name: sanitize(signature.user?.nome || signature.type),
       role: sanitize(signature.type),
       date: formatDate(signature.signed_at || signature.created_at),
       image: signature.signature_data,
     })),
   );
 
-  y = await drawValidationCard(doc, y, code, buildValidationUrl(code));
+  await drawValidationCard(doc, y, code, buildValidationUrl(code));
   applyFooter(doc, { code, generatedAt: formatDateTime(new Date().toISOString()) });
 
   const filename = buildPdfFilename('DDS', sanitize(dds.tema), dds.data);
   if (options?.save === false && options?.output === 'base64') {
-    return pdfDocToBase64(doc as any);
+    const docOutput = doc as unknown as { output: (type: 'datauri' | 'dataurl') => string };
+    return pdfDocToBase64(docOutput);
   }
   doc.save(filename);
 }

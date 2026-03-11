@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, type ReactNode } from 'react';
+import { useCallback, useState, useEffect, type ReactNode } from 'react';
 import { reportsService, Report } from '@/services/reportsService';
 import { FileText, Trash2, Calendar, BrainCircuit, Download, BarChart3, Mail, Printer } from 'lucide-react';
 import { toast } from 'sonner';
@@ -27,11 +27,7 @@ export default function ReportsPage() {
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
 
-  useEffect(() => {
-    loadReports();
-  }, [page]);
-
-  async function loadReports() {
+  const loadReports = useCallback(async () => {
     try {
       setLoading(true);
       const response = await reportsService.findPaginated({ page, limit: 9 });
@@ -44,7 +40,11 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [page]);
+
+  useEffect(() => {
+    void loadReports();
+  }, [loadReports]);
 
   async function handleGenerateReport() {
     try {
@@ -65,7 +65,7 @@ export default function ReportsPage() {
           if (page !== 1) {
             setPage(1);
           } else {
-            loadReports();
+            void loadReports();
           }
           return;
         }
@@ -94,7 +94,7 @@ export default function ReportsPage() {
         setPage((current) => current - 1);
         return;
       }
-      loadReports();
+      void loadReports();
     } catch (error) {
       console.error('Erro ao excluir relatório:', error);
       toast.error('Erro ao excluir relatório.');

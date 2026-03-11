@@ -1,23 +1,24 @@
 .page {
-  --cx-bg-start: #0b1220;
-  --cx-bg-mid: #111827;
-  --cx-bg-end: #0f5e9c;
-  --cx-surface: rgba(255, 255, 255, 0.04);
-  --cx-surface-soft: rgba(255, 255, 255, 0.06);
-  --cx-border: rgba(255, 255, 255, 0.08);
-  --cx-border-strong: rgba(255, 255, 255, 0.14);
-  --cx-text: #f8fafc;
-  --cx-text-muted: #d9e2ec;
-  --cx-text-dim: #94a3b8;
-  --cx-primary: #1d4ed8;
-  --cx-primary-2: #0f766e;
-  --cx-focus: rgba(37, 99, 235, 0.35);
-  --cx-danger-bg: rgba(185, 28, 28, 0.18);
-  --cx-danger-border: rgba(248, 113, 113, 0.35);
-  --cx-danger-text: #fecaca;
-  --cx-warning-bg: rgba(37, 99, 235, 0.18);
-  --cx-warning-border: rgba(251, 191, 36, 0.35);
-  --cx-warning-text: #93c5fd;
+  --cx-bg-start: color-mix(in srgb, var(--ds-color-bg-canvas) 86%, #0f172a 14%);
+  --cx-bg-mid: color-mix(in srgb, var(--ds-color-bg-subtle) 82%, #132035 18%);
+  --cx-bg-end: color-mix(in srgb, var(--ds-color-action-primary) 32%, var(--ds-color-bg-canvas) 68%);
+  --cx-surface: color-mix(in srgb, var(--ds-color-surface-elevated) 12%, transparent);
+  --cx-surface-soft: color-mix(in srgb, var(--ds-color-surface-elevated) 18%, transparent);
+  --cx-border: color-mix(in srgb, var(--ds-color-border-subtle) 56%, transparent);
+  --cx-border-strong: color-mix(in srgb, var(--ds-color-border-strong) 48%, transparent);
+  --cx-text: var(--ds-color-text-primary);
+  --cx-text-muted: var(--ds-color-text-secondary);
+  --cx-text-dim: var(--ds-color-text-muted);
+  --cx-text-inverse: #ffffff;
+  --cx-primary: var(--ds-color-action-primary);
+  --cx-primary-2: var(--ds-color-accent);
+  --cx-focus: var(--ds-color-focus-ring);
+  --cx-danger-bg: color-mix(in srgb, var(--ds-color-danger-subtle) 64%, transparent);
+  --cx-danger-border: color-mix(in srgb, var(--ds-color-danger-border) 72%, transparent);
+  --cx-danger-text: var(--ds-color-danger-fg);
+  --cx-warning-bg: color-mix(in srgb, var(--ds-color-warning-subtle) 64%, transparent);
+  --cx-warning-border: color-mix(in srgb, var(--ds-color-warning-border) 72%, transparent);
+  --cx-warning-text: var(--ds-color-warning-fg);
   min-height: 100vh;
   position: relative;
   overflow: hidden;
@@ -295,7 +296,7 @@
   transform: translateY(-50%);
   border: 0;
   background: transparent;
-  color: #5eead4;
+  color: var(--cx-primary-2);
   padding: 4px;
   border-radius: 8px;
   transition: color 0.2s ease, background-color 0.2s ease;
@@ -340,7 +341,7 @@
 .forgotButton {
   border: 0;
   background: transparent;
-  color: #93c5fd;
+  color: var(--cx-primary);
   font-size: 0.82rem;
   font-weight: 500;
   transition: color 0.2s ease;
@@ -373,7 +374,7 @@
   padding: 11px 14px;
   font-size: 0.92rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--cx-text-inverse);
   background: linear-gradient(90deg, var(--cx-primary), var(--cx-primary-2));
   box-shadow: 0 12px 28px rgba(37, 99, 235, 0.3);
   transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
@@ -400,7 +401,7 @@
   height: 14px;
   border-radius: 999px;
   border: 2px solid rgba(255, 255, 255, 0.4);
-  border-top-color: #ffffff;
+  border-top-color: var(--cx-text-inverse);
   animation: spin 0.8s linear infinite;
 }
 

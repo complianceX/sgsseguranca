@@ -1,6 +1,17 @@
 import React from 'react';
-import { useFieldArray, useFormContext } from 'react-hook-form';
-import { cn } from '@/lib/utils'; // Supondo que você tenha um utilitário para classes CSS
+import { type Path, useFieldArray, useFormContext } from 'react-hook-form';
+import { cn } from '@/lib/utils';
+import type { PtFormData } from './pt-schema-and-data';
+
+type ChecklistResponse = 'Sim' | 'Não' | 'Não aplicável' | 'Ciente';
+type ChecklistFieldName =
+  | 'recomendacoes_gerais_checklist'
+  | 'trabalho_altura_checklist'
+  | 'trabalho_eletrico_checklist'
+  | 'trabalho_quente_checklist'
+  | 'trabalho_espaco_confinado_checklist'
+  | 'trabalho_escavacao_checklist';
+type AttachableChecklistFieldName = Exclude<ChecklistFieldName, 'recomendacoes_gerais_checklist'>;
 
 interface ChecklistItem {
   id: string;
@@ -13,11 +24,11 @@ interface ChecklistItem {
 }
 
 interface ChecklistSectionProps {
-  name: string;
+  name: ChecklistFieldName;
   title: string;
   description: string;
   questions: ChecklistItem[];
-  baseResponses: ('Sim' | 'Não' | 'Não aplicável' | 'Ciente')[];
+  baseResponses: ChecklistResponse[];
   showJustificationOn: ('Não' | 'Não aplicável')[];
 }
 
@@ -29,16 +40,29 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
   baseResponses,
   showJustificationOn,
 }) => {
-  const { control, formState: { errors }, setValue } = useFormContext();
+  const { control, formState: { errors }, setValue } = useFormContext<PtFormData>();
   const { fields } = useFieldArray({
     control,
     name,
   });
 
-  const getError = (index: number, fieldName: 'resposta' | 'justificativa') => {
-    const error = errors[name] as any;
-    return error && error[index] ? error[index][fieldName]?.message : null;
+  type ChecklistItemError = {
+    resposta?: { message?: unknown };
+    justificativa?: { message?: unknown };
   };
+
+  const getError = (index: number, fieldName: 'resposta' | 'justificativa') => {
+    const sectionErrors = errors[name] as unknown;
+    if (!Array.isArray(sectionErrors)) return null;
+    const itemError = sectionErrors[index];
+    if (!itemError || typeof itemError !== 'object') return null;
+    const message = (itemError as ChecklistItemError)[fieldName]?.message;
+    return typeof message === 'string' ? message : null;
+  };
+
+  const hasAttachmentField = (fieldName: ChecklistFieldName): fieldName is AttachableChecklistFieldName => (
+    fieldName.startsWith('trabalho_')
+  );
 
   return (
     <div className="sst-card p-6 transition-shadow hover:shadow-md">
@@ -69,7 +93,7 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
                       name={`${name}-${index}`}
                       checked={field.resposta === responseValue}
                       onChange={() => setValue(`${name}.${index}.resposta`, responseValue, { shouldValidate: true })}
-                      className="h-4 w-4 text-slate-800"
+                      className="h-4 w-4 text-[var(--ds-color-text-primary)] focus:ring-blue-500"
                     />
                     <span>{responseValue}</span>
                   </label>
@@ -78,7 +102,7 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
               {responseError && <p className="mt-2 text-xs text-red-500">{responseError}</p>}
 
               {/* Justificativa */}
-              {field.resposta && showJustificationOn.includes(field.resposta as any) && (
+              {field.resposta && showJustificationOn.some((value) => value === field.resposta) && (
                 <div className="mt-3">
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Justificativa <span className="text-red-500">*</span>
@@ -95,12 +119,18 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
               )}
 
               {/* Anexo (se aplicável) */}
-              {name.startsWith('trabalho_') && (
+              {hasAttachmentField(name) && (
                  <div className="mt-3">
                     <label className="block text-xs font-medium text-gray-600 mb-1">Anexo (opcional)</label>
                     <input
                       type="file"
-                      onChange={(e) => setValue(`${name}.${index}.anexo_nome`, e.target.files?.[0]?.name, { shouldValidate: false })}
+                      onChange={(e) =>
+                        setValue(
+                          `${name}.${index}.anexo_nome` as Path<PtFormData>,
+                          e.target.files?.[0]?.name,
+                          { shouldValidate: false },
+                        )
+                      }
                       className="block w-full rounded-md border border-gray-300 px-3 py-2 text-xs"
                     />
                     <p className="mt-1 text-[11px] text-gray-500">

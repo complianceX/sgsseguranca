@@ -141,7 +141,14 @@ api.interceptors.response.use(
       try {
         const newToken = await refreshAccessToken();
         config.headers = config.headers || {};
-        (config.headers as any).Authorization = `Bearer ${newToken}`;
+        if (typeof config.headers.set === 'function') {
+          config.headers.set('Authorization', `Bearer ${newToken}`);
+        } else {
+          config.headers = {
+            ...config.headers,
+            Authorization: `Bearer ${newToken}`,
+          };
+        }
         return api.request(config);
       } catch {
         tokenStore.clear();

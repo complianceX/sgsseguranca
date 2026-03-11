@@ -10,7 +10,6 @@ import { useForm, FormProvider } from 'react-hook-form';
 import {
   ArrowLeft,
   Save,
-  Sparkles,
   Loader2,
   CheckCircle2,
   Mail,
@@ -124,7 +123,6 @@ export function PtForm({ id }: PtFormProps) {
     setValue,
     watch,
     trigger,
-    formState: { errors },
   } = methods;
 
   const draftStorageKey = useMemo(
@@ -150,7 +148,11 @@ export function PtForm({ id }: PtFormProps) {
   const filteredSites = sites.filter(site => site.company_id === selectedCompanyId);
   const filteredAprs = aprs.filter(apr => apr.company_id === selectedCompanyId);
   const filteredUsers = users.filter(user => user.company_id === selectedCompanyId);
-  const selectedExecutanteIds = watch('executantes') || [];
+  const watchedExecutanteIds = watch('executantes');
+  const selectedExecutanteIds = useMemo(
+    () => watchedExecutanteIds ?? [],
+    [watchedExecutanteIds],
+  );
   const selectedCompany = companies.find((company) => company.id === selectedCompanyId);
   const selectedSite = filteredSites.find((site) => site.id === selectedSiteId);
   const selectedResponsavel = filteredUsers.find((responsavel) => responsavel.id === selectedResponsavelId);
@@ -187,7 +189,7 @@ export function PtForm({ id }: PtFormProps) {
       if (ptId) {
         // Se houver um arquivo carregado no S3, atualizamos a PT com a chave
         if (pdfKey) {
-          await ptsService.update(ptId, { pdf_file_key: pdfKey } as any);
+          await ptsService.update(ptId, { pdf_file_key: pdfKey });
         }
 
         const signaturePromises = Object.entries(signatures).map(([userId, sig]) => 
@@ -386,7 +388,7 @@ export function PtForm({ id }: PtFormProps) {
       }
 
       try {
-        let [aprPage, sitePage, userPage] = await Promise.all([
+        const [aprPage, sitePage, userPage] = await Promise.all([
           aprsService.findPaginated({
             page: 1,
             limit: 100,
@@ -592,7 +594,7 @@ export function PtForm({ id }: PtFormProps) {
       toast.success('GST analisou os riscos da PT!', {
         description: (
           <div className="mt-2 space-y-2">
-            <p className="font-bold text-slate-800">{result.summary}</p>
+            <p className="font-bold text-[var(--ds-color-text-primary)]">{result.summary}</p>
             <ul className="list-inside list-disc text-xs">
               {result.suggestions.map((s: string, i: number) => (
                 <li key={i}>{s}</li>
@@ -654,7 +656,7 @@ export function PtForm({ id }: PtFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-20">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-800 border-t-transparent"></div>
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
       </div>
     );
   }
@@ -893,11 +895,10 @@ export function PtForm({ id }: PtFormProps) {
                   <div className="sst-card p-6 transition-shadow hover:shadow-md">
                     <h2 className="mb-6 text-lg font-bold text-gray-900 flex items-center gap-2">
                       Auditoria do Trabalho
-                      <span className="h-2 w-2 rounded-full bg-slate-900"></span>
+                      <span className="h-2 w-2 rounded-full bg-[var(--ds-color-action-primary)]"></span>
                     </h2>
-                    <AuditSection 
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      register={register as any}
+                    <AuditSection<PtFormData>
+                      register={register}
                       auditors={filteredUsers}
                     />
                   </div>
@@ -911,14 +912,14 @@ export function PtForm({ id }: PtFormProps) {
                   <button
                     type="button"
                     onClick={prevStep}
-                    className="rounded-lg px-4 py-2.5 text-sm font-medium text-[#374151] transition-colors hover:bg-[#E5E7EB] border border-gray-300"
+                    className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
                   >
                     Voltar
                   </button>
                 ) : (
                   <Link
                     href="/dashboard/pts"
-                    className="rounded-lg px-4 py-2.5 text-sm font-medium text-[#374151] transition-colors hover:bg-[#E5E7EB] border border-gray-300"
+                    className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
                   >
                     Cancelar
                   </Link>
@@ -941,7 +942,7 @@ export function PtForm({ id }: PtFormProps) {
                   <button
                     type="button"
                     onClick={nextStep}
-                    className="flex items-center justify-center space-x-2 rounded-lg bg-slate-900 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-slate-800"
+                    className="flex items-center justify-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-[var(--ds-color-action-primary-hover)]"
                   >
                     <span>Próximo</span>
                     <ArrowRight className="h-4 w-4" />
@@ -950,7 +951,7 @@ export function PtForm({ id }: PtFormProps) {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex items-center justify-center space-x-2 rounded-lg bg-slate-900 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-slate-800 disabled:opacity-50"
+                    className="flex items-center justify-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
                   >
                     {loading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
