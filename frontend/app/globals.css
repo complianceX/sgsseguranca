@@ -140,11 +140,9 @@
   --ds-color-surface-overlay: #12261b;
   /* ── Gradientes SST ──────────────────────────────────── */
   --ds-gradient-brand: linear-gradient(135deg, #16a34a 0%, #15803d 55%, #14532d 100%);
-  --ds-gradient-surface: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--ds-color-surface-elevated) 94%, white 6%),
-    color-mix(in srgb, var(--ds-color-surface-base) 96%, transparent)
-  );
+  --ds-gradient-surface: linear-gradient(180deg,
+      color-mix(in srgb, var(--ds-color-surface-elevated) 94%, white 6%),
+      color-mix(in srgb, var(--ds-color-surface-base) 96%, transparent));
   /* ── KPI gradients — domínio SST ────────────────────── */
   --ds-kpi-blue: linear-gradient(135deg, #16a34a, #15803d);
   --ds-kpi-violet: linear-gradient(135deg, #7c3aed, #6d28d9);
@@ -207,30 +205,47 @@
 
   /* ── Canvas & Backgrounds ────────────────────────────
      Verde corporativo suave em toda a superfície do app. */
-  --ds-color-bg-canvas: #e9f7ee;          /* background principal                */
-  --ds-color-bg-subtle: #dff1e6;          /* background secundário               */
-  --ds-color-surface-base: #f3fbf6;       /* cards, modais, inputs               */
-  --ds-color-surface-elevated: #edf8f1;   /* elevação via shadow, não via cor    */
-  --ds-color-surface-overlay: #f6fcf8;    /* popovers, dropdowns                 */
-  --ds-color-surface-muted: #e0f1e8;      /* áreas desabilitadas                 */
-  --ds-color-surface-sunken: #ecf8f0;     /* campos e blocos internos            */
+  --ds-color-bg-canvas: #18e88e8e;
+  /* background principal                */
+  --ds-color-bg-subtle: #93daae;
+  /* background secundário               */
+  --ds-color-surface-base: #f3fbf6;
+  /* cards, modais, inputs               */
+  --ds-color-surface-elevated: #edf8f1;
+  /* elevação via shadow, não via cor    */
+  --ds-color-surface-overlay: #f6fcf8;
+  /* popovers, dropdowns                 */
+  --ds-color-surface-muted: #e0f1e8;
+  /* áreas desabilitadas                 */
+  --ds-color-surface-sunken: #ecf8f0;
+  /* campos e blocos internos            */
   --ds-color-surface-muted-hover: #cee6d8;
 
   /* ── Borders ─────────────────────────────────────────
      3 níveis: divisores sutis → inputs → separadores fortes */
-  --ds-color-border-subtle: #c7dece;      /* divisores internos                   */
-  --ds-color-border-default: #b2cfbc;     /* bordas padrão                        */
-  --ds-color-border-strong: #6d8f78;      /* bordas fortes/interação              */
-  --ds-color-border-focus: #166534;       /* green-800  — focus ring primário     */
+  --ds-color-border-subtle: #c7dece;
+  /* divisores internos                   */
+  --ds-color-border-default: #b2cfbc;
+  /* bordas padrão                        */
+  --ds-color-border-strong: #6d8f78;
+  /* bordas fortes/interação              */
+  --ds-color-border-focus: #166534;
+  /* green-800  — focus ring primário     */
 
   /* ── Tipografia — hierarquia corrigida (3 níveis reais)
      primary > secondary > muted — contraste decrescente  */
-  --ds-color-text-primary: #0f172a;       /* slate-900 — títulos, labels · 19.4:1 AAA */
-  --ds-color-text-secondary: #334155;     /* slate-700 — corpo, descrições · 9.7:1 AAA */
-  --ds-color-text-muted: #5b6b82;         /* texto auxiliar com AA no background   */
-  --ds-color-text-disabled: #8da0bc;      /* desabilitado                           */
-  --ds-color-text-inverse: #ffffff;       /* sobre fundos escuros/primários       */
-  --ds-color-text-link: #166534;          /* green-800  — links                    */
+  --ds-color-text-primary: #0f172a;
+  /* slate-900 — títulos, labels · 19.4:1 AAA */
+  --ds-color-text-secondary: #334155;
+  /* slate-700 — corpo, descrições · 9.7:1 AAA */
+  --ds-color-text-muted: #5b6b82;
+  /* texto auxiliar com AA no background   */
+  --ds-color-text-disabled: #8da0bc;
+  /* desabilitado                           */
+  --ds-color-text-inverse: #ffffff;
+  /* sobre fundos escuros/primários       */
+  --ds-color-text-link: #166534;
+  /* green-800  — links                    */
   /* ── Sidebar (fixo escuro para navegação corporativa) ─ */
   --ds-color-sidebar-bg: #0d2219;
   --ds-color-sidebar-bg-soft: #123025;
@@ -240,11 +255,15 @@
   --ds-color-sidebar-border: #2b5743;
 
   /* ── Primary — Verde escuro institucional ──────────── */
-  --ds-color-action-primary: #166534;       /* primary                              */
-  --ds-color-action-primary-hover: #14532d; /* hover                                */
-  --ds-color-action-primary-active: #0f3f24;/* active                               */
+  --ds-color-action-primary: #166534;
+  /* primary                              */
+  --ds-color-action-primary-hover: #14532d;
+  /* hover                                */
+  --ds-color-action-primary-active: #0f3f24;
+  /* active                               */
   --ds-color-action-primary-foreground: #ffffff;
-  --ds-color-primary-subtle: #dff1e6;       /* primary subtle                       */
+  --ds-color-primary-subtle: #dff1e6;
+  /* primary subtle                       */
   --ds-color-primary-subtle-hover: #cde7d7;
   --ds-color-primary-border: #93c8a8;
 
@@ -252,7 +271,8 @@
   --ds-color-action-secondary: #deeee5;
   --ds-color-action-secondary-hover: #cde3d7;
   --ds-color-action-secondary-active: #bdd7ca;
-  --ds-color-action-secondary-foreground: #0f172a;/* slate-900                  */
+  --ds-color-action-secondary-foreground: #0f172a;
+  /* slate-900                  */
   --ds-color-action-secondary-border: #b6d2c3;
 
   /* ── Acento — Teal (análises, IA, dashboards) ──────── */
@@ -266,16 +286,19 @@
      NR-26: verde=saída, amarelo=atenção, vermelho=proibição, azul=obrigação */
 
   /* Sucesso — green-600 · ratio 4.5:1 AA ✓ */
-  --ds-color-success: #15803d;            /* AA on white                          */
+  --ds-color-success: #15803d;
+  /* AA on white                          */
   --ds-color-success-hover: #166534;
   --ds-color-success-subtle: #eaf9ef;
   --ds-color-success-border: #a7e0b8;
-  --ds-color-success-fg: #14532d;         /* green-900 — texto sobre subtle      */
+  --ds-color-success-fg: #14532d;
+  /* green-900 — texto sobre subtle      */
 
   /* Aviso — amber-700 · ratio 5.2:1 AA ✓
      ATENÇÃO: amber-600 (#d97706) falha WCAG AA em texto normal.
      Usar amber-700 (#b45309) para texto, amber-600 para ícones/bordas. */
-  --ds-color-warning: #9a3412;            /* AA on white                          */
+  --ds-color-warning: #9a3412;
+  /* AA on white                          */
   --ds-color-warning-hover: #7c2d12;
   --ds-color-warning-subtle: #fff4e8;
   --ds-color-warning-border: #f7c89a;
@@ -286,17 +309,20 @@
   --ds-color-danger-hover: #991b1b;
   --ds-color-danger-subtle: #feecec;
   --ds-color-danger-border: #f4b4b4;
-  --ds-color-danger-fg: #7f1d1d;          /* red-900   — texto sobre subtle      */
+  --ds-color-danger-fg: #7f1d1d;
+  /* red-900   — texto sobre subtle      */
 
   /* Info — teal escuro (sem azul) */
   --ds-color-info: #0f766e;
   --ds-color-info-hover: #115e59;
   --ds-color-info-subtle: #e8f7f2;
   --ds-color-info-border: #a7dcca;
-  --ds-color-info-fg: #134e4a;            /* teal-900  — texto sobre subtle      */
+  --ds-color-info-fg: #134e4a;
+  /* teal-900  — texto sobre subtle      */
 
   /* ── Focus ring ─────────────────────────────────────── */
-  --ds-color-focus: #166534;              /* green-800                           */
+  --ds-color-focus: #166534;
+  /* green-800                           */
   --ds-color-focus-ring: rgba(22, 101, 52, 0.22);
 
   /* ── Gradiente principal (light) ────────────────────── */
@@ -306,19 +332,36 @@
   /* ── KPI Cards — tinted light (substitui gradientes escuros)
      Padrão: fundo suave + ícone colorido + texto escuro.
      Muito mais leve e legível em light theme. */
-  --ds-kpi-blue-bg: #dff1e6;    --ds-kpi-blue-fg: #14532d;    --ds-kpi-blue-border: #93c8a8;
-  --ds-kpi-green-bg: #eaf9ef;   --ds-kpi-green-fg: #14532d;   --ds-kpi-green-border: #a7e0b8;
-  --ds-kpi-amber-bg: #fff4e8;   --ds-kpi-amber-fg: #7c2d12;   --ds-kpi-amber-border: #f7c89a;
-  --ds-kpi-red-bg: #feecec;     --ds-kpi-red-fg: #7f1d1d;     --ds-kpi-red-border: #f4b4b4;
-  --ds-kpi-violet-bg: #f5f3ff;  --ds-kpi-violet-fg: #7c3aed;  --ds-kpi-violet-border: #ddd6fe;
-  --ds-kpi-teal-bg: #ecfeff;    --ds-kpi-teal-fg: #0f766e;    --ds-kpi-teal-border: #a5f3fc;
+  --ds-kpi-blue-bg: #dff1e6;
+  --ds-kpi-blue-fg: #14532d;
+  --ds-kpi-blue-border: #93c8a8;
+  --ds-kpi-green-bg: #eaf9ef;
+  --ds-kpi-green-fg: #14532d;
+  --ds-kpi-green-border: #a7e0b8;
+  --ds-kpi-amber-bg: #fff4e8;
+  --ds-kpi-amber-fg: #7c2d12;
+  --ds-kpi-amber-border: #f7c89a;
+  --ds-kpi-red-bg: #feecec;
+  --ds-kpi-red-fg: #7f1d1d;
+  --ds-kpi-red-border: #f4b4b4;
+  --ds-kpi-violet-bg: #f5f3ff;
+  --ds-kpi-violet-fg: #7c3aed;
+  --ds-kpi-violet-border: #ddd6fe;
+  --ds-kpi-teal-bg: #ecfeff;
+  --ds-kpi-teal-fg: #0f766e;
+  --ds-kpi-teal-border: #a5f3fc;
 
   /* ── Matriz de Risco — NR-26 (5 níveis) ─────────────── */
-  --risk-negligible: #15803d;   /* verde      — risco desprezível  */
-  --risk-acceptable: #166534;   /* verde dark — aceitável          */
-  --risk-attention: #9a3412;    /* amber      — atenção necessária */
-  --risk-substantial: #ea580c;  /* orange-600 — substancial        */
-  --risk-critical: #b91c1c;     /* red-700    — crítico/CAT        */
+  --risk-negligible: #15803d;
+  /* verde      — risco desprezível  */
+  --risk-acceptable: #166534;
+  /* verde dark — aceitável          */
+  --risk-attention: #9a3412;
+  /* amber      — atenção necessária */
+  --risk-substantial: #ea580c;
+  /* orange-600 — substancial        */
+  --risk-critical: #b91c1c;
+  /* red-700    — crítico/CAT        */
 
   /* ── Sombras — calibradas para canvas slate-50 ───────── */
   --ds-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
@@ -352,6 +395,7 @@ html[data-theme='light'] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -363,6 +407,7 @@ html[data-theme='light'] {
 }
 
 @layer base {
+
   h1,
   h2,
   h3,
@@ -426,11 +471,9 @@ html[data-theme='light'] {
   textarea {
     border-color: var(--ds-color-border-subtle) !important;
     background:
-      linear-gradient(
-        180deg,
+      linear-gradient(180deg,
         color-mix(in srgb, var(--ds-color-bg-canvas) 70%, var(--ds-color-surface-base) 30%),
-        color-mix(in srgb, var(--ds-color-surface-base) 88%, transparent)
-      ) !important;
+        color-mix(in srgb, var(--ds-color-surface-base) 88%, transparent)) !important;
     color: var(--ds-color-text-primary) !important;
     font-weight: 500 !important;
     font-size: var(--ds-text-sm);
@@ -455,11 +498,9 @@ html[data-theme='light'] {
   textarea:focus {
     border-color: var(--ds-color-focus) !important;
     background:
-      linear-gradient(
-        180deg,
+      linear-gradient(180deg,
         color-mix(in srgb, var(--ds-color-bg-canvas) 62%, var(--ds-color-surface-elevated) 38%),
-        color-mix(in srgb, var(--ds-color-surface-base) 84%, transparent)
-      ) !important;
+        color-mix(in srgb, var(--ds-color-surface-base) 84%, transparent)) !important;
     box-shadow:
       0 0 0 4px var(--ds-color-focus-ring),
       0 10px 22px rgba(22, 101, 52, 0.16) !important;
@@ -480,11 +521,9 @@ html[data-theme='light'] {
 
   select {
     background-image:
-      linear-gradient(
-        180deg,
+      linear-gradient(180deg,
         color-mix(in srgb, var(--ds-color-bg-canvas) 70%, var(--ds-color-surface-base) 30%),
-        color-mix(in srgb, var(--ds-color-surface-base) 88%, transparent)
-      ),
+        color-mix(in srgb, var(--ds-color-surface-base) 88%, transparent)),
       linear-gradient(45deg, transparent 50%, var(--ds-color-text-muted) 50%),
       linear-gradient(135deg, var(--ds-color-text-muted) 50%, transparent 50%);
     background-position:
@@ -581,11 +620,11 @@ html[data-theme='light'] {
     gap: 1.5rem;
   }
 
-  .ds-form-page .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  .ds-form-page .space-y-6> :not([hidden])~ :not([hidden]) {
     margin-top: 1.25rem;
   }
 
-  .ds-form-page .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+  .ds-form-page .space-y-8> :not([hidden])~ :not([hidden]) {
     margin-top: 1.5rem;
   }
 
@@ -1477,11 +1516,9 @@ html[data-theme='light'] {
   }
 
   .ds-topbar-action--secondary {
-    background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--ds-color-surface-elevated) 84%, white 16%),
-      color-mix(in srgb, var(--ds-color-surface-base) 92%, transparent)
-    );
+    background: linear-gradient(135deg,
+        color-mix(in srgb, var(--ds-color-surface-elevated) 84%, white 16%),
+        color-mix(in srgb, var(--ds-color-surface-base) 92%, transparent));
     border: 1px solid color-mix(in srgb, var(--ds-color-border-subtle) 84%, white 16%);
     box-shadow: var(--ds-shadow-sm);
   }
@@ -1508,27 +1545,23 @@ html[data-theme='light'] {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: linear-gradient(90deg, rgba(255,255,255,0.06), transparent 28%, transparent 72%, rgba(255,255,255,0.04));
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent 28%, transparent 72%, rgba(255, 255, 255, 0.04));
   }
 
   .ds-stat-tile {
     border: 1px solid color-mix(in srgb, var(--ds-color-border-subtle) 78%, white 22%);
     border-radius: var(--ds-radius-xl);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-surface-elevated) 88%, white 12%),
-      color-mix(in srgb, var(--ds-color-surface-base) 94%, transparent)
-    );
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--ds-color-surface-elevated) 88%, white 12%),
+        color-mix(in srgb, var(--ds-color-surface-base) 94%, transparent));
     padding: 0.9rem;
     backdrop-filter: blur(12px);
   }
 
   .ds-section-card {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-surface-elevated) 82%, white 18%),
-      color-mix(in srgb, var(--ds-color-surface-base) 96%, transparent)
-    );
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--ds-color-surface-elevated) 82%, white 18%),
+        color-mix(in srgb, var(--ds-color-surface-base) 96%, transparent));
     border: 1px solid color-mix(in srgb, var(--ds-color-border-subtle) 78%, white 22%);
     border-radius: var(--ds-radius-xl);
     box-shadow: var(--ds-shadow-sm);
@@ -1588,15 +1621,29 @@ html[data-theme='light'] {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(255,255,255,0.16), transparent 42%);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 42%);
     pointer-events: none;
   }
 
-  .ds-kpi-card--primary { background: var(--ds-kpi-blue); }
-  .ds-kpi-card--accent { background: var(--ds-kpi-violet); }
-  .ds-kpi-card--success { background: var(--ds-kpi-emerald); }
-  .ds-kpi-card--warning { background: var(--ds-kpi-amber); }
-  .ds-kpi-card--danger { background: var(--ds-kpi-danger); }
+  .ds-kpi-card--primary {
+    background: var(--ds-kpi-blue);
+  }
+
+  .ds-kpi-card--accent {
+    background: var(--ds-kpi-violet);
+  }
+
+  .ds-kpi-card--success {
+    background: var(--ds-kpi-emerald);
+  }
+
+  .ds-kpi-card--warning {
+    background: var(--ds-kpi-amber);
+  }
+
+  .ds-kpi-card--danger {
+    background: var(--ds-kpi-danger);
+  }
 
   /* ── KPI Cards — light theme: tinted, sem gradientes escuros ── */
   :root[data-theme='light'] .ds-kpi-card,
@@ -1657,11 +1704,9 @@ html[data-theme='light'] {
 
   .ds-input-shell {
     border: 1px solid var(--ds-color-border-subtle);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-surface-elevated) 84%, white 16%),
-      color-mix(in srgb, var(--ds-color-surface-base) 96%, transparent)
-    );
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--ds-color-surface-elevated) 84%, white 16%),
+        color-mix(in srgb, var(--ds-color-surface-base) 96%, transparent));
     box-shadow: var(--ds-shadow-sm);
   }
 
@@ -1723,11 +1768,9 @@ html[data-theme='light'] {
     width: 100%;
     border: 1px solid color-mix(in srgb, var(--ds-color-border-subtle) 82%, white 18%);
     border-radius: calc(var(--ds-radius-xl) + 0.15rem);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-surface-elevated) 88%, white 12%),
-      color-mix(in srgb, var(--ds-color-surface-base) 98%, transparent)
-    );
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--ds-color-surface-elevated) 88%, white 12%),
+        color-mix(in srgb, var(--ds-color-surface-base) 98%, transparent));
     box-shadow: var(--ds-shadow-lg);
     overflow: hidden;
   }
@@ -1783,11 +1826,9 @@ html[data-theme='light'] {
     border-color: color-mix(in srgb, var(--ds-color-border-strong) 74%, var(--ds-color-action-primary) 26%);
     background:
       radial-gradient(circle at right top, color-mix(in srgb, var(--ds-color-action-primary) 10%, transparent), transparent 38%),
-      linear-gradient(
-        180deg,
+      linear-gradient(180deg,
         color-mix(in srgb, var(--ds-color-surface-elevated) 92%, white 8%),
-        color-mix(in srgb, var(--ds-color-surface-base) 98%, transparent)
-      );
+        color-mix(in srgb, var(--ds-color-surface-base) 98%, transparent));
   }
 
   .ds-crud-hero::before {
@@ -1822,11 +1863,9 @@ html[data-theme='light'] {
     height: 2.75rem;
     border: 1px solid color-mix(in srgb, var(--ds-color-action-primary) 26%, var(--ds-color-border-default));
     border-radius: calc(var(--ds-radius-lg) + 0.1rem);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-action-primary) 14%, var(--ds-color-surface-base) 86%),
-      color-mix(in srgb, var(--ds-color-action-primary) 6%, var(--ds-color-surface-base) 94%)
-    );
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--ds-color-action-primary) 14%, var(--ds-color-surface-base) 86%),
+        color-mix(in srgb, var(--ds-color-action-primary) 6%, var(--ds-color-surface-base) 94%));
     color: var(--ds-color-action-primary);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
   }
@@ -1877,47 +1916,37 @@ html[data-theme='light'] {
 
   .ds-crud-stat--neutral {
     border-color: color-mix(in srgb, var(--ds-color-border-strong) 70%, var(--ds-color-text-muted) 12%);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-surface-elevated) 94%, white 6%),
-      color-mix(in srgb, var(--ds-color-surface-base) 98%, transparent)
-    );
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--ds-color-surface-elevated) 94%, white 6%),
+        color-mix(in srgb, var(--ds-color-surface-base) 98%, transparent));
   }
 
   .ds-crud-stat--primary {
     border-color: color-mix(in srgb, var(--ds-color-action-primary) 24%, var(--ds-color-border-default));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-primary-subtle) 72%, white 28%),
-      color-mix(in srgb, var(--ds-color-primary-subtle) 92%, var(--ds-color-surface-base) 8%)
-    );
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--ds-color-primary-subtle) 72%, white 28%),
+        color-mix(in srgb, var(--ds-color-primary-subtle) 92%, var(--ds-color-surface-base) 8%));
   }
 
   .ds-crud-stat--success {
     border-color: color-mix(in srgb, var(--ds-color-success) 24%, var(--ds-color-border-default));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-success-subtle) 72%, white 28%),
-      color-mix(in srgb, var(--ds-color-success-subtle) 92%, var(--ds-color-surface-base) 8%)
-    );
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--ds-color-success-subtle) 72%, white 28%),
+        color-mix(in srgb, var(--ds-color-success-subtle) 92%, var(--ds-color-surface-base) 8%));
   }
 
   .ds-crud-stat--warning {
     border-color: color-mix(in srgb, var(--ds-color-warning) 24%, var(--ds-color-border-default));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-warning-subtle) 74%, white 26%),
-      color-mix(in srgb, var(--ds-color-warning-subtle) 92%, var(--ds-color-surface-base) 8%)
-    );
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--ds-color-warning-subtle) 74%, white 26%),
+        color-mix(in srgb, var(--ds-color-warning-subtle) 92%, var(--ds-color-surface-base) 8%));
   }
 
   .ds-crud-stat--danger {
     border-color: color-mix(in srgb, var(--ds-color-danger) 24%, var(--ds-color-border-default));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-danger-subtle) 74%, white 26%),
-      color-mix(in srgb, var(--ds-color-danger-subtle) 92%, var(--ds-color-surface-base) 8%)
-    );
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--ds-color-danger-subtle) 74%, white 26%),
+        color-mix(in srgb, var(--ds-color-danger-subtle) 92%, var(--ds-color-surface-base) 8%));
   }
 
   .ds-crud-stat__label {
@@ -1947,11 +1976,9 @@ html[data-theme='light'] {
   .ds-crud-filter-header {
     gap: 0.9rem;
     border-bottom: 1px solid var(--ds-color-border-subtle);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-surface-muted) 38%, transparent),
-      color-mix(in srgb, var(--ds-color-surface-muted) 16%, transparent)
-    );
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--ds-color-surface-muted) 38%, transparent),
+        color-mix(in srgb, var(--ds-color-surface-muted) 16%, transparent));
     padding: 0.95rem 1rem;
   }
 
@@ -1979,20 +2006,16 @@ html[data-theme='light'] {
 
   .ds-crud-callout--warning {
     border-color: color-mix(in srgb, var(--ds-color-warning) 24%, var(--ds-color-border-default));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-warning-subtle) 70%, white 30%),
-      color-mix(in srgb, var(--ds-color-warning-subtle) 92%, transparent)
-    );
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--ds-color-warning-subtle) 70%, white 30%),
+        color-mix(in srgb, var(--ds-color-warning-subtle) 92%, transparent));
   }
 
   .ds-crud-callout--danger {
     border-color: color-mix(in srgb, var(--ds-color-danger) 24%, var(--ds-color-border-default));
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-danger-subtle) 70%, white 30%),
-      color-mix(in srgb, var(--ds-color-danger-subtle) 92%, transparent)
-    );
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--ds-color-danger-subtle) 70%, white 30%),
+        color-mix(in srgb, var(--ds-color-danger-subtle) 92%, transparent));
   }
 
   .ds-density-compact .p-6 {
@@ -2021,11 +2044,11 @@ html[data-theme='light'] {
     gap: 1.5rem;
   }
 
-  .ds-density-compact .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+  .ds-density-compact .space-y-6> :not([hidden])~ :not([hidden]) {
     margin-top: 1.25rem;
   }
 
-  .ds-density-compact .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+  .ds-density-compact .space-y-8> :not([hidden])~ :not([hidden]) {
     margin-top: 1.5rem;
   }
 
@@ -2069,7 +2092,7 @@ html[data-theme='light'] {
     width: 100%;
   }
 
-  .ds-crud-hero__actions > * {
+  .ds-crud-hero__actions>* {
     flex: 1 1 auto;
   }
 
@@ -2158,8 +2181,8 @@ html[data-theme='light'] {
 }
 
 /* Dividers */
-:root[data-theme='dark'] .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
-.theme-dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+:root[data-theme='dark'] .divide-gray-200> :not([hidden])~ :not([hidden]),
+.theme-dark .divide-gray-200> :not([hidden])~ :not([hidden]) {
   border-color: var(--ds-color-border-default);
 }
 
