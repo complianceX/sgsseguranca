@@ -159,12 +159,12 @@ export default function DashboardPage() {
   ];
 
   const quickActions = [
-    { label: 'Nova APR', href: '/dashboard/aprs', icon: PlusCircle, color: 'bg-[image:var(--ds-gradient-brand)]' },
-    { label: 'Nova PT', href: '/dashboard/pts', icon: FileText, color: 'bg-[image:var(--ds-gradient-brand)]' },
-    { label: 'Novo Checklist', href: '/dashboard/checklists', icon: ClipboardCheck, color: 'bg-[image:var(--ds-kpi-violet)]' },
-    { label: 'Novo EPI', href: '/dashboard/epis', icon: Shield, color: 'bg-[image:var(--ds-kpi-emerald)]' },
-    { label: 'Nova NC', href: '/dashboard/nonconformities/new', icon: AlertTriangle, color: 'bg-[image:var(--ds-kpi-amber)]' },
-    { label: 'Novo DDS', href: '/dashboard/dds', icon: MessageSquare, color: 'bg-[image:var(--ds-kpi-amber)]' },
+    { label: 'Nova APR', href: '/dashboard/aprs', icon: PlusCircle, color: 'bg-[var(--ds-color-action-primary)] hover:bg-[var(--ds-color-action-primary-hover)]' },
+    { label: 'Nova PT', href: '/dashboard/pts', icon: FileText, color: 'bg-[var(--ds-color-action-primary)] hover:bg-[var(--ds-color-action-primary-hover)]' },
+    { label: 'Novo Checklist', href: '/dashboard/checklists', icon: ClipboardCheck, color: 'bg-[#7c3aed] hover:bg-[#6d28d9]' },
+    { label: 'Novo EPI', href: '/dashboard/epis', icon: Shield, color: 'bg-[var(--ds-color-success)] hover:bg-[var(--ds-color-success-hover)]' },
+    { label: 'Nova NC', href: '/dashboard/nonconformities/new', icon: AlertTriangle, color: 'bg-[var(--ds-color-warning)] hover:bg-[var(--ds-color-warning-hover)]' },
+    { label: 'Novo DDS', href: '/dashboard/dds', icon: MessageSquare, color: 'bg-[var(--ds-color-warning)] hover:bg-[var(--ds-color-warning-hover)]' },
   ];
 
   const operationalHighlights = [
@@ -173,21 +173,21 @@ export default function DashboardPage() {
       value: pendingApprovals.aprs + pendingApprovals.pts + pendingApprovals.nonconformities,
       hint: 'Itens que exigem atuação hoje',
       icon: AlertTriangle,
-      tone: 'text-amber-100',
+      tone: 'text-[var(--ds-color-warning)]',
     },
     {
       label: 'Documentos ativos',
       value: counts.aprs + counts.pts + counts.checklists,
       hint: 'APR, PT e checklist emitidos',
       icon: FileStack,
-      tone: 'text-sky-100',
+      tone: 'text-[var(--ds-color-info)]',
     },
     {
       label: 'Atualizado em',
       value: format(new Date(), 'dd/MM'),
       hint: 'Painel sincronizado',
       icon: CalendarDays,
-      tone: 'text-emerald-100',
+      tone: 'text-[var(--ds-color-success)]',
     },
   ];
 
@@ -199,21 +199,21 @@ export default function DashboardPage() {
             <div className="mb-2.5 inline-flex items-center rounded-full border border-[color:var(--ds-color-border-strong)]/70 bg-[color:var(--ds-color-surface-muted)]/55 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
               cockpit operacional
             </div>
-            <h1 className="text-2xl font-bold tracking-[-0.03em] text-white lg:text-[2rem]">Gestão SST com visão executiva e resposta rápida.</h1>
+            <h1 className="text-2xl font-bold tracking-[-0.03em] text-[var(--ds-color-text-primary)] lg:text-[2rem]">Gestão SST com visão executiva e resposta rápida.</h1>
             <p className="mt-2.5 max-w-2xl text-[13px] text-[var(--ds-color-text-secondary)]">
               Visão executiva com conformidade, documentação crítica, treinamentos e ações prioritárias em um único painel.
             </p>
             <div className="mt-4 flex flex-wrap gap-2.5">
               <div className="ds-topbar-chip">
-                <Clock3 className="h-4 w-4 text-sky-300" />
+                <Clock3 className="h-4 w-4 text-[var(--ds-color-info)]" />
                 Acompanhamento em tempo real
               </div>
               <div className="ds-topbar-chip">
-                <Shield className="h-4 w-4 text-emerald-300" />
+                <Shield className="h-4 w-4 text-[var(--ds-color-success)]" />
                 Multiempresa seguro
               </div>
               <div className="ds-topbar-chip">
-                <FileText className="h-4 w-4 text-orange-300" />
+                <FileText className="h-4 w-4 text-[var(--ds-color-warning)]" />
                 Documentos com rastreabilidade
               </div>
             </div>
@@ -223,9 +223,9 @@ export default function DashboardPage() {
               <div key={item.label} className="ds-stat-tile">
                 <div className="flex items-center justify-between">
                   <item.icon className={`h-4 w-4 ${item.tone}`} />
-                  <ArrowUpRight className="h-4 w-4 text-white/40" />
+                  <ArrowUpRight className="h-4 w-4 text-[var(--ds-color-text-disabled)]" />
                 </div>
-                <p className="mt-5 text-[1.45rem] font-bold text-white">{item.value}</p>
+                <p className="mt-5 text-[1.45rem] font-bold text-[var(--ds-color-text-primary)]">{item.value}</p>
                 <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                   {item.label}
                 </p>
@@ -259,12 +259,14 @@ export default function DashboardPage() {
           <div className="relative mb-3 h-28 w-28">
             <svg className="h-full w-full" viewBox="0 0 36 36">
               <path
-                className="stroke-gray-100 fill-none"
+                className="fill-none"
+                stroke="var(--ds-color-border-default)"
                 strokeWidth="3"
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
               <path
-                className={`${safetyScore > 80 ? 'stroke-emerald-500' : safetyScore > 50 ? 'stroke-amber-500' : 'stroke-red-500'} fill-none transition-all duration-1000 ease-out`}
+                className="fill-none transition-all duration-1000 ease-out"
+                stroke={safetyScore > 80 ? 'var(--ds-color-success)' : safetyScore > 50 ? 'var(--ds-color-warning)' : 'var(--ds-color-danger)'}
                 strokeWidth="3"
                 strokeDasharray={`${safetyScore}, 100`}
                 strokeLinecap="round"
@@ -296,8 +298,8 @@ export default function DashboardPage() {
         {stats.map((stat, index) => (
           <div key={index} className="ds-dashboard-panel ds-dashboard-stat p-4 transition-all hover:-translate-y-0.5 hover:shadow-[var(--ds-shadow-lg)]">
             <div className="flex items-center justify-between">
-              <div className={`ds-kpi-card ${stat.tone} rounded-xl p-2.5 shadow-[0_16px_32px_rgba(15,23,42,0.18)]`}>
-                <stat.icon className="h-5 w-5 text-white" />
+              <div className={`ds-kpi-card ${stat.tone} rounded-xl p-2.5`}>
+                <stat.icon className="h-5 w-5 text-current" />
               </div>
             </div>
             <div className="mt-3">
@@ -342,27 +344,27 @@ export default function DashboardPage() {
 
         <div className="ds-dashboard-panel p-5 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-bold text-gray-900">Plano de Ação Prioritário</h2>
-            <Link href="/dashboard/inspections" className="text-sm font-semibold text-slate-800 hover:underline">
+            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Plano de Ação Prioritário</h2>
+            <Link href="/dashboard/inspections" className="text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline">
               Ver ações
             </Link>
           </div>
           {actionPlanItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 text-center">
-              <CheckCircle2 className="h-10 w-10 text-emerald-100" />
-              <p className="mt-2 text-sm text-gray-500 font-medium">Nenhuma ação pendente no momento.</p>
+              <CheckCircle2 className="h-10 w-10 text-[var(--ds-color-success)]" />
+              <p className="mt-2 text-sm text-[var(--ds-color-text-muted)] font-medium">Nenhuma ação pendente no momento.</p>
             </div>
           ) : (
             <div className="space-y-3">
               {actionPlanItems.map((item) => (
-                <Link key={item.id} href={item.href} className="flex flex-col rounded-lg border border-gray-100 bg-gray-50 p-2.5 hover:border-amber-200">
+                <Link key={item.id} href={item.href} className="flex flex-col rounded-lg border border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)] p-2.5 hover:border-[color:var(--ds-color-warning-border)] hover:bg-[color:var(--ds-color-warning-subtle)]">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-800">{item.source}</span>
-                    <span className="text-xs text-gray-400">{item.prazo ? format(new Date(item.prazo), 'dd/MM/yyyy') : 'Sem prazo'}</span>
+                    <span className="text-xs font-semibold text-[var(--ds-color-text-primary)]">{item.source}</span>
+                    <span className="text-xs text-[var(--ds-color-text-disabled)]">{item.prazo ? format(new Date(item.prazo), 'dd/MM/yyyy') : 'Sem prazo'}</span>
                   </div>
-                  <p className="mt-1 text-sm font-semibold text-gray-800">{item.action}</p>
-                  <p className="text-xs text-gray-500">{item.title}</p>
-                  <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                  <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{item.action}</p>
+                  <p className="text-xs text-[var(--ds-color-text-muted)]">{item.title}</p>
+                  <div className="mt-2 flex items-center justify-between text-xs text-[var(--ds-color-text-muted)]">
                     <span>{item.responsavel || 'Responsável não definido'}</span>
                     <span>{item.status || 'Status não informado'}</span>
                   </div>
@@ -376,30 +378,30 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="ds-dashboard-panel p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-bold text-gray-900">Matriz de Risco</h2>
-            <Link href="/dashboard/risks" className="text-sm font-semibold text-slate-800 hover:underline">
+            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Matriz de Risco</h2>
+            <Link href="/dashboard/risks" className="text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline">
               Ver riscos
             </Link>
           </div>
           <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg bg-red-50 px-3.5 py-2.5">
-              <span className="text-sm font-semibold text-red-700">Alto</span>
-              <span className="text-lg font-bold text-red-700">{riskSummary.alto}</span>
+            <div className="flex items-center justify-between rounded-lg bg-[var(--ds-color-danger-subtle)] border border-[var(--ds-color-danger-border)] px-3.5 py-2.5">
+              <span className="text-sm font-semibold text-[var(--ds-color-danger)]">Alto</span>
+              <span className="text-lg font-bold text-[var(--ds-color-danger)]">{riskSummary.alto}</span>
             </div>
-            <div className="flex items-center justify-between rounded-lg bg-amber-50 px-3.5 py-2.5">
-              <span className="text-sm font-semibold text-slate-800">Médio</span>
-              <span className="text-lg font-bold text-slate-800">{riskSummary.medio}</span>
+            <div className="flex items-center justify-between rounded-lg bg-[var(--ds-color-warning-subtle)] border border-[var(--ds-color-warning-border)] px-3.5 py-2.5">
+              <span className="text-sm font-semibold text-[var(--ds-color-warning)]">Médio</span>
+              <span className="text-lg font-bold text-[var(--ds-color-warning)]">{riskSummary.medio}</span>
             </div>
-            <div className="flex items-center justify-between rounded-lg bg-emerald-50 px-3.5 py-2.5">
-              <span className="text-sm font-semibold text-emerald-700">Baixo</span>
-              <span className="text-lg font-bold text-emerald-700">{riskSummary.baixo}</span>
+            <div className="flex items-center justify-between rounded-lg bg-[var(--ds-color-success-subtle)] border border-[var(--ds-color-success-border)] px-3.5 py-2.5">
+              <span className="text-sm font-semibold text-[var(--ds-color-success)]">Baixo</span>
+              <span className="text-lg font-bold text-[var(--ds-color-success)]">{riskSummary.baixo}</span>
             </div>
           </div>
         </div>
 
         <div className="ds-dashboard-panel p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-bold text-gray-900">Evidências Registradas</h2>
+            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Evidências Registradas</h2>
             <Link href="/dashboard/inspections" className="ds-section-link">
               Ver evidências
             </Link>
@@ -449,8 +451,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="ds-dashboard-panel p-5">
           <div className="mb-5 flex items-center justify-between">
-            <h2 className="flex items-center text-base font-bold text-gray-900">
-              <AlertCircle className="mr-2 h-5 w-5 text-amber-500" />
+            <h2 className="flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
+              <AlertCircle className="mr-2 h-5 w-5 text-[var(--ds-color-warning)]" />
               EPIs Vencidos ou Próximos do Vencimento
             </h2>
             <Link href="/dashboard/epis" className="ds-section-link">
@@ -460,7 +462,7 @@ export default function DashboardPage() {
           
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-7 w-7 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+              <div className="h-7 w-7 animate-spin rounded-full border-4 border-[color:var(--ds-color-action-primary)] border-t-transparent"></div>
             </div>
           ) : expiringEpis.length > 0 ? (
             <div className="space-y-4">
@@ -469,14 +471,14 @@ export default function DashboardPage() {
                 return (
                 <div key={epi.id} className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 p-2.5">
                   <div className="flex items-center space-x-3">
-                    <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-red-500' : 'bg-amber-500'}`}></div>
+                    <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-warning)]'}`}></div>
                     <div>
                       <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">{epi.nome}</p>
                       <p className="text-xs text-[var(--ds-color-text-muted)]">CA: {epi.ca} | {epi.nome}</p>
                     </div>
                   </div>
                     <div className="text-right">
-                      <p className={`text-xs font-bold ${isExpired ? 'text-red-600' : 'text-amber-600'}`}>
+                      <p className={`text-xs font-bold ${isExpired ? 'text-[var(--ds-color-danger)]' : 'text-[var(--ds-color-warning)]'}`}>
                         {isExpired ? 'VENCIDO' : `Vence em ${format(new Date(epi.validade_ca || ''), 'dd/MM/yyyy')}`}
                       </p>
                     </div>
@@ -486,7 +488,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <CheckCircle2 className="h-12 w-12 text-emerald-100" />
+              <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
               <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Todos os EPIs estão com CA em dia.</p>
             </div>
           )}
@@ -494,8 +496,8 @@ export default function DashboardPage() {
 
         <div className="ds-dashboard-panel p-5">
           <div className="mb-5 flex items-center justify-between">
-            <h2 className="flex items-center text-base font-bold text-gray-900">
-              <GraduationCap className="mr-2 h-5 w-5 text-amber-500" />
+            <h2 className="flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
+              <GraduationCap className="mr-2 h-5 w-5 text-[var(--ds-color-warning)]" />
               Treinamentos Vencidos ou Próximos do Vencimento
             </h2>
             <Link href="/dashboard/trainings" className="ds-section-link">
@@ -505,7 +507,7 @@ export default function DashboardPage() {
 
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-7 w-7 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+              <div className="h-7 w-7 animate-spin rounded-full border-4 border-[color:var(--ds-color-action-primary)] border-t-transparent"></div>
             </div>
           ) : expiringTrainings.length > 0 ? (
             <div className="space-y-4">
@@ -514,14 +516,14 @@ export default function DashboardPage() {
                 return (
                 <div key={training.id} className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 p-2.5">
                   <div className="flex items-center space-x-3">
-                    <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-red-500' : 'bg-amber-500'}`}></div>
+                    <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-warning)]'}`}></div>
                     <div>
                       <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">{training.nome}</p>
                       <p className="text-xs text-[var(--ds-color-text-muted)]">{training.user?.nome || 'Colaborador'}</p>
                     </div>
                   </div>
                     <div className="text-right">
-                      <p className={`text-xs font-bold ${isExpired ? 'text-red-600' : 'text-amber-600'}`}>
+                      <p className={`text-xs font-bold ${isExpired ? 'text-[var(--ds-color-danger)]' : 'text-[var(--ds-color-warning)]'}`}>
                         {isExpired ? 'VENCIDO' : `Vence em ${format(new Date(training.data_vencimento), 'dd/MM/yyyy')}`}
                       </p>
                     </div>
@@ -531,7 +533,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <CheckCircle2 className="h-12 w-12 text-emerald-100" />
+              <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
               <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Todos os treinamentos estão em dia.</p>
             </div>
           )}
@@ -541,8 +543,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="ds-dashboard-panel p-5">
           <div className="mb-5 flex items-center justify-between">
-            <h2 className="flex items-center text-base font-bold text-gray-900">
-              <MapPin className="mr-2 h-5 w-5 text-slate-800" />
+            <h2 className="flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
+              <MapPin className="mr-2 h-5 w-5 text-[var(--ds-color-action-primary)]" />
               Benchmark de Conformidade por Obra
             </h2>
             <Link href="/dashboard/checklists" className="ds-section-link">
@@ -552,7 +554,7 @@ export default function DashboardPage() {
 
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-7 w-7 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+              <div className="h-7 w-7 animate-spin rounded-full border-4 border-[color:var(--ds-color-action-primary)] border-t-transparent"></div>
             </div>
           ) : siteCompliance.length > 0 ? (
             <div className="space-y-4">
@@ -573,7 +575,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <CheckCircle2 className="h-12 w-12 text-emerald-100" />
+              <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
               <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Nenhum checklist registrado.</p>
             </div>
           )}
@@ -588,7 +590,7 @@ export default function DashboardPage() {
           </div>
           {recentActivities.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <CheckCircle2 className="h-12 w-12 text-emerald-100" />
+              <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
               <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Nenhuma atualização recente.</p>
             </div>
           ) : (
@@ -618,7 +620,7 @@ export default function DashboardPage() {
           </div>
           {recentReports.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-              <CheckCircle2 className="h-12 w-12 text-emerald-100" />
+              <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
               <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Nenhum relatório gerado.</p>
             </div>
           ) : (

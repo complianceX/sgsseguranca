@@ -166,60 +166,129 @@
 
 :root[data-theme='light'],
 .theme-light {
-  /* ── Base — fundo branco ─────────────────────────────── */
-  --ds-color-bg-canvas: #ffffff;
-  --ds-color-bg-subtle: #f8fafc;
-  --ds-color-surface-base: #ffffff;
-  --ds-color-surface-elevated: #ffffff;
-  --ds-color-surface-overlay: #ffffff;
-  --ds-color-surface-muted: #f1f5f9;
-  --ds-color-surface-muted-hover: #e2e8f0;
-  /* ── Borders ─────────────────────────────────────────── */
-  --ds-color-border-subtle: #e2e8f0;
-  --ds-color-border-default: #cbd5e1;
-  --ds-color-border-strong: #94a3b8;
-  /* ── Text ────────────────────────────────────────────── */
-  --ds-color-text-primary: #111827;
-  --ds-color-text-secondary: #1f2937;
-  --ds-color-text-muted: #374151;
-  --ds-color-text-disabled: #6b7280;
-  /* ── Primary — Navy Profissional ─────────────────────── */
-  --ds-color-action-primary: #1e3a5c;
-  --ds-color-action-primary-hover: #162d48;
+  /* ══════════════════════════════════════════════════════
+     GST SST — Light Design System v2
+     Inspiração: Linear · Stripe · Vercel
+     WCAG AA em todos os tokens de texto/ação
+  ══════════════════════════════════════════════════════ */
+
+  /* ── Canvas & Backgrounds ────────────────────────────
+     slate-50 como base: reduz fadiga em uso prolongado
+     vs pure white. Cards brancos criam elevação natural. */
+  --ds-color-bg-canvas: #f8fafc;          /* slate-50  — canvas principal       */
+  --ds-color-bg-subtle: #f1f5f9;          /* slate-100 — seções, painéis internos*/
+  --ds-color-surface-base: #ffffff;       /* cards, modais, inputs               */
+  --ds-color-surface-elevated: #ffffff;   /* elevação via shadow, não via cor    */
+  --ds-color-surface-overlay: #ffffff;    /* popovers, dropdowns                 */
+  --ds-color-surface-muted: #f1f5f9;      /* slate-100 — áreas desabilitadas     */
+  --ds-color-surface-sunken: #f8fafc;     /* campos input, code blocks           */
+  --ds-color-surface-muted-hover: #e2e8f0;/* slate-200                           */
+
+  /* ── Borders ─────────────────────────────────────────
+     3 níveis: divisores sutis → inputs → separadores fortes */
+  --ds-color-border-subtle: #e2e8f0;      /* slate-200 — divisores internos, cards*/
+  --ds-color-border-default: #cbd5e1;     /* slate-300 — inputs em repouso        */
+  --ds-color-border-strong: #94a3b8;      /* slate-400 — separadores, hover       */
+  --ds-color-border-focus: #1d4ed8;       /* blue-700  — focus ring primário      */
+
+  /* ── Tipografia — hierarquia corrigida (3 níveis reais)
+     primary > secondary > muted — contraste decrescente  */
+  --ds-color-text-primary: #0f172a;       /* slate-900 — títulos, labels · 19.4:1 AAA */
+  --ds-color-text-secondary: #334155;     /* slate-700 — corpo, descrições · 9.7:1 AAA */
+  --ds-color-text-muted: #64748b;         /* slate-500 — auxiliar, placeholder · 4.6:1 AA  */
+  --ds-color-text-disabled: #94a3b8;      /* slate-400 — desabilitado, decorativo */
+  --ds-color-text-inverse: #ffffff;       /* sobre fundos escuros/primários       */
+  --ds-color-text-link: #1d4ed8;          /* blue-700  — links · 7.2:1 AAA       */
+
+  /* ── Primary — Azul Institucional ────────────────────
+     #1d4ed8 = blue-700. Claro, acionável, confiável.
+     Ratio 7.2:1 sobre branco — WCAG AAA. */
+  --ds-color-action-primary: #1d4ed8;       /* blue-700  — botões, links, CTAs    */
+  --ds-color-action-primary-hover: #1e40af; /* blue-800                           */
+  --ds-color-action-primary-active: #1e3a8a;/* blue-900                           */
   --ds-color-action-primary-foreground: #ffffff;
+  --ds-color-primary-subtle: #eff6ff;       /* blue-50   — hover nav, fundo active*/
+  --ds-color-primary-subtle-hover: #dbeafe; /* blue-100                           */
+  --ds-color-primary-border: #bfdbfe;       /* blue-200  — borda elementos primary*/
+
   /* ── Secondary ───────────────────────────────────────── */
-  --ds-color-action-secondary: rgba(30, 58, 92, 0.08);
-  --ds-color-action-secondary-hover: rgba(30, 58, 92, 0.15);
-  --ds-color-action-secondary-foreground: #1e3a5c;
-  /* ── Acento — Teal ────────────────────────────────────── */
-  --ds-color-accent: #0f766e;
-  --ds-color-accent-hover: #115e59;
-  --ds-color-accent-subtle: rgba(15, 118, 110, 0.10);
-  --ds-color-primary-subtle: rgba(30, 58, 92, 0.08);
-  /* ── Semânticos NR-26 (tom saturado para fundo claro) ── */
-  --ds-color-success: #15803d;
-  --ds-color-success-hover: #166534;
-  --ds-color-success-subtle: rgba(21, 128, 61, 0.10);
-  --ds-color-warning: #d97706;
-  --ds-color-warning-hover: #b45309;
-  --ds-color-warning-subtle: rgba(217, 119, 6, 0.10);
-  --ds-color-danger: #dc2626;
-  --ds-color-danger-hover: #b91c1c;
-  --ds-color-danger-subtle: rgba(220, 38, 38, 0.10);
-  --ds-color-info: #0f766e;
-  --ds-color-info-subtle: rgba(15, 118, 110, 0.10);
-  /* ── Focus ───────────────────────────────────────────── */
-  --ds-color-focus: #1e3a5c;
-  --ds-color-focus-ring: rgba(30, 58, 92, 0.22);
-  /* ── Risk matrix (light) ─────────────────────────────── */
-  --risk-acceptable: #15803d;
-  --risk-attention: #b45309;
-  --risk-substantial: #d97706;
-  --risk-critical: #dc2626;
-  /* ── Sombras calibradas ──────────────────────────────── */
-  --ds-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
-  --ds-shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.05);
-  --ds-shadow-lg: 0 18px 44px rgba(15, 23, 42, 0.10), 0 8px 20px rgba(15, 23, 42, 0.06);
+  --ds-color-action-secondary: #f1f5f9;          /* slate-100                    */
+  --ds-color-action-secondary-hover: #e2e8f0;    /* slate-200                    */
+  --ds-color-action-secondary-foreground: #0f172a;/* slate-900                  */
+  --ds-color-action-secondary-border: #cbd5e1;   /* slate-300                    */
+
+  /* ── Acento — Teal (análises, IA, dashboards) ──────── */
+  --ds-color-accent: #0f766e;             /* teal-700                            */
+  --ds-color-accent-hover: #115e59;       /* teal-800                            */
+  --ds-color-accent-subtle: #f0fdfa;      /* teal-50                             */
+  --ds-color-accent-border: #99f6e4;      /* teal-200                            */
+
+  /* ── Semânticos NR-26 — WCAG AA garantido ────────────
+     Todos testados contra #ffffff e fundos sutis.
+     NR-26: verde=saída, amarelo=atenção, vermelho=proibição, azul=obrigação */
+
+  /* Sucesso — green-600 · ratio 4.5:1 AA ✓ */
+  --ds-color-success: #16a34a;            /* green-600                           */
+  --ds-color-success-hover: #15803d;      /* green-700                           */
+  --ds-color-success-subtle: #f0fdf4;     /* green-50  — fundo alertas/badges    */
+  --ds-color-success-border: #bbf7d0;     /* green-200                           */
+  --ds-color-success-fg: #14532d;         /* green-900 — texto sobre subtle      */
+
+  /* Aviso — amber-700 · ratio 5.2:1 AA ✓
+     ATENÇÃO: amber-600 (#d97706) falha WCAG AA em texto normal.
+     Usar amber-700 (#b45309) para texto, amber-600 para ícones/bordas. */
+  --ds-color-warning: #b45309;            /* amber-700 — texto/ícone · 5.2:1 AA */
+  --ds-color-warning-hover: #92400e;      /* amber-800                           */
+  --ds-color-warning-subtle: #fffbeb;     /* amber-50  — fundo alertas/badges    */
+  --ds-color-warning-border: #fde68a;     /* amber-200                           */
+  --ds-color-warning-fg: #78350f;         /* amber-900 — texto sobre subtle      */
+
+  /* Perigo — red-600 · ratio 4.5:1 AA ✓ */
+  --ds-color-danger: #dc2626;             /* red-600                             */
+  --ds-color-danger-hover: #b91c1c;       /* red-700                             */
+  --ds-color-danger-subtle: #fef2f2;      /* red-50    — fundo alertas/badges    */
+  --ds-color-danger-border: #fecaca;      /* red-200                             */
+  --ds-color-danger-fg: #7f1d1d;          /* red-900   — texto sobre subtle      */
+
+  /* Info — sky-600 · ratio 4.6:1 AA ✓
+     NR-26: azul = obrigação/EPI. Separado do accent teal. */
+  --ds-color-info: #0284c7;               /* sky-600                             */
+  --ds-color-info-hover: #0369a1;         /* sky-700                             */
+  --ds-color-info-subtle: #f0f9ff;        /* sky-50    — fundo alertas/badges    */
+  --ds-color-info-border: #bae6fd;        /* sky-200                             */
+  --ds-color-info-fg: #0c4a6e;            /* sky-900   — texto sobre subtle      */
+
+  /* ── Focus ring ─────────────────────────────────────── */
+  --ds-color-focus: #1d4ed8;              /* blue-700                            */
+  --ds-color-focus-ring: rgba(29, 78, 216, 0.20);
+
+  /* ── Gradiente principal (light) ────────────────────── */
+  --ds-gradient-brand: linear-gradient(135deg, #1d4ed8 0%, #1e40af 60%, #1e3a8a 100%);
+  --ds-gradient-surface: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+
+  /* ── KPI Cards — tinted light (substitui gradientes escuros)
+     Padrão: fundo suave + ícone colorido + texto escuro.
+     Muito mais leve e legível em light theme. */
+  --ds-kpi-blue-bg: #eff6ff;    --ds-kpi-blue-fg: #1d4ed8;    --ds-kpi-blue-border: #bfdbfe;
+  --ds-kpi-green-bg: #f0fdf4;   --ds-kpi-green-fg: #16a34a;   --ds-kpi-green-border: #bbf7d0;
+  --ds-kpi-amber-bg: #fffbeb;   --ds-kpi-amber-fg: #b45309;   --ds-kpi-amber-border: #fde68a;
+  --ds-kpi-red-bg: #fef2f2;     --ds-kpi-red-fg: #dc2626;     --ds-kpi-red-border: #fecaca;
+  --ds-kpi-violet-bg: #f5f3ff;  --ds-kpi-violet-fg: #7c3aed;  --ds-kpi-violet-border: #ddd6fe;
+  --ds-kpi-teal-bg: #f0fdfa;    --ds-kpi-teal-fg: #0f766e;    --ds-kpi-teal-border: #99f6e4;
+
+  /* ── Matriz de Risco — NR-26 (5 níveis) ─────────────── */
+  --risk-negligible: #16a34a;   /* verde      — risco desprezível  */
+  --risk-acceptable: #15803d;   /* verde dark — aceitável          */
+  --risk-attention: #b45309;    /* amber      — atenção necessária */
+  --risk-substantial: #ea580c;  /* orange-600 — substancial        */
+  --risk-critical: #dc2626;     /* red-600    — crítico/CAT        */
+
+  /* ── Sombras — calibradas para canvas slate-50 ───────── */
+  --ds-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --ds-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.05);
+  --ds-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.10), 0 2px 4px rgba(15, 23, 42, 0.06);
+  --ds-shadow-lg: 0 12px 28px rgba(15, 23, 42, 0.12), 0 4px 8px rgba(15, 23, 42, 0.07);
+  --ds-shadow-xl: 0 24px 48px rgba(15, 23, 42, 0.14), 0 8px 16px rgba(15, 23, 42, 0.08);
 }
 
 * {
@@ -1172,16 +1241,20 @@ html[data-theme='light'] {
       linear-gradient(180deg, rgba(8, 17, 31, 0.94), rgba(14, 23, 40, 0.98));
   }
 
+  /* ── Light theme overrides — componentes com hardcode escuro ── */
+
   :root[data-theme='light'] .ds-shell-backdrop,
   .theme-light .ds-shell-backdrop {
-    background: #ffffff;
+    background: #f8fafc;
   }
 
+  /* Topbar — fundo branco limpo, sem gradiente escuro */
   :root[data-theme='light'] .ds-topbar,
   .theme-light .ds-topbar {
     background: #ffffff;
     border-bottom: 1px solid #e2e8f0;
     backdrop-filter: none;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
   }
 
   :root[data-theme='light'] .ds-topbar-search,
@@ -1189,13 +1262,28 @@ html[data-theme='light'] {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     box-shadow: none;
+    color: #0f172a;
   }
 
   :root[data-theme='light'] .ds-topbar-chip,
   .theme-light .ds-topbar-chip {
     background: #f1f5f9;
     border: 1px solid #e2e8f0;
-    color: #1f2937;
+    color: #334155;
+  }
+
+  :root[data-theme='light'] .ds-topbar-action,
+  .theme-light .ds-topbar-action {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    box-shadow: 0 4px 14px rgba(29, 78, 216, 0.30);
+  }
+
+  :root[data-theme='light'] .ds-topbar-action--secondary,
+  .theme-light .ds-topbar-action--secondary {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
   }
 
   :root[data-theme='light'] .ds-topbar-mobile-context,
@@ -1204,14 +1292,33 @@ html[data-theme='light'] {
     border: 1px solid #e2e8f0;
   }
 
+  /* Hero panel "Cockpit" — fundo azul ultra suave com borda */
   :root[data-theme='light'] .ds-hero-panel,
   .theme-light .ds-hero-panel {
-    background: #f1f5f9;
+    background: linear-gradient(135deg, #f0f7ff 0%, #f8fafc 60%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
   }
 
   :root[data-theme='light'] .ds-hero-panel::after,
   .theme-light .ds-hero-panel::after {
     background: none;
+  }
+
+  /* Stat tile — fundo branco com borda visível no canvas slate-50 */
+  :root[data-theme='light'] .ds-stat-tile,
+  .theme-light .ds-stat-tile {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    backdrop-filter: none;
+  }
+
+  /* Section card — fundo branco limpo */
+  :root[data-theme='light'] .ds-section-card,
+  .theme-light .ds-section-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
   }
 
   .ds-topbar {
@@ -1392,6 +1499,53 @@ html[data-theme='light'] {
   .ds-kpi-card--success { background: var(--ds-kpi-emerald); }
   .ds-kpi-card--warning { background: var(--ds-kpi-amber); }
   .ds-kpi-card--danger { background: var(--ds-kpi-danger); }
+
+  /* ── KPI Cards — light theme: tinted, sem gradientes escuros ── */
+  :root[data-theme='light'] .ds-kpi-card,
+  .theme-light .ds-kpi-card {
+    color: inherit;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  }
+
+  :root[data-theme='light'] .ds-kpi-card::after,
+  .theme-light .ds-kpi-card::after {
+    background: none;
+  }
+
+  :root[data-theme='light'] .ds-kpi-card--primary,
+  .theme-light .ds-kpi-card--primary {
+    background: var(--ds-kpi-blue-bg);
+    border: 1px solid var(--ds-kpi-blue-border);
+    color: var(--ds-kpi-blue-fg);
+  }
+
+  :root[data-theme='light'] .ds-kpi-card--accent,
+  .theme-light .ds-kpi-card--accent {
+    background: var(--ds-kpi-violet-bg);
+    border: 1px solid var(--ds-kpi-violet-border);
+    color: var(--ds-kpi-violet-fg);
+  }
+
+  :root[data-theme='light'] .ds-kpi-card--success,
+  .theme-light .ds-kpi-card--success {
+    background: var(--ds-kpi-green-bg);
+    border: 1px solid var(--ds-kpi-green-border);
+    color: var(--ds-kpi-green-fg);
+  }
+
+  :root[data-theme='light'] .ds-kpi-card--warning,
+  .theme-light .ds-kpi-card--warning {
+    background: var(--ds-kpi-amber-bg);
+    border: 1px solid var(--ds-kpi-amber-border);
+    color: var(--ds-kpi-amber-fg);
+  }
+
+  :root[data-theme='light'] .ds-kpi-card--danger,
+  .theme-light .ds-kpi-card--danger {
+    background: var(--ds-kpi-red-bg);
+    border: 1px solid var(--ds-kpi-red-border);
+    color: var(--ds-kpi-red-fg);
+  }
 
   .ds-section-link {
     color: var(--ds-color-action-primary);

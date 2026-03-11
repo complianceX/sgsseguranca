@@ -196,7 +196,7 @@ export function Sidebar({
           <div className="flex-1 overflow-hidden">
             <p className="truncate text-[13px] font-semibold text-[var(--ds-color-text-primary)]">{user?.nome}</p>
             <p className="truncate text-xs text-[var(--ds-color-text-muted)]">{user?.profile?.nome}</p>
-            <div className="mt-2.5 inline-flex items-center rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-emerald-300">
+            <div className="mt-2.5 inline-flex items-center rounded-full border border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-2.5 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-success)]">
               tenant seguro
             </div>
           </div>
@@ -204,7 +204,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={logout}
-          className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-[13px] font-medium text-[var(--ds-color-text-muted)] transition-all duration-[var(--ds-motion-base)] hover:border-[color:var(--ds-color-border-strong)]/60 hover:bg-[color:var(--ds-color-surface-elevated)]/78 hover:text-white"
+          className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-[13px] font-medium text-[var(--ds-color-text-muted)] transition-all duration-[var(--ds-motion-base)] hover:border-[color:var(--ds-color-danger-border)] hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/70">
             <LogOut className="h-4.5 w-4.5" />
