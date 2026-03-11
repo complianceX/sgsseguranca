@@ -198,7 +198,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-800 border-t-transparent"></div>
       </div>
     );
   }
@@ -273,7 +273,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
                 className={`flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium shadow-sm transition-all ${
                   signatures[watch('user_id')] 
                     ? 'bg-green-100 text-green-700 border border-green-200' 
-                    : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
+                    : 'bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50'
                 }`}
               >
                 {signatures[watch('user_id')] ? (
@@ -376,7 +376,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            className="flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
           >
             {loading ? (
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>

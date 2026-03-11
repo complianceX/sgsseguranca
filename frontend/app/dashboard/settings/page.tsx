@@ -240,7 +240,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 text-white">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-white">
           <Settings className="h-6 w-6" />
         </div>
         <div>
@@ -288,7 +288,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-blue-300"
             >
               {saving ? 'Salvando...' : 'Atualizar senha'}
             </button>
@@ -340,7 +340,7 @@ export default function SettingsPage() {
                     type="file"
                     accept="image/*"
                     onChange={handleLogoChange}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-blue-100"
                     disabled={loadingLogo}
                   />
                 </div>
@@ -350,7 +350,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handleSaveLogo}
                   disabled={savingLogo || loadingLogo}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-blue-300"
                 >
                   {savingLogo ? 'Salvando...' : 'Salvar logo'}
                 </button>
@@ -378,7 +378,7 @@ export default function SettingsPage() {
                     <Link
                       key={link.href}
                       href={link.href}
-                      className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 transition hover:border-blue-500 hover:text-blue-700"
+                      className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 transition hover:border-slate-800 hover:text-slate-800"
                     >
                       <Icon className="h-5 w-5" />
                       {link.label}
@@ -462,7 +462,7 @@ export default function SettingsPage() {
                       type="button"
                       onClick={handleSaveApprovalRules}
                       disabled={savingApprovalRules}
-                      className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                      className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-blue-300"
                     >
                       {savingApprovalRules ? 'Salvando regras...' : 'Salvar regras de PT'}
                     </button>

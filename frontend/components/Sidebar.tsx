@@ -108,7 +108,7 @@ export function Sidebar({
       >
       <div className="border-b border-[color:var(--ds-color-border-subtle)]/80 px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-[color:var(--ds-color-surface-elevated)]/70 shadow-[0_8px_24px_rgba(59,130,246,0.26)]">
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-[color:var(--ds-color-surface-elevated)]/70 shadow-[0_8px_24px_rgba(15,23,42,0.22)]">
             <Image src="/logo-gst-mark.svg" alt="Logo GST" width={28} height={28} priority />
           </div>
           <div className="min-w-0">
@@ -169,7 +169,7 @@ export function Sidebar({
                 className={cn(
                   'group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[13px] font-medium transition-all duration-[var(--ds-motion-base)]',
                   active
-                    ? 'border-[color:var(--ds-color-action-primary)]/50 bg-[image:var(--ds-gradient-brand)] text-white shadow-[0_6px_18px_rgba(59,130,246,0.28)]'
+                    ? 'border-[color:var(--ds-color-action-primary)]/50 bg-[image:var(--ds-gradient-brand)] text-white shadow-[0_6px_18px_rgba(15,23,42,0.30)]'
                     : 'border-transparent text-[var(--ds-color-text-muted)] hover:border-[color:var(--ds-color-border-strong)]/70 hover:bg-[color:var(--ds-color-surface-elevated)]/72 hover:text-[var(--ds-color-text-primary)]'
                 )}
               >

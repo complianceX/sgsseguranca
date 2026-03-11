@@ -650,7 +650,7 @@ export default function ServiceOrdersPage() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-lg bg-slate-900 px-6 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
               >
                 {saving ? 'Salvando...' : editId ? 'Salvar' : 'Criar OS'}
               </button>

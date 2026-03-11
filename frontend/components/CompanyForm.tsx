@@ -121,7 +121,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-800 border-t-transparent"></div>
       </div>
     );
   }
@@ -226,7 +226,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
               id="status"
               type="checkbox"
               {...register('status')}
-              className="h-4 w-4 rounded border-gray-300 text-blue-700 focus:ring-blue-500"
+              className="h-4 w-4 rounded border-gray-300 text-slate-800 focus:ring-slate-600"
             />
             <label htmlFor="status" className="text-sm font-medium text-gray-700">
               Ativo
@@ -244,7 +244,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+            className="flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
           >
             {loading ? (
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>

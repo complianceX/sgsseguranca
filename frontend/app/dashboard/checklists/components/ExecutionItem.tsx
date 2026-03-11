@@ -97,7 +97,7 @@ export const ExecutionItem = React.memo(({ item, index, register, watch }: Execu
       </div>
 
       <div className="mt-2 flex items-center gap-2">
-        <button type="button" className="flex items-center gap-1 text-xs text-blue-700 hover:text-blue-800">
+        <button type="button" className="flex items-center gap-1 text-xs text-slate-800 hover:text-blue-800">
           <Camera className="h-3 w-3" />
           Adicionar Foto
         </button>

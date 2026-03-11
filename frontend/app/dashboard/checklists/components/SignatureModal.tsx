@@ -128,7 +128,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
         <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
           <div>
             <h3 className="text-lg font-bold text-gray-900">Assinatura de Participante</h3>
-            <p className="text-xs text-gray-500">Participante: <span className="font-bold text-blue-700">{userName}</span></p>
+            <p className="text-xs text-gray-500">Participante: <span className="font-bold text-slate-800">{userName}</span></p>
           </div>
           <button 
             type="button"
@@ -146,7 +146,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
               type="button"
               onClick={() => setActiveTab('digital')}
               className={`flex flex-1 items-center justify-center space-x-2 rounded-md py-2 text-sm font-medium transition-all ${
-                activeTab === 'digital' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                activeTab === 'digital' ? 'bg-white text-slate-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               <PenTool className="h-4 w-4" />
@@ -156,7 +156,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
               type="button"
               onClick={() => setActiveTab('upload')}
               className={`flex flex-1 items-center justify-center space-x-2 rounded-md py-2 text-sm font-medium transition-all ${
-                activeTab === 'upload' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                activeTab === 'upload' ? 'bg-white text-slate-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               <Upload className="h-4 w-4" />
@@ -166,7 +166,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
               type="button"
               onClick={() => setActiveTab('facial')}
               className={`flex flex-1 items-center justify-center space-x-2 rounded-md py-2 text-sm font-medium transition-all ${
-                activeTab === 'facial' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                activeTab === 'facial' ? 'bg-white text-slate-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               <Camera className="h-4 w-4" />
@@ -176,7 +176,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
               type="button"
               onClick={() => setActiveTab('cpf_pin')}
               className={`flex flex-1 items-center justify-center space-x-2 rounded-md py-2 text-sm font-medium transition-all ${
-                activeTab === 'cpf_pin' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                activeTab === 'cpf_pin' ? 'bg-white text-slate-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               <Smartphone className="h-4 w-4" />
@@ -209,7 +209,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
                 ) : (
                   <label className="flex cursor-pointer flex-col items-center justify-center space-y-2">
                     <div className="rounded-full bg-amber-100 p-3">
-                      <Upload className="h-6 w-6 text-blue-700" />
+                      <Upload className="h-6 w-6 text-slate-800" />
                     </div>
                     <span className="text-sm font-medium text-gray-600">Clique para selecionar imagem</span>
                     <span className="text-xs text-gray-400">PNG, JPG ou JPEG</span>
@@ -240,7 +240,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
                     <button
                       type="button"
                       onClick={capturePhoto}
-                      className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 p-4 text-white shadow-lg hover:bg-blue-700 active:scale-95 transition-transform"
+                      className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-slate-900 p-4 text-white shadow-lg hover:bg-slate-800 active:scale-95 transition-transform"
                       title="Capturar Foto"
                     >
                       <Camera className="h-6 w-6" />
@@ -299,7 +299,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
               <button
                 type="button"
                 onClick={handleSave}
-                className="flex items-center space-x-2 rounded-lg bg-blue-600 px-8 py-2 text-sm font-bold text-white shadow-lg hover:bg-blue-700 active:scale-95 transition-all"
+                className="flex items-center space-x-2 rounded-lg bg-slate-900 px-8 py-2 text-sm font-bold text-white shadow-lg hover:bg-slate-800 active:scale-95 transition-all"
               >
                 <Check className="h-4 w-4" />
                 <span>Confirmar Assinatura</span>

@@ -31,7 +31,7 @@ export const RiskTypesSection = () => {
             <input
               type="checkbox"
               {...register(item.id)}
-              className="h-5 w-5 rounded border-gray-300 text-blue-700 focus:ring-blue-500 transition-all"
+              className="h-5 w-5 rounded border-gray-300 text-slate-800 focus:ring-slate-600 transition-all"
             />
             <span className={cn(
               "text-sm font-medium transition-colors",

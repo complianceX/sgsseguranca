@@ -198,7 +198,7 @@ export function AuditForm({ id }: AuditFormProps) {
       {/* 1. Identificação */}
       <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">
-          <ClipboardCheck className="h-5 w-5 text-blue-700" />
+          <ClipboardCheck className="h-5 w-5 text-slate-800" />
           1. Identificação do Documento
         </h2>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -303,7 +303,7 @@ export function AuditForm({ id }: AuditFormProps) {
               accept="application/pdf"
               aria-label="Selecionar PDF da auditoria"
               onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:font-semibold file:text-slate-700 hover:file:bg-blue-100"
             />
           </div>
         </div>
@@ -337,7 +337,7 @@ export function AuditForm({ id }: AuditFormProps) {
             <button
               type="button"
               onClick={() => appendRef('')}
-              className="text-blue-700 hover:text-blue-700"
+              className="text-slate-800 hover:text-slate-800"
               title="Adicionar Referência"
               aria-label="Adicionar Referência"
             >
@@ -402,7 +402,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <button
             type="button"
             onClick={() => appendDoc('')}
-            className="text-blue-700 hover:text-blue-700"
+            className="text-slate-800 hover:text-slate-800"
             title="Adicionar Documento"
             aria-label="Adicionar Documento"
           >
@@ -589,7 +589,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <button
             type="button"
             onClick={() => appendRisk({ perigo: '', classificacao: '', impactos: '', medidas_controle: '' })}
-            className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+            className="flex items-center gap-1 rounded-md bg-slate-900 px-3 py-1 text-sm text-white hover:bg-slate-800"
             title="Adicionar Avaliação de Risco"
             aria-label="Adicionar Avaliação de Risco"
           >
@@ -638,7 +638,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <button
             type="button"
             onClick={() => appendAction({ item: '', acao: '', responsavel: '', prazo: '', status: 'Pendente' })}
-            className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+            className="flex items-center gap-1 rounded-md bg-slate-900 px-3 py-1 text-sm text-white hover:bg-slate-800"
             title="Adicionar Ação ao Plano de Ação"
             aria-label="Adicionar Ação ao Plano de Ação"
           >
@@ -711,7 +711,7 @@ export function AuditForm({ id }: AuditFormProps) {
         <button
           type="submit"
           disabled={loading || isSubmitting || !isValid}
-          className="flex items-center space-x-2 rounded-lg bg-blue-600 px-10 py-2 text-sm font-bold text-white shadow-lg transition-all hover:bg-blue-700 disabled:opacity-50 active:scale-95"
+          className="flex items-center space-x-2 rounded-lg bg-slate-900 px-10 py-2 text-sm font-bold text-white shadow-lg transition-all hover:bg-slate-800 disabled:opacity-50 active:scale-95"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />

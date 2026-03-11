@@ -20,23 +20,23 @@ interface AprTimelineProps {
 }
 
 const actionMap: Record<string, { label: string; icon: ReactNode }> = {
-  APR_CRIADA: { label: 'APR criada', icon: <FilePlus2 className="h-4 w-4 text-blue-700" /> },
+  APR_CRIADA: { label: 'APR criada', icon: <FilePlus2 className="h-4 w-4 text-slate-800" /> },
   APR_ATUALIZADA: {
     label: 'APR atualizada',
-    icon: <RefreshCcw className="h-4 w-4 text-blue-600" />,
+    icon: <RefreshCcw className="h-4 w-4 text-slate-800" />,
   },
-  APR_PDF_ANEXADO: { label: 'PDF anexado', icon: <FileUp className="h-4 w-4 text-blue-700" /> },
+  APR_PDF_ANEXADO: { label: 'PDF anexado', icon: <FileUp className="h-4 w-4 text-slate-800" /> },
   APR_FINALIZADA: {
     label: 'APR finalizada/aprovada',
     icon: <FileCheck2 className="h-4 w-4 text-emerald-600" />,
   },
   APR_NOVA_VERSAO_GERADA: {
     label: 'Nova versão gerada',
-    icon: <RefreshCcw className="h-4 w-4 text-blue-600" />,
+    icon: <RefreshCcw className="h-4 w-4 text-slate-800" />,
   },
   APR_CRIADA_POR_VERSAO: {
     label: 'APR criada a partir de versão',
-    icon: <FilePlus2 className="h-4 w-4 text-blue-600" />,
+    icon: <FilePlus2 className="h-4 w-4 text-slate-800" />,
   },
 };
 

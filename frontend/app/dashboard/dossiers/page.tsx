@@ -167,7 +167,7 @@ export default function DossiersPage() {
             type="button"
             onClick={() => void downloadEmployee()}
             disabled={loading || downloading !== null}
-            className="mt-3 flex w-full items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            className="mt-3 flex w-full items-center justify-center rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
           >
             <FileDown className="mr-2 h-4 w-4" />
             {downloading === 'employee' ? 'Gerando...' : 'Baixar PDF'}
@@ -209,7 +209,7 @@ export default function DossiersPage() {
             type="button"
             onClick={() => void downloadSite()}
             disabled={loading || downloading !== null}
-            className="mt-3 flex w-full items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            className="mt-3 flex w-full items-center justify-center rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
           >
             <FileDown className="mr-2 h-4 w-4" />
             {downloading === 'site' ? 'Gerando...' : 'Baixar PDF'}

@@ -1068,7 +1068,7 @@ export function AprForm({ id }: AprFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-20">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-800 border-t-transparent"></div>
       </div>
     );
   }
@@ -1124,7 +1124,7 @@ export function AprForm({ id }: AprFormProps) {
                   type="button"
                   onClick={handleCreateVersion}
                   disabled={creatingVersion}
-                  className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                  className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
                 >
                   {creatingVersion ? 'Criando...' : 'Criar nova versão'}
                 </button>
@@ -1256,7 +1256,7 @@ export function AprForm({ id }: AprFormProps) {
               <button
                 type="button"
                 onClick={handleCaptureLocation}
-                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700"
+                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-slate-800"
               >
                 Capturar GPS
               </button>
@@ -1303,7 +1303,7 @@ export function AprForm({ id }: AprFormProps) {
                         href={item.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="font-semibold text-blue-700 hover:underline"
+                        className="font-semibold text-slate-800 hover:underline"
                       >
                         Abrir original
                       </a>
@@ -1357,7 +1357,7 @@ export function AprForm({ id }: AprFormProps) {
                 type="button"
                 onClick={handleGenerateCustodyReport}
                 disabled={generatingReport}
-                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 disabled:opacity-60"
+                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-slate-800 disabled:opacity-60"
               >
                 {generatingReport ? 'Gerando relatório...' : 'Gerar cadeia de custódia'}
               </button>
@@ -1508,7 +1508,7 @@ export function AprForm({ id }: AprFormProps) {
               <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                   Informações Básicas
-                  <span className="h-2 w-2 rounded-full bg-blue-600"></span>
+                  <span className="h-2 w-2 rounded-full bg-slate-900"></span>
                 </h2>
                 <button
                   type="button"
@@ -1531,7 +1531,7 @@ export function AprForm({ id }: AprFormProps) {
                 type="text"
                 {...register('numero')}
                 className={cn(
-                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none",
+                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-slate-600/20 focus:outline-none",
                   errors.numero ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500'
                 )}
                 placeholder="Ex: 2024/001"
@@ -1545,7 +1545,7 @@ export function AprForm({ id }: AprFormProps) {
                 type="text"
                 {...register('titulo')}
                 className={cn(
-                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none",
+                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-slate-600/20 focus:outline-none",
                   errors.titulo ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500'
                 )}
                 placeholder="Ex: Instalação de Painéis Solares"
@@ -1558,7 +1558,7 @@ export function AprForm({ id }: AprFormProps) {
               <textarea
                 {...register('descricao')}
                 rows={3}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none"
+                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-slate-600/20 focus:border-blue-500 focus:outline-none"
                 placeholder="Descreva o escopo do trabalho..."
               />
             </div>
@@ -1570,7 +1570,7 @@ export function AprForm({ id }: AprFormProps) {
                 accept="application/pdf"
                 aria-label="Selecionar PDF da APR"
                 onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-slate-600/20 focus:border-blue-500 focus:outline-none file:mr-4 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-blue-100"
               />
             </div>
 
@@ -1579,7 +1579,7 @@ export function AprForm({ id }: AprFormProps) {
               <select
                 {...register('company_id')}
                 className={cn(
-                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none",
+                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-slate-600/20 focus:outline-none",
                   errors.company_id ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500'
                 )}
                 onChange={(e) => {
@@ -1609,7 +1609,7 @@ export function AprForm({ id }: AprFormProps) {
                 {...register('site_id')}
                 disabled={!selectedCompanyId}
                 className={cn(
-                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none",
+                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-slate-600/20 focus:outline-none",
                   errors.site_id ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
                   !selectedCompanyId && 'bg-gray-100 cursor-not-allowed opacity-60'
                 )}
@@ -1628,7 +1628,7 @@ export function AprForm({ id }: AprFormProps) {
                 {...register('elaborador_id')}
                 disabled={!selectedCompanyId}
                 className={cn(
-                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none",
+                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-slate-600/20 focus:outline-none",
                   errors.elaborador_id ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
                   !selectedCompanyId && 'bg-gray-100 cursor-not-allowed opacity-60'
                 )}
@@ -1645,7 +1645,7 @@ export function AprForm({ id }: AprFormProps) {
               <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
               <select
                 {...register('status')}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none"
+                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-slate-600/20 focus:border-blue-500 focus:outline-none"
               >
                 <option value="Pendente">Pendente</option>
                 <option value="Aprovada">Aprovada</option>
@@ -1659,7 +1659,7 @@ export function AprForm({ id }: AprFormProps) {
               <input
                 type="date"
                 {...register('data_inicio')}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none"
+                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-slate-600/20 focus:border-blue-500 focus:outline-none"
               />
             </div>
 
@@ -1668,7 +1668,7 @@ export function AprForm({ id }: AprFormProps) {
               <input
                 type="date"
                 {...register('data_fim')}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none"
+                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-slate-600/20 focus:border-blue-500 focus:outline-none"
               />
             </div>
 
@@ -1677,9 +1677,9 @@ export function AprForm({ id }: AprFormProps) {
                 <input
                   type="checkbox"
                   {...register('is_modelo')}
-                  className="h-5 w-5 rounded border-gray-300 text-blue-700 focus:ring-blue-500 transition-all"
+                  className="h-5 w-5 rounded border-gray-300 text-slate-800 focus:ring-slate-600 transition-all"
                 />
-                <span className="text-sm font-semibold text-gray-700 group-hover:text-blue-700 transition-colors">Salvar como Modelo</span>
+                <span className="text-sm font-semibold text-gray-700 group-hover:text-slate-800 transition-colors">Salvar como Modelo</span>
               </label>
 
               {isModelo && (
@@ -1687,9 +1687,9 @@ export function AprForm({ id }: AprFormProps) {
                   <input
                     type="checkbox"
                     {...register('is_modelo_padrao')}
-                    className="h-5 w-5 rounded border-gray-300 text-blue-700 focus:ring-blue-500 transition-all"
+                    className="h-5 w-5 rounded border-gray-300 text-slate-800 focus:ring-slate-600 transition-all"
                   />
-                  <span className="text-sm font-semibold text-gray-700 group-hover:text-blue-700 transition-colors">Definir como Modelo Padrão</span>
+                  <span className="text-sm font-semibold text-gray-700 group-hover:text-slate-800 transition-colors">Definir como Modelo Padrão</span>
                 </label>
               )}
             </div>
@@ -1769,7 +1769,7 @@ export function AprForm({ id }: AprFormProps) {
               <button
                 type="button"
                 onClick={() => appendRisk({})}
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
               >
                 <Plus className="h-4 w-4" />
                 Adicionar Linha
@@ -2144,7 +2144,7 @@ export function AprForm({ id }: AprFormProps) {
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="flex items-center justify-center space-x-2 rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-blue-700"
+                  className="flex items-center justify-center space-x-2 rounded-lg bg-slate-900 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-slate-800"
                 >
                   <span>Próximo</span>
                   <ArrowRight className="h-4 w-4" />
@@ -2153,7 +2153,7 @@ export function AprForm({ id }: AprFormProps) {
                 <button
                   type="submit"
                   disabled={loading || isApproved}
-                  className="flex items-center justify-center space-x-2 rounded-lg bg-blue-600 px-8 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 active:scale-95 disabled:opacity-50"
+                  className="flex items-center justify-center space-x-2 rounded-lg bg-slate-900 px-8 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-slate-800 active:scale-95 disabled:opacity-50"
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -2246,30 +2246,30 @@ interface SectionGridProps {
 // Subcomponente para os grids de seleção
 function SectionGrid({ title, items, selectedIds, onToggle, error, signatures, color = 'blue' }: SectionGridProps) {
   const accentDotClasses: Record<string, string> = {
-    blue: 'bg-blue-600',
+    blue: 'bg-slate-900',
     red: 'bg-red-600',
     emerald: 'bg-emerald-600',
     slate: 'bg-slate-800',
-    indigo: 'bg-blue-600',
-    violet: 'bg-blue-600',
+    indigo: 'bg-slate-900',
+    violet: 'bg-slate-900',
   };
 
   const colorClasses: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-700 border-blue-200',
+    blue: 'bg-blue-50 text-slate-800 border-blue-200',
     red: 'bg-red-50 text-red-700 border-red-200',
     emerald: 'bg-emerald-50 text-emerald-700 border-green-200',
     slate: 'bg-gray-50 text-gray-700 border-gray-300',
     indigo: 'bg-blue-50 text-blue-800 border-blue-200',
-    violet: 'bg-[#EDE9FE] text-blue-700 border-[#DDD6FE]',
+    violet: 'bg-[#EDE9FE] text-slate-800 border-[#DDD6FE]',
   };
 
   const selectedColorClasses: Record<string, string> = {
-    blue: 'bg-blue-600 text-white border-transparent',
+    blue: 'bg-slate-900 text-white border-transparent',
     red: 'bg-red-600 text-white border-transparent',
     emerald: 'bg-emerald-600 text-white border-transparent',
     slate: 'bg-slate-800 text-white border-transparent',
-    indigo: 'bg-blue-600 text-white border-transparent',
-    violet: 'bg-blue-600 text-white border-transparent',
+    indigo: 'bg-slate-900 text-white border-transparent',
+    violet: 'bg-slate-900 text-white border-transparent',
   };
 
   return (

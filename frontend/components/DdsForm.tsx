@@ -542,7 +542,7 @@ export function DdsForm({ id }: DdsFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-800 border-t-transparent"></div>
       </div>
     );
   }
@@ -576,7 +576,7 @@ export function DdsForm({ id }: DdsFormProps) {
               type="button"
               onClick={handleAiSuggestion}
               disabled={suggesting}
-              className="flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-blue-700 disabled:opacity-50"
+              className="flex items-center space-x-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-slate-800 disabled:opacity-50"
             >
               {suggesting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -638,7 +638,7 @@ export function DdsForm({ id }: DdsFormProps) {
                   const file = event.target.files?.[0];
                   setDdsPdfFile(file || null);
                 }}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-blue-100"
               />
               <p className="mt-1 text-xs text-gray-500">
                 Se anexado no cadastro, o backend salva automaticamente em pasta por empresa/ano/semana.
@@ -735,13 +735,13 @@ export function DdsForm({ id }: DdsFormProps) {
                   onClick={() => toggleParticipant(user.id)}
                   className={`flex items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors ${
                     selectedParticipantIds.includes(user.id)
-                      ? 'border-blue-600 bg-blue-50 text-blue-700'
+                      ? 'border-slate-800 bg-blue-50 text-slate-800'
                       : 'border-gray-200 hover:bg-gray-50'
                   }`}
                 >
                   <span>{user.nome}</span>
                   {selectedParticipantIds.includes(user.id) && (
-                    <div className="h-2 w-2 rounded-full bg-blue-600" />
+                    <div className="h-2 w-2 rounded-full bg-slate-900" />
                   )}
                 </button>
               ))}
@@ -756,7 +756,7 @@ export function DdsForm({ id }: DdsFormProps) {
               <h2 className="text-lg font-bold text-gray-900">Registro Fotográfico da Equipe</h2>
               <p className="text-xs text-gray-500">Use a câmera do celular para registrar presença e evidência do DDS.</p>
             </div>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
               <Camera className="h-4 w-4" />
               Adicionar Foto
               <input
@@ -846,7 +846,7 @@ export function DdsForm({ id }: DdsFormProps) {
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center space-x-2 rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="flex items-center space-x-2 rounded-lg bg-slate-900 px-6 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             <span>{loading ? 'Salvando...' : 'Salvar DDS'}</span>

@@ -488,7 +488,7 @@ export default function ImportPage() {
                           type="checkbox"
                           checked={isModel}
                           onChange={(e) => setIsModel(e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300 text-blue-700 focus:ring-blue-500"
+                          className="h-4 w-4 rounded border-gray-300 text-slate-800 focus:ring-slate-700"
                         />
                         <label htmlFor="is-model" className="text-sm text-[var(--ds-color-text-secondary)]">
                           Salvar como modelo

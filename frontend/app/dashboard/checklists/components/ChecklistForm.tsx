@@ -417,7 +417,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   if (fetching) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-900 border-t-transparent" />
       </div>
     );
   }
@@ -615,7 +615,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                     type="file"
                     accept="image/*"
                     onChange={handlePhotoChange}
-                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-blue-100"
                     title="Foto do equipamento"
                     aria-label="Foto do equipamento"
                 />
@@ -665,7 +665,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
             <button
                 type="button"
                 onClick={() => append({ item: '', status: 'ok', tipo_resposta: 'conforme', obrigatorio: true, peso: 1, observacao: '' })}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-blue-700"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-slate-800"
             >
                 <Plus className="h-4 w-4" />
                 Adicionar Item
