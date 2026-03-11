@@ -288,7 +288,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
   if (fetching) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-amber-700" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-700" />
       </div>
     );
   }
@@ -527,7 +527,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               accept="application/pdf"
               aria-label="Selecionar PDF da não conformidade"
               onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-amber-50 file:px-3 file:py-1.5 file:font-semibold file:text-amber-700 hover:file:bg-amber-100"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
             />
           </div>
         </div>
@@ -544,7 +544,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                 type="checkbox"
                 value={option}
                 {...register("classificacao")}
-                className="h-4 w-4 rounded border-gray-300 text-amber-700 focus:ring-amber-500"
+                className="h-4 w-4 rounded border-gray-300 text-blue-700 focus:ring-blue-500"
               />
               <span className="text-gray-700">{option}</span>
             </label>
@@ -761,7 +761,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                   type="checkbox"
                   value={option}
                   {...register("risco_consequencias")}
-                  className="h-4 w-4 rounded border-gray-300 text-amber-700 focus:ring-amber-500"
+                  className="h-4 w-4 rounded border-gray-300 text-blue-700 focus:ring-blue-500"
                 />
                 <span className="text-gray-700">{option}</span>
               </label>
@@ -805,7 +805,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                 type="checkbox"
                 value={option}
                 {...register("causa")}
-                className="h-4 w-4 rounded border-gray-300 text-amber-700 focus:ring-amber-500"
+                className="h-4 w-4 rounded border-gray-300 text-blue-700 focus:ring-blue-500"
               />
               <span className="text-gray-700">{option}</span>
             </label>
@@ -1092,7 +1092,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <button
               type="button"
               onClick={() => appendAnexo({ url: "" })}
-              className="flex items-center space-x-2 text-sm font-medium text-amber-700 hover:text-amber-700"
+              className="flex items-center space-x-2 text-sm font-medium text-blue-700 hover:text-blue-700"
             >
               <Plus className="h-4 w-4" />
               <span>Adicionar anexo</span>
@@ -1102,7 +1102,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <button
               type="button"
               onClick={startCamera}
-              className="inline-flex items-center space-x-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 hover:bg-amber-100"
+              className="inline-flex items-center space-x-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
             >
               <Camera className="h-4 w-4" />
               <span>Capturar foto</span>
@@ -1160,7 +1160,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               <button
                 type="button"
                 onClick={capturePhoto}
-                className="inline-flex items-center space-x-2 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+                className="inline-flex items-center space-x-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               >
                 <Camera className="h-4 w-4" />
                 <span>Capturar</span>
@@ -1216,7 +1216,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         <button
           type="submit"
           disabled={loading || isSubmitting || !isValid}
-          className="flex items-center space-x-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-60"
+          className="flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
         >
           {loading ? (
             <>

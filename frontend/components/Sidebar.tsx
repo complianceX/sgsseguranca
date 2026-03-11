@@ -107,7 +107,7 @@ export function Sidebar({
       >
       <div className="border-b border-[color:var(--ds-color-border-subtle)]/80 px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[image:var(--ds-gradient-brand)] text-[13px] font-black text-[#0f0800] shadow-[0_8px_24px_rgba(245,158,11,0.36)]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[image:var(--ds-gradient-brand)] text-[13px] font-black text-white shadow-[0_8px_24px_rgba(59,130,246,0.36)]">
             CX
           </div>
           <div className="min-w-0">
@@ -165,7 +165,7 @@ export function Sidebar({
                 className={cn(
                   'group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[13px] font-medium transition-all duration-[var(--ds-motion-base)]',
                   active
-                    ? 'border-[color:var(--ds-color-action-primary)]/50 bg-[image:var(--ds-gradient-brand)] text-[#0f0800] shadow-[0_6px_18px_rgba(245,158,11,0.28)]'
+                    ? 'border-[color:var(--ds-color-action-primary)]/50 bg-[image:var(--ds-gradient-brand)] text-white shadow-[0_6px_18px_rgba(59,130,246,0.28)]'
                     : 'border-transparent text-[var(--ds-color-text-muted)] hover:border-[color:var(--ds-color-border-strong)]/70 hover:bg-[color:var(--ds-color-surface-elevated)]/72 hover:text-[var(--ds-color-text-primary)]'
                 )}
               >
@@ -173,14 +173,14 @@ export function Sidebar({
                   className={cn(
                     'flex h-8 w-8 items-center justify-center rounded-lg border transition-colors duration-[var(--ds-motion-base)]',
                     active
-                    ? 'border-[#0f0800]/20 bg-[#0f0800]/10 text-[#0f0800]'
+                    ? 'border-white/20 bg-white/10 text-white'
                       : 'border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/70 text-[var(--ds-color-text-secondary)] group-hover:border-[color:var(--ds-color-border-strong)] group-hover:text-[var(--ds-color-text-primary)]'
                   )}
                 >
                   <Icon className="h-4.5 w-4.5" />
                 </span>
                 <span className="flex-1 truncate">{item.label}</span>
-                {active ? <span className="h-2 w-2 rounded-full bg-[#0f0800]/60 shadow-[0_0_0_5px_rgba(15,8,0,0.14)]" /> : null}
+                {active ? <span className="h-2 w-2 rounded-full bg-white/70 shadow-[0_0_0_5px_rgba(255,255,255,0.14)]" /> : null}
               </Link>
             );
           })}

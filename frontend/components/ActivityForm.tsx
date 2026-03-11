@@ -116,7 +116,7 @@ export function ActivityForm({ id }: ActivityFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-600 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
       </div>
     );
   }
@@ -152,7 +152,7 @@ export function ActivityForm({ id }: ActivityFormProps) {
               id="company_id"
               {...register('company_id')}
               className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
               aria-invalid={errors.company_id ? 'true' : undefined}
             >
@@ -171,7 +171,7 @@ export function ActivityForm({ id }: ActivityFormProps) {
               type="text"
               {...register('nome')}
               className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
               aria-invalid={errors.nome ? 'true' : undefined}
               placeholder="Ex: Trabalho em Altura"
@@ -185,7 +185,7 @@ export function ActivityForm({ id }: ActivityFormProps) {
               id="descricao"
               {...register('descricao')}
               rows={4}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="Descreva brevemente a atividade..."
             />
           </div>
@@ -201,7 +201,7 @@ export function ActivityForm({ id }: ActivityFormProps) {
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+            className="flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
             {loading ? (
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>

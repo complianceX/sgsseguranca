@@ -91,13 +91,13 @@ export const ExecutionItem = React.memo(({ item, index, register, watch }: Execu
           className={`w-full rounded border px-3 py-2 text-sm focus:outline-none ${
             (statusValue === 'nok' || statusValue === 'nao') && !observacaoValue
               ? 'border-red-300 bg-red-50 placeholder-red-400 focus:border-red-500'
-              : 'border-gray-200 focus:border-amber-500'
+              : 'border-gray-200 focus:border-blue-500'
           }`}
         />
       </div>
 
       <div className="mt-2 flex items-center gap-2">
-        <button type="button" className="flex items-center gap-1 text-xs text-amber-700 hover:text-amber-800">
+        <button type="button" className="flex items-center gap-1 text-xs text-blue-700 hover:text-blue-800">
           <Camera className="h-3 w-3" />
           Adicionar Foto
         </button>

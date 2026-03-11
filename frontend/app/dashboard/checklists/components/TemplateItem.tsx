@@ -17,7 +17,7 @@ export const TemplateItem = React.memo(({ index, register, remove }: TemplateIte
         <label className="mb-1 block text-xs font-medium text-gray-500">Pergunta / Item</label>
         <input
           {...register(`itens.${index}.item`)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           placeholder="Ex: Verificar condições dos pneus"
         />
       </div>
@@ -26,7 +26,7 @@ export const TemplateItem = React.memo(({ index, register, remove }: TemplateIte
         <label className="mb-1 block text-xs font-medium text-gray-500">Tipo de Resposta</label>
         <select
           {...register(`itens.${index}.tipo_resposta`)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
         >
           <option value="conforme">Conforme / NC / NA</option>
           <option value="sim_nao">Sim / Não</option>
@@ -43,7 +43,7 @@ export const TemplateItem = React.memo(({ index, register, remove }: TemplateIte
           min="1"
           max="5"
           {...register(`itens.${index}.peso`, { valueAsNumber: true })}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
         />
       </div>
 

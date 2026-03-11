@@ -31,7 +31,7 @@ export default function DashboardError({
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="flex-1 rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-[#1D4ED8]"
+            className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
           >
             Recarregar
           </button>

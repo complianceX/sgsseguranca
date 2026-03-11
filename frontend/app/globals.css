@@ -3,29 +3,29 @@
 :root,
 :root[data-theme='dark'],
 .theme-dark {
-  /* ── Base — industrial dark grey ─────────────────────── */
-  --ds-color-bg-canvas: #1c1c1c;
-  --ds-color-bg-subtle: #242424;
-  --ds-color-surface-base: #2c2c2c;
-  --ds-color-surface-elevated: #333333;
-  --ds-color-surface-muted: #383838;
-  --ds-color-surface-muted-hover: #404040;
+  /* ── Base — slate profissional escuro ────────────────── */
+  --ds-color-bg-canvas: #0f172a;
+  --ds-color-bg-subtle: #1e293b;
+  --ds-color-surface-base: #1e293b;
+  --ds-color-surface-elevated: #253347;
+  --ds-color-surface-muted: #2d3f52;
+  --ds-color-surface-muted-hover: #344b60;
   /* ── Borders ─────────────────────────────────────────── */
-  --ds-color-border-subtle: #3a3a3a;
-  --ds-color-border-strong: #555555;
+  --ds-color-border-subtle: #1e3a5f;
+  --ds-color-border-strong: #2e5077;
   /* ── Text ────────────────────────────────────────────── */
-  --ds-color-text-primary: #f4f2ee;
-  --ds-color-text-secondary: #c4bfb6;
-  --ds-color-text-muted: #7a8fa4;
-  /* ── Primary — Âmbar de Segurança (NR-26 / coletes / capacetes) ── */
-  --ds-color-action-primary: #f59e0b;
-  --ds-color-action-primary-hover: #d97706;
-  --ds-color-action-primary-foreground: #0f0800;
+  --ds-color-text-primary: #f1f5f9;
+  --ds-color-text-secondary: #94a3b8;
+  --ds-color-text-muted: #64748b;
+  /* ── Primary — Azul Corporativo ──────────────────────── */
+  --ds-color-action-primary: #3b82f6;
+  --ds-color-action-primary-hover: #2563eb;
+  --ds-color-action-primary-foreground: #ffffff;
   /* ── Secondary ───────────────────────────────────────── */
-  --ds-color-action-secondary: rgba(245, 158, 11, 0.10);
-  --ds-color-action-secondary-hover: rgba(245, 158, 11, 0.18);
-  --ds-color-action-secondary-foreground: #fcd34d;
-  /* ── Semânticos NR-26 vibrantes ──────────────────────── */
+  --ds-color-action-secondary: rgba(59, 130, 246, 0.10);
+  --ds-color-action-secondary-hover: rgba(59, 130, 246, 0.18);
+  --ds-color-action-secondary-foreground: #93c5fd;
+  /* ── Semânticos NR-26 ────────────────────────────────── */
   --ds-color-success: #22c55e;        /* Verde saída/seguro */
   --ds-color-success-hover: #16a34a;
   --ds-color-warning: #fb923c;        /* Laranja atenção/máquinas */
@@ -33,9 +33,9 @@
   --ds-color-danger: #f87171;         /* Vermelho proibição/emergência */
   --ds-color-danger-hover: #ef4444;
   --ds-color-info: #60a5fa;           /* Azul obrigação/EPI */
-  /* ── Focus — âmbar ───────────────────────────────────── */
-  --ds-color-focus: #f59e0b;
-  --ds-color-focus-ring: rgba(245, 158, 11, 0.32);
+  /* ── Focus — azul ────────────────────────────────────── */
+  --ds-color-focus: #3b82f6;
+  --ds-color-focus-ring: rgba(59, 130, 246, 0.32);
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;
   --ds-radius-lg: 1rem;
@@ -95,29 +95,29 @@
   --warning-hover: var(--ds-color-warning-hover);
   --warning-foreground: #ffffff;
   --danger-hover: var(--ds-color-danger-hover);
-  --primary-dark: #b45309;
+  --primary-dark: #1d4ed8;
   --primary-hover: var(--ds-color-action-primary-hover);
   /* ── Matriz de Risco — NR-26 alinhada ───────────────── */
   --risk-acceptable: #22c55e;         /* Verde seguro */
   --risk-attention: #f59e0b;          /* Amarelo atenção */
   --risk-substantial: #fb923c;        /* Laranja substancial */
   --risk-critical: #f87171;           /* Vermelho crítico */
-  /* ── Acento — Laranja Construtivo ───────────────────── */
-  --ds-color-accent: #ea580c;
-  --ds-color-accent-hover: #c2410c;
-  --ds-color-accent-subtle: rgba(234, 88, 12, 0.14);
+  /* ── Acento — Azul Sky ───────────────────────────────── */
+  --ds-color-accent: #0ea5e9;
+  --ds-color-accent-hover: #0284c7;
+  --ds-color-accent-subtle: rgba(14, 165, 233, 0.14);
   /* ── Variantes sutis ─────────────────────────────────── */
-  --ds-color-primary-subtle: rgba(245, 158, 11, 0.14);
+  --ds-color-primary-subtle: rgba(59, 130, 246, 0.14);
   --ds-color-success-subtle: rgba(34, 197, 94, 0.14);
   --ds-color-warning-subtle: rgba(251, 146, 60, 0.14);
   --ds-color-danger-subtle: rgba(248, 113, 113, 0.14);
   --ds-color-info-subtle: rgba(96, 165, 250, 0.14);
   /* ── Superfície/Borda extra ──────────────────────────── */
-  --ds-color-surface-overlay: #1a2a38;
-  --ds-color-border-default: #2c4158;
-  --ds-color-text-disabled: #3e5470;
+  --ds-color-surface-overlay: #0f2a42;
+  --ds-color-border-default: #1e3a5f;
+  --ds-color-text-disabled: #334155;
   /* ── Gradientes SST ──────────────────────────────────── */
-  --ds-gradient-brand: linear-gradient(135deg, #b45309 0%, #f59e0b 50%, #ea580c 100%);
+  --ds-gradient-brand: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 50%, #0ea5e9 100%);
   --ds-gradient-surface: linear-gradient(
     180deg,
     color-mix(in srgb, var(--ds-color-surface-elevated) 94%, white 6%),
@@ -166,36 +166,36 @@
 
 :root[data-theme='light'],
 .theme-light {
-  /* ── Base — light industrial ─────────────────────────── */
-  --ds-color-bg-canvas: #f7f4f0;
-  --ds-color-bg-subtle: #ede9e2;
+  /* ── Base — slate limpo claro ────────────────────────── */
+  --ds-color-bg-canvas: #f8fafc;
+  --ds-color-bg-subtle: #f1f5f9;
   --ds-color-surface-base: #ffffff;
-  --ds-color-surface-elevated: #fdfcfa;
+  --ds-color-surface-elevated: #fafcfe;
   --ds-color-surface-overlay: #ffffff;
-  --ds-color-surface-muted: #f2ede5;
-  --ds-color-surface-muted-hover: #e8e0d4;
+  --ds-color-surface-muted: #f1f5f9;
+  --ds-color-surface-muted-hover: #e2e8f0;
   /* ── Borders ─────────────────────────────────────────── */
-  --ds-color-border-subtle: #ddd5c8;
-  --ds-color-border-default: #c8bcad;
-  --ds-color-border-strong: #a8987e;
+  --ds-color-border-subtle: #e2e8f0;
+  --ds-color-border-default: #cbd5e1;
+  --ds-color-border-strong: #94a3b8;
   /* ── Text ────────────────────────────────────────────── */
-  --ds-color-text-primary: #1a120a;
-  --ds-color-text-secondary: #3d2e1c;
-  --ds-color-text-muted: #6d5d48;
-  --ds-color-text-disabled: #b8a898;
-  /* ── Primary — Âmbar escuro (leitura sobre claro) ────── */
-  --ds-color-action-primary: #b45309;
-  --ds-color-action-primary-hover: #92400e;
+  --ds-color-text-primary: #0f172a;
+  --ds-color-text-secondary: #334155;
+  --ds-color-text-muted: #64748b;
+  --ds-color-text-disabled: #cbd5e1;
+  /* ── Primary — Azul Corporativo ──────────────────────── */
+  --ds-color-action-primary: #1d4ed8;
+  --ds-color-action-primary-hover: #1e40af;
   --ds-color-action-primary-foreground: #ffffff;
   /* ── Secondary ───────────────────────────────────────── */
-  --ds-color-action-secondary: rgba(180, 83, 9, 0.08);
-  --ds-color-action-secondary-hover: rgba(180, 83, 9, 0.15);
-  --ds-color-action-secondary-foreground: #b45309;
-  /* ── Acento — laranja ────────────────────────────────── */
-  --ds-color-accent: #c2410c;
-  --ds-color-accent-hover: #9a3412;
-  --ds-color-accent-subtle: rgba(194, 65, 12, 0.10);
-  --ds-color-primary-subtle: rgba(180, 83, 9, 0.10);
+  --ds-color-action-secondary: rgba(29, 78, 216, 0.08);
+  --ds-color-action-secondary-hover: rgba(29, 78, 216, 0.15);
+  --ds-color-action-secondary-foreground: #1d4ed8;
+  /* ── Acento — Sky ────────────────────────────────────── */
+  --ds-color-accent: #0284c7;
+  --ds-color-accent-hover: #0369a1;
+  --ds-color-accent-subtle: rgba(2, 132, 199, 0.10);
+  --ds-color-primary-subtle: rgba(29, 78, 216, 0.10);
   /* ── Semânticos NR-26 (tom saturado para fundo claro) ── */
   --ds-color-success: #15803d;
   --ds-color-success-hover: #166534;
@@ -209,17 +209,17 @@
   --ds-color-info: #1d4ed8;
   --ds-color-info-subtle: rgba(29, 78, 216, 0.10);
   /* ── Focus ───────────────────────────────────────────── */
-  --ds-color-focus: #b45309;
-  --ds-color-focus-ring: rgba(180, 83, 9, 0.22);
+  --ds-color-focus: #1d4ed8;
+  --ds-color-focus-ring: rgba(29, 78, 216, 0.22);
   /* ── Risk matrix (light) ─────────────────────────────── */
   --risk-acceptable: #15803d;
   --risk-attention: #b45309;
   --risk-substantial: #d97706;
   --risk-critical: #dc2626;
-  /* ── Sombras calibradas para fundo quente ────────────── */
-  --ds-shadow-sm: 0 1px 3px rgba(26, 18, 10, 0.08), 0 1px 2px rgba(26, 18, 10, 0.04);
-  --ds-shadow-md: 0 8px 24px rgba(26, 18, 10, 0.10), 0 2px 6px rgba(26, 18, 10, 0.06);
-  --ds-shadow-lg: 0 18px 44px rgba(10, 22, 40, 0.12), 0 8px 20px rgba(10, 22, 40, 0.06);
+  /* ── Sombras calibradas ──────────────────────────────── */
+  --ds-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --ds-shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.05);
+  --ds-shadow-lg: 0 18px 44px rgba(15, 23, 42, 0.10), 0 8px 20px rgba(15, 23, 42, 0.06);
 }
 
 * {

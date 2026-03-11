@@ -223,7 +223,7 @@ export function UserForm({ id }: UserFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-600 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
       </div>
     );
   }
@@ -256,7 +256,7 @@ export function UserForm({ id }: UserFormProps) {
               type="text"
               {...register('nome')}
               aria-invalid={errors.nome ? 'true' : undefined}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="Nome do usuário"
             />
             {errors.nome && (
@@ -274,7 +274,7 @@ export function UserForm({ id }: UserFormProps) {
                 type="email"
                 {...register('email')}
                 aria-invalid={errors.email ? 'true' : undefined}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 placeholder="email@exemplo.com"
               />
               {errors.email && (
@@ -292,7 +292,7 @@ export function UserForm({ id }: UserFormProps) {
               type="text"
               {...register('cpf')}
               aria-invalid={errors.cpf ? 'true' : undefined}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="000.000.000-00"
             />
             {errors.cpf && (
@@ -309,7 +309,7 @@ export function UserForm({ id }: UserFormProps) {
               type="text"
               {...register('funcao')}
               aria-invalid={errors.funcao ? 'true' : undefined}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="Ex: Engenheiro de Segurança"
             />
           </div>
@@ -323,7 +323,7 @@ export function UserForm({ id }: UserFormProps) {
                 id="role"
                 {...register('role')}
                 aria-label="Regra de acesso"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               >
                 <option value="">Selecione uma regra</option>
                 <option value="admin">Administrador</option>
@@ -346,7 +346,7 @@ export function UserForm({ id }: UserFormProps) {
                 },
               })}
               aria-invalid={errors.company_id ? 'true' : undefined}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             >
               <option value="">Selecione uma empresa</option>
               {companies.map((company) => (
@@ -368,7 +368,7 @@ export function UserForm({ id }: UserFormProps) {
               id="site_id"
               {...register('site_id')}
               aria-label="Obra ou setor"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               disabled={!selectedCompanyId}
             >
               <option value="">Selecione uma obra (opcional)</option>
@@ -389,7 +389,7 @@ export function UserForm({ id }: UserFormProps) {
                 id="profile_id"
                 {...register('profile_id')}
                 aria-label="Perfil de acesso"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               >
                 <option value="">Selecione um perfil</option>
                 {profiles.map((profile) => (
@@ -411,7 +411,7 @@ export function UserForm({ id }: UserFormProps) {
                 type="password"
                 {...register('password')}
                 aria-invalid={errors.password ? 'true' : undefined}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 placeholder="******"
               />
               {errors.password && (

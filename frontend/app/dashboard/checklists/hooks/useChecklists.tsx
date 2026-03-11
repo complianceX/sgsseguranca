@@ -126,7 +126,7 @@ export function useChecklists() {
       toast.success('Análise do COMPLIANCE X concluída!', {
         description: (
           <div className="mt-2 space-y-2 max-h-[300px] overflow-y-auto pr-2">
-            <p className="font-bold text-amber-700">{result.summary}</p>
+            <p className="font-bold text-blue-700">{result.summary}</p>
             <div className="space-y-1">
               {result.suggestions.map((s: string, i: number) => (
                 <div key={i} className="text-xs border-l-2 border-amber-200 pl-2 py-1 bg-amber-50/50">

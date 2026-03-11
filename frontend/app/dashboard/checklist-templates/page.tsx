@@ -58,7 +58,7 @@ export default function ChecklistTemplatesPage() {
         </div>
         <Link
           href="/dashboard/checklist-templates/new"
-          className="flex items-center rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 shadow-sm"
+          className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 shadow-sm"
         >
           <Plus className="mr-2 h-4 w-4" />
           Novo Template
@@ -72,7 +72,7 @@ export default function ChecklistTemplatesPage() {
             placeholder="Buscar templates..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
@@ -84,7 +84,7 @@ export default function ChecklistTemplatesPage() {
             <p>Nenhum template encontrado.</p>
             <Link
               href="/dashboard/checklist-templates/new"
-              className="mt-4 inline-flex items-center text-amber-700 hover:text-amber-700"
+              className="mt-4 inline-flex items-center text-blue-700 hover:text-blue-700"
             >
               <Plus className="mr-2 h-4 w-4" />
               Criar primeiro template
@@ -104,7 +104,7 @@ export default function ChecklistTemplatesPage() {
                       <p className="text-sm text-gray-600 line-clamp-2">{template.descricao}</p>
                     )}
                   </div>
-                  <FileText className="h-5 w-5 text-amber-700 flex-shrink-0 ml-2" />
+                  <FileText className="h-5 w-5 text-blue-700 flex-shrink-0 ml-2" />
                 </div>
 
                 <div className="space-y-2 mb-4">

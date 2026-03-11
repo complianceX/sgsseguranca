@@ -121,7 +121,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-600 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
       </div>
     );
   }
@@ -160,7 +160,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
               type="text"
               {...register('razao_social')}
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.razao_social ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                errors.razao_social ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
               aria-invalid={errors.razao_social ? 'true' : undefined}
               placeholder="Ex: Empresa de Engenharia LTDA"
@@ -179,7 +179,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
               type="text"
               {...register('cnpj')}
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.cnpj ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                errors.cnpj ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
               aria-invalid={errors.cnpj ? 'true' : undefined}
               placeholder="00.000.000/0000-00"
@@ -197,7 +197,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
               id="endereco"
               type="text"
               {...register('endereco')}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="Rua, Número, Bairro, Cidade - UF"
             />
             {errors.endereco && (
@@ -213,7 +213,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
               id="responsavel"
               type="text"
               {...register('responsavel')}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="Nome do responsável"
             />
             {errors.responsavel && (
@@ -226,7 +226,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
               id="status"
               type="checkbox"
               {...register('status')}
-              className="h-4 w-4 rounded border-gray-300 text-amber-700 focus:ring-amber-500"
+              className="h-4 w-4 rounded border-gray-300 text-blue-700 focus:ring-blue-500"
             />
             <label htmlFor="status" className="text-sm font-medium text-gray-700">
               Ativo
@@ -244,7 +244,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
+            className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
           >
             {loading ? (
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>

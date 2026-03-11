@@ -542,7 +542,7 @@ export function DdsForm({ id }: DdsFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-600 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
       </div>
     );
   }
@@ -576,7 +576,7 @@ export function DdsForm({ id }: DdsFormProps) {
               type="button"
               onClick={handleAiSuggestion}
               disabled={suggesting}
-              className="flex items-center space-x-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-[#1E40AF] disabled:opacity-50"
+              className="flex items-center space-x-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-blue-700 disabled:opacity-50"
             >
               {suggesting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -594,7 +594,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 type="text"
                 {...register('tema')}
                 className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                  errors.tema ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                  errors.tema ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
                 }`}
                 aria-invalid={errors.tema ? 'true' : undefined}
                 placeholder="Ex: Importância do uso de EPIs"
@@ -609,7 +609,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 {...register('conteudo')}
                 rows={5}
                 aria-label="Conteúdo do DDS"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                 placeholder="Descreva brevemente os pontos abordados no DDS..."
               />
             </div>
@@ -621,7 +621,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 type="date"
                 {...register('data')}
                 aria-label="Data do DDS"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
 
@@ -638,7 +638,7 @@ export function DdsForm({ id }: DdsFormProps) {
                   const file = event.target.files?.[0];
                   setDdsPdfFile(file || null);
                 }}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-amber-50 file:px-3 file:py-1 file:text-sm file:font-medium file:text-amber-700 hover:file:bg-amber-100"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100"
               />
               <p className="mt-1 text-xs text-gray-500">
                 Se anexado no cadastro, o backend salva automaticamente em pasta por empresa/ano/semana.
@@ -657,7 +657,7 @@ export function DdsForm({ id }: DdsFormProps) {
                   setValue('participants', []);
                 }}
                 className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                  errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                  errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
                 }`}
                 aria-invalid={errors.company_id ? 'true' : undefined}
               >
@@ -678,7 +678,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 aria-label="Site ou unidade do DDS"
                 className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                   !selectedCompanyId ? 'bg-gray-100 cursor-not-allowed border-gray-300' : 
-                  errors.site_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                  errors.site_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
                 }`}
                 aria-invalid={errors.site_id ? 'true' : undefined}
               >
@@ -699,7 +699,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 aria-label="Facilitador do DDS"
                 className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                   !selectedCompanyId ? 'bg-gray-100 cursor-not-allowed border-gray-300' :
-                  errors.facilitador_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                  errors.facilitador_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
                 }`}
                 aria-invalid={errors.facilitador_id ? 'true' : undefined}
               >
@@ -735,13 +735,13 @@ export function DdsForm({ id }: DdsFormProps) {
                   onClick={() => toggleParticipant(user.id)}
                   className={`flex items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors ${
                     selectedParticipantIds.includes(user.id)
-                      ? 'border-amber-600 bg-amber-50 text-amber-700'
+                      ? 'border-blue-600 bg-blue-50 text-blue-700'
                       : 'border-gray-200 hover:bg-gray-50'
                   }`}
                 >
                   <span>{user.nome}</span>
                   {selectedParticipantIds.includes(user.id) && (
-                    <div className="h-2 w-2 rounded-full bg-amber-600" />
+                    <div className="h-2 w-2 rounded-full bg-blue-600" />
                   )}
                 </button>
               ))}
@@ -756,7 +756,7 @@ export function DdsForm({ id }: DdsFormProps) {
               <h2 className="text-lg font-bold text-gray-900">Registro Fotográfico da Equipe</h2>
               <p className="text-xs text-gray-500">Use a câmera do celular para registrar presença e evidência do DDS.</p>
             </div>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-[#1E40AF]">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700">
               <Camera className="h-4 w-4" />
               Adicionar Foto
               <input
@@ -846,7 +846,7 @@ export function DdsForm({ id }: DdsFormProps) {
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center space-x-2 rounded-lg bg-amber-600 px-6 py-2 text-sm font-medium text-white hover:bg-[#1E40AF] disabled:opacity-50"
+            className="flex items-center space-x-2 rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             <span>{loading ? 'Salvando...' : 'Salvar DDS'}</span>

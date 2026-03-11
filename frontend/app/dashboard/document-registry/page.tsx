@@ -371,7 +371,7 @@ export default function DocumentRegistryPage() {
                 Empresa: {activeCompanyName} · Semana {String(week || '—').padStart(2, '0')}/{year || '—'}
               </CardDescription>
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-orange-400/25 bg-orange-600/10 px-3 py-1 text-xs font-semibold text-orange-100">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/25 bg-blue-600/10 px-3 py-1 text-xs font-semibold text-blue-100">
               <Sparkles className="h-3.5 w-3.5" />
               {selectedModules.length > 0 ? `${selectedModules.length} módulo(s) filtrado(s)` : 'Todos os módulos'}
             </div>

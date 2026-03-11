@@ -358,7 +358,7 @@ export default function EpiFichasPage() {
             type="button"
             disabled={creating}
             onClick={() => void handleCreate()}
-            className="flex items-center justify-center rounded-md bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-60"
+            className="flex items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
           >
             <Plus className="mr-2 h-4 w-4" />
             {creating ? 'Salvando...' : 'Registrar'}
@@ -430,7 +430,7 @@ export default function EpiFichasPage() {
                       {assignment.status === 'entregue' && (
                         <button
                           type="button"
-                          className="rounded border px-2 py-1 text-xs text-amber-700 hover:bg-amber-50"
+                          className="rounded border px-2 py-1 text-xs text-blue-700 hover:bg-blue-50"
                           onClick={() => void handleReplace(assignment)}
                         >
                           Substituir

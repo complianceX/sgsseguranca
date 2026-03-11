@@ -144,7 +144,7 @@ export function RiskForm({ id }: RiskFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-600 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
       </div>
     );
   }
@@ -175,7 +175,7 @@ export function RiskForm({ id }: RiskFormProps) {
               {...register('company_id')}
               aria-invalid={errors.company_id ? 'true' : undefined}
               className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none transition-colors ${
-                errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
             >
               <option value="">Selecione uma empresa</option>
@@ -194,7 +194,7 @@ export function RiskForm({ id }: RiskFormProps) {
               {...register('nome')}
               aria-invalid={errors.nome ? 'true' : undefined}
               className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none transition-colors ${
-                errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
               placeholder="Ex: Queda de mesmo nível"
             />
@@ -208,7 +208,7 @@ export function RiskForm({ id }: RiskFormProps) {
               {...register('categoria')}
               aria-invalid={errors.categoria ? 'true' : undefined}
               className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none transition-colors ${
-                errors.categoria ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                errors.categoria ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
             >
               <option value="">Selecione uma categoria</option>
@@ -228,7 +228,7 @@ export function RiskForm({ id }: RiskFormProps) {
               {...register('descricao')}
               aria-label="Descrição do risco"
               rows={4}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none transition-colors"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               placeholder="Descreva brevemente o risco..."
             />
           </div>
@@ -240,7 +240,7 @@ export function RiskForm({ id }: RiskFormProps) {
               {...register('medidas_controle')}
               aria-label="Medidas de controle"
               rows={4}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none transition-colors"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               placeholder="Informe as medidas de controle adotadas..."
             />
           </div>
@@ -255,7 +255,7 @@ export function RiskForm({ id }: RiskFormProps) {
                 max={5}
                 {...register('probability', { valueAsNumber: true })}
                 aria-label="Probabilidade"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none transition-colors"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               />
             </div>
             <div>
@@ -267,7 +267,7 @@ export function RiskForm({ id }: RiskFormProps) {
                 max={5}
                 {...register('severity', { valueAsNumber: true })}
                 aria-label="Severidade"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none transition-colors"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               />
             </div>
             <div>
@@ -279,7 +279,7 @@ export function RiskForm({ id }: RiskFormProps) {
                 max={5}
                 {...register('exposure', { valueAsNumber: true })}
                 aria-label="Exposição"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none transition-colors"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               />
             </div>
           </div>
@@ -291,7 +291,7 @@ export function RiskForm({ id }: RiskFormProps) {
                 id="residual_risk"
                 {...register('residual_risk')}
                 aria-label="Risco residual"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none transition-colors"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               >
                 <option value="">Automático</option>
                 <option value="LOW">Baixo</option>
@@ -306,7 +306,7 @@ export function RiskForm({ id }: RiskFormProps) {
                 id="control_hierarchy"
                 {...register('control_hierarchy')}
                 aria-label="Hierarquia de controle"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none transition-colors"
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
               >
                 <option value="">Selecione</option>
                 <option value="ELIMINATION">Eliminação</option>
@@ -325,7 +325,7 @@ export function RiskForm({ id }: RiskFormProps) {
               {...register('control_description')}
               aria-label="Descrição do controle"
               rows={3}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none transition-colors"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
             />
           </div>
 
@@ -337,7 +337,7 @@ export function RiskForm({ id }: RiskFormProps) {
               type="text"
               {...register('evidence_photo')}
               aria-label="Evidência em foto ou URL"
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none transition-colors"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
             />
             </div>
             <div>
@@ -347,7 +347,7 @@ export function RiskForm({ id }: RiskFormProps) {
               type="text"
               {...register('evidence_document')}
               aria-label="Evidência documental"
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none transition-colors"
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none transition-colors"
             />
             </div>
           </div>

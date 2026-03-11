@@ -46,14 +46,14 @@ export const PDF_THEME = {
     headerBg:   [10,  22,  40]  as Color,   // #0a1628
     headerAccent:[15, 30, 58]   as Color,   // faixa interna do header
 
-    // Identidade SST — âmbar como cor de atenção / equipamento de segurança
-    primary:    [245, 158,  11] as Color,   // #f59e0b  amber-400
-    primaryDark:[180, 110,   5] as Color,   // #b46e05  amber-700 (sombra)
-    primaryBg:  [255, 248, 230] as Color,   // amber-50
+    // Identidade SST — azul corporativo como cor primária
+    primary:    [ 37,  99, 235] as Color,   // #2563eb  blue-600
+    primaryDark:[ 29,  78, 216] as Color,   // #1d4ed8  blue-700 (sombra)
+    primaryBg:  [239, 246, 255] as Color,   // blue-50
 
-    // Laranja operacional — obras, equipamentos
-    accent:     [234,  88,  12] as Color,   // #ea580c  orange-600
-    accentBg:   [255, 245, 235] as Color,   // orange-50
+    // Azul céu operacional — obras, equipamentos
+    accent:     [ 14, 165, 233] as Color,   // #0ea5e9  sky-500
+    accentBg:   [240, 249, 255] as Color,   // sky-50
 
     // Verde — saída de emergência, conforme, OK
     success:    [ 21, 128,  61] as Color,   // #15803d  green-700
@@ -402,7 +402,7 @@ export function drawModernTable(
     },
     headStyles: {
       fillColor: T.headerBg,
-      textColor: [245, 158, 11],   // amber — contraste máximo sobre dark
+      textColor: [147, 197, 253],   // blue-300 — contraste máximo sobre dark
       fontStyle: 'bold',
       fontSize: 8.5,
     },

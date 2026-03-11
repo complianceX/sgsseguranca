@@ -198,7 +198,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-600 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent"></div>
       </div>
     );
   }
@@ -229,7 +229,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
                 id="company_id"
                 {...register('company_id')}
                 aria-invalid={errors.company_id ? 'true' : undefined}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               >
               <option value="">Selecione uma empresa</option>
               {companies.map((company) => (
@@ -253,7 +253,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
                 {...register('user_id')}
                 disabled={!selectedCompanyId}
                 aria-invalid={errors.user_id ? 'true' : undefined}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none disabled:bg-gray-50"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-gray-50"
                 onChange={(e) => {
                   setValue('user_id', e.target.value);
                   setSignatures({}); // Limpar assinatura se o colaborador mudar
@@ -273,7 +273,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
                 className={`flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium shadow-sm transition-all ${
                   signatures[watch('user_id')] 
                     ? 'bg-green-100 text-green-700 border border-green-200' 
-                    : 'bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50'
                 }`}
               >
                 {signatures[watch('user_id')] ? (
@@ -303,7 +303,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
               type="text"
               {...register('nome')}
               aria-invalid={errors.nome ? 'true' : undefined}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="Ex: NR-35 Trabalho em Altura"
             />
             {errors.nome && (
@@ -320,7 +320,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
               type="date"
               {...register('data_conclusao')}
               aria-invalid={errors.data_conclusao ? 'true' : undefined}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             />
             {errors.data_conclusao && (
               <p className="text-xs text-red-500">{errors.data_conclusao.message}</p>
@@ -336,7 +336,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
               type="date"
               {...register('data_vencimento')}
               aria-invalid={errors.data_vencimento ? 'true' : undefined}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             />
             {errors.data_vencimento && (
               <p className="text-xs text-red-500">{errors.data_vencimento.message}</p>
@@ -351,7 +351,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
               id="certificado_url"
               type="url"
               {...register('certificado_url')}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="https://..."
             />
           </div>
@@ -376,7 +376,7 @@ export function TrainingForm({ id }: TrainingFormProps) {
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
+            className="flex items-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
           >
             {loading ? (
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>

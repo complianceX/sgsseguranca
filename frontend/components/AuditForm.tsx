@@ -198,7 +198,7 @@ export function AuditForm({ id }: AuditFormProps) {
       {/* 1. Identificação */}
       <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">
-          <ClipboardCheck className="h-5 w-5 text-amber-700" />
+          <ClipboardCheck className="h-5 w-5 text-blue-700" />
           1. Identificação do Documento
         </h2>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -208,7 +208,7 @@ export function AuditForm({ id }: AuditFormProps) {
               id="audit-titulo"
               {...register('titulo')}
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.titulo ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                errors.titulo ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
               aria-invalid={errors.titulo ? 'true' : undefined}
             />
@@ -222,7 +222,7 @@ export function AuditForm({ id }: AuditFormProps) {
               {...register('site_id')}
               aria-label="Unidade ou site da auditoria"
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.site_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                errors.site_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
               aria-invalid={errors.site_id ? 'true' : undefined}
             >
@@ -241,7 +241,7 @@ export function AuditForm({ id }: AuditFormProps) {
               type="date"
               {...register('data_auditoria')}
               aria-label="Data da auditoria"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
             />
           </div>
 
@@ -252,7 +252,7 @@ export function AuditForm({ id }: AuditFormProps) {
               {...register('tipo_auditoria')}
               aria-label="Tipo de auditoria"
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.tipo_auditoria ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                errors.tipo_auditoria ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
               aria-invalid={errors.tipo_auditoria ? 'true' : undefined}
             >
@@ -272,7 +272,7 @@ export function AuditForm({ id }: AuditFormProps) {
               {...register('auditor_id')}
               aria-label="Auditor responsável"
               className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.auditor_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-amber-500'
+                errors.auditor_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
               }`}
               aria-invalid={errors.auditor_id ? 'true' : undefined}
             >
@@ -291,7 +291,7 @@ export function AuditForm({ id }: AuditFormProps) {
               {...register('representantes_empresa')}
               rows={2}
               aria-label="Representantes da empresa"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               placeholder="Nomes dos representantes que acompanharam a auditoria"
             />
           </div>
@@ -303,7 +303,7 @@ export function AuditForm({ id }: AuditFormProps) {
               accept="application/pdf"
               aria-label="Selecionar PDF da auditoria"
               onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-amber-50 file:px-3 file:py-1.5 file:font-semibold file:text-amber-700 hover:file:bg-amber-100"
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
             />
           </div>
         </div>
@@ -316,7 +316,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <textarea
             {...register('objetivo')}
             rows={4}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           />
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -324,7 +324,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <textarea
             {...register('escopo')}
             rows={4}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           />
         </div>
       </div>
@@ -337,7 +337,7 @@ export function AuditForm({ id }: AuditFormProps) {
             <button
               type="button"
               onClick={() => appendRef('')}
-              className="text-amber-700 hover:text-amber-700"
+              className="text-blue-700 hover:text-blue-700"
               title="Adicionar Referência"
               aria-label="Adicionar Referência"
             >
@@ -367,7 +367,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <textarea
             {...register('metodologia')}
             rows={4}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           />
         </div>
       </div>
@@ -402,7 +402,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <button
             type="button"
             onClick={() => appendDoc('')}
-            className="text-amber-700 hover:text-amber-700"
+            className="text-blue-700 hover:text-blue-700"
             title="Adicionar Documento"
             aria-label="Adicionar Documento"
           >
@@ -589,7 +589,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <button
             type="button"
             onClick={() => appendRisk({ perigo: '', classificacao: '', impactos: '', medidas_controle: '' })}
-            className="flex items-center gap-1 rounded-md bg-amber-600 px-3 py-1 text-sm text-white hover:bg-[#1E40AF]"
+            className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
             title="Adicionar Avaliação de Risco"
             aria-label="Adicionar Avaliação de Risco"
           >
@@ -638,7 +638,7 @@ export function AuditForm({ id }: AuditFormProps) {
           <button
             type="button"
             onClick={() => appendAction({ item: '', acao: '', responsavel: '', prazo: '', status: 'Pendente' })}
-            className="flex items-center gap-1 rounded-md bg-amber-600 px-3 py-1 text-sm text-white hover:bg-[#1E40AF]"
+            className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
             title="Adicionar Ação ao Plano de Ação"
             aria-label="Adicionar Ação ao Plano de Ação"
           >
@@ -695,7 +695,7 @@ export function AuditForm({ id }: AuditFormProps) {
         <textarea
           {...register('conclusao')}
           rows={6}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:outline-none"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
           placeholder="Síntese geral do nível de conformidade HSE, principais pontos críticos e grau de maturidade..."
         />
       </div>
@@ -711,7 +711,7 @@ export function AuditForm({ id }: AuditFormProps) {
         <button
           type="submit"
           disabled={loading || isSubmitting || !isValid}
-          className="flex items-center space-x-2 rounded-lg bg-amber-600 px-10 py-2 text-sm font-bold text-white shadow-lg transition-all hover:bg-[#1E40AF] disabled:opacity-50 active:scale-95"
+          className="flex items-center space-x-2 rounded-lg bg-blue-600 px-10 py-2 text-sm font-bold text-white shadow-lg transition-all hover:bg-blue-700 disabled:opacity-50 active:scale-95"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
