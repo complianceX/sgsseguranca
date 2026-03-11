@@ -303,7 +303,7 @@ export function ElevenLabsWidget() {
     };
   }, [attempt]);
 
-  const widgetWrapperStyle = useMemo<CSSProperties>(() => {
+  const widgetElementStyle = useMemo<CSSProperties>(() => {
     if (!widgetPosition) {
       return widgetStyle;
     }
@@ -316,17 +316,23 @@ export function ElevenLabsWidget() {
     };
   }, [widgetPosition]);
 
-  const embeddedWidgetStyle = useMemo<CSSProperties>(
-    () => ({
-      position: 'relative',
-      left: 0,
-      top: 0,
-      bottom: 'auto',
-      right: 'auto',
-      zIndex: 55,
-    }),
-    [],
-  );
+  const dragHandleStyle = useMemo<CSSProperties>(() => {
+    if (!widgetPosition) {
+      return {
+        position: 'fixed',
+        left: '3.1rem',
+        bottom: '7.15rem',
+        zIndex: 56,
+      };
+    }
+
+    return {
+      position: 'fixed',
+      left: `${widgetPosition.left + 42}px`,
+      top: `${Math.max(8, widgetPosition.top - 12)}px`,
+      zIndex: 56,
+    };
+  }, [widgetPosition]);
 
   if (mode === 'loading') {
     return (
@@ -402,39 +408,37 @@ export function ElevenLabsWidget() {
         src="https://unpkg.com/@elevenlabs/convai-widget-embed"
         strategy="afterInteractive"
       />
-      <div style={widgetWrapperStyle}>
-        <button
-          type="button"
-          aria-label="Mover botão da SOPHIE"
-          title="Arraste para mover a SOPHIE (duplo clique para resetar)"
-          onPointerDown={handleDragStart}
-          onPointerMove={handleDragMove}
-          onPointerUp={handleDragEnd}
-          onPointerCancel={handleDragEnd}
-          onDoubleClick={handleResetPosition}
-          className={`absolute -right-2 -top-2 z-[56] inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-elevated)]/92 text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-sm)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-          style={{ touchAction: 'none' }}
-        >
-          <Move className="h-3.5 w-3.5" />
-        </button>
+      <button
+        type="button"
+        aria-label="Mover botão da SOPHIE"
+        title="Arraste para mover a SOPHIE (duplo clique para resetar)"
+        onPointerDown={handleDragStart}
+        onPointerMove={handleDragMove}
+        onPointerUp={handleDragEnd}
+        onPointerCancel={handleDragEnd}
+        onDoubleClick={handleResetPosition}
+        className={`inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-elevated)]/92 text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-sm)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)] ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        style={{ ...dragHandleStyle, touchAction: 'none' }}
+      >
+        <Move className="h-3.5 w-3.5" />
+      </button>
 
-        {createElement('elevenlabs-convai', {
-          key: signedUrl || publicAgentId || 'sophie-elevenlabs',
-          ...(mode === 'signed' && signedUrl
-            ? { 'signed-url': signedUrl }
-            : { 'agent-id': publicAgentId }),
-          'action-text': 'Falar com a SOPHIE',
-          'start-call-text': 'Iniciar conversa',
-          'end-call-text': 'Encerrar conversa',
-          'expand-text': 'Abrir assistente de voz',
-          'listening-text': 'Ouvindo...',
-          'speaking-text': 'SOPHIE respondendo',
-          'avatar-image-url': elevenLabsAvatarImageUrl,
-          'avatar-orb-color-1': '#1D4ED8',
-          'avatar-orb-color-2': '#0F766E',
-          style: embeddedWidgetStyle,
-        })}
-      </div>
+      {createElement('elevenlabs-convai', {
+        key: signedUrl || publicAgentId || 'sophie-elevenlabs',
+        ...(mode === 'signed' && signedUrl
+          ? { 'signed-url': signedUrl }
+          : { 'agent-id': publicAgentId }),
+        'action-text': 'Falar com a SOPHIE',
+        'start-call-text': 'Iniciar conversa',
+        'end-call-text': 'Encerrar conversa',
+        'expand-text': 'Abrir assistente de voz',
+        'listening-text': 'Ouvindo...',
+        'speaking-text': 'SOPHIE respondendo',
+        'avatar-image-url': elevenLabsAvatarImageUrl,
+        'avatar-orb-color-1': '#1D4ED8',
+        'avatar-orb-color-2': '#0F766E',
+        style: widgetElementStyle,
+      })}
     </>
   );
 }
