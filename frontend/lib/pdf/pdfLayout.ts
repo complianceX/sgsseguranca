@@ -47,9 +47,9 @@ export const PDF_THEME = {
     headerAccent:[15, 30, 58]   as Color,   // faixa interna do header
 
     // Identidade SST — azul corporativo como cor primária
-    primary:    [ 15,  23,  42] as Color,   // #0f172a  slate-900
-    primaryDark:[  2,   6,  23] as Color,   // #020617  slate-950
-    primaryBg:  [241, 245, 249] as Color,   // slate-100
+    primary:    [ 30,  58,  92] as Color,   // #1e3a5c  navy
+    primaryDark:[ 22,  45,  72] as Color,   // #162d48  navy-dark
+    primaryBg:  [235, 242, 250] as Color,   // navy-50
 
     // Azul céu operacional — obras, equipamentos
     accent:     [ 15, 118, 110] as Color,   // #0f766e  teal-700
