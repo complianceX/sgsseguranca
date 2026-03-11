@@ -1,4 +1,4 @@
-const CACHE_NAME = 'compliancex-shell-v2';
+const CACHE_NAME = 'compliancex-shell-v3';
 const APP_SHELL = ['/', '/login', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -19,20 +19,37 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+self.addEventListener('message', (event) => {
+  if (event?.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') {
     return;
   }
 
   const requestUrl = new URL(event.request.url);
+  const isHttpProtocol =
+    requestUrl.protocol === 'http:' || requestUrl.protocol === 'https:';
+  if (!isHttpProtocol) {
+    return;
+  }
+
   const isSameOrigin = requestUrl.origin === self.location.origin;
+  if (!isSameOrigin) {
+    // Requests externos (CDNs, extensões, APIs de terceiros) não devem ser
+    // interceptados/cached pelo nosso SW para evitar erros de CSP e cache.
+    return;
+  }
+
   const isNavigation = event.request.mode === 'navigate';
   const isStaticAsset =
-    isSameOrigin &&
-    (requestUrl.pathname.startsWith('/_next/') ||
-      /\.(?:js|css|png|jpg|jpeg|svg|webp|ico|woff2?)$/i.test(
-        requestUrl.pathname,
-      ));
+    requestUrl.pathname.startsWith('/_next/') ||
+    /\.(?:js|css|png|jpg|jpeg|svg|webp|ico|woff2?)$/i.test(
+      requestUrl.pathname,
+    );
 
   if (isNavigation) {
     event.respondWith(

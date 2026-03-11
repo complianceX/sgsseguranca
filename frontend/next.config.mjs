@@ -13,6 +13,7 @@ function buildCsp() {
     !isProd ? 'http://localhost:3011' : null,
     !isProd ? 'ws://localhost:3000' : null,
     !isProd ? 'ws://localhost:3011' : null,
+    'https://unpkg.com',
     'https://api.elevenlabs.io',
     'wss://api.elevenlabs.io',
     'https://*.elevenlabs.io',

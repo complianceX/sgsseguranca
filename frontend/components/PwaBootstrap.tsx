@@ -8,7 +8,15 @@ export function PwaBootstrap() {
     const cleanup = registerOfflineSync();
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+      navigator.serviceWorker
+        .register('/sw.js?v=3')
+        .then((registration) => {
+          registration.update().catch(() => undefined);
+          if (registration.waiting) {
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+        })
+        .catch(() => undefined);
     }
 
     return cleanup;
