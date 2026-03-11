@@ -18,10 +18,15 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [cpf, setCpf] = useState('');
   const [pin, setPin] = useState('');
-  
+
   const sigCanvas = useRef<SignatureCanvas>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const tabButtonClassName =
+    'flex flex-1 items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] py-2 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+  const fieldClassName =
+    'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+  const labelClassName = 'mb-1 block text-sm font-medium text-[var(--ds-color-text-secondary)]';
 
   const startCamera = async () => {
     try {
@@ -123,30 +128,34 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
   if (!isOpen) return null;
 
   return (
-    <div className="ds-form-page fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between border-b px-6 py-4 bg-gray-50">
+    <div className="ds-modal-overlay z-[60]">
+      <div className="ds-modal-shell max-w-lg">
+        <div className="ds-modal-header">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">Assinatura de Participante</h3>
-            <p className="text-xs text-gray-500">Participante: <span className="font-bold text-slate-800">{userName}</span></p>
+            <h3 className="text-lg font-bold text-[var(--ds-color-text-primary)]">Assinatura de Participante</h3>
+            <p className="text-xs text-[var(--ds-color-text-muted)]">
+              Participante: <span className="font-bold text-[var(--ds-color-text-primary)]">{userName}</span>
+            </p>
           </div>
-          <button 
+          <button
             type="button"
-            onClick={onClose} 
-            className="rounded-full p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 transition-colors"
+            onClick={onClose}
+            className="ds-modal-close"
             title="Fechar"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="p-6">
-          <div className="mb-6 flex space-x-2 rounded-lg bg-gray-100 p-1">
+        <div className="ds-modal-body">
+          <div className="mb-6 flex space-x-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/35 p-1">
             <button
               type="button"
               onClick={() => setActiveTab('digital')}
-              className={`flex flex-1 items-center justify-center space-x-2 rounded-md py-2 text-sm font-medium transition-all ${
-                activeTab === 'digital' ? 'bg-white text-slate-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              className={`${tabButtonClassName} ${
+                activeTab === 'digital'
+                  ? 'border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]'
+                  : 'text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]'
               }`}
             >
               <PenTool className="h-4 w-4" />
@@ -155,8 +164,10 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
             <button
               type="button"
               onClick={() => setActiveTab('upload')}
-              className={`flex flex-1 items-center justify-center space-x-2 rounded-md py-2 text-sm font-medium transition-all ${
-                activeTab === 'upload' ? 'bg-white text-slate-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              className={`${tabButtonClassName} ${
+                activeTab === 'upload'
+                  ? 'border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]'
+                  : 'text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]'
               }`}
             >
               <Upload className="h-4 w-4" />
@@ -165,8 +176,10 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
             <button
               type="button"
               onClick={() => setActiveTab('facial')}
-              className={`flex flex-1 items-center justify-center space-x-2 rounded-md py-2 text-sm font-medium transition-all ${
-                activeTab === 'facial' ? 'bg-white text-slate-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              className={`${tabButtonClassName} ${
+                activeTab === 'facial'
+                  ? 'border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]'
+                  : 'text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]'
               }`}
             >
               <Camera className="h-4 w-4" />
@@ -175,8 +188,10 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
             <button
               type="button"
               onClick={() => setActiveTab('cpf_pin')}
-              className={`flex flex-1 items-center justify-center space-x-2 rounded-md py-2 text-sm font-medium transition-all ${
-                activeTab === 'cpf_pin' ? 'bg-white text-slate-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              className={`${tabButtonClassName} ${
+                activeTab === 'cpf_pin'
+                  ? 'border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]'
+                  : 'text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]'
               }`}
             >
               <Smartphone className="h-4 w-4" />
@@ -184,11 +199,13 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
             </button>
           </div>
 
-          <div className={`relative mb-6 flex ${activeTab === 'cpf_pin' ? 'h-auto' : 'h-64'} w-full items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 overflow-hidden`}>
+          <div
+            className={`relative mb-6 flex ${activeTab === 'cpf_pin' ? 'h-auto' : 'h-64'} w-full items-center justify-center overflow-hidden rounded-[var(--ds-radius-xl)] border-2 border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/26`}
+          >
             {activeTab === 'digital' && (
               <SignatureCanvas
                 ref={sigCanvas}
-                penColor="black"
+                penColor="#1e40af"
                 canvasProps={{
                   className: "h-full w-full cursor-crosshair",
                 }}
@@ -199,20 +216,20 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
               <div className="flex flex-col items-center justify-center p-4">
                 {previewImage ? (
                   <div className="relative h-56 w-full">
-                    <Image 
-                      src={previewImage} 
-                      alt="Preview" 
+                    <Image
+                      src={previewImage}
+                      alt="Preview"
                       fill
-                      className="rounded-lg object-contain shadow-md" 
+                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] object-contain p-2"
                     />
                   </div>
                 ) : (
                   <label className="flex cursor-pointer flex-col items-center justify-center space-y-2">
-                    <div className="rounded-full bg-amber-100 p-3">
-                      <Upload className="h-6 w-6 text-slate-800" />
+                    <div className="rounded-full bg-[var(--ds-color-primary-subtle)] p-3">
+                      <Upload className="h-6 w-6 text-[var(--ds-color-action-primary)]" />
                     </div>
-                    <span className="text-sm font-medium text-gray-600">Clique para selecionar imagem</span>
-                    <span className="text-xs text-gray-400">PNG, JPG ou JPEG</span>
+                    <span className="text-sm font-medium text-[var(--ds-color-text-secondary)]">Clique para selecionar imagem</span>
+                    <span className="text-xs text-[var(--ds-color-text-muted)]">PNG, JPG ou JPEG</span>
                     <input
                       type="file"
                       className="hidden"
@@ -240,7 +257,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
                     <button
                       type="button"
                       onClick={capturePhoto}
-                      className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-slate-900 p-4 text-white shadow-lg hover:bg-slate-800 active:scale-95 transition-transform"
+                      className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-[var(--ds-color-action-primary)] p-4 text-[var(--ds-color-action-primary-foreground)] shadow-[var(--ds-shadow-sm)] transition-transform hover:bg-[var(--ds-color-action-primary-hover)] active:scale-95"
                       title="Capturar Foto"
                     >
                       <Camera className="h-6 w-6" />
@@ -252,19 +269,19 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
             )}
 
             {activeTab === 'cpf_pin' && (
-              <div className="flex flex-col gap-4 p-6 w-full">
+              <div className="flex w-full flex-col gap-4 p-6">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">CPF</label>
+                  <label className={labelClassName}>CPF</label>
                   <input
                     type="text"
                     placeholder="000.000.000-00"
                     value={cpf}
                     onChange={(e) => setCpf(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    className={fieldClassName}
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">PIN (4–6 dígitos)</label>
+                  <label className={labelClassName}>PIN (4–6 dígitos)</label>
                   <input
                     type="password"
                     inputMode="numeric"
@@ -272,7 +289,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
                     maxLength={6}
                     value={pin}
                     onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    className={fieldClassName}
                   />
                 </div>
               </div>
@@ -283,7 +300,7 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
             <button
               type="button"
               onClick={clearSignature}
-              className="flex items-center space-x-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="flex items-center space-x-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/24 hover:text-[var(--ds-color-text-primary)]"
             >
               <RefreshCw className="h-4 w-4" />
               <span>Limpar</span>
@@ -292,14 +309,14 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-6 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/24 hover:text-[var(--ds-color-text-primary)]"
               >
                 Cancelar
               </button>
               <button
                 type="button"
                 onClick={handleSave}
-                className="flex items-center space-x-2 rounded-lg bg-slate-900 px-8 py-2 text-sm font-bold text-white shadow-lg hover:bg-slate-800 active:scale-95 transition-all"
+                className="flex items-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-8 py-2 text-sm font-bold text-[var(--ds-color-action-primary-foreground)] shadow-[var(--ds-shadow-sm)] transition-all hover:bg-[var(--ds-color-action-primary-hover)] active:scale-[0.99]"
               >
                 <Check className="h-4 w-4" />
                 <span>Confirmar Assinatura</span>

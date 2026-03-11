@@ -27,6 +27,12 @@ interface ChecklistFormProps {
   mode?: 'checklist' | 'template';
 }
 
+const panelClassName =
+  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]';
+const fieldClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+const labelClassName = 'mb-1 block text-sm font-medium text-[var(--ds-color-text-secondary)]';
+
 export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -255,7 +261,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
     }
 
     loadData();
-  }, [id, reset, router, searchParams, setValue, replace]);
+  }, [id, isAdminGeneral, replace, reset, router, searchParams, setValue, user?.company_id]);
 
   useEffect(() => {
     async function loadTenantOptions() {
@@ -417,7 +423,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   if (fetching) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-900 border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent" />
       </div>
     );
   }
@@ -490,15 +496,15 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
         <div className="flex items-center gap-4">
           <Link
             href={isTemplateMode ? "/dashboard/checklist-models" : "/dashboard/checklists"}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm transition hover:bg-gray-50"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/24"
           >
-            <ArrowLeft className="h-5 w-5 text-gray-600" />
+            <ArrowLeft className="h-5 w-5 text-[var(--ds-color-text-secondary)]" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
               {isTemplateMode ? (id ? 'Editar Modelo' : 'Novo Modelo') : (id ? 'Editar Checklist' : 'Novo Checklist')}
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-[var(--ds-color-text-muted)]">
               {isTemplateMode ? 'Defina a estrutura padrão do checklist.' : 'Preencha os dados da inspeção.'}
             </p>
           </div>
@@ -507,10 +513,10 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
 
       {/* Cabeçalho de Impressão */}
       <div className="hidden print:mb-8 print:block">
-        <div className="border-b border-gray-300 pb-4 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">GST</h1>
-          <h2 className="text-xl text-gray-700">{tituloValue}</h2>
-          <p className="text-sm text-gray-500">
+        <div className="border-b border-[var(--ds-color-border-subtle)] pb-4 text-center">
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">GST</h1>
+          <h2 className="text-xl text-[var(--ds-color-text-secondary)]">{tituloValue}</h2>
+          <p className="text-sm text-[var(--ds-color-text-muted)]">
             Data: {new Date().toLocaleDateString('pt-BR')} | ID: {(currentChecklistId || id) || 'Novo'}
           </p>
         </div>
@@ -518,25 +524,25 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 print:space-y-4">
         {/* Dados Principais */}
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900">Informações</h2>
+        <div className={`${panelClassName} p-6`}>
+            <h2 className="mb-4 text-lg font-semibold text-[var(--ds-color-text-primary)]">Informações</h2>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 {/* Título */}
                 <div className="md:col-span-2">
-                    <label htmlFor="checklist-form-titulo" className="mb-1 block text-sm font-medium text-gray-700">Título do Checklist</label>
+                    <label htmlFor="checklist-form-titulo" className={labelClassName}>Título do Checklist</label>
                     <input
                         id="checklist-form-titulo"
                         {...register('titulo')}
                         aria-invalid={errors.titulo ? 'true' : undefined}
-                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
+                        className={fieldClassName}
                         placeholder="Ex: Checklist de Furadeira"
                     />
-                    {errors.titulo && <p className="mt-1 text-xs text-red-500">{errors.titulo.message}</p>}
+                    {errors.titulo && <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.titulo.message}</p>}
                 </div>
 
                 {/* Empresa */}
                 <div>
-                    <label htmlFor="checklist-form-company-id" className="mb-1 block text-sm font-medium text-gray-700">Empresa</label>
+                    <label htmlFor="checklist-form-company-id" className={labelClassName}>Empresa</label>
                     <select
                         id="checklist-form-company-id"
                         {...register('company_id', {
@@ -548,7 +554,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                             },
                         })}
                         aria-invalid={errors.company_id ? 'true' : undefined}
-                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
+                        className={fieldClassName}
                     >
                         <option value="">Selecione uma empresa</option>
                         {companies.map(company => (
@@ -557,29 +563,29 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                             </option>
                         ))}
                     </select>
-                    {errors.company_id && <p className="mt-1 text-xs text-red-500">{errors.company_id.message}</p>}
+                    {errors.company_id && <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.company_id.message}</p>}
                 </div>
                 {/* Data */}
                 <div>
-                    <label htmlFor="checklist-form-data" className="mb-1 block text-sm font-medium text-gray-700">Data</label>
+                    <label htmlFor="checklist-form-data" className={labelClassName}>Data</label>
                     <input
                         id="checklist-form-data"
                         type="date"
                         {...register('data')}
                         aria-invalid={errors.data ? 'true' : undefined}
-                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
+                        className={fieldClassName}
                     />
-                    {errors.data && <p className="mt-1 text-xs text-red-500">{errors.data.message}</p>}
+                    {errors.data && <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.data.message}</p>}
                 </div>
                 {/* Obra/Setor */}
                 <div>
-                    <label htmlFor="checklist-form-site-id" className="mb-1 block text-sm font-medium text-gray-700">Obra/Setor</label>
+                    <label htmlFor="checklist-form-site-id" className={labelClassName}>Obra/Setor</label>
                     <select
                         id="checklist-form-site-id"
                         {...register('site_id')}
                         disabled={!selectedCompanyId}
                         aria-label="Obra ou setor do checklist"
-                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none disabled:bg-gray-50"
+                        className={`${fieldClassName} disabled:bg-[var(--ds-color-surface-muted)]/32`}
                     >
                         <option value="">{selectedCompanyId ? 'Selecione uma obra' : 'Selecione uma empresa primeiro'}</option>
                         {filteredSites.map(site => (
@@ -591,13 +597,13 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                 </div>
                 {/* Inspetor */}
                 <div>
-                    <label htmlFor="checklist-form-inspetor-id" className="mb-1 block text-sm font-medium text-gray-700">Inspetor</label>
+                    <label htmlFor="checklist-form-inspetor-id" className={labelClassName}>Inspetor</label>
                     <select
                         id="checklist-form-inspetor-id"
                         {...register('inspetor_id')}
                         disabled={!selectedCompanyId}
                         aria-label="Inspetor do checklist"
-                        className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none disabled:bg-gray-50"
+                        className={`${fieldClassName} disabled:bg-[var(--ds-color-surface-muted)]/32`}
                     >
                         <option value="">{selectedCompanyId ? 'Selecione um inspetor' : 'Selecione uma empresa primeiro'}</option>
                         {filteredInspectors.map(u => (
@@ -609,13 +615,13 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                 </div>
             </div>
             <div className="mt-6">
-                <label htmlFor="checklist-form-foto-equipamento" className="mb-1 block text-sm font-medium text-gray-700">Foto do Equipamento</label>
+                <label htmlFor="checklist-form-foto-equipamento" className={labelClassName}>Foto do Equipamento</label>
                 <input
                     id="checklist-form-foto-equipamento"
                     type="file"
                     accept="image/*"
                     onChange={handlePhotoChange}
-                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-blue-100"
+                    className="w-full text-sm text-[var(--ds-color-text-muted)] file:mr-4 file:rounded-[var(--ds-radius-md)] file:border-0 file:bg-[var(--ds-color-surface-muted)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--ds-color-text-secondary)] hover:file:bg-[var(--ds-color-primary-subtle)]/45"
                     title="Foto do equipamento"
                     aria-label="Foto do equipamento"
                 />
@@ -635,9 +641,9 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
         </div>
 
         {/* Itens do Checklist */}
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className={`${panelClassName} p-6`}>
             <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
                     Itens para Verificação
                 </h2>
                 {isTemplateMode && (
@@ -665,7 +671,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
             <button
                 type="button"
                 onClick={() => append({ item: '', status: 'ok', tipo_resposta: 'conforme', obrigatorio: true, peso: 1, observacao: '' })}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-slate-800"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] py-3 text-sm font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/26 hover:text-[var(--ds-color-text-primary)]"
             >
                 <Plus className="h-4 w-4" />
                 Adicionar Item
@@ -674,9 +680,9 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
 
         {/* Assinatura */}
         {!isTemplateMode && (
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className={`${panelClassName} p-6`}>
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-gray-900">Assinatura</h2>
+                    <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Assinatura</h2>
                     <div className="flex items-center gap-2">
                         <Button
                             type="button"
@@ -698,24 +704,27 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                         </Button>
                     </div>
                 </div>
-                <p className="mb-3 text-sm text-gray-600">
+                <p className="mb-3 text-sm text-[var(--ds-color-text-secondary)]">
                     Inspetor selecionado: {users.find(u => u.id === selectedInspectorId)?.nome || '-'}
                 </p>
                 
                 {Object.keys(signatures).length > 0 ? (
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         {Object.entries(signatures).map(([userId, sig]) => (
-                            <div key={userId} className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-3">
-                                <CheckCircle className="h-5 w-5 text-green-600" />
+                            <div
+                              key={userId}
+                              className="flex items-center gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3"
+                            >
+                                <CheckCircle className="h-5 w-5 text-[var(--ds-color-success)]" />
                                 <div>
-                                    <p className="text-sm font-medium text-green-900">Assinado Digitalmente</p>
-                                    <p className="text-xs text-green-700">{new Date(sig.data).toLocaleString()}</p>
+                                    <p className="text-sm font-medium text-[var(--ds-color-success-fg)]">Assinado Digitalmente</p>
+                                    <p className="text-xs text-[var(--ds-color-success)]">{new Date(sig.data).toLocaleString()}</p>
                                 </div>
                             </div>
                         ))}
                     </div>
                 ) : (
-                    <p className="text-sm text-gray-500 italic">
+                    <p className="text-sm italic text-[var(--ds-color-text-muted)]">
                         Nenhuma assinatura ainda.
                     </p>
                 )}
@@ -726,7 +735,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
         <div className="flex items-center justify-end gap-3 print:hidden">
             <Link
                 href={isTemplateMode ? "/dashboard/checklist-models" : "/dashboard/checklists"}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/24"
             >
                 Cancelar
             </Link>
@@ -802,21 +811,21 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       {/* Modal de Email */}
       {emailModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="mb-2 text-lg font-bold text-gray-900">Enviar Documento</h3>
-            <p className="mb-4 text-sm text-gray-500">
+          <div className={`${panelClassName} w-full max-w-md p-6 shadow-[var(--ds-shadow-lg)]`}>
+            <h3 className="mb-2 text-lg font-bold text-[var(--ds-color-text-primary)]">Enviar Documento</h3>
+            <p className="mb-4 text-sm text-[var(--ds-color-text-muted)]">
               Digite o endereço de email para receber este checklist em PDF.
             </p>
             
             <div className="mb-6">
-                <label htmlFor="checklist-form-email-destino" className="mb-1 block text-sm font-medium text-gray-700">Email de Destino</label>
+                <label htmlFor="checklist-form-email-destino" className={labelClassName}>Email de Destino</label>
                 <input 
                   id="checklist-form-email-destino"
                   type="email" 
                   value={emailTo}
                   onChange={(e) => setEmailTo(e.target.value)}
                   placeholder="exemplo@empresa.com"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
+                  className={fieldClassName}
                   autoFocus
                 />
             </div>

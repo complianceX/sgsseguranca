@@ -21,9 +21,9 @@ interface ChecklistsTableRowProps {
 
 const getStatusIcon = (status: string) => {
   switch (status) {
-    case 'Conforme': return <CheckCircle className="h-4 w-4 text-white" />;
+    case 'Conforme': return <CheckCircle className="h-4 w-4 text-[var(--ds-color-success)]" />;
     case 'Pendente': return <Clock className="h-4 w-4 text-[var(--ds-color-warning)]" />;
-    case 'Não Conforme': return <AlertTriangle className="h-4 w-4 text-white" />;
+    case 'Não Conforme': return <AlertTriangle className="h-4 w-4 text-[var(--ds-color-danger)]" />;
     default: return null;
   }
 };

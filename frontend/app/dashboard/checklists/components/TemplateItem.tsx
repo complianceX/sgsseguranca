@@ -10,23 +10,29 @@ interface TemplateItemProps {
   remove: (index: number) => void;
 }
 
+const wrapperClassName =
+  'grid grid-cols-12 gap-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22 p-4';
+const labelClassName = 'mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]';
+const fieldClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+
 export const TemplateItem = React.memo(({ index, register, remove }: TemplateItemProps) => {
   return (
-    <div className="grid grid-cols-12 gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+    <div className={wrapperClassName}>
       <div className="col-span-12 md:col-span-6">
-        <label className="mb-1 block text-xs font-medium text-gray-500">Pergunta / Item</label>
+        <label className={labelClassName}>Pergunta / Item</label>
         <input
           {...register(`itens.${index}.item`)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          className={fieldClassName}
           placeholder="Ex: Verificar condições dos pneus"
         />
       </div>
 
       <div className="col-span-6 md:col-span-3">
-        <label className="mb-1 block text-xs font-medium text-gray-500">Tipo de Resposta</label>
+        <label className={labelClassName}>Tipo de Resposta</label>
         <select
           {...register(`itens.${index}.tipo_resposta`)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          className={fieldClassName}
         >
           <option value="conforme">Conforme / NC / NA</option>
           <option value="sim_nao">Sim / Não</option>
@@ -37,13 +43,13 @@ export const TemplateItem = React.memo(({ index, register, remove }: TemplateIte
       </div>
 
       <div className="col-span-3 md:col-span-2">
-        <label className="mb-1 block text-xs font-medium text-gray-500">Peso (Risco)</label>
+        <label className={labelClassName}>Peso (Risco)</label>
         <input
           type="number"
           min="1"
           max="5"
           {...register(`itens.${index}.peso`, { valueAsNumber: true })}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          className={fieldClassName}
         />
       </div>
 
@@ -51,7 +57,7 @@ export const TemplateItem = React.memo(({ index, register, remove }: TemplateIte
         <button
           type="button"
           onClick={() => remove(index)}
-          className="text-red-500 hover:text-red-700"
+          className="text-[var(--ds-color-danger)] transition-colors hover:text-[var(--ds-color-danger-hover)]"
           title="Remover item"
         >
           <Trash2 className="h-5 w-5" />

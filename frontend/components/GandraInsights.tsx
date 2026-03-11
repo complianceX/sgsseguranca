@@ -6,7 +6,7 @@ import { aiService } from '@/services/aiService';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Badge } from './ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { Card, CardContent, CardTitle, CardDescription } from './ui/card';
 
 export interface Insight {
   type: 'warning' | 'success' | 'info';
@@ -78,16 +78,16 @@ export function GandraInsights() {
 
         <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
           {data.insights.map((insight, index) => (
-            <div 
+            <div
               key={index}
               className={cn(
                 'group relative flex flex-col justify-between rounded-xl border p-3.5 transition-all hover:-translate-y-px',
                 insight.type === 'warning' &&
-                  'border-[color:var(--ds-color-warning)]/18 bg-[var(--ds-color-warning-subtle)]',
+                'border-[color:var(--ds-color-warning)]/18 bg-[var(--ds-color-warning-subtle)]',
                 insight.type === 'success' &&
-                  'border-[color:var(--ds-color-success)]/18 bg-[var(--ds-color-success-subtle)]',
+                'border-[color:var(--ds-color-success)]/18 bg-[var(--ds-color-success-subtle)]',
                 insight.type === 'info' &&
-                  'border-[color:var(--ds-color-info)]/18 bg-[var(--ds-color-info-subtle)]',
+                'border-[color:var(--ds-color-info)]/18 bg-[var(--ds-color-info-subtle)]',
               )}
             >
               <div className="mb-3.5">
@@ -109,7 +109,7 @@ export function GandraInsights() {
                 </p>
               </div>
 
-              <Link 
+              <Link
                 href={insight.action}
                 className={cn(
                   'flex items-center text-[11px] font-bold uppercase transition-all group-hover:translate-x-1',

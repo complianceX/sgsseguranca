@@ -126,10 +126,13 @@ export function useChecklists() {
       toast.success('Análise do GST concluída!', {
         description: (
           <div className="mt-2 space-y-2 max-h-[300px] overflow-y-auto pr-2">
-            <p className="font-bold text-slate-800">{result.summary}</p>
+            <p className="font-bold text-[var(--ds-color-text-primary)]">{result.summary}</p>
             <div className="space-y-1">
               {result.suggestions.map((s: string, i: number) => (
-                <div key={i} className="text-xs border-l-2 border-amber-200 pl-2 py-1 bg-amber-50/50">
+                <div
+                  key={i}
+                  className="rounded-r-[var(--ds-radius-sm)] border-l-2 border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)]/55 px-2 py-1 text-xs text-[var(--ds-color-text-secondary)]"
+                >
                   {s}
                 </div>
               ))}

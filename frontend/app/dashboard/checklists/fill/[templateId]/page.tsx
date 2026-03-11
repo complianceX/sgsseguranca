@@ -1,16 +1,24 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useCallback, useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import { checklistsService, Checklist, ChecklistItem } from '@/services/checklistsService';
 import { sitesService, Site } from '@/services/sitesService';
 import { usersService, User } from '@/services/usersService';
 import { signaturesService } from '@/services/signaturesService';
-import { ArrowLeft, Save, PenTool, Send, Printer, FileDown } from 'lucide-react';
+import { ArrowLeft, Save } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { SendMailModal } from '@/components/SendMailModal';
+import { SignatureModal } from '../../components/SignatureModal';
+
+const panelClassName =
+  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]';
+const fieldClassName =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+const labelClassName = 'mb-2 block text-sm font-medium text-[var(--ds-color-text-secondary)]';
 
 export default function FillChecklistPage({ params }: { params: Promise<{ templateId: string }> }) {
   const { templateId } = use(params);
@@ -40,13 +48,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [pdfData, setPdfData] = useState<{ base64: string; filename: string } | null>(null);
 
-  useEffect(() => {
-    loadTemplate();
-    loadSites();
-    loadUsers();
-  }, [templateId, user?.id]);
-
-  const loadTemplate = async () => {
+  const loadTemplate = useCallback(async () => {
     try {
       setLoading(true);
       const data = await checklistsService.findOne(templateId);
@@ -70,18 +72,18 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
     } finally {
       setLoading(false);
     }
-  };
+  }, [router, templateId]);
 
-  const loadSites = async () => {
+  const loadSites = useCallback(async () => {
     try {
       const page = await sitesService.findPaginated({ page: 1, limit: 100 });
       setSites(page.data);
     } catch (error) {
       console.error('Erro ao carregar obras:', error);
     }
-  };
+  }, []);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       const page = await usersService.findPaginated({ page: 1, limit: 100 });
       let nextUsers = page.data;
@@ -99,9 +101,19 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
     }
-  };
+  }, [user?.id]);
 
-  const handleItemChange = (index: number, field: keyof ChecklistItem, value: any) => {
+  useEffect(() => {
+    void loadTemplate();
+    void loadSites();
+    void loadUsers();
+  }, [loadSites, loadTemplate, loadUsers]);
+
+  const handleItemChange = <K extends keyof ChecklistItem>(
+    index: number,
+    field: K,
+    value: ChecklistItem[K],
+  ) => {
     const newItens = [...itens];
     newItens[index] = { ...newItens[index], [field]: value };
     setItens(newItens);
@@ -169,7 +181,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
     }
   };
 
-  const handleSign = async (signatureData: string) => {
+  const handleSign = async (signatureData: string, type: string) => {
     if (!checklistId) return;
     
     try {
@@ -177,7 +189,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
         document_id: checklistId,
         document_type: 'CHECKLIST',
         signature_data: signatureData,
-        type: 'digital',
+        type,
         user_id: user?.id || '',
       });
       
@@ -186,13 +198,11 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
       
       // Salvar PDF automaticamente no R2
       toast.info('Salvando PDF no storage...');
-      const pdfResult = await checklistsService.savePdf(checklistId);
+      await checklistsService.savePdf(checklistId);
       toast.success('PDF salvo com sucesso!');
       
       // Perguntar se quer enviar por email
       if (confirm('Deseja enviar o checklist por email?')) {
-        // Gerar PDF para envio
-        const pdfResponse = await checklistsService.getPdfAccess(checklistId);
         setPdfData({
           base64: '', // O backend vai gerar
           filename: `checklist-${checklistId}.pdf`,
@@ -207,18 +217,12 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
     }
   };
 
-  const handlePrint = () => {
-    if (checklistId) {
-      window.open(`/dashboard/checklists/${checklistId}/print`, '_blank');
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Carregando template...</p>
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent" />
+          <p className="text-[var(--ds-color-text-secondary)]">Carregando template...</p>
         </div>
       </div>
     );
@@ -229,28 +233,28 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-6 space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6 py-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
             href="/dashboard/checklist-templates"
-            className="flex items-center text-gray-600 hover:text-gray-900"
+            className="flex items-center text-[var(--ds-color-text-secondary)] transition-colors hover:text-[var(--ds-color-text-primary)]"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
             Voltar
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Preencher Checklist</h1>
-            <p className="text-sm text-gray-500">Template: {template.titulo}</p>
+            <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Preencher Checklist</h1>
+            <p className="text-sm text-[var(--ds-color-text-muted)]">Template: {template.titulo}</p>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border shadow-sm p-6 space-y-6">
+      <div className={`${panelClassName} p-6 space-y-6`}>
         {/* Informações Básicas */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="checklist-titulo" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="checklist-titulo" className={labelClassName}>
               Título *
             </label>
             <input
@@ -259,13 +263,13 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
               aria-label="Título do checklist"
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-700"
+              className={fieldClassName}
               required
             />
           </div>
 
           <div>
-            <label htmlFor="checklist-data" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="checklist-data" className={labelClassName}>
               Data *
             </label>
             <input
@@ -274,13 +278,13 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
               value={data}
               onChange={(e) => setData(e.target.value)}
               aria-label="Data do checklist"
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-700"
+              className={fieldClassName}
               required
             />
           </div>
 
           <div>
-            <label htmlFor="checklist-site" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="checklist-site" className={labelClassName}>
               Obra/Setor *
             </label>
             <select
@@ -288,7 +292,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
               value={siteId}
               onChange={(e) => setSiteId(e.target.value)}
               aria-label="Obra ou setor do checklist"
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-700"
+              className={fieldClassName}
               required
             >
               <option value="">Selecione...</option>
@@ -301,7 +305,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
           </div>
 
           <div>
-            <label htmlFor="checklist-inspetor" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="checklist-inspetor" className={labelClassName}>
               Inspetor *
             </label>
             <select
@@ -309,7 +313,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
               value={inspetorId}
               onChange={(e) => setInspetorId(e.target.value)}
               aria-label="Inspetor responsável"
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-700"
+              className={fieldClassName}
               required
             >
               <option value="">Selecione...</option>
@@ -323,7 +327,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
 
           {equipamento && (
             <div>
-              <label htmlFor="checklist-equipamento" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="checklist-equipamento" className={labelClassName}>
                 Equipamento
               </label>
               <input
@@ -332,14 +336,14 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
                 value={equipamento}
                 onChange={(e) => setEquipamento(e.target.value)}
                 aria-label="Equipamento do checklist"
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-700"
+                className={fieldClassName}
               />
             </div>
           )}
 
           {maquina && (
             <div>
-              <label htmlFor="checklist-maquina" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="checklist-maquina" className={labelClassName}>
                 Máquina
               </label>
               <input
@@ -348,14 +352,14 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
                 value={maquina}
                 onChange={(e) => setMaquina(e.target.value)}
                 aria-label="Máquina do checklist"
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-700"
+                className={fieldClassName}
               />
             </div>
           )}
         </div>
 
         <div>
-          <label htmlFor="checklist-descricao" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="checklist-descricao" className={labelClassName}>
             Descrição
           </label>
           <textarea
@@ -364,13 +368,13 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
             onChange={(e) => setDescricao(e.target.value)}
             aria-label="Descrição do checklist"
             rows={3}
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-700"
+            className={fieldClassName}
           />
         </div>
 
         {/* Foto do Equipamento */}
         <div>
-          <label htmlFor="checklist-foto-equipamento" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="checklist-foto-equipamento" className={labelClassName}>
             Foto do Equipamento
           </label>
           <input
@@ -379,36 +383,44 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
             accept="image/*"
             onChange={handlePhotoChange}
             aria-label="Foto do equipamento"
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-700"
+            className={fieldClassName}
           />
           {fotoEquipamento && (
-            <img
+            <Image
               src={fotoEquipamento}
               alt="Equipamento"
+              width={320}
+              height={240}
               className="mt-4 max-w-xs rounded-lg border"
+              unoptimized
             />
           )}
         </div>
 
         {/* Itens do Checklist */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Itens de Verificação</h3>
+          <h3 className="mb-4 text-lg font-semibold text-[var(--ds-color-text-primary)]">Itens de Verificação</h3>
           <div className="space-y-4">
             {itens.map((item, index) => (
-              <div key={index} className="border rounded-lg p-4 bg-gray-50">
-                <div className="font-medium text-gray-900 mb-3">{item.item}</div>
+              <div
+                key={index}
+                className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22 p-4"
+              >
+                <div className="mb-3 font-medium text-[var(--ds-color-text-primary)]">{item.item}</div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor={`checklist-item-status-${index}`} className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor={`checklist-item-status-${index}`} className={labelClassName}>
                       Status
                     </label>
                     <select
                       id={`checklist-item-status-${index}`}
                       value={String(item.status)}
-                      onChange={(e) => handleItemChange(index, 'status', e.target.value)}
+                      onChange={(e) =>
+                        handleItemChange(index, 'status', e.target.value as ChecklistItem['status'])
+                      }
                       aria-label={`Status do item ${item.item}`}
-                      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-700"
+                      className={fieldClassName}
                     >
                       {item.tipo_resposta === 'sim_nao_na' ? (
                         <>
@@ -427,7 +439,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
                   </div>
 
                   <div>
-                    <label htmlFor={`checklist-item-observacao-${index}`} className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor={`checklist-item-observacao-${index}`} className={labelClassName}>
                       Observação
                     </label>
                     <input
@@ -436,7 +448,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
                       value={item.observacao || ''}
                       onChange={(e) => handleItemChange(index, 'observacao', e.target.value)}
                       aria-label={`Observação do item ${item.item}`}
-                      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-700"
+                      className={fieldClassName}
                       placeholder="Observações adicionais..."
                     />
                   </div>
@@ -447,11 +459,12 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
         </div>
 
         {/* Botões de Ação */}
-        <div className="flex gap-4 pt-6 border-t">
+        <div className="flex gap-4 border-t border-[var(--ds-color-border-subtle)] pt-6">
           <button
+            type="button"
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex flex-1 items-center justify-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-6 py-3 font-semibold text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Save className="h-5 w-5" />
             {saving ? 'Salvando...' : 'Salvar e Assinar'}
@@ -460,61 +473,14 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
       </div>
 
       {/* Modal de Assinatura */}
-      {isSignatureModalOpen && checklistId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Assinar Checklist</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Desenhe sua assinatura abaixo:
-            </p>
-            <canvas
-              id="signature-canvas"
-              className="border rounded-lg w-full h-48 cursor-crosshair"
-              onMouseDown={(e) => {
-                const canvas = e.currentTarget;
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                  ctx.beginPath();
-                  ctx.moveTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-                  canvas.onmousemove = (moveEvent) => {
-                    ctx.lineTo(moveEvent.offsetX, moveEvent.offsetY);
-                    ctx.stroke();
-                  };
-                }
-              }}
-              onMouseUp={(e) => {
-                e.currentTarget.onmousemove = null;
-              }}
-            />
-            <div className="flex gap-4 mt-4">
-              <button
-                onClick={() => {
-                  const canvas = document.getElementById('signature-canvas') as HTMLCanvasElement;
-                  const ctx = canvas?.getContext('2d');
-                  if (ctx) {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                  }
-                }}
-                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
-              >
-                Limpar
-              </button>
-              <button
-                onClick={() => {
-                  const canvas = document.getElementById('signature-canvas') as HTMLCanvasElement;
-                  const signatureData = canvas?.toDataURL();
-                  if (signatureData) {
-                    handleSign(signatureData);
-                  }
-                }}
-                className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800"
-              >
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SignatureModal
+        isOpen={isSignatureModalOpen && Boolean(checklistId)}
+        onClose={() => setIsSignatureModalOpen(false)}
+        onSave={(signatureData, type) => {
+          void handleSign(signatureData, type);
+        }}
+        userName={users.find((item) => item.id === inspetorId)?.nome || user?.nome || 'Inspetor'}
+      />
 
       {/* Modal de Email */}
       {isMailModalOpen && pdfData && checklistId && (
