@@ -36,7 +36,7 @@ export async function generateAprPdf(
     subtitle: `APR - Segurança do Trabalho`,
     date: formatDate(apr.data_inicio),
     code,
-    logoText: 'CX',
+    logoText: 'GST',
   });
 
   y = drawBadge(doc, y, 'Tema / Atividade', sanitize(apr.titulo), 'accent');

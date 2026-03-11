@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'COMPLIANCE X | Sistema de Gestão SST',
-    short_name: 'COMPLIANCE X',
+    name: '<GST> GESTÃO DE SEGURANÇA DO TRABALHO',
+    short_name: 'GST',
     description: 'Sistema inteligente de gestão de Segurança e Saúde no Trabalho',
     start_url: '/login',
     scope: '/',
@@ -13,7 +13,7 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: 'portrait',
     icons: [
       {
-        src: '/logo-compliance-x.svg',
+        src: '/logo-gst.svg',
         sizes: 'any',
         type: 'image/svg+xml',
         purpose: 'any',

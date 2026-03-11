@@ -70,7 +70,8 @@ function formatCpf(value: string): string {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
 
-const REMEMBER_CPF_KEY = 'compliance_x_remembered_cpf';
+const REMEMBER_CPF_KEY = 'gst_remembered_cpf';
+const LEGACY_REMEMBER_CPF_KEY = 'compliance_x_remembered_cpf';
 
 function LoginPageContent() {
   const searchParams = useSearchParams();
@@ -91,7 +92,10 @@ function LoginPageContent() {
   const { login } = useAuth();
 
   useEffect(() => {
-    const savedCpf = localStorage.getItem(REMEMBER_CPF_KEY) ?? '';
+    const savedCpf =
+      localStorage.getItem(REMEMBER_CPF_KEY) ??
+      localStorage.getItem(LEGACY_REMEMBER_CPF_KEY) ??
+      '';
     if (savedCpf) {
       setCpf(savedCpf);
       setRememberCpf(true);
@@ -125,8 +129,10 @@ function LoginPageContent() {
       await login(cleanCpf, password);
       if (rememberCpf) {
         localStorage.setItem(REMEMBER_CPF_KEY, cpf);
+        localStorage.removeItem(LEGACY_REMEMBER_CPF_KEY);
       } else {
         localStorage.removeItem(REMEMBER_CPF_KEY);
+        localStorage.removeItem(LEGACY_REMEMBER_CPF_KEY);
       }
     } catch (err: unknown) {
       setError(getLoginErrorMessage(err));
@@ -145,8 +151,8 @@ function LoginPageContent() {
       <main className={styles.layout}>
         <section className={`${styles.institutionalPanel} ${styles.fadeInUp}`}>
           <div className={styles.brandRow}>
-            <div className={styles.brandBadge}>CX</div>
-            <span className={styles.brandName}>Compliance X</span>
+            <div className={styles.brandBadge}>GST</div>
+            <span className={styles.brandName}>&lt;GST&gt; GESTÃO DE SEGURANÇA DO TRABALHO</span>
           </div>
 
           <h1 className={styles.heroTitle}>Gestão de Segurança do Trabalho</h1>
@@ -188,10 +194,10 @@ function LoginPageContent() {
           <div className={`${styles.loginCard} ${styles.fadeInUp} ${shake ? styles.shake : ''}`}>
             <div className={styles.mobileBrand}>
               <Image
-                src="/logo-compliance-x.svg"
-                alt="Compliance X Logo"
-                width={172}
-                height={52}
+                src="/logo-gst.svg"
+                alt="Logo <GST> Gestão de Segurança do Trabalho"
+                width={284}
+                height={62}
                 priority
               />
             </div>
@@ -307,7 +313,7 @@ function LoginPageContent() {
             </form>
 
             <footer className={styles.footer}>
-              <p>© 2026 Compliance X</p>
+              <p>© 2026 &lt;GST&gt; Gestão de Segurança do Trabalho</p>
               <p>Todos os direitos reservados</p>
               <p>Versão 2.0.0</p>
             </footer>

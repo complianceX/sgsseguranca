@@ -12,7 +12,8 @@ type ThemeContextValue = {
   toggleTheme: () => void;
 };
 
-const STORAGE_KEY = 'compliancex.theme';
+const STORAGE_KEY = 'gst.theme';
+const LEGACY_STORAGE_KEY = 'compliancex.theme';
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
@@ -36,7 +37,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>('dark');
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY) as ThemePreference | null;
+    const stored = (window.localStorage.getItem(STORAGE_KEY) ||
+      window.localStorage.getItem(LEGACY_STORAGE_KEY)) as ThemePreference | null;
     const initialTheme = stored && ['light', 'dark', 'system'].includes(stored) ? stored : 'system';
     const initialResolved = resolveTheme(initialTheme);
     setThemeState(initialTheme);
@@ -45,7 +47,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = () => {
-      if (initialTheme === 'system' || window.localStorage.getItem(STORAGE_KEY) === 'system') {
+      if (
+        initialTheme === 'system' ||
+        window.localStorage.getItem(STORAGE_KEY) === 'system' ||
+        window.localStorage.getItem(LEGACY_STORAGE_KEY) === 'system'
+      ) {
         const next = getSystemTheme();
         setResolvedTheme(next);
         applyTheme(next);
@@ -61,6 +67,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setThemeState(nextTheme);
     setResolvedTheme(nextResolved);
     window.localStorage.setItem(STORAGE_KEY, nextTheme);
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
     applyTheme(nextResolved);
   };
 

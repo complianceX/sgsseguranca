@@ -72,7 +72,7 @@ export function BasicInfoSection({
           ) : (
             <Sparkles className="h-4 w-4" />
           )}
-          COMPLIANCE X
+          GST
         </button>
       </div>
 

@@ -53,7 +53,7 @@ export async function generateChecklistPdf(
     subtitle: sanitize(checklist.categoria),
     date: formatDate(checklist.data),
     code,
-    logoText: 'CX',
+    logoText: 'GST',
   });
 
   y = drawBadge(doc, y, 'Status geral', sanitize(checklist.status), naoConformes > 0 ? 'secondary' : 'accent');

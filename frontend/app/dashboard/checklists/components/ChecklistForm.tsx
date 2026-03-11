@@ -508,7 +508,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       {/* Cabeçalho de Impressão */}
       <div className="hidden print:mb-8 print:block">
         <div className="border-b border-gray-300 pb-4 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">COMPLIANCE X</h1>
+          <h1 className="text-2xl font-bold text-gray-900">GST</h1>
           <h2 className="text-xl text-gray-700">{tituloValue}</h2>
           <p className="text-sm text-gray-500">
             Data: {new Date().toLocaleDateString('pt-BR')} | ID: {(currentChecklistId || id) || 'Novo'}

@@ -65,7 +65,7 @@ export class MailService {
     _companyId?: string,
   ) {
     let fileKey: string | undefined;
-    let subject = 'Documento Compartilhado - COMPLIANCE X';
+    let subject = 'Documento Compartilhado - GST';
     let docName = 'Documento';
 
     // Normaliza o tipo para evitar problemas de case
@@ -139,11 +139,11 @@ export class MailService {
     const html = `
       <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
         <div style="display: inline-block; margin-bottom: 16px; padding: 6px 10px; border-radius: 999px; background-color: #dbeafe; color: #1d4ed8; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-          Compliance X
+          &lt;GST&gt; Gestão de Segurança do Trabalho
         </div>
         <h2 style="margin: 0 0 12px; color: #0f172a;">${docName}</h2>
         <p>Olá,</p>
-        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma COMPLIANCE X.</p>
+        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma &lt;GST&gt; Gestão de Segurança do Trabalho.</p>
         <p>Clique no botão abaixo para visualizar ou baixar o arquivo:</p>
         <div style="margin: 25px 0;">
           <a href="${downloadUrl}" style="background-color: #1d4ed8; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; box-shadow: 0 10px 20px rgba(29, 78, 216, 0.18);">
@@ -177,7 +177,7 @@ export class MailService {
 
     const docName = options?.docName?.trim() || 'Documento';
     const subject =
-      options?.subject?.trim() || 'Documento Compartilhado - COMPLIANCE X';
+      options?.subject?.trim() || 'Documento Compartilhado - GST';
     const expiresInSeconds = options?.expiresInSeconds ?? 604800;
 
     const downloadUrl = await this.storageService.getPresignedDownloadUrl(
@@ -188,11 +188,11 @@ export class MailService {
     const html = `
       <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
         <div style="display: inline-block; margin-bottom: 16px; padding: 6px 10px; border-radius: 999px; background-color: #dbeafe; color: #1d4ed8; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-          Compliance X
+          &lt;GST&gt; Gestão de Segurança do Trabalho
         </div>
         <h2 style="margin: 0 0 12px; color: #0f172a;">${docName}</h2>
         <p>Olá,</p>
-        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma COMPLIANCE X.</p>
+        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma &lt;GST&gt; Gestão de Segurança do Trabalho.</p>
         <p>Clique no botão abaixo para visualizar ou baixar o arquivo:</p>
         <div style="margin: 25px 0;">
           <a href="${downloadUrl}" style="background-color: #1d4ed8; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; box-shadow: 0 10px 20px rgba(29, 78, 216, 0.18);">
@@ -219,7 +219,7 @@ export class MailService {
   ): Promise<void> {
     const fromName =
       this.configService.get<string>('MAIL_FROM_NAME')?.trim() ||
-      'COMPLIANCE X';
+      'GST - Gestão de Segurança do Trabalho';
     const fromEmail =
       this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() ||
       'onboarding@resend.dev';
@@ -254,7 +254,7 @@ export class MailService {
   }> {
     const fromName =
       this.configService.get<string>('MAIL_FROM_NAME')?.trim() ||
-      'COMPLIANCE X';
+      'GST - Gestão de Segurança do Trabalho';
     const fromEmail =
       this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() ||
       'onboarding@resend.dev';
@@ -375,7 +375,7 @@ export class MailService {
 
       const text = `Olá,\n\nSegue em anexo o relatório mensal de conformidade referente a ${String(
         month,
-      ).padStart(2, '0')}/${year}.\n\nAtenciosamente,\nEquipe Compliance X`;
+      ).padStart(2, '0')}/${year}.\n\nAtenciosamente,\nEquipe GST`;
 
       await this.sendMailSimple(email, subject, text, { companyId }, [
         {

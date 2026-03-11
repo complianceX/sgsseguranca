@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <defs>
+    <linearGradient id="gst-bg" x1="12" y1="12" x2="116" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1D4ED8" />
+      <stop offset="1" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="gst-shield" x1="64" y1="28" x2="64" y2="98" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1E3A8A" />
+      <stop offset="1" stop-color="#0B1B3B" />
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="url(#gst-bg)" />
+  <path
+    d="M64 24C47.2 24 32 31.8 32 43.2V65.5C32 84.5 48.2 100.7 64 106C79.8 100.7 96 84.5 96 65.5V43.2C96 31.8 80.8 24 64 24Z"
+    fill="url(#gst-shield)"
+    stroke="rgba(255,255,255,0.72)"
+    stroke-width="2.8"
+  />
+  <text
+    x="64"
+    y="71"
+    text-anchor="middle"
+    font-family="Inter, Segoe UI, Roboto, Arial, sans-serif"
+    font-size="24"
+    font-weight="800"
+    fill="#F59E0B"
+    letter-spacing="0.8"
+  >
+    GST
+  </text>
+</svg>

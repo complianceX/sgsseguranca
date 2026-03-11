@@ -38,7 +38,7 @@ export async function generatePtPdf(
     subtitle: 'PT - Segurança do Trabalho',
     date: formatDate(pt.data_hora_inicio),
     code,
-    logoText: 'CX',
+    logoText: 'GST',
   });
 
   y = drawBadge(doc, y, 'Status da PT', sanitize(pt.status), pt.status === 'Aprovada' ? 'accent' : 'secondary');

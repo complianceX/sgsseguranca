@@ -14,7 +14,8 @@ type OfflineQueueItem = {
   nextRetryAt?: string;
 };
 
-const STORAGE_KEY = 'compliancex.offline.queue';
+const STORAGE_KEY = 'gst.offline.queue';
+const LEGACY_STORAGE_KEY = 'compliancex.offline.queue';
 const MAX_RETRY_ATTEMPTS = 7;
 const BASE_RETRY_DELAY_MS = 2_000;
 const MAX_RETRY_DELAY_MS = 5 * 60 * 1000;
@@ -56,7 +57,19 @@ const readQueue = (): OfflineQueueItem[] => {
 
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as OfflineQueueItem[]) : [];
+    if (raw) {
+      return JSON.parse(raw) as OfflineQueueItem[];
+    }
+
+    const legacyRaw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacyRaw) {
+      const migrated = JSON.parse(legacyRaw) as OfflineQueueItem[];
+      window.localStorage.setItem(STORAGE_KEY, legacyRaw);
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+      return migrated;
+    }
+
+    return [];
   } catch {
     return [];
   }
@@ -68,6 +81,7 @@ const writeQueue = (items: OfflineQueueItem[]) => {
   }
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  window.localStorage.removeItem(LEGACY_STORAGE_KEY);
   window.dispatchEvent(
     new CustomEvent('app:offline-queue-updated', {
       detail: { count: items.length },

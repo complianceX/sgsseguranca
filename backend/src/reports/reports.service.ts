@@ -179,7 +179,7 @@ export class ReportsService {
     };
 
     const analise_gandra = this.buildMonthlyAnalysis(year, month, estatisticas);
-    const titulo = `Relatório Mensal COMPLIANCE X - ${String(month).padStart(2, '0')}/${year}`;
+    const titulo = `Relatório Mensal <GST> Gestão de Segurança do Trabalho - ${String(month).padStart(2, '0')}/${year}`;
     const descricao =
       'Relatório consolidado com indicadores mensais de APR, PT, DDS, checklists, treinamentos e vencimentos de EPI.';
 

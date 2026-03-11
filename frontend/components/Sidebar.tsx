@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
@@ -46,7 +47,7 @@ const menuItems = [
   { icon: Users, label: 'Funcionários', href: '/dashboard/employees' },
   { icon: Shield, label: 'Usuários/Acesso', href: '/dashboard/users', adminOnly: true },
   { icon: GraduationCap, label: 'Treinamentos', href: '/dashboard/trainings' },
-  { icon: BarChart3, label: 'Relatórios COMPLIANCE X', href: '/dashboard/reports' },
+  { icon: BarChart3, label: 'Relatórios GST', href: '/dashboard/reports' },
   { type: 'divider', label: 'Gestão & Controle', adminOnly: true },
   { icon: CalendarDays, label: 'Calendário SST', href: '/dashboard/calendar', adminOnly: true },
   { icon: Activity, label: 'KPIs SST', href: '/dashboard/kpis' },
@@ -107,14 +108,17 @@ export function Sidebar({
       >
       <div className="border-b border-[color:var(--ds-color-border-subtle)]/80 px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[image:var(--ds-gradient-brand)] text-[13px] font-black text-white shadow-[0_8px_24px_rgba(59,130,246,0.36)]">
-            CX
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-[color:var(--ds-color-surface-elevated)]/70 shadow-[0_8px_24px_rgba(59,130,246,0.26)]">
+            <Image src="/logo-gst-mark.svg" alt="Logo GST" width={28} height={28} priority />
           </div>
           <div className="min-w-0">
             <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[var(--ds-color-text-disabled)]">
-              Gestão SST
+              Sistema SST
             </p>
-            <h1 className="truncate text-base font-bold tracking-[-0.03em] text-white">Compliance X</h1>
+            <h1 className="truncate text-[0.96rem] font-bold tracking-[-0.02em] text-white">&lt;GST&gt;</h1>
+            <p className="truncate text-[0.64rem] font-semibold uppercase tracking-[0.15em] text-[var(--ds-color-text-muted)]">
+              Gestão de Segurança do Trabalho
+            </p>
           </div>
         </div>
         <div className="mt-3 h-px bg-[color:var(--ds-color-border-subtle)]/60" />

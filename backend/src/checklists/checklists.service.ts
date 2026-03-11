@@ -305,7 +305,7 @@ export class ChecklistsService {
     const doc = new jsPDF();
 
     doc.setFontSize(18);
-    doc.text('COMPLIANCE X', 14, 20);
+    doc.text('GST', 14, 20);
     doc.setFontSize(14);
     doc.text(checklist.titulo, 14, 30);
     doc.setFontSize(10);

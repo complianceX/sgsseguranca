@@ -38,7 +38,7 @@ export async function generateTrainingPdf(
     subtitle: 'Registro de qualificação e validade',
     date: formatDate(training.data_conclusao),
     code,
-    logoText: 'CX',
+    logoText: 'GST',
   });
 
   y = drawBadge(

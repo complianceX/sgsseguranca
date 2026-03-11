@@ -61,7 +61,7 @@ export default function ReportsPage() {
         const status = await reportsService.getStatus(job.jobId);
 
         if (status.state === 'completed') {
-          toast.success('Relatório mensal gerado com sucesso pelo COMPLIANCE X!');
+          toast.success('Relatório mensal gerado com sucesso pelo GST!');
           if (page !== 1) {
             setPage(1);
           } else {
@@ -110,8 +110,8 @@ export default function ReportsPage() {
     const doc = new jsPDF() as jsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.width;
     const margin = 14;
-    const title = `RELATÓRIO COMPLIANCE X - ${report.mes}/${report.ano}`;
-    const filename = `Relatorio_ComplianceX_${report.mes}_${report.ano}.pdf`;
+    const title = `RELATÓRIO <GST> - ${report.mes}/${report.ano}`;
+    const filename = `Relatorio_GST_Gestao_Seguranca_Trabalho_${report.mes}_${report.ano}.pdf`;
 
     doc.setFontSize(16);
     doc.setTextColor(41, 128, 185);
@@ -139,7 +139,7 @@ export default function ReportsPage() {
     const analysisStart = doc.lastAutoTable.finalY + 12;
     doc.setFontSize(12);
     doc.setTextColor(41, 128, 185);
-    doc.text('Insight COMPLIANCE X', margin, analysisStart);
+    doc.text('Insight <GST>', margin, analysisStart);
     doc.setDrawColor(41, 128, 185);
     doc.line(margin, analysisStart + 2, pageWidth - margin, analysisStart + 2);
 
@@ -219,7 +219,7 @@ export default function ReportsPage() {
               Inteligência mensal
             </Badge>
             <div>
-              <CardTitle className="text-xl">Relatórios COMPLIANCE X</CardTitle>
+              <CardTitle className="text-xl">Relatórios &lt;GST&gt;</CardTitle>
               <CardDescription className="mt-1 max-w-2xl">
                 Relatórios executivos mensais com consolidação operacional, estatísticas de emissão
                 e síntese automática da IA.
@@ -301,7 +301,7 @@ export default function ReportsPage() {
                   <div className="mb-2 flex items-center gap-1.5">
                     <BrainCircuit className="h-3.5 w-3.5 text-[var(--ds-color-action-primary)]" />
                     <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ds-color-action-primary)]">
-                      Insight COMPLIANCE X
+                      Insight &lt;GST&gt;
                     </span>
                   </div>
                   <p className="line-clamp-4 text-[12px] leading-relaxed text-[var(--ds-color-text-secondary)]">

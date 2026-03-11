@@ -1,4 +1,4 @@
-const CACHE_NAME = 'compliancex-shell-v3';
+const CACHE_NAME = 'gst-shell-v1';
 const APP_SHELL = ['/', '/login', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {

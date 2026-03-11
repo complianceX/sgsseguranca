@@ -14,9 +14,9 @@ const defaultContext: AiRouteContext = {
   subtitle: 'Assistente operacional e normativa em segurança do trabalho.',
   icon: ShieldCheck,
   assistantIntro:
-    'Sou a SOPHIE da Compliance X. Posso apoiar com liberação operacional, conformidade, APR, PT, NC e documentos.',
+    'Sou a SOPHIE da GST. Posso apoiar com liberação operacional, conformidade, APR, PT, NC e documentos.',
   promptPrefix:
-    'Contexto atual: SOPHIE prestando apoio geral de SST no SaaS Compliance X. Responda de forma objetiva, segura e prática.',
+    'Contexto atual: SOPHIE prestando apoio geral de SST no SaaS <GST> Gestão de Segurança do Trabalho. Responda de forma objetiva, segura e prática.',
   suggestions: [
     'Quais bloqueios impedem liberar esta atividade com segurança?',
     'Monte uma orientação rápida de campo para hoje.',

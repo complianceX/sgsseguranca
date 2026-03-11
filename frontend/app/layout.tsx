@@ -18,13 +18,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "COMPLIANCE X | Sistema de Gestão SST",
+  title: "<GST> GESTÃO DE SEGURANÇA DO TRABALHO | Sistema Web SST",
   description: "Sistema inteligente de gestão de Segurança e Saúde no Trabalho",
-  applicationName: "COMPLIANCE X",
+  applicationName: "<GST> GESTÃO DE SEGURANÇA DO TRABALHO",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "COMPLIANCE X",
+    title: "GST",
     statusBarStyle: "default",
   },
 };

@@ -5,41 +5,39 @@ export const contentType = 'image/png';
 
 export default function Icon() {
   const size = 512;
-  const barWidth = Math.round(size * 0.18);
-  const barHeight = Math.round(size * 0.86);
-  const barX = (size - barWidth) / 2;
-  const barY = (size - barHeight) / 2;
-  const barRadius = Math.round(barWidth * 0.2);
 
   return new ImageResponse(
-    (
-      <svg
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        xmlns="http://www.w3.org/2000/svg"
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: '112px',
+        background: 'linear-gradient(135deg, #1D4ED8 0%, #0F172A 100%)',
+      }}
+    >
+      <div
+        style={{
+          width: '68%',
+          height: '68%',
+          borderRadius: '36% 36% 42% 42% / 30% 30% 52% 52%',
+          border: '10px solid rgba(255,255,255,0.78)',
+          background: 'linear-gradient(180deg, #1E3A8A 0%, #0B1B3B 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#F59E0B',
+          fontFamily: 'Inter, Segoe UI, Roboto, Arial, sans-serif',
+          fontWeight: 800,
+          fontSize: 104,
+          letterSpacing: '2px',
+        }}
       >
-        <rect width="100%" height="100%" fill="#1d4ed8" />
-        <rect
-          x={barX}
-          y={barY}
-          width={barWidth}
-          height={barHeight}
-          rx={barRadius}
-          fill="#ffffff"
-          transform={`rotate(45 ${size / 2} ${size / 2})`}
-        />
-        <rect
-          x={barX}
-          y={barY}
-          width={barWidth}
-          height={barHeight}
-          rx={barRadius}
-          fill="#ffffff"
-          transform={`rotate(-45 ${size / 2} ${size / 2})`}
-        />
-      </svg>
-    ),
+        GST
+      </div>
+    </div>,
     {
       width: size,
       height: size,

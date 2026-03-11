@@ -1,6 +1,6 @@
 {
-  "name": "COMPLIANCE X | Gestão SST",
-  "short_name": "Compliance X",
+  "name": "<GST> GESTÃO DE SEGURANÇA DO TRABALHO",
+  "short_name": "GST",
   "description": "Sistema inteligente de gestão de Segurança e Saúde no Trabalho",
   "start_url": "/dashboard",
   "scope": "/",

@@ -128,6 +128,10 @@ export function PtForm({ id }: PtFormProps) {
   } = methods;
 
   const draftStorageKey = useMemo(
+    () => (id ? null : `gst.pt.wizard.draft.${user?.company_id || 'default'}`),
+    [id, user?.company_id],
+  );
+  const legacyDraftStorageKey = useMemo(
     () => (id ? null : `compliancex.pt.wizard.draft.${user?.company_id || 'default'}`),
     [id, user?.company_id],
   );
@@ -208,6 +212,9 @@ export function PtForm({ id }: PtFormProps) {
       onSuccess: () => {
         if (draftStorageKey && typeof window !== 'undefined') {
           window.localStorage.removeItem(draftStorageKey);
+        }
+        if (legacyDraftStorageKey && typeof window !== 'undefined') {
+          window.localStorage.removeItem(legacyDraftStorageKey);
         }
       },
     }
@@ -320,8 +327,19 @@ export function PtForm({ id }: PtFormProps) {
             notas_auditoria: pt.notas_auditoria || '',
           });
         } else if (draftStorageKey && typeof window !== 'undefined') {
-          const rawDraft = window.localStorage.getItem(draftStorageKey);
+          const rawDraft =
+            window.localStorage.getItem(draftStorageKey) ||
+            (legacyDraftStorageKey
+              ? window.localStorage.getItem(legacyDraftStorageKey)
+              : null);
           if (rawDraft) {
+            if (
+              legacyDraftStorageKey &&
+              !window.localStorage.getItem(draftStorageKey)
+            ) {
+              window.localStorage.setItem(draftStorageKey, rawDraft);
+              window.localStorage.removeItem(legacyDraftStorageKey);
+            }
             const parsedDraft = JSON.parse(rawDraft) as {
               values?: Partial<PtFormData>;
               step?: number;
@@ -356,7 +374,7 @@ export function PtForm({ id }: PtFormProps) {
       }
     }
     loadData();
-  }, [draftStorageKey, id, methods, reset, user?.company_id, user?.profile?.nome]);
+  }, [draftStorageKey, id, legacyDraftStorageKey, methods, reset, user?.company_id, user?.profile?.nome]);
 
   useEffect(() => {
     async function loadCompanyScopedCatalogs() {
@@ -556,7 +574,7 @@ export function PtForm({ id }: PtFormProps) {
   const handleAiAnalysis = async () => {
     const data = watch();
     if (!data.titulo) {
-      toast.error('Preencha pelo menos o título para a análise do COMPLIANCE X.');
+      toast.error('Preencha pelo menos o título para a análise do GST.');
       return;
     }
 
@@ -571,7 +589,7 @@ export function PtForm({ id }: PtFormProps) {
         eletricidade: !!data.eletricidade,
       });
 
-      toast.success('COMPLIANCE X analisou os riscos da PT!', {
+      toast.success('GST analisou os riscos da PT!', {
         description: (
           <div className="mt-2 space-y-2">
             <p className="font-bold text-blue-700">{result.summary}</p>
@@ -586,7 +604,7 @@ export function PtForm({ id }: PtFormProps) {
         duration: 8000,
       });
     } catch (error) {
-      console.error('Erro na análise do COMPLIANCE X:', error);
+      console.error('Erro na análise do GST:', error);
       toast.error('Não foi possível realizar a análise no momento.');
     } finally {
       setAnalyzing(false);

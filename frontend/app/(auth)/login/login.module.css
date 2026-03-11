@@ -86,26 +86,27 @@
 }
 
 .brandBadge {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
   border: 1px solid var(--cx-border-strong);
   background: var(--cx-surface-soft);
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.28);
 }
 
 .brandName {
-  font-size: 1.65rem;
+  font-size: clamp(0.92rem, 2vw, 1.2rem);
   font-weight: 600;
-  line-height: 1.1;
+  line-height: 1.2;
   letter-spacing: -0.03em;
   color: var(--cx-text);
+  max-width: 620px;
 }
 
 .heroTitle {

@@ -90,7 +90,7 @@ export const ChecklistsTableRow = React.memo(({
               "text-[var(--ds-color-action-primary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]",
               analyzingId === checklist.id && "animate-pulse opacity-50"
             )}
-            title="Analisar com COMPLIANCE X"
+            title="Analisar com GST"
           >
             <BrainCircuit className="h-4 w-4" />
           </Button>

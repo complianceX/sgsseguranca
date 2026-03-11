@@ -1,19 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="820" height="180" viewBox="0 0 820 180" fill="none">
   <defs>
-    <linearGradient id="gst-bg-legacy" x1="12" y1="12" x2="168" y2="168" gradientUnits="userSpaceOnUse">
+    <linearGradient id="gst-bg" x1="12" y1="12" x2="168" y2="168" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#1D4ED8" />
       <stop offset="1" stop-color="#0F172A" />
     </linearGradient>
-    <linearGradient id="gst-shield-legacy" x1="90" y1="36" x2="90" y2="144" gradientUnits="userSpaceOnUse">
+    <linearGradient id="gst-shield" x1="90" y1="36" x2="90" y2="144" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#1E3A8A" />
       <stop offset="1" stop-color="#0B1B3B" />
     </linearGradient>
   </defs>
 
-  <rect x="10" y="10" width="160" height="160" rx="36" fill="url(#gst-bg-legacy)" />
+  <rect x="10" y="10" width="160" height="160" rx="36" fill="url(#gst-bg)" />
   <path
     d="M90 32C64.4 32 42 43.7 42 59.7V93.8C42 123.1 66 146.6 90 154C114 146.6 138 123.1 138 93.8V59.7C138 43.7 115.6 32 90 32Z"
-    fill="url(#gst-shield-legacy)"
+    fill="url(#gst-shield)"
     stroke="rgba(255,255,255,0.72)"
     stroke-width="4"
   />

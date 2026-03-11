@@ -3,9 +3,10 @@ type CacheEnvelope<T> = {
   createdAt: string;
 };
 
-const PREFIX = 'compliancex.cache';
+const PREFIX = 'gst.cache';
+const LEGACY_PREFIX = 'compliancex.cache';
 
-const buildKey = (key: string) => `${PREFIX}.${key}`;
+const buildKey = (key: string, prefix = PREFIX) => `${prefix}.${key}`;
 
 const isBrowser = () => typeof window !== 'undefined';
 
@@ -16,12 +17,15 @@ export const setOfflineCache = <T>(key: string, value: T) => {
     createdAt: new Date().toISOString(),
   };
   window.localStorage.setItem(buildKey(key), JSON.stringify(payload));
+  window.localStorage.removeItem(buildKey(key, LEGACY_PREFIX));
 };
 
 export const getOfflineCache = <T>(key: string, maxAgeMs?: number): T | null => {
   if (!isBrowser()) return null;
 
-  const raw = window.localStorage.getItem(buildKey(key));
+  const raw =
+    window.localStorage.getItem(buildKey(key)) ||
+    window.localStorage.getItem(buildKey(key, LEGACY_PREFIX));
   if (!raw) return null;
 
   try {
@@ -48,4 +52,3 @@ export const isOfflineRequestError = (error: unknown) => {
     code === 'ETIMEDOUT'
   );
 };
-

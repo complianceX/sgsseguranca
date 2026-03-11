@@ -32,7 +32,7 @@ export async function generateAuditPdf(
     subtitle: sanitize(audit.tipo_auditoria),
     date: formatDate(audit.data_auditoria),
     code,
-    logoText: 'CX',
+    logoText: 'GST',
   });
 
   y = drawBadge(doc, y, 'Tipo de auditoria', sanitize(audit.tipo_auditoria), 'accent');

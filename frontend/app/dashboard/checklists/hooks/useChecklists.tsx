@@ -123,7 +123,7 @@ export function useChecklists() {
       setAnalyzingId(id);
       const result = await aiService.analyzeChecklist(id);
       
-      toast.success('Análise do COMPLIANCE X concluída!', {
+      toast.success('Análise do GST concluída!', {
         description: (
           <div className="mt-2 space-y-2 max-h-[300px] overflow-y-auto pr-2">
             <p className="font-bold text-blue-700">{result.summary}</p>
@@ -139,7 +139,7 @@ export function useChecklists() {
         duration: 8000,
       });
     } catch (error) {
-      handleApiError(error, 'Análise COMPLIANCE X');
+      handleApiError(error, 'Análise GST');
     } finally {
       setAnalyzingId(null);
     }

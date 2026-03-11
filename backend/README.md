@@ -1,6 +1,6 @@
 # Backend API
 
-Backend em NestJS para o sistema Compliance X.
+Backend em NestJS para o sistema <GST> Gestão de Segurança do Trabalho.
 
 ## Requisitos
 

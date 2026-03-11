@@ -125,7 +125,7 @@ export function buildDocumentCode(prefix: string, reference?: string | number | 
 
 export function buildValidationUrl(code: string): string {
   const envUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL;
-  const origin = typeof window !== 'undefined' ? window.location.origin : envUrl || 'https://compliancex.app';
+  const origin = typeof window !== 'undefined' ? window.location.origin : envUrl || 'https://gst-sst.app';
   return `${origin.replace(/\/$/, '')}/validar/${code}`;
 }
 
@@ -153,7 +153,7 @@ export function drawPageBackground(doc: PdfDoc) {
 // ─── Header ───────────────────────────────────────────────────────────────────
 // Layout:
 //  ┌──────────────────────────────────────────────────────────────┐
-//  │  [CX]  TÍTULO DO DOCUMENTO           ┌──────────────────┐   │
+//  │ [GST] TÍTULO DO DOCUMENTO            ┌──────────────────┐   │
 //  │        SUBTÍTULO                     │  ID DO DOCUMENTO │   │
 //  │        Data: dd/mm/yyyy              │  CODE            │   │
 //  │                                      └──────────────────┘   │
@@ -176,8 +176,10 @@ export function drawHeader(doc: PdfDoc, options: HeaderOptions): number {
   doc.roundedRect(margin, 7, 22, 22, 3, 3, 'F');
   doc.setTextColor(...T.headerBg);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.text(options.logoText || 'CX', margin + 11, 21, { align: 'center' });
+  const logoText = options.logoText || 'GST';
+  const logoFontSize = logoText.length > 2 ? 10 : 13;
+  doc.setFontSize(logoFontSize);
+  doc.text(logoText, margin + 11, 21, { align: 'center' });
 
   // Título e subtítulo
   const textX = margin + 27;
@@ -192,11 +194,11 @@ export function drawHeader(doc: PdfDoc, options: HeaderOptions): number {
   doc.text(options.subtitle, textX, 21);
   doc.text(`Data: ${sanitize(options.date)}`, textX, 27);
 
-  // Rodapé do header — "Compliance X · Gestão SST"
+  // Rodape do header — "<GST> Gestao de Seguranca do Trabalho"
   doc.setFontSize(7);
   doc.setTextColor(...T.primary);
   doc.setFont('helvetica', 'bold');
-  doc.text('COMPLIANCE X  ·  GESTÃO SST', textX, 33);
+  doc.text('<GST>  ·  GESTAO DE SEGURANCA DO TRABALHO', textX, 33);
 
   // Box do código do documento
   const boxW = 52;
@@ -221,7 +223,7 @@ export function drawHeader(doc: PdfDoc, options: HeaderOptions): number {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(...T.muted);
-  doc.text('Compliance X SST', boxX + boxW / 2, 26, { align: 'center' });
+  doc.text('GST', boxX + boxW / 2, 26, { align: 'center' });
 
   // Fundo da área de conteúdo
   drawPageBackground(doc);
@@ -578,7 +580,7 @@ export function applyFooter(doc: PdfDoc, options: FooterOptions) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(...T.headerBg);
-    doc.text('Sistema ComplianceX SST', margin, 290);
+    doc.text('Sistema <GST> Gestao de Seguranca do Trabalho', margin, 290);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);

@@ -11,6 +11,9 @@ export const elevenLabsAgentId =
   process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID?.trim() || '';
 const elevenLabsBranchId =
   process.env.NEXT_PUBLIC_ELEVENLABS_BRANCH_ID?.trim() || '';
+const elevenLabsAvatarImageUrl =
+  process.env.NEXT_PUBLIC_ELEVENLABS_AVATAR_IMAGE_URL?.trim() ||
+  '/sophie-avatar.svg';
 
 const widgetStyle: CSSProperties = {
   position: 'fixed',
@@ -207,6 +210,7 @@ export function ElevenLabsWidget() {
         'expand-text': 'Abrir assistente de voz',
         'listening-text': 'Ouvindo...',
         'speaking-text': 'SOPHIE respondendo',
+        'avatar-image-url': elevenLabsAvatarImageUrl,
         'avatar-orb-color-1': '#1D4ED8',
         'avatar-orb-color-2': '#0F766E',
         style: widgetStyle,

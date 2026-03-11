@@ -38,7 +38,7 @@ export async function generateNonConformityPdf(
     subtitle: "Registro e tratativa de desvio",
     date: formatDate(nc.data_identificacao),
     code,
-    logoText: "CX",
+    logoText: "GST",
   });
 
   y = drawBadge(

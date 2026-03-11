@@ -1,34 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0d1f39"/>
-      <stop offset="100%" stop-color="#081326"/>
+    <linearGradient id="gst-bg" x1="20" y1="20" x2="172" y2="172" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1D4ED8"/>
+      <stop offset="100%" stop-color="#0F172A"/>
     </linearGradient>
-    <linearGradient id="shield-fill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#1e3557"/>
-      <stop offset="100%" stop-color="#122340"/>
+    <linearGradient id="gst-shield" x1="96" y1="46" x2="96" y2="152" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1E3A8A"/>
+      <stop offset="100%" stop-color="#0B1B3B"/>
     </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur"/>
-      <feOffset dx="0" dy="2" result="offset"/>
-      <feFlood flood-color="#10B981" flood-opacity="0.3" result="color"/>
-      <feComposite in="color" in2="offset" operator="in" result="shadow"/>
-      <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
   </defs>
 
-  <!-- Background rounded square -->
-  <rect width="192" height="192" rx="38" fill="url(#bg)"/>
-
-  <!-- Shield shape -->
-  <path d="M96 22 C65 22 38 36 38 56 V100 C38 132 68 158 96 168 C124 158 154 132 154 100 V56 C154 36 127 22 96 22 Z"
-        fill="url(#shield-fill)"/>
-  <!-- Shield border (white glow) -->
-  <path d="M96 22 C65 22 38 36 38 56 V100 C38 132 68 158 96 168 C124 158 154 132 154 100 V56 C154 36 127 22 96 22 Z"
-        fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="4.5" stroke-linejoin="round"/>
-
-  <!-- Green X -->
-  <path d="M70 70 L122 122 M122 70 L70 122"
-        stroke="#10B981" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"
-        filter="url(#glow)"/>
+  <rect width="192" height="192" rx="40" fill="url(#gst-bg)"/>
+  <path d="M96 34C68 34 44 46 44 62V98C44 124 66 146 96 156C126 146 148 124 148 98V62C148 46 124 34 96 34Z"
+        fill="url(#gst-shield)"
+        stroke="rgba(255,255,255,0.78)"
+        stroke-width="3.8"/>
+  <text x="96" y="108" text-anchor="middle" font-family="Inter,Segoe UI,Roboto,Arial,sans-serif" font-size="38" font-weight="800" fill="#F59E0B" letter-spacing="1.2">GST</text>
 </svg>

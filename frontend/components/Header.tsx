@@ -51,7 +51,7 @@ export function Header({
 
   const userInitials = useMemo(() => {
     const raw = user?.nome?.trim();
-    if (!raw) return 'CX';
+    if (!raw) return 'GST';
     const parts = raw.split(/\s+/).slice(0, 2);
     return parts.map((part) => part[0]?.toUpperCase()).join('');
   }, [user?.nome]);

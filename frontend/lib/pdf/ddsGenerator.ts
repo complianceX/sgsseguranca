@@ -37,7 +37,7 @@ export async function generateDdsPdf(
     subtitle: 'DIÁLOGO DIÁRIO DE SEGURANÇA',
     date: formatDate(dds.data),
     code,
-    logoText: 'CX',
+    logoText: 'GST',
   });
 
   y = drawBadge(doc, y, 'Tema DDS', sanitize(dds.tema), 'secondary');

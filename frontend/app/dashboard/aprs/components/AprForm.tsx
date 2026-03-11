@@ -248,6 +248,10 @@ export function AprForm({ id }: AprFormProps) {
   const filteredTools = tools.filter(tool => tool.company_id === selectedCompanyId);
   const filteredMachines = machines.filter(machine => machine.company_id === selectedCompanyId);
   const draftStorageKey = useMemo(
+    () => (id ? null : `gst.apr.wizard.draft.${user?.company_id || 'default'}`),
+    [id, user?.company_id],
+  );
+  const legacyDraftStorageKey = useMemo(
     () => (id ? null : `compliancex.apr.wizard.draft.${user?.company_id || 'default'}`),
     [id, user?.company_id],
   );
@@ -338,6 +342,9 @@ export function AprForm({ id }: AprFormProps) {
         if (draftStorageKey && typeof window !== 'undefined') {
           window.localStorage.removeItem(draftStorageKey);
         }
+        if (legacyDraftStorageKey && typeof window !== 'undefined') {
+          window.localStorage.removeItem(legacyDraftStorageKey);
+        }
       },
     }
   );
@@ -353,7 +360,7 @@ export function AprForm({ id }: AprFormProps) {
     const descricao = watch('descricao');
     
     if (!titulo && !descricao) {
-      toast.error('Preencha o título ou descrição para a análise do COMPLIANCE X.');
+      toast.error('Preencha o título ou descrição para a análise do GST.');
       return;
     }
 
@@ -369,12 +376,12 @@ export function AprForm({ id }: AprFormProps) {
         setValue('epis', [...new Set([...selectedEpiIds, ...result.epis])]);
       }
 
-      toast.success('COMPLIANCE X analisou a atividade e sugeriu riscos e EPIs!', {
+      toast.success('GST analisou a atividade e sugeriu riscos e EPIs!', {
         description: result.explanation,
         duration: 5000,
       });
     } catch (error) {
-      console.error('Erro na análise do COMPLIANCE X:', error);
+      console.error('Erro na análise do GST:', error);
       toast.error('Não foi possível realizar a análise no momento.');
     } finally {
       setAnalyzing(false);
@@ -727,9 +734,20 @@ export function AprForm({ id }: AprFormProps) {
           });
           setLoadingTimeline(false);
         } else if (draftStorageKey && typeof window !== 'undefined') {
-          const rawDraft = window.localStorage.getItem(draftStorageKey);
+          const rawDraft =
+            window.localStorage.getItem(draftStorageKey) ||
+            (legacyDraftStorageKey
+              ? window.localStorage.getItem(legacyDraftStorageKey)
+              : null);
 
           if (rawDraft) {
+            if (
+              legacyDraftStorageKey &&
+              !window.localStorage.getItem(draftStorageKey)
+            ) {
+              window.localStorage.setItem(draftStorageKey, rawDraft);
+              window.localStorage.removeItem(legacyDraftStorageKey);
+            }
             const parsedDraft = JSON.parse(rawDraft) as {
               values?: Partial<AprFormData>;
               step?: number;
@@ -825,7 +843,7 @@ export function AprForm({ id }: AprFormProps) {
       }
     }
     loadData();
-  }, [draftStorageKey, id, replaceRisk, reset, setValue, watch]);
+  }, [draftStorageKey, id, legacyDraftStorageKey, replaceRisk, reset, setValue, watch]);
 
   useEffect(() => {
     async function loadCompanyScopedCatalogs() {
@@ -1503,7 +1521,7 @@ export function AprForm({ id }: AprFormProps) {
                   ) : (
                     <Sparkles className="h-4 w-4 group-hover:rotate-12 transition-transform" />
                   )}
-                  <span>Analisar com COMPLIANCE X</span>
+                  <span>Analisar com GST</span>
                 </button>
               </div>
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -1768,7 +1786,7 @@ export function AprForm({ id }: AprFormProps) {
                 APR - ANÁLISE PRELIMINAR DE RISCOS
               </div>
               <div className="col-span-3 px-3 py-2 text-right text-xs font-semibold text-[#374151]">
-                COMPLIANCE X
+                GST
               </div>
             </div>
             <div className="grid min-w-[980px] grid-cols-12 border-b border-[#D1D5DB] text-xs">

@@ -36,7 +36,7 @@ export async function generateInspectionPdf(
     subtitle: "Inspeção de Segurança do Trabalho",
     date: formatDate(inspection.data_inspecao),
     code,
-    logoText: "CX",
+    logoText: "GST",
   });
 
   y = drawBadge(
