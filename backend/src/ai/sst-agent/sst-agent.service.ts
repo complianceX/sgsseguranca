@@ -16,9 +16,6 @@ import {
   UnauthorizedException,
   HttpException,
   HttpStatus,
-  BadGatewayException,
-  ServiceUnavailableException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, Repository } from 'typeorm';
@@ -48,6 +45,26 @@ import {
   STUB_TOOL_NAMES,
   SuggestedAction,
 } from './sst-agent.types';
+
+type ElevenLabsVoiceSession =
+  | {
+      mode: 'signed';
+      agentId: string;
+      signedUrl: string;
+      reason?: string;
+    }
+  | {
+      mode: 'public';
+      agentId: string;
+      signedUrl: null;
+      reason?: string;
+    }
+  | {
+      mode: 'unavailable';
+      agentId: null;
+      signedUrl: null;
+      reason: string;
+    };
 
 // ---------------------------------------------------------------------------
 // Constantes
@@ -414,21 +431,33 @@ export class SstAgentService {
     return this.interactionRepo.findOne({ where: { id, tenant_id: tenantId } });
   }
 
-  async getElevenLabsSignedUrl(agentId?: string) {
+  async getElevenLabsSignedUrl(agentId?: string): Promise<ElevenLabsVoiceSession> {
     const apiKey = this.configService.get<string>('ELEVENLABS_API_KEY')?.trim();
-    if (!apiKey) {
-      throw new ServiceUnavailableException(
-        'ELEVENLABS_API_KEY não configurada no backend.',
-      );
-    }
-
     const configuredAgentId = this.configService
       .get<string>('ELEVENLABS_AGENT_ID')
       ?.trim();
     const resolvedAgentId = configuredAgentId || agentId?.trim();
 
     if (!resolvedAgentId) {
-      throw new BadRequestException('Agent ID da ElevenLabs não informado.');
+      return {
+        mode: 'unavailable',
+        agentId: null,
+        signedUrl: null,
+        reason: 'Agent ID da ElevenLabs não informado.',
+      };
+    }
+
+    if (!apiKey) {
+      this.logger.warn(
+        'ELEVENLABS_API_KEY não configurada; usando fallback por agent_id público.',
+      );
+      return {
+        mode: 'public',
+        agentId: resolvedAgentId,
+        signedUrl: null,
+        reason:
+          'ELEVENLABS_API_KEY não configurada no backend; usando agent público.',
+      };
     }
 
     const params = new URLSearchParams({
@@ -464,18 +493,37 @@ export class SstAgentService {
       payload = null;
     }
 
-    if (!response.ok || !payload?.signed_url) {
+    if (response.ok && payload?.signed_url) {
+      return {
+        mode: 'signed',
+        agentId: resolvedAgentId,
+        signedUrl: payload.signed_url,
+      };
+    }
+
+    const providerMessage = payloadText?.slice(0, 240) || 'sem detalhes';
+    if (!response.ok) {
       this.logger.warn(
-        `Falha ao obter signed_url da ElevenLabs (status ${response.status}) para o agent ${resolvedAgentId}.`,
-      );
-      throw new BadGatewayException(
-        'Não foi possível iniciar a sessão de voz da SOPHIE.',
+        `Falha ao obter signed_url da ElevenLabs (status ${response.status}) para o agent ${resolvedAgentId}. Body: ${providerMessage}`,
       );
     }
 
+    if (payload?.signed_url) {
+      return {
+        mode: 'signed',
+        agentId: resolvedAgentId,
+        signedUrl: payload.signed_url,
+      };
+    }
+
     return {
-      signedUrl: payload.signed_url,
+      mode: 'public',
       agentId: resolvedAgentId,
+      signedUrl: null,
+      reason:
+        !response.ok
+          ? `signed_url indisponível (status ${response.status}); usando agent público.`
+          : 'signed_url vazio; usando agent público.',
     };
   }
 

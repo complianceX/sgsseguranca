@@ -19,6 +19,7 @@ const widgetStyle: CSSProperties = {
 
 export function ElevenLabsWidget() {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [publicAgentId, setPublicAgentId] = useState<string>(elevenLabsAgentId);
   const [mode, setMode] = useState<'loading' | 'signed' | 'public' | 'unavailable'>(
     'loading',
   );
@@ -52,15 +53,34 @@ export function ElevenLabsWidget() {
     async function resolveSignedUrl() {
       setErrorMessage(null);
       setSignedUrl(null);
+      setPublicAgentId(elevenLabsAgentId);
 
       try {
         const session = await aiService.getElevenLabsSignedUrl(
           elevenLabsAgentId || undefined,
         );
-        if (!cancelled) {
+        if (cancelled) {
+          return;
+        }
+
+        if (session.mode === 'signed' && session.signedUrl) {
           setSignedUrl(session.signedUrl);
           setMode('signed');
+          return;
         }
+
+        if (session.mode === 'public' && session.agentId) {
+          setPublicAgentId(session.agentId);
+          setErrorMessage(session.reason ?? null);
+          setMode('public');
+          return;
+        }
+
+        setErrorMessage(
+          session.reason ||
+            'A sessão de voz da SOPHIE não pôde ser iniciada neste momento.',
+        );
+        setMode('unavailable');
       } catch (error) {
         if (!cancelled) {
           if (elevenLabsAgentId) {
@@ -68,6 +88,7 @@ export function ElevenLabsWidget() {
               'SOPHIE: signed_url indisponível, usando agent_id público como fallback.',
               error,
             );
+            setPublicAgentId(elevenLabsAgentId);
             setMode('public');
             return;
           }
@@ -138,10 +159,10 @@ export function ElevenLabsWidget() {
         strategy="afterInteractive"
       />
       {createElement('elevenlabs-convai', {
-        key: signedUrl || elevenLabsAgentId || 'sophie-elevenlabs',
+        key: signedUrl || publicAgentId || 'sophie-elevenlabs',
         ...(mode === 'signed' && signedUrl
           ? { 'signed-url': signedUrl }
-          : { 'agent-id': elevenLabsAgentId }),
+          : { 'agent-id': publicAgentId }),
         'action-text': 'Falar com a SOPHIE',
         'start-call-text': 'Iniciar conversa',
         'end-call-text': 'Encerrar conversa',
