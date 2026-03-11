@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { checklistsService, Checklist } from '@/services/checklistsService';
 import { sitesService, Site } from '@/services/sitesService';
@@ -32,10 +32,13 @@ const panelClassName =
 const fieldClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 const labelClassName = 'mb-1 block text-sm font-medium text-[var(--ds-color-text-secondary)]';
+const conditionalToggleClassName =
+  'flex items-center justify-center rounded-[var(--ds-radius-md)] border px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const templateIdParam = searchParams.get('templateId') || 'none';
   const { user } = useAuth();
   const isTemplateMode = mode === 'template';
   const isAdminGeneral = user?.profile?.nome === 'Administrador Geral';
@@ -68,6 +71,20 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [currentSigningUser, setCurrentSigningUser] = useState<User | null>(null);
   const [signatures, setSignatures] = useState<Record<string, { data: string, type: string }>>({});
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [templateLocalVersion, setTemplateLocalVersion] = useState(1);
+  const draftBootstrappedRef = useRef(false);
+  const draftSaveTimerRef = useRef<number | null>(null);
+
+  const draftStorageKey = useMemo(() => {
+    if (id) return null;
+    return `checklist.form.draft.${mode}.${user?.id || 'anon'}.${templateIdParam}`;
+  }, [id, mode, user?.id, templateIdParam]);
+
+  const templateVersionStorageKey = useMemo(() => {
+    if (!isTemplateMode) return null;
+    return `checklist.template.local-version.${currentChecklistId || id || templateIdParam}`;
+  }, [isTemplateMode, currentChecklistId, id, templateIdParam]);
 
   const {
     register,
@@ -76,6 +93,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
     control,
     setValue,
     watch,
+    getValues,
     formState: { errors },
   } = useForm<ChecklistFormData>({
     resolver: zodResolver(checklistSchema),
@@ -342,6 +360,88 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
     }
   }, [equipamentoValue, maquinaValue, checklistMode, isTemplateMode, setValue, tituloValue, id]);
 
+  useEffect(() => {
+    if (!templateVersionStorageKey || typeof window === 'undefined') return;
+    const raw = window.localStorage.getItem(templateVersionStorageKey);
+    const parsed = raw ? Number(raw) : NaN;
+    if (Number.isFinite(parsed) && parsed > 0) {
+      setTemplateLocalVersion(parsed);
+    } else {
+      setTemplateLocalVersion(1);
+    }
+  }, [templateVersionStorageKey]);
+
+  useEffect(() => {
+    if (!draftStorageKey || fetching || draftBootstrappedRef.current) return;
+    draftBootstrappedRef.current = true;
+    if (typeof window === 'undefined') return;
+
+    const rawDraft = window.localStorage.getItem(draftStorageKey);
+    if (!rawDraft) return;
+
+    try {
+      const parsed = JSON.parse(rawDraft) as {
+        savedAt?: number;
+        checklistMode?: 'tool' | 'machine';
+        values?: ChecklistFormData;
+      };
+      if (!parsed.values) return;
+
+      reset(parsed.values);
+      if (parsed.checklistMode) {
+        setChecklistMode(parsed.checklistMode);
+      }
+      if (parsed.savedAt) {
+        setDraftSavedAt(parsed.savedAt);
+      }
+      toast.info('Rascunho restaurado automaticamente.');
+    } catch (error) {
+      console.error('Erro ao restaurar rascunho de checklist:', error);
+    }
+  }, [draftStorageKey, fetching, reset]);
+
+  useEffect(() => {
+    if (!draftStorageKey || fetching) return;
+    if (typeof window === 'undefined') return;
+
+    const subscription = watch(() => {
+      if (!draftBootstrappedRef.current) return;
+
+      if (draftSaveTimerRef.current) {
+        window.clearTimeout(draftSaveTimerRef.current);
+      }
+
+      draftSaveTimerRef.current = window.setTimeout(() => {
+        const formValues = getValues();
+        const snapshot: ChecklistFormData = {
+          ...formValues,
+          foto_equipamento: '',
+          itens: formValues.itens.map((item) => ({
+            ...item,
+            fotos: [],
+          })),
+        };
+        const now = Date.now();
+        window.localStorage.setItem(
+          draftStorageKey,
+          JSON.stringify({
+            savedAt: now,
+            checklistMode,
+            values: snapshot,
+          }),
+        );
+        setDraftSavedAt(now);
+      }, 800);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      if (draftSaveTimerRef.current) {
+        window.clearTimeout(draftSaveTimerRef.current);
+      }
+    };
+  }, [draftStorageKey, fetching, watch, getValues, checklistMode]);
+
   const handleAiGenerate = async () => {
     const base = checklistMode === 'machine' ? maquinaValue : equipamentoValue;
     if (!base) {
@@ -397,7 +497,19 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
         throw new Error('Itens marcados como "Não Conforme" ou "Não" exigem uma observação.');
       }
 
-      const payload = { ...data, is_modelo: isTemplateMode ? true : data.is_modelo };
+      if (checklistMode === 'tool' && !data.equipamento?.trim()) {
+        throw new Error('Informe o equipamento para continuar.');
+      }
+      if (checklistMode === 'machine' && !data.maquina?.trim()) {
+        throw new Error('Informe a máquina para continuar.');
+      }
+
+      const payload = {
+        ...data,
+        equipamento: checklistMode === 'tool' ? data.equipamento : '',
+        maquina: checklistMode === 'machine' ? data.maquina : '',
+        is_modelo: isTemplateMode ? true : data.is_modelo,
+      };
       const activeId = currentChecklistId || id;
       
       let saved: Checklist;
@@ -410,6 +522,17 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       if (saved?.id) {
         setCurrentChecklistId(saved.id);
       }
+
+      if (draftStorageKey && typeof window !== 'undefined') {
+        window.localStorage.removeItem(draftStorageKey);
+        setDraftSavedAt(null);
+      }
+
+      if (isTemplateMode && templateVersionStorageKey && typeof window !== 'undefined') {
+        const nextVersion = templateLocalVersion + 1;
+        window.localStorage.setItem(templateVersionStorageKey, String(nextVersion));
+        setTemplateLocalVersion(nextVersion);
+      }
       return saved;
     },
     {
@@ -419,6 +542,13 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       context: isTemplateMode ? 'Modelo' : 'Checklist'
     }
   );
+
+  const handleClearDraft = () => {
+    if (!draftStorageKey || typeof window === 'undefined') return;
+    window.localStorage.removeItem(draftStorageKey);
+    setDraftSavedAt(null);
+    toast.success('Rascunho local removido.');
+  };
 
   if (fetching) {
     return (
@@ -507,6 +637,27 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
             <p className="text-sm text-[var(--ds-color-text-muted)]">
               {isTemplateMode ? 'Defina a estrutura padrão do checklist.' : 'Preencha os dados da inspeção.'}
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--ds-color-text-muted)]" aria-live="polite">
+              <span>
+                {draftSavedAt
+                  ? `Rascunho salvo às ${new Date(draftSavedAt).toLocaleTimeString('pt-BR')}`
+                  : 'Rascunho salvo automaticamente'}
+              </span>
+              {isTemplateMode ? (
+                <span className="rounded-full bg-[var(--ds-color-primary-subtle)] px-2 py-0.5 text-[var(--ds-color-action-primary)]">
+                  Versão local v{templateLocalVersion}
+                </span>
+              ) : null}
+              {!id ? (
+                <button
+                  type="button"
+                  onClick={handleClearDraft}
+                  className="underline decoration-dotted underline-offset-2 hover:text-[var(--ds-color-text-primary)]"
+                >
+                  Limpar rascunho
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
@@ -613,6 +764,64 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                         ))}
                     </select>
                 </div>
+
+                <div className="md:col-span-2">
+                    <p className={labelClassName}>Tipo de Checklist</p>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setChecklistMode('tool');
+                                setValue('maquina', '');
+                            }}
+                            aria-pressed={checklistMode === 'tool'}
+                            className={`${conditionalToggleClassName} ${
+                                checklistMode === 'tool'
+                                    ? 'border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]'
+                                    : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]'
+                            }`}
+                        >
+                            Ferramenta
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setChecklistMode('machine');
+                                setValue('equipamento', '');
+                            }}
+                            aria-pressed={checklistMode === 'machine'}
+                            className={`${conditionalToggleClassName} ${
+                                checklistMode === 'machine'
+                                    ? 'border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]'
+                                    : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]'
+                            }`}
+                        >
+                            Máquina
+                        </button>
+                    </div>
+                </div>
+
+                {checklistMode === 'tool' ? (
+                    <div className="md:col-span-2">
+                        <label htmlFor="checklist-form-equipamento" className={labelClassName}>Equipamento *</label>
+                        <input
+                            id="checklist-form-equipamento"
+                            {...register('equipamento')}
+                            className={fieldClassName}
+                            placeholder="Ex: Furadeira, escada, detector de gás..."
+                        />
+                    </div>
+                ) : (
+                    <div className="md:col-span-2">
+                        <label htmlFor="checklist-form-maquina" className={labelClassName}>Máquina *</label>
+                        <input
+                            id="checklist-form-maquina"
+                            {...register('maquina')}
+                            className={fieldClassName}
+                            placeholder="Ex: Retroescavadeira, prensa, guindaste..."
+                        />
+                    </div>
+                )}
             </div>
             <div className="mt-6">
                 <label htmlFor="checklist-form-foto-equipamento" className={labelClassName}>Foto do Equipamento</label>

@@ -7,9 +7,13 @@ import { BrainCircuit, Printer, Download, Mail, Pencil, Trash2, CheckCircle, Clo
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
+import { ChecklistColumnKey } from '../columns';
 
 interface ChecklistsTableRowProps {
   checklist: Checklist;
+  visibleColumns: ChecklistColumnKey[];
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
   analyzingId: string | null;
   printingId: string | null;
   onAiAnalysis: (id: string) => void;
@@ -39,6 +43,9 @@ const getStatusClass = (status: string) => {
 
 export const ChecklistsTableRow = React.memo(({
   checklist,
+  visibleColumns,
+  selected,
+  onToggleSelect,
   analyzingId,
   printingId,
   onAiAnalysis,
@@ -47,37 +54,78 @@ export const ChecklistsTableRow = React.memo(({
   onSendEmail,
   onDelete
 }: ChecklistsTableRowProps) => {
-  return (
-    <TableRow>
-      <TableCell className="text-[var(--ds-color-text-secondary)]">
-        {format(new Date(checklist.data), 'dd/MM/yyyy', { locale: ptBR })}
-      </TableCell>
-      <TableCell>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="font-medium text-[var(--ds-color-text-primary)]">{checklist.titulo}</div>
-          {checklist.is_modelo && (
-            <span className="rounded-full bg-[color:var(--ds-color-action-primary)]/12 px-2 py-0.5 text-xs font-semibold text-[var(--ds-color-action-primary)]">
-              Modelo
+  const renderCell = (column: ChecklistColumnKey) => {
+    switch (column) {
+      case 'data':
+        return (
+          <TableCell key="data" className="text-[var(--ds-color-text-secondary)]">
+            {format(new Date(checklist.data), 'dd/MM/yyyy', { locale: ptBR })}
+          </TableCell>
+        );
+      case 'titulo':
+        return (
+          <TableCell key="titulo">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="font-medium text-[var(--ds-color-text-primary)]">{checklist.titulo}</div>
+              {checklist.is_modelo && (
+                <span className="rounded-full bg-[color:var(--ds-color-action-primary)]/12 px-2 py-0.5 text-xs font-semibold text-[var(--ds-color-action-primary)]">
+                  Modelo
+                </span>
+              )}
+            </div>
+          </TableCell>
+        );
+      case 'equipamento':
+        return (
+          <TableCell key="equipamento" className="text-[var(--ds-color-text-secondary)]">
+            <div className="flex flex-col">
+              {checklist.equipamento && <span>{checklist.equipamento}</span>}
+              {checklist.maquina && <span>{checklist.maquina}</span>}
+              {!checklist.equipamento && !checklist.maquina && <span>-</span>}
+            </div>
+          </TableCell>
+        );
+      case 'empresa':
+        return (
+          <TableCell key="empresa" className="text-[var(--ds-color-text-secondary)]">
+            {checklist.company?.razao_social || '-'}
+          </TableCell>
+        );
+      case 'inspetor':
+        return (
+          <TableCell key="inspetor" className="text-[var(--ds-color-text-secondary)]">
+            {checklist.inspetor?.nome || '-'}
+          </TableCell>
+        );
+      case 'status':
+        return (
+          <TableCell key="status">
+            <span className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
+              getStatusClass(checklist.status)
+            )}>
+              {getStatusIcon(checklist.status)}
+              {checklist.status}
             </span>
-          )}
-        </div>
+          </TableCell>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <TableRow data-state={selected ? 'selected' : undefined}>
+      <TableCell className="w-10">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(checklist.id)}
+          className="h-4 w-4 rounded border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-action-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
+          aria-label={`Selecionar checklist ${checklist.titulo}`}
+        />
       </TableCell>
-      <TableCell className="text-[var(--ds-color-text-secondary)]">
-        <div className="flex flex-col">
-          {checklist.equipamento && <span>{checklist.equipamento}</span>}
-          {checklist.maquina && <span>{checklist.maquina}</span>}
-          {!checklist.equipamento && !checklist.maquina && <span>-</span>}
-        </div>
-      </TableCell>
-      <TableCell>
-        <span className={cn(
-          "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
-          getStatusClass(checklist.status)
-        )}>
-          {getStatusIcon(checklist.status)}
-          {checklist.status}
-        </span>
-      </TableCell>
+      {visibleColumns.map(renderCell)}
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
           <Button
@@ -91,6 +139,7 @@ export const ChecklistsTableRow = React.memo(({
               analyzingId === checklist.id && "animate-pulse opacity-50"
             )}
             title="Analisar com GST"
+            aria-label={`Analisar checklist ${checklist.titulo} com GST`}
           >
             <BrainCircuit className="h-4 w-4" />
           </Button>
@@ -105,6 +154,7 @@ export const ChecklistsTableRow = React.memo(({
               printingId === checklist.id && "animate-pulse opacity-50"
             )}
             title="Imprimir"
+            aria-label={`Imprimir checklist ${checklist.titulo}`}
           >
             <Printer className="h-4 w-4" />
           </Button>
@@ -119,6 +169,7 @@ export const ChecklistsTableRow = React.memo(({
               printingId === checklist.id && "animate-pulse opacity-50"
             )}
             title="Baixar PDF"
+            aria-label={`Baixar PDF do checklist ${checklist.titulo}`}
           >
             <Download className="h-4 w-4" />
           </Button>
@@ -133,6 +184,7 @@ export const ChecklistsTableRow = React.memo(({
               printingId === checklist.id && "animate-pulse opacity-50"
             )}
             title="Enviar por E-mail"
+            aria-label={`Enviar checklist ${checklist.titulo} por e-mail`}
           >
             <Mail className="h-4 w-4" />
           </Button>
@@ -140,6 +192,7 @@ export const ChecklistsTableRow = React.memo(({
             href={`/dashboard/checklists/edit/${checklist.id}`}
             className={buttonVariants({ size: 'icon', variant: 'ghost' })}
             title="Editar Checklist"
+            aria-label={`Editar checklist ${checklist.titulo}`}
           >
             <Pencil className="h-4 w-4" />
           </Link>
@@ -150,6 +203,7 @@ export const ChecklistsTableRow = React.memo(({
             onClick={() => onDelete(checklist.id)}
             className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
             title="Excluir Checklist"
+            aria-label={`Excluir checklist ${checklist.titulo}`}
           >
             <Trash2 className="h-4 w-4" />
           </Button>

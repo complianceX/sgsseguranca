@@ -1,7 +1,8 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { useChecklists } from './hooks/useChecklists';
-import { AlertTriangle, ClipboardCheck, Plus, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ClipboardCheck, Plus, ShieldCheck, Trash2, Download } from 'lucide-react';
 import Link from 'next/link';
 import { SendMailModal } from '@/components/SendMailModal';
 import { ChecklistsFilters } from './components/ChecklistsFilters';
@@ -24,8 +25,16 @@ import {
   PageLoadingState,
 } from '@/components/ui/state';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
+import {
+  ChecklistColumnKey,
+  ChecklistSavedView,
+  defaultChecklistColumns,
+} from './columns';
 
 export default function ChecklistsPage() {
+  const { user } = useAuth();
   const {
     loading,
     loadError,
@@ -51,9 +60,180 @@ export default function ChecklistsPage() {
     handlePrint,
     handleAiAnalysis,
     handleDelete,
+    handleDeleteMany,
     handleExportCsv,
     loadChecklists,
   } = useChecklists();
+
+  const [visibleColumns, setVisibleColumns] = useState<ChecklistColumnKey[]>(defaultChecklistColumns);
+  const [selectedChecklistIds, setSelectedChecklistIds] = useState<string[]>([]);
+  const [savedViews, setSavedViews] = useState<ChecklistSavedView[]>([]);
+  const [activeViewId, setActiveViewId] = useState<string | null>(null);
+
+  const viewsStorageKey = useMemo(
+    () => `checklists.saved-views.${user?.id || 'anon'}`,
+    [user?.id],
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(viewsStorageKey);
+      if (!raw) {
+        setSavedViews([]);
+        return;
+      }
+      const parsed = JSON.parse(raw) as ChecklistSavedView[];
+      if (Array.isArray(parsed)) {
+        setSavedViews(parsed);
+      }
+    } catch {
+      setSavedViews([]);
+    }
+  }, [viewsStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(viewsStorageKey, JSON.stringify(savedViews));
+  }, [savedViews, viewsStorageKey]);
+
+  const selectedIdsSet = useMemo(
+    () => new Set(selectedChecklistIds),
+    [selectedChecklistIds],
+  );
+
+  useEffect(() => {
+    setSelectedChecklistIds((current) =>
+      current.filter((id) => filteredChecklists.some((checklist) => checklist.id === id)),
+    );
+  }, [filteredChecklists]);
+
+  const allSelectedOnPage =
+    filteredChecklists.length > 0 &&
+    filteredChecklists.every((checklist) => selectedIdsSet.has(checklist.id));
+
+  const toggleChecklistSelection = (id: string) => {
+    setSelectedChecklistIds((current) =>
+      current.includes(id)
+        ? current.filter((entry) => entry !== id)
+        : [...current, id],
+    );
+  };
+
+  const toggleSelectAllOnPage = (checked: boolean) => {
+    if (!checked) {
+      setSelectedChecklistIds((current) =>
+        current.filter((id) => !filteredChecklists.some((checklist) => checklist.id === id)),
+      );
+      return;
+    }
+    setSelectedChecklistIds((current) => {
+      const merged = new Set(current);
+      filteredChecklists.forEach((checklist) => merged.add(checklist.id));
+      return Array.from(merged);
+    });
+  };
+
+  const toggleColumn = (column: ChecklistColumnKey) => {
+    setVisibleColumns((current) => {
+      if (current.includes(column)) {
+        if (current.length === 1) {
+          toast.info('Pelo menos uma coluna deve permanecer visível.');
+          return current;
+        }
+        return current.filter((entry) => entry !== column);
+      }
+      return [...current, column];
+    });
+    setActiveViewId(null);
+  };
+
+  const resetColumns = () => {
+    setVisibleColumns(defaultChecklistColumns);
+    setActiveViewId(null);
+  };
+
+  const applySavedView = (viewId: string) => {
+    if (!viewId) {
+      setActiveViewId(null);
+      return;
+    }
+    const selectedView = savedViews.find((view) => view.id === viewId);
+    if (!selectedView) return;
+
+    setActiveViewId(selectedView.id);
+    setVisibleColumns(selectedView.columns.length ? selectedView.columns : defaultChecklistColumns);
+    setSearchTerm(selectedView.searchTerm);
+    setModelFilter(selectedView.modelFilter);
+    toast.success(`Vista "${selectedView.name}" aplicada.`);
+  };
+
+  useEffect(() => {
+    if (!activeViewId) return;
+    const activeView = savedViews.find((view) => view.id === activeViewId);
+    if (!activeView) {
+      setActiveViewId(null);
+      return;
+    }
+
+    const sameColumns =
+      activeView.columns.length === visibleColumns.length &&
+      activeView.columns.every((column, index) => column === visibleColumns[index]);
+    const sameFilter = activeView.modelFilter === modelFilter;
+    const sameSearch = activeView.searchTerm === searchTerm;
+
+    if (!sameColumns || !sameFilter || !sameSearch) {
+      setActiveViewId(null);
+    }
+  }, [activeViewId, savedViews, visibleColumns, modelFilter, searchTerm]);
+
+  const saveCurrentView = () => {
+    const proposedName = window.prompt('Nome da vista para salvar:', `Vista ${savedViews.length + 1}`);
+    if (!proposedName) return;
+    const name = proposedName.trim();
+    if (!name) return;
+
+    const nextView: ChecklistSavedView = {
+      id: `${Date.now()}`,
+      name,
+      columns: visibleColumns,
+      modelFilter,
+      searchTerm,
+      createdAt: Date.now(),
+    };
+    setSavedViews((current) => [nextView, ...current].slice(0, 12));
+    setActiveViewId(nextView.id);
+    toast.success(`Vista "${name}" salva.`);
+  };
+
+  const deleteActiveView = () => {
+    if (!activeViewId) return;
+    const activeView = savedViews.find((view) => view.id === activeViewId);
+    if (!activeView) return;
+
+    if (!confirm(`Excluir a vista "${activeView.name}"?`)) return;
+    setSavedViews((current) => current.filter((view) => view.id !== activeViewId));
+    setActiveViewId(null);
+    toast.success('Vista excluída.');
+  };
+
+  const clearSelection = () => {
+    setSelectedChecklistIds([]);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!selectedChecklistIds.length) return;
+    if (!confirm(`Excluir ${selectedChecklistIds.length} checklist(s) selecionado(s)?`)) return;
+    await handleDeleteMany(selectedChecklistIds);
+    setSelectedChecklistIds([]);
+  };
+
+  const handleExportSelected = () => {
+    handleExportCsv({
+      ids: selectedChecklistIds,
+      columns: visibleColumns,
+    });
+  };
 
   const companyOptions = Array.from(
     new Map(
@@ -161,11 +341,54 @@ export default function ChecklistsPage() {
             onSearchChange={setSearchTerm}
             modelFilter={modelFilter}
             onModelFilterChange={setModelFilter}
-            onExportCsv={handleExportCsv}
+            onExportCsv={() => handleExportCsv({ columns: visibleColumns })}
+            visibleColumns={visibleColumns}
+            onToggleColumn={toggleColumn}
+            onResetColumns={resetColumns}
+            savedViews={savedViews}
+            activeViewId={activeViewId}
+            onApplyView={applySavedView}
+            onSaveCurrentView={saveCurrentView}
+            onDeleteActiveView={deleteActiveView}
           />
         </CardHeader>
 
         <CardContent className="mt-0">
+          <div className="sr-only" aria-live="polite">
+            {selectedChecklistIds.length
+              ? `${selectedChecklistIds.length} checklist(s) selecionado(s).`
+              : 'Nenhum checklist selecionado.'}
+          </div>
+          {selectedChecklistIds.length ? (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-4 py-3">
+              <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                {selectedChecklistIds.length} selecionado(s)
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportSelected}
+                  leftIcon={<Download className="h-4 w-4" />}
+                >
+                  Exportar selecionados
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDeleteSelected}
+                  leftIcon={<Trash2 className="h-4 w-4" />}
+                >
+                  Excluir selecionados
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={clearSelection}>
+                  Limpar seleção
+                </Button>
+              </div>
+            </div>
+          ) : null}
           {filteredChecklists.length === 0 ? (
             <EmptyState
               title="Nenhum checklist encontrado"
@@ -190,6 +413,11 @@ export default function ChecklistsPage() {
             <>
               <ChecklistsTable
                 checklists={filteredChecklists}
+                visibleColumns={visibleColumns}
+                selectedIds={selectedChecklistIds}
+                allSelected={allSelectedOnPage}
+                onToggleSelect={toggleChecklistSelection}
+                onToggleSelectAll={toggleSelectAllOnPage}
                 analyzingId={analyzingId}
                 printingId={printingId}
                 onAiAnalysis={handleAiAnalysis}

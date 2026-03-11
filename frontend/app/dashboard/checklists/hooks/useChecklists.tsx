@@ -9,6 +9,17 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React from 'react';
 import { openPdfForPrint } from '@/lib/print-utils';
+import {
+  ChecklistColumnKey,
+  checklistColumnLabels,
+  defaultChecklistColumns,
+  getChecklistColumnValue,
+} from '../columns';
+
+export interface ExportCsvOptions {
+  ids?: string[];
+  columns?: ChecklistColumnKey[];
+}
 
 export function useChecklists() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
@@ -148,16 +159,39 @@ export function useChecklists() {
     }
   }, []);
 
-  const handleDelete = useCallback(async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este checklist?')) return;
-    try {
-      await checklistsService.delete(id);
-      setChecklists(prev => prev.filter(c => c.id !== id));
-      toast.success('Checklist excluído com sucesso!');
-    } catch (error) {
-      handleApiError(error, 'Excluir checklist');
+  const handleDeleteMany = useCallback(async (ids: string[]) => {
+    const uniqueIds = Array.from(new Set(ids));
+    if (!uniqueIds.length) return;
+
+    const results = await Promise.allSettled(
+      uniqueIds.map((id) => checklistsService.delete(id)),
+    );
+    const successfulIds = uniqueIds.filter(
+      (_, index) => results[index].status === 'fulfilled',
+    );
+    const failedCount = uniqueIds.length - successfulIds.length;
+
+    if (successfulIds.length) {
+      setChecklists((prev) => prev.filter((checklist) => !successfulIds.includes(checklist.id)));
+      toast.success(
+        successfulIds.length === 1
+          ? 'Checklist excluído com sucesso!'
+          : `${successfulIds.length} checklists excluídos com sucesso!`,
+      );
+    }
+
+    if (failedCount > 0) {
+      handleApiError(
+        new Error(`${failedCount} exclusões falharam.`),
+        'Excluir checklists',
+      );
     }
   }, []);
+
+  const handleDelete = useCallback(async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este checklist?')) return;
+    await handleDeleteMany([id]);
+  }, [handleDeleteMany]);
 
   const filteredChecklists = useMemo(() => {
     return checklists.filter((checklist) => {
@@ -184,14 +218,30 @@ export function useChecklists() {
     };
   }, [checklists, total]);
 
-  const handleExportCsv = useCallback(() => {
+  const handleExportCsv = useCallback((options?: ExportCsvOptions) => {
+    const selectedIds = options?.ids ? new Set(options.ids) : null;
+    const columns = options?.columns?.length
+      ? options.columns
+      : defaultChecklistColumns;
+    const rowsSource = selectedIds
+      ? filteredChecklists.filter((checklist) => selectedIds.has(checklist.id))
+      : filteredChecklists;
+
+    if (!rowsSource.length) {
+      toast.info('Nenhum checklist disponível para exportação.');
+      return;
+    }
+
     const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
-    const header = ['Data', 'Título', 'Status'];
-    const rows = filteredChecklists.map((checklist) => [
-      format(new Date(checklist.data), 'dd/MM/yyyy', { locale: ptBR }),
-      checklist.titulo,
-      checklist.status,
-    ]);
+    const header = columns.map((column) => checklistColumnLabels[column]);
+    const rows = rowsSource.map((checklist) =>
+      columns.map((column) => {
+        if (column === 'data') {
+          return format(new Date(checklist.data), 'dd/MM/yyyy', { locale: ptBR });
+        }
+        return getChecklistColumnValue(checklist, column);
+      }),
+    );
     const csv = [header, ...rows].map((row) => row.map(escapeCsv).join(';')).join('\n');
     const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -229,6 +279,7 @@ export function useChecklists() {
     handlePrint,
     handleAiAnalysis,
     handleDelete,
+    handleDeleteMany,
     handleExportCsv,
     loadChecklists,
   };
