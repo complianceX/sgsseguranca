@@ -15,13 +15,13 @@
   --ds-color-border-strong: color-mix(in srgb, white 24%, var(--ds-color-bg-canvas) 76%);
   --ds-color-border-focus: color-mix(in srgb, var(--brand-primary) 76%, white 24%);
 
-  /* Text ramp (fixo) para legibilidade consistente no tema escuro. */
-  --ds-color-text-primary: #f1f5f9;
-  --ds-color-text-secondary: #cbd5e1;
-  --ds-color-text-muted: #94a3b8;
-  --ds-color-text-disabled: #64748b;
+  /* Text ramp (fixo) — mais contraste/legibilidade em cards e tabelas no tema escuro. */
+  --ds-color-text-primary: #f8fafc;
+  --ds-color-text-secondary: #e2e8f0;
+  --ds-color-text-muted: #b6c2cf;
+  --ds-color-text-disabled: #7f8fa3;
   --ds-color-text-inverse: #ffffff;
-  --ds-color-text-link: #8ab4ff;
+  --ds-color-text-link: #9cc7ff;
 
   --ds-color-sidebar-bg: color-mix(in srgb, var(--brand-sidebar) 54%, #081118 46%);
   --ds-color-sidebar-bg-soft: color-mix(in srgb, var(--brand-sidebar) 60%, #0d1822 40%);
