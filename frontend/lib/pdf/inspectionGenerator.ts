@@ -32,8 +32,8 @@ export async function generateInspectionPdf(
     inspection.id || inspection.tipo_inspecao,
   );
   let y = drawHeader(doc, {
-    title: "RELATÓRIO DE INSPEÇÃO",
-    subtitle: "Inspeção de Segurança do Trabalho",
+    title: "RELATÓRIO FOTOGRÁFICO",
+    subtitle: "Registro fotográfico de Segurança do Trabalho",
     date: formatDate(inspection.data_inspecao),
     code,
     logoText: "GST",
@@ -65,14 +65,22 @@ export async function generateInspectionPdf(
     );
   }
 
-  if (inspection.metodologia?.length) {
-    y = drawTextCard(
-      doc,
-      y,
-      "Metodologia",
-      inspection.metodologia.map((item) => `• ${item}`).join("\n"),
-    );
-  }
+  // Orientação específica para relatório fotográfico
+  y = drawTextCard(
+    doc,
+    y,
+    "Orientação para registro fotográfico",
+    [
+      "Fotografe EPIs em uso, condição e ajuste.",
+      "Mostre plataformas de trabalho e estrutura de segurança.",
+      "Registre o ambiente de trabalho com foco em organização e condições gerais.",
+      "Inclua armazenamento de luminárias e materiais.",
+      "Documente ferramentas (especialmente isoladas e elétricas) e suas condições.",
+      "Capte cinto de segurança: atracação e estado geral.",
+      "Registre equipamentos complementares (mosquetões, dispositivos de altura).",
+      "Mostre posturas e altura de trabalho para avaliar ergonomia.",
+    ].join("\n"),
+  );
 
   if (inspection.perigos_riscos?.length) {
     y = drawModernTable(
@@ -171,14 +179,26 @@ export async function generateInspectionPdf(
         }
       };
 
-      ensureSpace(maxHeight + 25);
       const label = `Evidência ${index + 1}`;
+      const desc = sanitize(item.descricao || "Sem descrição");
+
+      // Espaço para bloco horizontal: imagem à direita, descrição à esquerda
+      const blockHeight = maxHeight + 20;
+      ensureSpace(blockHeight);
+
+      // Coluna esquerda (descrição)
+      const textX = 20;
+      const textY = y + 10;
       doc.setFontSize(12);
       doc.setTextColor(30, 30, 30);
-      doc.text(label, 20, y);
+      doc.text(label, textX, textY);
       doc.setFontSize(10);
       doc.setTextColor(80, 80, 80);
-      doc.text(sanitize(item.descricao || "Sem descrição"), 20, y + 6);
+      doc.text(desc, textX, textY + 6, { maxWidth: 70 });
+
+      // Coluna direita (imagem)
+      const imgX = 110; // move a imagem para a direita
+      const imgY = y;
 
       try {
         const dataUrl = await toDataUrl(item.url, index);
@@ -190,21 +210,21 @@ export async function generateInspectionPdf(
         );
         const renderWidth = props.width * ratio;
         const renderHeight = props.height * ratio;
-        const x = 20;
-        const yPos = y + 12;
         doc.addImage(
           dataUrl,
           props.fileType || "PNG",
-          x,
-          yPos,
+          imgX,
+          imgY,
           renderWidth,
           renderHeight,
         );
-        y = yPos + renderHeight + 12;
+        // altura usada = max(renderHeight, texto)
+        const usedHeight = Math.max(renderHeight, 30);
+        y = y + usedHeight + 16;
       } catch (err) {
         doc.setTextColor(170, 50, 50);
-        doc.text("Não foi possível carregar esta imagem.", 20, y + 14);
-        y += 24;
+        doc.text("Não foi possível carregar esta imagem.", imgX, imgY + 14);
+        y = y + 30;
       } finally {
         doc.setTextColor(0, 0, 0);
       }
