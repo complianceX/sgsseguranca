@@ -46,7 +46,7 @@ interface CodeVerifyResponse {
 }
 
 export default function PublicHashVerifyPage() {
-  const [mode, setMode] = useState<VerifyMode>('evidence');
+  const [mode, setMode] = useState<VerifyMode>('code');
   const [hash, setHash] = useState('');
   const [loading, setLoading] = useState(false);
   const [evidenceResult, setEvidenceResult] = useState<EvidenceVerifyResponse | null>(
@@ -71,7 +71,7 @@ export default function PublicHashVerifyPage() {
     if (targetMode === 'code') {
       const code = rawValue.trim();
       if (!code) {
-        setError('Informe o código do documento.');
+        setError('Informe o código do documento (ex.: INS-2026-22D77ACC).');
         return;
       }
       try {
@@ -146,6 +146,7 @@ export default function PublicHashVerifyPage() {
     }
     if (hashParam) {
       setHash(hashParam);
+      setMode('evidence');
       void runVerify(hashParam, 'evidence');
     }
   }, [runVerify]);
@@ -219,7 +220,7 @@ export default function PublicHashVerifyPage() {
                 onChange={(e) => setHash(e.target.value)}
                 placeholder={
                   mode === 'code'
-                    ? 'Cole o código (ex.: INS-2026-22D77ACC)'
+                  ? 'Cole o código (ex.: INS-2026-22D77ACC)'
                     : 'Cole o hash SHA-256'
                 }
                 className="w-full rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-[13px] text-[var(--ds-color-text-primary)]"
