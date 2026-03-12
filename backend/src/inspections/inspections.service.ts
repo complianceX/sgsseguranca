@@ -461,6 +461,20 @@ export class InspectionsService {
       throw new NotFoundException('Evidência não encontrada.');
     }
 
+    // Evidência salva inline (fallback quando S3 está desabilitado)
+    if (evidence.url.startsWith('data:')) {
+      const match = evidence.url.match(/^data:(.+?);base64,(.+)$/);
+      if (!match) {
+        throw new BadRequestException('Evidência inline inválida.');
+      }
+      const contentType = match[1] || 'application/octet-stream';
+      const buffer = Buffer.from(match[2], 'base64');
+      const filename =
+        evidence.original_name ||
+        `evidencia-${index + 1}.${contentType.split('/')[1] || 'bin'}`;
+      return { buffer, contentType, filename };
+    }
+
     const key = evidence.url;
     const filename =
       evidence.original_name ||
@@ -511,31 +525,37 @@ export class InspectionsService {
     if (!file) throw new BadRequestException('Arquivo não enviado.');
     const inspection = await this.findOneEntity(id, companyId);
 
-    const key = this.s3Service.generateDocumentKey(
-      inspection.company_id,
-      'inspections',
-      id,
-      file.originalname,
-    );
-
+    let entry;
     try {
+      const key = this.s3Service.generateDocumentKey(
+        inspection.company_id,
+        'inspections',
+        id,
+        file.originalname,
+      );
       await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
+      entry = {
+        descricao: this.normalizeRequiredText(
+          descricao || file.originalname || 'Evidência sem descrição',
+        ),
+        url: key,
+        original_name: file.originalname,
+      };
     } catch (err) {
-      this.logger.error(
-        `Falha ao enviar evidência para armazenamento: ${
+      this.logger.warn(
+        `S3 indisponível, armazenando evidência inline: ${
           err instanceof Error ? err.message : String(err)
         }`,
       );
-      throw new BadRequestException('Não foi possível armazenar o arquivo da evidência.');
+      const dataUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+      entry = {
+        descricao: this.normalizeRequiredText(
+          descricao || file.originalname || 'Evidência sem descrição',
+        ),
+        url: dataUrl,
+        original_name: file.originalname,
+      };
     }
-
-    const entry = {
-      descricao: this.normalizeRequiredText(
-        descricao || file.originalname || 'Evidência sem descrição',
-      ),
-      url: key,
-      original_name: file.originalname,
-    };
 
     const evidencias = [...(inspection.evidencias || []), entry];
     await this.inspectionsRepository.update(id, { evidencias });
