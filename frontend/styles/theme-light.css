@@ -14,12 +14,13 @@
   --ds-color-border-strong: color-mix(in srgb, var(--brand-background) 24%, #64748b 76%);
   --ds-color-border-focus: color-mix(in srgb, var(--brand-primary) 82%, #0f172a 18%);
 
-  --ds-color-text-primary: color-mix(in srgb, #0f172a 88%, var(--brand-text-primary) 12%);
-  --ds-color-text-secondary: color-mix(in srgb, #334155 82%, var(--brand-text-secondary) 18%);
-  --ds-color-text-muted: color-mix(in srgb, #64748b 74%, var(--brand-text-secondary) 26%);
-  --ds-color-text-disabled: color-mix(in srgb, #94a3b8 78%, var(--brand-text-secondary) 22%);
+  /* Text ramp (fixo) para consistência e contraste WCAG AA em fundos tintados. */
+  --ds-color-text-primary: #0b1220;
+  --ds-color-text-secondary: #233244;
+  --ds-color-text-muted: #42566b;
+  --ds-color-text-disabled: #6b7a8c;
   --ds-color-text-inverse: #ffffff;
-  --ds-color-text-link: color-mix(in srgb, var(--brand-primary) 76%, #0f172a 24%);
+  --ds-color-text-link: #1247b3;
 
   --ds-color-sidebar-bg: color-mix(in srgb, var(--brand-sidebar) 62%, #0b141c 38%);
   --ds-color-sidebar-bg-soft: color-mix(in srgb, var(--brand-sidebar) 56%, #14202a 44%);
