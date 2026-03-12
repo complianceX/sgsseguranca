@@ -19,9 +19,10 @@ import { AnalyzePtDto } from './dto/analyze-pt.dto';
 import { GenerateChecklistDto } from './dto/generate-checklist.dto';
 import { AnalyzeAprDto } from './dto/analyze-apr.dto';
 import { Authorize } from '../auth/authorize.decorator';
+import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
 
 @Controller('ai')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(FeatureAiGuard, JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class AiController {
   constructor(private readonly aiService: AiService) {}

@@ -15,6 +15,7 @@ import NextImage from 'next/image';
 import { toast } from 'sonner';
 import { companiesService, Company } from '@/services/companiesService';
 import { aiService } from '@/services/aiService';
+import { isAiEnabled } from '@/lib/featureFlags';
 import { SignatureModal } from '../app/dashboard/checklists/components/SignatureModal';
 import { signaturesService } from '@/services/signaturesService';
 import { AuditSection } from './AuditSection';
@@ -118,6 +119,10 @@ export function DdsForm({ id }: DdsFormProps) {
   const selectedParticipantIds = watch('participants') || [];
 
   const handleAiSuggestion = async () => {
+    if (!isAiEnabled()) {
+      toast.error('IA desativada neste ambiente.');
+      return;
+    }
     try {
       setSuggesting(true);
       const result = await aiService.generateDds();
@@ -569,23 +574,25 @@ export function DdsForm({ id }: DdsFormProps) {
             {submitError}
           </div>
         )}
-        <div className="sst-card p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900">Informações Básicas</h2>
-            <button
-              type="button"
-              onClick={handleAiSuggestion}
-              disabled={suggesting}
-              className="flex items-center space-x-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-slate-800 disabled:opacity-50"
-            >
-              {suggesting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
+          <div className="sst-card p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">Informações Básicas</h2>
+              {isAiEnabled() && (
+                <button
+                  type="button"
+                  onClick={handleAiSuggestion}
+                  disabled={suggesting}
+                  className="flex items-center space-x-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {suggesting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  <span>Sugerir Tema com GST</span>
+                </button>
               )}
-              <span>Sugerir Tema com GST</span>
-            </button>
-          </div>
+            </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="md:col-span-2">
               <label htmlFor="dds-tema" className="block text-sm font-medium text-gray-700">Tema do DDS</label>

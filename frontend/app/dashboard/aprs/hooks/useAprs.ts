@@ -8,6 +8,7 @@ import { generateAprPdf } from '@/lib/pdf/aprGenerator';
 import { toast } from 'sonner';
 import { handleApiError } from '@/lib/error-handler';
 import { openPdfForPrint } from '@/lib/print-utils';
+import { isAiEnabled } from '@/lib/featureFlags';
 
 interface Insight {
   type: 'warning' | 'success' | 'info';
@@ -68,6 +69,7 @@ export function useAprs() {
   }, [deferredSearchTerm, statusFilter]);
 
   const loadInsights = useCallback(async () => {
+    if (!isAiEnabled()) return;
     try {
       const result = await aiService.getInsights();
       const aprInsights = result.insights.filter((i: Insight) => 

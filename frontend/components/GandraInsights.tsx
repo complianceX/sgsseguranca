@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardTitle, CardDescription } from './ui/card';
+import { isAiEnabled } from '@/lib/featureFlags';
 
 export interface Insight {
   type: 'warning' | 'success' | 'info';
@@ -22,6 +23,8 @@ interface InsightsData {
 }
 
 export function GandraInsights() {
+  if (!isAiEnabled()) return null;
+
   const [data, setData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
 

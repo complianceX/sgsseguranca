@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { companiesService, Company } from '@/services/companiesService';
 import { useAuth } from '@/context/AuthContext';
 import { aiService } from '@/services/aiService';
+import { isAiEnabled } from '@/lib/featureFlags';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { Button } from '@/components/ui/button';
 
@@ -443,6 +444,10 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   }, [draftStorageKey, fetching, watch, getValues, checklistMode]);
 
   const handleAiGenerate = async () => {
+    if (!isAiEnabled()) {
+      toast.error('IA desativada neste ambiente.');
+      return;
+    }
     const base = checklistMode === 'machine' ? maquinaValue : equipamentoValue;
     if (!base) {
       toast.error('Selecione um equipamento ou máquina primeiro.');
@@ -855,7 +860,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                 <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
                     Itens para Verificação
                 </h2>
-                {isTemplateMode && (
+                {isTemplateMode && isAiEnabled() && (
                     <Button
                         type="button"
                         onClick={handleAiGenerate}

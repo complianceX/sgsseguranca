@@ -10,6 +10,7 @@ import type { Apr } from '@/services/aprsService';
 import type { User } from '@/services/usersService';
 import { cn } from '@/lib/utils';
 import type { PtFormData } from './pt-schema-and-data';
+import { isAiEnabled } from '@/lib/featureFlags';
 
 type BasicInfoSectionProps = {
   companies: Company[];
@@ -69,21 +70,23 @@ export function BasicInfoSection({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={onAiAnalysis}
-          disabled={analyzing}
-          className={cn(
-            'inline-flex items-center gap-2 rounded-xl bg-[image:var(--ds-gradient-brand)] px-4 py-2.5 text-sm font-bold text-white shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:brightness-105 disabled:opacity-60',
-          )}
-        >
-          {analyzing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Sparkles className="h-4 w-4" />
-          )}
-          GST
-        </button>
+        {isAiEnabled() && (
+          <button
+            type="button"
+            onClick={onAiAnalysis}
+            disabled={analyzing}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-xl bg-[image:var(--ds-gradient-brand)] px-4 py-2.5 text-sm font-bold text-white shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:brightness-105 disabled:opacity-60',
+            )}
+          >
+            {analyzing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            GST
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

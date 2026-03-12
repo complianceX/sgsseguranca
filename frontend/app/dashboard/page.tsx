@@ -27,6 +27,7 @@ import { trainingsService } from '@/services/trainingsService';
 import { aiService } from '@/services/aiService';
 import { format, isBefore } from 'date-fns';
 import { GandraInsights } from '@/components/GandraInsights';
+import { isAiEnabled } from '@/lib/featureFlags';
 import {
   BarChart,
   Bar,
@@ -96,9 +97,11 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadDashboardData() {
       try {
+        const aiInsightsPromise = isAiEnabled() ? aiService.getInsights() : Promise.resolve(null);
+
         const [summaryR, aiInsightsR, monthlyR, expSummaryR] = await Promise.allSettled([
           dashboardService.getSummary(),
-          aiService.getInsights(),
+          aiInsightsPromise,
           nonConformitiesService.getMonthlyAnalytics(),
           trainingsService.getExpirySummary(),
         ]);

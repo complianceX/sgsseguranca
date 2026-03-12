@@ -3,6 +3,7 @@ import { Checklist } from '@/services/checklistsService';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { isAiEnabled } from '@/lib/featureFlags';
 import { BrainCircuit, Printer, Download, Mail, Pencil, Trash2, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -128,21 +129,23 @@ export const ChecklistsTableRow = React.memo(({
       {visibleColumns.map(renderCell)}
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            onClick={() => onAiAnalysis(checklist.id)}
-            disabled={analyzingId === checklist.id}
-            className={cn(
-              "text-[var(--ds-color-action-primary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]",
-              analyzingId === checklist.id && "animate-pulse opacity-50"
-            )}
-            title="Analisar com GST"
-            aria-label={`Analisar checklist ${checklist.titulo} com GST`}
-          >
-            <BrainCircuit className="h-4 w-4" />
-          </Button>
+          {isAiEnabled() && (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => onAiAnalysis(checklist.id)}
+              disabled={analyzingId === checklist.id}
+              className={cn(
+                "text-[var(--ds-color-action-primary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]",
+                analyzingId === checklist.id && "animate-pulse opacity-50"
+              )}
+              title="Analisar com GST"
+              aria-label={`Analisar checklist ${checklist.titulo} com GST`}
+            >
+              <BrainCircuit className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             type="button"
             size="icon"

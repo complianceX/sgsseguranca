@@ -267,6 +267,7 @@ const validationSchema = Joi.object({
   JAEGER_AGENT_PORT: Joi.number().optional(),
   PROMETHEUS_PORT: Joi.number().optional(),
   AI_PROVIDER: Joi.string().valid('openai', 'anthropic', 'gemini', 'stub', 'local').optional(),
+  FEATURE_AI_ENABLED: Joi.string().valid('true', 'false').optional(),
   OPENAI_API_KEY: Joi.string().optional().allow(''),
   OPENAI_MODEL: Joi.string().optional().allow(''),
   OPENAI_VISION_MODEL: Joi.string().optional().allow(''),

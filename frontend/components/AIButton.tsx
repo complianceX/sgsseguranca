@@ -5,8 +5,11 @@ import { AIChatPanel } from './AIChatPanel';
 import { Sparkles, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { getAiRouteContext } from '@/lib/ai-context';
+import { isAiEnabled } from '@/lib/featureFlags';
 
 export function AIButton() {
+  if (!isAiEnabled()) return null;
+
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const context = getAiRouteContext(pathname);

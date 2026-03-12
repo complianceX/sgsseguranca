@@ -8,13 +8,14 @@ import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { SophieAnalyzeDto } from './dto/sophie-analyze.dto';
 import { SophieEngineService } from './sophie.engine.service';
+import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
 
 /**
  * SOPHIE (local) - endpoints de análise por base de conhecimento interna.
  * Global (não-tenant-specific), mas mantém guard padrão para uso autenticado no sistema.
  */
 @Controller('sophie')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(FeatureAiGuard, JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class SophieController {
   constructor(private readonly sophie: SophieEngineService) {}
@@ -42,4 +43,3 @@ export class SophieController {
     });
   }
 }
-

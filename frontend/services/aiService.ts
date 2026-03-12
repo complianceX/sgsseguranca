@@ -1,5 +1,12 @@
 import api from '@/lib/api';
 import type { Checklist } from './checklistsService';
+import { isAiEnabled } from '@/lib/featureFlags';
+
+function assertAiEnabled() {
+  if (!isAiEnabled()) {
+    throw new Error('IA desativada neste ambiente (FEATURE_AI_ENABLED=false).');
+  }
+}
 
 export interface AiResponse {
   answer: string;
@@ -47,6 +54,7 @@ export const aiService = {
       conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
     },
   ) => {
+    assertAiEnabled();
     const response = await api.post<AiResponse>('/ai/sst/chat', {
       question: message,
       history: options?.conversationHistory || [],
@@ -55,26 +63,31 @@ export const aiService = {
   },
 
   getInsights: async () => {
+    assertAiEnabled();
     const response = await api.post('/ai/insights');
     return response.data;
   },
 
   analyzeApr: async (description: string) => {
+    assertAiEnabled();
     const response = await api.post('/ai/analyze-apr', { description });
     return response.data;
   },
 
   analyzePt: async (data: AnalyzePtData) => {
+    assertAiEnabled();
     const response = await api.post('/ai/analyze-pt', data);
     return response.data;
   },
 
   analyzeChecklist: async (id: string) => {
+    assertAiEnabled();
     const response = await api.get(`/ai/analyze-checklist/${id}`);
     return response.data;
   },
 
   generateChecklist: async (payload: GenerateChecklistPayload, companyId?: string) => {
+    assertAiEnabled();
     const response = await api.post<Checklist>('/ai/generate-checklist', payload, {
       headers: companyId ? { 'x-company-id': companyId } : undefined,
     });
@@ -82,6 +95,7 @@ export const aiService = {
   },
 
   generateDds: async () => {
+    assertAiEnabled();
     const response = await api.post('/ai/generate-dds');
     return response.data;
   },
@@ -90,6 +104,7 @@ export const aiService = {
     image: File,
     context?: string,
   ): Promise<ImageRiskAnalysis> => {
+    assertAiEnabled();
     const formData = new FormData();
     formData.append('image', image);
     if (context && context.trim()) {

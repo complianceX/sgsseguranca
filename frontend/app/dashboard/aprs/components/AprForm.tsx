@@ -31,6 +31,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { aiService } from '@/services/aiService';
+import { isAiEnabled } from '@/lib/featureFlags';
 import { SignatureModal } from '../../checklists/components/SignatureModal';
 import { signaturesService } from '@/services/signaturesService';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
@@ -346,6 +347,7 @@ export function AprForm({ id }: AprFormProps) {
   const isModelo = watch('is_modelo');
   const isApproved = currentApr?.status === 'Aprovada';
   const signedPdfMode = Boolean(watch('pdf_signed')) || Boolean(currentApr?.pdf_file_key);
+  const aiEnabled = isAiEnabled();
   const selectedCompany = companies.find((company) => company.id === selectedCompanyId);
   const selectedSite = sites.find((site) => site.id === selectedSiteId);
   const selectedElaborador = users.find((user) => user.id === selectedElaboradorId);
@@ -444,6 +446,10 @@ export function AprForm({ id }: AprFormProps) {
   }, [isModelo, setValue]);
 
   const handleAiAnalysis = async () => {
+    if (!isAiEnabled()) {
+      toast.error('IA desativada neste ambiente.');
+      return;
+    }
     const titulo = watch('titulo');
     const descricao = watch('descricao');
     
@@ -1609,19 +1615,21 @@ export function AprForm({ id }: AprFormProps) {
                   Informações Básicas
                   <span className="h-2 w-2 rounded-full bg-[var(--ds-color-action-primary)]"></span>
                 </h2>
-                <button
-                  type="button"
-                  onClick={handleAiAnalysis}
-                  disabled={analyzing}
-                  className="group flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50"
-                >
-                  {analyzing ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4 group-hover:rotate-12 transition-transform" />
-                  )}
-                  <span>Analisar com GST</span>
-                </button>
+                {aiEnabled && (
+                  <button
+                    type="button"
+                    onClick={handleAiAnalysis}
+                    disabled={analyzing}
+                    className="group flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50"
+                  >
+                    {analyzing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+                    )}
+                    <span>Analisar com GST</span>
+                  </button>
+                )}
               </div>
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>

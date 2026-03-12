@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React from 'react';
 import { openPdfForPrint } from '@/lib/print-utils';
+import { isAiEnabled } from '@/lib/featureFlags';
 import {
   ChecklistColumnKey,
   checklistColumnLabels,
@@ -130,6 +131,7 @@ export function useChecklists() {
   }, []);
 
   const handleAiAnalysis = useCallback(async (id: string) => {
+    if (!isAiEnabled()) return;
     try {
       setAnalyzingId(id);
       const result = await aiService.analyzeChecklist(id);

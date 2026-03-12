@@ -21,6 +21,7 @@ import { SstAgentController } from './sst-agent/sst-agent.controller';
 import { SstToolsExecutor } from './sst-agent/sst-agent.tools';
 import { SstRateLimitService } from './sst-agent/sst-rate-limit.service';
 import { SophieModule } from '../sophie/sophie.module';
+import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
 
 @Module({
   imports: [
@@ -39,7 +40,7 @@ import { SophieModule } from '../sophie/sophie.module';
     ServiceOrdersModule,
   ],
   controllers: [AiController, SstAgentController],
-  providers: [AiService, SstAgentService, SstToolsExecutor, SstRateLimitService],
+  providers: [AiService, SstAgentService, SstToolsExecutor, SstRateLimitService, FeatureAiGuard],
   exports: [AiService, SstAgentService],
 })
 export class AiModule {}

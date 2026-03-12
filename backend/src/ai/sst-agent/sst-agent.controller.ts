@@ -25,6 +25,7 @@ import { Role } from '../../auth/enums/roles.enum';
 import { SstAgentService } from './sst-agent.service';
 import { SstChatDto } from '../dto/sst-chat.dto';
 import { Authorize } from '../../auth/authorize.decorator';
+import { FeatureAiGuard } from '../../common/guards/feature-ai.guard';
 import {
   fileUploadOptions,
   validateFileMagicBytes,
@@ -37,7 +38,7 @@ import {
  * Acesso restrito a perfis habilitados: ADMIN_GERAL, ADMIN_EMPRESA, TST.
  */
 @Controller('ai/sst')
-@UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(FeatureAiGuard, JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class SstAgentController {
   constructor(private readonly sstAgentService: SstAgentService) {}

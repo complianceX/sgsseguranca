@@ -29,6 +29,7 @@ import { AuditSection } from '@/components/AuditSection';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { toast } from 'sonner';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { isAiEnabled } from '@/lib/featureFlags';
 import {
   ptSchema,
   PtFormData,
@@ -574,6 +575,10 @@ export function PtForm({ id }: PtFormProps) {
   }, [currentSigningUser, setValue, watch]);
 
   const handleAiAnalysis = async () => {
+    if (!isAiEnabled()) {
+      toast.error('IA desativada neste ambiente.');
+      return;
+    }
     const data = watch();
     if (!data.titulo) {
       toast.error('Preencha pelo menos o título para a análise do GST.');
