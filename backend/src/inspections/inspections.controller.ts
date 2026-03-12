@@ -13,6 +13,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Res,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -28,6 +29,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
+import type { Response } from 'express';
 
 @Controller('inspections')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -75,6 +77,34 @@ export class InspectionsController {
   @Authorize('can_view_inspections')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.inspectionsService.findOne(id, this.getTenantIdOrThrow());
+  }
+
+  @Get(':id/evidences/:index/file')
+  @Authorize('can_view_inspections')
+  async downloadEvidence(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('index') index: string,
+    @Res() res: Response,
+  ) {
+    const tenantId = this.getTenantIdOrThrow();
+    const numericIndex = Number(index);
+    if (!Number.isFinite(numericIndex) || numericIndex < 0) {
+      throw new BadRequestException('Índice de evidência inválido.');
+    }
+
+    const { buffer, contentType, filename } =
+      await this.inspectionsService.downloadEvidenceFile(
+        id,
+        numericIndex,
+        tenantId,
+      );
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${encodeURIComponent(filename)}"`,
+    );
+    res.send(buffer);
   }
 
   @Patch(':id')

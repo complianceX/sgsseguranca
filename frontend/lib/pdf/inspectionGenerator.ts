@@ -127,8 +127,28 @@ export async function generateInspectionPdf(
 
     // Render imagens das evidências logo após a tabela, para facilitar impressão
     // e manter o relatório completo mesmo offline.
-    const toDataUrl = async (url: string) => {
+    const toDataUrl = async (url: string, idx: number) => {
       if (url.startsWith("data:")) return url;
+
+      // Tenta baixar via API (mesma origem) para evitar CORS de buckets.
+      if (inspection.id) {
+        try {
+          const apiUrl = `/api/v1/inspections/${inspection.id}/evidences/${idx}/file`;
+          const apiResp = await fetch(apiUrl, { credentials: "include" });
+          if (apiResp.ok) {
+            const blob = await apiResp.blob();
+            return await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+          }
+        } catch (err) {
+          console.warn("Fallback para URL assinada da evidência:", err);
+        }
+      }
+
       const response = await fetch(url);
       const blob = await response.blob();
       return await new Promise<string>((resolve, reject) => {
@@ -161,7 +181,7 @@ export async function generateInspectionPdf(
       doc.text(sanitize(item.descricao || "Sem descrição"), 20, y + 6);
 
       try {
-        const dataUrl = await toDataUrl(item.url);
+        const dataUrl = await toDataUrl(item.url, index);
         const props = doc.getImageProperties(dataUrl as any);
         const ratio = Math.min(
           maxWidth / props.width,

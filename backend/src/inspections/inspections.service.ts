@@ -378,6 +378,51 @@ export class InspectionsService {
     return plainToClass(InspectionResponseDto, { ...inspection, evidencias });
   }
 
+  private guessContentType(filename?: string): string {
+    if (!filename) return 'application/octet-stream';
+    const ext = filename.split('.').pop()?.toLowerCase();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'heic':
+        return 'image/heic';
+      case 'pdf':
+        return 'application/pdf';
+      default:
+        return 'application/octet-stream';
+    }
+  }
+
+  async downloadEvidenceFile(
+    id: string,
+    index: number,
+    companyId: string,
+  ): Promise<{ buffer: Buffer; contentType: string; filename: string }> {
+    const inspection = await this.findOneEntity(id, companyId);
+    const evidencias = inspection.evidencias || [];
+    const evidence = evidencias[index];
+    if (!evidence || !evidence.url) {
+      throw new NotFoundException('Evidência não encontrada.');
+    }
+
+    const key = evidence.url;
+    const filename =
+      evidence.original_name ||
+      key.split('/').pop() ||
+      `evidencia-${index + 1}.bin`;
+
+    const buffer = await this.s3Service.downloadFile(key);
+    const contentType = this.guessContentType(filename);
+    return { buffer, contentType, filename };
+  }
+
   async findOneEntity(id: string, companyId: string): Promise<Inspection> {
     const inspection = await this.tenantRepo.findOne(id, companyId, {
       relations: ['site', 'responsavel', 'company'],
