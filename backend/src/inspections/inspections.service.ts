@@ -378,6 +378,55 @@ export class InspectionsService {
     return plainToClass(InspectionResponseDto, { ...inspection, evidencias });
   }
 
+  private buildValidationCode(inspection: Inspection): string {
+    const prefix = 'INS';
+    const year = new Date().getFullYear();
+    const ref = (inspection.id || inspection.tipo_inspecao || 'INS')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .slice(-8)
+      .toUpperCase();
+    return `${prefix}-${year}-${ref}`;
+  }
+
+  async validateByCode(code: string) {
+    const normalized = code.trim().toUpperCase();
+    const suffix = normalized.split('-').pop();
+    if (!suffix) {
+      throw new BadRequestException('Código inválido.');
+    }
+
+    const query = this.inspectionsRepository
+      .createQueryBuilder('inspection')
+      .where("REPLACE(inspection.id, '-', '') ILIKE :suffix", {
+        suffix: `%${suffix}%`,
+      })
+      .orderBy('inspection.created_at', 'DESC')
+      .limit(5);
+
+    const matches = await query.getMany();
+    const match = matches.find(
+      (item) => this.buildValidationCode(item) === normalized,
+    );
+
+    if (!match) {
+      return { valid: false, message: 'Documento não encontrado.' };
+    }
+
+    return {
+      valid: true,
+      code: normalized,
+      inspection: {
+        id: match.id,
+        site_id: match.site_id,
+        setor_area: match.setor_area,
+        tipo_inspecao: match.tipo_inspecao,
+        data_inspecao: match.data_inspecao,
+        responsavel_id: match.responsavel_id,
+        updated_at: match.updated_at,
+      },
+    };
+  }
+
   private guessContentType(filename?: string): string {
     if (!filename) return 'application/octet-stream';
     const ext = filename.split('.').pop()?.toLowerCase();

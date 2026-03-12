@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
 
-type VerifyMode = 'evidence' | 'signature';
+type VerifyMode = 'evidence' | 'signature' | 'code';
 
 interface EvidenceVerifyResponse {
   verified: boolean;
@@ -30,6 +30,21 @@ interface SignatureVerifyResponse {
   };
 }
 
+interface CodeVerifyResponse {
+  valid: boolean;
+  code?: string;
+  message?: string;
+  inspection?: {
+    id: string;
+    site_id?: string;
+    setor_area?: string;
+    tipo_inspecao?: string;
+    data_inspecao?: string;
+    responsavel_id?: string;
+    updated_at?: string;
+  };
+}
+
 export default function PublicHashVerifyPage() {
   const [mode, setMode] = useState<VerifyMode>('evidence');
   const [hash, setHash] = useState('');
@@ -40,18 +55,45 @@ export default function PublicHashVerifyPage() {
   const [signatureResult, setSignatureResult] = useState<SignatureVerifyResponse | null>(
     null,
   );
+  const [codeResult, setCodeResult] = useState<CodeVerifyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const resetResults = () => {
     setEvidenceResult(null);
     setSignatureResult(null);
+    setCodeResult(null);
     setError(null);
   };
 
-  const runVerify = useCallback(async (rawHash: string, targetMode: VerifyMode) => {
+  const runVerify = useCallback(async (rawValue: string, targetMode: VerifyMode) => {
     resetResults();
 
-    const normalizedHash = rawHash.trim().toLowerCase();
+    if (targetMode === 'code') {
+      const code = rawValue.trim();
+      if (!code) {
+        setError('Informe o código do documento.');
+        return;
+      }
+      try {
+        setLoading(true);
+        const response = await fetch(
+          `/api/v1/public/inspections/validate?code=${encodeURIComponent(code)}`,
+          { method: 'GET', cache: 'no-store' },
+        );
+        const data = (await response.json()) as CodeVerifyResponse;
+        setCodeResult(data);
+        if (!data.valid) {
+          setError(data.message || 'Documento não encontrado.');
+        }
+      } catch {
+        setError('Falha ao consultar validação por código. Tente novamente.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    const normalizedHash = rawValue.trim().toLowerCase();
     if (!/^[a-f0-9]{64}$/.test(normalizedHash)) {
       setError('Informe um hash SHA-256 válido com 64 caracteres.');
       return;
@@ -93,14 +135,27 @@ export default function PublicHashVerifyPage() {
   };
 
   useEffect(() => {
-    const hashParam = new URLSearchParams(window.location.search).get('hash');
-    if (!hashParam) return;
-    setHash(hashParam);
-    void runVerify(hashParam, 'evidence');
+    const params = new URLSearchParams(window.location.search);
+    const hashParam = params.get('hash');
+    const codeParam = params.get('code');
+    if (codeParam) {
+      setHash(codeParam);
+      setMode('code');
+      void runVerify(codeParam, 'code');
+      return;
+    }
+    if (hashParam) {
+      setHash(hashParam);
+      void runVerify(hashParam, 'evidence');
+    }
   }, [runVerify]);
 
   const isValid =
-    mode === 'evidence' ? Boolean(evidenceResult?.verified) : Boolean(signatureResult?.valid);
+    mode === 'evidence'
+      ? Boolean(evidenceResult?.verified)
+      : mode === 'signature'
+        ? Boolean(signatureResult?.valid)
+        : Boolean(codeResult?.valid);
 
   return (
     <main className="min-h-screen bg-[var(--ds-color-bg-subtle)] px-4 py-10">
@@ -108,7 +163,7 @@ export default function PublicHashVerifyPage() {
         <section className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
           <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">Validação Pública por Hash</h1>
           <p className="mt-1 text-[13px] text-[var(--ds-color-text-secondary)]">
-            Consulte autenticidade de evidências APR e assinaturas PDF sem login.
+            Consulte autenticidade por código do documento ou por hash SHA-256.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -141,6 +196,20 @@ export default function PublicHashVerifyPage() {
               >
                 Assinatura PDF
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('code');
+                  resetResults();
+                }}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold ${
+                  mode === 'code'
+                    ? 'bg-[var(--ds-color-focus)] text-white'
+                    : 'bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]'
+                }`}
+              >
+                Código do documento
+              </button>
             </div>
 
             <div className="flex gap-2">
@@ -148,7 +217,11 @@ export default function PublicHashVerifyPage() {
                 type="text"
                 value={hash}
                 onChange={(e) => setHash(e.target.value)}
-                placeholder="Cole o hash SHA-256"
+                placeholder={
+                  mode === 'code'
+                    ? 'Cole o código (ex.: INS-2026-22D77ACC)'
+                    : 'Cole o hash SHA-256'
+                }
                 className="w-full rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-[13px] text-[var(--ds-color-text-primary)]"
               />
               <button
@@ -176,6 +249,17 @@ export default function PublicHashVerifyPage() {
                   <ShieldCheck className="mt-0.5 h-5 w-5" />
                   <p className="text-[13px] font-semibold">Registro validado com sucesso.</p>
                 </div>
+
+                {mode === 'code' && codeResult?.inspection && (
+                  <div className="rounded-lg bg-[color:var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
+                    <p>Código: {codeResult.code}</p>
+                    <p>Inspeção: {codeResult.inspection.id}</p>
+                    <p>Tipo: {codeResult.inspection.tipo_inspecao || '-'}</p>
+                    <p>Setor/Área: {codeResult.inspection.setor_area || '-'}</p>
+                    <p>Data: {codeResult.inspection.data_inspecao || '-'}</p>
+                    <p>Última atualização: {codeResult.inspection.updated_at || '-'}</p>
+                  </div>
+                )}
 
                 {mode === 'evidence' && evidenceResult?.evidence && (
                   <div className="rounded-lg bg-[color:var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
