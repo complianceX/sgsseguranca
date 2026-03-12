@@ -27,6 +27,7 @@ import { trainingsService } from '@/services/trainingsService';
 import { aiService } from '@/services/aiService';
 import { format, isBefore } from 'date-fns';
 import { GandraInsights } from '@/components/GandraInsights';
+import { SophieStatusMiniCard } from '@/components/SophieStatusMiniCard';
 import { isAiEnabled } from '@/lib/featureFlags';
 import {
   BarChart,
@@ -296,6 +297,53 @@ export default function DashboardPage() {
           <GandraInsights />
         </div>
       </div>
+
+      {isAiEnabled() ? (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.35fr_0.65fr]">
+          <div className="ds-dashboard-panel p-5">
+            <div className="mb-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                Inteligencia operacional
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-[var(--ds-color-text-primary)]">
+                SOPHIE no centro da operação
+              </h2>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                A assistente acompanha riscos, documentos, evidências e capacidades ativas do ambiente.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/35 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
+                  Cobertura
+                </p>
+                <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  APR, PT, checklist, DDS, inspeções e imagens
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/35 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
+                  Fallback
+                </p>
+                <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Base local preserva continuidade mesmo sem provider externo
+                </p>
+              </div>
+              <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/35 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
+                  Governança
+                </p>
+                <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Respostas auditáveis, confiança declarada e revisão humana quando preciso
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <SophieStatusMiniCard />
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {stats.map((stat, index) => (
