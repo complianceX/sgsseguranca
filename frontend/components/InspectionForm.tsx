@@ -357,7 +357,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
   const [fetching, setFetching] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [evidenceFiles, setEvidenceFiles] = useState<Record<number, File | null>>({});
+  const [evidenceFiles, setEvidenceFiles] = useState<Record<number, File[]>>({});
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [cameraTargetIndex, setCameraTargetIndex] = useState<number | null>(
@@ -633,7 +633,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
 
       // Separar evidências com arquivo local para upload dedicado
       const evidenciasComArquivoIndices = Object.entries(evidenceFiles)
-        .filter(([, file]) => Boolean(file))
+        .filter(([, files]) => files && files.length > 0)
         .map(([idx]) => Number(idx));
 
       const evidenciasSemArquivo = (data.evidencias || []).filter(
@@ -656,10 +656,16 @@ export function InspectionForm({ id }: InspectionFormProps) {
       // Upload dos arquivos de evidência (se houver)
       if (inspectionId) {
         for (const idx of evidenciasComArquivoIndices) {
-          const file = evidenceFiles[idx];
-          if (!file) continue;
+          const files = evidenceFiles[idx];
+          if (!files?.length) continue;
           const descricao = data.evidencias?.[idx]?.descricao;
-          await inspectionsService.attachEvidence(inspectionId, file, descricao);
+          for (const file of files) {
+            await inspectionsService.attachEvidence(
+              inspectionId,
+              file,
+              descricao,
+            );
+          }
         }
       }
 
@@ -1578,8 +1584,8 @@ export function InspectionForm({ id }: InspectionFormProps) {
                             type="file"
                             accept="image/*"
                             onChange={(event) => {
-                              const file = event.target.files?.[0] || null;
-                              setEvidenceFiles((prev) => ({ ...prev, [index]: file }));
+                              const files = Array.from(event.target.files || []);
+                              setEvidenceFiles((prev) => ({ ...prev, [index]: files }));
                             }}
                             className="hidden"
                             id={`evidence-file-${index}`}
@@ -1602,9 +1608,11 @@ export function InspectionForm({ id }: InspectionFormProps) {
                             className="max-h-72 w-full object-cover"
                           />
                         </div>
-                      ) : evidenceFiles[index] ? (
+                      ) : evidenceFiles[index]?.length ? (
                         <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3 text-sm text-[var(--ds-color-text-primary)]">
-                          {evidenceFiles[index]?.name}
+                          {evidenceFiles[index]
+                            ?.map((file) => file.name)
+                            .join(", ")}
                         </div>
                       ) : null}
                     </CardContent>
