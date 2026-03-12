@@ -1,0 +1,69 @@
+{
+  "rules": [
+    {
+      "id": "activity:soldagem",
+      "when": { "atividade_contains": ["soldagem", "solda"] },
+      "outputs": {
+        "perigos": ["fumos metálicos", "radiação ultravioleta", "queimaduras", "projeção de partículas"],
+        "agentes": ["químico", "físico", "acidente"],
+        "normas": ["NR-06", "NR-12", "NR-15"],
+        "controles": {
+          "eliminacao": ["eliminar soldagem desnecessária (pré-fabricação quando aplicável)"],
+          "substituicao": ["substituir consumíveis por alternativas menos tóxicas quando possível"],
+          "engenharia": ["ventilação local exaustora", "isolamento/enclausuramento da área", "cortinas de solda"],
+          "administrativas": ["procedimento de trabalho seguro", "treinamento de soldagem segura", "inspeções periódicas"],
+          "epi": ["respirador adequado", "máscara de solda", "óculos de proteção", "luvas de solda", "aventais/vestimentas de proteção"]
+        }
+      }
+    },
+    {
+      "id": "activity:trabalho_em_altura",
+      "when": { "atividade_contains": ["trabalho em altura", "altura", "telhado", "andaime"] },
+      "outputs": {
+        "perigos": ["queda de altura", "queda de objetos/ferramentas"],
+        "agentes": ["acidente"],
+        "normas": ["NR-35", "NR-06"],
+        "controles": {
+          "eliminacao": ["eliminar necessidade de acesso em altura (uso de métodos alternativos)"],
+          "substituicao": ["substituir acesso por plataforma elevatória quando for mais segura"],
+          "engenharia": ["guarda-corpo", "linha de vida", "pontos de ancoragem certificados", "redes de proteção"],
+          "administrativas": ["permissão de trabalho", "plano de resgate", "inspeção de EPI/EPC", "sinalização e isolamento"],
+          "epi": ["cinturão tipo paraquedista", "talabarte duplo com absorvedor", "capacete com jugular"]
+        }
+      }
+    },
+    {
+      "id": "activity:eletricidade",
+      "when": { "atividade_contains": ["eletricidade", "manutenção elétrica", "painel elétrico"], "processo_contains": ["energizado", "desenergizado"] },
+      "outputs": {
+        "perigos": ["choque elétrico", "arco elétrico", "queimaduras elétricas"],
+        "agentes": ["acidente"],
+        "normas": ["NR-10", "NR-06"],
+        "controles": {
+          "eliminacao": ["eliminar trabalho energizado (desenergizar sempre que possível)"],
+          "substituicao": ["substituir componentes defeituosos por componentes certificados"],
+          "engenharia": ["dispositivos de seccionamento e bloqueio", "barreiras e proteções", "aterramento"],
+          "administrativas": ["bloqueio e etiquetagem (LOTO)", "procedimento NR-10", "treinamento e autorização", "análise preliminar de risco"],
+          "epi": ["luvas isolantes", "protetor facial", "vestimenta anti-chama", "calçado dielétrico"]
+        }
+      }
+    },
+    {
+      "id": "space:confinado",
+      "when": { "ambiente_contains": ["espaco confinado", "espaço confinado", "tanque", "silo"] },
+      "outputs": {
+        "perigos": ["atmosfera pobre em oxigênio", "presença de gases tóxicos", "atmosfera explosiva", "aprisionamento/engolfamento"],
+        "agentes": ["acidente", "químico"],
+        "normas": ["NR-33", "NR-06"],
+        "controles": {
+          "eliminacao": ["eliminar entrada (método alternativo de limpeza/inspeção)"],
+          "substituicao": ["substituir produtos por alternativas menos voláteis quando aplicável"],
+          "engenharia": ["ventilação/exaustão forçada", "monitoramento contínuo de gases", "iluminação intrinsecamente segura quando aplicável"],
+          "administrativas": ["permissão de entrada e trabalho", "vigia", "plano de resgate", "treinamento NR-33"],
+          "epi": ["detector portátil de gases", "respirador adequado (inclusive autônomo quando exigido)", "cinto de resgate"]
+        }
+      }
+    }
+  ]
+}
+

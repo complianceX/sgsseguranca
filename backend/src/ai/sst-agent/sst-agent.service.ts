@@ -25,6 +25,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { TenantService } from '../../common/tenant/tenant.service';
 import { AiInteraction } from '../entities/ai-interaction.entity';
 import { SOPHIE_IMAGE_ANALYSIS_PROMPT, SOPHIE_SYSTEM_PROMPT } from '../sophie.prompts';
+import { SophieLocalChatService } from '../../sophie/sophie.local-chat.service';
 import {
   GEMINI_TOOL_DECLARATIONS,
   OPENAI_TOOL_DEFINITIONS,
@@ -57,6 +58,7 @@ const ANTHROPIC_PROVIDER = 'anthropic';
 const GEMINI_PROVIDER = 'gemini';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 const OPENAI_PROVIDER = 'openai';
+const LOCAL_PROVIDER = 'local';
 const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
 const DEFAULT_OPENAI_VISION_MODEL = 'gpt-4.1-mini';
 const MAX_TOKENS = 2048;
@@ -74,6 +76,7 @@ type SupportedAiProvider =
   | typeof OPENAI_PROVIDER
   | typeof ANTHROPIC_PROVIDER
   | typeof GEMINI_PROVIDER
+  | typeof LOCAL_PROVIDER
   | 'stub';
 
 type GeminiGenerateContentResponse = {
@@ -148,6 +151,7 @@ export class SstAgentService {
     private readonly tenantService: TenantService,
     private readonly toolsExecutor: SstToolsExecutor,
     private readonly rateLimitService: SstRateLimitService,
+    private readonly sophieLocalChatService: SophieLocalChatService,
   ) {
     const preferredProvider = this.configService
       .get<string>('AI_PROVIDER')
@@ -190,6 +194,15 @@ export class SstAgentService {
       'AI_HISTORY_MAX_LIMIT',
       DEFAULT_AI_HISTORY_MAX_LIMIT,
     );
+
+    if (preferredProvider === LOCAL_PROVIDER) {
+      this.anthropic = null;
+      this.geminiApiKey = null;
+      this.provider = LOCAL_PROVIDER;
+      this.model = 'sophie-local';
+      this.logger.log('SstAgentService iniciado com SOPHIE local (base interna)');
+      return;
+    }
 
     if ((preferredProvider === OPENAI_PROVIDER || !preferredProvider) && openaiApiKey) {
       this.anthropic = null;
@@ -242,9 +255,16 @@ export class SstAgentService {
     }
 
     this.anthropic = null;
-    this.logger.warn(
-      'Nenhum provider de IA configurado (OPENAI_API_KEY, ANTHROPIC_API_KEY ou GEMINI_API_KEY) - SstAgentService em modo STUB',
-    );
+    if (preferredProvider === 'stub') {
+      this.logger.warn(
+        'Nenhum provider de IA configurado (OPENAI_API_KEY, ANTHROPIC_API_KEY ou GEMINI_API_KEY) - SstAgentService em modo STUB',
+      );
+      return;
+    }
+
+    this.provider = LOCAL_PROVIDER;
+    this.model = 'sophie-local';
+    this.logger.log('Nenhum provider externo configurado - usando SOPHIE local (base interna)');
   }
 
   // -------------------------------------------------------------------------
@@ -283,6 +303,23 @@ export class SstAgentService {
       provider: this.provider,
       status: AiInteractionStatus.SUCCESS,
     });
+
+    if (this.provider === LOCAL_PROVIDER) {
+      const localResp = this.sophieLocalChatService.chat(question);
+      interaction.response = localResp;
+      interaction.latency_ms = Date.now() - startTime;
+      interaction.confidence = localResp.confidence;
+      interaction.needs_human_review = localResp.needsHumanReview;
+      interaction.tools_called = localResp.toolsUsed;
+      try {
+        await this.interactionRepo.save(interaction);
+      } catch (saveErr) {
+        this.logger.warn(
+          `[SstAgent] Falha ao persistir interação local (non-fatal): ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`,
+        );
+      }
+      return this.toSstChatResponse(localResp, interaction.id, AiInteractionStatus.SUCCESS);
+    }
 
     if (this.provider === 'stub') {
       const stubResp = this.buildStubResponse(question);
@@ -412,6 +449,22 @@ export class SstAgentService {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
       throw new UnauthorizedException('Tenant nao identificado. Verifique autenticacao.');
+    }
+
+    if (this.provider === LOCAL_PROVIDER) {
+      // Sem modelo de visão local: orientar o usuário a descrever o cenário.
+      return {
+        summary:
+          'Análise de imagem indisponível no modo SOPHIE local. Descreva a atividade e o ambiente para eu analisar perigos e riscos.',
+        riskLevel: 'Médio',
+        imminentRisks: [],
+        immediateActions: [
+          'Descreva atividade, setor, máquinas e condições do ambiente',
+          'Informe se há trabalho em altura, eletricidade, espaço confinado ou químicos',
+        ],
+        ppeRecommendations: [],
+        notes: 'Para análise local, use o chat informando os campos: atividade/setor/máquina/ambiente.',
+      };
     }
 
     if (!ALLOWED_IMAGE_MIME_TYPES.includes(mimeType as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {

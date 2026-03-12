@@ -20,10 +20,12 @@ import { SstAgentService } from './sst-agent/sst-agent.service';
 import { SstAgentController } from './sst-agent/sst-agent.controller';
 import { SstToolsExecutor } from './sst-agent/sst-agent.tools';
 import { SstRateLimitService } from './sst-agent/sst-rate-limit.service';
+import { SophieModule } from '../sophie/sophie.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([AiInteraction]),
+    SophieModule,
     EpisModule,
     AprsModule,
     PtsModule,
