@@ -190,7 +190,8 @@ export class AprsController {
     @Req() req: any,
   ) {
     if (!file) throw new BadRequestException('Nenhum arquivo enviado');
-    return this.aprsService.attachPdf(id, file, req.user?.id);
+    const userId = req.user?.id || req.user?.sub;
+    return this.aprsService.attachPdf(id, file, userId);
   }
 
   /** Aprova a APR — Pendente → Aprovada */

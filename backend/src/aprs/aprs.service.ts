@@ -202,6 +202,13 @@ export class AprsService {
 
   async update(id: string, updateAprDto: UpdateAprDto): Promise<Apr> {
     const apr = await this.findOneForWrite(id);
+    // Se a APR tem PDF anexado, assumimos que é o documento final assinado.
+    // Por integridade e rastreabilidade, bloqueamos qualquer edição no registro.
+    if (apr.pdf_file_key) {
+      throw new BadRequestException(
+        'APR assinada anexada. Edição bloqueada. Crie uma nova versão para alterar.',
+      );
+    }
     const { activities, risks, epis, tools, machines, participants, ...rest } =
       updateAprDto;
 
@@ -365,6 +372,9 @@ export class AprsService {
     userId?: string,
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
     const apr = await this.findOneForWrite(id);
+    if (apr.pdf_file_key) {
+      throw new BadRequestException('Esta APR já possui PDF anexado e está bloqueada para edição.');
+    }
     const key = this.s3Service.generateDocumentKey(
       apr.company_id,
       'aprs',
@@ -379,12 +389,20 @@ export class AprsService {
     }
 
     const folder = `aprs/${apr.company_id}`;
+    // Anexar PDF assinado finaliza a APR: aprova e bloqueia edição.
+    const approvalReason = 'PDF assinado anexado';
+    const now = new Date();
     await this.aprsRepository.update(id, {
       pdf_file_key: key,
       pdf_folder_path: folder,
       pdf_original_name: file.originalname,
+      status: AprStatus.APROVADA,
+      aprovado_por_id: userId ?? null,
+      aprovado_em: now,
+      aprovado_motivo: approvalReason,
     });
     await this.addLog(id, userId, 'pdf_anexado', { fileKey: key });
+    await this.addLog(id, userId, 'aprovado_por_pdf', { motivo: approvalReason });
 
     return { fileKey: key, folderPath: folder, originalName: file.originalname };
   }

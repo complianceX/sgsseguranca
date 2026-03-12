@@ -41,6 +41,9 @@ import { AprLogEntry, AprTimeline } from './AprTimeline';
 import { useAuth } from '@/context/AuthContext';
 
 const aprSchema = z.object({
+  // Campo interno: indica que o usuário anexou uma APR já preenchida e assinada (PDF).
+  // Usado somente para validação/UX do wizard; não deve ser enviado para a API.
+  pdf_signed: z.boolean().optional(),
   numero: z.string().min(1, 'O número é obrigatório'),
   titulo: z.string().min(5, 'O título deve ter pelo menos 5 caracteres'),
   descricao: z.string().optional(),
@@ -52,9 +55,9 @@ const aprSchema = z.object({
   company_id: z.string().min(1, 'Selecione uma empresa'),
   site_id: z.string().min(1, 'Selecione um site'),
   elaborador_id: z.string().min(1, 'Selecione um elaborador'),
-  activities: z.array(z.string()).min(1, 'Selecione pelo menos uma atividade'),
-  risks: z.array(z.string()).min(1, 'Selecione pelo menos um risco'),
-  epis: z.array(z.string()).min(1, 'Selecione pelo menos um EPI'),
+  activities: z.array(z.string()).optional(),
+  risks: z.array(z.string()).optional(),
+  epis: z.array(z.string()).optional(),
   tools: z.array(z.string()).optional(),
   machines: z.array(z.string()).optional(),
   participants: z.array(z.string()).optional(),
@@ -68,11 +71,43 @@ const aprSchema = z.object({
     severidade: z.string().optional(),
     categoria_risco: z.string().optional(),
     medidas_prevencao: z.string().optional(),
-  })).min(1, 'Adicione pelo menos um risco'),
+  })).optional(),
   auditado_por_id: z.string().optional(),
   data_auditoria: z.string().optional(),
   resultado_auditoria: z.string().optional(),
   notas_auditoria: z.string().optional(),
+}).superRefine((data, ctx) => {
+  // Se anexou a APR já preenchida e assinada (PDF), não exigimos preencher o wizard inteiro.
+  if (data.pdf_signed) return;
+
+  if (!data.activities || data.activities.length < 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['activities'],
+      message: 'Selecione pelo menos uma atividade',
+    });
+  }
+  if (!data.risks || data.risks.length < 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['risks'],
+      message: 'Selecione pelo menos um risco',
+    });
+  }
+  if (!data.epis || data.epis.length < 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['epis'],
+      message: 'Selecione pelo menos um EPI',
+    });
+  }
+  if (!data.itens_risco || data.itens_risco.length < 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['itens_risco'],
+      message: 'Adicione pelo menos um risco',
+    });
+  }
 });
 
 type AprFormData = z.infer<typeof aprSchema>;
@@ -259,6 +294,7 @@ export function AprForm({ id }: AprFormProps) {
   } = useForm<AprFormData>({
     resolver: zodResolver(aprSchema),
     defaultValues: {
+      pdf_signed: false,
       numero: '',
       titulo: '',
       descricao: '',
@@ -309,6 +345,7 @@ export function AprForm({ id }: AprFormProps) {
   const selectedParticipantIds = watch('participants') || [];
   const isModelo = watch('is_modelo');
   const isApproved = currentApr?.status === 'Aprovada';
+  const signedPdfMode = Boolean(watch('pdf_signed')) || Boolean(currentApr?.pdf_file_key);
   const selectedCompany = companies.find((company) => company.id === selectedCompanyId);
   const selectedSite = sites.find((site) => site.id === selectedSiteId);
   const selectedElaborador = users.find((user) => user.id === selectedElaboradorId);
@@ -332,11 +369,17 @@ export function AprForm({ id }: AprFormProps) {
       }
 
       let aprId = id;
+      // Remove campo interno (não existe no DTO do backend) e força status Aprovada quando há PDF assinado.
+      const { pdf_signed, ...payload } = data as any;
+      const finalPayload = {
+        ...payload,
+        status: signedPdfMode ? 'Aprovada' : payload.status,
+      } as AprFormData;
       
       if (id) {
-        await aprsService.update(id, data);
+        await aprsService.update(id, finalPayload);
       } else {
-        const newApr = await aprsService.create(data);
+        const newApr = await aprsService.create(finalPayload);
         aprId = newApr.id;
       }
 
@@ -754,6 +797,7 @@ export function AprForm({ id }: AprFormProps) {
           );
 
           reset({
+            pdf_signed: Boolean(apr.pdf_file_key),
             numero: apr.numero,
             titulo: apr.titulo,
             descricao: apr.descricao || '',
@@ -1624,9 +1668,25 @@ export function AprForm({ id }: AprFormProps) {
                 type="file"
                 accept="application/pdf"
                 aria-label="Selecionar PDF da APR"
-                onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
+                disabled={Boolean(currentApr?.pdf_file_key)}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] || null;
+                  setPdfFile(file);
+                  const hasSignedPdf = Boolean(file) || Boolean(currentApr?.pdf_file_key);
+                  setValue('pdf_signed', hasSignedPdf, { shouldDirty: true, shouldValidate: true });
+                  if (hasSignedPdf) {
+                    setValue('status', 'Aprovada', { shouldDirty: true, shouldValidate: true });
+                  }
+                }}
                 className={aprFileFieldClass}
               />
+              {(pdfFile || currentApr?.pdf_file_key) && (
+                <div className="mt-2">
+                  <p className={aprWarningInlineClass}>
+                    PDF assinado anexado: ao salvar, a APR será marcada como <strong>Aprovada</strong> e ficará bloqueada para edição.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>
@@ -1700,7 +1760,8 @@ export function AprForm({ id }: AprFormProps) {
               <label className={aprLabelClass}>Status</label>
               <select
                 {...register('status')}
-                className={aprFieldClass}
+                disabled={signedPdfMode}
+                className={cn(aprFieldClass, signedPdfMode && aprFieldDisabledClass)}
               >
                 <option value="Pendente">Pendente</option>
                 <option value="Aprovada">Aprovada</option>
@@ -2195,16 +2256,7 @@ export function AprForm({ id }: AprFormProps) {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-0 sm:space-x-4">
-              {currentStep < 3 ? (
-                <button
-                  type="button"
-                  onClick={nextStep}
-                  className={aprPrimaryActionClass}
-                >
-                  <span>Próximo</span>
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              ) : (
+              {signedPdfMode || currentStep >= 3 ? (
                 <button
                   type="submit"
                   disabled={loading || isApproved}
@@ -2215,7 +2267,24 @@ export function AprForm({ id }: AprFormProps) {
                   ) : (
                     <Save className="h-4 w-4" />
                   )}
-                  <span>{isApproved ? 'APR bloqueada (aprovada)' : id ? 'Atualizar APR' : 'Salvar APR'}</span>
+                  <span>
+                    {isApproved
+                      ? 'APR bloqueada (aprovada)'
+                      : signedPdfMode
+                        ? 'Salvar APR (PDF assinado)'
+                        : id
+                          ? 'Atualizar APR'
+                          : 'Salvar APR'}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={nextStep}
+                  className={aprPrimaryActionClass}
+                >
+                  <span>Próximo</span>
+                  <ArrowRight className="h-4 w-4" />
                 </button>
               )}
             </div>
