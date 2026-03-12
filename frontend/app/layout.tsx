@@ -6,6 +6,7 @@ import { Toaster } from 'sonner';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { PwaBootstrap } from '@/components/PwaBootstrap';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { SystemThemeLoader } from '@/components/SystemThemeLoader';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,6 +48,7 @@ export default function RootLayout({
       >
         <AppErrorBoundary>
           <ThemeProvider>
+            <SystemThemeLoader />
             <AuthProvider>
               <PwaBootstrap />
               {children}
