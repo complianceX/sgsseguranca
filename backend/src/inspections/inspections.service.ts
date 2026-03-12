@@ -27,6 +27,7 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import { S3Service } from '../common/storage/s3.service';
 
 @Injectable()
 export class InspectionsService {
@@ -43,6 +44,7 @@ export class InspectionsService {
     private notificationsGateway: NotificationsGateway,
     private tenantService: TenantService,
     tenantRepositoryFactory: TenantRepositoryFactory,
+    private readonly s3Service: S3Service,
   ) {
     this.tenantRepo = tenantRepositoryFactory.wrap(this.inspectionsRepository);
   }
@@ -116,8 +118,42 @@ export class InspectionsService {
       .map((item) => ({
         descricao: this.normalizeRequiredText(item.descricao),
         url: this.normalizeText(item.url) || undefined,
+        original_name: this.normalizeText((item as any).original_name) || undefined,
       }))
       .filter((item) => item.descricao || item.url);
+  }
+
+  private async signEvidenceUrls(
+    evidencias: Inspection['evidencias'],
+  ): Promise<
+    | {
+        descricao: string;
+        url?: string;
+        original_name?: string;
+      }[]
+    | null
+  > {
+    if (!evidencias || evidencias.length === 0) return evidencias ?? null;
+    const mapped = await Promise.all(
+      evidencias.map(async (ev) => {
+        if (!ev.url) return ev;
+        const isHttp = ev.url.startsWith('http://') || ev.url.startsWith('https://');
+        let signed = ev.url;
+        if (!isHttp) {
+          try {
+            signed = await this.s3Service.getSignedUrl(ev.url, 3600);
+          } catch (err) {
+            this.logger.warn(
+              `Não foi possível assinar URL da evidência (${ev.url}): ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            );
+          }
+        }
+        return { ...ev, url: signed };
+      }),
+    );
+    return mapped;
   }
 
   private buildCreatePayload(
@@ -338,7 +374,8 @@ export class InspectionsService {
 
   async findOne(id: string, companyId: string): Promise<InspectionResponseDto> {
     const inspection = await this.findOneEntity(id, companyId);
-    return plainToClass(InspectionResponseDto, inspection);
+    const evidencias = await this.signEvidenceUrls(inspection.evidencias);
+    return plainToClass(InspectionResponseDto, { ...inspection, evidencias });
   }
 
   async findOneEntity(id: string, companyId: string): Promise<Inspection> {
@@ -369,5 +406,46 @@ export class InspectionsService {
   async remove(id: string, companyId: string): Promise<void> {
     const inspection = await this.findOneEntity(id, companyId);
     await this.inspectionsRepository.remove(inspection);
+  }
+
+  async attachEvidence(
+    id: string,
+    file: Express.Multer.File,
+    descricao: string | undefined,
+    companyId: string,
+  ) {
+    if (!file) throw new BadRequestException('Arquivo não enviado.');
+    const inspection = await this.findOneEntity(id, companyId);
+
+    const key = this.s3Service.generateDocumentKey(
+      inspection.company_id,
+      'inspections',
+      id,
+      file.originalname,
+    );
+
+    try {
+      await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
+    } catch (err) {
+      this.logger.error(
+        `Falha ao enviar evidência para armazenamento: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      throw new BadRequestException('Não foi possível armazenar o arquivo da evidência.');
+    }
+
+    const entry = {
+      descricao: this.normalizeRequiredText(
+        descricao || file.originalname || 'Evidência sem descrição',
+      ),
+      url: key,
+      original_name: file.originalname,
+    };
+
+    const evidencias = [...(inspection.evidencias || []), entry];
+    await this.inspectionsRepository.update(id, { evidencias });
+
+    return { evidencias };
   }
 }

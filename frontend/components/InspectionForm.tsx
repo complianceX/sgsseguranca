@@ -357,6 +357,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
   const [fetching, setFetching] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [evidenceFiles, setEvidenceFiles] = useState<Record<number, File | null>>({});
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [cameraTargetIndex, setCameraTargetIndex] = useState<number | null>(
@@ -454,11 +455,11 @@ export function InspectionForm({ id }: InspectionFormProps) {
       setSites(sortByName(sitesData));
       setUsers(sortByName(usersData));
 
-      if (id) {
-        const inspection = await inspectionsService.findOne(id);
-        reset(
-          buildDefaultValues({
-            site_id: inspection.site_id,
+        if (id) {
+          const inspection = await inspectionsService.findOne(id);
+          reset(
+            buildDefaultValues({
+              site_id: inspection.site_id,
             setor_area: inspection.setor_area,
             tipo_inspecao: inspection.tipo_inspecao,
             data_inspecao: inspection.data_inspecao,
@@ -469,15 +470,17 @@ export function InspectionForm({ id }: InspectionFormProps) {
               inspection.descricao_local_atividades || "",
             metodologia: inspection.metodologia || [],
             perigos_riscos: inspection.perigos_riscos || [],
-            plano_acao: inspection.plano_acao || [],
-            evidencias: inspection.evidencias || [],
-            conclusao: inspection.conclusao || "",
-          }),
-        );
-      } else {
-        reset(buildDefaultValues());
-      }
-    } catch (error) {
+              plano_acao: inspection.plano_acao || [],
+              evidencias: inspection.evidencias || [],
+              conclusao: inspection.conclusao || "",
+            }),
+          );
+          setEvidenceFiles({});
+        } else {
+          reset(buildDefaultValues());
+          setEvidenceFiles({});
+        }
+      } catch (error) {
       console.error("Erro ao carregar formulário de inspeção:", error);
       setLoadError(
         "Não foi possível carregar os dados necessários para a inspeção.",
@@ -628,12 +631,36 @@ export function InspectionForm({ id }: InspectionFormProps) {
       setLoading(true);
       setSubmitError(null);
 
+      // Separar evidências com arquivo local para upload dedicado
+      const evidenciasComArquivoIndices = Object.entries(evidenceFiles)
+        .filter(([, file]) => Boolean(file))
+        .map(([idx]) => Number(idx));
+
+      const evidenciasSemArquivo = (data.evidencias || []).filter(
+        (_item, idx) => !evidenciasComArquivoIndices.includes(idx),
+      );
+
+      const payload = { ...data, evidencias: evidenciasSemArquivo };
+
+      let inspectionId = id;
       if (id) {
-        await inspectionsService.update(id, data);
+        const updated = await inspectionsService.update(id, payload);
+        inspectionId = updated.id;
         toast.success("Relatório de inspeção atualizado com sucesso.");
       } else {
-        await inspectionsService.create(data);
+        const created = await inspectionsService.create(payload);
+        inspectionId = created.id;
         toast.success("Relatório de inspeção criado com sucesso.");
+      }
+
+      // Upload dos arquivos de evidência (se houver)
+      if (inspectionId) {
+        for (const idx of evidenciasComArquivoIndices) {
+          const file = evidenceFiles[idx];
+          if (!file) continue;
+          const descricao = data.evidencias?.[idx]?.descricao;
+          await inspectionsService.attachEvidence(inspectionId, file, descricao);
+        }
       }
 
       router.push("/dashboard/inspections");
@@ -1546,6 +1573,25 @@ export function InspectionForm({ id }: InspectionFormProps) {
                             Usar câmera
                           </Button>
                         </div>
+                        <div className="flex items-end gap-2">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0] || null;
+                              setEvidenceFiles((prev) => ({ ...prev, [index]: file }));
+                            }}
+                            className="hidden"
+                            id={`evidence-file-${index}`}
+                          />
+                          <label
+                            htmlFor={`evidence-file-${index}`}
+                            className="inline-flex cursor-pointer items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] transition-all hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--ds-color-surface-elevated)]"
+                          >
+                            <Camera className="h-4 w-4" />
+                            Anexar foto
+                          </label>
+                        </div>
                       </div>
                       {isImage ? (
                         <div className="overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]">
@@ -1555,6 +1601,10 @@ export function InspectionForm({ id }: InspectionFormProps) {
                             alt={`Pré-visualização da evidência ${index + 1}`}
                             className="max-h-72 w-full object-cover"
                           />
+                        </div>
+                      ) : evidenceFiles[index] ? (
+                        <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3 text-sm text-[var(--ds-color-text-primary)]">
+                          {evidenceFiles[index]?.name}
                         </div>
                       ) : null}
                     </CardContent>

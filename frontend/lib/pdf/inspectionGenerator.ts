@@ -124,6 +124,71 @@ export async function generateInspectionPdf(
       ]),
       { styles: { fontSize: 8, cellPadding: 2 } },
     );
+
+    // Render imagens das evidências logo após a tabela, para facilitar impressão
+    // e manter o relatório completo mesmo offline.
+    const toDataUrl = async (url: string) => {
+      if (url.startsWith("data:")) return url;
+      const response = await fetch(url);
+      const blob = await response.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    };
+
+    const maxWidth = 180;
+    const maxHeight = 120;
+    for (const [index, item] of inspection.evidencias.entries()) {
+      if (!item.url) continue;
+
+      const ensureSpace = (required: number) => {
+        if (y + required > 270) {
+          doc.addPage();
+          y = 20;
+        }
+      };
+
+      ensureSpace(maxHeight + 25);
+      const label = `Evidência ${index + 1}`;
+      doc.setFontSize(12);
+      doc.setTextColor(30, 30, 30);
+      doc.text(label, 20, y);
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.text(sanitize(item.descricao || "Sem descrição"), 20, y + 6);
+
+      try {
+        const dataUrl = await toDataUrl(item.url);
+        const props = doc.getImageProperties(dataUrl as any);
+        const ratio = Math.min(
+          maxWidth / props.width,
+          maxHeight / props.height,
+          1,
+        );
+        const renderWidth = props.width * ratio;
+        const renderHeight = props.height * ratio;
+        const x = 20;
+        const yPos = y + 12;
+        doc.addImage(
+          dataUrl,
+          props.fileType || "PNG",
+          x,
+          yPos,
+          renderWidth,
+          renderHeight,
+        );
+        y = yPos + renderHeight + 12;
+      } catch (err) {
+        doc.setTextColor(170, 50, 50);
+        doc.text("Não foi possível carregar esta imagem.", 20, y + 14);
+        y += 24;
+      } finally {
+        doc.setTextColor(0, 0, 0);
+      }
+    }
   }
 
   y = drawTextCard(doc, y, "Conclusão", inspection.conclusao);

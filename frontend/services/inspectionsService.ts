@@ -41,6 +41,7 @@ export interface Inspection {
   evidencias?: {
     descricao: string;
     url?: string;
+    original_name?: string;
   }[];
   conclusao?: string;
   created_at: string;
@@ -81,6 +82,7 @@ export interface CreateInspectionDto {
   evidencias?: {
     descricao: string;
     url?: string;
+    original_name?: string;
   }[];
   conclusao?: string;
 }
@@ -127,6 +129,20 @@ export const inspectionsService = {
 
   update: async (id: string, data: UpdateInspectionDto) => {
     const response = await api.patch<Inspection>(`/inspections/${id}`, data);
+    return response.data;
+  },
+
+  attachEvidence: async (id: string, file: File, descricao?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (descricao) formData.append('descricao', descricao);
+    const response = await api.post<{ evidencias: Inspection['evidencias'] }>(
+      `/inspections/${id}/evidences`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      },
+    );
     return response.data;
   },
 

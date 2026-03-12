@@ -10,7 +10,12 @@ import {
   UnauthorizedException,
   ParseUUIDPipe,
   Query,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { InspectionsService } from './inspections.service';
 import {
   CreateInspectionDto,
@@ -91,5 +96,28 @@ export class InspectionsController {
   @Authorize('can_manage_inspections')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.inspectionsService.remove(id, this.getTenantIdOrThrow());
+  }
+
+  @Post(':id/evidences')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_inspections')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 15 * 1024 * 1024 },
+    }),
+  )
+  async attachEvidence(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('descricao') descricao?: string,
+  ) {
+    if (!file) throw new BadRequestException('Nenhum arquivo enviado.');
+    return this.inspectionsService.attachEvidence(
+      id,
+      file,
+      descricao,
+      this.getTenantIdOrThrow(),
+    );
   }
 }

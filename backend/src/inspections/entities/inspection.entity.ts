@@ -100,6 +100,7 @@ export class Inspection {
     | {
         descricao: string;
         url?: string;
+        original_name?: string;
       }[]
     | null;
 
