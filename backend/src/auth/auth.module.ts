@@ -9,6 +9,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { PdfRateLimitService } from './services/pdf-rate-limit.service';
 import { BruteForceService } from './brute-force.service';
+import { getAccessTokenTtl, isInfiniteTtl } from './auth-security.config';
 
 @Module({
   imports: [
@@ -21,10 +22,12 @@ import { BruteForceService } from './brute-force.service';
         if (!jwtSecret) {
           throw new Error('JWT_SECRET is required');
         }
-        return {
-          secret: jwtSecret,
-          signOptions: { expiresIn: '1d' },
-        };
+        const accessTokenTtl =
+          configService.get<string>('ACCESS_TOKEN_TTL') || getAccessTokenTtl();
+        const signOptions = isInfiniteTtl(accessTokenTtl)
+          ? {}
+          : ({ expiresIn: accessTokenTtl } as any);
+        return { secret: jwtSecret, signOptions };
       },
       inject: [ConfigService],
     }),

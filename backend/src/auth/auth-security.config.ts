@@ -1,9 +1,15 @@
 import type { SignOptions } from 'jsonwebtoken';
 
-const DEFAULT_ACCESS_TOKEN_TTL = '15m';
-const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 7;
+// Ajustamos os padrões para "praticamente ilimitado": 10 anos.
+const DEFAULT_ACCESS_TOKEN_TTL = '3650d';
+const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 3650; // 10 anos
 const DEFAULT_MAX_ACTIVE_SESSIONS_PER_USER = 5;
 type TokenExpiresIn = NonNullable<SignOptions['expiresIn']>;
+
+export function isInfiniteTtl(ttl: TokenExpiresIn | string): boolean {
+  const normalized = String(ttl).toLowerCase();
+  return normalized === '0' || normalized === 'never' || normalized === 'infinite';
+}
 
 function parsePositiveInt(
   value: string | undefined,
@@ -43,6 +49,9 @@ export function getAccessTokenTtl(): TokenExpiresIn {
 
 export function getAccessTokenCookieMaxAgeMs(): number {
   const ttl = getAccessTokenTtl();
+  if (isInfiniteTtl(ttl)) {
+    return 100 * 365 * 24 * 60 * 60 * 1000; // 100 anos em ms
+  }
   if (typeof ttl === 'number') {
     return ttl * 1000;
   }
@@ -52,11 +61,11 @@ export function getAccessTokenCookieMaxAgeMs(): number {
 }
 
 export function getRefreshTokenTtlDays(): number {
-  return parsePositiveInt(
-    process.env.REFRESH_TOKEN_TTL_DAYS,
-    DEFAULT_REFRESH_TOKEN_TTL_DAYS,
-    30,
-  );
+  const raw = process.env.REFRESH_TOKEN_TTL_DAYS;
+  if (raw?.trim() === '0' || raw?.trim() === 'never') {
+    return DEFAULT_REFRESH_TOKEN_TTL_DAYS;
+  }
+  return parsePositiveInt(raw, DEFAULT_REFRESH_TOKEN_TTL_DAYS, 3650);
 }
 
 export function getRefreshTokenTtl(): TokenExpiresIn {

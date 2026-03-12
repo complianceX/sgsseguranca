@@ -17,6 +17,8 @@ import { RedisService } from '../common/redis/redis.service';
 import { Resend } from 'resend';
 import * as crypto from 'crypto';
 import {
+  getAccessTokenTtl,
+  isInfiniteTtl,
   getRefreshTokenTtl,
   getRefreshTokenTtlDays,
 } from './auth-security.config';
@@ -185,7 +187,10 @@ export class AuthService {
       company_id: user.company_id,
       profile: { nome: profileNome },
     };
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const accessTtl = getAccessTokenTtl();
+    const accessToken = isInfiniteTtl(accessTtl)
+      ? this.jwtService.sign(payload)
+      : this.jwtService.sign(payload, { expiresIn: accessTtl });
     const refreshToken = this.jwtService.sign(payload, {
       expiresIn: getRefreshTokenTtl(),
     });
@@ -292,7 +297,10 @@ export class AuthService {
       company_id: payload.company_id,
       profile: payload.profile,
     };
-    const accessToken = this.jwtService.sign(newPayload, { expiresIn: '15m' });
+    const accessTtl = getAccessTokenTtl();
+    const accessToken = isInfiniteTtl(accessTtl)
+      ? this.jwtService.sign(newPayload)
+      : this.jwtService.sign(newPayload, { expiresIn: accessTtl });
     const newRefreshToken = this.jwtService.sign(newPayload, {
       expiresIn: getRefreshTokenTtl(),
     });

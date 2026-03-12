@@ -25,6 +25,10 @@ import { UsersService } from '../users/users.service';
 import { BruteForceService } from './brute-force.service';
 import { RbacService } from '../rbac/rbac.service';
 import { getRequestIp } from '../common/utils/request-ip.util';
+import {
+  getRefreshTokenCookieMaxAgeMs,
+  getRefreshTokenTtl,
+} from './auth-security.config';
 
 const isProd = process.env.NODE_ENV === 'production';
 const LOGIN_THROTTLE_LIMIT = Number(
@@ -84,7 +88,7 @@ export class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
+      maxAge: getRefreshTokenCookieMaxAgeMs(),
       path: '/auth/refresh',
     });
 
@@ -118,7 +122,7 @@ export class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
+        maxAge: getRefreshTokenCookieMaxAgeMs(),
         path: '/auth/refresh',
       });
     }
