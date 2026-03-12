@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { companiesService, Company } from '@/services/companiesService';
 import { ptsService, PtApprovalRules } from '@/services/ptsService';
+import { SophieStatusCard } from '@/components/SophieStatusCard';
 
 export default function SettingsPage() {
   const { user, hasPermission } = useAuth();
@@ -248,6 +249,8 @@ export default function SettingsPage() {
           <p className="text-sm text-gray-500">Gerencie sua conta e os recursos do sistema.</p>
         </div>
       </div>
+
+      {hasPermission('can_use_ai') ? <SophieStatusCard /> : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
