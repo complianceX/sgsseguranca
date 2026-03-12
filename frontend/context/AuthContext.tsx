@@ -21,6 +21,7 @@ interface AuthContextType {
   loading: boolean;
   roles: string[];
   permissions: string[];
+  isAdminGeral: boolean;
   hasPermission: (permission: string) => boolean;
   login: (cpf: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -183,11 +184,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     router.push('/login');
   };
 
+  const isAdminGeral =
+    roles.includes('Administrador Geral') || user?.profile?.nome === 'Administrador Geral';
   const hasPermission = (permission: string) => permissions.includes(permission);
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, roles, permissions, hasPermission, login, logout }}
+      value={{ user, loading, roles, permissions, isAdminGeral, hasPermission, login, logout }}
     >
       {children}
     </AuthContext.Provider>

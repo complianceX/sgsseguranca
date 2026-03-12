@@ -3,19 +3,19 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const cardVariants = cva(
-  'rounded-[var(--ds-radius-lg)] border shadow-[var(--ds-shadow-sm)] transition-all duration-[var(--ds-motion-base)] backdrop-blur-sm',
+  'rounded-[var(--ds-radius-lg)] border shadow-[var(--component-card-shadow)] transition-all duration-[var(--ds-motion-base)] backdrop-blur-sm',
   {
     variants: {
       tone: {
         default:
-          'border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)]',
+          'border-[var(--component-card-border)] bg-[image:var(--component-card-bg)]',
         elevated:
-          'border-[color:var(--ds-color-border-strong)]/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-elevated)_88%,white_12%),color-mix(in_srgb,var(--ds-color-surface-base)_98%,transparent))] shadow-[var(--ds-shadow-md)]',
+          'border-[color:var(--component-card-border-strong)]/70 bg-[image:var(--component-card-bg-elevated)] shadow-[var(--component-card-shadow-elevated)]',
         muted:
-          'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/38',
+          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg-muted)]',
       },
       interactive: {
-        true: 'hover:-translate-y-px hover:border-[var(--ds-color-action-primary)]/45 hover:shadow-[var(--ds-shadow-md)]',
+        true: 'hover:-translate-y-px hover:border-[var(--color-primary)]/45 hover:shadow-[var(--component-card-shadow-elevated)]',
         false: '',
       },
       padding: {
@@ -60,7 +60,7 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTML
     <h3
       ref={ref}
       className={cn(
-        'text-[0.95rem] font-semibold tracking-[-0.02em] text-[var(--ds-color-text-primary)]',
+        'text-[0.95rem] font-semibold tracking-[-0.02em] text-[var(--color-text)]',
         className,
       )}
       {...props}
@@ -75,7 +75,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn('text-[13px] leading-5 text-[var(--ds-color-text-muted)]', className)}
+    className={cn('text-[13px] leading-5 text-[var(--color-text-muted)]', className)}
     {...props}
   />
 ));
@@ -93,7 +93,7 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
     <div
       ref={ref}
       className={cn(
-        'mt-4 flex items-center gap-2.5 border-t border-[var(--ds-color-border-subtle)] pt-3',
+        'mt-4 flex items-center gap-2.5 border-t border-[var(--color-border-subtle)] pt-3',
         className,
       )}
       {...props}

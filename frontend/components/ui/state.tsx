@@ -22,7 +22,7 @@ type StateCardProps = {
 
 const toneClasses: Record<StateTone, string> = {
   neutral:
-    'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)]',
+    'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)]',
   danger:
     'border-[color:var(--ds-color-danger)]/25 bg-[color:var(--ds-color-danger)]/10 text-[var(--ds-color-text-primary)]',
   success:
@@ -98,7 +98,7 @@ export function InlineLoadingState({
       role="status"
       aria-live="polite"
       className={cn(
-        'flex min-h-24 items-center justify-center gap-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 text-sm text-[var(--ds-color-text-muted)]',
+        'flex min-h-24 items-center justify-center gap-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)] px-4 text-sm text-[var(--ds-color-text-muted)]',
         className,
       )}
     >

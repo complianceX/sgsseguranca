@@ -249,20 +249,20 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {loading ? (
           <div className="col-span-full flex justify-center py-10">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-primary)] border-t-transparent"></div>
           </div>
         ) : reports.length === 0 ? (
           <Card tone="muted" className="col-span-full border-dashed p-10 text-center">
-            <FileText className="mx-auto h-12 w-12 text-[var(--ds-color-text-muted)]/40" />
-            <h3 className="mt-4 text-base font-semibold text-[var(--ds-color-text-primary)]">Nenhum relatório gerado</h3>
-            <p className="mt-2 text-sm text-[var(--ds-color-text-muted)]">
+            <FileText className="mx-auto h-12 w-12 text-[var(--color-text-muted)]/40" />
+            <h3 className="mt-4 text-base font-semibold text-[var(--color-text)]">Nenhum relatório gerado</h3>
+            <p className="mt-2 text-sm text-[var(--color-text-muted)]">
               Gere o primeiro relatório mensal para consolidar indicadores e insights.
             </p>
           </Card>
         ) : (
           reports.map((report) => (
             <Card key={report.id} tone="default" padding="none" interactive className="overflow-hidden">
-              <div className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3.5">
+              <div className="border-b border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/18 px-4 py-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -270,17 +270,17 @@ export default function ReportsPage() {
                         <Calendar className="h-3 w-3" />
                         {report.mes}/{report.ano}
                       </Badge>
-                      <span className="text-[10px] text-[var(--ds-color-text-muted)]">
+                      <span className="text-[10px] text-[var(--color-text-muted)]">
                         {format(new Date(report.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                       </span>
                     </div>
-                    <h3 className="mt-2 text-[0.95rem] font-semibold text-[var(--ds-color-text-primary)]">
+                    <h3 className="mt-2 text-[0.95rem] font-semibold text-[var(--color-text)]">
                       {report.titulo}
                     </h3>
                   </div>
                   <button
                     onClick={() => handleDelete(report.id)}
-                    className="rounded-lg border border-transparent p-1.5 text-[var(--ds-color-text-muted)] transition-colors hover:border-[color:var(--ds-color-danger)]/20 hover:bg-[var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
+                    className="rounded-lg border border-transparent p-1.5 text-[var(--color-text-muted)] transition-colors hover:border-[color:var(--color-danger)]/20 hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--color-danger)]"
                     title="Excluir relatório"
                     aria-label="Excluir relatório"
                   >
@@ -297,21 +297,21 @@ export default function ReportsPage() {
                   <MetricCell label="Checks" value={report.estatisticas.checklists_count} variant="accent" />
                 </div>
 
-                <div className="rounded-xl border border-[color:var(--ds-color-action-primary)]/16 bg-[var(--ds-color-primary-subtle)] p-3">
+                <div className="rounded-xl border border-[color:var(--color-primary)]/16 bg-[color:var(--ds-color-primary-subtle)] p-3">
                   <div className="mb-2 flex items-center gap-1.5">
-                    <BrainCircuit className="h-3.5 w-3.5 text-[var(--ds-color-action-primary)]" />
-                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--ds-color-action-primary)]">
+                    <BrainCircuit className="h-3.5 w-3.5 text-[var(--color-primary)]" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-primary)]">
                       Insight &lt;GST&gt;
                     </span>
                   </div>
-                  <p className="line-clamp-4 text-[12px] leading-relaxed text-[var(--ds-color-text-secondary)]">
+                  <p className="line-clamp-4 text-[12px] leading-relaxed text-[var(--color-text-secondary)]">
                     {report.analise_gandra}
                   </p>
                 </div>
               </CardContent>
 
-              <div className="flex items-center justify-between border-t border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/12 px-3.5 py-3">
-                <span className="text-[10px] text-[var(--ds-color-text-muted)]">Exportar ou compartilhar</span>
+              <div className="flex items-center justify-between border-t border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/12 px-3.5 py-3">
+                <span className="text-[10px] text-[var(--color-text-muted)]">Exportar ou compartilhar</span>
                 <div className="flex gap-1.5">
                   <ActionIcon onClick={() => handlePrint(report)} title="Imprimir relatório" icon={<Printer className="h-4 w-4" />} />
                   <ActionIcon onClick={() => handleSendEmail(report)} title="Enviar relatório" icon={<Mail className="h-4 w-4" />} />
@@ -361,15 +361,15 @@ function MetricCell({
 }) {
   const classes =
     variant === 'warning'
-      ? 'bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]'
+      ? 'bg-[color:var(--ds-color-warning-subtle)] text-[var(--color-warning)]'
       : variant === 'success'
-        ? 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
+        ? 'bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]'
         : variant === 'accent'
-          ? 'bg-[var(--ds-color-accent-subtle)] text-[var(--ds-color-accent)]'
-          : 'bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]';
+          ? 'bg-[color:var(--ds-color-accent-subtle)] text-[var(--color-secondary)]'
+          : 'bg-[color:var(--ds-color-primary-subtle)] text-[var(--color-primary)]';
 
   return (
-    <div className={`rounded-xl border border-[var(--ds-color-border-subtle)] p-2.5 text-center ${classes}`}>
+    <div className={`rounded-xl border border-[var(--color-border-subtle)] p-2.5 text-center ${classes}`}>
       <p className="text-[10px] font-semibold uppercase tracking-[0.12em]">{label}</p>
       <p className="mt-1 text-[1.1rem] font-bold">{value}</p>
     </div>
@@ -389,7 +389,7 @@ function ActionIcon({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-lg border border-transparent p-1.5 text-[var(--ds-color-text-muted)] transition-colors hover:border-[color:var(--ds-color-action-primary)]/18 hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-action-primary)]"
+      className="rounded-lg border border-transparent p-1.5 text-[var(--color-text-muted)] transition-colors hover:border-[color:var(--color-primary)]/18 hover:bg-[color:var(--ds-color-primary-subtle)] hover:text-[var(--color-primary)]"
       title={title}
       aria-label={title}
     >

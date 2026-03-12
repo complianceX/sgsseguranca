@@ -839,7 +839,7 @@ export function DdsForm({ id }: DdsFormProps) {
           <button
             type="button"
             onClick={() => router.back()}
-            className="rounded-lg border border-[#E5E7EB] px-6 py-2 text-sm font-medium text-[#374151] hover:bg-[#E5E7EB]"
+            className="rounded-lg border border-[var(--color-border-subtle)] px-6 py-2 text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[color:var(--color-card-muted)]"
           >
             Cancelar
           </button>

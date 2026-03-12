@@ -14,17 +14,15 @@ import { Building2, ChevronsUpDown } from 'lucide-react';
 import { MobileFieldNav } from '@/components/MobileFieldNav';
 import { CommandPalette } from '@/components/CommandPalette';
 import { ElevenLabsWidget } from '@/components/ElevenLabsWidget';
-import { SystemThemeLoader } from '@/components/SystemThemeLoader';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading, hasPermission, logout } = useAuth();
+  const { user, loading, hasPermission, logout, isAdminGeral } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const isAdminGeral = user?.profile?.nome === 'Administrador Geral';
 
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState(() => selectedTenantStore.get());
@@ -61,19 +59,18 @@ export default function DashboardLayout({
     ];
 
     const isAdminRoute = adminRoutes.some(route => pathname.startsWith(route));
-    const isAdmin = user?.profile?.nome === 'Administrador Geral';
     const hasRiskPermission = hasPermission('can_view_risks');
 
     if (
       !loading &&
       user &&
       isAdminRoute &&
-      !isAdmin &&
+      !isAdminGeral &&
       !(pathname.startsWith('/dashboard/risks') && hasRiskPermission)
     ) {
       router.push('/dashboard');
     }
-  }, [user, loading, router, pathname, hasPermission]);
+  }, [user, loading, router, pathname, hasPermission, isAdminGeral]);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -115,7 +112,6 @@ export default function DashboardLayout({
 
   return (
     <div className="ds-shell-backdrop ds-system-scope ds-density-compact flex h-screen">
-      <SystemThemeLoader />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenMobileNav={() => setSidebarOpen(true)} />

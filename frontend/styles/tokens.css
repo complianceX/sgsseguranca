@@ -1,0 +1,208 @@
+:root {
+  --brand-background: #e7f1eb;
+  --brand-sidebar: #10202a;
+  --brand-card: #ffffff;
+  --brand-primary: #1554d1;
+  --brand-secondary: #0f766e;
+  --brand-text-primary: #10202a;
+  --brand-text-secondary: #52606d;
+  --brand-success: #177245;
+  --brand-warning: #b45309;
+  --brand-danger: #b42318;
+  --brand-info: #0b6e99;
+
+  --ds-radius-sm: 0.5rem;
+  --ds-radius-md: 0.75rem;
+  --ds-radius-lg: 1rem;
+  --ds-radius-xl: 1.25rem;
+
+  --ds-space-1: 0.25rem;
+  --ds-space-2: 0.5rem;
+  --ds-space-3: 0.75rem;
+  --ds-space-4: 1rem;
+  --ds-space-5: 1.5rem;
+  --ds-space-6: 2rem;
+  --ds-space-7: 3rem;
+  --ds-space-8: 4rem;
+
+  --ds-text-2xs: 0.6875rem;
+  --ds-text-xs: 0.75rem;
+  --ds-text-sm: 0.8125rem;
+  --ds-text-md: 0.9375rem;
+  --ds-text-lg: 1rem;
+  --ds-text-xl: 1.125rem;
+  --ds-text-2xl: 1.375rem;
+  --ds-text-3xl: 1.75rem;
+
+  --ds-line-tight: 1.22;
+  --ds-line-base: 1.45;
+
+  --ds-motion-fast: 120ms;
+  --ds-motion-base: 200ms;
+  --ds-motion-slow: 320ms;
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root,
+:root[data-theme='light'],
+:root[data-theme='dark'],
+.theme-light,
+.theme-dark {
+  --background: var(--ds-color-bg-canvas);
+  --foreground: var(--ds-color-text-primary);
+  --card: var(--ds-color-surface-base);
+  --card-foreground: var(--ds-color-text-primary);
+  --muted: var(--ds-color-surface-muted);
+  --muted-foreground: var(--ds-color-text-muted);
+  --popover: var(--ds-color-surface-overlay);
+  --popover-foreground: var(--ds-color-text-primary);
+  --primary: var(--ds-color-action-primary);
+  --primary-foreground: var(--ds-color-action-primary-foreground);
+  --secondary: var(--ds-color-action-secondary);
+  --secondary-foreground: var(--ds-color-action-secondary-foreground);
+  --accent: var(--ds-color-accent);
+  --accent-foreground: var(--ds-color-text-inverse);
+  --destructive: var(--ds-color-danger);
+  --destructive-foreground: var(--ds-color-text-inverse);
+  --border: var(--ds-color-border-subtle);
+  --input: var(--ds-color-border-default);
+  --ring: var(--ds-color-focus);
+  --surface-1: var(--ds-color-surface-base);
+  --surface-2: var(--ds-color-surface-elevated);
+  --sidebar: var(--ds-color-sidebar-bg);
+  --sidebar-foreground: var(--ds-color-sidebar-text);
+  --sidebar-accent: var(--ds-color-action-primary);
+  --sidebar-muted: var(--ds-color-sidebar-muted);
+  --success: var(--ds-color-success);
+  --success-hover: var(--ds-color-success-hover);
+  --warning: var(--ds-color-warning);
+  --warning-hover: var(--ds-color-warning-hover);
+  --warning-foreground: var(--ds-color-text-inverse);
+  --danger-hover: var(--ds-color-danger-hover);
+  --primary-dark: var(--ds-color-action-primary-active);
+  --primary-hover: var(--ds-color-action-primary-hover);
+
+  --color-background: var(--ds-color-bg-canvas);
+  --color-background-secondary: var(--ds-color-bg-subtle);
+  --color-surface: var(--ds-color-surface-base);
+  --color-surface-elevated: var(--ds-color-surface-elevated);
+  --color-surface-overlay: var(--ds-color-surface-overlay);
+  --color-card: var(--ds-color-surface-base);
+  --color-card-muted: var(--ds-color-surface-muted);
+  --color-sidebar: var(--ds-color-sidebar-bg);
+  --color-navbar: var(--component-navbar-bg);
+  --color-border: var(--ds-color-border-default);
+  --color-border-subtle: var(--ds-color-border-subtle);
+  --color-border-strong: var(--ds-color-border-strong);
+  --color-text: var(--ds-color-text-primary);
+  --color-text-primary: var(--ds-color-text-primary);
+  --color-text-secondary: var(--ds-color-text-secondary);
+  --color-text-muted: var(--ds-color-text-muted);
+  --color-text-inverse: var(--ds-color-text-inverse);
+  --color-primary: var(--ds-color-action-primary);
+  --color-primary-hover: var(--ds-color-action-primary-hover);
+  --color-primary-active: var(--ds-color-action-primary-active);
+  --color-secondary: var(--ds-color-action-secondary);
+  --color-secondary-hover: var(--ds-color-action-secondary-hover);
+  --color-secondary-foreground: var(--ds-color-action-secondary-foreground);
+  --color-success: var(--ds-color-success);
+  --color-warning: var(--ds-color-warning);
+  --color-danger: var(--ds-color-danger);
+  --color-info: var(--ds-color-info);
+
+  --color-risk-low: var(--risk-negligible);
+  --color-risk-medium: var(--risk-attention);
+  --color-risk-high: var(--risk-substantial);
+  --color-risk-critical: var(--risk-critical);
+
+  --component-overlay: var(--ds-color-overlay);
+  --component-shell-backdrop: var(--ds-shell-backdrop);
+  --component-navbar-bg: color-mix(in srgb, var(--ds-color-surface-elevated) 84%, transparent);
+  --component-navbar-border: var(--ds-color-border-subtle);
+  --component-navbar-chip-bg: color-mix(in srgb, var(--ds-color-surface-base) 84%, transparent);
+  --component-navbar-chip-text: var(--ds-color-text-secondary);
+  --component-navbar-chip-hover-bg: var(--ds-color-surface-muted);
+
+  --component-card-bg: var(--ds-gradient-surface);
+  --component-card-bg-elevated: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--ds-color-surface-elevated) 88%, white 12%),
+    color-mix(in srgb, var(--ds-color-surface-base) 98%, transparent)
+  );
+  --component-card-bg-muted: color-mix(in srgb, var(--ds-color-surface-muted) 42%, transparent);
+  --component-card-border: var(--ds-color-border-subtle);
+  --component-card-border-strong: var(--ds-color-border-strong);
+  --component-card-shadow: var(--ds-shadow-sm);
+  --component-card-shadow-elevated: var(--ds-shadow-md);
+
+  --component-field-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--ds-color-surface-elevated) 84%, white 16%),
+    color-mix(in srgb, var(--ds-color-surface-base) 96%, transparent)
+  );
+  --component-field-bg-subtle: color-mix(in srgb, var(--ds-color-surface-base) 96%, transparent);
+  --component-field-border: var(--ds-color-border-default);
+  --component-field-border-subtle: var(--ds-color-border-subtle);
+  --component-field-border-focus: var(--ds-color-focus);
+  --component-field-shadow: var(--ds-shadow-sm);
+  --component-field-shadow-focus: 0 0 0 4px var(--ds-color-focus-ring);
+  --component-field-text: var(--ds-color-text-primary);
+  --component-field-placeholder: var(--ds-color-text-muted);
+
+  --component-button-primary-bg: var(--ds-gradient-brand);
+  --component-button-primary-text: var(--ds-color-action-primary-foreground);
+  --component-button-secondary-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--ds-color-surface-elevated) 84%, white 16%),
+    color-mix(in srgb, var(--ds-color-surface-base) 95%, transparent)
+  );
+  --component-button-secondary-bg-hover: var(--ds-color-action-secondary-hover);
+  --component-button-secondary-border: var(--ds-color-border-default);
+  --component-button-secondary-text: var(--ds-color-text-primary);
+  --component-button-ghost-bg-hover: var(--ds-color-primary-subtle);
+  --component-button-ghost-text: var(--ds-color-text-secondary);
+  --component-button-danger-bg: linear-gradient(
+    135deg,
+    var(--ds-color-danger) 0%,
+    color-mix(in srgb, var(--ds-color-danger-hover) 78%, var(--risk-critical) 22%) 100%
+  );
+  --component-button-danger-text: var(--ds-color-text-inverse);
+  --component-button-success-bg: linear-gradient(
+    135deg,
+    var(--ds-color-success) 0%,
+    color-mix(in srgb, var(--ds-color-success-hover) 78%, var(--ds-color-accent) 22%) 100%
+  );
+  --component-button-success-text: var(--ds-color-text-inverse);
+  --component-button-warning-bg: linear-gradient(
+    135deg,
+    var(--ds-color-warning) 0%,
+    color-mix(in srgb, var(--ds-color-warning-hover) 78%, var(--risk-substantial) 22%) 100%
+  );
+  --component-button-warning-text: var(--ds-color-text-inverse);
+
+  --component-badge-neutral-bg: color-mix(in srgb, var(--ds-color-surface-muted) 42%, transparent);
+  --component-badge-neutral-text: var(--ds-color-text-secondary);
+
+  --component-table-bg: var(--ds-gradient-surface);
+  --component-table-header-bg: var(--ds-color-surface-elevated);
+  --component-table-header-text: var(--ds-color-text-muted);
+  --component-table-footer-bg: color-mix(in srgb, var(--ds-color-surface-muted) 28%, transparent);
+  --component-table-row-border: var(--ds-color-border-subtle);
+  --component-table-row-hover: color-mix(in srgb, var(--ds-color-primary-subtle) 92%, transparent);
+  --component-table-row-selected: color-mix(
+    in srgb,
+    var(--ds-color-primary-subtle) 86%,
+    var(--ds-color-surface-elevated) 14%
+  );
+
+  --component-command-overlay: var(--ds-color-overlay);
+  --component-command-bg: var(--ds-color-command-surface);
+  --component-command-border: var(--ds-color-command-border);
+  --component-command-muted: var(--ds-color-text-muted);
+  --component-command-icon-bg: color-mix(in srgb, white 8%, transparent);
+
+  --component-focus-ring: var(--ds-color-focus-ring);
+  --component-scrollbar-thumb: color-mix(in srgb, var(--ds-color-border-strong) 78%, transparent);
+}

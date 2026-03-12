@@ -7,14 +7,14 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]',
-        accent: 'bg-[var(--ds-color-accent-subtle)] text-[var(--ds-color-accent)]',
-        success: 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]',
-        warning: 'bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]',
-        danger: 'bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]',
-        info: 'bg-[var(--ds-color-info-subtle)] text-[var(--ds-color-info)]',
+        primary: 'bg-[color:var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]',
+        accent: 'bg-[color:var(--ds-color-accent-subtle)] text-[var(--ds-color-accent)]',
+        success: 'bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]',
+        warning: 'bg-[color:var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]',
+        danger: 'bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]',
+        info: 'bg-[color:var(--ds-color-info-subtle)] text-[var(--ds-color-info)]',
         neutral:
-          'bg-[color:var(--ds-color-surface-muted)]/42 text-[var(--ds-color-text-secondary)]',
+          'bg-[color:var(--component-badge-neutral-bg)] text-[var(--component-badge-neutral-text)]',
       },
     },
     defaultVariants: {

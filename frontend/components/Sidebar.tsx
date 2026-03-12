@@ -98,7 +98,7 @@ export function Sidebar({
         tabIndex={isOpen ? 0 : -1}
         onClick={onClose}
         className={cn(
-          'fixed inset-0 z-40 bg-[#020817]/70 backdrop-blur-sm transition-opacity xl:hidden',
+          'fixed inset-0 z-40 bg-[color:var(--component-overlay)] backdrop-blur-sm transition-opacity xl:hidden',
           isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
         )}
       />
@@ -110,7 +110,7 @@ export function Sidebar({
       >
       <div className="border-b border-[color:var(--ds-color-sidebar-border)]/80 px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-surface)]/90 shadow-[0_8px_24px_rgba(15,23,42,0.22)]">
+          <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-surface)]/90 shadow-[var(--ds-shadow-sm)]">
             <Image src="/logo-gst-mark.svg" alt="Logo GST" width={28} height={28} priority />
           </div>
           <div className="min-w-0">
@@ -174,7 +174,7 @@ export function Sidebar({
                 className={cn(
                   'group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-[13px] font-medium transition-all duration-[var(--ds-motion-base)]',
                   active
-                    ? 'border-[color:var(--ds-color-action-primary)]/30 bg-[color:var(--ds-color-primary-subtle)] text-[color:var(--ds-color-action-primary)] shadow-[0_2px_10px_rgba(20,83,45,0.22)]'
+                    ? 'border-[color:var(--ds-color-action-primary)]/30 bg-[color:var(--ds-color-primary-subtle)] text-[color:var(--ds-color-action-primary)] shadow-[var(--ds-shadow-sm)]'
                     : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:border-[color:var(--ds-color-sidebar-border)]/88 hover:bg-[color:var(--ds-color-sidebar-surface)]/76 hover:text-[var(--ds-color-sidebar-text)]'
                 )}
               >

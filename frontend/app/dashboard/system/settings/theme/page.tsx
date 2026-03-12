@@ -3,15 +3,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Palette, RotateCcw, Save, Eye, Loader2 } from 'lucide-react';
+import { Eye, Loader2, Palette, RotateCcw, Save, Wand2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import {
+  stripThemeMetadata,
   systemThemeService,
   DEFAULT_THEME,
+  type SystemThemePreset,
+  type SystemThemePresetId,
   type SystemThemeTokens,
   type UpdateSystemThemeDto,
 } from '@/services/systemThemeService';
-import { applyTheme, clearThemeOverrides } from '@/lib/theme-engine';
+import {
+  applyTheme,
+  applyStoredTheme,
+  clearThemeOverrides,
+  syncThemeRuntime,
+} from '@/lib/theme-engine';
 
 type ThemeField = keyof Omit<SystemThemeTokens, 'id' | 'updatedAt'>;
 
@@ -48,30 +56,57 @@ const FIELD_GROUPS: { label: string; fields: ThemeField[] }[] = [
   },
 ];
 
+function themesMatch(
+  left: Omit<SystemThemeTokens, 'id' | 'updatedAt'>,
+  right: Omit<SystemThemeTokens, 'id' | 'updatedAt'>,
+): boolean {
+  return (Object.keys(left) as ThemeField[]).every((key) => left[key] === right[key]);
+}
+
 export default function ThemeSettingsPage() {
   const router = useRouter();
-  const { user } = useAuth();
-  const isAdminGeral = user?.profile?.nome === 'Administrador Geral';
+  const { isAdminGeral, loading: authLoading } = useAuth();
 
   const [tokens, setTokens] = useState<Omit<SystemThemeTokens, 'id' | 'updatedAt'>>(DEFAULT_THEME);
+  const [presets, setPresets] = useState<SystemThemePreset[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+  const [applyingPresetId, setApplyingPresetId] = useState<SystemThemePresetId | null>(null);
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
     if (!isAdminGeral) {
       router.replace('/dashboard');
       return;
     }
-    systemThemeService
-      .getTheme()
-      .then((t) => {
-        const { id: _id, updatedAt: _u, ...fields } = t;
-        setTokens(fields);
+
+    let active = true;
+
+    Promise.all([systemThemeService.getTheme(), systemThemeService.getPresets()])
+      .then(([theme, loadedPresets]) => {
+        if (!active) return;
+        setTokens(stripThemeMetadata(theme));
+        setPresets(loadedPresets);
       })
-      .finally(() => setLoading(false));
-  }, [isAdminGeral, router]);
+      .catch(() => {
+        if (!active) return;
+        toast.error('Nao foi possivel carregar a configuracao de tema.');
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authLoading, isAdminGeral, router]);
 
   const handleChange = useCallback((field: ThemeField, value: string) => {
     setTokens((prev) => ({ ...prev, [field]: value }));
@@ -86,9 +121,17 @@ export default function ThemeSettingsPage() {
   const handleCancelPreview = useCallback(() => {
     clearThemeOverrides();
     setPreviewing(false);
-    systemThemeService.getTheme().then((t) => {
-      const { id: _id, updatedAt: _u, ...fields } = t;
-      applyTheme(fields);
+
+    const restored = applyStoredTheme();
+    if (restored) {
+      setTokens(restored);
+      return;
+    }
+
+    systemThemeService.getTheme().then((theme) => {
+      const restoredTokens = stripThemeMetadata(theme);
+      setTokens(restoredTokens);
+      syncThemeRuntime(restoredTokens);
     });
   }, []);
 
@@ -96,9 +139,9 @@ export default function ThemeSettingsPage() {
     setSaving(true);
     try {
       const updated = await systemThemeService.updateTheme(tokens as UpdateSystemThemeDto);
-      const { id: _id, updatedAt: _u, ...fields } = updated;
+      const fields = stripThemeMetadata(updated);
       setTokens(fields);
-      applyTheme(fields);
+      syncThemeRuntime(fields);
       setPreviewing(false);
       toast.success('Tema salvo com sucesso!');
     } catch {
@@ -108,14 +151,30 @@ export default function ThemeSettingsPage() {
     }
   }, [tokens]);
 
+  const handleApplyPreset = useCallback(async (presetId: SystemThemePresetId) => {
+    setApplyingPresetId(presetId);
+    try {
+      const updated = await systemThemeService.applyPreset(presetId);
+      const fields = stripThemeMetadata(updated);
+      setTokens(fields);
+      syncThemeRuntime(fields);
+      setPreviewing(false);
+      toast.success('Preset aplicado em tempo real no sistema.');
+    } catch {
+      toast.error('Erro ao aplicar o preset.');
+    } finally {
+      setApplyingPresetId(null);
+    }
+  }, []);
+
   const handleReset = useCallback(async () => {
     if (!confirm('Restaurar o tema padrão? Esta ação não pode ser desfeita.')) return;
     setResetting(true);
     try {
       const updated = await systemThemeService.resetTheme();
-      const { id: _id, updatedAt: _u, ...fields } = updated;
+      const fields = stripThemeMetadata(updated);
       setTokens(fields);
-      applyTheme(fields);
+      syncThemeRuntime(fields);
       setPreviewing(false);
       toast.success('Tema restaurado para o padrão.');
     } catch {
@@ -125,7 +184,7 @@ export default function ThemeSettingsPage() {
     }
   }, []);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-[color:var(--ds-color-text-muted)]" />
@@ -134,8 +193,7 @@ export default function ThemeSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 px-4 py-8">
-      {/* Header */}
+    <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--ds-color-primary-subtle)] text-[color:var(--ds-color-action-primary)]">
@@ -146,7 +204,8 @@ export default function ThemeSettingsPage() {
               Tema do Sistema
             </h1>
             <p className="text-sm text-[color:var(--ds-color-text-muted)]">
-              Personalize as cores de toda a plataforma
+              Ajuste a identidade visual e propague as cores em tempo real, sem recompilar o
+              frontend.
             </p>
           </div>
         </div>
@@ -203,13 +262,82 @@ export default function ThemeSettingsPage() {
 
       {previewing && (
         <div className="rounded-xl border border-[color:var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)]/20 px-4 py-3 text-sm text-[color:var(--ds-color-warning-fg)]">
-          Preview ativo — as cores estão sendo exibidas em tempo real. Clique em{' '}
-          <strong>Salvar tema</strong> para persistir ou <strong>Cancelar preview</strong> para
-          desfazer.
+          Preview ativo. Clique em <strong>Salvar tema</strong> para persistir ou em{' '}
+          <strong>Cancelar preview</strong> para desfazer.
         </div>
       )}
 
-      {/* Color groups */}
+      <section className="rounded-2xl border border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)] p-5">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-[color:var(--ds-color-text-muted)]">
+              Presets estrategicos
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm text-[color:var(--ds-color-text-secondary)]">
+              Presets prontos para escritorio, dark mode, operacao industrial e alto contraste em
+              campo. Ao aplicar, o sistema inteiro atualiza em tempo real.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {presets.map((preset) => {
+            const active = themesMatch(tokens, preset.tokens);
+            const applying = applyingPresetId === preset.id;
+
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => void handleApplyPreset(preset.id)}
+                disabled={applying}
+                className="rounded-2xl border border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)] p-4 text-left transition hover:border-[color:var(--ds-color-action-primary)] hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[color:var(--ds-color-primary-subtle)] text-[color:var(--ds-color-action-primary)]">
+                      {applying ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Wand2 className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-[color:var(--ds-color-text-primary)]">
+                        {preset.label}
+                      </div>
+                      <div className="text-xs text-[color:var(--ds-color-text-muted)]">
+                        {active ? 'Ativo agora' : 'Clique para aplicar'}
+                      </div>
+                    </div>
+                  </div>
+                  {active && (
+                    <span className="rounded-full bg-[color:var(--ds-color-success-subtle)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--ds-color-success-fg)]">
+                      Ativo
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-4 min-h-[60px] text-sm leading-6 text-[color:var(--ds-color-text-secondary)]">
+                  {preset.description}
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {(Object.values(preset.tokens) as string[]).slice(0, 6).map((color) => (
+                    <span
+                      key={`${preset.id}-${color}`}
+                      className="h-8 w-8 rounded-xl border border-black/5 shadow-sm"
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       <div className="grid gap-6 sm:grid-cols-2">
         {FIELD_GROUPS.map((group) => (
           <div
@@ -225,7 +353,7 @@ export default function ThemeSettingsPage() {
                   key={field}
                   label={FIELD_LABELS[field]}
                   value={tokens[field]}
-                  onChange={(v) => handleChange(field, v)}
+                  onChange={(value) => handleChange(field, value)}
                 />
               ))}
             </div>
@@ -233,7 +361,6 @@ export default function ThemeSettingsPage() {
         ))}
       </div>
 
-      {/* Live palette preview */}
       <div className="rounded-2xl border border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)] p-5">
         <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-[color:var(--ds-color-text-muted)]">
           Paleta de cores
@@ -264,7 +391,7 @@ function ColorRow({
 }: {
   label: string;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (value: string) => void;
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
@@ -276,7 +403,7 @@ function ColorRow({
           <input
             type="color"
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(event) => onChange(event.target.value)}
             className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             aria-label={label}
           />

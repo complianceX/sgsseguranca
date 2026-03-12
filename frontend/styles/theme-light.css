@@ -1,0 +1,123 @@
+:root[data-theme='light'],
+.theme-light {
+  --ds-color-bg-canvas: color-mix(in srgb, #f4f7f5 82%, var(--brand-background) 18%);
+  --ds-color-bg-subtle: color-mix(in srgb, #ecf2ef 72%, var(--brand-background) 28%);
+  --ds-color-surface-base: color-mix(in srgb, #ffffff 92%, var(--brand-card) 8%);
+  --ds-color-surface-elevated: color-mix(in srgb, #fbfdfc 86%, var(--brand-card) 14%);
+  --ds-color-surface-overlay: color-mix(in srgb, #ffffff 88%, var(--brand-card) 12%);
+  --ds-color-surface-muted: color-mix(in srgb, #edf3f0 80%, var(--brand-background) 20%);
+  --ds-color-surface-sunken: color-mix(in srgb, #e7efea 74%, var(--brand-background) 26%);
+  --ds-color-surface-muted-hover: color-mix(in srgb, #dce7e1 68%, var(--brand-background) 32%);
+
+  --ds-color-border-subtle: color-mix(in srgb, var(--brand-background) 34%, #cbd5e1 66%);
+  --ds-color-border-default: color-mix(in srgb, var(--brand-background) 30%, #94a3b8 70%);
+  --ds-color-border-strong: color-mix(in srgb, var(--brand-background) 24%, #64748b 76%);
+  --ds-color-border-focus: color-mix(in srgb, var(--brand-primary) 82%, #0f172a 18%);
+
+  --ds-color-text-primary: color-mix(in srgb, #0f172a 88%, var(--brand-text-primary) 12%);
+  --ds-color-text-secondary: color-mix(in srgb, #334155 82%, var(--brand-text-secondary) 18%);
+  --ds-color-text-muted: color-mix(in srgb, #64748b 74%, var(--brand-text-secondary) 26%);
+  --ds-color-text-disabled: color-mix(in srgb, #94a3b8 78%, var(--brand-text-secondary) 22%);
+  --ds-color-text-inverse: #ffffff;
+  --ds-color-text-link: color-mix(in srgb, var(--brand-primary) 76%, #0f172a 24%);
+
+  --ds-color-sidebar-bg: color-mix(in srgb, var(--brand-sidebar) 62%, #0b141c 38%);
+  --ds-color-sidebar-bg-soft: color-mix(in srgb, var(--brand-sidebar) 56%, #14202a 44%);
+  --ds-color-sidebar-surface: color-mix(in srgb, var(--brand-sidebar) 48%, #1b2a34 52%);
+  --ds-color-sidebar-text: color-mix(in srgb, white 90%, var(--brand-background) 10%);
+  --ds-color-sidebar-muted: color-mix(in srgb, white 62%, var(--brand-background) 38%);
+  --ds-color-sidebar-border: color-mix(in srgb, var(--brand-sidebar) 44%, #4a6a5f 56%);
+
+  --ds-color-action-primary: var(--brand-primary);
+  --ds-color-action-primary-hover: color-mix(in srgb, var(--brand-primary) 86%, #0f172a 14%);
+  --ds-color-action-primary-active: color-mix(in srgb, var(--brand-primary) 74%, #0f172a 26%);
+  --ds-color-action-primary-foreground: #ffffff;
+  --ds-color-primary-subtle: color-mix(in srgb, var(--brand-primary) 12%, white 88%);
+  --ds-color-primary-subtle-hover: color-mix(in srgb, var(--brand-primary) 16%, white 84%);
+  --ds-color-primary-border: color-mix(in srgb, var(--brand-primary) 28%, white 72%);
+
+  --ds-color-action-secondary: color-mix(in srgb, var(--brand-secondary) 10%, white 90%);
+  --ds-color-action-secondary-hover: color-mix(in srgb, var(--brand-secondary) 15%, white 85%);
+  --ds-color-action-secondary-active: color-mix(in srgb, var(--brand-secondary) 22%, white 78%);
+  --ds-color-action-secondary-foreground: var(--ds-color-text-primary);
+  --ds-color-action-secondary-border: color-mix(in srgb, var(--brand-secondary) 18%, var(--ds-color-border-default) 82%);
+
+  --ds-color-accent: color-mix(in srgb, var(--brand-secondary) 92%, #052f2d 8%);
+  --ds-color-accent-hover: color-mix(in srgb, var(--brand-secondary) 82%, #052f2d 18%);
+  --ds-color-accent-subtle: color-mix(in srgb, var(--brand-secondary) 10%, white 90%);
+  --ds-color-accent-border: color-mix(in srgb, var(--brand-secondary) 24%, white 76%);
+
+  --ds-color-success: color-mix(in srgb, var(--brand-success) 92%, #052e16 8%);
+  --ds-color-success-hover: color-mix(in srgb, var(--brand-success) 82%, #052e16 18%);
+  --ds-color-success-subtle: color-mix(in srgb, var(--brand-success) 11%, white 89%);
+  --ds-color-success-border: color-mix(in srgb, var(--brand-success) 26%, white 74%);
+  --ds-color-success-fg: color-mix(in srgb, var(--brand-success) 74%, #052e16 26%);
+
+  --ds-color-warning: color-mix(in srgb, var(--brand-warning) 94%, #431407 6%);
+  --ds-color-warning-hover: color-mix(in srgb, var(--brand-warning) 82%, #431407 18%);
+  --ds-color-warning-subtle: color-mix(in srgb, var(--brand-warning) 11%, white 89%);
+  --ds-color-warning-border: color-mix(in srgb, var(--brand-warning) 24%, white 76%);
+  --ds-color-warning-fg: color-mix(in srgb, var(--brand-warning) 74%, #431407 26%);
+
+  --ds-color-danger: color-mix(in srgb, var(--brand-danger) 94%, #450a0a 6%);
+  --ds-color-danger-hover: color-mix(in srgb, var(--brand-danger) 84%, #450a0a 16%);
+  --ds-color-danger-subtle: color-mix(in srgb, var(--brand-danger) 10%, white 90%);
+  --ds-color-danger-border: color-mix(in srgb, var(--brand-danger) 24%, white 76%);
+  --ds-color-danger-fg: color-mix(in srgb, var(--brand-danger) 72%, #450a0a 28%);
+
+  --ds-color-info: color-mix(in srgb, var(--brand-info) 94%, #082f49 6%);
+  --ds-color-info-hover: color-mix(in srgb, var(--brand-info) 82%, #082f49 18%);
+  --ds-color-info-subtle: color-mix(in srgb, var(--brand-info) 10%, white 90%);
+  --ds-color-info-border: color-mix(in srgb, var(--brand-info) 24%, white 76%);
+  --ds-color-info-fg: color-mix(in srgb, var(--brand-info) 72%, #082f49 28%);
+
+  --ds-color-focus: var(--ds-color-action-primary);
+  --ds-color-focus-ring: color-mix(in srgb, var(--ds-color-action-primary) 22%, transparent);
+
+  --risk-negligible: var(--ds-color-success);
+  --risk-acceptable: color-mix(in srgb, var(--ds-color-success) 82%, #14532d 18%);
+  --risk-attention: var(--ds-color-warning);
+  --risk-substantial: color-mix(in srgb, var(--ds-color-warning) 72%, var(--ds-color-danger) 28%);
+  --risk-critical: var(--ds-color-danger);
+
+  --ds-color-overlay: rgba(5, 12, 20, 0.58);
+  --ds-shell-backdrop: radial-gradient(circle at top left, color-mix(in srgb, var(--brand-primary) 11%, transparent), transparent 28%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--brand-secondary) 13%, transparent), transparent 24%),
+    linear-gradient(180deg, color-mix(in srgb, #f4f7f5 88%, var(--brand-background) 12%), color-mix(in srgb, #edf3f0 80%, var(--brand-background) 20%));
+  --ds-color-command-surface: linear-gradient(180deg, color-mix(in srgb, #ffffff 90%, var(--brand-card) 10%), color-mix(in srgb, #f7faf8 84%, var(--brand-background) 16%));
+  --ds-color-command-border: color-mix(in srgb, var(--brand-primary) 10%, white 90%);
+
+  --ds-gradient-brand: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 92%, white 8%) 0%, color-mix(in srgb, var(--brand-primary) 76%, var(--brand-secondary) 24%) 58%, color-mix(in srgb, var(--brand-primary) 68%, #0f172a 32%) 100%);
+  --ds-gradient-surface: linear-gradient(180deg, color-mix(in srgb, var(--ds-color-surface-elevated) 88%, white 12%), color-mix(in srgb, var(--ds-color-surface-base) 98%, transparent));
+
+  --ds-kpi-blue: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 88%, white 12%), color-mix(in srgb, var(--brand-primary) 66%, var(--brand-secondary) 34%));
+  --ds-kpi-violet: linear-gradient(135deg, #6d28d9, #4c1d95);
+  --ds-kpi-emerald: linear-gradient(135deg, color-mix(in srgb, var(--brand-success) 90%, white 10%), color-mix(in srgb, var(--brand-success) 76%, var(--brand-secondary) 24%));
+  --ds-kpi-amber: linear-gradient(135deg, color-mix(in srgb, var(--brand-warning) 92%, white 8%), color-mix(in srgb, var(--brand-warning) 72%, var(--risk-substantial) 28%));
+  --ds-kpi-danger: linear-gradient(135deg, color-mix(in srgb, var(--brand-danger) 92%, white 8%), color-mix(in srgb, var(--brand-danger) 76%, #7f1d1d 24%));
+
+  --ds-kpi-blue-bg: color-mix(in srgb, var(--brand-primary) 11%, white 89%);
+  --ds-kpi-blue-fg: color-mix(in srgb, var(--brand-primary) 76%, #0f172a 24%);
+  --ds-kpi-blue-border: color-mix(in srgb, var(--brand-primary) 24%, white 76%);
+  --ds-kpi-green-bg: color-mix(in srgb, var(--brand-success) 11%, white 89%);
+  --ds-kpi-green-fg: color-mix(in srgb, var(--brand-success) 76%, #052e16 24%);
+  --ds-kpi-green-border: color-mix(in srgb, var(--brand-success) 24%, white 76%);
+  --ds-kpi-amber-bg: color-mix(in srgb, var(--brand-warning) 11%, white 89%);
+  --ds-kpi-amber-fg: color-mix(in srgb, var(--brand-warning) 76%, #431407 24%);
+  --ds-kpi-amber-border: color-mix(in srgb, var(--brand-warning) 24%, white 76%);
+  --ds-kpi-red-bg: color-mix(in srgb, var(--brand-danger) 10%, white 90%);
+  --ds-kpi-red-fg: color-mix(in srgb, var(--brand-danger) 76%, #450a0a 24%);
+  --ds-kpi-red-border: color-mix(in srgb, var(--brand-danger) 24%, white 76%);
+  --ds-kpi-violet-bg: #f5f3ff;
+  --ds-kpi-violet-fg: #6d28d9;
+  --ds-kpi-violet-border: #ddd6fe;
+  --ds-kpi-teal-bg: color-mix(in srgb, var(--brand-secondary) 10%, white 90%);
+  --ds-kpi-teal-fg: color-mix(in srgb, var(--brand-secondary) 78%, #052f2d 22%);
+  --ds-kpi-teal-border: color-mix(in srgb, var(--brand-secondary) 24%, white 76%);
+
+  --ds-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --ds-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.05);
+  --ds-shadow-md: 0 8px 24px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
+  --ds-shadow-lg: 0 16px 36px rgba(15, 23, 42, 0.14), 0 6px 12px rgba(15, 23, 42, 0.08);
+  --ds-shadow-xl: 0 28px 56px rgba(15, 23, 42, 0.16), 0 10px 24px rgba(15, 23, 42, 0.08);
+}

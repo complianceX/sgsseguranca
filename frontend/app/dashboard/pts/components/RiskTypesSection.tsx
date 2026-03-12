@@ -15,7 +15,7 @@ export const RiskTypesSection = () => {
 
   return (
     <div className="sst-card p-6 transition-shadow hover:shadow-md">
-      <h2 className="mb-6 text-lg font-bold text-gray-900 flex items-center gap-2">
+      <h2 className="mb-6 flex items-center gap-2 text-lg font-bold text-[var(--color-text)]">
         Riscos Adicionais / Tipos de Trabalho
         <span className="h-2 w-2 rounded-full bg-[var(--ds-color-warning)]"></span>
       </h2>
@@ -24,20 +24,20 @@ export const RiskTypesSection = () => {
           <label
             key={item.id}
             className={cn(
-              "flex cursor-pointer select-none items-center space-x-3 rounded-xl border p-4 transition-all hover:bg-gray-50",
+              "flex cursor-pointer select-none items-center space-x-3 rounded-xl border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-4 transition-all hover:border-[var(--color-border)] hover:bg-[color:var(--color-card-muted)]/24",
               watch(item.id)
-                ? "border-amber-200 bg-amber-50/50 ring-2 ring-amber-500/10 shadow-[var(--ds-shadow-sm)]"
-                : "border-gray-200"
+                ? "border-[color:var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] shadow-[var(--ds-shadow-sm)]"
+                : ""
             )}
           >
             <input
               type="checkbox"
               {...register(item.id)}
-              className="h-5 w-5 rounded border-gray-300 text-[var(--ds-color-text-primary)] focus:ring-blue-500 transition-all"
+              className="h-5 w-5 rounded border-[var(--color-border)] text-[var(--color-primary)] transition-all focus:ring-[var(--color-primary)]"
             />
             <span className={cn(
               "text-sm font-medium transition-colors",
-              watch(item.id) ? "text-amber-700" : "text-gray-700"
+              watch(item.id) ? "text-[var(--ds-color-warning)]" : "text-[var(--color-text-secondary)]"
             )}>{item.label}</span>
           </label>
         ))}

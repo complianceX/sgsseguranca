@@ -43,6 +43,23 @@ const API_BASE_URL = resolveBaseUrl();
 const API_BASE_URL_ERROR_MESSAGE =
   'API não configurada para este ambiente. Defina NEXT_PUBLIC_API_URL (ou NEXT_PUBLIC_API_FALLBACK_URL) no serviço Frontend.';
 
+export function getApiBaseUrl(): string | null {
+  return API_BASE_URL;
+}
+
+export function buildApiUrl(path: string): string | null {
+  if (!API_BASE_URL) {
+    return null;
+  }
+
+  const normalizedBase = API_BASE_URL.endsWith('/')
+    ? API_BASE_URL.slice(0, -1)
+    : API_BASE_URL;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+  return `${normalizedBase}${normalizedPath}`;
+}
+
 type RetryConfig = AxiosRequestConfig & { __retryCount?: number };
 type AuthRetryConfig = RetryConfig & { __authRetry?: boolean };
 

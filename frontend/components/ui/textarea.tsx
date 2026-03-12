@@ -3,14 +3,14 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const textareaVariants = cva(
-  'flex min-h-24 w-full rounded-[var(--ds-radius-md)] border px-3 py-2.5 text-[13px] font-medium transition-all duration-[var(--ds-motion-base)] outline-none placeholder:text-[var(--ds-color-text-muted)] disabled:cursor-not-allowed disabled:opacity-60',
+  'flex min-h-24 w-full rounded-[var(--ds-radius-md)] border px-3 py-2.5 text-[13px] font-medium transition-all duration-[var(--ds-motion-base)] outline-none placeholder:text-[var(--component-field-placeholder)] disabled:cursor-not-allowed disabled:opacity-60',
   {
     variants: {
       tone: {
         default:
-          'border-[var(--ds-color-border-default)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-elevated)_84%,white_16%),color-mix(in_srgb,var(--ds-color-surface-base)_96%,transparent))] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]',
+          'border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] focus:border-[var(--component-field-border-focus)] focus:shadow-[var(--component-field-shadow-focus)]',
         subtle:
-          'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/96 text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]',
+          'border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] text-[var(--component-field-text)] focus:border-[var(--component-field-border-focus)] focus:shadow-[var(--component-field-shadow-focus)]',
       },
     },
     defaultVariants: {

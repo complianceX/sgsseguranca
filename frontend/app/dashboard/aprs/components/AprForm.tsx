@@ -102,6 +102,51 @@ const APR_STEPS = [
   },
 ] as const;
 
+const aprBackButtonClass =
+  'group rounded-full p-2 text-[var(--color-text-muted)] transition-colors hover:bg-[color:var(--color-card-muted)] hover:text-[var(--color-text)]';
+const aprHeadingClass = 'text-2xl font-bold text-[var(--color-text)]';
+const aprSubheadingClass = 'text-sm text-[var(--color-text-muted)]';
+const aprSectionTitleClass = 'mb-3 text-sm font-bold text-[var(--color-text)]';
+const aprLabelClass = 'mb-1 block text-sm font-semibold text-[var(--color-text-secondary)]';
+const aprLabelCompactClass = 'mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]';
+const aprFieldClass =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-3 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
+const aprFieldCompactClass =
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-2 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
+const aprFileFieldClass =
+  'block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-3 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)] file:mr-4 file:rounded-[var(--ds-radius-sm)] file:border-0 file:bg-[color:var(--color-card-muted)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--color-text-secondary)] hover:file:bg-[color:var(--ds-color-primary-subtle)]';
+const aprFieldErrorClass = 'border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]';
+const aprFieldDisabledClass = 'disabled:bg-[color:var(--color-card-muted)]/60 disabled:cursor-not-allowed disabled:opacity-60';
+const aprCheckboxClass =
+  'h-5 w-5 rounded border-[var(--component-field-border)] text-[var(--color-primary)] transition-all focus:ring-[var(--color-primary)]';
+const aprErrorTextClass = 'mt-1 text-xs text-[var(--color-danger)]';
+const aprSuccessButtonCompactClass =
+  'rounded-[var(--ds-radius-md)] bg-[var(--component-button-success-bg)] px-3 py-2 text-xs font-semibold text-[var(--component-button-success-text)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60';
+const aprPrimaryCompactButtonClass =
+  'rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-xs font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60';
+const aprSuccessButtonClass =
+  'rounded-[var(--ds-radius-md)] bg-[var(--component-button-success-bg)] px-4 py-2 text-sm font-semibold text-[var(--component-button-success-text)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60';
+const aprNeutralButtonClass =
+  'rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-secondary-active)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-secondary-foreground)] shadow-[var(--ds-shadow-sm)] transition-colors hover:bg-[var(--ds-color-action-secondary-hover)] disabled:opacity-60';
+const aprSoftPrimaryButtonClass =
+  'rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60';
+const aprSoftSuccessButtonClass =
+  'rounded-[var(--ds-radius-md)] border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-success)] transition-colors hover:bg-[color:var(--ds-color-success-subtle)]/78 disabled:opacity-60';
+const aprInteractivePanelClass =
+  'rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[image:var(--component-card-bg)] p-6 shadow-[var(--component-card-shadow)] transition-shadow hover:shadow-[var(--component-card-shadow-elevated)]';
+const aprSubtleMetaCardClass =
+  'flex flex-col gap-1 rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-3 text-xs text-[var(--color-text-secondary)]';
+const aprWarningInlineClass =
+  'rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-2 text-xs text-[var(--color-warning)]';
+const aprDangerInlineClass =
+  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--color-danger)]';
+const aprGhostActionClass =
+  'rounded-[var(--ds-radius-md)] border border-[var(--component-button-secondary-border)] px-4 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--component-button-secondary-bg-hover)]';
+const aprPrimaryActionClass =
+  'flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-6 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] disabled:opacity-60';
+const aprPrimarySubmitActionClass =
+  'flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-8 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50';
+
 function calculateRiskCategory(probabilidade?: string, severidade?: string) {
   const p = Number(probabilidade || 0);
   const s = Number(severidade || 0);
@@ -1089,16 +1134,16 @@ export function AprForm({ id }: AprFormProps) {
         <div className="flex items-center space-x-4">
           <Link
             href="/dashboard/aprs"
-            className="group rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            className={aprBackButtonClass}
             title="Voltar para APRs"
           >
             <ArrowLeft className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className={aprHeadingClass}>
               {id ? 'Editar APR' : 'Nova APR'}
             </h1>
-            <p className="text-sm text-gray-500">Preencha os campos abaixo para {id ? 'atualizar' : 'criar'} a Análise Preliminar de Risco.</p>
+            <p className={aprSubheadingClass}>Preencha os campos abaixo para {id ? 'atualizar' : 'criar'} a Análise Preliminar de Risco.</p>
           </div>
         </div>
       </div>
@@ -1107,10 +1152,10 @@ export function AprForm({ id }: AprFormProps) {
         <div className="sst-card p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="text-sm font-semibold text-[var(--color-text)]">
                 {currentApr.numero} | Versão {currentApr.versao || 1}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[var(--color-text-muted)]">
                 Status: {currentApr.status}
                 {currentApr.aprovado_em
                   ? ` | Aprovada em ${new Date(currentApr.aprovado_em).toLocaleString('pt-BR')}`
@@ -1124,7 +1169,7 @@ export function AprForm({ id }: AprFormProps) {
                   type="button"
                   onClick={handleFinalizeApr}
                   disabled={finalizing}
-                  className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                  className={aprSuccessButtonCompactClass}
                 >
                   {finalizing ? 'Finalizando...' : 'Finalizar APR'}
                 </button>
@@ -1134,7 +1179,7 @@ export function AprForm({ id }: AprFormProps) {
                   type="button"
                   onClick={handleCreateVersion}
                   disabled={creatingVersion}
-                  className="rounded-lg bg-[var(--ds-color-action-primary)] px-3 py-2 text-xs font-semibold text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-60"
+                  className={aprPrimaryCompactButtonClass}
                 >
                   {creatingVersion ? 'Criando...' : 'Criar nova versão'}
                 </button>
@@ -1146,25 +1191,25 @@ export function AprForm({ id }: AprFormProps) {
 
       {id && (
         <div className="sst-card p-4">
-          <h2 className="mb-3 text-sm font-bold text-slate-900">Timeline da APR</h2>
+          <h2 className={aprSectionTitleClass}>Timeline da APR</h2>
           <AprTimeline logs={aprLogs} loading={loadingTimeline} />
         </div>
       )}
 
       {id && versionHistory.length > 1 && (
         <div className="sst-card p-4">
-          <h2 className="mb-3 text-sm font-bold text-slate-900">
+          <h2 className={aprSectionTitleClass}>
             Comparação entre versões
           </h2>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-semibold text-slate-600">
+              <label className={aprLabelCompactClass}>
                 Comparar com
               </label>
               <select
                 value={compareTargetId}
                 onChange={(e) => setCompareTargetId(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className={aprFieldClass}
               >
                 <option value="">Selecione uma versão</option>
                 {versionHistory
@@ -1180,7 +1225,7 @@ export function AprForm({ id }: AprFormProps) {
               type="button"
               onClick={handleCompareVersions}
               disabled={!compareTargetId || comparing}
-              className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-60"
+              className={aprNeutralButtonClass}
             >
               {comparing ? 'Comparando...' : 'Comparar'}
             </button>
@@ -1200,18 +1245,18 @@ export function AprForm({ id }: AprFormProps) {
 
       {id && currentApr?.risk_items && currentApr.risk_items.length > 0 && (
         <div className="sst-card p-4">
-          <h2 className="mb-3 text-sm font-bold text-slate-900">
+          <h2 className={aprSectionTitleClass}>
             Evidência fotográfica da equipe
           </h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600">
+              <label className={aprLabelCompactClass}>
                 Item de risco
               </label>
               <select
                 value={selectedRiskItemEvidence}
                 onChange={(e) => setSelectedRiskItemEvidence(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className={aprFieldClass}
               >
                 <option value="">Selecione</option>
                 {currentApr.risk_items
@@ -1225,7 +1270,7 @@ export function AprForm({ id }: AprFormProps) {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-600">
+              <label className={aprLabelCompactClass}>
                 Foto da evidência
               </label>
               <input
@@ -1233,7 +1278,7 @@ export function AprForm({ id }: AprFormProps) {
                 accept="image/*"
                 aria-label="Selecionar foto da evidência da APR"
                 onChange={(e) => setEvidenceFile(e.target.files?.[0] || null)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className={aprFileFieldClass}
               />
             </div>
             <div className="flex gap-2">
@@ -1243,7 +1288,7 @@ export function AprForm({ id }: AprFormProps) {
                 onChange={(e) => setEvidenceLatitude(e.target.value)}
                 placeholder="Latitude"
                 aria-label="Latitude da evidência"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className={aprFieldClass}
               />
               <input
                 type="text"
@@ -1251,7 +1296,7 @@ export function AprForm({ id }: AprFormProps) {
                 onChange={(e) => setEvidenceLongitude(e.target.value)}
                 placeholder="Longitude"
                 aria-label="Longitude da evidência"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className={aprFieldClass}
               />
             </div>
             <div className="flex gap-2">
@@ -1261,12 +1306,12 @@ export function AprForm({ id }: AprFormProps) {
                 onChange={(e) => setEvidenceAccuracy(e.target.value)}
                 placeholder="Precisão (m)"
                 aria-label="Precisão do GPS da evidência"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className={aprFieldClass}
               />
               <button
                 type="button"
                 onClick={handleCaptureLocation}
-                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-primary)]"
+                className={aprSoftPrimaryButtonClass}
               >
                 Capturar GPS
               </button>
@@ -1278,7 +1323,7 @@ export function AprForm({ id }: AprFormProps) {
               type="button"
               onClick={handleUploadEvidence}
               disabled={uploadingEvidence || !selectedRiskItemEvidence || !evidenceFile}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+              className={aprSuccessButtonClass}
             >
               {uploadingEvidence ? 'Enviando...' : 'Enviar evidência'}
             </button>
@@ -1295,7 +1340,7 @@ export function AprForm({ id }: AprFormProps) {
               .map((item) => (
                 <div
                   key={item.id}
-                  className="flex flex-col gap-1 rounded-lg border border-slate-200 p-3 text-xs text-slate-600"
+                  className={aprSubtleMetaCardClass}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold text-[var(--ds-color-text-primary)]">
@@ -1322,7 +1367,7 @@ export function AprForm({ id }: AprFormProps) {
                           href={item.watermarked_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="font-semibold text-emerald-700 hover:underline"
+                          className="font-semibold text-[var(--color-success)] hover:underline"
                         >
                           Abrir com watermark
                         </a>
@@ -1333,8 +1378,8 @@ export function AprForm({ id }: AprFormProps) {
               ))}
           </div>
 
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-700">
+          <div className="mt-4 rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/30 p-3">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-[var(--color-text-secondary)]">
               Verificação criptográfica
             </h3>
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -1344,19 +1389,19 @@ export function AprForm({ id }: AprFormProps) {
                 onChange={(e) => setHashToVerify(e.target.value)}
                 placeholder="Cole o hash SHA-256 da evidência"
                 aria-label="Hash SHA-256 para verificação"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className={aprFieldClass}
               />
               <button
                 type="button"
                 onClick={handleVerifyHash}
                 disabled={verifyingHash}
-                className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900 disabled:opacity-60"
+                className={aprNeutralButtonClass}
               >
                 {verifyingHash ? 'Validando...' : 'Validar hash'}
               </button>
             </div>
             {verificationResult && (
-              <p className="mt-2 text-xs text-slate-700">
+              <p className="mt-2 text-xs text-[var(--color-text-secondary)]">
                 {verificationResult.verified
                   ? `Hash válido (${verificationResult.matchedIn === 'watermarked' ? 'imagem com watermark' : 'imagem original'}).`
                   : verificationResult.message || 'Hash não validado.'}
@@ -1367,7 +1412,7 @@ export function AprForm({ id }: AprFormProps) {
                 type="button"
                 onClick={handleGenerateCustodyReport}
                 disabled={generatingReport}
-                className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-[var(--ds-color-text-primary)] disabled:opacity-60"
+                className={aprSoftPrimaryButtonClass}
               >
                 {generatingReport ? 'Gerando relatório...' : 'Gerar cadeia de custódia'}
               </button>
@@ -1375,12 +1420,12 @@ export function AprForm({ id }: AprFormProps) {
                 type="button"
                 onClick={handleDownloadCustodyPdf}
                 disabled={downloadingCustodyPdf}
-                className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 disabled:opacity-60"
+                className={aprSoftSuccessButtonClass}
               >
                 {downloadingCustodyPdf ? 'Baixando PDF...' : 'Baixar PDF assinado'}
               </button>
               {custodyReportDigest && (
-                <span className="text-[11px] text-slate-600">
+                <span className="text-[11px] text-[var(--color-text-secondary)]">
                   Digest da cadeia: {custodyReportDigest}
                 </span>
               )}
@@ -1423,7 +1468,7 @@ export function AprForm({ id }: AprFormProps) {
                       isActive
                         ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/12 shadow-[var(--ds-shadow-sm)]'
                         : isCompleted
-                          ? 'border-emerald-400/25 bg-emerald-500/8 hover:border-emerald-300/40'
+                          ? 'border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] hover:border-[var(--ds-color-success)]/50'
                           : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/75'
                     }`}
                   >
@@ -1431,9 +1476,9 @@ export function AprForm({ id }: AprFormProps) {
                       <div
                         className={`flex h-10 w-10 items-center justify-center rounded-2xl ${
                           isActive
-                            ? 'bg-[var(--ds-color-action-primary)] text-white'
+                            ? 'bg-[var(--ds-color-action-primary)] text-[var(--color-text-inverse)]'
                             : isCompleted
-                              ? 'bg-emerald-500/18 text-emerald-200'
+                              ? 'bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]'
                               : 'bg-[var(--ds-color-surface-muted)]/22 text-[var(--ds-color-text-muted)]'
                         }`}
                       >
@@ -1461,7 +1506,7 @@ export function AprForm({ id }: AprFormProps) {
                 </p>
               </div>
               {draftStorageKey && draftRestored ? (
-                <span className="rounded-full border border-amber-400/25 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-200">
+                <span className="rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-warning)]">
                   Rascunho restaurado
                 </span>
               ) : null}
@@ -1488,7 +1533,7 @@ export function AprForm({ id }: AprFormProps) {
                   return (
                     <span
                       key={participantId}
-                      className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/20 px-2.5 py-1 text-[11px] font-semibold text-[var(--ds-color-text-secondary)]"
+                      className="rounded-full border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/20 px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)]"
                     >
                       {participant?.nome || 'Participante'}
                     </span>
@@ -1496,13 +1541,13 @@ export function AprForm({ id }: AprFormProps) {
                 })}
               </div>
             ) : (
-              <div className="mt-4 rounded-[var(--ds-radius-lg)] border border-amber-400/20 bg-amber-500/8 px-3 py-2 text-xs text-amber-100">
+              <div className={`mt-4 ${aprWarningInlineClass}`}>
                 Defina participantes e assinaturas antes de concluir a APR.
               </div>
             )}
           </div>
 
-          <div className="rounded-[var(--ds-radius-xl)] border border-red-400/18 bg-red-500/8 px-4 py-3 text-sm text-red-100">
+          <div className={aprDangerInlineClass}>
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
@@ -1514,9 +1559,9 @@ export function AprForm({ id }: AprFormProps) {
 
         <div className="space-y-8">
           {currentStep === 1 && (
-            <div className="rounded-xl border bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className={aprInteractivePanelClass}>
               <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-text)]">
                   Informações Básicas
                   <span className="h-2 w-2 rounded-full bg-[var(--ds-color-action-primary)]"></span>
                 </h2>
@@ -1524,7 +1569,7 @@ export function AprForm({ id }: AprFormProps) {
                   type="button"
                   onClick={handleAiAnalysis}
                   disabled={analyzing}
-                  className="flex items-center justify-center space-x-2 rounded-lg bg-[image:var(--ds-gradient-brand)] px-4 py-2.5 text-sm font-bold text-white shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:brightness-105 active:scale-95 disabled:opacity-50 group"
+                  className="group flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50"
                 >
                   {analyzing ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1536,61 +1581,61 @@ export function AprForm({ id }: AprFormProps) {
               </div>
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Número da APR</label>
+              <label className={aprLabelClass}>Número da APR</label>
               <input
                 type="text"
                 {...register('numero')}
                 className={cn(
-                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none",
-                  errors.numero ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500'
+                  aprFieldClass,
+                  errors.numero && aprFieldErrorClass
                 )}
                 placeholder="Ex: 2024/001"
               />
-              {errors.numero && <p className="mt-1 text-xs text-red-500">{errors.numero.message}</p>}
+              {errors.numero && <p className={aprErrorTextClass}>{errors.numero.message}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Título da APR</label>
+              <label className={aprLabelClass}>Título da APR</label>
               <input
                 type="text"
                 {...register('titulo')}
                 className={cn(
-                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none",
-                  errors.titulo ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500'
+                  aprFieldClass,
+                  errors.titulo && aprFieldErrorClass
                 )}
                 placeholder="Ex: Instalação de Painéis Solares"
               />
-              {errors.titulo && <p className="mt-1 text-xs text-red-500">{errors.titulo.message}</p>}
+              {errors.titulo && <p className={aprErrorTextClass}>{errors.titulo.message}</p>}
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Descrição/Escopo</label>
+              <label className={aprLabelClass}>Descrição/Escopo</label>
               <textarea
                 {...register('descricao')}
                 rows={3}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none"
+                className={aprFieldClass}
                 placeholder="Descreva o escopo do trabalho..."
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Anexar PDF da APR (opcional)</label>
+              <label className={aprLabelClass}>Anexar PDF da APR (opcional)</label>
               <input
                 type="file"
                 accept="application/pdf"
                 aria-label="Selecionar PDF da APR"
                 onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none file:mr-4 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-blue-100"
+                className={aprFileFieldClass}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Empresa</label>
+              <label className={aprLabelClass}>Empresa</label>
               <select
                 {...register('company_id')}
                 className={cn(
-                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none",
-                  errors.company_id ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500'
+                  aprFieldClass,
+                  errors.company_id && aprFieldErrorClass
                 )}
                 onChange={(e) => {
                   const companyId = e.target.value;
@@ -1610,18 +1655,18 @@ export function AprForm({ id }: AprFormProps) {
                   <option key={company.id} value={company.id}>{company.razao_social}</option>
                 ))}
               </select>
-              {errors.company_id && <p className="mt-1 text-xs text-red-500">{errors.company_id.message}</p>}
+              {errors.company_id && <p className={aprErrorTextClass}>{errors.company_id.message}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Site/Obra</label>
+              <label className={aprLabelClass}>Site/Obra</label>
               <select
                 {...register('site_id')}
                 disabled={!selectedCompanyId}
                 className={cn(
-                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none",
-                  errors.site_id ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
-                  !selectedCompanyId && 'bg-gray-100 cursor-not-allowed opacity-60'
+                  aprFieldClass,
+                  errors.site_id && aprFieldErrorClass,
+                  !selectedCompanyId && aprFieldDisabledClass
                 )}
               >
                 <option value="">{selectedCompanyId ? 'Selecione um site' : 'Selecione uma empresa primeiro'}</option>
@@ -1629,18 +1674,18 @@ export function AprForm({ id }: AprFormProps) {
                   <option key={site.id} value={site.id}>{site.nome}</option>
                 ))}
               </select>
-              {errors.site_id && <p className="mt-1 text-xs text-red-500">{errors.site_id.message}</p>}
+              {errors.site_id && <p className={aprErrorTextClass}>{errors.site_id.message}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Elaborador</label>
+              <label className={aprLabelClass}>Elaborador</label>
               <select
                 {...register('elaborador_id')}
                 disabled={!selectedCompanyId}
                 className={cn(
-                  "block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none",
-                  errors.elaborador_id ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
-                  !selectedCompanyId && 'bg-gray-100 cursor-not-allowed opacity-60'
+                  aprFieldClass,
+                  errors.elaborador_id && aprFieldErrorClass,
+                  !selectedCompanyId && aprFieldDisabledClass
                 )}
               >
                 <option value="">{selectedCompanyId ? 'Selecione um elaborador' : 'Selecione uma empresa primeiro'}</option>
@@ -1648,14 +1693,14 @@ export function AprForm({ id }: AprFormProps) {
                   <option key={user.id} value={user.id}>{user.nome}</option>
                 ))}
               </select>
-              {errors.elaborador_id && <p className="mt-1 text-xs text-red-500">{errors.elaborador_id.message}</p>}
+              {errors.elaborador_id && <p className={aprErrorTextClass}>{errors.elaborador_id.message}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
+              <label className={aprLabelClass}>Status</label>
               <select
                 {...register('status')}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none"
+                className={aprFieldClass}
               >
                 <option value="Pendente">Pendente</option>
                 <option value="Aprovada">Aprovada</option>
@@ -1665,20 +1710,20 @@ export function AprForm({ id }: AprFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Data Início</label>
+              <label className={aprLabelClass}>Data Início</label>
               <input
                 type="date"
                 {...register('data_inicio')}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none"
+                className={aprFieldClass}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Data Fim</label>
+              <label className={aprLabelClass}>Data Fim</label>
               <input
                 type="date"
                 {...register('data_fim')}
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:outline-none"
+                className={aprFieldClass}
               />
             </div>
 
@@ -1687,9 +1732,9 @@ export function AprForm({ id }: AprFormProps) {
                 <input
                   type="checkbox"
                   {...register('is_modelo')}
-                  className="h-5 w-5 rounded border-gray-300 text-[var(--ds-color-text-primary)] focus:ring-blue-500 transition-all"
+                  className={aprCheckboxClass}
                 />
-                <span className="text-sm font-semibold text-gray-700 group-hover:text-[var(--ds-color-text-primary)] transition-colors">Salvar como Modelo</span>
+                <span className="text-sm font-semibold text-[var(--color-text-secondary)] transition-colors group-hover:text-[var(--color-text)]">Salvar como Modelo</span>
               </label>
 
               {isModelo && (
@@ -1697,9 +1742,9 @@ export function AprForm({ id }: AprFormProps) {
                   <input
                     type="checkbox"
                     {...register('is_modelo_padrao')}
-                    className="h-5 w-5 rounded border-gray-300 text-[var(--ds-color-text-primary)] focus:ring-blue-500 transition-all"
+                    className={aprCheckboxClass}
                   />
-                  <span className="text-sm font-semibold text-gray-700 group-hover:text-[var(--ds-color-text-primary)] transition-colors">Definir como Modelo Padrão</span>
+                  <span className="text-sm font-semibold text-[var(--color-text-secondary)] transition-colors group-hover:text-[var(--color-text)]">Definir como Modelo Padrão</span>
                 </label>
               )}
             </div>
@@ -1761,13 +1806,13 @@ export function AprForm({ id }: AprFormProps) {
         {/* Itens de Risco Detalhados - formato planilha */}
         <div className="sst-card p-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900">APR - Análise Preliminar de Riscos (Planilha)</h2>
+            <h2 className="text-lg font-bold text-[var(--color-text)]">APR - Análise Preliminar de Riscos (Planilha)</h2>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleSuggestControls}
                 disabled={suggestingControls}
-                className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60"
               >
                 {suggestingControls ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1779,7 +1824,7 @@ export function AprForm({ id }: AprFormProps) {
               <button
                 type="button"
                 onClick={() => appendRisk({})}
-                className="inline-flex items-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--ds-color-action-primary-hover)]"
+                className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
               >
                 <Plus className="h-4 w-4" />
                 Adicionar Linha
@@ -1787,69 +1832,69 @@ export function AprForm({ id }: AprFormProps) {
             </div>
           </div>
 
-          <div className="mb-4 overflow-x-auto rounded-lg border border-gray-300 bg-gray-50">
-            <div className="grid min-w-[980px] grid-cols-12 border-b border-gray-300">
-              <div className="col-span-2 border-r border-gray-300 bg-gray-100 px-3 py-2 text-xs font-bold text-gray-900">
+          <div className="mb-4 overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border)] bg-[color:var(--color-card-muted)]/24">
+            <div className="grid min-w-[980px] grid-cols-12 border-b border-[var(--color-border)]">
+              <div className="col-span-2 border-r border-[var(--color-border)] bg-[color:var(--color-card-muted)]/42 px-3 py-2 text-xs font-bold text-[var(--color-text)]">
                 CÓDIGO
               </div>
-              <div className="col-span-7 border-r border-gray-300 px-3 py-2 text-center text-sm font-extrabold text-gray-900">
+              <div className="col-span-7 border-r border-[var(--color-border)] px-3 py-2 text-center text-sm font-extrabold text-[var(--color-text)]">
                 APR - ANÁLISE PRELIMINAR DE RISCOS
               </div>
-              <div className="col-span-3 px-3 py-2 text-right text-xs font-semibold text-gray-700">
+              <div className="col-span-3 px-3 py-2 text-right text-xs font-semibold text-[var(--color-text-secondary)]">
                 GST
               </div>
             </div>
-            <div className="grid min-w-[980px] grid-cols-12 border-b border-gray-300 text-xs">
-              <div className="col-span-2 border-r border-gray-300 bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-white">
+            <div className="grid min-w-[980px] grid-cols-12 border-b border-[var(--color-border)] text-xs">
+              <div className="col-span-2 border-r border-[var(--color-border)] bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-[var(--color-text-inverse)]">
                 Descrição da atividade
               </div>
-              <div className="col-span-7 border-r border-gray-300 px-3 py-2 text-gray-800">
+              <div className="col-span-7 border-r border-[var(--color-border)] px-3 py-2 text-[var(--color-text)]">
                 {tituloApr || '-'}
               </div>
-              <div className="col-span-1 border-r border-gray-300 bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-white">
+              <div className="col-span-1 border-r border-[var(--color-border)] bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-[var(--color-text-inverse)]">
                 Empresa
               </div>
-              <div className="col-span-2 px-3 py-2 text-gray-800">
+              <div className="col-span-2 px-3 py-2 text-[var(--color-text)]">
                 {selectedCompany?.razao_social || '-'}
               </div>
             </div>
-            <div className="grid min-w-[980px] grid-cols-12 border-b border-gray-300 text-xs">
-              <div className="col-span-2 border-r border-gray-300 bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-white">
+            <div className="grid min-w-[980px] grid-cols-12 border-b border-[var(--color-border)] text-xs">
+              <div className="col-span-2 border-r border-[var(--color-border)] bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-[var(--color-text-inverse)]">
                 Data de elaboração
               </div>
-              <div className="col-span-7 border-r border-gray-300 px-3 py-2 text-gray-800">
+              <div className="col-span-7 border-r border-[var(--color-border)] px-3 py-2 text-[var(--color-text)]">
                 {dataInicioApr || '-'}
               </div>
-              <div className="col-span-1 border-r border-gray-300 bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-white">
+              <div className="col-span-1 border-r border-[var(--color-border)] bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-[var(--color-text-inverse)]">
                 Site
               </div>
-              <div className="col-span-2 px-3 py-2 text-gray-800">
+              <div className="col-span-2 px-3 py-2 text-[var(--color-text)]">
                 {selectedSite?.nome || '-'}
               </div>
             </div>
             <div className="grid min-w-[980px] grid-cols-12 text-xs">
-              <div className="col-span-2 border-r border-gray-300 bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-white">
+              <div className="col-span-2 border-r border-[var(--color-border)] bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-[var(--color-text-inverse)]">
                 Data revisão / versão
               </div>
-              <div className="col-span-7 border-r border-gray-300 px-3 py-2 text-gray-800">
+              <div className="col-span-7 border-r border-[var(--color-border)] px-3 py-2 text-[var(--color-text)]">
                 {`${new Date().toLocaleDateString('pt-BR')} / v${currentApr?.versao || 1}`}
               </div>
-              <div className="col-span-1 border-r border-gray-300 bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-white">
+              <div className="col-span-1 border-r border-[var(--color-border)] bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-[var(--color-text-inverse)]">
                 Responsável
               </div>
-              <div className="col-span-2 px-3 py-2 text-gray-800">
+              <div className="col-span-2 px-3 py-2 text-[var(--color-text)]">
                 {selectedElaborador?.nome || '-'}
               </div>
             </div>
           </div>
 
           {errors.itens_risco && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="mb-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2 text-sm text-[var(--color-danger)]">
               {errors.itens_risco.message}
             </div>
           )}
 
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)]">
             <table className="apr-sheet min-w-[1450px] w-full text-xs">
               <thead>
                 <tr>
@@ -1872,7 +1917,7 @@ export function AprForm({ id }: AprFormProps) {
               <tbody>
                 {riskFields.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="px-3 py-8 text-center text-sm text-gray-500">
+                    <td colSpan={10} className="px-3 py-8 text-center text-sm text-[var(--color-text-muted)]">
                       Nenhuma linha adicionada.
                     </td>
                   </tr>
@@ -1887,32 +1932,32 @@ export function AprForm({ id }: AprFormProps) {
                       <td className="p-2 align-top">
                         <input
                           {...register(`itens_risco.${index}.atividade_processo`)}
-                          className="w-full rounded-md border border-gray-200 px-2 py-2"
+                          className={aprFieldCompactClass}
                           placeholder="Atividade/processo"
                         />
                       </td>
                       <td className="p-2 align-top">
                         <input
                           {...register(`itens_risco.${index}.agente_ambiental`)}
-                          className="w-full rounded-md border border-gray-200 px-2 py-2"
+                          className={aprFieldCompactClass}
                         />
                       </td>
                       <td className="p-2 align-top">
                         <input
                           {...register(`itens_risco.${index}.condicao_perigosa`)}
-                          className="w-full rounded-md border border-gray-200 px-2 py-2"
+                          className={aprFieldCompactClass}
                         />
                       </td>
                       <td className="p-2 align-top">
                         <input
                           {...register(`itens_risco.${index}.fontes_circunstancias`)}
-                          className="w-full rounded-md border border-gray-200 px-2 py-2"
+                          className={aprFieldCompactClass}
                         />
                       </td>
                       <td className="p-2 align-top">
                         <input
                           {...register(`itens_risco.${index}.possiveis_lesoes`)}
-                          className="w-full rounded-md border border-gray-200 px-2 py-2"
+                          className={aprFieldCompactClass}
                         />
                       </td>
                       <td className="p-2 align-top">
@@ -1925,7 +1970,7 @@ export function AprForm({ id }: AprFormProps) {
                             const result = calculateRiskCategory(value, severidade);
                             setValue(`itens_risco.${index}.categoria_risco`, result.categoria, { shouldDirty: true, shouldValidate: true });
                           }}
-                          className="w-full rounded-md border border-gray-200 px-2 py-2"
+                          className={aprFieldCompactClass}
                         >
                           <option value="">-</option>
                           <option value="1">1</option>
@@ -1943,7 +1988,7 @@ export function AprForm({ id }: AprFormProps) {
                             const result = calculateRiskCategory(probabilidade, value);
                             setValue(`itens_risco.${index}.categoria_risco`, result.categoria, { shouldDirty: true, shouldValidate: true });
                           }}
-                          className="w-full rounded-md border border-gray-200 px-2 py-2"
+                          className={aprFieldCompactClass}
                         >
                           <option value="">-</option>
                           <option value="1">1</option>
@@ -1956,22 +2001,22 @@ export function AprForm({ id }: AprFormProps) {
                           <span className={cn('inline-block rounded px-2 py-1 text-[11px] font-semibold', getCategoriaBadgeClass(calc.categoria))}>
                             {calc.categoria || 'Não definida'}
                           </span>
-                          <div className="text-[11px] text-gray-700">Prioridade: {calc.prioridade || '-'}</div>
-                          <div className="text-[11px] text-gray-500">Score: {calc.score || '-'}</div>
+                          <div className="text-[11px] text-[var(--color-text-secondary)]">Prioridade: {calc.prioridade || '-'}</div>
+                          <div className="text-[11px] text-[var(--color-text-muted)]">Score: {calc.score || '-'}</div>
                         </div>
                       </td>
                       <td className="p-2 align-top">
                         <textarea
                           {...register(`itens_risco.${index}.medidas_prevencao`)}
                           rows={2}
-                          className="w-full rounded-md border border-gray-200 px-2 py-2"
+                          className={aprFieldCompactClass}
                         />
                       </td>
                       <td className="p-2 align-top">
                         <button
                           type="button"
                           onClick={() => removeRisk(index)}
-                          className="rounded-md bg-red-50 p-2 text-red-600 hover:bg-red-100"
+                          className="rounded-[var(--ds-radius-sm)] bg-[color:var(--ds-color-danger-subtle)] p-2 text-[var(--color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]/78"
                           title="Remover linha"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1985,14 +2030,14 @@ export function AprForm({ id }: AprFormProps) {
           </div>
 
           <div className="mt-4 space-y-3">
-            <div className="overflow-x-auto rounded-lg border border-[var(--ds-color-border-strong)] bg-white">
+            <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
               <table className="apr-tech-table w-full min-w-[860px] text-[11px]">
                 <thead>
                   <tr>
-                    <th className="!bg-gray-100 !text-gray-900 w-[170px]">Severidade</th>
-                    <th className="!bg-gray-100 !text-gray-900">1 - Baixa</th>
-                    <th className="!bg-gray-100 !text-gray-900">2 - Média</th>
-                    <th className="!bg-gray-100 !text-gray-900">3 - Alta</th>
+                    <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)] w-[170px]">Severidade</th>
+                    <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">1 - Baixa</th>
+                    <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">2 - Média</th>
+                    <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">3 - Alta</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2006,16 +2051,16 @@ export function AprForm({ id }: AprFormProps) {
               </table>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-[var(--ds-color-border-strong)] bg-white">
+            <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
               <table className="apr-tech-table w-full min-w-[860px] text-[11px]">
                 <thead>
                   <tr>
-                    <th colSpan={2} className="!bg-gray-100 !text-gray-900">
+                    <th colSpan={2} className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">
                       Probabilidade
                     </th>
-                    <th className="!bg-gray-100 !text-gray-900">1 - Baixa</th>
-                    <th className="!bg-gray-100 !text-gray-900">2 - Média</th>
-                    <th className="!bg-gray-100 !text-gray-900">3 - Alta</th>
+                    <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">1 - Baixa</th>
+                    <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">2 - Média</th>
+                    <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">3 - Alta</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2044,13 +2089,13 @@ export function AprForm({ id }: AprFormProps) {
               </table>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-[var(--ds-color-border-strong)] bg-white">
+            <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
               <table className="apr-tech-table w-full min-w-[860px] text-[11px]">
                 <thead>
                   <tr>
-                    <th className="!bg-gray-100 !text-gray-900 w-[170px]">Categoria</th>
-                    <th className="!bg-gray-100 !text-gray-900 w-[220px]">Prioridade</th>
-                    <th className="!bg-gray-100 !text-gray-900">Critério de ação</th>
+                    <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)] w-[170px]">Categoria</th>
+                    <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)] w-[220px]">Prioridade</th>
+                    <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">Critério de ação</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2135,14 +2180,14 @@ export function AprForm({ id }: AprFormProps) {
                 <button
                   type="button"
                   onClick={prevStep}
-                  className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 border border-gray-300"
+                  className={aprGhostActionClass}
                 >
                   Voltar
                 </button>
               ) : (
                 <Link
                   href="/dashboard/aprs"
-                  className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 border border-gray-300"
+                  className={aprGhostActionClass}
                 >
                   Cancelar
                 </Link>
@@ -2154,7 +2199,7 @@ export function AprForm({ id }: AprFormProps) {
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="flex items-center justify-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-[var(--ds-color-action-primary-hover)]"
+                  className={aprPrimaryActionClass}
                 >
                   <span>Próximo</span>
                   <ArrowRight className="h-4 w-4" />
@@ -2163,7 +2208,7 @@ export function AprForm({ id }: AprFormProps) {
                 <button
                   type="submit"
                   disabled={loading || isApproved}
-                  className="flex items-center justify-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-8 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-[var(--ds-color-action-primary-hover)] active:scale-95 disabled:opacity-50"
+                  className={aprPrimarySubmitActionClass}
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -2190,11 +2235,11 @@ export function AprForm({ id }: AprFormProps) {
 
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+    <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/26 p-2">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
         {label}
       </p>
-      <p className="text-lg font-bold text-slate-900">{value}</p>
+      <p className="text-lg font-bold text-[var(--color-text)]">{value}</p>
     </div>
   );
 }
@@ -2222,10 +2267,10 @@ function WizardMetric({
   tone: 'default' | 'info' | 'warning' | 'success';
 }) {
   const tones = {
-    default: 'bg-[var(--ds-color-surface-muted)]/18 text-[var(--ds-color-text-secondary)]',
-    info: 'bg-sky-500/10 text-sky-100',
-    warning: 'bg-amber-500/10 text-amber-100',
-    success: 'bg-emerald-500/10 text-emerald-100',
+    default: 'bg-[color:var(--color-card-muted)]/18 text-[var(--color-text-secondary)]',
+    info: 'bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]',
+    warning: 'bg-[color:var(--ds-color-warning-subtle)] text-[var(--color-warning)]',
+    success: 'bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]',
   };
 
   return (
@@ -2256,39 +2301,39 @@ interface SectionGridProps {
 // Subcomponente para os grids de seleção
 function SectionGrid({ title, items, selectedIds, onToggle, error, signatures, color = 'blue' }: SectionGridProps) {
   const accentDotClasses: Record<string, string> = {
-    blue: 'bg-[var(--ds-color-action-primary)]',
-    red: 'bg-red-600',
-    emerald: 'bg-emerald-600',
-    slate: 'bg-slate-800',
-    indigo: 'bg-[var(--ds-color-action-primary)]',
-    violet: 'bg-[var(--ds-color-action-primary)]',
+    blue: 'bg-[var(--color-primary)]',
+    red: 'bg-[var(--color-danger)]',
+    emerald: 'bg-[var(--color-success)]',
+    slate: 'bg-[var(--ds-color-action-secondary-active)]',
+    indigo: 'bg-[var(--color-info)]',
+    violet: 'bg-[var(--color-secondary)]',
   };
 
   const colorClasses: Record<string, string> = {
-    blue: 'bg-blue-50 text-[var(--ds-color-text-primary)] border-blue-200',
-    red: 'bg-red-50 text-red-700 border-red-200',
-    emerald: 'bg-emerald-50 text-emerald-700 border-green-200',
-    slate: 'bg-gray-50 text-gray-700 border-gray-300',
-    indigo: 'bg-blue-50 text-blue-800 border-blue-200',
-    violet: 'bg-violet-50 text-[var(--ds-color-text-primary)] border-violet-200',
+    blue: 'bg-[color:var(--ds-color-primary-subtle)] text-[var(--color-primary)] border-[var(--ds-color-primary-border)]',
+    red: 'bg-[color:var(--ds-color-danger-subtle)] text-[var(--color-danger)] border-[var(--ds-color-danger-border)]',
+    emerald: 'bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)] border-[var(--ds-color-success-border)]',
+    slate: 'bg-[var(--ds-color-action-secondary)] text-[var(--color-text-secondary)] border-[var(--ds-color-action-secondary-border)]',
+    indigo: 'bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)] border-[var(--ds-color-info-border)]',
+    violet: 'bg-[color:var(--ds-color-accent-subtle)] text-[var(--color-secondary)] border-[var(--ds-color-accent-border)]',
   };
 
   const selectedColorClasses: Record<string, string> = {
-    blue: 'bg-[var(--ds-color-action-primary)] text-white border-transparent',
-    red: 'bg-red-600 text-white border-transparent',
-    emerald: 'bg-emerald-600 text-white border-transparent',
-    slate: 'bg-slate-800 text-white border-transparent',
-    indigo: 'bg-[var(--ds-color-action-primary)] text-white border-transparent',
-    violet: 'bg-[var(--ds-color-action-primary)] text-white border-transparent',
+    blue: 'bg-[var(--color-primary)] text-[var(--color-text-inverse)] border-transparent',
+    red: 'bg-[var(--color-danger)] text-[var(--color-text-inverse)] border-transparent',
+    emerald: 'bg-[var(--color-success)] text-[var(--color-text-inverse)] border-transparent',
+    slate: 'bg-[var(--ds-color-action-secondary-active)] text-[var(--ds-color-action-secondary-foreground)] border-transparent',
+    indigo: 'bg-[var(--color-info)] text-[var(--color-text-inverse)] border-transparent',
+    violet: 'bg-[var(--color-secondary)] text-[var(--color-text-inverse)] border-transparent',
   };
 
   return (
     <div className="sst-card p-6 transition-shadow hover:shadow-md">
-      <h2 className="mb-4 text-lg font-bold text-gray-900 flex items-center gap-2">
+      <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-[var(--color-text)]">
         {title}
         <span className={cn('h-2 w-2 rounded-full', accentDotClasses[color])}></span>
       </h2>
-      {error && <p className="mb-4 text-xs text-red-500 flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> {error}</p>}
+      {error && <p className="mb-4 flex items-center gap-1 text-xs text-[var(--color-danger)]"><AlertTriangle className="h-3 w-3" /> {error}</p>}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {items.map((item) => {
           const isSelected = selectedIds.includes(item.id);
@@ -2315,7 +2360,7 @@ function SectionGrid({ title, items, selectedIds, onToggle, error, signatures, c
           );
         })}
         {items.length === 0 && (
-          <div className="col-span-full py-4 text-center text-sm text-gray-400 italic">
+          <div className="col-span-full py-4 text-center text-sm italic text-[var(--color-text-muted)]">
             Nenhum item disponível para a empresa selecionada.
           </div>
         )}

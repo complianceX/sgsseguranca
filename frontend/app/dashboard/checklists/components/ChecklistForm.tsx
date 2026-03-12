@@ -28,12 +28,12 @@ interface ChecklistFormProps {
 }
 
 const panelClassName =
-  'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]';
+  'rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[image:var(--component-card-bg)] shadow-[var(--component-card-shadow)]';
 const fieldClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
-const labelClassName = 'mb-1 block text-sm font-medium text-[var(--ds-color-text-secondary)]';
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-4 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
+const labelClassName = 'mb-1 block text-sm font-medium text-[var(--color-text-secondary)]';
 const conditionalToggleClassName =
-  'flex items-center justify-center rounded-[var(--ds-radius-md)] border px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+  'flex items-center justify-center rounded-[var(--ds-radius-md)] border px-3 py-2 text-sm font-medium transition-all focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
 
 export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   const router = useRouter();

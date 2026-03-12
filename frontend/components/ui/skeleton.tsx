@@ -4,7 +4,7 @@ export function Skeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'animate-pulse rounded-[var(--ds-radius-sm)] bg-[color:var(--ds-color-surface-muted)]/60',
+        'animate-pulse rounded-[var(--ds-radius-sm)] bg-[color:var(--color-card-muted)]/60',
         className,
       )}
     />
@@ -13,7 +13,7 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function StatCardSkeleton() {
   return (
-    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
+    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-5 shadow-[var(--component-card-shadow)]">
       <div className="flex items-center justify-between">
         <Skeleton className="h-10 w-10 rounded-full" />
         <Skeleton className="h-4 w-14" />
@@ -26,7 +26,7 @@ export function StatCardSkeleton() {
 
 export function CardSkeleton() {
   return (
-    <div className="space-y-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
+    <div className="space-y-4 rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-5 shadow-[var(--component-card-shadow)]">
       <div className="flex items-center justify-between">
         <Skeleton className="h-4 w-16 rounded-full" />
         <Skeleton className="h-4 w-24" />
@@ -37,7 +37,7 @@ export function CardSkeleton() {
         <Skeleton className="h-3 w-20 rounded-full" />
         <Skeleton className="h-3 w-20 rounded-full" />
       </div>
-      <div className="flex justify-end gap-2 border-t border-[#334155] pt-3">
+      <div className="flex justify-end gap-2 border-t border-[var(--color-border-subtle)] pt-3">
         <Skeleton className="h-7 w-7 rounded-md" />
         <Skeleton className="h-7 w-7 rounded-md" />
         <Skeleton className="h-7 w-7 rounded-md" />
@@ -76,7 +76,7 @@ export function PageSkeleton({
           <StatCardSkeleton key={index} />
         ))}
       </div>
-      <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
+      <div className="rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-5 shadow-[var(--component-card-shadow)]">
         <div className="mb-4 flex items-center justify-between">
           <Skeleton className="h-5 w-40" />
           <Skeleton className="h-9 w-28" />

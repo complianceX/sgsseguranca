@@ -66,8 +66,8 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
 
   return (
     <div className="sst-card p-6 transition-shadow hover:shadow-md">
-      <h2 className="mb-2 text-lg font-bold text-gray-900">{title}</h2>
-      <p className="mb-6 text-sm text-gray-600">{description}</p>
+      <h2 className="mb-2 text-lg font-bold text-[var(--color-text)]">{title}</h2>
+      <p className="mb-6 text-sm text-[var(--color-text-secondary)]">{description}</p>
       <div className="space-y-4">
         {fields.map((item, index) => {
           const questionInfo = questions.find(q => q.id === item.id);
@@ -78,50 +78,63 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
           const responses = questionInfo?.allowNA ? baseResponses : baseResponses.filter(r => r !== 'Não aplicável');
 
           return (
-            <div key={item.id} className="rounded-lg border border-gray-200 p-4">
-              <p className="text-sm font-semibold text-gray-800">
+            <div
+              key={item.id}
+              className="rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-4 shadow-[var(--component-card-shadow)]"
+            >
+              <p className="text-sm font-semibold text-[var(--color-text)]">
                 {questionInfo?.pergunta}
-                {!questionInfo?.optional && <span className="text-red-500"> *</span>}
+                {!questionInfo?.optional && <span className="text-[var(--color-danger)]"> *</span>}
               </p>
 
               {/* Respostas (Radio) */}
               <div className="mt-3 flex flex-wrap gap-4">
                 {responses.map(responseValue => (
-                  <label key={responseValue} className="flex items-center gap-2 text-sm text-gray-700">
+                  <label
+                    key={responseValue}
+                    className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]"
+                  >
                     <input
                       type="radio"
                       name={`${name}-${index}`}
                       checked={field.resposta === responseValue}
                       onChange={() => setValue(`${name}.${index}.resposta`, responseValue, { shouldValidate: true })}
-                      className="h-4 w-4 text-[var(--ds-color-text-primary)] focus:ring-blue-500"
+                      className="h-4 w-4 text-[var(--color-primary)] focus:ring-[var(--color-primary)]"
                     />
                     <span>{responseValue}</span>
                   </label>
                 ))}
               </div>
-              {responseError && <p className="mt-2 text-xs text-red-500">{responseError}</p>}
+              {responseError && <p className="mt-2 text-xs text-[var(--color-danger)]">{responseError}</p>}
 
               {/* Justificativa */}
               {field.resposta && showJustificationOn.some((value) => value === field.resposta) && (
                 <div className="mt-3">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Justificativa <span className="text-red-500">*</span>
+                  <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
+                    Justificativa <span className="text-[var(--color-danger)]">*</span>
                   </label>
                   <textarea
                     value={field.justificativa || ''}
                     onChange={(e) => setValue(`${name}.${index}.justificativa`, e.target.value, { shouldValidate: true })}
                     rows={3}
-                    className={cn("block w-full rounded-md border px-3 py-2 text-xs", justificationError ? "border-red-500 bg-red-50" : "border-gray-300")}
+                    className={cn(
+                      'block w-full rounded-[var(--ds-radius-md)] border bg-[image:var(--component-field-bg)] px-3 py-2 text-xs text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]',
+                      justificationError
+                        ? 'border-[color:var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]/40'
+                        : 'border-[var(--component-field-border)]',
+                    )}
                     placeholder="Explique o motivo da resposta."
                   />
-                  {justificationError && <p className="mt-2 text-xs text-red-500">{justificationError}</p>}
+                  {justificationError && <p className="mt-2 text-xs text-[var(--color-danger)]">{justificationError}</p>}
                 </div>
               )}
 
               {/* Anexo (se aplicável) */}
               {hasAttachmentField(name) && (
                  <div className="mt-3">
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Anexo (opcional)</label>
+                    <label className="mb-1 block text-xs font-medium text-[var(--color-text-secondary)]">
+                      Anexo (opcional)
+                    </label>
                     <input
                       type="file"
                       onChange={(e) =>
@@ -131,9 +144,9 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
                           { shouldValidate: false },
                         )
                       }
-                      className="block w-full rounded-md border border-gray-300 px-3 py-2 text-xs"
+                      className="block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-3 py-2 text-xs text-[var(--component-field-text)] shadow-[var(--component-field-shadow)]"
                     />
-                    <p className="mt-1 text-[11px] text-gray-500">
+                    <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
                       {field.anexo_nome ? `Arquivo selecionado: ${field.anexo_nome}` : "Nenhum ficheiro selecionado"}
                     </p>
                   </div>
