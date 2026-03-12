@@ -188,8 +188,20 @@ export class AprsService {
     return apr;
   }
 
+  /** Busca sem eager-load de relações — usar em operações de escrita (approve, reject, update...) */
+  private async findOneForWrite(id: string): Promise<Apr> {
+    const tenantId = this.tenantService.getTenantId();
+    const apr = await this.aprsRepository.findOne({
+      where: tenantId ? { id, company_id: tenantId } : { id },
+    });
+    if (!apr) {
+      throw new NotFoundException(`APR com ID ${id} não encontrada`);
+    }
+    return apr;
+  }
+
   async update(id: string, updateAprDto: UpdateAprDto): Promise<Apr> {
-    const apr = await this.findOne(id);
+    const apr = await this.findOneForWrite(id);
     const { activities, risks, epis, tools, machines, participants, ...rest } =
       updateAprDto;
 
@@ -241,7 +253,7 @@ export class AprsService {
   }
 
   async remove(id: string, userId?: string): Promise<void> {
-    const apr = await this.findOne(id);
+    const apr = await this.findOneForWrite(id);
     await this.aprsRepository.softDelete(id);
     await this.addLog(id, userId, 'removido', { companyId: apr.company_id });
     this.logger.log({ event: 'apr_soft_deleted', aprId: apr.id, companyId: apr.company_id });
@@ -250,7 +262,7 @@ export class AprsService {
   // ─── Workflow ────────────────────────────────────────────────────────────────
 
   async approve(id: string, userId: string, reason?: string): Promise<Apr> {
-    const apr = await this.findOne(id);
+    const apr = await this.findOneForWrite(id);
     const allowed = APR_ALLOWED_TRANSITIONS[apr.status as AprStatus];
     if (!allowed?.includes(AprStatus.APROVADA)) {
       throw new BadRequestException(
@@ -268,7 +280,7 @@ export class AprsService {
   }
 
   async reject(id: string, userId: string, reason: string): Promise<Apr> {
-    const apr = await this.findOne(id);
+    const apr = await this.findOneForWrite(id);
     const allowed = APR_ALLOWED_TRANSITIONS[apr.status as AprStatus];
     if (!allowed?.includes(AprStatus.CANCELADA)) {
       throw new BadRequestException(
@@ -286,7 +298,7 @@ export class AprsService {
   }
 
   async finalize(id: string, userId: string): Promise<Apr> {
-    const apr = await this.findOne(id);
+    const apr = await this.findOneForWrite(id);
     const allowed = APR_ALLOWED_TRANSITIONS[apr.status as AprStatus];
     if (!allowed?.includes(AprStatus.ENCERRADA)) {
       throw new BadRequestException(
@@ -301,7 +313,7 @@ export class AprsService {
   }
 
   async createNewVersion(id: string, userId: string): Promise<Apr> {
-    const original = await this.findOne(id);
+    const original = await this.findOneForWrite(id);
     if (original.status !== AprStatus.APROVADA) {
       throw new BadRequestException(
         `Somente APRs Aprovadas podem gerar nova versão. Status atual: ${original.status}`,
@@ -352,7 +364,7 @@ export class AprsService {
     file: Express.Multer.File,
     userId?: string,
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
-    const apr = await this.findOne(id);
+    const apr = await this.findOneForWrite(id);
     const key = this.s3Service.generateDocumentKey(
       apr.company_id,
       'aprs',
@@ -384,7 +396,7 @@ export class AprsService {
     originalName: string;
     url: string | null;
   }> {
-    const apr = await this.findOne(id);
+    const apr = await this.findOneForWrite(id);
     if (!apr.pdf_file_key) {
       throw new NotFoundException(`APR ${id} não possui PDF armazenado`);
     }
@@ -408,7 +420,7 @@ export class AprsService {
   // ─── Logs & History ──────────────────────────────────────────────────────────
 
   async getLogs(id: string): Promise<AprLog[]> {
-    await this.findOne(id);
+    await this.findOneForWrite(id);
     return this.aprLogsRepository.find({
       where: { apr_id: id },
       order: { data_hora: 'DESC' },
@@ -416,7 +428,7 @@ export class AprsService {
   }
 
   async getVersionHistory(id: string): Promise<Apr[]> {
-    const apr = await this.findOne(id);
+    const apr = await this.findOneForWrite(id);
     const rootId = apr.parent_apr_id ?? apr.id;
     const tenantId = this.tenantService.getTenantId();
 

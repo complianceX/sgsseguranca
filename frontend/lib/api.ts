@@ -58,7 +58,7 @@ const notifyApiStatus = (online: boolean, baseURL?: string) => {
 
 const refreshClient = axios.create({
   baseURL: API_BASE_URL || undefined,
-  timeout: 45000,
+  timeout: 15000,
   withCredentials: true,
 });
 
@@ -82,7 +82,7 @@ async function refreshAccessToken(): Promise<string> {
 
 const api = axios.create({
   baseURL: API_BASE_URL || undefined,
-  timeout: 45000,
+  timeout: 8000,
   withCredentials: true,
 });
 
@@ -184,7 +184,8 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
     config.__retryCount += 1;
-    const backoffMs = 300 * config.__retryCount;
+    const jitter = Math.random() * 100;
+    const backoffMs = 300 * config.__retryCount + jitter;
     await new Promise((resolve) => setTimeout(resolve, backoffMs));
     return api.request(config);
   },
