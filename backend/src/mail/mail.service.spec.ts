@@ -53,6 +53,7 @@ describe('MailService', () => {
 
   const mockStorageService = {
     getPresignedDownloadUrl: jest.fn(),
+    downloadFileBuffer: jest.fn(),
   };
 
   // Mock dos serviços de domínio
@@ -186,8 +187,8 @@ describe('MailService', () => {
       };
       jest.spyOn(ptsService, 'findOne').mockResolvedValue(mockPt as any);
       jest
-        .spyOn(storageService, 'getPresignedDownloadUrl')
-        .mockResolvedValue('https://s3.url/arquivo.pdf');
+        .spyOn(storageService, 'downloadFileBuffer')
+        .mockResolvedValue(Buffer.from('pdf-content'));
       mockResendSend.mockResolvedValue({ data: { id: 'msg-1' }, error: null });
 
       await service.sendStoredDocument(
@@ -197,14 +198,18 @@ describe('MailService', () => {
       );
 
       expect(ptsService.findOne).toHaveBeenCalledWith('pt-1');
-      expect(storageService.getPresignedDownloadUrl).toHaveBeenCalledWith(
+      expect(storageService.downloadFileBuffer).toHaveBeenCalledWith(
         'pts/arquivo.pdf',
-        604800,
       );
       expect(mockResendSend).toHaveBeenCalledWith(
         expect.objectContaining({
           to: 'destinatario@example.com',
           subject: expect.stringContaining('Permissão de Trabalho #123'),
+          attachments: expect.arrayContaining([
+            expect.objectContaining({
+              filename: expect.stringContaining('.pdf'),
+            }),
+          ]),
         }),
       );
       expect(mailLogRepository.save).toHaveBeenCalled();

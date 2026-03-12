@@ -184,11 +184,8 @@ export class MailService {
       );
     }
 
-    // Gera URL assinada (7 dias de validade)
-    const downloadUrl = await this.storageService.getPresignedDownloadUrl(
-      fileKey,
-      604800,
-    );
+    const pdfBuffer = await this.storageService.downloadFileBuffer(fileKey);
+    const attachmentFilename = this.buildAttachmentFilename(docName, fileKey);
 
     const html = `
       <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
@@ -198,22 +195,26 @@ export class MailService {
         <h2 style="margin: 0 0 12px; color: #0f172a;">${docName}</h2>
         <p>Olá,</p>
         <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma &lt;GST&gt; Gestão de Segurança do Trabalho.</p>
-        <p>Clique no botão abaixo para visualizar ou baixar o arquivo:</p>
-        <div style="margin: 25px 0;">
-          <a href="${downloadUrl}" style="background-color: #1d4ed8; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; box-shadow: 0 10px 20px rgba(29, 78, 216, 0.18);">
-            Acessar Documento
-          </a>
-        </div>
-        <p style="font-size: 12px; color: #475569;">Este link é seguro e expira em 7 dias.</p>
+        <p>O PDF está anexado neste e-mail para visualização e download.</p>
       </div>
     `;
 
-    await this.sendMail(
+    await this.sendMailSimple(
       email,
       subject,
-      `Acesse seu documento aqui: ${downloadUrl}`,
-      html,
-      { companyId, filename: docName },
+      `Segue em anexo o documento ${docName}.`,
+      { companyId },
+      [
+        {
+          filename: attachmentFilename,
+          content: pdfBuffer,
+          contentType: 'application/pdf',
+        },
+      ],
+      {
+        html,
+        filename: attachmentFilename,
+      },
     );
   }
 
@@ -235,12 +236,8 @@ export class MailService {
     const docName = options?.docName?.trim() || 'Documento';
     const subject =
       options?.subject?.trim() || 'Documento Compartilhado - GST';
-    const expiresInSeconds = options?.expiresInSeconds ?? 604800;
-
-    const downloadUrl = await this.storageService.getPresignedDownloadUrl(
-      fileKey,
-      expiresInSeconds,
-    );
+    const pdfBuffer = await this.storageService.downloadFileBuffer(fileKey);
+    const attachmentFilename = this.buildAttachmentFilename(docName, fileKey);
 
     const html = `
       <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
@@ -250,25 +247,28 @@ export class MailService {
         <h2 style="margin: 0 0 12px; color: #0f172a;">${docName}</h2>
         <p>Olá,</p>
         <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma &lt;GST&gt; Gestão de Segurança do Trabalho.</p>
-        <p>Clique no botão abaixo para visualizar ou baixar o arquivo:</p>
-        <div style="margin: 25px 0;">
-          <a href="${downloadUrl}" style="background-color: #1d4ed8; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; box-shadow: 0 10px 20px rgba(29, 78, 216, 0.18);">
-            Acessar Documento
-          </a>
-        </div>
-        <p style="font-size: 12px; color: #475569;">Este link é seguro e expira em 7 dias.</p>
+        <p>O PDF está anexado neste e-mail para visualização e download.</p>
       </div>
     `;
 
-    await this.sendMail(
+    await this.sendMailSimple(
       email,
       subject,
-      `Acesse seu documento aqui: ${downloadUrl}`,
-      html,
+      `Segue em anexo o documento ${docName}.`,
       {
         companyId: options?.companyId,
         userId: options?.userId,
-        filename: docName,
+      },
+      [
+        {
+          filename: attachmentFilename,
+          content: pdfBuffer,
+          contentType: 'application/pdf',
+        },
+      ],
+      {
+        html,
+        filename: attachmentFilename,
       },
     );
   }
@@ -458,7 +458,7 @@ export class MailService {
             subject: options.subject,
             text: options.text,
             html: options.html || options.text,
-            attachments: options.attachments,
+            attachments: this.normalizeAttachmentsForResend(options.attachments),
           }),
         {
           timeoutMs: 10_000,
@@ -503,6 +503,37 @@ export class MailService {
       return [value].filter(Boolean);
     }
     return fallback;
+  }
+
+  private normalizeAttachmentsForResend(attachments?: any[]) {
+    if (!attachments?.length) {
+      return undefined;
+    }
+
+    return attachments.map((attachment) => {
+      const normalized = { ...attachment };
+      if (Buffer.isBuffer(normalized.content)) {
+        normalized.content = normalized.content.toString('base64');
+      }
+      return normalized;
+    });
+  }
+
+  private buildAttachmentFilename(docName: string, fileKey?: string): string {
+    const keyName = fileKey?.split('/').pop()?.trim();
+    if (keyName && keyName.toLowerCase().endsWith('.pdf')) {
+      return keyName;
+    }
+
+    const normalized = docName
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9._-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .toLowerCase();
+
+    return `${normalized || 'documento'}.pdf`;
   }
 
   async sendMonthlyReport(
