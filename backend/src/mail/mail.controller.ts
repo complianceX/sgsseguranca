@@ -10,6 +10,7 @@ import {
   Res,
   BadRequestException,
   ServiceUnavailableException,
+  Logger,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
@@ -44,6 +45,8 @@ type RequestWithUser = {
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class MailController {
+  private readonly logger = new Logger(MailController.name);
+
   constructor(
     private readonly mailService: MailService,
     @InjectQueue('mail') private readonly mailQueue: Queue,
@@ -158,6 +161,7 @@ export class MailController {
     @Request() req: RequestWithUser,
   ) {
     const { documentId, documentType, email } = body;
+    const companyId = req.user?.company_id || req.user?.companyId;
 
     if (!documentId || !documentType || !email) {
       throw new BadRequestException(
@@ -165,22 +169,44 @@ export class MailController {
       );
     }
 
-    // Adiciona o job na fila para processamento assíncrono
-    await this.mailQueue.add(
-      'send-document',
-      {
+    try {
+      // Tenta enfileirar para processamento assíncrono.
+      await this.mailQueue.add(
+        'send-document',
+        {
+          documentId,
+          documentType,
+          email,
+          companyId,
+        },
+        defaultJobOptions,
+      );
+
+      return {
+        success: true,
+        message:
+          'Solicitação recebida. O documento será enviado por e-mail em instantes.',
+      };
+    } catch (error) {
+      // Fallback: se Redis/fila estiver indisponível, envia no fluxo síncrono
+      // para evitar erro 500 no front.
+      this.logger.warn(
+        `Fila de e-mail indisponível, aplicando fallback síncrono: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+
+      await this.mailService.sendStoredDocument(
         documentId,
         documentType,
         email,
-        companyId: req.user?.company_id || req.user?.companyId,
-      },
-      defaultJobOptions,
-    );
+        companyId,
+      );
+    }
 
     return {
       success: true,
-      message:
-        'Solicitação recebida. O documento será enviado por e-mail em instantes.',
+      message: 'Documento enviado por e-mail com sucesso.',
     };
   }
 
@@ -241,24 +267,46 @@ export class MailController {
       await unlink(file.path).catch(() => undefined);
     }
 
-    await this.mailQueue.add(
-      'send-file-key',
-      {
+    try {
+      await this.mailQueue.add(
+        'send-file-key',
+        {
+          fileKey,
+          email,
+          subject: body.subject,
+          docName: body.docName || file.originalname,
+          expiresInSeconds: 604800,
+          companyId,
+          userId: req.user?.userId,
+        },
+        defaultJobOptions,
+      );
+
+      return {
+        success: true,
+        message:
+          'Solicitação recebida. O documento será enviado por e-mail em instantes.',
         fileKey,
-        email,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Fila de e-mail indisponível para upload, aplicando fallback síncrono: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+
+      await this.mailService.sendStoredFileKey(fileKey, email, {
         subject: body.subject,
         docName: body.docName || file.originalname,
         expiresInSeconds: 604800,
         companyId,
         userId: req.user?.userId,
-      },
-      defaultJobOptions,
-    );
+      });
+    }
 
     return {
       success: true,
-      message:
-        'Solicitação recebida. O documento será enviado por e-mail em instantes.',
+      message: 'Documento enviado por e-mail com sucesso.',
       fileKey,
     };
   }
