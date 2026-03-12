@@ -537,6 +537,41 @@ html[data-theme='light'] {
     background-repeat: no-repeat;
     padding-right: 2.5rem !important;
   }
+
+  /* Native dropdown list (Windows/Chrome/Edge): mantém contraste com o tema */
+  select option,
+  select optgroup {
+    background-color: var(--ds-color-surface-base) !important;
+    color: var(--ds-color-text-primary) !important;
+  }
+
+  select option:checked {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--ds-color-action-primary) 75%, black 25%),
+      color-mix(in srgb, var(--ds-color-action-primary-hover) 82%, black 18%)
+    ) !important;
+    color: var(--ds-color-action-primary-foreground) !important;
+  }
+
+  select option:hover {
+    background: color-mix(
+      in srgb,
+      var(--ds-color-action-primary) 24%,
+      var(--ds-color-surface-base) 76%
+    ) !important;
+    color: var(--ds-color-text-primary) !important;
+  }
+
+  :root[data-theme='dark'] select,
+  .theme-dark select {
+    color-scheme: dark;
+  }
+
+  :root[data-theme='light'] select,
+  .theme-light select {
+    color-scheme: light;
+  }
 }
 
 @layer components {
