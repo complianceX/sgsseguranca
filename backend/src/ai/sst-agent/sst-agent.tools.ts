@@ -127,6 +127,34 @@ export const GEMINI_TOOL_DECLARATIONS: GeminiFunctionDeclaration[] =
     },
   }));
 
+type OpenAiToolDefinition = {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: 'object';
+      properties?: Record<string, unknown>;
+    };
+  };
+};
+
+export const OPENAI_TOOL_DEFINITIONS: OpenAiToolDefinition[] =
+  SST_TOOL_DEFINITIONS.map((tool) => ({
+    type: 'function',
+    function: {
+      name: tool.name,
+      description: tool.description ?? '',
+      parameters: {
+        type: 'object',
+        properties:
+          'input_schema' in tool && tool.input_schema && 'properties' in tool.input_schema
+            ? (tool.input_schema.properties as Record<string, unknown>)
+            : {},
+      },
+    },
+  }));
+
 // ---------------------------------------------------------------------------
 // Executor de ferramentas
 // ---------------------------------------------------------------------------

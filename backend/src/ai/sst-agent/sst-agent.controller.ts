@@ -138,16 +138,6 @@ export class SstAgentController {
     return this.sstAgentService.getInteraction(id);
   }
 
-  @Get('voice/signed-url')
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
-  @Authorize('can_use_ai')
-  async getVoiceSignedUrl(
-    @Query('agentId') agentId?: string,
-    @Query('branchId') branchId?: string,
-  ) {
-    return this.sstAgentService.getElevenLabsSignedUrl(agentId, branchId);
-  }
-
   private parseOptionalPositiveInt(
     value: string | undefined,
     fieldName: string,

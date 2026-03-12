@@ -13,7 +13,6 @@ import { Company } from '@/services/companiesService';
 import { Building2, ChevronsUpDown } from 'lucide-react';
 import { MobileFieldNav } from '@/components/MobileFieldNav';
 import { CommandPalette } from '@/components/CommandPalette';
-import { ElevenLabsWidget } from '@/components/ElevenLabsWidget';
 
 export default function DashboardLayout({
   children,
@@ -142,7 +141,6 @@ export default function DashboardLayout({
         <main className="flex-1 overflow-y-auto px-4 py-4 pb-28 sm:px-5 xl:px-6 xl:pb-5">
           {children}
         </main>
-        <ElevenLabsWidget />
         <CommandPalette />
         <MobileFieldNav />
       </div>

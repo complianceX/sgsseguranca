@@ -24,8 +24,10 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import { TenantService } from '../../common/tenant/tenant.service';
 import { AiInteraction } from '../entities/ai-interaction.entity';
+import { SOPHIE_IMAGE_ANALYSIS_PROMPT, SOPHIE_SYSTEM_PROMPT } from '../sophie.prompts';
 import {
   GEMINI_TOOL_DECLARATIONS,
+  OPENAI_TOOL_DEFINITIONS,
   SstToolsExecutor,
   SST_TOOL_DEFINITIONS,
 } from './sst-agent.tools';
@@ -46,28 +48,6 @@ import {
   SuggestedAction,
 } from './sst-agent.types';
 
-type ElevenLabsVoiceSession =
-  | {
-      mode: 'signed';
-      agentId: string;
-      branchId?: string | null;
-      signedUrl: string;
-      reason?: string;
-    }
-  | {
-      mode: 'public';
-      agentId: string;
-      branchId?: string | null;
-      signedUrl: null;
-      reason?: string;
-    }
-  | {
-      mode: 'unavailable';
-      agentId: null;
-      signedUrl: null;
-      reason: string;
-    };
-
 // ---------------------------------------------------------------------------
 // Constantes
 // ---------------------------------------------------------------------------
@@ -76,6 +56,9 @@ const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 const ANTHROPIC_PROVIDER = 'anthropic';
 const GEMINI_PROVIDER = 'gemini';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
+const OPENAI_PROVIDER = 'openai';
+const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
+const DEFAULT_OPENAI_VISION_MODEL = 'gpt-4.1-mini';
 const MAX_TOKENS = 2048;
 const MAX_TOOL_ITERATIONS = 5;
 const DEFAULT_AI_HISTORY_DAYS = 30;
@@ -87,7 +70,11 @@ const COST_PER_INPUT_TOKEN = 3 / 1_000_000;
 const COST_PER_OUTPUT_TOKEN = 15 / 1_000_000;
 const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 
-type SupportedAiProvider = typeof ANTHROPIC_PROVIDER | typeof GEMINI_PROVIDER | 'stub';
+type SupportedAiProvider =
+  | typeof OPENAI_PROVIDER
+  | typeof ANTHROPIC_PROVIDER
+  | typeof GEMINI_PROVIDER
+  | 'stub';
 
 type GeminiGenerateContentResponse = {
   candidates?: Array<{
@@ -132,56 +119,8 @@ type GeminiContent = {
 // Prompt de sistema
 // ---------------------------------------------------------------------------
 
-const SST_SYSTEM_PROMPT = `
-Voce e um assistente especialista em Saude e Seguranca do Trabalho (SST) integrado ao sistema de gestao desta empresa.
-
-## IDENTIDADE E PAPEL
-Voce NAO e um profissional legalmente habilitado. Seu papel e INFORMAR, ORIENTAR e APOIAR.
-Decisoes tecnicas, laudos e responsabilidades legais pertencem ao SESMT, Engenheiro de Seguranca ou Medico do Trabalho.
-
-## NORMAS DE REFERENCIA
-Cite sempre a norma ao mencionar obrigacoes: NR-1 a NR-35, CLT, Portarias MTE.
-
-## REGRAS CRITICAS
-1. NUNCA afirme prazos, multas ou obrigacoes sem citar a norma-fonte
-2. NUNCA invente dados — use APENAS o que as ferramentas retornarem
-3. NUNCA emita conclusao tecnica definitiva (laudo, nexo causal, etc.)
-4. SEMPRE sinalize quando a resposta requer validacao humana
-5. Se nao tiver dados suficientes, declare explicitamente
-6. Se a ferramenta retornar aviso_stub, informe que os dados nao sao em tempo real
-
-## USO DAS FERRAMENTAS
-- Consulte a ferramenta correspondente antes de responder sobre pendencias
-- Para diagnosticos gerais, use gerar_resumo_sst como ponto de partida
-- Se a tool retornar is_stub=true, informe o usuario e nao apresente os dados como definitivos
-`.trim();
-
-const SST_IMAGE_ANALYSIS_PROMPT = `
-Voce e um agente especialista em SST analisando uma foto de campo.
-
-Objetivo:
-- identificar situacoes de risco visiveis
-- classificar o nivel geral de risco
-- apontar acoes imediatas de controle
-- recomendar EPIs e medidas pela hierarquia de controle
-
-Regras:
-1. Considere apenas o que estiver visivel ou claramente informado no contexto.
-2. Nao invente fatos ocultos.
-3. Se a imagem estiver inconclusiva, diga isso em notes.
-4. Se houver risco grave ou iminente, destaque em immediateActions.
-5. Responda SOMENTE em JSON valido.
-
-Formato de resposta:
-{
-  "summary": "resumo curto em portugues",
-  "riskLevel": "Baixo|Médio|Alto|Crítico",
-  "imminentRisks": ["..."],
-  "immediateActions": ["..."],
-  "ppeRecommendations": ["..."],
-  "notes": "observacoes adicionais"
-}
-`.trim();
+const SST_SYSTEM_PROMPT = SOPHIE_SYSTEM_PROMPT;
+const SST_IMAGE_ANALYSIS_PROMPT = SOPHIE_IMAGE_ANALYSIS_PROMPT;
 
 // ---------------------------------------------------------------------------
 // Servico
@@ -192,6 +131,9 @@ export class SstAgentService {
   private readonly logger = new Logger(SstAgentService.name);
   private readonly anthropic: Anthropic | null;
   private readonly geminiApiKey: string | null;
+  private readonly openaiApiKey: string | null;
+  private readonly openaiModel: string;
+  private readonly openaiVisionModel: string;
   private readonly provider: SupportedAiProvider;
   private readonly model: string;
   private readonly anthropicModel: string;
@@ -211,6 +153,7 @@ export class SstAgentService {
       .get<string>('AI_PROVIDER')
       ?.trim()
       .toLowerCase();
+    const openaiApiKey = this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
     const anthropicApiKey = this.configService.get<string>('ANTHROPIC_API_KEY')?.trim();
     const geminiApiKey =
       this.configService.get<string>('GEMINI_API_KEY')?.trim() ||
@@ -221,8 +164,17 @@ export class SstAgentService {
       DEFAULT_ANTHROPIC_MODEL;
     const geminiModel =
       this.configService.get<string>('GEMINI_MODEL')?.trim() || DEFAULT_GEMINI_MODEL;
+    const openaiModel =
+      this.configService.get<string>('OPENAI_MODEL')?.trim() || DEFAULT_OPENAI_MODEL;
+    const openaiVisionModel =
+      this.configService.get<string>('OPENAI_VISION_MODEL')?.trim() ||
+      openaiModel ||
+      DEFAULT_OPENAI_VISION_MODEL;
 
     this.geminiApiKey = null;
+    this.openaiApiKey = openaiApiKey;
+    this.openaiModel = openaiModel;
+    this.openaiVisionModel = openaiVisionModel;
     this.provider = 'stub';
     this.model = 'stub';
     this.anthropicModel = anthropicModel;
@@ -239,6 +191,14 @@ export class SstAgentService {
       DEFAULT_AI_HISTORY_MAX_LIMIT,
     );
 
+    if ((preferredProvider === OPENAI_PROVIDER || !preferredProvider) && openaiApiKey) {
+      this.anthropic = null;
+      this.provider = OPENAI_PROVIDER;
+      this.model = openaiModel;
+      this.logger.log(`SstAgentService iniciado com OpenAI API (${this.model})`);
+      return;
+    }
+
     if ((preferredProvider === ANTHROPIC_PROVIDER || !preferredProvider) && anthropicApiKey) {
       this.anthropic = new Anthropic({ apiKey: anthropicApiKey });
       this.provider = ANTHROPIC_PROVIDER;
@@ -253,6 +213,14 @@ export class SstAgentService {
       this.provider = GEMINI_PROVIDER;
       this.model = geminiModel;
       this.logger.log(`SstAgentService iniciado com Gemini API (${this.model})`);
+      return;
+    }
+
+    if (openaiApiKey) {
+      this.anthropic = null;
+      this.provider = OPENAI_PROVIDER;
+      this.model = openaiModel;
+      this.logger.log(`SstAgentService iniciado com OpenAI API (${this.model})`);
       return;
     }
 
@@ -275,7 +243,7 @@ export class SstAgentService {
 
     this.anthropic = null;
     this.logger.warn(
-      'Nenhum provider de IA configurado (ANTHROPIC_API_KEY ou GEMINI_API_KEY) - SstAgentService em modo STUB',
+      'Nenhum provider de IA configurado (OPENAI_API_KEY, ANTHROPIC_API_KEY ou GEMINI_API_KEY) - SstAgentService em modo STUB',
     );
   }
 
@@ -334,9 +302,11 @@ export class SstAgentService {
 
     try {
       const { result, inputTokens, outputTokens, toolsUsed } =
-        this.provider === ANTHROPIC_PROVIDER
-          ? await this.runAnthropicAgentLoop(question, history)
-          : await this.runGeminiAgentLoop(question, history);
+        this.provider === OPENAI_PROVIDER
+          ? await this.runOpenAiAgentLoop(question, history)
+          : this.provider === ANTHROPIC_PROVIDER
+            ? await this.runAnthropicAgentLoop(question, history)
+            : await this.runGeminiAgentLoop(question, history);
 
       const latency = Date.now() - startTime;
       const estimatedCost = this.estimateCost(inputTokens, outputTokens, this.provider);
@@ -433,134 +403,6 @@ export class SstAgentService {
     return this.interactionRepo.findOne({ where: { id, tenant_id: tenantId } });
   }
 
-  async getElevenLabsSignedUrl(
-    agentId?: string,
-    branchId?: string,
-  ): Promise<ElevenLabsVoiceSession> {
-    const apiKey = this.configService.get<string>('ELEVENLABS_API_KEY')?.trim();
-    const configuredAgentId = this.configService
-      .get<string>('ELEVENLABS_AGENT_ID')
-      ?.trim();
-    const resolvedAgentId = configuredAgentId || agentId?.trim();
-
-    const configuredBranchId = this.configService
-      .get<string>('ELEVENLABS_BRANCH_ID')
-      ?.trim();
-    const resolvedBranchId = configuredBranchId || branchId?.trim() || null;
-
-    if (!resolvedAgentId) {
-      return {
-        mode: 'unavailable',
-        agentId: null,
-        signedUrl: null,
-        reason: 'Agent ID da ElevenLabs não informado.',
-      };
-    }
-
-    if (!apiKey) {
-      this.logger.warn(
-        'ELEVENLABS_API_KEY não configurada; usando fallback por agent_id público.',
-      );
-      return {
-        mode: 'public',
-        agentId: resolvedAgentId,
-        branchId: resolvedBranchId,
-        signedUrl: null,
-        reason:
-          'ELEVENLABS_API_KEY não configurada no backend; usando agent público.',
-      };
-    }
-
-    const params = new URLSearchParams({
-      agent_id: resolvedAgentId,
-      include_conversation_id: 'true',
-    });
-
-    if (resolvedBranchId) {
-      params.set('branch_id', resolvedBranchId);
-    }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 6000);
-
-    let response: Response;
-    try {
-      response = await fetch(
-        `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?${params.toString()}`,
-        {
-          method: 'GET',
-          headers: {
-            'xi-api-key': apiKey,
-            Accept: 'application/json',
-          },
-          signal: controller.signal,
-        },
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `Falha de rede ao obter signed_url da ElevenLabs para ${resolvedAgentId}: ${message}. Usando fallback público.`,
-      );
-      clearTimeout(timeout);
-      return {
-        mode: 'public',
-        agentId: resolvedAgentId,
-        branchId: resolvedBranchId,
-        signedUrl: null,
-        reason:
-          'Não foi possível validar sessão assinada com a ElevenLabs; usando agent público.',
-      };
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    const payloadText = await response.text();
-    let payload: { signed_url?: string } | null = null;
-    try {
-      payload = payloadText
-        ? (JSON.parse(payloadText) as { signed_url?: string })
-        : null;
-    } catch {
-      payload = null;
-    }
-
-    if (response.ok && payload?.signed_url) {
-      return {
-        mode: 'signed',
-        agentId: resolvedAgentId,
-        branchId: resolvedBranchId,
-        signedUrl: payload.signed_url,
-      };
-    }
-
-    const providerMessage = payloadText?.slice(0, 240) || 'sem detalhes';
-    if (!response.ok) {
-      this.logger.warn(
-        `Falha ao obter signed_url da ElevenLabs (status ${response.status}) para o agent ${resolvedAgentId}. Body: ${providerMessage}`,
-      );
-    }
-
-    if (payload?.signed_url) {
-      return {
-        mode: 'signed',
-        agentId: resolvedAgentId,
-        branchId: resolvedBranchId,
-        signedUrl: payload.signed_url,
-      };
-    }
-
-    return {
-      mode: 'public',
-      agentId: resolvedAgentId,
-      branchId: resolvedBranchId,
-      signedUrl: null,
-      reason:
-        !response.ok
-          ? `signed_url indisponível (status ${response.status}); usando agent público.`
-          : 'signed_url vazio; usando agent público.',
-    };
-  }
-
   async analyzeImageRisk(
     imageBuffer: Buffer,
     mimeType: string,
@@ -614,9 +456,11 @@ export class SstAgentService {
 
     try {
       const { analysis, inputTokens, outputTokens } =
-        this.provider === ANTHROPIC_PROVIDER
-          ? await this.analyzeImageWithAnthropic(imageBuffer, mimeType, context)
-          : await this.analyzeImageWithGemini(imageBuffer, mimeType, context);
+        this.provider === OPENAI_PROVIDER
+          ? await this.analyzeImageWithOpenAi(imageBuffer, mimeType, context)
+          : this.provider === ANTHROPIC_PROVIDER
+            ? await this.analyzeImageWithAnthropic(imageBuffer, mimeType, context)
+            : await this.analyzeImageWithGemini(imageBuffer, mimeType, context);
 
       const latency = Date.now() - startTime;
       interaction.response = analysis;
@@ -656,6 +500,142 @@ export class SstAgentService {
   // -------------------------------------------------------------------------
   // Loop de agente
   // -------------------------------------------------------------------------
+
+  private async runOpenAiAgentLoop(
+    question: string,
+    history: ConversationMessage[],
+  ): Promise<{
+    result: SstAgentResponse;
+    inputTokens: number;
+    outputTokens: number;
+    toolsUsed: string[];
+  }> {
+    if (!this.openaiApiKey) {
+      throw new Error('OPENAI_API_KEY nao configurada.');
+    }
+
+    type OpenAiToolCall = {
+      id: string;
+      type: 'function';
+      function: { name: string; arguments: string };
+    };
+
+    type OpenAiChatCompletion = {
+      choices?: Array<{
+        message?: {
+          role?: 'assistant';
+          content?: string | null;
+          tool_calls?: OpenAiToolCall[];
+        };
+      }>;
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+      };
+    };
+
+    const toolsUsed: string[] = [];
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+
+    const messages: Array<Record<string, unknown>> = [
+      { role: 'system', content: SST_SYSTEM_PROMPT },
+      ...history.map((m) => ({ role: m.role, content: m.content })),
+      { role: 'user', content: question },
+    ];
+
+    for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.openaiModel,
+          temperature: 0.2,
+          max_tokens: MAX_TOKENS,
+          messages,
+          tools: OPENAI_TOOL_DEFINITIONS,
+          tool_choice: 'auto',
+        }),
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`OpenAI API error ${response.status}: ${body}`);
+      }
+
+      const payload = (await response.json()) as OpenAiChatCompletion;
+      totalInputTokens += payload.usage?.prompt_tokens ?? 0;
+      totalOutputTokens += payload.usage?.completion_tokens ?? 0;
+
+      const message = payload.choices?.[0]?.message;
+      const toolCalls = message?.tool_calls ?? [];
+      const text = (message?.content ?? '').trim();
+
+      if (!toolCalls.length) {
+        if (!text) {
+          throw new Error('OpenAI nao retornou texto utilizavel.');
+        }
+
+        return {
+          result: this.buildStructuredResponse(text, question, toolsUsed),
+          inputTokens: totalInputTokens,
+          outputTokens: totalOutputTokens,
+          toolsUsed,
+        };
+      }
+
+      messages.push({
+        role: 'assistant',
+        content: message?.content ?? '',
+        tool_calls: toolCalls,
+      });
+
+      for (const toolCall of toolCalls) {
+        const toolName = toolCall.function?.name;
+        if (!toolName) continue;
+
+        if (!toolsUsed.includes(toolName)) {
+          toolsUsed.push(toolName);
+        }
+
+        let args: Record<string, unknown> = {};
+        const rawArgs = toolCall.function?.arguments ?? '';
+        if (rawArgs) {
+          try {
+            args = JSON.parse(rawArgs) as Record<string, unknown>;
+          } catch {
+            args = {};
+          }
+        }
+
+        const toolResult = await this.toolsExecutor.execute(toolName, args);
+
+        messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(
+            toolResult.success
+              ? { success: true, data: toolResult.data ?? null, is_stub: toolResult.is_stub ?? false }
+              : { success: false, error: toolResult.error ?? 'Erro desconhecido ao executar ferramenta.' },
+          ),
+        });
+      }
+    }
+
+    this.logger.warn(`[SstAgent] OpenAI atingiu o limite de ${MAX_TOOL_ITERATIONS} iteracoes`);
+    const fallbackAnswer =
+      'Nao consegui completar a analise com os dados disponiveis. Reformule a pergunta ou acesse os modulos diretamente para confirmar as informacoes.';
+
+    return {
+      result: this.buildStructuredResponse(fallbackAnswer, question, toolsUsed),
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+      toolsUsed,
+    };
+  }
 
   private async runAnthropicAgentLoop(
     question: string,
@@ -795,6 +775,77 @@ export class SstAgentService {
       analysis: this.parseImageRiskAnalysis(answer),
       inputTokens: response.usage.input_tokens,
       outputTokens: response.usage.output_tokens,
+    };
+  }
+
+  private async analyzeImageWithOpenAi(
+    imageBuffer: Buffer,
+    mimeType: string,
+    context?: string,
+  ): Promise<{
+    analysis: ImageRiskAnalysis;
+    inputTokens: number;
+    outputTokens: number;
+  }> {
+    if (!this.openaiApiKey) {
+      throw new Error('OPENAI_API_KEY nao configurada.');
+    }
+
+    type OpenAiVisionResponse = {
+      choices?: Array<{
+        message?: {
+          content?: string | null;
+        };
+      }>;
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+      };
+    };
+
+    const dataUrl = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+    const userContext = context?.trim()
+      ? `Contexto adicional do usuario: ${context.trim()}`
+      : 'Sem contexto adicional fornecido.';
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.openaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.openaiVisionModel,
+        temperature: 0.2,
+        max_tokens: 1200,
+        messages: [
+          { role: 'system', content: SST_IMAGE_ANALYSIS_PROMPT },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userContext },
+              { type: 'image_url', image_url: { url: dataUrl } },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`OpenAI vision error ${response.status}: ${body}`);
+    }
+
+    const payload = (await response.json()) as OpenAiVisionResponse;
+    const answer = (payload.choices?.[0]?.message?.content ?? '').trim();
+    if (!answer) {
+      throw new Error('OpenAI nao retornou analise de imagem.');
+    }
+
+    return {
+      analysis: this.parseImageRiskAnalysis(answer),
+      inputTokens: payload.usage?.prompt_tokens ?? 0,
+      outputTokens: payload.usage?.completion_tokens ?? 0,
     };
   }
 
@@ -1313,7 +1364,9 @@ export class SstAgentService {
       needsHumanReview: false,
       sources: [],
       suggestedActions: [{ label: 'Ver Dashboard', href: '/dashboard', priority: 'low' }],
-      warnings: ['Configure ANTHROPIC_API_KEY ou GEMINI_API_KEY para habilitar a IA SST.'],
+      warnings: [
+        'Configure OPENAI_API_KEY (recomendado) ou ANTHROPIC_API_KEY/GEMINI_API_KEY para habilitar a SOPHIE.',
+      ],
       toolsUsed: [],
     };
   }
@@ -1344,7 +1397,7 @@ export class SstAgentService {
       imminentRisks: [],
       immediateActions: ['Configure um provider de IA para habilitar a analise de imagem.'],
       ppeRecommendations: [],
-      notes: 'Configure ANTHROPIC_API_KEY ou GEMINI_API_KEY para usar a analise de fotos.',
+      notes: 'Configure OPENAI_API_KEY (recomendado) ou ANTHROPIC_API_KEY/GEMINI_API_KEY para usar a analise de fotos.',
     };
   }
 

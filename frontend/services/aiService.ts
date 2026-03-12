@@ -41,29 +41,6 @@ export interface ImageRiskAnalysis {
 }
 
 export const aiService = {
-  getElevenLabsSignedUrl: async (agentId?: string, branchId?: string) => {
-    const response = await api.get<{
-      mode: 'signed' | 'public' | 'unavailable';
-      agentId: string | null;
-      branchId?: string | null;
-      signedUrl: string | null;
-      reason?: string;
-    }>(
-      '/ai/sst/voice/signed-url',
-      {
-        params:
-          agentId || branchId
-            ? {
-                ...(agentId ? { agentId } : {}),
-                ...(branchId ? { branchId } : {}),
-              }
-            : undefined,
-        timeout: 8000,
-      },
-    );
-    return response.data;
-  },
-
   chat: async (
     message: string,
     options?: {
