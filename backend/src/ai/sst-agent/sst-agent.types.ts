@@ -227,6 +227,4 @@ export const CONCLUSIVE_QUESTION_PATTERNS = [
  * Nomes das ferramentas que são stubs (sem dados reais).
  * Usado para reduzir confiança e sinalizar ao usuário.
  */
-export const STUB_TOOL_NAMES = new Set([
-  'buscar_epis', // CA expiry nao implementado em EpisService ainda
-]);
+export const STUB_TOOL_NAMES = new Set<string>([]);

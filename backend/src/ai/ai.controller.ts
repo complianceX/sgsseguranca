@@ -8,7 +8,7 @@ import {
   UseInterceptors,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { AiService } from './ai.service';
+import { SophieFacadeService } from './sophie-facade.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
@@ -25,47 +25,54 @@ import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
 @UseGuards(FeatureAiGuard, JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class AiController {
-  constructor(private readonly aiService: AiService) {}
+  constructor(private readonly sophieFacade: SophieFacadeService) {}
+
+  @Get('status')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
+  async getStatus() {
+    return this.sophieFacade.getStatus();
+  }
 
   @Post('insights')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async getInsights() {
-    return this.aiService.getInsights();
+    return this.sophieFacade.getInsights();
   }
 
   @Post('analyze-apr')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async analyzeApr(@Body() body: AnalyzeAprDto) {
-    return this.aiService.analyzeApr(body.description);
+    return this.sophieFacade.analyzeApr(body.description);
   }
 
   @Post('analyze-pt')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async analyzePt(@Body() body: AnalyzePtDto) {
-    return this.aiService.analyzePt(body as any);
+    return this.sophieFacade.analyzePt(body);
   }
 
   @Get('analyze-checklist/:id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async analyzeChecklist(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.aiService.analyzeChecklist(id);
+    return this.sophieFacade.analyzeChecklist(id);
   }
 
   @Post('generate-dds')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async generateDds() {
-    return this.aiService.generateDds();
+    return this.sophieFacade.generateDds();
   }
 
   @Post('generate-checklist')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async generateChecklist(@Body() body: GenerateChecklistDto) {
-    return this.aiService.generateChecklist(body as any);
+    return this.sophieFacade.generateChecklist(body);
   }
 }

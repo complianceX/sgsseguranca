@@ -20,6 +20,7 @@ import { SstAgentService } from './sst-agent/sst-agent.service';
 import { SstAgentController } from './sst-agent/sst-agent.controller';
 import { SstToolsExecutor } from './sst-agent/sst-agent.tools';
 import { SstRateLimitService } from './sst-agent/sst-rate-limit.service';
+import { SophieFacadeService } from './sophie-facade.service';
 import { SophieModule } from '../sophie/sophie.module';
 import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
 
@@ -40,7 +41,14 @@ import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
     ServiceOrdersModule,
   ],
   controllers: [AiController, SstAgentController],
-  providers: [AiService, SstAgentService, SstToolsExecutor, SstRateLimitService, FeatureAiGuard],
-  exports: [AiService, SstAgentService],
+  providers: [
+    AiService,
+    SstAgentService,
+    SstToolsExecutor,
+    SstRateLimitService,
+    SophieFacadeService,
+    FeatureAiGuard,
+  ],
+  exports: [AiService, SstAgentService, SophieFacadeService],
 })
 export class AiModule {}

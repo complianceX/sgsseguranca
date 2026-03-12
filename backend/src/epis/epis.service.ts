@@ -70,4 +70,58 @@ export class EpisService extends BaseService<Epi> {
       where: tenantId ? { ...where, company_id: tenantId } : where,
     });
   }
+
+  async findCaExpirySummary(days = 30): Promise<{
+    total: number;
+    expired: number;
+    expiringSoon: number;
+    withoutValidity: number;
+    windowDays: number;
+  }> {
+    const tenantId = this.tenantService.getTenantId();
+    const now = new Date();
+    const limitDate = new Date();
+    limitDate.setDate(limitDate.getDate() + days);
+
+    const query = this.episRepository.createQueryBuilder('epi');
+    if (tenantId) {
+      query.where('epi.company_id = :tenantId', { tenantId });
+    }
+
+    const epis = await query.getMany();
+
+    const summary = epis.reduce(
+      (acc, epi) => {
+        acc.total += 1;
+
+        if (!epi.validade_ca) {
+          acc.withoutValidity += 1;
+          return acc;
+        }
+
+        const validityDate = new Date(epi.validade_ca);
+        if (Number.isNaN(validityDate.getTime())) {
+          acc.withoutValidity += 1;
+          return acc;
+        }
+
+        if (validityDate < now) {
+          acc.expired += 1;
+        } else if (validityDate <= limitDate) {
+          acc.expiringSoon += 1;
+        }
+
+        return acc;
+      },
+      {
+        total: 0,
+        expired: 0,
+        expiringSoon: 0,
+        withoutValidity: 0,
+        windowDays: days,
+      },
+    );
+
+    return summary;
+  }
 }

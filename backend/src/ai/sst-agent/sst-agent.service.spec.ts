@@ -466,9 +466,9 @@ describe('HumanReviewReason enum', () => {
 // ---------------------------------------------------------------------------
 
 describe('STUB_TOOL_NAMES', () => {
-  it('deve incluir ferramentas sem integracao real', async () => {
+  it('nao deve incluir buscar_epis apos integracao real', async () => {
     const { STUB_TOOL_NAMES: stubs } = await import('./sst-agent.types');
-    expect(stubs.has('buscar_epis')).toBe(true);
+    expect(stubs.has('buscar_epis')).toBe(false);
   });
 
   it('nao deve incluir ferramentas com dados reais', async () => {

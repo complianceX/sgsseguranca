@@ -1,0 +1,61 @@
+import { Injectable } from '@nestjs/common';
+import { AiService } from './ai.service';
+import { SstAgentService } from './sst-agent/sst-agent.service';
+import { SophieEngineService } from '../sophie/sophie.engine.service';
+import { AnalyzePtDto } from './dto/analyze-pt.dto';
+import { GenerateChecklistDto } from './dto/generate-checklist.dto';
+
+@Injectable()
+export class SophieFacadeService {
+  constructor(
+    private readonly aiService: AiService,
+    private readonly sstAgentService: SstAgentService,
+    private readonly sophieEngineService: SophieEngineService,
+  ) {}
+
+  getStatus() {
+    const agent = this.sstAgentService.getRuntimeStatus();
+    const knowledgeBase = this.sophieEngineService.getVersion();
+
+    return {
+      agent,
+      knowledgeBase,
+      capabilities: {
+        insights: true,
+        analyzeApr: true,
+        analyzePt: true,
+        analyzeChecklist: true,
+        generateDds: true,
+        generateChecklist: true,
+        chat: true,
+        history: true,
+        imageAnalysis: agent.imageAnalysisEnabled,
+        localKnowledgeBase: true,
+      },
+    };
+  }
+
+  getInsights() {
+    return this.aiService.getInsights();
+  }
+
+  analyzeApr(description: string) {
+    return this.aiService.analyzeApr(description);
+  }
+
+  analyzePt(payload: AnalyzePtDto) {
+    return this.aiService.analyzePt(payload as any);
+  }
+
+  analyzeChecklist(id: string) {
+    return this.aiService.analyzeChecklist(id);
+  }
+
+  generateDds() {
+    return this.aiService.generateDds();
+  }
+
+  generateChecklist(payload: GenerateChecklistDto) {
+    return this.aiService.generateChecklist(payload as any);
+  }
+}

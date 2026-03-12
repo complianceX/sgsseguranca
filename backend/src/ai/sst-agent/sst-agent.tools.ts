@@ -22,6 +22,7 @@ import { CatsService } from '../../cats/cats.service';
 import { NonConformitiesService } from '../../nonconformities/nonconformities.service';
 import { ServiceOrdersService } from '../../service-orders/service-orders.service';
 import { AprsService } from '../../aprs/aprs.service';
+import { EpisService } from '../../epis/epis.service';
 import { SstToolResult } from './sst-agent.types';
 
 // ---------------------------------------------------------------------------
@@ -80,9 +81,13 @@ export const SST_TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: 'buscar_epis',
     description:
-      'EPIs cadastrados e validade do CA (Certificado de Aprovacao). Referencia: NR-6. ' +
-      'ATENCAO: integracao em desenvolvimento.',
-    input_schema: { type: 'object' as const, properties: {} },
+      'EPIs cadastrados e validade do CA (Certificado de Aprovacao). Referencia: NR-6. DADOS REAIS.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        dias: { type: 'number', description: 'Janela de dias para CA proximo do vencimento. Padrao: 30.' },
+      },
+    },
   },
   {
     name: 'buscar_riscos',
@@ -170,8 +175,7 @@ export class SstToolsExecutor {
     private readonly nonConformitiesService: NonConformitiesService,
     private readonly serviceOrdersService: ServiceOrdersService,
     private readonly aprsService: AprsService,
-    // TODO: Injete abaixo para habilitar ferramenta stub remanescente:
-    // private readonly episService: EpisService, -> buscar_epis (CA expiry pendente)
+    private readonly episService: EpisService,
   ) {}
 
   /**
@@ -202,7 +206,7 @@ export class SstToolsExecutor {
           return await this.buscarNaoConformidades(input.status as string | undefined);
 
         case 'buscar_epis':
-          return this.stubEpis();
+          return await this.buscarEpis(Number(input.dias ?? 30));
 
         case 'buscar_riscos':
           return await this.buscarRiscos(input.setor_id as string | undefined);
@@ -320,17 +324,13 @@ export class SstToolsExecutor {
     };
   }
 
-  private stubEpis(): SstToolResult {
-    // TODO: Conectar a EpisService quando metodo findExpiring (por CA) estiver disponivel
+  private async buscarEpis(dias: number): Promise<SstToolResult> {
+    const summary = await this.episService.findCaExpirySummary(dias);
     return {
       success: true,
-      is_stub: true,
+      is_stub: false,
       data: {
-        aviso_stub:
-          'ATENCAO: Esta ferramenta nao possui dados de vencimento de CA em tempo real. ' +
-          'Consulte o modulo diretamente para informacoes precisas.',
-        orientacao:
-          'Acesse o modulo de EPIs para verificar CA vencidos ou proximos do vencimento.',
+        ...summary,
         link: '/dashboard/epis',
         referencia: 'NR-6, item 6.3: empregador deve exigir EPI com CA valido emitido pelo MTE.',
       },

@@ -267,6 +267,27 @@ export class SstAgentService {
     this.logger.log('Nenhum provider externo configurado - usando SOPHIE local (base interna)');
   }
 
+  getRuntimeStatus() {
+    return {
+      provider: this.provider,
+      model: this.model,
+      openaiModel: this.openaiModel,
+      openaiVisionModel: this.openaiVisionModel,
+      historyDefaultDays: this.historyDefaultDays,
+      historyMaxDays: this.historyMaxDays,
+      historyMaxLimit: this.historyMaxLimit,
+      imageAnalysisEnabled:
+        this.provider === OPENAI_PROVIDER ||
+        this.provider === ANTHROPIC_PROVIDER ||
+        this.provider === GEMINI_PROVIDER,
+      externalProviderEnabled:
+        this.provider === OPENAI_PROVIDER ||
+        this.provider === ANTHROPIC_PROVIDER ||
+        this.provider === GEMINI_PROVIDER,
+      localFallbackEnabled: true,
+    };
+  }
+
   // -------------------------------------------------------------------------
   // API publica
   // -------------------------------------------------------------------------
