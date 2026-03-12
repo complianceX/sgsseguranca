@@ -207,6 +207,7 @@ describe('MailService', () => {
           subject: expect.stringContaining('Permissão de Trabalho #123'),
         }),
       );
+      expect(mailLogRepository.save).toHaveBeenCalled();
     });
 
     it('deve lançar NotFoundException se o documento não for encontrado no serviço de origem', async () => {

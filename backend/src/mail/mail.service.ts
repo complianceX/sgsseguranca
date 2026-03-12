@@ -10,6 +10,7 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
+import nodemailer, { SentMessageInfo, Transporter } from 'nodemailer';
 import { Resend } from 'resend';
 import { Repository, Between, LessThan, Not, In } from 'typeorm';
 import { MailLog } from './entities/mail-log.entity';
@@ -29,11 +30,32 @@ import { IntegrationResilienceService } from '../common/resilience/integration-r
 import { ReportsService } from '../reports/reports.service';
 import { CompanyResponseDto } from '../companies/dto/company-response.dto';
 
+type MailContext = { companyId?: string; userId?: string };
+
+type MailProvider = 'smtp' | 'resend';
+
+type MailDeliveryResult = {
+  provider: MailProvider;
+  messageId?: string;
+  accepted: string[];
+  rejected: string[];
+  providerResponse?: string;
+  raw: unknown;
+};
+
+type SendMailMetadata = {
+  html?: string;
+  filename?: string;
+};
+
 @Injectable()
 export class MailService {
-  private resend: Resend;
+  private resend: Resend | null = null;
+  private transporter: Transporter | null = null;
   private readonly logger = new Logger(MailService.name);
   private alertsRunning = false;
+  private lastScheduledAlertsAt = 0;
+  private scheduledAlertsCursor = 0;
 
   constructor(
     private configService: ConfigService,
@@ -55,14 +77,46 @@ export class MailService {
     private reportsService: ReportsService,
     private readonly integration: IntegrationResilienceService,
   ) {
-    this.resend = new Resend(this.configService.get<string>('RESEND_API_KEY'));
+    const smtpHost = this.configService.get<string>('MAIL_HOST')?.trim();
+    const smtpUser = this.configService.get<string>('MAIL_USER')?.trim();
+    const smtpPass = this.configService.get<string>('MAIL_PASS')?.trim();
+    const smtpPort = Number(this.configService.get<string>('MAIL_PORT') || '587');
+    const smtpSecureRaw = this.configService.get<string>('MAIL_SECURE');
+    const smtpSecure =
+      smtpSecureRaw === 'true' ||
+      this.configService.get<boolean>('MAIL_SECURE') === true;
+
+    if (smtpHost && smtpUser && smtpPass) {
+      this.transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: Number.isFinite(smtpPort) ? smtpPort : 587,
+        secure: smtpSecure,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+      this.logger.log(`MailService configurado com SMTP (${smtpHost}).`);
+      return;
+    }
+
+    const resendApiKey = this.configService.get<string>('RESEND_API_KEY')?.trim();
+    if (resendApiKey) {
+      this.resend = new Resend(resendApiKey);
+      this.logger.log('MailService configurado com Resend.');
+      return;
+    }
+
+    this.logger.warn(
+      'Nenhum provedor de e-mail configurado. Configure SMTP (MAIL_HOST/MAIL_USER/MAIL_PASS) ou RESEND_API_KEY.',
+    );
   }
 
   async sendStoredDocument(
     documentId: string,
     documentType: string,
     email: string,
-    _companyId?: string,
+    companyId?: string,
   ) {
     let fileKey: string | undefined;
     let subject = 'Documento Compartilhado - GST';
@@ -159,6 +213,7 @@ export class MailService {
       subject,
       `Acesse seu documento aqui: ${downloadUrl}`,
       html,
+      { companyId, filename: docName },
     );
   }
 
@@ -169,6 +224,8 @@ export class MailService {
       subject?: string;
       docName?: string;
       expiresInSeconds?: number;
+      companyId?: string;
+      userId?: string;
     },
   ) {
     if (!fileKey || !email) {
@@ -208,6 +265,11 @@ export class MailService {
       subject,
       `Acesse seu documento aqui: ${downloadUrl}`,
       html,
+      {
+        companyId: options?.companyId,
+        userId: options?.userId,
+        filename: docName,
+      },
     );
   }
 
@@ -216,28 +278,15 @@ export class MailService {
     subject: string,
     text: string,
     html?: string,
+    context?: MailContext & { filename?: string },
   ): Promise<void> {
-    const fromName =
-      this.configService.get<string>('MAIL_FROM_NAME')?.trim() ||
-      'GST - Gestão de Segurança do Trabalho';
-    const fromEmail =
-      this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() ||
-      'onboarding@resend.dev';
-
-    await this.integration.execute(
-      'resend_email',
-      () =>
-        this.resend.emails.send({
-          from: `${fromName} <${fromEmail}>`,
-          to,
-          subject,
-          text,
-          html: html || text,
-        }),
-      {
-        timeoutMs: 10_000,
-        retry: { attempts: 2, mode: 'safe' },
-      },
+    await this.sendMailSimple(
+      to,
+      subject,
+      text,
+      context,
+      undefined,
+      { html, filename: context?.filename },
     );
   }
 
@@ -245,21 +294,18 @@ export class MailService {
     to: string,
     subject: string,
     text: string,
-    context?: { companyId?: string; userId?: string },
+    context?: MailContext,
     attachments?: any[],
+    metadata?: SendMailMetadata,
   ): Promise<{
     info: any;
     previewUrl?: string;
     usingTestAccount: boolean;
   }> {
-    const fromName =
-      this.configService.get<string>('MAIL_FROM_NAME')?.trim() ||
-      'GST - Gestão de Segurança do Trabalho';
-    const fromEmail =
-      this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() ||
-      'onboarding@resend.dev';
-
-    const html = text
+    const { fromName, fromEmail } = this.resolveFromAddress();
+    const html = metadata?.html
+      ? metadata.html
+      : text
       ? `<div style="font-family: Arial, sans-serif; font-size: 14px; color: #1f2937;">${text.replace(
           /\n/g,
           '<br/>',
@@ -267,38 +313,27 @@ export class MailService {
       : undefined;
 
     try {
-      const data = await this.integration.execute(
-        'resend_email',
-        () =>
-          this.resend.emails.send({
-            from: `${fromName} <${fromEmail}>`,
-            to,
-            subject,
-            text,
-            html,
-            attachments,
-          }),
-        {
-          timeoutMs: 10_000,
-          retry: { attempts: 2, mode: 'safe' },
-        },
-      );
-
-      if (data.error) {
-        throw new Error(`Resend Error: ${data.error.message}`);
-      }
+      const delivery = await this.sendWithConfiguredProvider({
+        to,
+        subject,
+        text,
+        html,
+        attachments,
+      });
+      const usingTestAccount =
+        delivery.provider === 'resend' && fromEmail.endsWith('@resend.dev');
 
       const log = this.mailLogRepository.create({
         company_id: context?.companyId,
         user_id: context?.userId,
         to,
         subject,
-        filename: 'alerta',
-        message_id: data.data?.id,
-        accepted: [to],
-        rejected: [],
-        provider_response: 'Resend API',
-        using_test_account: false,
+        filename: metadata?.filename || 'alerta',
+        message_id: delivery.messageId,
+        accepted: delivery.accepted,
+        rejected: delivery.rejected,
+        provider_response: delivery.providerResponse,
+        using_test_account: usingTestAccount,
         status: 'success',
       });
 
@@ -308,11 +343,19 @@ export class MailService {
         event: 'mail_sent',
         companyId: context?.companyId,
         userId: context?.userId,
-        messageId: data.data?.id,
-        provider: 'Resend',
+        messageId: delivery.messageId,
+        provider: delivery.provider,
       });
 
-      return { info: data, previewUrl: undefined, usingTestAccount: false };
+      return {
+        info: {
+          data: { id: delivery.messageId },
+          provider: delivery.provider,
+          raw: delivery.raw,
+        },
+        previewUrl: undefined,
+        usingTestAccount,
+      };
     } catch (error) {
       const message = this.extractErrorMessage(error);
 
@@ -321,7 +364,7 @@ export class MailService {
         user_id: context?.userId,
         to,
         subject,
-        filename: 'alerta',
+        filename: metadata?.filename || 'alerta',
         using_test_account: false,
         status: 'error',
         error_message: message,
@@ -343,6 +386,123 @@ export class MailService {
         `Falha ao enviar e-mail para ${to}: ${message}`,
       );
     }
+  }
+
+  private resolveFromAddress() {
+    const fromName =
+      this.configService.get<string>('MAIL_FROM_NAME')?.trim() ||
+      'GST - Gestão de Segurança do Trabalho';
+    const fromEmail =
+      this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() ||
+      this.configService.get<string>('MAIL_USER')?.trim() ||
+      'onboarding@resend.dev';
+    return { fromName, fromEmail };
+  }
+
+  private async sendWithConfiguredProvider(options: {
+    to: string;
+    subject: string;
+    text: string;
+    html?: string;
+    attachments?: any[];
+  }): Promise<MailDeliveryResult> {
+    const { fromName, fromEmail } = this.resolveFromAddress();
+    const recipients = this.normalizeRecipients(options.to);
+    if (!recipients.length) {
+      throw new BadRequestException(
+        'Nenhum destinatário válido para envio de e-mail.',
+      );
+    }
+
+    if (this.transporter) {
+      const info = await this.integration.execute<SentMessageInfo>(
+        'smtp_email',
+        () =>
+          this.transporter!.sendMail({
+            from: `${fromName} <${fromEmail}>`,
+            to: recipients.join(','),
+            subject: options.subject,
+            text: options.text,
+            html: options.html || options.text,
+            attachments: options.attachments,
+          }),
+        {
+          timeoutMs: 10_000,
+          retry: { attempts: 2, mode: 'safe' },
+        },
+      );
+
+      return {
+        provider: 'smtp',
+        messageId: info?.messageId,
+        accepted: this.toAddressList(info?.accepted, recipients),
+        rejected: this.toAddressList(info?.rejected, []),
+        providerResponse:
+          typeof info?.response === 'string' ? info.response : undefined,
+        raw: info,
+      };
+    }
+
+    if (this.resend) {
+      type ResendResponse = {
+        data?: { id?: string } | null;
+        error?: { message?: string } | null;
+      };
+
+      const data = await this.integration.execute<ResendResponse>(
+        'resend_email',
+        () =>
+          this.resend!.emails.send({
+            from: `${fromName} <${fromEmail}>`,
+            to: recipients.length === 1 ? recipients[0] : recipients,
+            subject: options.subject,
+            text: options.text,
+            html: options.html || options.text,
+            attachments: options.attachments,
+          }),
+        {
+          timeoutMs: 10_000,
+          retry: { attempts: 2, mode: 'safe' },
+        },
+      );
+
+      if (data?.error?.message) {
+        throw new Error(`Resend Error: ${data.error.message}`);
+      }
+
+      return {
+        provider: 'resend',
+        messageId: data?.data?.id,
+        accepted: recipients,
+        rejected: [],
+        providerResponse: 'Resend API',
+        raw: data,
+      };
+    }
+
+    throw new ServiceUnavailableException(
+      'Nenhum provedor de e-mail configurado. Configure SMTP ou RESEND_API_KEY.',
+    );
+  }
+
+  private toAddressList(value: unknown, fallback: string[]): string[] {
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => {
+          if (typeof item === 'string') return item;
+          if (item && typeof item === 'object' && 'address' in item) {
+            const address = (item as { address?: string }).address;
+            return typeof address === 'string' ? address : '';
+          }
+          return String(item ?? '');
+        })
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    if (typeof value === 'string') {
+      return [value].filter(Boolean);
+    }
+    return fallback;
   }
 
   async sendMonthlyReport(
@@ -604,8 +764,19 @@ export class MailService {
     if (this.alertsRunning) {
       return;
     }
+
+    const minIntervalMs = this.getEnvNumber(
+      'MAIL_ALERT_SCHEDULE_MIN_INTERVAL_MS',
+      5 * 60_000,
+    );
+    const now = Date.now();
+    if (now - this.lastScheduledAlertsAt < minIntervalMs) {
+      return;
+    }
+
     this.alertsRunning = true;
     try {
+      this.lastScheduledAlertsAt = now;
       const recipients = this.normalizeRecipients(
         this.configService.get<string>('MAIL_ALERT_TO') || '',
       );
@@ -614,14 +785,27 @@ export class MailService {
       }
 
       const companies = await this.companiesService.findAllActive();
-      for (const company of companies) {
-        await this.dispatchAlerts({
-          to: recipients.join(','),
-          includeWhatsapp:
-            this.configService.get<string>('WHATSAPP_ALERTS_ENABLED') ===
-            'true',
-          companyId: company.id,
-        });
+      if (!companies.length) {
+        return;
+      }
+
+      const batchSize = this.getEnvNumber('MAIL_ALERT_COMPANY_BATCH_SIZE', 10);
+      const maxParallel = this.getEnvNumber('MAIL_ALERT_COMPANY_MAX_PARALLEL', 2);
+      const companyBatch = this.selectCompanyBatch(companies, batchSize);
+
+      for (let i = 0; i < companyBatch.length; i += maxParallel) {
+        const chunk = companyBatch.slice(i, i + maxParallel);
+        await Promise.all(
+          chunk.map((company) =>
+            this.dispatchAlerts({
+              to: recipients.join(','),
+              includeWhatsapp:
+                this.configService.get<string>('WHATSAPP_ALERTS_ENABLED') ===
+                'true',
+              companyId: company.id,
+            }),
+          ),
+        );
       }
     } finally {
       this.alertsRunning = false;
@@ -813,6 +997,34 @@ export class MailService {
     const filename = `mail-logs-${new Date().toISOString().slice(0, 10)}.csv`;
 
     return { csv, filename };
+  }
+
+  private getEnvNumber(key: string, fallback: number): number {
+    const raw = this.configService.get<string>(key);
+    const parsed = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return fallback;
+    }
+    return parsed;
+  }
+
+  private selectCompanyBatch<T extends { id: string }>(
+    companies: T[],
+    batchSize: number,
+  ): T[] {
+    if (!companies.length) {
+      return [];
+    }
+    const size = Math.max(1, Math.min(batchSize, companies.length));
+    const start = this.scheduledAlertsCursor % companies.length;
+    const selected: T[] = [];
+
+    for (let index = 0; index < size; index += 1) {
+      selected.push(companies[(start + index) % companies.length]);
+    }
+
+    this.scheduledAlertsCursor = (start + size) % companies.length;
+    return selected;
   }
 
   private extractErrorMessage(error: unknown): string {

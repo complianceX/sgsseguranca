@@ -250,6 +250,7 @@ export class MailController {
         docName: body.docName || file.originalname,
         expiresInSeconds: 604800,
         companyId,
+        userId: req.user?.userId,
       },
       defaultJobOptions,
     );

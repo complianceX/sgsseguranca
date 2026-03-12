@@ -126,9 +126,11 @@ export class MailProcessor extends WorkerHost {
       docName?: string;
       expiresInSeconds?: number;
       companyId?: string;
+      userId?: string;
     }>,
   ) {
-    const { fileKey, email, subject, docName, expiresInSeconds } = job.data;
+    const { fileKey, email, subject, docName, expiresInSeconds, companyId, userId } =
+      job.data;
     this.logger.log(
       `[Job ${job.id}] Processando envio de arquivo: ${fileKey} para ${email}`,
     );
@@ -138,6 +140,8 @@ export class MailProcessor extends WorkerHost {
         subject,
         docName,
         expiresInSeconds,
+        companyId,
+        userId,
       });
       this.logger.log(`[Job ${job.id}] E-mail enviado com sucesso.`);
     } catch (error) {
