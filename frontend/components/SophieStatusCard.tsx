@@ -16,9 +16,6 @@ import { isAiEnabled } from '@/lib/featureFlags';
 type SophieStatus = {
   agent: {
     provider: string;
-    model: string;
-    openaiModel: string;
-    openaiVisionModel: string;
     historyDefaultDays: number;
     historyMaxDays: number;
     historyMaxLimit: number;
@@ -139,7 +136,9 @@ export function SophieStatusCard() {
               <p className="text-base font-semibold text-slate-900">
                 {formatProvider(status.agent.provider)}
               </p>
-              <p className="mt-1 text-xs text-slate-500">{status.agent.model}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Operando como assistente central de SST no ambiente atual.
+              </p>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -153,7 +152,7 @@ export function SophieStatusCard() {
                 {status.agent.imageAnalysisEnabled ? 'Habilitada' : 'Indisponivel'}
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                Modelo vision: {status.agent.openaiVisionModel}
+                Leitura visual pronta para apoiar inspeções, evidências e análises técnicas.
               </p>
             </div>
 

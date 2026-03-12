@@ -10,7 +10,6 @@ import { isAiEnabled } from '@/lib/featureFlags';
 type SophieStatus = {
   agent: {
     provider: string;
-    model: string;
     imageAnalysisEnabled: boolean;
     localFallbackEnabled: boolean;
   };
@@ -75,8 +74,8 @@ export function SophieStatusMiniCard() {
             <Bot className="h-5 w-5" />
           </div>
           <div>
-            <CardTitle className="text-base">SOPHIE Runtime</CardTitle>
-            <CardDescription>Status operacional da IA no ambiente atual.</CardDescription>
+            <CardTitle className="text-base">SOPHIE</CardTitle>
+            <CardDescription>Status operacional da assistente no ambiente atual.</CardDescription>
           </div>
         </div>
         <Badge variant="accent" className="text-[10px] uppercase tracking-[0.12em]">
@@ -101,7 +100,9 @@ export function SophieStatusMiniCard() {
                 <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                   {formatProvider(status.agent.provider)}
                 </p>
-                <p className="text-xs text-[var(--ds-color-text-muted)]">{status.agent.model}</p>
+                <p className="text-xs text-[var(--ds-color-text-muted)]">
+                  Assistente central pronta para apoiar fluxos técnicos e operacionais.
+                </p>
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">
