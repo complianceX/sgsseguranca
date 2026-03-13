@@ -28,7 +28,7 @@ import {
   FileText,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { aiService } from '@/services/aiService';
 import { isAiEnabled } from '@/lib/featureFlags';
@@ -212,7 +212,16 @@ function getCategoriaBadgeClass(categoria?: string) {
 
 export function AprForm({ id }: AprFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
+  const prefillCompanyId = searchParams.get('company_id') || '';
+  const prefillSiteId = searchParams.get('site_id') || '';
+  const prefillUserId =
+    searchParams.get('elaborador_id') ||
+    searchParams.get('user_id') ||
+    '';
+  const prefillTitle = searchParams.get('title') || '';
+  const prefillDescription = searchParams.get('description') || '';
   const [fetching, setFetching] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
@@ -297,22 +306,22 @@ export function AprForm({ id }: AprFormProps) {
     defaultValues: {
       pdf_signed: false,
       numero: '',
-      titulo: '',
-      descricao: '',
+      titulo: prefillTitle,
+      descricao: prefillDescription,
       status: 'Pendente',
       is_modelo: false,
       is_modelo_padrao: false,
       data_inicio: new Date().toISOString().split('T')[0],
       data_fim: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      company_id: '',
-      site_id: '',
-      elaborador_id: '',
+      company_id: prefillCompanyId,
+      site_id: prefillSiteId,
+      elaborador_id: prefillUserId,
       activities: [],
       risks: [],
       epis: [],
       tools: [],
       machines: [],
-      participants: [],
+      participants: prefillUserId ? [prefillUserId] : [],
       itens_risco: [],
     },
   });

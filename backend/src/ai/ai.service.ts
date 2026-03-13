@@ -31,6 +31,7 @@ import {
   AnalyzePtResponse,
   CreateChecklistAutomationResponse,
   CreateDdsAutomationResponse,
+  CreateNonConformityAutomationResponse,
   GenerateChecklistResponse,
   GenerateDdsResponse,
   InsightCard,
@@ -44,6 +45,7 @@ import type { CreateChecklistDto } from '../checklists/dto/create-checklist.dto'
 import type { CreateDdsDto } from '../dds/dto/create-dds.dto';
 import type { GenerateChecklistDto } from './dto/generate-checklist.dto';
 import type { CreateAssistedChecklistDto } from './dto/create-assisted-checklist.dto';
+import type { CreateAssistedNonConformityDto } from './dto/create-assisted-nonconformity.dto';
 import type {
   CreateAssistedDdsDto,
   GenerateDdsDto,
@@ -979,6 +981,15 @@ export class AiService {
     return 'Médio';
   }
 
+  private generateNonConformityCode(): string {
+    const now = new Date();
+    const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(
+      now.getDate(),
+    ).padStart(2, '0')}`;
+    const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return `NC-SOPHIE-${stamp}-${suffix}`;
+  }
+
   async createChecklist(
     params: CreateAssistedChecklistDto,
   ): Promise<CreateChecklistAutomationResponse> {
@@ -1058,6 +1069,167 @@ export class AiService {
       persisted: true,
       message:
         'DDS criado pela SOPHIE e salvo no sistema para condução em campo.',
+    };
+  }
+
+  async createNonConformity(
+    params: CreateAssistedNonConformityDto,
+  ): Promise<CreateNonConformityAutomationResponse> {
+    if (!params.site_id) {
+      throw new BadRequestException(
+        'site_id é obrigatório para criar não conformidade pela SOPHIE.',
+      );
+    }
+
+    const title =
+      String(params.title || '').trim() || 'Não conformidade SST';
+    const description =
+      String(params.description || '').trim() ||
+      'Desvio operacional identificado e pendente de tratamento.';
+    const localSetorArea =
+      String(params.local_setor_area || '').trim() || 'Área operacional';
+    const responsavelArea =
+      String(params.responsavel_area || '').trim() || 'Responsável da área';
+    const tipo =
+      String(params.tipo || '').trim() || 'DESVIO_OPERACIONAL';
+
+    type GeneratedNonConformityDraft = {
+      tipo?: string;
+      classificacao?: string[];
+      descricao?: string;
+      evidencia_observada?: string;
+      condicao_insegura?: string;
+      requisito_nr?: string;
+      requisito_item?: string;
+      risco_perigo?: string;
+      risco_associado?: string;
+      risco_nivel?: string;
+      causa?: string[];
+      acao_imediata_descricao?: string;
+      acao_definitiva_descricao?: string;
+      acao_preventiva_medidas?: string;
+      confidence?: SophieConfidence;
+      notes?: string[];
+    };
+
+    const generated = await this.generateStructuredJson<GeneratedNonConformityDraft>({
+      task: 'generic',
+      maxTokens: 1400,
+      prompt:
+        `Crie um rascunho estruturado de Não Conformidade (NC) para SST em ambiente corporativo.\n\n` +
+        `Contexto:\n` +
+        `- Título: ${title}\n` +
+        `- Descrição: ${description}\n` +
+        `- Local/setor/área: ${localSetorArea}\n` +
+        `- Tipo sugerido: ${tipo}\n\n` +
+        `Objetivo:\n` +
+        `- gerar um cadastro inicial consistente para revisão humana\n` +
+        `- manter linguagem corporativa, técnica e objetiva\n` +
+        `- priorizar hierarquia de controle\n` +
+        `- considerar NR-01 e outras NRs aplicáveis quando pertinente\n\n` +
+        `Formato JSON:\n` +
+        `{\n` +
+        `  "tipo": string,\n` +
+        `  "classificacao": string[],\n` +
+        `  "descricao": string,\n` +
+        `  "evidencia_observada": string,\n` +
+        `  "condicao_insegura": string,\n` +
+        `  "requisito_nr": string,\n` +
+        `  "requisito_item": string,\n` +
+        `  "risco_perigo": string,\n` +
+        `  "risco_associado": string,\n` +
+        `  "risco_nivel": "Baixo|Médio|Alto|Crítico",\n` +
+        `  "causa": string[],\n` +
+        `  "acao_imediata_descricao": string,\n` +
+        `  "acao_definitiva_descricao": string,\n` +
+        `  "acao_preventiva_medidas": string,\n` +
+        `  "confidence": "low|medium|high",\n` +
+        `  "notes": string[]\n` +
+        `}\n\n` +
+        `Regras:\n` +
+        `- Não inventar medições numéricas.\n` +
+        `- Se o contexto for insuficiente, assumir um desvio operacional plausível e declarar isso em notes.\n` +
+        `- descricao, evidencia_observada e condicao_insegura devem ser úteis para cadastro real.\n` +
+        `- acao_imediata_descricao e acao_definitiva_descricao devem ser executáveis.\n` +
+        `- Retorne somente JSON válido.`,
+    });
+
+    const today = this.getTodayIsoDate();
+    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const normalizedRiskLevel = this.normalizeRiskLevel(generated.risco_nivel);
+    const confidence = this.normalizeConfidence(generated.confidence);
+    const notes = this.normalizeStringArray(generated.notes);
+
+    const createDto: CreateNonConformityDto = {
+      codigo_nc: this.generateNonConformityCode(),
+      tipo: String(generated.tipo || tipo).trim() || 'DESVIO_OPERACIONAL',
+      data_identificacao: today,
+      site_id: params.site_id,
+      local_setor_area: localSetorArea,
+      atividade_envolvida: title,
+      responsavel_area: responsavelArea,
+      auditor_responsavel: 'SOPHIE',
+      classificacao:
+        this.normalizeStringArray(generated.classificacao) || ['SOPHIE', 'NC_ASSISTIDA'],
+      descricao:
+        String(generated.descricao || '').trim() ||
+        `${title}. ${description}`.trim(),
+      evidencia_observada:
+        String(generated.evidencia_observada || '').trim() || description,
+      condicao_insegura:
+        String(generated.condicao_insegura || '').trim() ||
+        'Condição insegura identificada durante análise assistida.',
+      requisito_nr: String(generated.requisito_nr || 'NR-01').trim() || 'NR-01',
+      requisito_item:
+        String(generated.requisito_item || 'Gerenciamento de riscos ocupacionais').trim() ||
+        'Gerenciamento de riscos ocupacionais',
+      risco_perigo:
+        String(generated.risco_perigo || 'Desvio operacional').trim() || 'Desvio operacional',
+      risco_associado:
+        String(generated.risco_associado || 'Persistência de condição insegura').trim() ||
+        'Persistência de condição insegura',
+      risco_nivel: normalizedRiskLevel,
+      causa:
+        this.normalizeStringArray(generated.causa) || ['FALHA_DE_CONTROLE_OPERACIONAL'],
+      acao_imediata_descricao:
+        String(generated.acao_imediata_descricao || '').trim() ||
+        'Executar contenção imediata do desvio e reforçar bloqueio operacional.',
+      acao_imediata_data: today,
+      acao_imediata_responsavel: responsavelArea,
+      acao_imediata_status: 'Pendente',
+      acao_definitiva_descricao:
+        String(generated.acao_definitiva_descricao || '').trim() ||
+        'Implementar correção definitiva e validar a eficácia do tratamento.',
+      acao_definitiva_prazo: nextWeek,
+      acao_definitiva_responsavel: 'Gestão SST',
+      acao_preventiva_medidas:
+        String(generated.acao_preventiva_medidas || '').trim() ||
+        'Revisar controles, orientar equipe e reforçar monitoramento.',
+      status: 'ABERTA',
+      observacoes_gerais: [
+        'NC criada pela SOPHIE em modo assistido.',
+        confidence ? `Confiança da geração: ${confidence}.` : null,
+        ...(notes || []),
+      ]
+        .filter(Boolean)
+        .join(' '),
+    };
+
+    const created = await this.nonConformitiesService.create(createDto);
+
+    return {
+      nonConformity: created,
+      generation: {
+        title,
+        riskLevel: normalizedRiskLevel,
+        confidence,
+        notes,
+      },
+      persisted: true,
+      message:
+        'Não conformidade criada pela SOPHIE e salva no sistema para validação técnica.',
     };
   }
 

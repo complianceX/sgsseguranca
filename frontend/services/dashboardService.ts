@@ -159,6 +159,32 @@ export interface TstDayDashboard {
   };
 }
 
+export interface DashboardPendingQueueResponse {
+  summary: {
+    total: number;
+    critical: number;
+    high: number;
+    medium: number;
+    documents: number;
+    health: number;
+    actions: number;
+  };
+  items: Array<{
+    id: string;
+    sourceId: string;
+    module: string;
+    category: 'documents' | 'health' | 'actions';
+    title: string;
+    description: string;
+    priority: 'critical' | 'high' | 'medium';
+    status: string;
+    responsible: string | null;
+    site: string | null;
+    dueDate: string | null;
+    href: string;
+  }>;
+}
+
 export const dashboardService = {
   getSummary: async () => {
     const response = await api.get<DashboardSummaryResponse>('/dashboard/summary');
@@ -177,6 +203,13 @@ export const dashboardService = {
 
   getTstDay: async () => {
     const response = await api.get<TstDayDashboard>('/dashboard/tst-day');
+    return response.data;
+  },
+
+  getPendingQueue: async () => {
+    const response = await api.get<DashboardPendingQueueResponse>(
+      '/dashboard/pending-queue',
+    );
     return response.data;
   },
 };

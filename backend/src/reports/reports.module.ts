@@ -36,6 +36,14 @@ const isRedisDisabled = /^true$/i.test(process.env.REDIS_DISABLED || '');
                 );
               },
               getJob: async () => null,
+              getJobs: async () => [],
+              getJobCounts: async () => ({
+                active: 0,
+                wait: 0,
+                completed: 0,
+                failed: 0,
+                delayed: 0,
+              }),
             },
           },
         ]

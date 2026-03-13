@@ -21,6 +21,7 @@ import { AnalyzeAprDto } from './dto/analyze-apr.dto';
 import { Authorize } from '../auth/authorize.decorator';
 import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
 import { CreateAssistedChecklistDto } from './dto/create-assisted-checklist.dto';
+import { CreateAssistedNonConformityDto } from './dto/create-assisted-nonconformity.dto';
 import {
   CreateAssistedDdsDto,
   GenerateDdsDto,
@@ -94,6 +95,13 @@ export class AiController {
   @Authorize('can_use_ai')
   async createDds(@Body() body: CreateAssistedDdsDto) {
     return this.sophieFacade.createDds(body);
+  }
+
+  @Post('create-nonconformity')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
+  async createNonConformity(@Body() body: CreateAssistedNonConformityDto) {
+    return this.sophieFacade.createNonConformity(body);
   }
 
   @Post('generate-monthly-report')

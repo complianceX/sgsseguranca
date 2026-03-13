@@ -40,6 +40,16 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const templateIdParam = searchParams.get('templateId') || 'none';
+  const prefillCompanyId = searchParams.get('company_id') || '';
+  const prefillSiteId = searchParams.get('site_id') || '';
+  const prefillInspectorId =
+    searchParams.get('inspetor_id') ||
+    searchParams.get('user_id') ||
+    '';
+  const prefillTitle = searchParams.get('title') || '';
+  const prefillDescription = searchParams.get('description') || '';
+  const prefillEquipment = searchParams.get('equipamento') || '';
+  const prefillMachine = searchParams.get('maquina') || '';
   const { user } = useAuth();
   const isTemplateMode = mode === 'template';
   const isAdminGeneral = user?.profile?.nome === 'Administrador Geral';
@@ -99,16 +109,16 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   } = useForm<ChecklistFormData>({
     resolver: zodResolver(checklistSchema),
     defaultValues: {
-      titulo: isTemplateMode ? '' : 'Checklist de Inspeção',
-      descricao: '',
-      equipamento: '',
-      maquina: '',
+      titulo: prefillTitle || (isTemplateMode ? '' : 'Checklist de Inspeção'),
+      descricao: prefillDescription,
+      equipamento: prefillEquipment,
+      maquina: prefillMachine,
       foto_equipamento: '',
       data: new Date().toISOString().split('T')[0],
       status: 'Pendente',
-      company_id: user?.company_id || '',
-      site_id: user?.site_id || '',
-      inspetor_id: user?.id || '',
+      company_id: prefillCompanyId || user?.company_id || '',
+      site_id: prefillSiteId || user?.site_id || '',
+      inspetor_id: prefillInspectorId || user?.id || '',
       categoria: 'SST',
       periodicidade: 'Diário',
       nivel_risco_padrao: 'Médio',

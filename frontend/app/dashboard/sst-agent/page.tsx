@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
+  AlertTriangle,
   Bot,
   FileText,
   ClipboardCheck,
@@ -22,6 +24,7 @@ import {
   SophieHistoryItem,
   CreateChecklistAutomationResponse,
   CreateDdsAutomationResponse,
+  CreateNonConformityAutomationResponse,
   QueueMonthlyReportAutomationResponse,
 } from '@/services/sophieService';
 import { useAuth } from '@/context/AuthContext';
@@ -57,6 +60,7 @@ const quickActions = [
 ] as const;
 
 export default function SstAgentPage() {
+  const searchParams = useSearchParams();
   const aiEnabled = isAiEnabled();
   const phase1Enabled = isSophieAutomationPhase1Enabled();
   const { user, loading: authLoading, hasPermission } = useAuth();
@@ -72,15 +76,24 @@ export default function SstAgentPage() {
   const [checklistMachine, setChecklistMachine] = useState('');
   const [ddsTheme, setDdsTheme] = useState('');
   const [ddsContext, setDdsContext] = useState('');
+  const [ncSiteId, setNcSiteId] = useState('');
+  const [ncTitle, setNcTitle] = useState('');
+  const [ncDescription, setNcDescription] = useState('');
   const [reportMonth, setReportMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
   const [reportYear, setReportYear] = useState(String(new Date().getFullYear()));
   const [creatingChecklist, setCreatingChecklist] = useState(false);
   const [creatingDds, setCreatingDds] = useState(false);
+  const [creatingNc, setCreatingNc] = useState(false);
   const [queueingReport, setQueueingReport] = useState(false);
   const [createdChecklist, setCreatedChecklist] = useState<CreateChecklistAutomationResponse | null>(null);
   const [createdDds, setCreatedDds] = useState<CreateDdsAutomationResponse | null>(null);
+  const [createdNc, setCreatedNc] = useState<CreateNonConformityAutomationResponse | null>(null);
   const [queuedReport, setQueuedReport] = useState<QueueMonthlyReportAutomationResponse | null>(null);
   const canUseAi = hasPermission('can_use_ai');
+  const prefilledDocumentType = searchParams.get('documentType') || '';
+  const prefilledTitle = searchParams.get('title') || '';
+  const prefilledDescription = searchParams.get('description') || '';
+  const prefilledSiteId = searchParams.get('site_id') || '';
 
   useEffect(() => {
     let active = true;
@@ -100,6 +113,7 @@ export default function SstAgentPage() {
 
         setChecklistSiteId((current) => current || preferredSiteId);
         setDdsSiteId((current) => current || preferredSiteId);
+        setNcSiteId((current) => current || preferredSiteId);
       } catch (error) {
         console.error('Erro ao carregar sites para SOPHIE:', error);
         if (active) setSites([]);
@@ -137,6 +151,38 @@ export default function SstAgentPage() {
     };
   }, [aiEnabled, phase1Enabled, authLoading, canUseAi]);
 
+  useEffect(() => {
+    if (!prefilledSiteId && !prefilledTitle && !prefilledDescription) {
+      return;
+    }
+
+    if (prefilledSiteId) {
+      setChecklistSiteId((current) => current || prefilledSiteId);
+      setDdsSiteId((current) => current || prefilledSiteId);
+      setNcSiteId((current) => current || prefilledSiteId);
+    }
+
+    if (prefilledDocumentType === 'checklist') {
+      setChecklistTitle((current) => current || prefilledTitle);
+      setChecklistDescription((current) => current || prefilledDescription);
+    }
+
+    if (prefilledDocumentType === 'dds') {
+      setDdsTheme((current) => current || prefilledTitle);
+      setDdsContext((current) => current || prefilledDescription);
+    }
+
+    if (prefilledDocumentType === 'nc') {
+      setNcTitle((current) => current || prefilledTitle);
+      setNcDescription((current) => current || prefilledDescription);
+    }
+  }, [
+    prefilledDescription,
+    prefilledDocumentType,
+    prefilledSiteId,
+    prefilledTitle,
+  ]);
+
   const sortedHistory = useMemo(
     () =>
       [...history].sort(
@@ -148,6 +194,12 @@ export default function SstAgentPage() {
   const currentUserId = user?.id || '';
   const canRunAutomation = aiEnabled && canUseAi && Boolean(currentUserId);
   const hasSites = sites.length > 0;
+  const automationPrefillLabel =
+    {
+      checklist: 'Checklist',
+      dds: 'DDS',
+      nc: 'Não Conformidade',
+    }[prefilledDocumentType] || null;
 
   async function handleCreateChecklist() {
     if (!currentUserId) {
@@ -207,6 +259,32 @@ export default function SstAgentPage() {
     }
   }
 
+  async function handleCreateNc() {
+    if (!ncSiteId) {
+      toast.error('Selecione um site para a não conformidade assistida.');
+      return;
+    }
+
+    try {
+      setCreatingNc(true);
+      const selectedSiteName = sites.find((site) => site.id === ncSiteId)?.nome;
+      const response = await sophieService.createNonConformity({
+        title: ncTitle || undefined,
+        description: ncDescription || undefined,
+        site_id: ncSiteId,
+        local_setor_area: selectedSiteName || undefined,
+        responsavel_area: user?.nome || undefined,
+      });
+      setCreatedNc(response);
+      toast.success('Não conformidade criada pela SOPHIE com sucesso.');
+    } catch (error) {
+      console.error('Erro ao criar NC assistida:', error);
+      toast.error('Não foi possível criar a não conformidade assistida agora.');
+    } finally {
+      setCreatingNc(false);
+    }
+  }
+
   async function handleQueueMonthlyReport() {
     const month = Number.parseInt(reportMonth, 10);
     const year = Number.parseInt(reportYear, 10);
@@ -252,6 +330,17 @@ export default function SstAgentPage() {
           </div>
         </div>
       </section>
+
+      {automationPrefillLabel ? (
+        <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-info)]/20 bg-[var(--ds-color-info-subtle)] p-4 shadow-[var(--ds-shadow-sm)]">
+          <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+            Fluxo iniciado pelo hub documental para {automationPrefillLabel}.
+          </p>
+          <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+            O contexto foi pré-carregado. Revise os campos abaixo e execute a ação da SOPHIE quando estiver pronto.
+          </p>
+        </section>
+      ) : null}
 
       {phase1Enabled ? (
         <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-5 shadow-[var(--ds-shadow-sm)]">
@@ -315,7 +404,7 @@ export default function SstAgentPage() {
               </p>
             </div>
           ) : (
-          <div className="mt-4 grid gap-4 xl:grid-cols-3">
+          <div className="mt-4 grid gap-4 xl:grid-cols-2 2xl:grid-cols-4">
             <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
               <div className="flex items-center gap-2">
                 <ListChecks className="h-4.5 w-4.5 text-[var(--ds-color-action-primary)]" />
@@ -453,6 +542,75 @@ export default function SstAgentPage() {
                       className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline"
                     >
                       Abrir DDS <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4.5 w-4.5 text-[var(--ds-color-warning)]" />
+                <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Criar NC
+                </h3>
+              </div>
+              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                Gere uma não conformidade inicial com desvio, risco e ações para revisão humana.
+              </p>
+              <div className="mt-3 space-y-2.5">
+                <input
+                  value={ncTitle}
+                  onChange={(event) => setNcTitle(event.target.value)}
+                  placeholder="Título do desvio ou achado"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+                <textarea
+                  value={ncDescription}
+                  onChange={(event) => setNcDescription(event.target.value)}
+                  placeholder="Descreva a evidência observada, condição insegura ou desvio identificado"
+                  rows={4}
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+                <select
+                  value={ncSiteId}
+                  onChange={(event) => setNcSiteId(event.target.value)}
+                  disabled={loadingSites || !hasSites}
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                >
+                  <option value="">
+                    {loadingSites ? 'Carregando sites...' : 'Selecione um site'}
+                  </option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.nome}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  onClick={handleCreateNc}
+                  loading={creatingNc}
+                  disabled={!aiEnabled || !canUseAi || !hasSites}
+                  variant="warning"
+                  className="w-full"
+                  leftIcon={<AlertTriangle className="h-4 w-4" />}
+                >
+                  Criar NC pela SOPHIE
+                </Button>
+                {createdNc ? (
+                  <div className="rounded-xl border border-[var(--ds-color-success)]/20 bg-[var(--ds-color-success-subtle)] p-3">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      <CheckCircle2 className="h-4 w-4 text-[var(--ds-color-success)]" />
+                      {createdNc.nonConformity.codigo_nc || createdNc.generation.title}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                      Nível de risco sugerido: {createdNc.generation.riskLevel}
+                    </p>
+                    <Link
+                      href={`/dashboard/nonconformities/edit/${createdNc.nonConformity.id}`}
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+                    >
+                      Abrir NC <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                   </div>
                 ) : null}

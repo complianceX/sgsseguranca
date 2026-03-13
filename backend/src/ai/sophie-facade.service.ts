@@ -5,6 +5,7 @@ import { SophieEngineService } from '../sophie/sophie.engine.service';
 import { AnalyzePtDto } from './dto/analyze-pt.dto';
 import { GenerateChecklistDto } from './dto/generate-checklist.dto';
 import { CreateAssistedChecklistDto } from './dto/create-assisted-checklist.dto';
+import { CreateAssistedNonConformityDto } from './dto/create-assisted-nonconformity.dto';
 import {
   CreateAssistedDdsDto,
   GenerateDdsDto,
@@ -38,6 +39,7 @@ export class SophieFacadeService {
         generateChecklist: true,
         createChecklist: true,
         createDds: true,
+        createNonConformity: true,
         queueMonthlyReport: true,
         phase2RiskGate: true,
         phase2ChecklistAutoNc: automation.phase2Enabled,
@@ -79,6 +81,10 @@ export class SophieFacadeService {
 
   createDds(payload: CreateAssistedDdsDto) {
     return this.aiService.createDds(payload);
+  }
+
+  createNonConformity(payload: CreateAssistedNonConformityDto) {
+    return this.aiService.createNonConformity(payload);
   }
 
   queueMonthlyReport(payload: GenerateSophieReportDto) {

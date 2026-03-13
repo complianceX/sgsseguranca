@@ -121,6 +121,62 @@ export class ReportsController {
     return { state, result: job.returnvalue ?? null };
   }
 
+  @Get('queue/stats')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_view_dashboard')
+  async getQueueStats() {
+    const counts = await this.pdfQueue.getJobCounts(
+      'active',
+      'wait',
+      'completed',
+      'failed',
+      'delayed',
+    );
+
+    return {
+      active: counts.active || 0,
+      waiting: counts.wait || 0,
+      completed: counts.completed || 0,
+      failed: counts.failed || 0,
+      delayed: counts.delayed || 0,
+      total: Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0),
+    };
+  }
+
+  @Get('jobs')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_view_dashboard')
+  async listJobs(
+    @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit: number,
+  ) {
+    const safeLimit = Math.max(1, Math.min(limit, 30));
+    const jobs = await this.pdfQueue.getJobs(
+      ['active', 'wait', 'completed', 'failed', 'delayed'],
+      0,
+      safeLimit - 1,
+      true,
+    );
+
+    const items = await Promise.all(
+      jobs.map(async (job) => ({
+        id: String(job.id),
+        name: job.name,
+        state: await job.getState(),
+        createdAt: job.timestamp ? new Date(job.timestamp).toISOString() : null,
+        finishedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
+        failedReason: job.failedReason || null,
+        attemptsMade: job.attemptsMade,
+        reportType: job.data?.reportType || null,
+        month: job.data?.params?.month || null,
+        year: job.data?.params?.year || null,
+        companyId: job.data?.companyId || null,
+        result: job.returnvalue ?? null,
+      })),
+    );
+
+    return { items };
+  }
+
   @Get(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_dashboard')

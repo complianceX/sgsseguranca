@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ddsService } from '@/services/ddsService';
 import { sitesService, Site } from '@/services/sitesService';
 import { usersService, User } from '@/services/usersService';
@@ -67,6 +67,15 @@ const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = 'team_photo_reuse_justification';
 
 export function DdsForm({ id }: DdsFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefillCompanyId = searchParams.get('company_id') || '';
+  const prefillSiteId = searchParams.get('site_id') || '';
+  const prefillFacilitatorId =
+    searchParams.get('facilitador_id') ||
+    searchParams.get('user_id') ||
+    '';
+  const prefillTitle = searchParams.get('title') || '';
+  const prefillDescription = searchParams.get('description') || '';
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [suggesting, setSuggesting] = useState(false);
@@ -99,13 +108,13 @@ export function DdsForm({ id }: DdsFormProps) {
     mode: 'onBlur',
     reValidateMode: 'onBlur',
     defaultValues: {
-      tema: '',
-      conteudo: '',
+      tema: prefillTitle,
+      conteudo: prefillDescription,
       data: new Date().toISOString().split('T')[0],
-      company_id: '',
-      site_id: '',
-      facilitador_id: '',
-      participants: [],
+      company_id: prefillCompanyId,
+      site_id: prefillSiteId,
+      facilitador_id: prefillFacilitatorId,
+      participants: prefillFacilitatorId ? [prefillFacilitatorId] : [],
       auditado_por_id: '',
       data_auditoria: '',
       resultado_auditoria: '',

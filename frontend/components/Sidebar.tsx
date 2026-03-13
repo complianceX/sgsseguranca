@@ -38,6 +38,7 @@ import {
   Bot,
   Wrench,
   Paintbrush,
+  PlusCircle,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -67,6 +68,7 @@ const menuItems = [
   { icon: ShieldCheck, label: 'EPIs', href: '/dashboard/epis', adminOnly: true },
   { icon: HardHat, label: 'Fichas de EPI', href: '/dashboard/epi-fichas', adminOnly: true },
   { type: 'divider', label: 'Documentos Operacionais' },
+  { icon: PlusCircle, label: 'Novo Documento', href: '/dashboard/documentos/novo' },
   { icon: Upload, label: 'Importar Docs (IA)', href: '/dashboard/documentos/importar' },
   { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
   { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },

@@ -20,6 +20,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { aiService } from '@/services/aiService';
 import { useAuth } from '@/context/AuthContext';
 import { mailService } from '@/services/mailService';
@@ -74,6 +75,15 @@ const PT_STEPS = [
 
 export function PtForm({ id }: PtFormProps) {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const prefillCompanyId = searchParams.get('company_id') || '';
+  const prefillSiteId = searchParams.get('site_id') || '';
+  const prefillResponsibleId =
+    searchParams.get('responsavel_id') ||
+    searchParams.get('user_id') ||
+    '';
+  const prefillTitle = searchParams.get('title') || '';
+  const prefillDescription = searchParams.get('description') || '';
   const [fetching, setFetching] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [pdfKey, setPdfKey] = useState<string>('');
@@ -94,22 +104,22 @@ export function PtForm({ id }: PtFormProps) {
     resolver: zodResolver(ptSchema),
     defaultValues: {
       numero: '',
-      titulo: '',
-      descricao: '',
+      titulo: prefillTitle,
+      descricao: prefillDescription,
       status: 'Pendente',
       data_hora_inicio: new Date().toISOString().slice(0, 16),
       data_hora_fim: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
-      company_id: '',
-      site_id: '',
+      company_id: prefillCompanyId,
+      site_id: prefillSiteId,
       apr_id: '',
-      responsavel_id: '',
+      responsavel_id: prefillResponsibleId,
       trabalho_altura: false,
       espaco_confinado: false,
       trabalho_quente: false,
       eletricidade: false,
       escavacao: false,
       ...initialChecklists,
-      executantes: [],
+      executantes: prefillResponsibleId ? [prefillResponsibleId] : [],
       auditado_por_id: '',
       data_auditoria: '',
       resultado_auditoria: '',

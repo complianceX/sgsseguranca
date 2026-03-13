@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ComponentType } from 'react';
 import { useRouter } from 'next/navigation';
-import { Archive, ClipboardCheck, Command, FileText, GraduationCap, Radio, Search, Settings, ShieldCheck, Stethoscope, UserRound, Users, X } from 'lucide-react';
+import { Archive, ClipboardCheck, Command, FileText, GraduationCap, PlusCircle, Radio, Search, Settings, ShieldCheck, Stethoscope, UserRound, Users, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +22,13 @@ const baseCommands: CommandItem[] = [
     subtitle: 'Cockpit executivo e visão geral do tenant',
     href: '/dashboard',
     keywords: ['dashboard', 'home', 'cockpit'],
+  },
+  {
+    id: 'new-document',
+    title: 'Novo Documento',
+    subtitle: 'Hub unificado para APR, PT, Checklist, DDS, Relatório Fotográfico e NC',
+    href: '/dashboard/documentos/novo',
+    keywords: ['novo documento', 'criar documento', 'apr', 'pt', 'checklist', 'dds', 'nc'],
   },
   {
     id: 'tst',
@@ -91,6 +98,7 @@ const baseCommands: CommandItem[] = [
 
 const iconMap = {
   dashboard: ShieldCheck,
+  'new-document': PlusCircle,
   tst: Radio,
   apr: FileText,
   pt: ClipboardCheck,

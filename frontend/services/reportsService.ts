@@ -27,6 +27,30 @@ export interface ReportJobStatus {
   result: { url?: string } | null;
 }
 
+export interface ReportQueueStats {
+  active: number;
+  waiting: number;
+  completed: number;
+  failed: number;
+  delayed: number;
+  total: number;
+}
+
+export interface ReportQueueJob {
+  id: string;
+  name: string;
+  state: 'waiting' | 'active' | 'completed' | 'failed' | 'delayed' | string;
+  createdAt: string | null;
+  finishedAt: string | null;
+  failedReason: string | null;
+  attemptsMade: number;
+  reportType: string | null;
+  month: number | null;
+  year: number | null;
+  companyId: string | null;
+  result: { url?: string } | null;
+}
+
 export const reportsService = {
   findPaginated: async (opts?: { page?: number; limit?: number }): Promise<PaginatedResponse<Report>> => {
     const response = await api.get<PaginatedResponse<Report>>('/reports', {
@@ -58,6 +82,18 @@ export const reportsService = {
 
   getStatus: async (jobId: string): Promise<ReportJobStatus> => {
     const response = await api.get<ReportJobStatus>(`/reports/status/${jobId}`);
+    return response.data;
+  },
+
+  getQueueStats: async (): Promise<ReportQueueStats> => {
+    const response = await api.get<ReportQueueStats>('/reports/queue/stats');
+    return response.data;
+  },
+
+  getJobs: async (limit = 12): Promise<{ items: ReportQueueJob[] }> => {
+    const response = await api.get<{ items: ReportQueueJob[] }>('/reports/jobs', {
+      params: { limit },
+    });
     return response.data;
   },
 

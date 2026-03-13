@@ -55,4 +55,15 @@ export class DashboardController {
       req.tenant?.companyId || req.user?.company_id || '',
     );
   }
+
+  @Get('pending-queue')
+  @Authorize('can_view_dashboard')
+  getPendingQueue(
+    @Req()
+    req: { user?: { company_id?: string }; tenant?: { companyId?: string } },
+  ) {
+    return this.dashboardService.getPendingQueue(
+      req.tenant?.companyId || req.user?.company_id || '',
+    );
+  }
 }

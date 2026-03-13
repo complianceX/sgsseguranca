@@ -26,6 +26,7 @@ export const aiService = {
   generateDds: sophieService.generateDds,
   createChecklist: sophieService.createChecklist,
   createDds: sophieService.createDds,
+  createNonConformity: sophieService.createNonConformity,
   queueMonthlyReport: sophieService.queueMonthlyReport,
   analyzeImageRisk: sophieService.analyzeImageRisk,
 };

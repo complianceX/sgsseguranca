@@ -116,6 +116,31 @@ export interface CreateDdsAutomationResponse {
   message: string;
 }
 
+export interface CreateNonConformityPayload {
+  title?: string;
+  description?: string;
+  site_id: string;
+  local_setor_area?: string;
+  responsavel_area?: string;
+  tipo?: string;
+}
+
+export interface CreateNonConformityAutomationResponse {
+  nonConformity: {
+    id: string;
+    codigo_nc?: string;
+    tipo?: string;
+  };
+  generation: {
+    title: string;
+    riskLevel: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+    confidence?: 'high' | 'medium' | 'low';
+    notes?: string[];
+  };
+  persisted: true;
+  message: string;
+}
+
 export interface QueueMonthlyReportAutomationResponse {
   reportType: 'monthly';
   year: number;
@@ -217,6 +242,21 @@ export const sophieService = {
     const { data } = await api.post<CreateDdsAutomationResponse>('/ai/create-dds', payload, {
       headers: companyId ? { 'x-company-id': companyId } : undefined,
     });
+    return data;
+  },
+
+  async createNonConformity(
+    payload: CreateNonConformityPayload,
+    companyId?: string,
+  ) {
+    assertAiEnabled();
+    const { data } = await api.post<CreateNonConformityAutomationResponse>(
+      '/ai/create-nonconformity',
+      payload,
+      {
+        headers: companyId ? { 'x-company-id': companyId } : undefined,
+      },
+    );
     return data;
   },
 

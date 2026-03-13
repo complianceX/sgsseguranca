@@ -98,6 +98,18 @@ export type CreateDdsAutomationResponse = {
   message: string;
 };
 
+export type CreateNonConformityAutomationResponse = {
+  nonConformity: unknown;
+  generation: {
+    title: string;
+    riskLevel: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+    confidence?: SophieConfidence;
+    notes?: string[];
+  };
+  persisted: true;
+  message: string;
+};
+
 export type QueueMonthlyReportAutomationResponse = {
   reportType: 'monthly';
   year: number;

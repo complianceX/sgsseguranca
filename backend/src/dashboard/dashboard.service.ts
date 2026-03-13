@@ -37,6 +37,24 @@ type InspectionRiskItem = {
   classificacao_risco?: string;
 };
 
+type PendingQueuePriority = 'critical' | 'high' | 'medium';
+type PendingQueueCategory = 'documents' | 'health' | 'actions';
+
+type PendingQueueItem = {
+  id: string;
+  sourceId: string;
+  module: string;
+  category: PendingQueueCategory;
+  title: string;
+  description: string;
+  priority: PendingQueuePriority;
+  status: string;
+  responsible: string | null;
+  site: string | null;
+  dueDate: Date | string | null;
+  href: string;
+};
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -844,10 +862,449 @@ export class DashboardService {
     };
   }
 
+  async getPendingQueue(companyId: string) {
+    const now = new Date();
+    const warningLimit = new Date(now);
+    warningLimit.setDate(now.getDate() + 14);
+
+    const [
+      pendingAprs,
+      pendingPts,
+      pendingChecklists,
+      openNonConformities,
+      trainingAttention,
+      medicalExamAttention,
+      inspectionActions,
+      auditActions,
+    ] = await Promise.all([
+      this.aprsRepository.find({
+        where: { company_id: companyId, status: 'Pendente' },
+        relations: ['site', 'elaborador'],
+        order: { updated_at: 'DESC' },
+        take: 20,
+      }),
+      this.ptsRepository
+        .createQueryBuilder('pt')
+        .leftJoinAndSelect('pt.site', 'site')
+        .leftJoinAndSelect('pt.responsavel', 'responsavel')
+        .where('pt.company_id = :companyId', { companyId })
+        .andWhere('pt.status IN (:...statuses)', {
+          statuses: ['Pendente', 'Expirada'],
+        })
+        .orderBy('pt.data_hora_fim', 'ASC')
+        .take(20)
+        .getMany(),
+      this.checklistsRepository.find({
+        where: { company_id: companyId, status: 'Pendente', is_modelo: false },
+        relations: ['site', 'inspetor'],
+        order: { data: 'ASC' },
+        take: 20,
+      }),
+      this.nonConformitiesRepository
+        .createQueryBuilder('nc')
+        .leftJoinAndSelect('nc.site', 'site')
+        .where('nc.company_id = :companyId', { companyId })
+        .andWhere(
+          "LOWER(COALESCE(nc.status, '')) NOT IN (:...closedStatuses)",
+          {
+            closedStatuses: ['encerrada', 'concluída', 'concluida', 'fechada'],
+          },
+        )
+        .orderBy('nc.updated_at', 'DESC')
+        .take(20)
+        .getMany(),
+      this.trainingsRepository
+        .createQueryBuilder('training')
+        .leftJoinAndSelect('training.user', 'user')
+        .where('training.company_id = :companyId', { companyId })
+        .andWhere('training.data_vencimento <= :warningLimit', { warningLimit })
+        .orderBy('training.data_vencimento', 'ASC')
+        .take(20)
+        .getMany(),
+      this.medicalExamsRepository
+        .createQueryBuilder('exam')
+        .leftJoinAndSelect('exam.user', 'user')
+        .where('exam.company_id = :companyId', { companyId })
+        .andWhere(
+          "(LOWER(COALESCE(exam.resultado, '')) = :inapto OR (exam.data_vencimento IS NOT NULL AND exam.data_vencimento <= :warningLimit))",
+          {
+            inapto: 'inapto',
+            warningLimit,
+          },
+        )
+        .orderBy('exam.data_vencimento', 'ASC')
+        .take(20)
+        .getMany(),
+      this.inspectionsRepository.find({
+        where: { company_id: companyId },
+        relations: ['site', 'responsavel'],
+        order: { updated_at: 'DESC' },
+        take: 20,
+      }),
+      this.auditsRepository.find({
+        where: { company_id: companyId },
+        relations: ['site', 'auditor'],
+        order: { updated_at: 'DESC' },
+        take: 20,
+      }),
+    ]);
+
+    const sortedQueueItems: PendingQueueItem[] = [
+      ...pendingAprs.map((item) => ({
+        id: `apr-${item.id}`,
+        sourceId: item.id,
+        module: 'APR',
+        category: 'documents' as const,
+        title: item.titulo,
+        description: `APR aguardando fechamento ou aprovação${item.site?.nome ? ` em ${item.site.nome}` : ''}.`,
+        priority: this.resolveDocumentPriority(item.residual_risk, item.data_inicio, now),
+        status: item.status,
+        responsible: item.elaborador?.nome || null,
+        site: item.site?.nome || null,
+        dueDate: item.data_inicio,
+        href: `/dashboard/aprs/edit/${item.id}`,
+      })),
+      ...pendingPts.map((item) => ({
+        id: `pt-${item.id}`,
+        sourceId: item.id,
+        module: 'PT',
+        category: 'documents' as const,
+        title: item.titulo,
+        description: `Permissão de trabalho aguardando liberação${item.site?.nome ? ` em ${item.site.nome}` : ''}.`,
+        priority: this.resolvePtPriority(item.status, item.residual_risk, item.data_hora_fim, now),
+        status: item.status,
+        responsible: item.responsavel?.nome || null,
+        site: item.site?.nome || null,
+        dueDate: item.data_hora_fim,
+        href: `/dashboard/pts/edit/${item.id}`,
+      })),
+      ...pendingChecklists.map((item) => ({
+        id: `checklist-${item.id}`,
+        sourceId: item.id,
+        module: 'Checklist',
+        category: 'documents' as const,
+        title: item.titulo,
+        description: `Checklist pendente de conclusão${item.site?.nome ? ` em ${item.site.nome}` : ''}.`,
+        priority: this.resolveChecklistPriority(item.data, now),
+        status: item.status,
+        responsible: item.inspetor?.nome || null,
+        site: item.site?.nome || null,
+        dueDate: item.data,
+        href: `/dashboard/checklists/edit/${item.id}`,
+      })),
+      ...openNonConformities.map((item) => {
+        const dueDate =
+          item.acao_definitiva_prazo ||
+          item.acao_definitiva_data_prevista ||
+          item.acao_imediata_data ||
+          null;
+
+        return {
+          id: `nc-${item.id}`,
+          sourceId: item.id,
+          module: 'NC',
+          category: 'documents' as const,
+          title: item.codigo_nc,
+          description: item.local_setor_area || item.descricao,
+          priority: this.resolveNonConformityPriority(
+            item.risco_nivel,
+            dueDate,
+            now,
+          ),
+          status: item.status,
+          responsible:
+            item.acao_definitiva_responsavel ||
+            item.acao_imediata_responsavel ||
+            item.responsavel_area ||
+            null,
+          site: item.site?.nome || null,
+          dueDate,
+          href: `/dashboard/nonconformities/edit/${item.id}`,
+        };
+      }),
+      ...trainingAttention.map((item) => ({
+        id: `training-${item.id}`,
+        sourceId: item.id,
+        module: 'Treinamento',
+        category: 'health' as const,
+        title: item.nome,
+        description: `Treinamento de ${item.user?.nome || 'colaborador'} com vencimento monitorado.`,
+        priority: this.resolveTrainingPriority(
+          item.data_vencimento,
+          item.bloqueia_operacao_quando_vencido,
+          now,
+        ),
+        status: new Date(item.data_vencimento) < now ? 'Vencido' : 'Vencendo',
+        responsible: item.user?.nome || null,
+        site: null,
+        dueDate: item.data_vencimento,
+        href: `/dashboard/trainings/edit/${item.id}`,
+      })),
+      ...medicalExamAttention.map((item) => ({
+        id: `medical-${item.id}`,
+        sourceId: item.id,
+        module: 'ASO',
+        category: 'health' as const,
+        title: `${item.tipo_exame} - ${item.user?.nome || 'colaborador'}`,
+        description:
+          item.resultado === 'inapto'
+            ? 'Exame ocupacional com resultado inapto exige atuação imediata.'
+            : 'Exame ocupacional em vencimento próximo ou já vencido.',
+        priority: this.resolveMedicalExamPriority(
+          item.resultado,
+          item.data_vencimento,
+          now,
+        ),
+        status: item.resultado,
+        responsible: item.user?.nome || null,
+        site: null,
+        dueDate: item.data_vencimento,
+        href: '/dashboard/medical-exams',
+      })),
+      ...inspectionActions.flatMap((inspection) =>
+        (inspection.plano_acao || [])
+          .filter((action: InspectionActionItem) =>
+            this.isPendingActionStatus(action.status),
+          )
+          .map((action: InspectionActionItem, index) => ({
+            id: `inspection-action-${inspection.id}-${index}`,
+            sourceId: inspection.id,
+            module: 'Ação',
+            category: 'actions' as const,
+            title: inspection.setor_area,
+            description: action.acao || 'Ação corretiva pendente de inspeção.',
+            priority: this.resolveActionPriority(action.prazo, now),
+            status: action.status || 'Pendente',
+            responsible: action.responsavel || inspection.responsavel?.nome || null,
+            site: inspection.site?.nome || null,
+            dueDate: action.prazo || null,
+            href: `/dashboard/inspections/edit/${inspection.id}`,
+          })),
+      ),
+      ...auditActions.flatMap((audit) =>
+        (audit.plano_acao || [])
+          .filter((action: AuditActionItem) =>
+            this.isPendingActionStatus(action.status),
+          )
+          .map((action: AuditActionItem, index) => ({
+            id: `audit-action-${audit.id}-${index}`,
+            sourceId: audit.id,
+            module: 'Ação',
+            category: 'actions' as const,
+            title: audit.titulo,
+            description: action.acao || 'Ação corretiva pendente de auditoria.',
+            priority: this.resolveActionPriority(action.prazo, now),
+            status: action.status || 'Pendente',
+            responsible: action.responsavel || audit.auditor?.nome || null,
+            site: audit.site?.nome || null,
+            dueDate: action.prazo || null,
+            href: `/dashboard/audits/edit/${audit.id}`,
+          })),
+      ),
+    ].sort((first, second) => this.comparePendingQueueItems(first, second, now));
+
+    const queueItems = sortedQueueItems.slice(0, 40);
+
+    return {
+      summary: {
+        total: sortedQueueItems.length,
+        critical: sortedQueueItems.filter((item) => item.priority === 'critical').length,
+        high: sortedQueueItems.filter((item) => item.priority === 'high').length,
+        medium: sortedQueueItems.filter((item) => item.priority === 'medium').length,
+        documents: sortedQueueItems.filter((item) => item.category === 'documents').length,
+        health: sortedQueueItems.filter((item) => item.category === 'health').length,
+        actions: sortedQueueItems.filter((item) => item.category === 'actions').length,
+      },
+      items: queueItems,
+    };
+  }
+
   private toPercent(value: number, total: number): number {
     if (!total) {
       return 0;
     }
     return Math.round((value / total) * 10000) / 100;
+  }
+
+  private resolveDocumentPriority(
+    residualRisk: string | null | undefined,
+    dueDate: Date | null | undefined,
+    now: Date,
+  ): PendingQueuePriority {
+    const risk = (residualRisk || '').toLowerCase();
+
+    if (risk.includes('critical') || risk.includes('crit')) {
+      return 'critical';
+    }
+
+    if (risk.includes('high')) {
+      return 'high';
+    }
+
+    if (dueDate && new Date(dueDate) < now) {
+      return 'high';
+    }
+
+    return 'medium';
+  }
+
+  private resolvePtPriority(
+    status: string | null | undefined,
+    residualRisk: string | null | undefined,
+    dueDate: Date | null | undefined,
+    now: Date,
+  ): PendingQueuePriority {
+    const normalizedStatus = (status || '').toLowerCase();
+    const risk = (residualRisk || '').toLowerCase();
+
+    if (
+      normalizedStatus.includes('expir') ||
+      (dueDate && new Date(dueDate) < now) ||
+      risk.includes('critical') ||
+      risk.includes('crit')
+    ) {
+      return 'critical';
+    }
+
+    if (risk.includes('high')) {
+      return 'high';
+    }
+
+    return 'medium';
+  }
+
+  private resolveChecklistPriority(
+    dueDate: Date | null | undefined,
+    now: Date,
+  ): PendingQueuePriority {
+    if (!dueDate) {
+      return 'medium';
+    }
+
+    const diff = new Date(dueDate).getTime() - now.getTime();
+    const diffInDays = diff / (1000 * 60 * 60 * 24);
+
+    if (diffInDays < -2) {
+      return 'high';
+    }
+
+    return 'medium';
+  }
+
+  private resolveNonConformityPriority(
+    riskLevel: string | null | undefined,
+    dueDate: Date | string | null,
+    now: Date,
+  ): PendingQueuePriority {
+    const normalizedRisk = (riskLevel || '').toLowerCase();
+
+    if (
+      normalizedRisk.includes('crit') ||
+      normalizedRisk.includes('alto') ||
+      (dueDate ? new Date(dueDate) < now : false)
+    ) {
+      return 'critical';
+    }
+
+    return 'high';
+  }
+
+  private resolveTrainingPriority(
+    dueDate: Date,
+    blocksOperation: boolean,
+    now: Date,
+  ): PendingQueuePriority {
+    const isExpired = new Date(dueDate) < now;
+    const diff = new Date(dueDate).getTime() - now.getTime();
+    const diffInDays = diff / (1000 * 60 * 60 * 24);
+
+    if (isExpired && blocksOperation) {
+      return 'critical';
+    }
+
+    if (isExpired || diffInDays <= 7) {
+      return 'high';
+    }
+
+    return 'medium';
+  }
+
+  private resolveMedicalExamPriority(
+    result: string | null | undefined,
+    dueDate: Date | null,
+    now: Date,
+  ): PendingQueuePriority {
+    const normalizedResult = (result || '').toLowerCase();
+
+    if (
+      normalizedResult.includes('inapto') ||
+      (dueDate ? new Date(dueDate) < now : false)
+    ) {
+      return 'critical';
+    }
+
+    return 'high';
+  }
+
+  private resolveActionPriority(
+    dueDate: string | Date | null | undefined,
+    now: Date,
+  ): PendingQueuePriority {
+    if (dueDate && new Date(dueDate) < now) {
+      return 'critical';
+    }
+
+    return 'high';
+  }
+
+  private isPendingActionStatus(status: string | null | undefined) {
+    const normalized = (status || '').toLowerCase();
+
+    if (!normalized) {
+      return true;
+    }
+
+    return !['concluída', 'concluida', 'encerrada', 'fechada'].includes(normalized);
+  }
+
+  private comparePendingQueueItems(
+    first: PendingQueueItem,
+    second: PendingQueueItem,
+    now: Date,
+  ) {
+    const priorityDiff =
+      this.pendingPriorityWeight(second.priority) -
+      this.pendingPriorityWeight(first.priority);
+
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
+
+    const firstOverdue = first.dueDate ? new Date(first.dueDate) < now : false;
+    const secondOverdue = second.dueDate ? new Date(second.dueDate) < now : false;
+
+    if (firstOverdue !== secondOverdue) {
+      return firstOverdue ? -1 : 1;
+    }
+
+    const firstDueDate = first.dueDate
+      ? new Date(first.dueDate).getTime()
+      : Number.MAX_SAFE_INTEGER;
+    const secondDueDate = second.dueDate
+      ? new Date(second.dueDate).getTime()
+      : Number.MAX_SAFE_INTEGER;
+
+    return firstDueDate - secondDueDate;
+  }
+
+  private pendingPriorityWeight(priority: PendingQueuePriority) {
+    switch (priority) {
+      case 'critical':
+        return 3;
+      case 'high':
+        return 2;
+      default:
+        return 1;
+    }
   }
 }

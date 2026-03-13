@@ -1,31 +1,138 @@
 'use client';
 
-import { useCallback, useState, useEffect, type ReactNode } from 'react';
-import { reportsService, Report } from '@/services/reportsService';
-import { FileText, Trash2, Calendar, BrainCircuit, Download, BarChart3, Mail, Printer } from 'lucide-react';
-import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import {
+  Activity,
+  AlertTriangle,
+  BarChart3,
+  BrainCircuit,
+  Calendar,
+  CheckCircle2,
+  Clock3,
+  Download,
+  ExternalLink,
+  FileText,
+  Loader2,
+  Mail,
+  Printer,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
+import { reportsService, type Report, type ReportQueueJob, type ReportQueueStats } from '@/services/reportsService';
+import { mailLogsService, type MailLogItem } from '@/services/mailLogsService';
 import { SendMailModal } from '@/components/SendMailModal';
 import { openPdfForPrint } from '@/lib/print-utils';
 import { PaginationControls } from '@/components/PaginationControls';
-import { Badge } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function resolveJobStateVariant(state: string): NonNullable<BadgeProps['variant']> {
+  switch (state) {
+    case 'completed':
+      return 'success';
+    case 'failed':
+      return 'danger';
+    case 'active':
+      return 'info';
+    case 'delayed':
+      return 'warning';
+    case 'waiting':
+    case 'wait':
+      return 'neutral';
+    default:
+      return 'neutral';
+  }
+}
+
+function resolveJobStateLabel(state: string) {
+  switch (state) {
+    case 'completed':
+      return 'Concluido';
+    case 'failed':
+      return 'Falhou';
+    case 'active':
+      return 'Processando';
+    case 'delayed':
+      return 'Atrasado';
+    case 'waiting':
+    case 'wait':
+      return 'Na fila';
+    default:
+      return state || 'Desconhecido';
+  }
+}
+
+function resolveMailStatusVariant(status: string): NonNullable<BadgeProps['variant']> {
+  if (status === 'success' || status === 'sent') {
+    return 'success';
+  }
+
+  if (status === 'error' || status === 'failed') {
+    return 'danger';
+  }
+
+  if (status === 'processing' || status === 'queued') {
+    return 'warning';
+  }
+
+  return 'neutral';
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const fileUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = fileUrl;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(fileUrl);
+}
+
+type SelectedDoc = {
+  name: string;
+  filename: string;
+  base64: string;
+};
+
+const EMPTY_QUEUE_STATS: ReportQueueStats = {
+  active: 0,
+  waiting: 0,
+  completed: 0,
+  failed: 0,
+  delayed: 0,
+  total: 0,
+};
+
 export default function ReportsPage() {
+  const { hasPermission } = useAuth();
+  const canViewMail = hasPermission('can_view_mail');
+
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [loadingOperations, setLoadingOperations] = useState(true);
+  const [refreshingOperations, setRefreshingOperations] = useState(false);
+  const [queueStats, setQueueStats] = useState<ReportQueueStats>(EMPTY_QUEUE_STATS);
+  const [jobs, setJobs] = useState<ReportQueueJob[]>([]);
+  const [mailLogs, setMailLogs] = useState<MailLogItem[]>([]);
+  const [mailLogsTotal, setMailLogsTotal] = useState(0);
+  const [exportingMailLogs, setExportingMailLogs] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
+  const [lastGeneratedJobId, setLastGeneratedJobId] = useState<string | null>(null);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<SelectedDoc | null>(null);
 
   const loadReports = useCallback(async () => {
     try {
@@ -42,9 +149,81 @@ export default function ReportsPage() {
     }
   }, [page]);
 
+  const loadOperations = useCallback(
+    async (mode: 'initial' | 'refresh' = 'initial') => {
+      if (mode === 'initial') {
+        setLoadingOperations(true);
+      } else {
+        setRefreshingOperations(true);
+      }
+
+      try {
+        const operations = await Promise.allSettled([
+          reportsService.getQueueStats(),
+          reportsService.getJobs(10),
+          canViewMail ? mailLogsService.list({ page: 1, pageSize: 8 }) : Promise.resolve(null),
+        ]);
+
+        const [statsResult, jobsResult, mailResult] = operations;
+
+        if (statsResult.status === 'fulfilled') {
+          setQueueStats(statsResult.value);
+        }
+
+        if (jobsResult.status === 'fulfilled') {
+          setJobs(jobsResult.value.items || []);
+        }
+
+        if (canViewMail) {
+          if (mailResult.status === 'fulfilled' && mailResult.value) {
+            setMailLogs(mailResult.value.items || []);
+            setMailLogsTotal(mailResult.value.total || 0);
+          }
+        } else {
+          setMailLogs([]);
+          setMailLogsTotal(0);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar centro operacional de relatórios:', error);
+        toast.error('Erro ao atualizar fila de PDF e envios de e-mail.');
+      } finally {
+        if (mode === 'initial') {
+          setLoadingOperations(false);
+        } else {
+          setRefreshingOperations(false);
+        }
+      }
+    },
+    [canViewMail],
+  );
+
   useEffect(() => {
     void loadReports();
   }, [loadReports]);
+
+  useEffect(() => {
+    void loadOperations('initial');
+  }, [loadOperations]);
+
+  const hasRunningJobs = useMemo(
+    () => jobs.some((job) => ['active', 'waiting', 'wait', 'delayed'].includes(job.state)),
+    [jobs],
+  );
+
+  useEffect(() => {
+    if (!generating && !hasRunningJobs) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void loadOperations('refresh');
+      if (page === 1) {
+        void loadReports();
+      }
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [generating, hasRunningJobs, loadOperations, loadReports, page]);
 
   async function handleGenerateReport() {
     try {
@@ -52,20 +231,23 @@ export default function ReportsPage() {
       const now = new Date();
       const mes = now.getMonth() + 1;
       const ano = now.getFullYear();
-      
+
       const job = await reportsService.generate(mes, ano);
-      toast.info('Relatório enfileirado. Aguardando processamento...');
+      setLastGeneratedJobId(job.jobId);
+      toast.info('Relatório enfileirado. A central vai acompanhar o processamento.');
+      await loadOperations('refresh');
 
       for (let attempt = 0; attempt < 20; attempt += 1) {
         await wait(3000);
         const status = await reportsService.getStatus(job.jobId);
+        await loadOperations('refresh');
 
         if (status.state === 'completed') {
-          toast.success('Relatório mensal gerado com sucesso pelo GST!');
+          toast.success('Relatório mensal gerado com sucesso.');
           if (page !== 1) {
             setPage(1);
           } else {
-            void loadReports();
+            await loadReports();
           }
           return;
         }
@@ -75,39 +257,63 @@ export default function ReportsPage() {
         }
       }
 
-      toast.warning('Relatório ainda está processando. Atualize a lista em instantes.');
+      toast.warning('O relatório continua processando. Acompanhe pela central de jobs.');
     } catch (error) {
       console.error('Erro ao gerar relatório:', error);
       toast.error('Erro ao gerar relatório mensal.');
     } finally {
       setGenerating(false);
+      await loadOperations('refresh');
     }
   }
 
+  async function handleRefreshCenter() {
+    await Promise.all([loadReports(), loadOperations('refresh')]);
+  }
+
   async function handleDelete(id: string) {
-    if (!confirm('Tem certeza que deseja excluir este relatório?')) return;
+    if (!window.confirm('Tem certeza que deseja excluir este relatório?')) return;
 
     try {
       await reportsService.delete(id);
-      toast.success('Relatório excluído com sucesso!');
+      toast.success('Relatório excluído com sucesso.');
       if (reports.length === 1 && page > 1) {
         setPage((current) => current - 1);
         return;
       }
-      void loadReports();
+      await loadReports();
+      await loadOperations('refresh');
     } catch (error) {
       console.error('Erro ao excluir relatório:', error);
       toast.error('Erro ao excluir relatório.');
     }
   }
 
-  const generateReportPdf = (report: Report, options: { save?: boolean; output?: 'base64' } = { save: true }) => {
-    interface jsPDFWithAutoTable extends jsPDF {
+  async function handleExportMailLogs() {
+    try {
+      setExportingMailLogs(true);
+      const blob = await mailLogsService.exportCsv();
+      downloadBlob(blob, `mail-logs-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+      toast.success('Logs de e-mail exportados com sucesso.');
+    } catch (error) {
+      console.error('Erro ao exportar logs de e-mail:', error);
+      toast.error('Erro ao exportar logs de e-mail.');
+    } finally {
+      setExportingMailLogs(false);
+    }
+  }
+
+  const generateReportPdf = (
+    report: Report,
+    options: { save?: boolean; output?: 'base64' } = { save: true },
+  ) => {
+    interface JsPdfWithAutoTable extends jsPDF {
       lastAutoTable: {
         finalY: number;
       };
     }
-    const doc = new jsPDF() as jsPDFWithAutoTable;
+
+    const doc = new jsPDF() as JsPdfWithAutoTable;
     const pageWidth = doc.internal.pageSize.width;
     const margin = 14;
     const title = `RELATÓRIO <GST> - ${report.mes}/${report.ano}`;
@@ -119,7 +325,12 @@ export default function ReportsPage() {
 
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Gerado em ${format(new Date(report.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageWidth - margin, 28, { align: 'right' });
+    doc.text(
+      `Gerado em ${format(new Date(report.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`,
+      pageWidth - margin,
+      28,
+      { align: 'right' },
+    );
 
     autoTable(doc, {
       startY: 36,
@@ -158,105 +369,341 @@ export default function ReportsPage() {
         base64: doc.output('datauristring').split(',')[1],
       };
     }
+
+    return null;
   };
 
-  const handleDownloadPdf = (report: Report) => {
+  function handleDownloadPdf(report: Report) {
     try {
       generateReportPdf(report);
-      toast.success('PDF gerado com sucesso!');
+      toast.success('PDF gerado com sucesso.');
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
       toast.error('Erro ao gerar PDF do relatório.');
     }
-  };
+  }
 
-  const handlePrint = (report: Report) => {
+  function handlePrint(report: Report) {
     try {
-      const result = generateReportPdf(report, { save: false, output: 'base64' }) as { base64: string };
-      if (result?.base64) {
-        const byteCharacters = atob(result.base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const file = new Blob([byteArray], { type: 'application/pdf' });
-        const fileURL = URL.createObjectURL(file);
-        openPdfForPrint(fileURL, () => {
-          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
-        });
+      const result = generateReportPdf(report, { save: false, output: 'base64' }) as {
+        base64: string;
+      } | null;
+
+      if (!result?.base64) {
+        toast.error('Não foi possível preparar o PDF para impressão.');
+        return;
       }
+
+      const byteCharacters = atob(result.base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i += 1) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const file = new Blob([byteArray], { type: 'application/pdf' });
+      const fileURL = URL.createObjectURL(file);
+      openPdfForPrint(fileURL, () => {
+        toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+      });
     } catch (error) {
-      console.error('Erro ao imprimir:', error);
+      console.error('Erro ao imprimir relatório:', error);
       toast.error('Erro ao preparar impressão do relatório.');
     }
-  };
+  }
 
-  const handleSendEmail = (report: Report) => {
+  function handleSendEmail(report: Report) {
     try {
-      const result = generateReportPdf(report, { save: false, output: 'base64' }) as { filename: string; base64: string };
-      if (result?.base64) {
-        setSelectedDoc({
-          name: report.titulo,
-          filename: result.filename,
-          base64: result.base64,
-        });
-        setIsMailModalOpen(true);
+      const result = generateReportPdf(report, { save: false, output: 'base64' }) as {
+        filename: string;
+        base64: string;
+      } | null;
+
+      if (!result?.base64) {
+        toast.error('Não foi possível preparar o PDF para envio.');
+        return;
       }
+
+      setSelectedDoc({
+        name: report.titulo,
+        filename: result.filename,
+        base64: result.base64,
+      });
+      setIsMailModalOpen(true);
     } catch (error) {
       console.error('Erro ao preparar e-mail:', error);
       toast.error('Erro ao preparar o documento para envio.');
     }
-  };
+  }
+
+  const recentMailSuccess = useMemo(
+    () => mailLogs.filter((item) => item.status === 'success' || item.status === 'sent').length,
+    [mailLogs],
+  );
+
+  const recentMailFailures = useMemo(
+    () => mailLogs.filter((item) => item.status === 'error' || item.status === 'failed').length,
+    [mailLogs],
+  );
 
   return (
     <div className="space-y-6">
       <Card tone="elevated" padding="lg">
         <CardHeader className="gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="space-y-3">
-            <Badge variant="accent" className="w-fit">
-              <BrainCircuit className="h-3.5 w-3.5" />
-              Inteligência mensal
+            <Badge variant="accent" className="w-fit uppercase tracking-[0.14em]">
+              Centro de geracao e envio
             </Badge>
             <div>
               <CardTitle className="text-xl">Relatórios &lt;GST&gt;</CardTitle>
-              <CardDescription className="mt-1 max-w-2xl">
-                Relatórios executivos mensais com consolidação operacional, estatísticas de emissão
-                e síntese automática da IA.
+              <CardDescription className="mt-1 max-w-3xl">
+                Gere PDFs, acompanhe a fila de processamento, revise o histórico documental e
+                monitore envios por e-mail em uma central operacional única.
               </CardDescription>
             </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <div className="ds-badge ds-badge--info">Total: {total}</div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="info">Total: {total}</Badge>
+            {lastGeneratedJobId ? <Badge variant="neutral">Ultimo job: {lastGeneratedJobId}</Badge> : null}
             <Button
               type="button"
-              onClick={handleGenerateReport}
-              disabled={generating}
-              leftIcon={
-                generating ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                ) : (
-                  <BrainCircuit className="h-4 w-4" />
-                )
-              }
+              variant="outline"
+              onClick={() => void handleRefreshCenter()}
+              loading={refreshingOperations}
+              leftIcon={!refreshingOperations ? <RefreshCw className="h-4 w-4" /> : undefined}
             >
-              {generating ? 'Gerando relatório' : 'Gerar relatório mensal'}
+              Atualizar central
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleGenerateReport()}
+              disabled={generating}
+              leftIcon={!generating ? <BrainCircuit className="h-4 w-4" /> : undefined}
+            >
+              {generating ? 'Gerando relatorio' : 'Gerar relatorio mensal'}
             </Button>
           </div>
         </CardHeader>
       </Card>
 
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <SummaryCard
+          title="PDF ativos"
+          value={queueStats.active}
+          description="Jobs em processamento agora"
+          icon={<Activity className="h-4 w-4" />}
+          tone="info"
+        />
+        <SummaryCard
+          title="PDF aguardando"
+          value={queueStats.waiting + queueStats.delayed}
+          description="Fila aguardando worker"
+          icon={<Clock3 className="h-4 w-4" />}
+          tone="warning"
+        />
+        <SummaryCard
+          title="PDF concluidos"
+          value={queueStats.completed}
+          description="Jobs finalizados com sucesso"
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          tone="success"
+        />
+        <SummaryCard
+          title="PDF falhos"
+          value={queueStats.failed}
+          description="Geracoes com erro"
+          icon={<AlertTriangle className="h-4 w-4" />}
+          tone="danger"
+        />
+        <SummaryCard
+          title="E-mails recentes"
+          value={canViewMail ? mailLogsTotal : '--'}
+          description={canViewMail ? `${recentMailSuccess} enviados / ${recentMailFailures} falhos` : 'Permissao necessaria'}
+          icon={<Mail className="h-4 w-4" />}
+          tone="accent"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr,1fr]">
+        <Card tone="default" padding="lg">
+          <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1.5">
+              <CardTitle className="text-lg">Fila de geracao PDF</CardTitle>
+              <CardDescription>
+                Monitoramento da fila BullMQ com status de jobs, tentativas e retorno final.
+              </CardDescription>
+            </div>
+            <Badge variant={hasRunningJobs ? 'warning' : 'success'}>
+              {hasRunningJobs ? 'Monitorando jobs' : 'Fila estavel'}
+            </Badge>
+          </CardHeader>
+
+          <CardContent className="space-y-3">
+            {loadingOperations ? (
+              <div className="flex items-center justify-center py-12 text-[var(--color-text-muted)]">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            ) : jobs.length === 0 ? (
+              <EmptyState
+                icon={<FileText className="h-5 w-5" />}
+                title="Nenhum job recente"
+                description="Assim que um PDF for solicitado, o processamento vai aparecer aqui com status e rastreabilidade."
+              />
+            ) : (
+              jobs.map((job) => (
+                <div
+                  key={job.id}
+                  className="rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-surface)]/80 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={resolveJobStateVariant(job.state)}>
+                          {resolveJobStateLabel(job.state)}
+                        </Badge>
+                        <span className="text-[11px] text-[var(--color-text-muted)]">Job {job.id}</span>
+                      </div>
+                      <p className="text-sm font-semibold text-[var(--color-text)]">
+                        {job.reportType === 'monthly' && job.month && job.year
+                          ? `Relatório mensal ${String(job.month).padStart(2, '0')}/${job.year}`
+                          : job.name || 'Geracao PDF'}
+                      </p>
+                    </div>
+
+                    {job.result?.url ? (
+                      <a
+                        href={job.result.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-primary)] hover:underline"
+                      >
+                        Abrir PDF
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-[var(--color-text-secondary)] md:grid-cols-3">
+                    <MetricCell
+                      label="Criado em"
+                      value={job.createdAt ? format(new Date(job.createdAt), 'dd/MM HH:mm', { locale: ptBR }) : '-'}
+                    />
+                    <MetricCell label="Tentativas" value={String(job.attemptsMade ?? 0)} />
+                    <MetricCell
+                      label="Finalizado"
+                      value={job.finishedAt ? format(new Date(job.finishedAt), 'dd/MM HH:mm', { locale: ptBR }) : 'Em aberto'}
+                    />
+                  </div>
+
+                  {job.failedReason ? (
+                    <div className="mt-3 rounded-xl border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger-subtle)] p-3 text-xs text-[var(--ds-color-danger)]">
+                      {job.failedReason}
+                    </div>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card tone="default" padding="lg">
+          <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1.5">
+              <CardTitle className="text-lg">Envios por e-mail</CardTitle>
+              <CardDescription>
+                Rastreio de entregas recentes com status, destinatário, assunto e falhas de envio.
+              </CardDescription>
+            </div>
+            {canViewMail ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleExportMailLogs()}
+                loading={exportingMailLogs}
+                leftIcon={!exportingMailLogs ? <Download className="h-4 w-4" /> : undefined}
+              >
+                Exportar CSV
+              </Button>
+            ) : null}
+          </CardHeader>
+
+          <CardContent className="space-y-3">
+            {!canViewMail ? (
+              <EmptyState
+                icon={<Mail className="h-5 w-5" />}
+                title="Sem permissão para logs de e-mail"
+                description="Peça a liberação can_view_mail para acompanhar o histórico de envio dentro desta central."
+              />
+            ) : loadingOperations ? (
+              <div className="flex items-center justify-center py-12 text-[var(--color-text-muted)]">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            ) : mailLogs.length === 0 ? (
+              <EmptyState
+                icon={<Mail className="h-5 w-5" />}
+                title="Nenhum envio recente"
+                description="Assim que um PDF for enviado por e-mail, ele será listado aqui com rastreabilidade completa."
+              />
+            ) : (
+              <>
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  {mailLogsTotal} registro(s) encontrados. Exibindo os mais recentes desta empresa.
+                </p>
+                {mailLogs.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-surface)]/80 p-4"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={resolveMailStatusVariant(item.status)}>
+                            {item.status === 'success' || item.status === 'sent'
+                              ? 'Enviado'
+                              : item.status === 'error' || item.status === 'failed'
+                                ? 'Falhou'
+                                : item.status}
+                          </Badge>
+                          {item.using_test_account ? <Badge variant="warning">Sandbox</Badge> : null}
+                        </div>
+                        <p className="text-sm font-semibold text-[var(--color-text)]">{item.subject}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-[var(--color-text-secondary)] sm:grid-cols-2">
+                      <MetricCell label="Destino" value={item.to} />
+                      <MetricCell label="Arquivo" value={item.filename || '-'} />
+                      <MetricCell
+                        label="Criado em"
+                        value={format(new Date(item.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                      />
+                      <MetricCell label="Provider" value={item.message_id || 'Sem message id'} />
+                    </div>
+
+                    {item.error_message ? (
+                      <div className="mt-3 rounded-xl border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger-subtle)] p-3 text-xs text-[var(--ds-color-danger)]">
+                        {item.error_message}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {loading ? (
-          <div className="col-span-full flex justify-center py-10">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--color-primary)] border-t-transparent"></div>
+          <div className="col-span-full flex justify-center py-10 text-[var(--color-text-muted)]">
+            <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : reports.length === 0 ? (
           <Card tone="muted" className="col-span-full border-dashed p-10 text-center">
             <FileText className="mx-auto h-12 w-12 text-[var(--color-text-muted)]/40" />
             <h3 className="mt-4 text-base font-semibold text-[var(--color-text)]">Nenhum relatório gerado</h3>
             <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-              Gere o primeiro relatório mensal para consolidar indicadores e insights.
+              Gere o primeiro relatório mensal para consolidar indicadores, PDF e distribuição por e-mail.
             </p>
           </Card>
         ) : (
@@ -279,7 +726,7 @@ export default function ReportsPage() {
                     </h3>
                   </div>
                   <button
-                    onClick={() => handleDelete(report.id)}
+                    onClick={() => void handleDelete(report.id)}
                     className="rounded-lg border border-transparent p-1.5 text-[var(--color-text-muted)] transition-colors hover:border-[color:var(--color-danger)]/20 hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--color-danger)]"
                     title="Excluir relatório"
                     aria-label="Excluir relatório"
@@ -291,10 +738,10 @@ export default function ReportsPage() {
 
               <CardContent className="space-y-3.5 p-4">
                 <div className="grid grid-cols-2 gap-2.5">
-                  <MetricCell label="APRs" value={report.estatisticas.aprs_count} variant="primary" />
-                  <MetricCell label="PTs" value={report.estatisticas.pts_count} variant="warning" />
-                  <MetricCell label="DDS" value={report.estatisticas.dds_count} variant="success" />
-                  <MetricCell label="Checks" value={report.estatisticas.checklists_count} variant="accent" />
+                  <MetricCell label="APRs" value={String(report.estatisticas.aprs_count)} />
+                  <MetricCell label="PTs" value={String(report.estatisticas.pts_count)} />
+                  <MetricCell label="DDS" value={String(report.estatisticas.dds_count)} />
+                  <MetricCell label="Checks" value={String(report.estatisticas.checklists_count)} />
                 </div>
 
                 <div className="rounded-xl border border-[color:var(--color-primary)]/16 bg-[color:var(--ds-color-primary-subtle)] p-3">
@@ -311,7 +758,7 @@ export default function ReportsPage() {
               </CardContent>
 
               <div className="flex items-center justify-between border-t border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/12 px-3.5 py-3">
-                <span className="text-[10px] text-[var(--color-text-muted)]">Exportar ou compartilhar</span>
+                <span className="text-[10px] text-[var(--color-text-muted)]">Exportar, imprimir ou compartilhar</span>
                 <div className="flex gap-1.5">
                   <ActionIcon onClick={() => handlePrint(report)} title="Imprimir relatório" icon={<Printer className="h-4 w-4" />} />
                   <ActionIcon onClick={() => handleSendEmail(report)} title="Enviar relatório" icon={<Mail className="h-4 w-4" />} />
@@ -334,44 +781,70 @@ export default function ReportsPage() {
         />
       ) : null}
 
-      {selectedDoc && (
+      {selectedDoc ? (
         <SendMailModal
           isOpen={isMailModalOpen}
           onClose={() => {
             setIsMailModalOpen(false);
             setSelectedDoc(null);
+            void loadOperations('refresh');
           }}
           documentName={selectedDoc.name}
           filename={selectedDoc.filename}
           base64={selectedDoc.base64}
         />
-      )}
+      ) : null}
     </div>
   );
 }
 
-function MetricCell({
-  label,
+function SummaryCard({
+  title,
   value,
-  variant,
+  description,
+  icon,
+  tone,
 }: {
-  label: string;
-  value: number;
-  variant: 'primary' | 'warning' | 'success' | 'accent';
+  title: string;
+  value: string | number;
+  description: string;
+  icon: ReactNode;
+  tone: 'info' | 'warning' | 'success' | 'danger' | 'accent';
 }) {
-  const classes =
-    variant === 'warning'
-      ? 'bg-[color:var(--ds-color-warning-subtle)] text-[var(--color-warning)]'
-      : variant === 'success'
-        ? 'bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]'
-        : variant === 'accent'
-          ? 'bg-[color:var(--ds-color-accent-subtle)] text-[var(--color-secondary)]'
-          : 'bg-[color:var(--ds-color-primary-subtle)] text-[var(--color-primary)]';
+  const badgeVariant: NonNullable<BadgeProps['variant']> =
+    tone === 'info'
+      ? 'info'
+      : tone === 'warning'
+        ? 'warning'
+        : tone === 'success'
+          ? 'success'
+          : tone === 'danger'
+            ? 'danger'
+            : 'accent';
 
   return (
-    <div className={`rounded-xl border border-[var(--color-border-subtle)] p-2.5 text-center ${classes}`}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.12em]">{label}</p>
-      <p className="mt-1 text-[1.1rem] font-bold">{value}</p>
+    <Card interactive padding="md">
+      <CardHeader className="gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <Badge variant={badgeVariant}>{icon}</Badge>
+          <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+            {title}
+          </span>
+        </div>
+        <CardTitle className="text-3xl">{value}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+    </Card>
+  );
+}
+
+function MetricCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-[var(--color-border-subtle)] bg-[color:var(--color-surface-elevated)]/85 p-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">
+        {label}
+      </p>
+      <p className="mt-1 break-words text-sm font-semibold text-[var(--color-text)]">{value}</p>
     </div>
   );
 }
@@ -395,5 +868,25 @@ function ActionIcon({
     >
       {icon}
     </button>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  description,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-[var(--ds-radius-lg)] border border-dashed border-[var(--color-border-subtle)] bg-[color:var(--color-surface)]/70 px-6 py-10 text-center">
+      <div className="rounded-full bg-[color:var(--ds-color-primary-subtle)] p-3 text-[var(--color-primary)]">
+        {icon}
+      </div>
+      <h3 className="mt-4 text-sm font-semibold text-[var(--color-text)]">{title}</h3>
+      <p className="mt-2 max-w-md text-sm text-[var(--color-text-muted)]">{description}</p>
+    </div>
   );
 }

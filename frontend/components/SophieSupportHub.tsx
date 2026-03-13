@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import {
+  AlertTriangle,
   Bot,
   ClipboardCheck,
   FileText,
@@ -44,6 +45,12 @@ const supportActions = [
     description: 'Cria pauta prática de diálogo de segurança para o campo.',
     href: '/dashboard/dds/new',
     icon: MessageSquareText,
+  },
+  {
+    title: 'NC Assistida',
+    description: 'Abre a criação assistida de não conformidade com rastreabilidade.',
+    href: '/dashboard/sst-agent?documentType=nc',
+    icon: AlertTriangle,
   },
 ];
 
@@ -129,7 +136,7 @@ export function SophieSupportHub() {
                 Automacao atual
               </div>
               <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                APR, PT, checklist, DDS, chat contextual e gatilhos assistidos de NC.
+                APR, PT, checklist, DDS, NC assistida, chat contextual e gatilhos automáticos de NC.
               </p>
               <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
                 Hoje a SOPHIE atua em modo assistido: ela prepara, recomenda e dispara fluxos suportados, com validação humana quando necessário.

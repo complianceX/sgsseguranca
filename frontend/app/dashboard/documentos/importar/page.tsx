@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { 
   Upload, 
   FileText, 
@@ -46,8 +47,18 @@ interface AnalysisResult {
   };
 }
 
+const DOCUMENT_LABELS: Record<string, string> = {
+  apr: 'APR',
+  pt: 'PT',
+  checklist: 'Checklist',
+  dds: 'DDS',
+  inspection: 'Relatório Fotográfico',
+  nc: 'Não Conformidade',
+};
+
 export default function DocumentImportPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -55,6 +66,8 @@ export default function DocumentImportPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const requestedDocumentType = searchParams.get('documentType') || '';
+  const requestedDocumentLabel = DOCUMENT_LABELS[requestedDocumentType] || null;
 
   useEffect(() => {
     if (progressBarRef.current) {
@@ -151,7 +164,9 @@ export default function DocumentImportPage() {
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Importação Inteligente de PDF</h1>
         <p className="text-sm text-slate-500">
-          Faça upload de documentos SST (APR, PGR, PCMSO, ASO) para extração automática e validação.
+          {requestedDocumentLabel
+            ? `Fluxo preparado para anexar um PDF de ${requestedDocumentLabel} já emitido, sem refazer o preenchimento no sistema.`
+            : 'Faça upload de documentos SST (APR, PGR, PCMSO, ASO) para extração automática e validação.'}
         </p>
       </div>
 
