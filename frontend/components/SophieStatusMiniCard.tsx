@@ -16,6 +16,10 @@ type SophieStatus = {
   knowledgeBase: {
     version: string;
   };
+  automation: {
+    phase2Enabled: boolean;
+    checklistNcThreshold: number;
+  };
 };
 
 function formatProvider(provider: string) {
@@ -66,6 +70,9 @@ export function SophieStatusMiniCard() {
 
   if (!isAiEnabled()) return null;
 
+  const badgeLabel = loading ? 'sincronizando' : status ? 'online' : 'sem resposta';
+  const badgeVariant = status ? 'accent' : 'warning';
+
   return (
     <Card tone="elevated" padding="lg" className="overflow-hidden">
       <CardHeader className="flex flex-row items-start justify-between gap-3">
@@ -78,8 +85,8 @@ export function SophieStatusMiniCard() {
             <CardDescription>Status operacional da assistente no ambiente atual.</CardDescription>
           </div>
         </div>
-        <Badge variant="accent" className="text-[10px] uppercase tracking-[0.12em]">
-          online
+        <Badge variant={badgeVariant} className="text-[10px] uppercase tracking-[0.12em]">
+          {badgeLabel}
         </Badge>
       </CardHeader>
 
@@ -125,6 +132,19 @@ export function SophieStatusMiniCard() {
                     {status.agent.localFallbackEnabled ? 'Ativa' : 'Desativada'}
                   </p>
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/35 p-3">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
+                  <Bot className="h-3.5 w-3.5" />
+                  Automacao
+                </div>
+                <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  {status.automation.phase2Enabled ? 'Fase 2 ativa' : 'Modo assistido'}
+                </p>
+                <p className="text-xs text-[var(--ds-color-text-muted)]">
+                  Threshold NC checklist: {status.automation.checklistNcThreshold}
+                </p>
               </div>
             </div>
 

@@ -1,6 +1,10 @@
 export function isAiEnabled(): boolean {
-  // Default OFF: evita chamadas acidentais em produção sem IA.
-  return (process.env.NEXT_PUBLIC_FEATURE_AI_ENABLED || '').trim().toLowerCase() === 'true';
+  // Default ON: a SOPHIE deve ser parte visível do produto e só some quando
+  // houver desligamento explícito do frontend.
+  const raw = (process.env.NEXT_PUBLIC_FEATURE_AI_ENABLED || 'true')
+    .trim()
+    .toLowerCase();
+  return raw !== 'false';
 }
 
 export function isSophieAutomationPhase1Enabled(): boolean {

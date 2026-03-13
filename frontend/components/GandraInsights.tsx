@@ -54,7 +54,40 @@ export function GandraInsights() {
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <Card tone="elevated" padding="lg" className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] pb-3">
+          <div>
+            <CardTitle className="text-base">SOPHIE Insights</CardTitle>
+            <CardDescription>
+              A assistente ainda nao conseguiu consolidar os insights deste ambiente.
+            </CardDescription>
+          </div>
+          <Badge variant="warning" className="text-[10px] uppercase tracking-[0.12em]">
+            sincronizacao pendente
+          </Badge>
+        </div>
+
+        <CardContent className="px-0 pb-0 pt-4">
+          <div className="rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-4">
+            <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+              A SOPHIE esta visivel, mas os insights nao retornaram neste carregamento.
+            </p>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Verifique se o backend esta com <code>FEATURE_AI_ENABLED=true</code> e se o usuario possui a permissao <code>can_use_ai</code>.
+            </p>
+            <Link
+              href="/dashboard/sst-agent"
+              className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+            >
+              Abrir Central SOPHIE <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card tone="elevated" padding="none" interactive className="overflow-hidden">
