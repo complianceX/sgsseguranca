@@ -24,9 +24,24 @@ function firstNonEmpty(values: Array<string | undefined | null>): string | undef
 function resolveDatabaseUrl(config: ConfigService): string | undefined {
   return firstNonEmpty([
     config.get<string>('DATABASE_URL'),
+    config.get<string>('DATABASE_PRIVATE_URL'),
     config.get<string>('DATABASE_PUBLIC_URL'),
     config.get<string>('URL_DO_BANCO_DE_DADOS'),
   ]);
+}
+
+function describeDatabaseTarget(url?: string): string {
+  if (!url) {
+    return 'target=unknown';
+  }
+
+  try {
+    const parsed = new URL(url);
+    const databaseName = parsed.pathname.replace(/^\//, '') || '(default)';
+    return `host=${parsed.hostname} port=${parsed.port || '5432'} db=${databaseName}`;
+  } catch {
+    return 'target=invalid-url';
+  }
 }
 
 function resolveDatabaseHost(config: ConfigService): string | undefined {
@@ -183,6 +198,9 @@ const validationSchema = Joi.object({
           },
         };
         if (url) {
+          logger.log(
+            `Connecting via DATABASE_URL (${describeDatabaseTarget(url)})`,
+          );
           return {
             ...baseConfig,
             url,

@@ -45,9 +45,24 @@ function resolveSslConfig() {
   return { rejectUnauthorized: true };
 }
 
+function describeDatabaseTarget(url) {
+  if (!url) {
+    return 'target=unknown';
+  }
+
+  try {
+    const parsed = new URL(url);
+    const databaseName = parsed.pathname.replace(/^\//, '') || '(default)';
+    return `host=${parsed.hostname} port=${parsed.port || '5432'} db=${databaseName}`;
+  } catch {
+    return 'target=invalid-url';
+  }
+}
+
 function buildDataSource() {
   const databaseUrl = firstNonEmpty(
     process.env.DATABASE_URL,
+    process.env.DATABASE_PRIVATE_URL,
     process.env.DATABASE_PUBLIC_URL,
     process.env.URL_DO_BANCO_DE_DADOS,
     process.env.POSTGRES_URL,
@@ -55,7 +70,9 @@ function buildDataSource() {
   );
 
   if (databaseUrl) {
-    console.log('[MIGRATIONS] Using database URL from environment.');
+    console.log(
+      `[MIGRATIONS] Using database URL from environment (${describeDatabaseTarget(databaseUrl)}).`,
+    );
     return new DataSource({
       type: 'postgres',
       url: databaseUrl,
