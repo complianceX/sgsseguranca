@@ -22,6 +22,7 @@ import { isAiEnabled, isSophieAutomationPhase1Enabled } from '@/lib/featureFlags
 import {
   sophieService,
   SophieHistoryItem,
+  SophieResponse,
   CreateChecklistAutomationResponse,
   CreateDdsAutomationResponse,
   CreateNonConformityAutomationResponse,
@@ -59,6 +60,55 @@ const quickActions = [
   },
 ] as const;
 
+type PendingContext = {
+  active: boolean;
+  module: string;
+  category: string;
+  title: string;
+  description: string;
+  priority: string;
+  status: string;
+  responsible: string;
+  siteName: string;
+  siteId: string;
+  dueDate: string;
+  href: string;
+};
+
+function buildPendingContextPrompt(context: PendingContext) {
+  return [
+    'Analise a seguinte pendência do sistema SST e proponha um plano de atuação técnico e objetivo.',
+    `Módulo: ${context.module || 'Não informado'}`,
+    `Categoria: ${context.category || 'Não informada'}`,
+    `Título: ${context.title || 'Não informado'}`,
+    `Descrição: ${context.description || 'Não informada'}`,
+    `Prioridade: ${context.priority || 'Não informada'}`,
+    `Status: ${context.status || 'Não informado'}`,
+    `Responsável atual: ${context.responsible || 'Não definido'}`,
+    `Obra/site: ${context.siteName || 'Não informado'}`,
+    `Prazo: ${context.dueDate || 'Não informado'}`,
+    '',
+    'Responda em português com:',
+    '1. diagnóstico resumido da pendência',
+    '2. risco operacional e urgência',
+    '3. próximos passos imediatos dentro da hierarquia de controle',
+    '4. documento, fluxo ou evidência que deve ser priorizado no sistema',
+    '5. necessidade ou não de revisão humana',
+  ].join('\n');
+}
+
+function resolvePendingContextTitle(context: PendingContext) {
+  if (context.category === 'health') {
+    return 'Pendência de saúde ocupacional trazida da fila central';
+  }
+
+  if (context.module === 'Ação') {
+    return 'Ação corretiva trazida da fila central';
+  }
+
+  return 'Pendência operacional trazida da fila central';
+}
+
 export default function SstAgentPage() {
   const searchParams = useSearchParams();
   const aiEnabled = isAiEnabled();
@@ -89,11 +139,30 @@ export default function SstAgentPage() {
   const [createdDds, setCreatedDds] = useState<CreateDdsAutomationResponse | null>(null);
   const [createdNc, setCreatedNc] = useState<CreateNonConformityAutomationResponse | null>(null);
   const [queuedReport, setQueuedReport] = useState<QueueMonthlyReportAutomationResponse | null>(null);
+  const [analyzingPendingContext, setAnalyzingPendingContext] = useState(false);
+  const [pendingContextAnalysis, setPendingContextAnalysis] = useState<SophieResponse | null>(null);
   const canUseAi = hasPermission('can_use_ai');
   const prefilledDocumentType = searchParams.get('documentType') || '';
   const prefilledTitle = searchParams.get('title') || '';
   const prefilledDescription = searchParams.get('description') || '';
   const prefilledSiteId = searchParams.get('site_id') || '';
+  const pendingContext = useMemo<PendingContext>(
+    () => ({
+      active: searchParams.get('pendingContext') === 'true',
+      module: searchParams.get('module') || '',
+      category: searchParams.get('category') || '',
+      title: searchParams.get('title') || '',
+      description: searchParams.get('description') || '',
+      priority: searchParams.get('priority') || '',
+      status: searchParams.get('status') || '',
+      responsible: searchParams.get('responsible') || '',
+      siteName: searchParams.get('site_name') || '',
+      siteId: searchParams.get('site_id') || '',
+      dueDate: searchParams.get('dueDate') || '',
+      href: searchParams.get('href') || '',
+    }),
+    [searchParams],
+  );
 
   useEffect(() => {
     let active = true;
@@ -181,6 +250,18 @@ export default function SstAgentPage() {
     prefilledDocumentType,
     prefilledSiteId,
     prefilledTitle,
+  ]);
+
+  useEffect(() => {
+    setPendingContextAnalysis(null);
+  }, [
+    pendingContext.active,
+    pendingContext.module,
+    pendingContext.title,
+    pendingContext.description,
+    pendingContext.priority,
+    pendingContext.status,
+    pendingContext.siteName,
   ]);
 
   const sortedHistory = useMemo(
@@ -315,6 +396,26 @@ export default function SstAgentPage() {
     }
   }
 
+  async function handleAnalyzePendingContext() {
+    if (!pendingContext.active) {
+      return;
+    }
+
+    try {
+      setAnalyzingPendingContext(true);
+      const response = await sophieService.chat(
+        buildPendingContextPrompt(pendingContext),
+      );
+      setPendingContextAnalysis(response);
+      toast.success('SOPHIE analisou a pendência selecionada.');
+    } catch (error) {
+      console.error('Erro ao analisar pendência com a SOPHIE:', error);
+      toast.error('Não foi possível analisar a pendência com a SOPHIE agora.');
+    } finally {
+      setAnalyzingPendingContext(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-6 shadow-[var(--ds-shadow-sm)]">
@@ -339,6 +440,136 @@ export default function SstAgentPage() {
           <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
             O contexto foi pré-carregado. Revise os campos abaixo e execute a ação da SOPHIE quando estiver pronto.
           </p>
+        </section>
+      ) : null}
+
+      {pendingContext.active ? (
+        <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-5 shadow-[var(--ds-shadow-sm)]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-3xl">
+              <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                {resolvePendingContextTitle(pendingContext)}
+              </p>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                A SOPHIE recebeu o contexto da fila central para acelerar a análise e orientar a próxima ação.
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-white/50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-warning)]">
+              prioridade {pendingContext.priority || 'operacional'}
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">Módulo</p>
+              <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.module || 'Não informado'}</p>
+            </div>
+            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">Status</p>
+              <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.status || 'Não informado'}</p>
+            </div>
+            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">Obra/site</p>
+              <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.siteName || 'Não informado'}</p>
+            </div>
+            <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">Prazo</p>
+              <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                {pendingContext.dueDate ? new Date(pendingContext.dueDate).toLocaleDateString('pt-BR') : 'Não informado'}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-4">
+            <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.title || 'Pendência sem título'}</p>
+            <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+              {pendingContext.description || 'Sem descrição complementar.'}
+            </p>
+            <p className="mt-2 text-xs text-[var(--ds-color-text-muted)]">
+              Responsável atual: {pendingContext.responsible || 'Não definido'}
+            </p>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              onClick={handleAnalyzePendingContext}
+              loading={analyzingPendingContext}
+              disabled={!canRunAutomation}
+              variant="warning"
+              leftIcon={<Wand2 className="h-4 w-4" />}
+            >
+              Analisar pendência com a SOPHIE
+            </Button>
+            {pendingContext.href ? (
+              <Link
+                href={pendingContext.href}
+                className="inline-flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-white/70 px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-primary)] transition-colors hover:border-[var(--ds-color-action-primary)]/35"
+              >
+                Abrir item original
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            ) : null}
+          </div>
+
+          {pendingContextAnalysis ? (
+            <div className="mt-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ds-color-primary-subtle)] px-2.5 py-1 text-[11px] font-semibold text-[var(--ds-color-action-primary)]">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  análise contextual
+                </span>
+                <span className="text-[11px] text-[var(--ds-color-text-muted)]">
+                  Confiança: {pendingContextAnalysis.confidence}
+                </span>
+                {pendingContextAnalysis.needsHumanReview ? (
+                  <span className="text-[11px] font-semibold text-[var(--ds-color-warning)]">
+                    revisão humana recomendada
+                  </span>
+                ) : null}
+              </div>
+
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-[var(--ds-color-text-secondary)]">
+                {pendingContextAnalysis.answer}
+              </p>
+
+              {pendingContextAnalysis.warnings?.length ? (
+                <div className="mt-3 rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-warning)]">
+                    Pontos de atenção
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm text-[var(--ds-color-text-secondary)]">
+                    {pendingContextAnalysis.warnings.map((warning) => (
+                      <li key={warning}>• {warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {pendingContextAnalysis.suggestedActions?.length ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {pendingContextAnalysis.suggestedActions.map((action) => (
+                    action.href ? (
+                      <Link
+                        key={`${action.label}-${action.href}`}
+                        href={action.href}
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-action-primary)] transition-colors hover:border-[var(--ds-color-action-primary)]/35 hover:bg-[var(--ds-color-primary-subtle)]"
+                      >
+                        {action.label}
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    ) : (
+                      <span
+                        key={action.label}
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/35 px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-text-secondary)]"
+                      >
+                        {action.label}
+                      </span>
+                    )
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </section>
       ) : null}
 

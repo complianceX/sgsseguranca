@@ -50,6 +50,7 @@ type PendingQueueItem = {
   priority: PendingQueuePriority;
   status: string;
   responsible: string | null;
+  siteId: string | null;
   site: string | null;
   dueDate: Date | string | null;
   href: string;
@@ -960,6 +961,7 @@ export class DashboardService {
         priority: this.resolveDocumentPriority(item.residual_risk, item.data_inicio, now),
         status: item.status,
         responsible: item.elaborador?.nome || null,
+        siteId: item.site?.id || null,
         site: item.site?.nome || null,
         dueDate: item.data_inicio,
         href: `/dashboard/aprs/edit/${item.id}`,
@@ -974,6 +976,7 @@ export class DashboardService {
         priority: this.resolvePtPriority(item.status, item.residual_risk, item.data_hora_fim, now),
         status: item.status,
         responsible: item.responsavel?.nome || null,
+        siteId: item.site?.id || null,
         site: item.site?.nome || null,
         dueDate: item.data_hora_fim,
         href: `/dashboard/pts/edit/${item.id}`,
@@ -988,6 +991,7 @@ export class DashboardService {
         priority: this.resolveChecklistPriority(item.data, now),
         status: item.status,
         responsible: item.inspetor?.nome || null,
+        siteId: item.site?.id || null,
         site: item.site?.nome || null,
         dueDate: item.data,
         href: `/dashboard/checklists/edit/${item.id}`,
@@ -1017,6 +1021,7 @@ export class DashboardService {
             item.acao_imediata_responsavel ||
             item.responsavel_area ||
             null,
+          siteId: item.site?.id || null,
           site: item.site?.nome || null,
           dueDate,
           href: `/dashboard/nonconformities/edit/${item.id}`,
@@ -1036,6 +1041,7 @@ export class DashboardService {
         ),
         status: new Date(item.data_vencimento) < now ? 'Vencido' : 'Vencendo',
         responsible: item.user?.nome || null,
+        siteId: null,
         site: null,
         dueDate: item.data_vencimento,
         href: `/dashboard/trainings/edit/${item.id}`,
@@ -1057,6 +1063,7 @@ export class DashboardService {
         ),
         status: item.resultado,
         responsible: item.user?.nome || null,
+        siteId: null,
         site: null,
         dueDate: item.data_vencimento,
         href: '/dashboard/medical-exams',
@@ -1076,6 +1083,7 @@ export class DashboardService {
             priority: this.resolveActionPriority(action.prazo, now),
             status: action.status || 'Pendente',
             responsible: action.responsavel || inspection.responsavel?.nome || null,
+            siteId: inspection.site?.id || null,
             site: inspection.site?.nome || null,
             dueDate: action.prazo || null,
             href: `/dashboard/inspections/edit/${inspection.id}`,
@@ -1096,6 +1104,7 @@ export class DashboardService {
             priority: this.resolveActionPriority(action.prazo, now),
             status: action.status || 'Pendente',
             responsible: action.responsavel || audit.auditor?.nome || null,
+            siteId: audit.site?.id || null,
             site: audit.site?.nome || null,
             dueDate: action.prazo || null,
             href: `/dashboard/audits/edit/${audit.id}`,

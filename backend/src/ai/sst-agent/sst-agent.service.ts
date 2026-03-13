@@ -59,8 +59,9 @@ const GEMINI_PROVIDER = 'gemini';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 const OPENAI_PROVIDER = 'openai';
 const LOCAL_PROVIDER = 'local';
-const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
-const DEFAULT_OPENAI_VISION_MODEL = 'gpt-4.1-mini';
+const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
+const DEFAULT_OPENAI_VISION_MODEL = 'gpt-5-mini';
+const DEFAULT_OPENAI_REASONING_EFFORT = 'medium';
 const MAX_TOKENS = 2048;
 const MAX_TOOL_ITERATIONS = 5;
 const DEFAULT_AI_HISTORY_DAYS = 30;
@@ -137,6 +138,7 @@ export class SstAgentService {
   private readonly openaiApiKey: string | null;
   private readonly openaiModel: string;
   private readonly openaiVisionModel: string;
+  private readonly openaiReasoningEffort: 'minimal' | 'low' | 'medium' | 'high';
   private readonly provider: SupportedAiProvider;
   private readonly model: string;
   private readonly anthropicModel: string;
@@ -165,11 +167,19 @@ export class SstAgentService {
       this.configService.get<string>('OPENAI_VISION_MODEL')?.trim() ||
       openaiModel ||
       DEFAULT_OPENAI_VISION_MODEL;
+    const openaiReasoningEffort =
+      (this.configService.get<string>('OPENAI_REASONING_EFFORT')?.trim().toLowerCase() as
+        | 'minimal'
+        | 'low'
+        | 'medium'
+        | 'high'
+        | undefined) || DEFAULT_OPENAI_REASONING_EFFORT;
 
     this.geminiApiKey = null;
     this.openaiApiKey = openaiApiKey;
     this.openaiModel = openaiModel;
     this.openaiVisionModel = openaiVisionModel;
+    this.openaiReasoningEffort = openaiReasoningEffort;
     this.provider = 'stub';
     this.model = 'stub';
     this.anthropicModel = anthropicModel;
@@ -202,7 +212,9 @@ export class SstAgentService {
     if (openaiApiKey) {
       this.provider = OPENAI_PROVIDER;
       this.model = openaiModel;
-      this.logger.log(`SOPHIE iniciada com OpenAI (${this.model}) como motor oficial.`);
+      this.logger.log(
+        `SOPHIE iniciada com OpenAI (${this.model}) como motor oficial (reasoning=${this.openaiReasoningEffort}).`,
+      );
       return;
     }
 
@@ -222,6 +234,7 @@ export class SstAgentService {
       model: this.model,
       openaiModel: this.openaiModel,
       openaiVisionModel: this.openaiVisionModel,
+      openaiReasoningEffort: this.openaiReasoningEffort,
       historyDefaultDays: this.historyDefaultDays,
       historyMaxDays: this.historyMaxDays,
       historyMaxLimit: this.historyMaxLimit,
@@ -515,7 +528,7 @@ export class SstAgentService {
     let totalOutputTokens = 0;
 
     const messages: Array<Record<string, unknown>> = [
-      { role: 'system', content: SST_SYSTEM_PROMPT },
+      { role: 'developer', content: SST_SYSTEM_PROMPT },
       ...history.map((m) => ({ role: m.role, content: m.content })),
       { role: 'user', content: question },
     ];
@@ -530,7 +543,8 @@ export class SstAgentService {
         body: JSON.stringify({
           model: this.openaiModel,
           temperature: 0.2,
-          max_tokens: MAX_TOKENS,
+          max_completion_tokens: MAX_TOKENS,
+          reasoning_effort: this.openaiReasoningEffort,
           messages,
           tools: OPENAI_TOOL_DEFINITIONS,
           tool_choice: 'auto',
@@ -793,9 +807,10 @@ export class SstAgentService {
       body: JSON.stringify({
         model: this.openaiVisionModel,
         temperature: 0.2,
-        max_tokens: 1200,
+        max_completion_tokens: 1200,
+        reasoning_effort: this.openaiReasoningEffort,
         messages: [
-          { role: 'system', content: SST_IMAGE_ANALYSIS_PROMPT },
+          { role: 'developer', content: SST_IMAGE_ANALYSIS_PROMPT },
           {
             role: 'user',
             content: [

@@ -439,6 +439,59 @@ function resolveQueueModuleIcon(module: string): LucideIcon {
   }
 }
 
+type PendingQueueEntry = DashboardPendingQueueResponse['items'][number];
+
+function buildPendingQueueSophieHref(item: PendingQueueEntry) {
+  const params = new URLSearchParams({
+    pendingContext: 'true',
+    module: item.module,
+    category: item.category,
+    title: item.title,
+    description: item.description,
+    priority: item.priority,
+    status: item.status,
+    href: item.href,
+  });
+
+  if (item.sourceId) {
+    params.set('sourceId', item.sourceId);
+  }
+
+  if (item.siteId) {
+    params.set('site_id', item.siteId);
+  }
+
+  if (item.site) {
+    params.set('site_name', item.site);
+  }
+
+  if (item.responsible) {
+    params.set('responsible', item.responsible);
+  }
+
+  if (item.dueDate) {
+    params.set('dueDate', item.dueDate);
+  }
+
+  return `/dashboard/sst-agent?${params.toString()}`;
+}
+
+function resolvePendingQueueSophieLabel(item: PendingQueueEntry) {
+  if (item.module === 'NC') {
+    return 'Revisar com SOPHIE';
+  }
+
+  if (item.module === 'Ação') {
+    return 'Montar plano com SOPHIE';
+  }
+
+  if (item.category === 'health') {
+    return 'Avaliar risco com SOPHIE';
+  }
+
+  return 'Acionar SOPHIE';
+}
+
 export default function DashboardPage() {
   const { user, roles, hasPermission } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -1102,9 +1155,8 @@ export default function DashboardPage() {
               filteredPendingQueueItems.map((item) => {
                 const ItemIcon = resolveQueueModuleIcon(item.module);
                 return (
-                  <Link
+                  <div
                     key={item.id}
-                    href={item.href}
                     className="block rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-4 transition-all hover:-translate-y-0.5 hover:border-[var(--ds-color-action-primary)]/35 hover:shadow-[var(--ds-shadow-md)]"
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -1147,15 +1199,30 @@ export default function DashboardPage() {
                         ) : null}
                       </div>
                     </div>
-                    <div className="mt-3 flex flex-col gap-2 text-xs text-[var(--ds-color-text-muted)] sm:flex-row sm:items-center sm:justify-between">
+                    <div className="mt-3 flex flex-col gap-3 text-xs text-[var(--ds-color-text-muted)]">
                       <span>
                         Responsável: <span className="font-semibold text-[var(--ds-color-text-secondary)]">{item.responsible || 'Não definido'}</span>
                       </span>
-                      <span className="font-semibold text-[var(--ds-color-action-primary)]">
-                        Abrir pendência
-                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        <Link
+                          href={item.href}
+                          className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] px-3 py-1.5 font-semibold text-[var(--ds-color-action-primary)] transition-colors hover:border-[var(--ds-color-action-primary)]/35 hover:bg-[color:var(--ds-color-primary-subtle)]"
+                        >
+                          Abrir pendência
+                          <ArrowUpRight className="h-3.5 w-3.5" />
+                        </Link>
+                        {canUseAi ? (
+                          <Link
+                            href={buildPendingQueueSophieHref(item)}
+                            className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-1.5 font-semibold text-[var(--ds-color-warning)] transition-colors hover:brightness-95"
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            {resolvePendingQueueSophieLabel(item)}
+                          </Link>
+                        ) : null}
+                      </div>
                     </div>
-                  </Link>
+                  </div>
                 );
               })
             )}
@@ -1207,6 +1274,7 @@ export default function DashboardPage() {
             </div>
             <div className="mt-4 rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 p-4 text-sm text-[var(--ds-color-text-secondary)]">
               Use os filtros para alternar rapidamente entre bloqueios críticos, documentos e saúde ocupacional sem sair da home.
+              {canUseAi ? ' As pendências agora também podem ser enviadas direto para a SOPHIE com contexto pronto.' : ''}
             </div>
           </div>
         </div>

@@ -53,7 +53,8 @@ import type {
 import type { GenerateSophieReportDto } from './dto/generate-sophie-report.dto';
 import { defaultJobOptions } from '../queue/default-job-options';
 
-const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
+const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
+const DEFAULT_OPENAI_REASONING_EFFORT = 'medium';
 const MAX_JSON_TOKENS = 1600;
 const PHASE2_DEFAULT_NC_THRESHOLD = 3;
 
@@ -62,6 +63,7 @@ export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly openaiApiKey: string | null;
   private readonly openaiModel: string;
+  private readonly openaiReasoningEffort: 'minimal' | 'low' | 'medium' | 'high';
 
   constructor(
     @InjectRepository(AiInteraction)
@@ -82,8 +84,17 @@ export class AiService {
     this.openaiApiKey = this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
     this.openaiModel =
       this.configService.get<string>('OPENAI_MODEL')?.trim() || DEFAULT_OPENAI_MODEL;
+    this.openaiReasoningEffort =
+      (this.configService.get<string>('OPENAI_REASONING_EFFORT')?.trim().toLowerCase() as
+        | 'minimal'
+        | 'low'
+        | 'medium'
+        | 'high'
+        | undefined) || DEFAULT_OPENAI_REASONING_EFFORT;
 
-    this.logger.log(`✅ SOPHIE AiService initialized (model=${this.openaiModel})`);
+    this.logger.log(
+      `✅ SOPHIE AiService initialized (provider=openai model=${this.openaiModel} reasoning=${this.openaiReasoningEffort})`,
+    );
   }
 
   private getTenantIdOrThrow(): string {
@@ -155,10 +166,11 @@ export class AiService {
       body: JSON.stringify({
         model: this.openaiModel,
         temperature: 0.2,
-        max_tokens: params.maxTokens ?? MAX_JSON_TOKENS,
+        max_completion_tokens: params.maxTokens ?? MAX_JSON_TOKENS,
+        reasoning_effort: this.openaiReasoningEffort,
         messages: [
           {
-            role: 'system',
+            role: 'developer',
             content:
               `${systemPrompt}\n\n` +
               'Responda SOMENTE em JSON valido, sem markdown, sem comentarios e sem texto fora do objeto JSON.',

@@ -179,6 +179,7 @@ export interface DashboardPendingQueueResponse {
     priority: 'critical' | 'high' | 'medium';
     status: string;
     responsible: string | null;
+    siteId: string | null;
     site: string | null;
     dueDate: string | null;
     href: string;
