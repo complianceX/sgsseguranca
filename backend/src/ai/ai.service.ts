@@ -32,9 +32,11 @@ import {
   SophieConfidence,
   SophieTask,
 } from './sophie.types';
+import type { CreateNonConformityDto } from '../nonconformities/dto/create-nonconformity.dto';
 
 const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
 const MAX_JSON_TOKENS = 1600;
+const PHASE2_DEFAULT_NC_THRESHOLD = 3;
 
 @Injectable({ scope: Scope.REQUEST })
 export class AiService {
@@ -191,6 +193,187 @@ export class AiService {
     return ConfidenceLevel.MEDIUM;
   }
 
+  private isPhase2Enabled(): boolean {
+    const raw =
+      this.configService
+        .get<string>('SOPHIE_AUTOMATION_PHASE2_ENABLED')
+        ?.trim()
+        .toLowerCase() ?? 'false';
+    return raw === 'true';
+  }
+
+  private getPhase2ChecklistNcThreshold(): number {
+    const raw = this.configService.get<string>('SOPHIE_PHASE2_CHECKLIST_NC_THRESHOLD');
+    const parsed = Number.parseInt(String(raw ?? PHASE2_DEFAULT_NC_THRESHOLD), 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return PHASE2_DEFAULT_NC_THRESHOLD;
+    return parsed;
+  }
+
+  private normalizeRiskLevel(value: unknown): 'Baixo' | 'Médio' | 'Alto' | 'Crítico' {
+    const normalized = String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+    if (normalized.includes('crit')) return 'Crítico';
+    if (normalized.includes('alto')) return 'Alto';
+    if (normalized.includes('medio') || normalized.includes('moder')) return 'Médio';
+    return 'Baixo';
+  }
+
+  private buildPtAutomationDecision(
+    riskLevel: AnalyzePtResponse['riskLevel'],
+    flags: {
+      trabalho_altura?: boolean;
+      espaco_confinado?: boolean;
+      trabalho_quente?: boolean;
+      eletricidade?: boolean;
+    },
+  ): AnalyzePtResponse['automation'] {
+    const criticalFlag = Boolean(
+      flags.trabalho_altura || flags.espaco_confinado || flags.trabalho_quente || flags.eletricidade,
+    );
+
+    if (riskLevel === 'Crítico') {
+      return {
+        phase: 'phase2',
+        riskBand: 'critical',
+        requiresHumanApproval: true,
+        recommendedFlow: 'review_required',
+        reasons: ['Risco crítico identificado. Liberação automática bloqueada.'],
+      };
+    }
+
+    if (riskLevel === 'Alto' || criticalFlag) {
+      return {
+        phase: 'phase2',
+        riskBand: 'high',
+        requiresHumanApproval: true,
+        recommendedFlow: 'review_required',
+        reasons: [
+          criticalFlag
+            ? 'Atividade crítica (altura/espaço confinado/quente/eletricidade) exige validação humana.'
+            : 'Risco alto exige validação humana antes da liberação.',
+        ],
+      };
+    }
+
+    if (riskLevel === 'Médio') {
+      return {
+        phase: 'phase2',
+        riskBand: 'moderate',
+        requiresHumanApproval: false,
+        recommendedFlow: 'auto',
+        reasons: ['Risco moderado permite fluxo assistido com monitoramento.'],
+      };
+    }
+
+    return {
+      phase: 'phase2',
+      riskBand: 'low',
+      requiresHumanApproval: false,
+      recommendedFlow: 'auto',
+      reasons: ['Risco baixo apto para fluxo assistido automático.'],
+    };
+  }
+
+  private countChecklistNonConformities(items: unknown[]): number {
+    if (!Array.isArray(items)) return 0;
+    return items.filter((item: any) => {
+      const raw = String(item?.status ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      return raw === 'false' || raw === 'nao' || raw === 'nok' || raw.includes('nao conform');
+    }).length;
+  }
+
+  private async tryAutoOpenNcFromChecklist(params: {
+    checklist: any;
+    summary: string;
+    suggestions: string[];
+    confidence?: SophieConfidence;
+    nonConformCount: number;
+  }): Promise<AnalyzeChecklistResponse['automation']> {
+    if (!this.isPhase2Enabled()) {
+      return { phase2Enabled: false, reasons: ['Fase 2 desativada por configuração.'] };
+    }
+
+    const threshold = this.getPhase2ChecklistNcThreshold();
+    if (params.nonConformCount < threshold) {
+      return {
+        phase2Enabled: true,
+        ncAutoOpened: false,
+        reasons: [`Não conformidades abaixo do limiar automático (${threshold}).`],
+      };
+    }
+
+    const checklistId = String(params.checklist?.id || '');
+    const code = `NC-AUTO-CHK-${checklistId.slice(0, 8).toUpperCase()}`;
+
+    try {
+      const existing = await this.nonConformitiesService.findAll();
+      const alreadyExists = existing.some(
+        (nc: any) => String(nc?.codigo_nc || '').trim().toUpperCase() === code,
+      );
+      if (alreadyExists) {
+        return {
+          phase2Enabled: true,
+          ncAutoOpened: false,
+          reasons: ['NC automática já existente para este checklist.'],
+          ncCode: code,
+        };
+      }
+
+      const today = new Date();
+      const isoDate = today.toISOString().slice(0, 10);
+      const confidenceTag = params.confidence || 'medium';
+      const dto: CreateNonConformityDto = {
+        codigo_nc: code,
+        tipo: 'CHECKLIST_AUTOMATIZADO',
+        data_identificacao: isoDate,
+        site_id: params.checklist?.site_id || undefined,
+        local_setor_area: String(params.checklist?.site?.nome || params.checklist?.maquina || 'Área operacional'),
+        atividade_envolvida: String(params.checklist?.titulo || 'Checklist SST'),
+        responsavel_area: 'Responsável operacional',
+        auditor_responsavel: 'SOPHIE',
+        classificacao: ['AUTOMATICA', 'CHECKLIST', 'FASE2'],
+        descricao: `NC aberta automaticamente pela SOPHIE Fase 2. ${params.summary || 'Checklist com não conformidades relevantes.'}`,
+        evidencia_observada: `Foram identificadas ${params.nonConformCount} não conformidades no checklist.`,
+        condicao_insegura: 'Desvios operacionais identificados no checklist.',
+        requisito_nr: 'NR-01',
+        requisito_item: 'Gerenciamento de riscos ocupacionais',
+        risco_perigo: 'Não conformidades operacionais',
+        risco_associado: 'Persistência de condição insegura',
+        risco_nivel: params.nonConformCount >= threshold + 2 ? 'Alto' : 'Moderado',
+        causa: ['FALHA_DE_VERIFICACAO_OPERACIONAL'],
+        acao_imediata_descricao: params.suggestions?.[0] || 'Executar plano de ação corretivo imediato.',
+        acao_imediata_data: isoDate,
+        acao_imediata_responsavel: 'Responsável da área',
+        acao_imediata_status: 'Pendente',
+        acao_definitiva_descricao: params.suggestions?.[1] || 'Revisar processo e reforçar controles.',
+        acao_definitiva_prazo: new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        acao_definitiva_responsavel: 'Gestão SST',
+        status: 'ABERTA',
+        observacoes_gerais: `Abertura automática via SOPHIE Fase 2. Confiança da análise: ${confidenceTag}.`,
+      };
+
+      const created = await this.nonConformitiesService.create(dto);
+      return {
+        phase2Enabled: true,
+        ncAutoOpened: true,
+        ncId: created?.id,
+        ncCode: created?.codigo_nc || code,
+        reasons: ['NC automática aberta por criticidade de checklist na Fase 2.'],
+      };
+    } catch (error) {
+      this.logger.error('Falha na abertura automática de NC (Fase 2).', error as any);
+      return {
+        phase2Enabled: true,
+        ncAutoOpened: false,
+        reasons: ['Falha ao abrir NC automática. Necessária ação manual.'],
+      };
+    }
+  }
+
   private computeSafetyScore(snapshot: {
     trainingsExpired: number;
     trainingsExpiringSoon: number;
@@ -205,6 +388,13 @@ export class AiService {
     if (snapshot.examsExpiringSoon > 0) score -= 8;
     score -= Math.min(20, snapshot.ncOpenish * 2);
     return this.clampScore(score);
+  }
+
+  getAutomationRuntimeStatus() {
+    return {
+      phase2Enabled: this.isPhase2Enabled(),
+      checklistNcThreshold: this.getPhase2ChecklistNcThreshold(),
+    };
   }
 
   async getInsights(): Promise<InsightsResponse> {
@@ -436,15 +626,17 @@ export class AiService {
         });
       const confidence = this.normalizeConfidence(response.confidence);
       const notes = this.normalizeStringArray(response.notes, 8);
+      const normalizedRiskLevel = this.normalizeRiskLevel(response.riskLevel);
 
       const normalized: AnalyzePtResponse = {
         summary: String(response.summary || '').trim() || 'Resumo indisponivel.',
-        riskLevel: (response.riskLevel as AnalyzePtResponse['riskLevel']) || 'Médio',
+        riskLevel: normalizedRiskLevel,
         suggestions: Array.isArray(response.suggestions)
           ? response.suggestions.map((s) => String(s).trim()).filter(Boolean).slice(0, 12)
           : [],
         confidence,
         notes,
+        automation: this.buildPtAutomationDecision(normalizedRiskLevel, flags),
       };
 
       interaction.response = normalized as any;
@@ -478,6 +670,7 @@ export class AiService {
         ],
         confidence: 'low',
         notes: ['Fallback local aplicado por indisponibilidade temporaria da API de IA.'],
+        automation: this.buildPtAutomationDecision('Médio', data),
       };
     }
   }
@@ -520,6 +713,16 @@ export class AiService {
         });
       const confidence = this.normalizeConfidence(data.confidence);
       const notes = this.normalizeStringArray(data.notes, 8);
+      const nonConformCount = this.countChecklistNonConformities(checklistSnapshot.itens || []);
+      const automation = await this.tryAutoOpenNcFromChecklist({
+        checklist: checklist,
+        summary: String(data.summary || '').trim(),
+        suggestions: Array.isArray(data.suggestions)
+          ? data.suggestions.map((s) => String(s).trim()).filter(Boolean).slice(0, 16)
+          : [],
+        confidence,
+        nonConformCount,
+      });
 
       const response: AnalyzeChecklistResponse = {
         summary: String(data.summary || '').trim() || 'Resumo indisponivel.',
@@ -528,6 +731,7 @@ export class AiService {
           : [],
         confidence,
         notes,
+        automation,
       };
 
       interaction.response = response as any;
@@ -556,6 +760,11 @@ export class AiService {
         suggestions: ['Revisar itens nao conformes e abrir plano de acao com prazos e responsaveis.'],
         confidence: 'low',
         notes: ['Fallback local aplicado por indisponibilidade temporaria da API de IA.'],
+        automation: {
+          phase2Enabled: this.isPhase2Enabled(),
+          ncAutoOpened: false,
+          reasons: ['Sem automação de NC devido indisponibilidade da IA.'],
+        },
       };
     }
   }

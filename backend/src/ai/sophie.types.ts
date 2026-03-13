@@ -1,5 +1,23 @@
 export type SophieConfidence = 'low' | 'medium' | 'high';
 
+export type SophieRiskBand = 'low' | 'moderate' | 'high' | 'critical';
+
+export type SophieAutomationDecision = {
+  phase: 'phase2';
+  riskBand: SophieRiskBand;
+  requiresHumanApproval: boolean;
+  recommendedFlow: 'auto' | 'review_required';
+  reasons: string[];
+};
+
+export type SophieAutomationOutcome = {
+  phase2Enabled: boolean;
+  ncAutoOpened?: boolean;
+  ncId?: string;
+  ncCode?: string;
+  reasons?: string[];
+};
+
 export type SophieTask =
   | 'insights'
   | 'apr'
@@ -39,6 +57,7 @@ export type AnalyzePtResponse = {
   suggestions: string[];
   confidence?: SophieConfidence;
   notes?: string[];
+  automation?: SophieAutomationDecision;
 };
 
 export type AnalyzeChecklistResponse = {
@@ -46,6 +65,7 @@ export type AnalyzeChecklistResponse = {
   suggestions: string[];
   confidence?: SophieConfidence;
   notes?: string[];
+  automation?: SophieAutomationOutcome;
 };
 
 export type GenerateDdsResponse = {

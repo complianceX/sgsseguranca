@@ -12,6 +12,65 @@ import { ObservabilityModule } from './common/observability/observability.module
 import { SlaEscalationWorkerModule } from './sla-escalation-worker.module';
 import { ExpiryNotificationsWorkerModule } from './tasks/expiry-notifications-worker.module';
 
+function firstNonEmpty(values: Array<string | undefined | null>): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function resolveDatabaseUrl(config: ConfigService): string | undefined {
+  return firstNonEmpty([
+    config.get<string>('DATABASE_URL'),
+    config.get<string>('DATABASE_PUBLIC_URL'),
+    config.get<string>('URL_DO_BANCO_DE_DADOS'),
+  ]);
+}
+
+function resolveDatabaseHost(config: ConfigService): string | undefined {
+  return firstNonEmpty([
+    config.get<string>('DATABASE_HOST'),
+    config.get<string>('PGHOST'),
+    config.get<string>('POSTGRES_HOST'),
+  ]);
+}
+
+function resolveDatabasePort(config: ConfigService): number {
+  const raw = firstNonEmpty([
+    config.get<string>('DATABASE_PORT'),
+    config.get<string>('PGPORT'),
+    config.get<string>('POSTGRES_PORT'),
+  ]);
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5432;
+}
+
+function resolveDatabaseUser(config: ConfigService): string | undefined {
+  return firstNonEmpty([
+    config.get<string>('DATABASE_USER'),
+    config.get<string>('PGUSER'),
+    config.get<string>('POSTGRES_USER'),
+  ]);
+}
+
+function resolveDatabasePassword(config: ConfigService): string | undefined {
+  return firstNonEmpty([
+    config.get<string>('DATABASE_PASSWORD'),
+    config.get<string>('PGPASSWORD'),
+    config.get<string>('POSTGRES_PASSWORD'),
+  ]);
+}
+
+function resolveDatabaseName(config: ConfigService): string | undefined {
+  return firstNonEmpty([
+    config.get<string>('DATABASE_NAME'),
+    config.get<string>('PGDATABASE'),
+    config.get<string>('POSTGRES_DB'),
+  ]);
+}
+
 const validationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'production', 'test', 'staging')
@@ -101,7 +160,7 @@ const validationSchema = Joi.object({
       useFactory: (config: ConfigService) => {
         const logger = new Logger('WorkerTypeORM');
         const isProduction = config.get('NODE_ENV') === 'production';
-        const url = config.get<string>('DATABASE_URL');
+        const url = resolveDatabaseUrl(config);
         const baseConfig = {
           type: 'postgres' as const,
           autoLoadEntities: true,
@@ -132,11 +191,11 @@ const validationSchema = Joi.object({
         }
         return {
           ...baseConfig,
-          host: config.get<string>('DATABASE_HOST'),
-          port: config.get<number>('DATABASE_PORT'),
-          username: config.get<string>('DATABASE_USER'),
-          password: config.get<string>('DATABASE_PASSWORD'),
-          database: config.get<string>('DATABASE_NAME'),
+          host: resolveDatabaseHost(config),
+          port: resolveDatabasePort(config),
+          username: resolveDatabaseUser(config),
+          password: resolveDatabasePassword(config),
+          database: resolveDatabaseName(config),
           ssl: WorkerModule.getSSLConfig(config, isProduction, logger),
         } as any;
       },

@@ -16,10 +16,12 @@ export class SophieFacadeService {
   getStatus() {
     const agent = this.sstAgentService.getRuntimeStatus();
     const knowledgeBase = this.sophieEngineService.getVersion();
+    const automation = this.aiService.getAutomationRuntimeStatus();
 
     return {
       agent,
       knowledgeBase,
+      automation,
       capabilities: {
         insights: true,
         analyzeApr: true,
@@ -27,6 +29,8 @@ export class SophieFacadeService {
         analyzeChecklist: true,
         generateDds: true,
         generateChecklist: true,
+        phase2RiskGate: true,
+        phase2ChecklistAutoNc: automation.phase2Enabled,
         chat: true,
         history: true,
         imageAnalysis: agent.imageAnalysisEnabled,

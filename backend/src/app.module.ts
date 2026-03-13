@@ -148,6 +148,65 @@ const queueInfraModules = isRedisDisabled
       ),
     ];
 
+function firstNonEmpty(values: Array<string | undefined | null>): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return undefined;
+}
+
+function resolveDatabaseUrl(config: ConfigService): string | undefined {
+  return firstNonEmpty([
+    config.get<string>('DATABASE_URL'),
+    config.get<string>('DATABASE_PUBLIC_URL'),
+    config.get<string>('URL_DO_BANCO_DE_DADOS'),
+  ]);
+}
+
+function resolveDatabaseHost(config: ConfigService): string | undefined {
+  return firstNonEmpty([
+    config.get<string>('DATABASE_HOST'),
+    config.get<string>('PGHOST'),
+    config.get<string>('POSTGRES_HOST'),
+  ]);
+}
+
+function resolveDatabasePort(config: ConfigService): number {
+  const raw = firstNonEmpty([
+    config.get<string>('DATABASE_PORT'),
+    config.get<string>('PGPORT'),
+    config.get<string>('POSTGRES_PORT'),
+  ]);
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5432;
+}
+
+function resolveDatabaseUser(config: ConfigService): string | undefined {
+  return firstNonEmpty([
+    config.get<string>('DATABASE_USER'),
+    config.get<string>('PGUSER'),
+    config.get<string>('POSTGRES_USER'),
+  ]);
+}
+
+function resolveDatabasePassword(config: ConfigService): string | undefined {
+  return firstNonEmpty([
+    config.get<string>('DATABASE_PASSWORD'),
+    config.get<string>('PGPASSWORD'),
+    config.get<string>('POSTGRES_PASSWORD'),
+  ]);
+}
+
+function resolveDatabaseName(config: ConfigService): string | undefined {
+  return firstNonEmpty([
+    config.get<string>('DATABASE_NAME'),
+    config.get<string>('PGDATABASE'),
+    config.get<string>('POSTGRES_DB'),
+  ]);
+}
+
 /**
  * 🔒 CONFIGURAÇÃO DE SEGURANÇA E VALIDAÇÃO DE VARIÁVEIS DE AMBIENTE
  *
@@ -390,7 +449,7 @@ const validationSchema = Joi.object({
         const logger = new Logger('TypeORM');
         const isProduction = config.get('NODE_ENV') === 'production';
         const dbType = config.get<'postgres' | 'sqlite'>('DATABASE_TYPE', 'postgres');
-        const url = config.get<string>('DATABASE_URL');
+        const url = resolveDatabaseUrl(config);
         logger.log(`🗄️ DATABASE_TYPE=${dbType}`);
 
         // Configuração base comum
@@ -448,8 +507,8 @@ const validationSchema = Joi.object({
         }
 
         // Conexão via variáveis individuais
-        const host = config.get<string>('DATABASE_HOST');
-        const port = config.get<number>('DATABASE_PORT');
+        const host = resolveDatabaseHost(config);
+        const port = resolveDatabasePort(config);
 
         logger.log(`🔗 Conectando ao PostgreSQL: ${host}:${port}`);
 
@@ -457,9 +516,9 @@ const validationSchema = Joi.object({
           ...baseConfig,
           host,
           port,
-          username: config.get<string>('DATABASE_USER'),
-          password: config.get<string>('DATABASE_PASSWORD'),
-          database: config.get<string>('DATABASE_NAME'),
+          username: resolveDatabaseUser(config),
+          password: resolveDatabasePassword(config),
+          database: resolveDatabaseName(config),
           ssl: AppModule.getSSLConfig(config, isProduction, logger),
         };
       },
@@ -636,7 +695,7 @@ export class AppModule implements OnModuleInit {
     );
     const jwtSecret = this.configService.get<string>('JWT_SECRET');
     const databaseSSL = this.configService.get<boolean>('DATABASE_SSL');
-    const databaseUrl = this.configService.get<string>('DATABASE_URL');
+    const databaseUrl = resolveDatabaseUrl(this.configService);
     const railwaySelfSigned =
       this.configService.get<string>('BANCO_DE_DADOS_SSL') === 'true';
     const redisHost = this.configService.get<string>('REDIS_HOST');
@@ -711,7 +770,7 @@ export class AppModule implements OnModuleInit {
   ) {
     const sslEnabled = config.get<boolean>('DATABASE_SSL');
     const sslCA = config.get<string>('DATABASE_SSL_CA');
-    const databaseUrl = config.get<string>('DATABASE_URL');
+    const databaseUrl = resolveDatabaseUrl(config);
     const railwaySelfSigned =
       config.get<string>('BANCO_DE_DADOS_SSL') === 'true';
 
