@@ -1,94 +1,42 @@
-import type { Audit } from '@/services/auditsService';
-import { pdfDocToBase64 } from './pdfBase64';
+import type { Audit } from "@/services/auditsService";
+import { pdfDocToBase64 } from "./pdfBase64";
 import {
-  applyFooter,
+  applyFooterGovernance,
   buildDocumentCode,
   buildPdfFilename,
   buildValidationUrl,
-  drawBadge,
-  drawHeader,
-  drawInfoCard,
-  drawModernTable,
-  drawTextCard,
-  drawValidationCard,
-  formatDate,
+  createPdfContext,
+  drawAuditBlueprint,
+  drawPageBackground,
   formatDateTime,
-  sanitize,
-} from './pdfLayout';
+} from "@/lib/pdf-system";
 
-type PdfOptions = { save?: boolean; output?: 'base64' };
+type PdfOptions = { save?: boolean; output?: "base64" };
 
 export async function generateAuditPdf(
   audit: Audit,
   options?: PdfOptions,
 ): Promise<void | { base64: string; filename: string }> {
-  const { jsPDF } = await import('jspdf');
-  const { default: autoTable } = await import('jspdf-autotable');
+  const { jsPDF } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
 
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const code = buildDocumentCode('AUD', audit.id || audit.titulo);
-  let y = drawHeader(doc, {
-    title: 'RELATÓRIO DE AUDITORIA',
-    subtitle: sanitize(audit.tipo_auditoria),
-    date: formatDate(audit.data_auditoria),
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const ctx = createPdfContext(doc, "operational");
+  drawPageBackground(ctx);
+
+  const code = buildDocumentCode("AUD", audit.id || audit.titulo);
+  await drawAuditBlueprint(ctx, autoTable, audit, code, buildValidationUrl(code));
+
+  applyFooterGovernance(ctx, {
     code,
-    logoText: 'GST',
+    generatedAt: formatDateTime(new Date().toISOString()),
   });
 
-  y = drawBadge(doc, y, 'Tipo de auditoria', sanitize(audit.tipo_auditoria), 'accent');
-  y = drawInfoCard(doc, y, 'Informações da auditoria', [
-    { label: 'Título', value: sanitize(audit.titulo) },
-    { label: 'Data', value: formatDate(audit.data_auditoria) },
-    { label: 'Auditor', value: sanitize(audit.auditor?.nome) },
-    { label: 'Site / Obra', value: sanitize(audit.site?.nome) },
-    { label: 'Representantes', value: sanitize(audit.representantes_empresa) },
-  ]);
-
-  y = drawTextCard(doc, y, 'Objetivo', audit.objetivo);
-  y = drawTextCard(doc, y, 'Escopo', audit.escopo);
-  y = drawTextCard(doc, y, 'Metodologia', audit.metodologia);
-  y = drawTextCard(doc, y, 'Conclusão', audit.conclusao);
-
-  if (audit.resultados_nao_conformidades?.length) {
-    y = drawModernTable(
-      doc,
-      autoTable,
-      y,
-      'Não conformidades identificadas',
-      [['Descrição', 'Requisito', 'Evidência', 'Classificação']],
-      audit.resultados_nao_conformidades.map((item) => [
-        sanitize(item.descricao),
-        sanitize(item.requisito),
-        sanitize(item.evidencia),
-        sanitize(item.classificacao),
-      ]),
-    );
-  }
-
-  if (audit.plano_acao?.length) {
-    y = drawModernTable(
-      doc,
-      autoTable,
-      y,
-      'Plano de ação',
-      [['Item', 'Ação', 'Responsável', 'Prazo', 'Status']],
-      audit.plano_acao.map((item) => [
-        sanitize(item.item),
-        sanitize(item.acao),
-        sanitize(item.responsavel),
-        sanitize(item.prazo),
-        sanitize(item.status),
-      ]),
-    );
-  }
-
-  await drawValidationCard(doc, y, code, buildValidationUrl(code));
-  applyFooter(doc, { code, generatedAt: formatDateTime(new Date().toISOString()) });
-
-  const filename = buildPdfFilename('AUDITORIA', audit.titulo, audit.data_auditoria);
-  if (options?.save === false && options?.output === 'base64') {
-    const docOutput = doc as unknown as { output: (type: 'datauri' | 'dataurl') => string };
-    return { base64: pdfDocToBase64(docOutput), filename };
+  const filename = buildPdfFilename("AUDITORIA", audit.titulo, audit.data_auditoria);
+  if (options?.save === false && options?.output === "base64") {
+    const output = doc as unknown as { output: (type: "datauri" | "dataurl") => string };
+    return { base64: pdfDocToBase64(output), filename };
   }
   doc.save(filename);
 }
+
