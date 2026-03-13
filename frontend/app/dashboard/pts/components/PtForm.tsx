@@ -187,6 +187,32 @@ function applySophieCriticalPtDefaults(
   return nextValues;
 }
 
+type PtMutationPayload = Parameters<typeof ptsService.create>[0];
+
+function normalizeOptionalUuid(value?: string | null) {
+  const normalized = String(value || '').trim();
+  return normalized || undefined;
+}
+
+function normalizeOptionalDate(value?: string | null) {
+  const normalized = String(value || '').trim();
+  return normalized || undefined;
+}
+
+function buildPtMutationPayload(values: PtFormData): PtMutationPayload {
+  const { company_id: _companyId, ...rest } = values;
+
+  return {
+    ...rest,
+    apr_id: normalizeOptionalUuid(rest.apr_id),
+    auditado_por_id: normalizeOptionalUuid(rest.auditado_por_id),
+    data_auditoria: normalizeOptionalDate(rest.data_auditoria),
+    executantes: (rest.executantes || []).filter((executanteId) =>
+      Boolean(String(executanteId || '').trim()),
+    ),
+  };
+}
+
 export function PtForm({ id }: PtFormProps) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -467,11 +493,12 @@ export function PtForm({ id }: PtFormProps) {
   const { handleSubmit: onSubmit, loading } = useFormSubmit(
     async (data: PtFormData) => {
       let ptId = id;
+      const payload = buildPtMutationPayload(data);
 
       if (id) {
-        await ptsService.update(id, data);
+        await ptsService.update(id, payload);
       } else {
-        const newPt = await ptsService.create(data);
+        const newPt = await ptsService.create(payload);
         ptId = newPt.id;
       }
 
