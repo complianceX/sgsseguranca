@@ -40,6 +40,11 @@ import { cn } from '@/lib/utils';
 import { attachPdfIfProvided } from '@/lib/document-upload';
 import { AprLogEntry, AprTimeline } from './AprTimeline';
 import { useAuth } from '@/context/AuthContext';
+import type {
+  SophieDraftChecklistSuggestion,
+  SophieDraftRiskSuggestion,
+  SophieWizardDraft,
+} from '@/lib/sophie-draft-storage';
 
 const aprSchema = z.object({
   // Campo interno: indica que o usuário anexou uma APR já preenchida e assinada (PDF).
@@ -291,6 +296,8 @@ export function AprForm({ id }: AprFormProps) {
   const [signatures, setSignatures] = useState<Record<string, { data: string; type: string }>>({});
   const [currentStep, setCurrentStep] = useState(1);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [sophieSuggestedRisks, setSophieSuggestedRisks] = useState<SophieDraftRiskSuggestion[]>([]);
+  const [sophieMandatoryChecklists, setSophieMandatoryChecklists] = useState<SophieDraftChecklistSuggestion[]>([]);
 
   const {
     register,
@@ -353,6 +360,7 @@ export function AprForm({ id }: AprFormProps) {
   const selectedToolIds = watch('tools') || [];
   const selectedMachineIds = watch('machines') || [];
   const selectedParticipantIds = watch('participants') || [];
+  const watchedRiskItems = watch('itens_risco') || [];
   const isModelo = watch('is_modelo');
   const isApproved = currentApr?.status === 'Aprovada';
   const signedPdfMode = Boolean(watch('pdf_signed')) || Boolean(currentApr?.pdf_file_key);
@@ -360,6 +368,21 @@ export function AprForm({ id }: AprFormProps) {
   const selectedCompany = companies.find((company) => company.id === selectedCompanyId);
   const selectedSite = sites.find((site) => site.id === selectedSiteId);
   const selectedElaborador = users.find((user) => user.id === selectedElaboradorId);
+
+  const buildChecklistSuggestionHref = useCallback(
+    (suggestion: SophieDraftChecklistSuggestion) => {
+      const params = new URLSearchParams();
+      params.set('templateId', suggestion.id);
+      if (selectedCompanyId) params.set('company_id', selectedCompanyId);
+      if (selectedSiteId) params.set('site_id', selectedSiteId);
+      if (tituloApr) params.set('title', `${tituloApr} • ${suggestion.label}`);
+      if (watch('descricao')) {
+        params.set('description', String(watch('descricao')));
+      }
+      return `/dashboard/checklists/new?${params.toString()}`;
+    },
+    [selectedCompanyId, selectedSiteId, tituloApr, watch],
+  );
 
   const {
     fields: riskFields,
@@ -372,6 +395,102 @@ export function AprForm({ id }: AprFormProps) {
   });
   const totalRiskLines = riskFields.length;
   const completedSignatures = Object.keys(signatures).length;
+
+  const hasSuggestedRiskInMatrix = useCallback(
+    (suggestion: SophieDraftRiskSuggestion) =>
+      watchedRiskItems.some((item) =>
+        String(item?.condicao_perigosa || '')
+          .trim()
+          .toLowerCase() === suggestion.label.trim().toLowerCase(),
+      ),
+    [watchedRiskItems],
+  );
+
+  const applySuggestedAprRisk = useCallback(
+    (suggestion: SophieDraftRiskSuggestion) => {
+      let appliedSelection = false;
+
+      if (suggestion.id && !selectedRiskIds.includes(suggestion.id)) {
+        setValue('risks', [...selectedRiskIds, suggestion.id], {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+        appliedSelection = true;
+      }
+
+      if (!hasSuggestedRiskInMatrix(suggestion)) {
+        appendRisk({
+          atividade_processo: tituloApr || 'Atividade assistida pela SOPHIE',
+          agente_ambiental: suggestion.category || '',
+          condicao_perigosa: suggestion.label,
+          fontes_circunstancias: '',
+          possiveis_lesoes: '',
+          probabilidade: '',
+          severidade: '',
+          categoria_risco: '',
+          medidas_prevencao: '',
+        });
+        appliedSelection = true;
+      }
+
+      if (appliedSelection) {
+        toast.success(`Sugestão aplicada: ${suggestion.label}`);
+      } else {
+        toast.info(`A sugestão ${suggestion.label} já está refletida na APR.`);
+      }
+    },
+    [appendRisk, hasSuggestedRiskInMatrix, selectedRiskIds, setValue, tituloApr],
+  );
+
+  const applyAllSuggestedAprRisks = useCallback(() => {
+    let appliedCount = 0;
+    const nextSelectedRiskIds = [...selectedRiskIds];
+    sophieSuggestedRisks.forEach((suggestion) => {
+      const shouldSelect = suggestion.id && !nextSelectedRiskIds.includes(suggestion.id);
+      const shouldAppend = !hasSuggestedRiskInMatrix(suggestion);
+
+      if (shouldSelect || shouldAppend) {
+        if (shouldSelect) {
+          nextSelectedRiskIds.push(suggestion.id as string);
+        }
+
+        if (shouldAppend) {
+          appendRisk({
+            atividade_processo: tituloApr || 'Atividade assistida pela SOPHIE',
+            agente_ambiental: suggestion.category || '',
+            condicao_perigosa: suggestion.label,
+            fontes_circunstancias: '',
+            possiveis_lesoes: '',
+            probabilidade: '',
+            severidade: '',
+            categoria_risco: '',
+            medidas_prevencao: '',
+          });
+        }
+        appliedCount += 1;
+      }
+    });
+
+    if (nextSelectedRiskIds.length !== selectedRiskIds.length) {
+      setValue('risks', Array.from(new Set(nextSelectedRiskIds)), {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+
+    if (appliedCount > 0) {
+      toast.success(`${appliedCount} sugestão(ões) da SOPHIE aplicadas na APR.`);
+    } else {
+      toast.info('As sugestões da SOPHIE já foram refletidas na APR.');
+    }
+  }, [
+    appendRisk,
+    hasSuggestedRiskInMatrix,
+    selectedRiskIds,
+    setValue,
+    sophieSuggestedRisks,
+    tituloApr,
+  ]);
 
   const { handleSubmit: onSubmit, loading } = useFormSubmit(
     async (data: AprFormData) => {
@@ -810,6 +929,8 @@ export function AprForm({ id }: AprFormProps) {
               ...(apr.auditado_por ? [apr.auditado_por] : []),
             ]),
           );
+          setSophieSuggestedRisks([]);
+          setSophieMandatoryChecklists([]);
 
           reset({
             pdf_signed: Boolean(apr.pdf_file_key),
@@ -852,10 +973,8 @@ export function AprForm({ id }: AprFormProps) {
               window.localStorage.setItem(draftStorageKey, rawDraft);
               window.localStorage.removeItem(legacyDraftStorageKey);
             }
-            const parsedDraft = JSON.parse(rawDraft) as {
+            const parsedDraft = JSON.parse(rawDraft) as SophieWizardDraft & {
               values?: Partial<AprFormData>;
-              step?: number;
-              signatures?: Record<string, { data: string; type: string }>;
             };
 
             if (parsedDraft.values) {
@@ -879,8 +998,13 @@ export function AprForm({ id }: AprFormProps) {
               setSignatures(parsedDraft.signatures);
             }
 
+            setSophieSuggestedRisks(parsedDraft.metadata?.suggestedRisks || []);
+            setSophieMandatoryChecklists(parsedDraft.metadata?.mandatoryChecklists || []);
+
             setDraftRestored(true);
           } else {
+            setSophieSuggestedRisks([]);
+            setSophieMandatoryChecklists([]);
             const defaultAprPage = await aprsService.findPaginated({
               page: 1,
               limit: 20,
@@ -1833,6 +1957,94 @@ export function AprForm({ id }: AprFormProps) {
           {currentStep === 2 && (
             <>
               <div className="space-y-6">
+          {(sophieSuggestedRisks.length > 0 || sophieMandatoryChecklists.length > 0) && (
+            <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)]/45 p-5">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-primary)]">
+                    Sugestões da SOPHIE
+                  </p>
+                  <h3 className="mt-2 text-lg font-bold text-[var(--color-text)]">
+                    Aplicações rápidas para esta APR
+                  </h3>
+                  <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                    Use um clique para refletir os riscos sugeridos na seleção e na planilha, ou abrir os checklists operacionais recomendados.
+                  </p>
+                </div>
+                {sophieSuggestedRisks.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={applyAllSuggestedAprRisks}
+                    className={aprSoftPrimaryButtonClass}
+                  >
+                    Aplicar todos os riscos
+                  </button>
+                ) : null}
+              </div>
+
+              {sophieSuggestedRisks.length > 0 ? (
+                <div className="mt-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-secondary)]">
+                    Riscos sugeridos
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {sophieSuggestedRisks.map((suggestion, index) => {
+                      const alreadySelected =
+                        (suggestion.id && selectedRiskIds.includes(suggestion.id)) ||
+                        hasSuggestedRiskInMatrix(suggestion);
+                      return (
+                        <button
+                          key={`${suggestion.label}-${index}`}
+                          type="button"
+                          onClick={() => applySuggestedAprRisk(suggestion)}
+                          className={cn(
+                            'rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors',
+                            alreadySelected
+                              ? 'border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]'
+                              : 'border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--color-danger)] hover:bg-[color:var(--ds-color-danger-subtle)]/70',
+                          )}
+                        >
+                          {suggestion.label}
+                          {suggestion.category ? ` • ${suggestion.category}` : ''}
+                          {alreadySelected ? ' • Aplicado' : ' • Aplicar'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {sophieMandatoryChecklists.length > 0 ? (
+                <div className="mt-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-secondary)]">
+                    Checklists de apoio recomendados
+                  </p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {sophieMandatoryChecklists.map((suggestion) => (
+                      <div
+                        key={suggestion.id}
+                        className="rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-3"
+                      >
+                        <p className="text-sm font-semibold text-[var(--color-text)]">
+                          {suggestion.label}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                          {suggestion.reason}
+                        </p>
+                        <Link
+                          href={buildChecklistSuggestionHref(suggestion)}
+                          className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-[var(--color-primary)] hover:underline"
+                        >
+                          Abrir checklist recomendado
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          )}
           <SectionGrid
             title="Atividades"
             items={filteredActivities}

@@ -180,6 +180,13 @@ export interface SophieDraftResponse {
     tools?: Array<{ id: string; label: string }>;
     machines?: Array<{ id: string; label: string }>;
   };
+  suggestedRisks?: Array<{ id?: string; label: string; category?: string }>;
+  mandatoryChecklists?: Array<{
+    id: string;
+    label: string;
+    reason: string;
+    source: 'template' | 'pt-group';
+  }>;
   confidence?: 'high' | 'medium' | 'low';
   notes?: string[];
   message: string;
@@ -213,6 +220,7 @@ export interface CreateNonConformityAutomationResponse {
     riskLevel: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
     sourceType: 'manual' | 'image' | 'checklist' | 'inspection';
     actionPlan: SophieActionPlanItem[];
+    evidenceCount?: number;
     confidence?: 'high' | 'medium' | 'low';
     notes?: string[];
   };

@@ -68,6 +68,77 @@ const DEFAULT_OPENAI_FALLBACK_MODEL = 'gpt-4o-mini';
 const DEFAULT_OPENAI_REASONING_EFFORT = 'medium';
 const MAX_JSON_TOKENS = 1600;
 const PHASE2_DEFAULT_NC_THRESHOLD = 3;
+const MAX_IMPORTED_EVIDENCE_ATTACHMENTS = 6;
+
+type SophieActivityProfile = {
+  key: string;
+  keywords: readonly string[];
+  ptChecklistId?: string;
+  ptChecklistLabel?: string;
+  ptChecklistReason?: string;
+  templateKeywords?: readonly string[];
+  riskHints?: readonly string[];
+};
+
+const SOPHIE_ACTIVITY_PROFILES: readonly SophieActivityProfile[] = [
+  {
+    key: 'altura',
+    keywords: ['altura', 'telhado', 'escada', 'andaime', 'plataforma', 'linha de vida'],
+    ptChecklistId: 'trabalho_altura_checklist',
+    ptChecklistLabel: 'Checklist de trabalho em altura',
+    ptChecklistReason: 'A atividade indica exposicao a queda e exige validacao de protecoes coletivas, ancoragem e resgate.',
+    templateKeywords: ['altura'],
+    riskHints: ['Queda de altura', 'Queda de objetos', 'Falha de ancoragem'],
+  },
+  {
+    key: 'eletricidade',
+    keywords: ['eletric', 'painel', 'subestacao', 'energizado', 'cabine', 'arco eletrico'],
+    ptChecklistId: 'trabalho_eletrico_checklist',
+    ptChecklistLabel: 'Checklist de trabalho eletrico',
+    ptChecklistReason: 'O contexto aponta risco de choque, arco eletrico e necessidade de bloqueio/ausencia de tensao.',
+    templateKeywords: ['eletric'],
+    riskHints: ['Choque eletrico', 'Arco eletrico', 'Reenergizacao indevida'],
+  },
+  {
+    key: 'quente',
+    keywords: ['solda', 'oxicorte', 'esmerilh', 'corte', 'lixamento', 'quente', 'faisca'],
+    ptChecklistId: 'trabalho_quente_checklist',
+    ptChecklistLabel: 'Checklist de trabalho a quente',
+    ptChecklistReason: 'Existe potencial de ignicao, fumos e projecao de particulas, exigindo liberacao controlada.',
+    templateKeywords: ['quente'],
+    riskHints: ['Queimaduras', 'Incendio', 'Fumos metalicos'],
+  },
+  {
+    key: 'confinado',
+    keywords: ['confinado', 'tanque', 'silo', 'poço', 'poco', 'galeria', 'vaso', 'reator'],
+    ptChecklistId: 'trabalho_espaco_confinado_checklist',
+    ptChecklistLabel: 'Checklist de espaco confinado',
+    ptChecklistReason: 'O ambiente sugere entrada em area confinada com necessidade de vigia, monitoramento atmosferico e resgate.',
+    templateKeywords: ['confinado'],
+    riskHints: ['Atmosfera perigosa', 'Asfixia', 'Resgate complexo'],
+  },
+  {
+    key: 'escavacao',
+    keywords: ['escav', 'vala', 'talude', 'retroescavadeira', 'trincheira'],
+    ptChecklistId: 'trabalho_escavacao_checklist',
+    ptChecklistLabel: 'Checklist de escavacao',
+    ptChecklistReason: 'A atividade envolve abertura de solo e pede controle de soterramento, interferencias e estabilidade.',
+    templateKeywords: ['escava'],
+    riskHints: ['Soterramento', 'Colapso de talude', 'Interferencia subterranea'],
+  },
+  {
+    key: 'icamento',
+    keywords: ['içamento', 'icamento', 'guindaste', 'ponte rolante', 'carga suspensa', 'munck'],
+    templateKeywords: ['icamento', 'içamento', 'movimentacao de carga'],
+    riskHints: ['Queda de carga', 'Esmagamento', 'Colisao com carga suspensa'],
+  },
+  {
+    key: 'maquinas',
+    keywords: ['maquina', 'equipamento', 'prensa', 'torno', 'serra', 'furadeira', 'esteira'],
+    templateKeywords: ['maquinas', 'equipamentos', 'equipamento'],
+    riskHints: ['Aprisionamento', 'Partes moveis expostas', 'Projecao de particulas'],
+  },
+] as const;
 
 @Injectable({ scope: Scope.REQUEST })
 export class AiService {
@@ -1256,12 +1327,14 @@ export class AiService {
   }
 
   private async loadAssistedDraftContext(companyId: string, siteId: string) {
-    const [activitiesPage, toolsPage, machinesPage, usersPage] = await Promise.all([
-      this.activitiesService.findPaginated({ page: 1, limit: 80, companyId }),
-      this.toolsService.findPaginated({ page: 1, limit: 80, companyId }),
-      this.machinesService.findPaginated({ page: 1, limit: 80, companyId }),
-      this.usersService.findPaginated({ page: 1, limit: 80, companyId }),
-    ]);
+    const [activitiesPage, toolsPage, machinesPage, usersPage, checklistTemplates] =
+      await Promise.all([
+        this.activitiesService.findPaginated({ page: 1, limit: 80, companyId }),
+        this.toolsService.findPaginated({ page: 1, limit: 80, companyId }),
+        this.machinesService.findPaginated({ page: 1, limit: 80, companyId }),
+        this.usersService.findPaginated({ page: 1, limit: 80, companyId }),
+        this.checklistsService.findAll({ onlyTemplates: true }).catch(() => []),
+      ]);
 
     const participants = (usersPage.data || [])
       .filter((user: any) => !siteId || !user.site_id || user.site_id === siteId)
@@ -1298,7 +1371,239 @@ export class AiService {
         }),
       })),
       participants,
+      checklistTemplates: (checklistTemplates || []).slice(0, 40).map((template: any) => ({
+        id: template.id,
+        label: this.formatSelectionLabel({
+          nome: template.titulo,
+          descricao: template.descricao || template.categoria,
+        }),
+        descricao: String(template.descricao || '').trim(),
+        categoria: String(template.categoria || '').trim(),
+        periodicidade: String(template.periodicidade || '').trim(),
+      })),
     };
+  }
+
+  private normalizeSearchText(value: string): string {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  }
+
+  private buildAssistedContextText(values: Array<string | undefined | null>): string {
+    return values
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+  }
+
+  private resolveActiveActivityProfiles(contextText: string) {
+    const normalized = this.normalizeSearchText(contextText);
+    return SOPHIE_ACTIVITY_PROFILES.filter((profile) =>
+      profile.keywords.some((keyword) => normalized.includes(this.normalizeSearchText(keyword))),
+    );
+  }
+
+  private suggestTemplateChecklists(
+    templates: Array<{
+      id: string;
+      label: string;
+      descricao?: string;
+      categoria?: string;
+      periodicidade?: string;
+    }>,
+    contextText: string,
+    maxItems = 4,
+  ): Array<{ id: string; label: string; reason: string; source: 'template' }> {
+    if (!templates.length || !contextText.trim()) return [];
+
+    const activeProfiles = this.resolveActiveActivityProfiles(contextText);
+    const normalizedContext = this.normalizeSearchText(contextText);
+
+    const ranked = templates
+      .map((template) => {
+        const templateText = this.normalizeSearchText(
+          `${template.label} ${template.descricao || ''} ${template.categoria || ''}`,
+        );
+        const matchedProfiles = activeProfiles.filter((profile) =>
+          profile.templateKeywords?.some((keyword) =>
+            templateText.includes(this.normalizeSearchText(keyword)),
+          ),
+        );
+        const lexicalScore = matchedProfiles.length * 3 +
+          (templateText && normalizedContext
+            ? normalizedContext
+                .split(/\s+/)
+                .filter((token) => token.length > 4 && templateText.includes(token)).length
+            : 0);
+
+        if (lexicalScore <= 0) return null;
+
+        const reason = matchedProfiles.length
+          ? `Relacionada a ${matchedProfiles.map((profile) => profile.key).join(', ')} no contexto da atividade.`
+          : 'Compatível com o contexto operacional informado.';
+
+        return {
+          id: template.id,
+          label: template.label,
+          reason,
+          source: 'template' as const,
+          score: lexicalScore,
+        };
+      })
+      .filter(Boolean)
+      .sort((left, right) => (right?.score || 0) - (left?.score || 0))
+      .slice(0, maxItems);
+
+    return ranked.map((item) => ({
+      id: item!.id,
+      label: item!.label,
+      reason: item!.reason,
+      source: 'template',
+    }));
+  }
+
+  private buildSuggestedRisksFromProfiles(
+    riskOptions: Array<{ id: string; nome: string; categoria?: string | null }>,
+    selectedRiskIds: string[],
+    contextText: string,
+    maxItems = 6,
+  ): Array<{ id?: string; label: string; category?: string }> {
+    const selected = riskOptions
+      .filter((risk) => selectedRiskIds.includes(risk.id))
+      .map((risk) => ({
+        id: risk.id,
+        label: risk.nome,
+        category: risk.categoria || undefined,
+      }));
+
+    const normalizedSelected = new Set(selected.map((item) => this.normalizeSearchText(item.label)));
+    const profileHints = this.resolveActiveActivityProfiles(contextText)
+      .flatMap((profile) => profile.riskHints || [])
+      .filter(Boolean);
+
+    const fallback = profileHints
+      .map((hint) => {
+        const matchedRisk = riskOptions.find((risk) => {
+          const normalizedRisk = this.normalizeSearchText(`${risk.nome} ${risk.categoria || ''}`);
+          return normalizedRisk.includes(this.normalizeSearchText(hint));
+        });
+
+        if (matchedRisk) {
+          return {
+            id: matchedRisk.id,
+            label: matchedRisk.nome,
+            category: matchedRisk.categoria || undefined,
+          };
+        }
+
+        return {
+          label: hint,
+        };
+      })
+      .filter((item) => !normalizedSelected.has(this.normalizeSearchText(item.label)));
+
+    return Array.from(
+      new Map([...selected, ...fallback].map((item) => [this.normalizeSearchText(item.label), item])).values(),
+    ).slice(0, maxItems);
+  }
+
+  private buildMandatoryPtChecklistSuggestions(params: {
+    contextText: string;
+    flags: {
+      trabalho_altura: boolean;
+      espaco_confinado: boolean;
+      trabalho_quente: boolean;
+      eletricidade: boolean;
+      escavacao: boolean;
+    };
+    templateSuggestions: Array<{ id: string; label: string; reason: string; source: 'template' }>;
+  }): Array<{ id: string; label: string; reason: string; source: 'template' | 'pt-group' }> {
+    const base: Array<{ id: string; label: string; reason: string; source: 'pt-group' }> = [
+      {
+        id: 'analise_risco_rapida_checklist',
+        label: 'Checklist de análise de risco rápida',
+        reason: 'Obrigatório para validar percepção de risco antes da liberação.',
+        source: 'pt-group',
+      },
+      {
+        id: 'recomendacoes_gerais_checklist',
+        label: 'Checklist de recomendações gerais',
+        reason: 'Mantém as confirmações mínimas de segurança e interrupção em caso de risco grave.',
+        source: 'pt-group',
+      },
+    ];
+
+    const activeProfiles = this.resolveActiveActivityProfiles(params.contextText);
+
+    for (const profile of SOPHIE_ACTIVITY_PROFILES) {
+      if (!profile.ptChecklistId) continue;
+      const byFlag =
+        (profile.key === 'altura' && params.flags.trabalho_altura) ||
+        (profile.key === 'eletricidade' && params.flags.eletricidade) ||
+        (profile.key === 'quente' && params.flags.trabalho_quente) ||
+        (profile.key === 'confinado' && params.flags.espaco_confinado) ||
+        (profile.key === 'escavacao' && params.flags.escavacao);
+      const byContext = activeProfiles.some((item) => item.key === profile.key);
+
+      if (byFlag || byContext) {
+        base.push({
+          id: profile.ptChecklistId,
+          label: profile.ptChecklistLabel || profile.ptChecklistId,
+          reason: profile.ptChecklistReason || 'Checklist crítico para este tipo de atividade.',
+          source: 'pt-group',
+        });
+      }
+    }
+
+    return Array.from(
+      new Map(
+        [...base, ...params.templateSuggestions].map((item) => [item.id, item]),
+      ).values(),
+    );
+  }
+
+  private collectChecklistEvidenceAttachments(checklist: any): Array<{ url: string; label: string }> {
+    const evidence: Array<{ url: string; label: string }> = [];
+
+    if (typeof checklist?.foto_equipamento === 'string' && checklist.foto_equipamento.trim()) {
+      evidence.push({
+        url: checklist.foto_equipamento.trim(),
+        label: 'Foto do equipamento do checklist',
+      });
+    }
+
+    const items = Array.isArray(checklist?.itens) ? checklist.itens : [];
+    for (const item of items) {
+      const photos = Array.isArray(item?.fotos) ? item.fotos : [];
+      for (const photo of photos.slice(0, 1)) {
+        const normalized = String(photo || '').trim();
+        if (!normalized) continue;
+        evidence.push({
+          url: normalized,
+          label: `Foto do item: ${String(item?.item || 'Checklist').trim() || 'Checklist'}`,
+        });
+        if (evidence.length >= MAX_IMPORTED_EVIDENCE_ATTACHMENTS) {
+          return evidence;
+        }
+      }
+    }
+
+    return evidence.slice(0, MAX_IMPORTED_EVIDENCE_ATTACHMENTS);
+  }
+
+  private collectInspectionEvidenceAttachments(inspection: any): Array<{ url: string; label: string }> {
+    return (Array.isArray(inspection?.evidencias) ? inspection.evidencias : [])
+      .map((item: any) => ({
+        url: String(item?.url || '').trim(),
+        label:
+          String(item?.descricao || item?.original_name || 'Evidência da inspeção').trim() ||
+          'Evidência da inspeção',
+      }))
+      .filter((item) => item.url)
+      .slice(0, MAX_IMPORTED_EVIDENCE_ATTACHMENTS);
   }
 
   private normalizeActionPlan(
@@ -1390,6 +1695,7 @@ export class AiService {
     title?: string;
     description?: string;
     localSetorArea?: string;
+    evidenceAttachments: Array<{ url: string; label: string }>;
     promptSections: string[];
     notes: string[];
   }> {
@@ -1405,6 +1711,7 @@ export class AiService {
     let title = params.title;
     let description = params.description;
     let localSetorArea = params.local_setor_area;
+    let evidenceAttachments: Array<{ url: string; label: string }> = [];
 
     if (params.source_context?.trim()) {
       promptSections.push(`Contexto adicional da origem: ${params.source_context.trim()}`);
@@ -1454,6 +1761,14 @@ export class AiService {
               : [],
           })}`,
         );
+        evidenceAttachments = this.collectChecklistEvidenceAttachments(checklist);
+        if (evidenceAttachments.length) {
+          promptSections.push(
+            `Evidencias visuais disponiveis no checklist: ${evidenceAttachments
+              .map((item) => item.label)
+              .join('; ')}`,
+          );
+        }
       } catch (error) {
         this.logger.warn(
           `[SOPHIE] Não foi possível carregar checklist ${params.source_reference} para NC assistida: ${
@@ -1496,6 +1811,14 @@ export class AiService {
             evidencias: inspection.evidencias?.slice(0, 6),
           })}`,
         );
+        evidenceAttachments = this.collectInspectionEvidenceAttachments(inspection);
+        if (evidenceAttachments.length) {
+          promptSections.push(
+            `Evidencias disponiveis na inspecao: ${evidenceAttachments
+              .map((item) => item.label)
+              .join('; ')}`,
+          );
+        }
       } catch (error) {
         this.logger.warn(
           `[SOPHIE] Não foi possível carregar inspeção ${params.source_reference} para NC assistida: ${
@@ -1512,6 +1835,7 @@ export class AiService {
       title,
       description,
       localSetorArea,
+      evidenceAttachments,
       promptSections,
       notes,
     };
@@ -1539,6 +1863,21 @@ export class AiService {
     const epiOptions = epis
       .map((epi: any) => ({ id: epi.id, nome: epi.nome, ca: epi.ca ?? null }))
       .slice(0, 300);
+    const contextText = this.buildAssistedContextText([
+      params.title,
+      params.description,
+      params.activity,
+      params.process,
+      params.equipment,
+      params.machine,
+      params.site_name,
+      params.company_name,
+    ]);
+    const templateChecklistSuggestions = this.suggestTemplateChecklists(
+      draftContext.checklistTemplates,
+      contextText,
+      4,
+    );
 
     type GeneratedAprDraft = {
       title?: string;
@@ -1581,6 +1920,7 @@ export class AiService {
         `Participantes disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.participants)}\n\n` +
         `Riscos disponíveis (usar somente IDs válidos):\n${JSON.stringify(riskOptions)}\n\n` +
         `EPIs disponíveis (usar somente IDs válidos):\n${JSON.stringify(epiOptions)}\n\n` +
+        `Checklists/template de apoio disponíveis:\n${JSON.stringify(draftContext.checklistTemplates)}\n\n` +
         `Formato JSON:\n` +
         `{\n` +
         `  "title": string,\n` +
@@ -1650,6 +1990,18 @@ export class AiService {
       allowedMachineIds,
       4,
     );
+    const selectedRiskIds = (this.normalizeStringArray(generated.risks, 12) || []).filter((id) =>
+      allowedRiskIds.has(id),
+    );
+    const selectedEpiIds = (this.normalizeStringArray(generated.epis, 12) || []).filter((id) =>
+      allowedEpiIds.has(id),
+    );
+    const suggestedRisks = this.buildSuggestedRisksFromProfiles(
+      riskOptions,
+      selectedRiskIds,
+      contextText,
+      6,
+    );
 
     return {
       draft: {
@@ -1671,12 +2023,8 @@ export class AiService {
           site_id: params.site_id,
           elaborador_id: params.elaborador_id,
           participants: selectedParticipants.length ? selectedParticipants : [params.elaborador_id],
-          risks: (this.normalizeStringArray(generated.risks, 12) || []).filter((id) =>
-            allowedRiskIds.has(id),
-          ),
-          epis: (this.normalizeStringArray(generated.epis, 12) || []).filter((id) =>
-            allowedEpiIds.has(id),
-          ),
+          risks: selectedRiskIds,
+          epis: selectedEpiIds,
           activities: selectedActivities,
           tools: selectedTools,
           machines: selectedMachines,
@@ -1696,6 +2044,8 @@ export class AiService {
         tools: draftContext.tools.filter((item) => selectedTools.includes(item.id)),
         machines: draftContext.machines.filter((item) => selectedMachines.includes(item.id)),
       },
+      suggestedRisks,
+      mandatoryChecklists: templateChecklistSuggestions,
       confidence,
       notes,
       message:
@@ -1714,6 +2064,22 @@ export class AiService {
 
     const companyId = params.company_id || this.getTenantIdOrThrow();
     const draftContext = await this.loadAssistedDraftContext(companyId, params.site_id);
+    const contextText = this.buildAssistedContextText([
+      params.title,
+      params.description,
+      params.site_name,
+      params.company_name,
+      params.trabalho_altura ? 'trabalho em altura' : '',
+      params.espaco_confinado ? 'espaco confinado' : '',
+      params.trabalho_quente ? 'trabalho a quente' : '',
+      params.eletricidade ? 'eletricidade' : '',
+      params.escavacao ? 'escavacao' : '',
+    ]);
+    const templateChecklistSuggestions = this.suggestTemplateChecklists(
+      draftContext.checklistTemplates,
+      contextText,
+      4,
+    );
 
     type GeneratedPtDraft = {
       title?: string;
@@ -1761,6 +2127,7 @@ export class AiService {
         `Participantes disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.participants)}\n\n` +
         `Ferramentas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.tools)}\n\n` +
         `Máquinas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.machines)}\n\n` +
+        `Checklists/template de apoio disponíveis:\n${JSON.stringify(draftContext.checklistTemplates)}\n\n` +
         `Formato JSON:\n` +
         `{\n` +
         `  "title": string,\n` +
@@ -1825,6 +2192,18 @@ export class AiService {
     const riskLevel = this.normalizeRiskLevel(generated.riskLevel);
     const confidence = this.normalizeConfidence(generated.confidence);
     const notes = this.normalizeStringArray(generated.notes, 10);
+    const mandatoryChecklists = this.buildMandatoryPtChecklistSuggestions({
+      contextText,
+      flags: resolvedFlags,
+      templateSuggestions: templateChecklistSuggestions,
+    });
+    const suggestedRisks = Array.from(
+      new Set(
+        this.resolveActiveActivityProfiles(contextText)
+          .flatMap((profile) => profile.riskHints || [])
+          .filter(Boolean),
+      ),
+    ).slice(0, 6).map((label) => ({ label }));
     const resourceHints = [
       selectedTools.length
         ? `Ferramentas sugeridas: ${draftContext.tools
@@ -1835,6 +2214,11 @@ export class AiService {
       selectedMachines.length
         ? `Máquinas associadas: ${draftContext.machines
             .filter((item) => selectedMachines.includes(item.id))
+            .map((item) => item.label)
+            .join('; ')}.`
+        : null,
+      mandatoryChecklists.length
+        ? `Checklists mandatórios/sugeridos: ${mandatoryChecklists
             .map((item) => item.label)
             .join('; ')}.`
         : null,
@@ -1883,6 +2267,8 @@ export class AiService {
         tools: draftContext.tools.filter((item) => selectedTools.includes(item.id)),
         machines: draftContext.machines.filter((item) => selectedMachines.includes(item.id)),
       },
+      suggestedRisks,
+      mandatoryChecklists,
       confidence,
       notes,
       message:
@@ -2106,6 +2492,10 @@ export class AiService {
         type: 'preventive',
       },
     ]);
+    const importedEvidence = sourceSnapshot.evidenceAttachments
+      .map((item) => item.url)
+      .filter(Boolean)
+      .slice(0, MAX_IMPORTED_EVIDENCE_ATTACHMENTS);
 
     const createDto: CreateNonConformityDto = {
       codigo_nc: this.generateNonConformityCode(),
@@ -2153,9 +2543,16 @@ export class AiService {
         String(generated.acao_preventiva_medidas || '').trim() ||
         'Revisar controles, orientar equipe e reforçar monitoramento.',
       status: 'ABERTA',
+      anexos: importedEvidence.length ? importedEvidence : undefined,
+      verificacao_evidencias: importedEvidence.length
+        ? `${importedEvidence.length} evidência(s) importada(s) automaticamente da origem ${sourceSnapshot.sourceType}.`
+        : undefined,
       observacoes_gerais: [
         'NC criada pela SOPHIE em modo assistido.',
         `Origem da análise: ${sourceSnapshot.sourceType}.`,
+        importedEvidence.length
+          ? `Evidências importadas automaticamente: ${importedEvidence.length}.`
+          : null,
         confidence ? `Confiança da geração: ${confidence}.` : null,
         ...notes,
       ]
@@ -2172,6 +2569,7 @@ export class AiService {
         riskLevel: normalizedRiskLevel,
         sourceType: sourceSnapshot.sourceType,
         actionPlan,
+        evidenceCount: importedEvidence.length,
         confidence,
         notes: notes.length ? notes : undefined,
       },

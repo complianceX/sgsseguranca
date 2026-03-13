@@ -31,6 +31,11 @@ import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { toast } from 'sonner';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isAiEnabled } from '@/lib/featureFlags';
+import type {
+  SophieDraftChecklistSuggestion,
+  SophieDraftRiskSuggestion,
+  SophieWizardDraft,
+} from '@/lib/sophie-draft-storage';
 import {
   ptSchema,
   PtFormData,
@@ -73,6 +78,14 @@ const PT_STEPS = [
   },
 ] as const;
 
+const PT_CHECKLIST_FLAG_FIELD_MAP = {
+  trabalho_altura_checklist: 'trabalho_altura',
+  trabalho_eletrico_checklist: 'eletricidade',
+  trabalho_quente_checklist: 'trabalho_quente',
+  trabalho_espaco_confinado_checklist: 'espaco_confinado',
+  trabalho_escavacao_checklist: 'escavacao',
+} as const;
+
 export function PtForm({ id }: PtFormProps) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -99,6 +112,8 @@ export function PtForm({ id }: PtFormProps) {
   const [signatures, setSignatures] = useState<Record<string, { data: string; type: string }>>({});
   const [currentStep, setCurrentStep] = useState(1);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [sophieSuggestedRisks, setSophieSuggestedRisks] = useState<SophieDraftRiskSuggestion[]>([]);
+  const [sophieMandatoryChecklists, setSophieMandatoryChecklists] = useState<SophieDraftChecklistSuggestion[]>([]);
 
   const methods = useForm<PtFormData>({
     resolver: zodResolver(ptSchema),
@@ -184,6 +199,168 @@ export function PtForm({ id }: PtFormProps) {
     workExcavation,
   ].filter(Boolean).length;
   const completedSignatures = Object.keys(signatures).length;
+
+  const normalizeSuggestionText = useCallback(
+    (value: string) =>
+      String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase(),
+    [],
+  );
+
+  const buildChecklistSuggestionHref = useCallback(
+    (suggestion: SophieDraftChecklistSuggestion) => {
+      const params = new URLSearchParams();
+      params.set('templateId', suggestion.id);
+      if (selectedCompanyId) params.set('company_id', selectedCompanyId);
+      if (selectedSiteId) params.set('site_id', selectedSiteId);
+      if (selectedTitle) params.set('title', `${selectedTitle} • ${suggestion.label}`);
+      if (methods.getValues('descricao')) {
+        params.set('description', String(methods.getValues('descricao')));
+      }
+      return `/dashboard/checklists/new?${params.toString()}`;
+    },
+    [methods, selectedCompanyId, selectedSiteId, selectedTitle],
+  );
+
+  const resolvePtRiskFlagsFromText = useCallback(
+    (value: string) => {
+      const normalized = normalizeSuggestionText(value);
+      return {
+        trabalho_altura:
+          /altura|queda|escada|andaime|telhado|linha de vida/.test(normalized),
+        eletricidade:
+          /eletric|choque|arco|painel|subestacao|energiz/.test(normalized),
+        trabalho_quente:
+          /quente|solda|fumos|faisca|incend|queimad|oxicorte/.test(normalized),
+        espaco_confinado:
+          /confinado|atmosfera|asfix|resgate|tanque|silo|galeria/.test(normalized),
+        escavacao:
+          /escava|vala|talude|soterr|subterr/.test(normalized),
+      };
+    },
+    [normalizeSuggestionText],
+  );
+
+  const applyPtFlags = useCallback(
+    (flags: Partial<Record<(typeof PT_CHECKLIST_FLAG_FIELD_MAP)[keyof typeof PT_CHECKLIST_FLAG_FIELD_MAP], boolean>>) => {
+      const changedLabels: string[] = [];
+
+      if (flags.trabalho_altura && !workAtHeight) {
+        setValue('trabalho_altura', true, { shouldDirty: true, shouldValidate: true });
+        changedLabels.push('Altura');
+      }
+      if (flags.eletricidade && !workElectric) {
+        setValue('eletricidade', true, { shouldDirty: true, shouldValidate: true });
+        changedLabels.push('Eletricidade');
+      }
+      if (flags.trabalho_quente && !workHot) {
+        setValue('trabalho_quente', true, { shouldDirty: true, shouldValidate: true });
+        changedLabels.push('Trabalho a quente');
+      }
+      if (flags.espaco_confinado && !workConfined) {
+        setValue('espaco_confinado', true, { shouldDirty: true, shouldValidate: true });
+        changedLabels.push('Espaço confinado');
+      }
+      if (flags.escavacao && !workExcavation) {
+        setValue('escavacao', true, { shouldDirty: true, shouldValidate: true });
+        changedLabels.push('Escavação');
+      }
+
+      return changedLabels;
+    },
+    [setValue, workAtHeight, workConfined, workElectric, workExcavation, workHot],
+  );
+
+  const applySuggestedPtRisk = useCallback(
+    (suggestion: SophieDraftRiskSuggestion) => {
+      const changes = applyPtFlags(resolvePtRiskFlagsFromText(`${suggestion.label} ${suggestion.category || ''}`));
+      if (changes.length > 0) {
+        toast.success(`SOPHIE ativou os grupos: ${changes.join(', ')}.`);
+        return;
+      }
+
+      toast.info(`O risco ${suggestion.label} já está refletido na PT ou não exige um grupo adicional.`);
+    },
+    [applyPtFlags, resolvePtRiskFlagsFromText],
+  );
+
+  const applyAllSuggestedPtRisks = useCallback(() => {
+    const allFlags = sophieSuggestedRisks.reduce(
+      (acc, suggestion) => {
+        const current = resolvePtRiskFlagsFromText(`${suggestion.label} ${suggestion.category || ''}`);
+        return {
+          trabalho_altura: acc.trabalho_altura || current.trabalho_altura,
+          eletricidade: acc.eletricidade || current.eletricidade,
+          trabalho_quente: acc.trabalho_quente || current.trabalho_quente,
+          espaco_confinado: acc.espaco_confinado || current.espaco_confinado,
+          escavacao: acc.escavacao || current.escavacao,
+        };
+      },
+      {
+        trabalho_altura: false,
+        eletricidade: false,
+        trabalho_quente: false,
+        espaco_confinado: false,
+        escavacao: false,
+      },
+    );
+
+    const changes = applyPtFlags(allFlags);
+    if (changes.length > 0) {
+      toast.success(`Grupos ativados na PT: ${changes.join(', ')}.`);
+    } else {
+      toast.info('Os grupos sugeridos pela SOPHIE já estão ativos nesta PT.');
+    }
+  }, [applyPtFlags, resolvePtRiskFlagsFromText, sophieSuggestedRisks]);
+
+  const applyMandatoryChecklistSuggestion = useCallback(
+    (suggestion: SophieDraftChecklistSuggestion) => {
+      const mappedField =
+        PT_CHECKLIST_FLAG_FIELD_MAP[
+          suggestion.id as keyof typeof PT_CHECKLIST_FLAG_FIELD_MAP
+        ];
+
+      if (!mappedField) {
+        toast.info('Este checklist sugerido deve ser aberto como checklist operacional complementar.');
+        return;
+      }
+
+      const changes = applyPtFlags({ [mappedField]: true });
+      if (changes.length > 0) {
+        toast.success(`Checklist mandatório aplicado: ${suggestion.label}.`);
+      } else {
+        toast.info(`O checklist ${suggestion.label} já está ativo na PT.`);
+      }
+    },
+    [applyPtFlags],
+  );
+
+  const applyAllMandatoryChecklistSuggestions = useCallback(() => {
+    const allFlags = sophieMandatoryChecklists.reduce(
+      (acc, suggestion) => {
+        const mappedField =
+          PT_CHECKLIST_FLAG_FIELD_MAP[
+            suggestion.id as keyof typeof PT_CHECKLIST_FLAG_FIELD_MAP
+          ];
+        if (mappedField) {
+          acc[mappedField] = true;
+        }
+        return acc;
+      },
+      {} as Partial<Record<(typeof PT_CHECKLIST_FLAG_FIELD_MAP)[keyof typeof PT_CHECKLIST_FLAG_FIELD_MAP], boolean>>,
+    );
+
+    const changes = applyPtFlags(allFlags);
+    if (changes.length > 0) {
+      toast.success(`Checklists mandatórios ativados: ${changes.join(', ')}.`);
+      setCurrentStep(2);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      toast.info('Os checklists mandatórios sugeridos já estão ativos nesta PT.');
+    }
+  }, [applyPtFlags, sophieMandatoryChecklists]);
 
   const { handleSubmit: onSubmit, loading } = useFormSubmit(
     async (data: PtFormData) => {
@@ -339,6 +516,8 @@ export function PtForm({ id }: PtFormProps) {
             resultado_auditoria: pt.resultado_auditoria || '',
             notas_auditoria: pt.notas_auditoria || '',
           });
+          setSophieSuggestedRisks([]);
+          setSophieMandatoryChecklists([]);
         } else if (draftStorageKey && typeof window !== 'undefined') {
           const rawDraft =
             window.localStorage.getItem(draftStorageKey) ||
@@ -353,10 +532,8 @@ export function PtForm({ id }: PtFormProps) {
               window.localStorage.setItem(draftStorageKey, rawDraft);
               window.localStorage.removeItem(legacyDraftStorageKey);
             }
-            const parsedDraft = JSON.parse(rawDraft) as {
+            const parsedDraft = JSON.parse(rawDraft) as SophieWizardDraft & {
               values?: Partial<PtFormData>;
-              step?: number;
-              signatures?: Record<string, { data: string; type: string }>;
             };
 
             if (parsedDraft.values) {
@@ -374,7 +551,12 @@ export function PtForm({ id }: PtFormProps) {
             if (parsedDraft.signatures) {
               setSignatures(parsedDraft.signatures);
             }
+            setSophieSuggestedRisks(parsedDraft.metadata?.suggestedRisks || []);
+            setSophieMandatoryChecklists(parsedDraft.metadata?.mandatoryChecklists || []);
             setDraftRestored(true);
+          } else {
+            setSophieSuggestedRisks([]);
+            setSophieMandatoryChecklists([]);
           }
         }
 
@@ -819,6 +1001,109 @@ export function PtForm({ id }: PtFormProps) {
           </aside>
 
           <div className="space-y-8">
+            {(sophieSuggestedRisks.length > 0 || sophieMandatoryChecklists.length > 0) && (
+              <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-action-primary)]/25 bg-[var(--ds-color-action-primary)]/8 p-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-action-primary)]">
+                      Sugestões da SOPHIE
+                    </p>
+                    <h3 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
+                      Aplicações rápidas para esta PT
+                    </h3>
+                    <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                      Ative grupos de risco e checklists mandatórios com um clique para deixar a liberação coerente com a atividade e o site.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {sophieSuggestedRisks.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={applyAllSuggestedPtRisks}
+                        className="rounded-[var(--ds-radius-md)] border border-sky-400/30 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-100 transition-colors hover:bg-sky-500/15"
+                      >
+                        Aplicar grupos de risco
+                      </button>
+                    ) : null}
+                    {sophieMandatoryChecklists.length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={applyAllMandatoryChecklistSuggestions}
+                        className="rounded-[var(--ds-radius-md)] border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-100 transition-colors hover:bg-amber-500/15"
+                      >
+                        Ativar checklists mandatórios
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {sophieSuggestedRisks.length > 0 ? (
+                  <div className="mt-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
+                      Riscos sugeridos
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {sophieSuggestedRisks.map((suggestion, index) => (
+                        <button
+                          key={`${suggestion.label}-${index}`}
+                          type="button"
+                          onClick={() => applySuggestedPtRisk(suggestion)}
+                          className="rounded-full border border-sky-400/30 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-100 transition-colors hover:bg-sky-500/15"
+                        >
+                          {suggestion.label}
+                          {suggestion.category ? ` • ${suggestion.category}` : ''}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {sophieMandatoryChecklists.length > 0 ? (
+                  <div className="mt-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
+                      Checklists mandatórios e complementares
+                    </p>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      {sophieMandatoryChecklists.map((suggestion) => {
+                        const canApplyInline = suggestion.source === 'pt-group';
+                        return (
+                          <div
+                            key={suggestion.id}
+                            className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3"
+                          >
+                            <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                              {suggestion.label}
+                            </p>
+                            <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                              {suggestion.reason}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-3">
+                              {canApplyInline ? (
+                                <button
+                                  type="button"
+                                  onClick={() => applyMandatoryChecklistSuggestion(suggestion)}
+                                  className="text-xs font-semibold text-amber-100 hover:text-white"
+                                >
+                                  Ativar no wizard
+                                </button>
+                              ) : (
+                                <Link
+                                  href={buildChecklistSuggestionHref(suggestion)}
+                                  className="text-xs font-semibold text-sky-100 hover:text-white"
+                                >
+                                  Abrir checklist recomendado
+                                </Link>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
+
             {currentStep === 1 && (
               <>
                 <BasicInfoSection

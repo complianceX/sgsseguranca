@@ -140,6 +140,55 @@ function SuggestedResourceGroup({
   );
 }
 
+function SuggestedTextGroup({
+  title,
+  items,
+  tone = 'neutral',
+}: {
+  title: string;
+  items?: Array<string | { label: string; reason?: string; source?: string }>;
+  tone?: 'neutral' | 'warning';
+}) {
+  if (!items?.length) return null;
+
+  return (
+    <div className="mt-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
+        {title}
+      </p>
+      <div className="mt-2 space-y-1.5">
+        {items.slice(0, 5).map((item, index) => {
+          const label = typeof item === 'string' ? item : item.label;
+          const reason = typeof item === 'string' ? '' : item.reason || '';
+          const source = typeof item === 'string' ? '' : item.source || '';
+          const sourceLabel =
+            source === 'pt-group' ? 'Grupo PT' : source === 'template' ? 'Template' : source;
+          return (
+            <div
+              key={`${label}-${index}`}
+              className={`rounded-lg border px-3 py-2 text-xs ${
+                tone === 'warning'
+                  ? 'border-[var(--ds-color-warning)]/20 bg-[var(--ds-color-warning)]/8'
+                  : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]'
+              }`}
+            >
+              <p className="font-semibold text-[var(--ds-color-text-primary)]">{label}</p>
+              {reason ? (
+                <p className="mt-1 text-[var(--ds-color-text-secondary)]">{reason}</p>
+              ) : null}
+              {sourceLabel ? (
+                <p className="mt-1 uppercase tracking-[0.08em] text-[10px] text-[var(--ds-color-text-secondary)]">
+                  {sourceLabel}
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function SstAgentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -418,7 +467,10 @@ export default function SstAgentPage() {
         company_name: user?.company?.razao_social || undefined,
       });
       setCreatedAprDraft(response);
-      storeSophieAprDraft(user?.company_id, response.draft);
+      storeSophieAprDraft(user?.company_id, response.draft, {
+        suggestedRisks: response.suggestedRisks,
+        mandatoryChecklists: response.mandatoryChecklists,
+      });
       toast.success('APR assistida gerada. Abrindo o formulário para revisão.');
 
       const params = new URLSearchParams();
@@ -470,7 +522,10 @@ export default function SstAgentPage() {
         escavacao: ptEscavacao,
       });
       setCreatedPtDraft(response);
-      storeSophiePtDraft(user?.company_id, response.draft);
+      storeSophiePtDraft(user?.company_id, response.draft, {
+        suggestedRisks: response.suggestedRisks,
+        mandatoryChecklists: response.mandatoryChecklists,
+      });
       toast.success('PT assistida gerada. Abrindo o formulário para revisão.');
 
       const params = new URLSearchParams();
@@ -973,6 +1028,15 @@ export default function SstAgentPage() {
                       title="Máquinas sugeridas"
                       items={createdAprDraft.suggestedResources?.machines}
                     />
+                    <SuggestedTextGroup
+                      title="Riscos sugeridos"
+                      items={createdAprDraft.suggestedRisks}
+                    />
+                    <SuggestedTextGroup
+                      title="Checklists de apoio"
+                      items={createdAprDraft.mandatoryChecklists}
+                      tone="warning"
+                    />
                   </div>
                 ) : null}
               </div>
@@ -1073,6 +1137,15 @@ export default function SstAgentPage() {
                     <SuggestedResourceGroup
                       title="Máquinas sugeridas"
                       items={createdPtDraft.suggestedResources?.machines}
+                    />
+                    <SuggestedTextGroup
+                      title="Riscos sugeridos"
+                      items={createdPtDraft.suggestedRisks}
+                    />
+                    <SuggestedTextGroup
+                      title="Checklists mandatórios"
+                      items={createdPtDraft.mandatoryChecklists}
+                      tone="warning"
                     />
                   </div>
                 ) : null}
@@ -1323,6 +1396,11 @@ export default function SstAgentPage() {
                     <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
                       Nível de risco sugerido: {createdNc.generation.riskLevel} • origem {createdNc.generation.sourceType}
                     </p>
+                    {createdNc.generation.evidenceCount ? (
+                      <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                        Evidências importadas automaticamente: {createdNc.generation.evidenceCount}
+                      </p>
+                    ) : null}
                     {createdNc.generation.actionPlan?.length ? (
                       <ul className="mt-2 space-y-1 text-xs text-[var(--ds-color-text-secondary)]">
                         {createdNc.generation.actionPlan.slice(0, 3).map((item) => (

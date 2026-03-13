@@ -104,6 +104,19 @@ export type SophieDraftPayload = {
   signatures: Record<string, { data: string; type: string }>;
 };
 
+export type SophieSuggestedRisk = {
+  id?: string;
+  label: string;
+  category?: string;
+};
+
+export type SophieSuggestedChecklist = {
+  id: string;
+  label: string;
+  reason: string;
+  source: 'template' | 'pt-group';
+};
+
 export type GenerateAprDraftResponse = {
   draft: SophieDraftPayload;
   summary: string;
@@ -114,6 +127,8 @@ export type GenerateAprDraftResponse = {
     tools: Array<{ id: string; label: string }>;
     machines: Array<{ id: string; label: string }>;
   };
+  suggestedRisks?: SophieSuggestedRisk[];
+  mandatoryChecklists?: SophieSuggestedChecklist[];
   confidence?: SophieConfidence;
   notes?: string[];
   message: string;
@@ -129,6 +144,8 @@ export type GeneratePtDraftResponse = {
     tools: Array<{ id: string; label: string }>;
     machines: Array<{ id: string; label: string }>;
   };
+  suggestedRisks?: SophieSuggestedRisk[];
+  mandatoryChecklists?: SophieSuggestedChecklist[];
   confidence?: SophieConfidence;
   notes?: string[];
   message: string;
@@ -149,6 +166,7 @@ export type CreateNonConformityAutomationResponse = {
     riskLevel: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
     sourceType: 'manual' | 'image' | 'checklist' | 'inspection';
     actionPlan: SophieActionPlanItem[];
+    evidenceCount?: number;
     confidence?: SophieConfidence;
     notes?: string[];
   };
