@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -34,6 +35,41 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function buildReportsSophieHref(params: {
+  module: string;
+  title: string;
+  description: string;
+  priority: 'critical' | 'high' | 'medium';
+  status: string;
+  responsible?: string | null;
+  dueDate?: string | null;
+  href?: string | null;
+}) {
+  const searchParams = new URLSearchParams({
+    pendingContext: 'true',
+    category: 'actions',
+    module: params.module,
+    title: params.title,
+    description: params.description,
+    priority: params.priority,
+    status: params.status,
+  });
+
+  if (params.responsible) {
+    searchParams.set('responsible', params.responsible);
+  }
+
+  if (params.dueDate) {
+    searchParams.set('dueDate', params.dueDate);
+  }
+
+  if (params.href) {
+    searchParams.set('href', params.href);
+  }
+
+  return `/dashboard/sst-agent?${searchParams.toString()}`;
+}
 
 function resolveJobStateVariant(state: string): NonNullable<BadgeProps['variant']> {
   switch (state) {
@@ -116,6 +152,7 @@ const EMPTY_QUEUE_STATS: ReportQueueStats = {
 export default function ReportsPage() {
   const { hasPermission } = useAuth();
   const canViewMail = hasPermission('can_view_mail');
+  const canUseAi = hasPermission('can_use_ai');
 
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -300,6 +337,28 @@ export default function ReportsPage() {
       toast.error('Erro ao exportar logs de e-mail.');
     } finally {
       setExportingMailLogs(false);
+    }
+  }
+
+  async function handleRequeueMonthlyJob(job: ReportQueueJob) {
+    if (!job.month || !job.year) {
+      toast.error('Este job não possui mês/ano suficientes para reprocessamento.');
+      return;
+    }
+
+    try {
+      setRefreshingOperations(true);
+      const response = await reportsService.generate(job.month, job.year);
+      setLastGeneratedJobId(response.jobId);
+      toast.success(
+        `Relatório ${String(job.month).padStart(2, '0')}/${job.year} reenfileirado com sucesso.`,
+      );
+      await loadOperations('refresh');
+    } catch (error) {
+      console.error('Erro ao reenfileirar relatório mensal:', error);
+      toast.error('Não foi possível reenfileirar o relatório mensal.');
+    } finally {
+      setRefreshingOperations(false);
     }
   }
 
@@ -600,6 +659,44 @@ export default function ReportsPage() {
                       {job.failedReason}
                     </div>
                   ) : null}
+
+                  {job.state === 'failed' || job.failedReason ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {job.reportType === 'monthly' && job.month && job.year ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handleRequeueMonthlyJob(job)}
+                          leftIcon={<RefreshCw className="h-4 w-4" />}
+                        >
+                          Reenfileirar
+                        </Button>
+                      ) : null}
+                      {canUseAi ? (
+                        <Link
+                          href={buildReportsSophieHref({
+                            module: 'Relatório PDF',
+                            title:
+                              job.reportType === 'monthly' && job.month && job.year
+                                ? `Falha no relatório mensal ${String(job.month).padStart(2, '0')}/${job.year}`
+                                : `Falha no job ${job.id}`,
+                            description:
+                              job.failedReason ||
+                              'Job de geração PDF falhou e precisa de análise operacional.',
+                            priority: 'high',
+                            status: job.state,
+                            dueDate: job.finishedAt || job.createdAt,
+                            href: '/dashboard/reports',
+                          })}
+                          className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-2 text-[13px] font-semibold text-[var(--ds-color-warning)] transition-colors hover:brightness-95"
+                        >
+                          <BrainCircuit className="h-4 w-4" />
+                          Analisar com SOPHIE
+                        </Link>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ))
             )}
@@ -683,6 +780,29 @@ export default function ReportsPage() {
                     {item.error_message ? (
                       <div className="mt-3 rounded-xl border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger-subtle)] p-3 text-xs text-[var(--ds-color-danger)]">
                         {item.error_message}
+                      </div>
+                    ) : null}
+
+                    {(item.status === 'error' || item.status === 'failed') && canUseAi ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Link
+                          href={buildReportsSophieHref({
+                            module: 'E-mail',
+                            title: `Falha de envio para ${item.to}`,
+                            description:
+                              item.error_message ||
+                              `Envio do arquivo ${item.filename || 'sem nome'} falhou e requer análise.`,
+                            priority: 'medium',
+                            status: item.status,
+                            responsible: item.to,
+                            dueDate: item.created_at,
+                            href: '/dashboard/reports',
+                          })}
+                          className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-2 text-[13px] font-semibold text-[var(--ds-color-warning)] transition-colors hover:brightness-95"
+                        >
+                          <BrainCircuit className="h-4 w-4" />
+                          Analisar com SOPHIE
+                        </Link>
                       </div>
                     ) : null}
                   </div>
