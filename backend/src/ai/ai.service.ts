@@ -54,6 +54,7 @@ import type { GenerateSophieReportDto } from './dto/generate-sophie-report.dto';
 import { defaultJobOptions } from '../queue/default-job-options';
 
 const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
+const DEFAULT_OPENAI_FALLBACK_MODEL = 'gpt-4.1-mini';
 const DEFAULT_OPENAI_REASONING_EFFORT = 'medium';
 const MAX_JSON_TOKENS = 1600;
 const PHASE2_DEFAULT_NC_THRESHOLD = 3;
@@ -63,6 +64,7 @@ export class AiService {
   private readonly logger = new Logger(AiService.name);
   private readonly openaiApiKey: string | null;
   private readonly openaiModel: string;
+  private readonly openaiFallbackModel: string | null;
   private readonly openaiReasoningEffort: 'minimal' | 'low' | 'medium' | 'high';
 
   constructor(
@@ -84,6 +86,13 @@ export class AiService {
     this.openaiApiKey = this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
     this.openaiModel =
       this.configService.get<string>('OPENAI_MODEL')?.trim() || DEFAULT_OPENAI_MODEL;
+    const configuredFallbackModel =
+      this.configService.get<string>('OPENAI_FALLBACK_MODEL')?.trim() || '';
+    this.openaiFallbackModel =
+      configuredFallbackModel ||
+      (this.openaiModel !== DEFAULT_OPENAI_FALLBACK_MODEL
+        ? DEFAULT_OPENAI_FALLBACK_MODEL
+        : null);
     this.openaiReasoningEffort =
       (this.configService.get<string>('OPENAI_REASONING_EFFORT')?.trim().toLowerCase() as
         | 'minimal'
@@ -93,7 +102,7 @@ export class AiService {
         | undefined) || DEFAULT_OPENAI_REASONING_EFFORT;
 
     this.logger.log(
-      `✅ SOPHIE AiService initialized (provider=openai model=${this.openaiModel} reasoning=${this.openaiReasoningEffort})`,
+      `✅ SOPHIE AiService initialized (provider=openai model=${this.openaiModel} fallback=${this.openaiFallbackModel || 'none'} reasoning=${this.openaiReasoningEffort})`,
     );
   }
 
@@ -134,6 +143,171 @@ export class AiService {
     return (jsonMatch?.[1] ?? normalized).trim();
   }
 
+  private supportsReasoningEffort(model: string): boolean {
+    const normalized = String(model || '').trim().toLowerCase();
+    return (
+      normalized.startsWith('gpt-5') ||
+      normalized.startsWith('o1') ||
+      normalized.startsWith('o3') ||
+      normalized.startsWith('o4')
+    );
+  }
+
+  private getOpenAiModelCandidates(primaryModel: string): string[] {
+    return Array.from(
+      new Set([primaryModel, this.openaiFallbackModel].map((value) => String(value || '').trim()).filter(Boolean)),
+    );
+  }
+
+  private parseOpenAiErrorBody(body: string): {
+    message: string;
+    type?: string;
+    code?: string;
+  } {
+    try {
+      const parsed = JSON.parse(body) as {
+        error?: { message?: string; type?: string; code?: string };
+      };
+      return {
+        message: parsed?.error?.message?.trim() || body.trim() || 'Erro desconhecido da OpenAI.',
+        type: parsed?.error?.type,
+        code: parsed?.error?.code,
+      };
+    } catch {
+      return {
+        message: body.trim() || 'Erro desconhecido da OpenAI.',
+      };
+    }
+  }
+
+  private shouldRetryWithFallback(params: {
+    status: number;
+    model: string;
+    candidateIndex: number;
+    candidates: string[];
+    errorMessage: string;
+    errorCode?: string;
+  }): boolean {
+    if (params.candidateIndex >= params.candidates.length - 1) {
+      return false;
+    }
+
+    const normalizedMessage = params.errorMessage.toLowerCase();
+    const normalizedCode = String(params.errorCode || '').toLowerCase();
+
+    if (params.status === 403 || params.status === 404) {
+      return true;
+    }
+
+    if (params.status === 400) {
+      return (
+        normalizedMessage.includes('model') ||
+        normalizedMessage.includes('reasoning_effort') ||
+        normalizedCode.includes('model')
+      );
+    }
+
+    return false;
+  }
+
+  private formatOpenAiError(params: {
+    status: number;
+    model: string;
+    context: string;
+    message: string;
+    type?: string;
+    code?: string;
+  }): string {
+    const meta = [
+      `context=${params.context}`,
+      `model=${params.model}`,
+      params.type ? `type=${params.type}` : null,
+      params.code ? `code=${params.code}` : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    return `OpenAI API error ${params.status} (${meta}): ${params.message}`;
+  }
+
+  private async requestOpenAiChatCompletion<T>(params: {
+    context: string;
+    primaryModel: string;
+    buildBody: (model: string) => Record<string, unknown>;
+  }): Promise<{ payload: T; model: string }> {
+    if (!this.openaiApiKey) {
+      throw new Error('OPENAI_API_KEY nao configurada.');
+    }
+
+    const candidates = this.getOpenAiModelCandidates(params.primaryModel);
+    let lastError: Error | null = null;
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      const model = candidates[index];
+      const body = params.buildBody(model);
+
+      if (!this.supportsReasoningEffort(model) && 'reasoning_effort' in body) {
+        delete body.reasoning_effort;
+      }
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.openaiApiKey}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        if (index > 0) {
+          this.logger.warn(
+            `[SOPHIE] OpenAI fallback aplicado com sucesso | context=${params.context} | model=${model}`,
+          );
+        }
+        return {
+          payload: (await response.json()) as T,
+          model,
+        };
+      }
+
+      const rawBody = await response.text();
+      const parsedError = this.parseOpenAiErrorBody(rawBody);
+      const formattedError = this.formatOpenAiError({
+        status: response.status,
+        model,
+        context: params.context,
+        message: parsedError.message,
+        type: parsedError.type,
+        code: parsedError.code,
+      });
+
+      this.logger.error(formattedError);
+
+      if (
+        this.shouldRetryWithFallback({
+          status: response.status,
+          model,
+          candidateIndex: index,
+          candidates,
+          errorMessage: parsedError.message,
+          errorCode: parsedError.code,
+        })
+      ) {
+        const nextModel = candidates[index + 1];
+        this.logger.warn(
+          `[SOPHIE] Tentando fallback OpenAI | context=${params.context} | from=${model} | to=${nextModel}`,
+        );
+        continue;
+      }
+
+      lastError = new Error(formattedError);
+      break;
+    }
+
+    throw lastError || new Error(`Falha ao chamar OpenAI em ${params.context}.`);
+  }
+
   private async callOpenAiJson<T>(params: {
     task: SophieTask;
     user: string;
@@ -156,15 +330,11 @@ export class AiService {
     };
 
     const systemPrompt = getSophieSystemPrompt(params.task);
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.openaiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.openaiModel,
+    const { payload } = await this.requestOpenAiChatCompletion<OpenAiChatCompletion>({
+      context: `json:${params.task}`,
+      primaryModel: this.openaiModel,
+      buildBody: (modelName) => ({
+        model: modelName,
         temperature: 0.2,
         max_completion_tokens: params.maxTokens ?? MAX_JSON_TOKENS,
         reasoning_effort: this.openaiReasoningEffort,
@@ -179,13 +349,6 @@ export class AiService {
         ],
       }),
     });
-
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`OpenAI API error ${response.status}: ${body}`);
-    }
-
-    const payload = (await response.json()) as OpenAiChatCompletion;
     const text = (payload.choices?.[0]?.message?.content ?? '').trim();
     if (!text) {
       throw new Error('OpenAI nao retornou conteudo utilizavel.');

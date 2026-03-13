@@ -61,6 +61,7 @@ const OPENAI_PROVIDER = 'openai';
 const LOCAL_PROVIDER = 'local';
 const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
 const DEFAULT_OPENAI_VISION_MODEL = 'gpt-5-mini';
+const DEFAULT_OPENAI_FALLBACK_MODEL = 'gpt-4.1-mini';
 const DEFAULT_OPENAI_REASONING_EFFORT = 'medium';
 const MAX_TOKENS = 2048;
 const MAX_TOOL_ITERATIONS = 5;
@@ -138,6 +139,7 @@ export class SstAgentService {
   private readonly openaiApiKey: string | null;
   private readonly openaiModel: string;
   private readonly openaiVisionModel: string;
+  private readonly openaiFallbackModel: string | null;
   private readonly openaiReasoningEffort: 'minimal' | 'low' | 'medium' | 'high';
   private readonly provider: SupportedAiProvider;
   private readonly model: string;
@@ -167,6 +169,8 @@ export class SstAgentService {
       this.configService.get<string>('OPENAI_VISION_MODEL')?.trim() ||
       openaiModel ||
       DEFAULT_OPENAI_VISION_MODEL;
+    const configuredFallbackModel =
+      this.configService.get<string>('OPENAI_FALLBACK_MODEL')?.trim() || '';
     const openaiReasoningEffort =
       (this.configService.get<string>('OPENAI_REASONING_EFFORT')?.trim().toLowerCase() as
         | 'minimal'
@@ -179,6 +183,9 @@ export class SstAgentService {
     this.openaiApiKey = openaiApiKey;
     this.openaiModel = openaiModel;
     this.openaiVisionModel = openaiVisionModel;
+    this.openaiFallbackModel =
+      configuredFallbackModel ||
+      (openaiModel !== DEFAULT_OPENAI_FALLBACK_MODEL ? DEFAULT_OPENAI_FALLBACK_MODEL : null);
     this.openaiReasoningEffort = openaiReasoningEffort;
     this.provider = 'stub';
     this.model = 'stub';
@@ -213,7 +220,7 @@ export class SstAgentService {
       this.provider = OPENAI_PROVIDER;
       this.model = openaiModel;
       this.logger.log(
-        `SOPHIE iniciada com OpenAI (${this.model}) como motor oficial (reasoning=${this.openaiReasoningEffort}).`,
+        `SOPHIE iniciada com OpenAI (${this.model}) como motor oficial (fallback=${this.openaiFallbackModel || 'none'} reasoning=${this.openaiReasoningEffort}).`,
       );
       return;
     }
@@ -234,6 +241,7 @@ export class SstAgentService {
       model: this.model,
       openaiModel: this.openaiModel,
       openaiVisionModel: this.openaiVisionModel,
+      openaiFallbackModel: this.openaiFallbackModel,
       openaiReasoningEffort: this.openaiReasoningEffort,
       historyDefaultDays: this.historyDefaultDays,
       historyMaxDays: this.historyMaxDays,
@@ -242,6 +250,169 @@ export class SstAgentService {
       externalProviderEnabled: this.provider === OPENAI_PROVIDER,
       localFallbackEnabled: false,
     };
+  }
+
+  private supportsReasoningEffort(model: string): boolean {
+    const normalized = String(model || '').trim().toLowerCase();
+    return (
+      normalized.startsWith('gpt-5') ||
+      normalized.startsWith('o1') ||
+      normalized.startsWith('o3') ||
+      normalized.startsWith('o4')
+    );
+  }
+
+  private getOpenAiModelCandidates(primaryModel: string): string[] {
+    return Array.from(
+      new Set([primaryModel, this.openaiFallbackModel].map((value) => String(value || '').trim()).filter(Boolean)),
+    );
+  }
+
+  private parseOpenAiErrorBody(body: string): {
+    message: string;
+    type?: string;
+    code?: string;
+  } {
+    try {
+      const parsed = JSON.parse(body) as {
+        error?: { message?: string; type?: string; code?: string };
+      };
+      return {
+        message: parsed?.error?.message?.trim() || body.trim() || 'Erro desconhecido da OpenAI.',
+        type: parsed?.error?.type,
+        code: parsed?.error?.code,
+      };
+    } catch {
+      return {
+        message: body.trim() || 'Erro desconhecido da OpenAI.',
+      };
+    }
+  }
+
+  private shouldRetryWithFallback(params: {
+    status: number;
+    candidateIndex: number;
+    candidates: string[];
+    errorMessage: string;
+    errorCode?: string;
+  }): boolean {
+    if (params.candidateIndex >= params.candidates.length - 1) {
+      return false;
+    }
+
+    const normalizedMessage = params.errorMessage.toLowerCase();
+    const normalizedCode = String(params.errorCode || '').toLowerCase();
+
+    if (params.status === 403 || params.status === 404) {
+      return true;
+    }
+
+    if (params.status === 400) {
+      return (
+        normalizedMessage.includes('model') ||
+        normalizedMessage.includes('reasoning_effort') ||
+        normalizedCode.includes('model')
+      );
+    }
+
+    return false;
+  }
+
+  private formatOpenAiError(params: {
+    status: number;
+    model: string;
+    context: string;
+    message: string;
+    type?: string;
+    code?: string;
+  }): string {
+    const meta = [
+      `context=${params.context}`,
+      `model=${params.model}`,
+      params.type ? `type=${params.type}` : null,
+      params.code ? `code=${params.code}` : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    return `OpenAI API error ${params.status} (${meta}): ${params.message}`;
+  }
+
+  private async requestOpenAiChatCompletion<T>(params: {
+    context: string;
+    primaryModel: string;
+    buildBody: (model: string) => Record<string, unknown>;
+  }): Promise<{ payload: T; model: string }> {
+    if (!this.openaiApiKey) {
+      throw new Error('OPENAI_API_KEY nao configurada.');
+    }
+
+    const candidates = this.getOpenAiModelCandidates(params.primaryModel);
+    let lastError: Error | null = null;
+
+    for (let index = 0; index < candidates.length; index += 1) {
+      const model = candidates[index];
+      const body = params.buildBody(model);
+
+      if (!this.supportsReasoningEffort(model) && 'reasoning_effort' in body) {
+        delete body.reasoning_effort;
+      }
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.openaiApiKey}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        if (index > 0) {
+          this.logger.warn(
+            `[SstAgent] OpenAI fallback aplicado com sucesso | context=${params.context} | model=${model}`,
+          );
+        }
+        return {
+          payload: (await response.json()) as T,
+          model,
+        };
+      }
+
+      const rawBody = await response.text();
+      const parsedError = this.parseOpenAiErrorBody(rawBody);
+      const formattedError = this.formatOpenAiError({
+        status: response.status,
+        model,
+        context: params.context,
+        message: parsedError.message,
+        type: parsedError.type,
+        code: parsedError.code,
+      });
+
+      this.logger.error(`[SstAgent] ${formattedError}`);
+
+      if (
+        this.shouldRetryWithFallback({
+          status: response.status,
+          candidateIndex: index,
+          candidates,
+          errorMessage: parsedError.message,
+          errorCode: parsedError.code,
+        })
+      ) {
+        const nextModel = candidates[index + 1];
+        this.logger.warn(
+          `[SstAgent] Tentando fallback OpenAI | context=${params.context} | from=${model} | to=${nextModel}`,
+        );
+        continue;
+      }
+
+      lastError = new Error(formattedError);
+      break;
+    }
+
+    throw lastError || new Error(`Falha ao chamar OpenAI em ${params.context}.`);
   }
 
   // -------------------------------------------------------------------------
@@ -534,14 +705,11 @@ export class SstAgentService {
     ];
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.openaiApiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.openaiModel,
+      const { payload } = await this.requestOpenAiChatCompletion<OpenAiChatCompletion>({
+        context: 'agent-loop',
+        primaryModel: this.openaiModel,
+        buildBody: (model) => ({
+          model,
           temperature: 0.2,
           max_completion_tokens: MAX_TOKENS,
           reasoning_effort: this.openaiReasoningEffort,
@@ -550,13 +718,6 @@ export class SstAgentService {
           tool_choice: 'auto',
         }),
       });
-
-      if (!response.ok) {
-        const body = await response.text();
-        throw new Error(`OpenAI API error ${response.status}: ${body}`);
-      }
-
-      const payload = (await response.json()) as OpenAiChatCompletion;
       totalInputTokens += payload.usage?.prompt_tokens ?? 0;
       totalOutputTokens += payload.usage?.completion_tokens ?? 0;
 
@@ -798,14 +959,11 @@ export class SstAgentService {
       ? `Contexto adicional do usuario: ${context.trim()}`
       : 'Sem contexto adicional fornecido.';
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.openaiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.openaiVisionModel,
+    const { payload } = await this.requestOpenAiChatCompletion<OpenAiVisionResponse>({
+      context: 'image-analysis',
+      primaryModel: this.openaiVisionModel,
+      buildBody: (model) => ({
+        model,
         temperature: 0.2,
         max_completion_tokens: 1200,
         reasoning_effort: this.openaiReasoningEffort,
@@ -821,13 +979,6 @@ export class SstAgentService {
         ],
       }),
     });
-
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`OpenAI vision error ${response.status}: ${body}`);
-    }
-
-    const payload = (await response.json()) as OpenAiVisionResponse;
     const answer = (payload.choices?.[0]?.message?.content ?? '').trim();
     if (!answer) {
       throw new Error('OpenAI nao retornou analise de imagem.');
