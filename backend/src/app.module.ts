@@ -237,28 +237,26 @@ const validationSchema = Joi.object({
     .valid('postgres', 'sqlite', 'better-sqlite3')
     .default('postgres'),
   SQLITE_DB_PATH: Joi.string().default('dev.sqlite'),
-  DATABASE_URL: Joi.string().optional(),
-  DATABASE_HOST: Joi.string().when('DATABASE_URL', {
-    is: Joi.exist(),
-    then: Joi.optional(),
-    otherwise: Joi.required(),
-  }),
+  DATABASE_URL: Joi.string().optional().allow(''),
+  DATABASE_PUBLIC_URL: Joi.string().optional().allow(''),
+  URL_DO_BANCO_DE_DADOS: Joi.string().optional().allow(''),
+  POSTGRES_URL: Joi.string().optional().allow(''),
+  POSTGRESQL_URL: Joi.string().optional().allow(''),
+  DATABASE_HOST: Joi.string().optional().allow(''),
   DATABASE_PORT: Joi.number().default(5432),
-  DATABASE_USER: Joi.string().when('DATABASE_URL', {
-    is: Joi.exist(),
-    then: Joi.optional(),
-    otherwise: Joi.required(),
-  }),
-  DATABASE_PASSWORD: Joi.string().when('DATABASE_URL', {
-    is: Joi.exist(),
-    then: Joi.optional(),
-    otherwise: Joi.required(),
-  }),
-  DATABASE_NAME: Joi.string().when('DATABASE_URL', {
-    is: Joi.exist(),
-    then: Joi.optional(),
-    otherwise: Joi.required(),
-  }),
+  DATABASE_USER: Joi.string().optional().allow(''),
+  DATABASE_PASSWORD: Joi.string().optional().allow(''),
+  DATABASE_NAME: Joi.string().optional().allow(''),
+  PGHOST: Joi.string().optional().allow(''),
+  PGPORT: Joi.number().optional(),
+  PGUSER: Joi.string().optional().allow(''),
+  PGPASSWORD: Joi.string().optional().allow(''),
+  PGDATABASE: Joi.string().optional().allow(''),
+  POSTGRES_HOST: Joi.string().optional().allow(''),
+  POSTGRES_PORT: Joi.number().optional(),
+  POSTGRES_USER: Joi.string().optional().allow(''),
+  POSTGRES_PASSWORD: REDACTED
+  POSTGRES_DB: Joi.string().optional().allow(''),
   DATABASE_SSL: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
   REDIS_URL: Joi.string().optional(),
@@ -362,11 +360,48 @@ const validationSchema = Joi.object({
   const bypassEnabled = value.DEV_LOGIN_BYPASS === true;
   const explicitlyAllowed = value.ALLOW_DEV_LOGIN_BYPASS === true;
   const isLocalDev = value.NODE_ENV === 'development';
+  const hasDatabaseUrl = Boolean(
+    firstNonEmpty([
+      value.DATABASE_URL,
+      value.DATABASE_PUBLIC_URL,
+      value.URL_DO_BANCO_DE_DADOS,
+      value.POSTGRES_URL,
+      value.POSTGRESQL_URL,
+    ]),
+  );
+  const hasDatabaseHost = Boolean(
+    firstNonEmpty([value.DATABASE_HOST, value.PGHOST, value.POSTGRES_HOST]),
+  );
+  const hasDatabaseUser = Boolean(
+    firstNonEmpty([value.DATABASE_USER, value.PGUSER, value.POSTGRES_USER]),
+  );
+  const hasDatabasePassword = Boolean(
+    firstNonEmpty([
+      value.DATABASE_PASSWORD,
+      value.PGPASSWORD,
+      value.POSTGRES_PASSWORD,
+    ]),
+  );
+  const hasDatabaseName = Boolean(
+    firstNonEmpty([value.DATABASE_NAME, value.PGDATABASE, value.POSTGRES_DB]),
+  );
 
   if (bypassEnabled && (!isLocalDev || !explicitlyAllowed)) {
     return helpers.error('any.invalid', {
       message:
         'DEV_LOGIN_BYPASS só é permitido em NODE_ENV=development com ALLOW_DEV_LOGIN_BYPASS=true',
+    });
+  }
+
+  if (
+    value.DATABASE_TYPE !== 'sqlite' &&
+    value.DATABASE_TYPE !== 'better-sqlite3' &&
+    !hasDatabaseUrl &&
+    (!hasDatabaseHost || !hasDatabaseUser || !hasDatabasePassword || !hasDatabaseName)
+  ) {
+    return helpers.error('any.invalid', {
+      message:
+        'Configure DATABASE_URL/DATABASE_PUBLIC_URL/URL_DO_BANCO_DE_DADOS (ou informe DATABASE_HOST, DATABASE_USER, DATABASE_PASSWORD e DATABASE_NAME).',
     });
   }
 
