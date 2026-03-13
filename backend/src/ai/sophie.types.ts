@@ -83,3 +83,27 @@ export type GenerateChecklistResponse = {
   confidence?: SophieConfidence;
   notes?: string[];
 };
+
+export type CreateChecklistAutomationResponse = {
+  checklist: unknown;
+  generation: GenerateChecklistResponse;
+  persisted: true;
+  message: string;
+};
+
+export type CreateDdsAutomationResponse = {
+  dds: unknown;
+  generation: GenerateDdsResponse;
+  persisted: true;
+  message: string;
+};
+
+export type QueueMonthlyReportAutomationResponse = {
+  reportType: 'monthly';
+  year: number;
+  month: number;
+  jobId: string | number | undefined;
+  statusUrl: string;
+  queued: boolean;
+  message: string;
+};

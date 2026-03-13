@@ -65,6 +65,31 @@ export interface GenerateChecklistPayload {
   is_modelo?: boolean;
 }
 
+export interface CreateAssistedChecklistPayload
+  extends GenerateChecklistPayload {
+  categoria?: string;
+  periodicidade?: string;
+  nivel_risco_padrao?: string;
+}
+
+export interface GenerateDdsPayload {
+  tema?: string;
+  contexto?: string;
+}
+
+export interface CreateAssistedDdsPayload extends GenerateDdsPayload {
+  data?: string;
+  is_modelo?: boolean;
+  site_id: string;
+  facilitador_id: string;
+  participants?: string[];
+}
+
+export interface GenerateMonthlyReportPayload {
+  mes?: number;
+  ano?: number;
+}
+
 export interface ImageRiskAnalysis {
   summary: string;
   riskLevel: 'Baixo' | 'Medio' | 'Alto' | 'Critico' | 'Médio' | 'Crítico';
@@ -134,6 +159,39 @@ export const sophieService = {
   async generateDds() {
     assertAiEnabled();
     const { data } = await api.post('/ai/generate-dds');
+    return data;
+  },
+
+  async createChecklist(
+    payload: CreateAssistedChecklistPayload,
+    companyId?: string,
+  ) {
+    assertAiEnabled();
+    const { data } = await api.post('/ai/create-checklist', payload, {
+      headers: companyId ? { 'x-company-id': companyId } : undefined,
+    });
+    return data;
+  },
+
+  async createDds(
+    payload: CreateAssistedDdsPayload,
+    companyId?: string,
+  ) {
+    assertAiEnabled();
+    const { data } = await api.post('/ai/create-dds', payload, {
+      headers: companyId ? { 'x-company-id': companyId } : undefined,
+    });
+    return data;
+  },
+
+  async queueMonthlyReport(
+    payload: GenerateMonthlyReportPayload,
+    companyId?: string,
+  ) {
+    assertAiEnabled();
+    const { data } = await api.post('/ai/generate-monthly-report', payload, {
+      headers: companyId ? { 'x-company-id': companyId } : undefined,
+    });
     return data;
   },
 

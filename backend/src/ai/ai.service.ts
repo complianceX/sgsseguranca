@@ -5,10 +5,13 @@ import {
   HttpException,
   HttpStatus,
   Scope,
+  BadRequestException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { InjectQueue } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
 import { TenantService } from '../common/tenant/tenant.service';
 import { AiInteraction } from './entities/ai-interaction.entity';
 import { SstRateLimitService } from './sst-agent/sst-rate-limit.service';
@@ -20,19 +23,33 @@ import { ChecklistsService } from '../checklists/checklists.service';
 import { TrainingsService } from '../trainings/trainings.service';
 import { MedicalExamsService } from '../medical-exams/medical-exams.service';
 import { NonConformitiesService } from '../nonconformities/nonconformities.service';
+import { DdsService } from '../dds/dds.service';
 import { getSophieSystemPrompt } from './sophie.prompt-resolver';
 import {
   AnalyzeAprResponse,
   AnalyzeChecklistResponse,
   AnalyzePtResponse,
+  CreateChecklistAutomationResponse,
+  CreateDdsAutomationResponse,
   GenerateChecklistResponse,
   GenerateDdsResponse,
   InsightCard,
   InsightsResponse,
+  QueueMonthlyReportAutomationResponse,
   SophieConfidence,
   SophieTask,
 } from './sophie.types';
 import type { CreateNonConformityDto } from '../nonconformities/dto/create-nonconformity.dto';
+import type { CreateChecklistDto } from '../checklists/dto/create-checklist.dto';
+import type { CreateDdsDto } from '../dds/dto/create-dds.dto';
+import type { GenerateChecklistDto } from './dto/generate-checklist.dto';
+import type { CreateAssistedChecklistDto } from './dto/create-assisted-checklist.dto';
+import type {
+  CreateAssistedDdsDto,
+  GenerateDdsDto,
+} from './dto/generate-dds.dto';
+import type { GenerateSophieReportDto } from './dto/generate-sophie-report.dto';
+import { defaultJobOptions } from '../queue/default-job-options';
 
 const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
 const MAX_JSON_TOKENS = 1600;
@@ -56,6 +73,9 @@ export class AiService {
     private readonly trainingsService: TrainingsService,
     private readonly medicalExamsService: MedicalExamsService,
     private readonly nonConformitiesService: NonConformitiesService,
+    private readonly ddsService: DdsService,
+    @InjectQueue('pdf-generation')
+    private readonly pdfQueue: Queue,
   ) {
     this.openaiApiKey = this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
     this.openaiModel =
@@ -74,6 +94,10 @@ export class AiService {
 
   private getCurrentUserId(): string {
     return RequestContext.getUserId() || 'unknown';
+  }
+
+  private getTodayIsoDate(): string {
+    return new Date().toISOString().slice(0, 10);
   }
 
   private async enforceRateLimit(tenantId: string): Promise<void> {
@@ -769,15 +793,17 @@ export class AiService {
     }
   }
 
-  async generateDds(): Promise<GenerateDdsResponse> {
+  async generateDds(params?: GenerateDdsDto): Promise<GenerateDdsResponse> {
     const tenantId = this.getTenantIdOrThrow();
     await this.enforceRateLimit(tenantId);
+    const temaBase = String(params?.tema || '').trim();
+    const contexto = String(params?.contexto || '').trim();
 
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
       user_id: this.getCurrentUserId(),
-      question: 'GENERATE_DDS',
+      question: `GENERATE_DDS: ${temaBase || contexto || 'tema livre'}`,
       model: this.openaiModel,
       provider: 'openai',
       status: AiInteractionStatus.SUCCESS,
@@ -786,7 +812,7 @@ export class AiService {
     try {
       const { data, inputTokens, outputTokens } = await this.callOpenAiJson<GenerateDdsResponse>({
         task: 'dds',
-        user: `Gere um DDS (Diálogo Diario de Seguranca) pronto para uso.\n\nFormato JSON:\n{\n  \"tema\": string,\n  \"conteudo\": string,\n  \"explanation\": string,\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}\n\nRegras:\n- conteudo em portugues, pratico, com 6 a 10 bullets.\n- incluir: objetivo, perigos, controles (hierarquia), EPIs, NRs relevantes.\n- evite jargoes e mantenha linguagem de campo.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
+        user: `Gere um DDS (Diálogo Diario de Seguranca) pronto para uso.\n\nTema base: ${temaBase || 'definir automaticamente'}\nContexto operacional: ${contexto || 'nao informado'}\n\nFormato JSON:\n{\n  \"tema\": string,\n  \"conteudo\": string,\n  \"explanation\": string,\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}\n\nRegras:\n- conteudo em portugues, pratico, com 6 a 10 bullets.\n- incluir: objetivo, perigos, controles (hierarquia), EPIs, NRs relevantes.\n- evite jargoes e mantenha linguagem de campo.\n- Se houver tema base, respeite-o.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
         maxTokens: 1200,
       });
       const confidence = this.normalizeConfidence(data.confidence);
@@ -822,7 +848,7 @@ export class AiService {
       }
 
       return {
-        tema: 'Seguranca no Trabalho',
+        tema: temaBase || 'Seguranca no Trabalho',
         conteudo:
           '- Objetivo: reforcar comportamentos seguros.\n- Perigos comuns: quedas, impacto, eletricidade, maquinas.\n- Controles: isolamento, sinalizacao, protecoes, procedimentos.\n- EPIs: capacete, oculos, luvas, calcado, protetor auricular.\n- NRs: NR-01, NR-06, NR-12, NR-35 (quando aplicavel).',
         explanation: 'Fallback local: SOPHIE indisponivel no momento.',
@@ -914,6 +940,159 @@ export class AiService {
         notes: ['Fallback local aplicado por indisponibilidade temporaria da API de IA.'],
       };
     }
+  }
+
+  private normalizeGeneratedChecklistItems(
+    generatedItems: GenerateChecklistResponse['itens'],
+  ): Array<Record<string, unknown>> {
+    return (generatedItems || []).map((entry, index) => ({
+      id: `sophie-item-${index + 1}`,
+      item: String(entry?.item || '').trim(),
+      status: 'ok',
+      tipo_resposta: 'conforme',
+      obrigatorio: true,
+      peso: 1,
+      observacao: '',
+      fotos: [],
+    }));
+  }
+
+  private resolveChecklistRiskLevel(subject: string): string {
+    const normalized = subject
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    if (
+      normalized.includes('altura') ||
+      normalized.includes('eletric') ||
+      normalized.includes('espaco confinado') ||
+      normalized.includes('trabalho quente')
+    ) {
+      return 'Alto';
+    }
+
+    if (normalized.includes('maquina') || normalized.includes('equipamento')) {
+      return 'Médio';
+    }
+
+    return 'Médio';
+  }
+
+  async createChecklist(
+    params: CreateAssistedChecklistDto,
+  ): Promise<CreateChecklistAutomationResponse> {
+    if (!params.site_id || !params.inspetor_id) {
+      throw new BadRequestException(
+        'site_id e inspetor_id são obrigatórios para criar checklist pela SOPHIE.',
+      );
+    }
+
+    const generated = await this.generateChecklist(params as GenerateChecklistDto);
+    const subject =
+      String(params.titulo || '').trim() ||
+      String(params.maquina || '').trim() ||
+      String(params.equipamento || '').trim() ||
+      generated.titulo ||
+      'Checklist SST';
+
+    const createDto: CreateChecklistDto = {
+      titulo: generated.titulo || subject,
+      descricao: String(params.descricao || '').trim() || `Checklist assistido pela SOPHIE para ${subject}.`,
+      equipamento: params.equipamento,
+      maquina: params.maquina,
+      data: params.data || this.getTodayIsoDate(),
+      status: 'Pendente',
+      site_id: params.site_id,
+      inspetor_id: params.inspetor_id,
+      is_modelo: params.is_modelo ?? false,
+      ativo: true,
+      categoria: params.categoria || 'SST',
+      periodicidade: params.periodicidade || 'Eventual',
+      nivel_risco_padrao:
+        params.nivel_risco_padrao || this.resolveChecklistRiskLevel(subject),
+      itens: this.normalizeGeneratedChecklistItems(generated.itens),
+    };
+
+    const checklist = await this.checklistsService.create(createDto);
+
+    return {
+      checklist,
+      generation: generated,
+      persisted: true,
+      message:
+        'Checklist criado pela SOPHIE e salvo no sistema para revisão operacional.',
+    };
+  }
+
+  async createDds(
+    params: CreateAssistedDdsDto,
+  ): Promise<CreateDdsAutomationResponse> {
+    if (!params.site_id || !params.facilitador_id) {
+      throw new BadRequestException(
+        'site_id e facilitador_id são obrigatórios para criar DDS pela SOPHIE.',
+      );
+    }
+
+    const generation = await this.generateDds({
+      tema: params.tema,
+      contexto: params.contexto,
+    });
+
+    const createDto: CreateDdsDto = {
+      tema: generation.tema,
+      conteudo: generation.conteudo,
+      data: params.data || this.getTodayIsoDate(),
+      is_modelo: params.is_modelo ?? false,
+      site_id: params.site_id,
+      facilitador_id: params.facilitador_id,
+      participants: params.participants,
+    };
+
+    const created = await this.ddsService.create(createDto);
+    const dds = await this.ddsService.findOne(created.id);
+
+    return {
+      dds,
+      generation,
+      persisted: true,
+      message:
+        'DDS criado pela SOPHIE e salvo no sistema para condução em campo.',
+    };
+  }
+
+  async queueMonthlyReport(
+    params: GenerateSophieReportDto,
+  ): Promise<QueueMonthlyReportAutomationResponse> {
+    const companyId = this.getTenantIdOrThrow();
+    await this.enforceRateLimit(companyId);
+
+    const now = new Date();
+    const year = params.ano || now.getFullYear();
+    const month = params.mes || now.getMonth() + 1;
+    const userId = this.getCurrentUserId();
+
+    const job = await this.pdfQueue.add(
+      'generate',
+      {
+        reportType: 'monthly',
+        params: { companyId, year, month },
+        userId,
+        companyId,
+      },
+      defaultJobOptions,
+    );
+
+    return {
+      reportType: 'monthly',
+      year,
+      month,
+      jobId: job.id,
+      statusUrl: `/reports/status/${job.id}`,
+      queued: true,
+      message:
+        'Relatório mensal enfileirado pela SOPHIE. Acompanhe o processamento pelo status da fila.',
+    };
   }
 
   async generateStructuredJson<T>(params: {

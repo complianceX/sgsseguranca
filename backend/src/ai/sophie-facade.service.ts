@@ -4,6 +4,12 @@ import { SstAgentService } from './sst-agent/sst-agent.service';
 import { SophieEngineService } from '../sophie/sophie.engine.service';
 import { AnalyzePtDto } from './dto/analyze-pt.dto';
 import { GenerateChecklistDto } from './dto/generate-checklist.dto';
+import { CreateAssistedChecklistDto } from './dto/create-assisted-checklist.dto';
+import {
+  CreateAssistedDdsDto,
+  GenerateDdsDto,
+} from './dto/generate-dds.dto';
+import { GenerateSophieReportDto } from './dto/generate-sophie-report.dto';
 
 @Injectable()
 export class SophieFacadeService {
@@ -29,6 +35,9 @@ export class SophieFacadeService {
         analyzeChecklist: true,
         generateDds: true,
         generateChecklist: true,
+        createChecklist: true,
+        createDds: true,
+        queueMonthlyReport: true,
         phase2RiskGate: true,
         phase2ChecklistAutoNc: automation.phase2Enabled,
         chat: true,
@@ -55,11 +64,23 @@ export class SophieFacadeService {
     return this.aiService.analyzeChecklist(id);
   }
 
-  generateDds() {
-    return this.aiService.generateDds();
+  generateDds(payload?: GenerateDdsDto) {
+    return this.aiService.generateDds(payload);
   }
 
   generateChecklist(payload: GenerateChecklistDto) {
     return this.aiService.generateChecklist(payload as any);
+  }
+
+  createChecklist(payload: CreateAssistedChecklistDto) {
+    return this.aiService.createChecklist(payload);
+  }
+
+  createDds(payload: CreateAssistedDdsDto) {
+    return this.aiService.createDds(payload);
+  }
+
+  queueMonthlyReport(payload: GenerateSophieReportDto) {
+    return this.aiService.queueMonthlyReport(payload);
   }
 }

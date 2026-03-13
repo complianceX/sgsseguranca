@@ -20,6 +20,12 @@ import { GenerateChecklistDto } from './dto/generate-checklist.dto';
 import { AnalyzeAprDto } from './dto/analyze-apr.dto';
 import { Authorize } from '../auth/authorize.decorator';
 import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
+import { CreateAssistedChecklistDto } from './dto/create-assisted-checklist.dto';
+import {
+  CreateAssistedDdsDto,
+  GenerateDdsDto,
+} from './dto/generate-dds.dto';
+import { GenerateSophieReportDto } from './dto/generate-sophie-report.dto';
 
 @Controller('ai')
 @UseGuards(FeatureAiGuard, JwtAuthGuard, TenantGuard, RolesGuard)
@@ -65,8 +71,8 @@ export class AiController {
   @Post('generate-dds')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
-  async generateDds() {
-    return this.sophieFacade.generateDds();
+  async generateDds(@Body() body: GenerateDdsDto) {
+    return this.sophieFacade.generateDds(body);
   }
 
   @Post('generate-checklist')
@@ -74,5 +80,26 @@ export class AiController {
   @Authorize('can_use_ai')
   async generateChecklist(@Body() body: GenerateChecklistDto) {
     return this.sophieFacade.generateChecklist(body);
+  }
+
+  @Post('create-checklist')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
+  async createChecklist(@Body() body: CreateAssistedChecklistDto) {
+    return this.sophieFacade.createChecklist(body);
+  }
+
+  @Post('create-dds')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
+  async createDds(@Body() body: CreateAssistedDdsDto) {
+    return this.sophieFacade.createDds(body);
+  }
+
+  @Post('generate-monthly-report')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
+  async generateMonthlyReport(@Body() body: GenerateSophieReportDto) {
+    return this.sophieFacade.queueMonthlyReport(body);
   }
 }
