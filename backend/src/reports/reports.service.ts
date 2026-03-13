@@ -46,18 +46,85 @@ export class ReportsService {
     this.loadTemplates();
   }
 
+  private resolveMonthlyTemplatePath(): string | null {
+    const fileName = 'monthly-report.template.html';
+    const candidates = [
+      path.join(__dirname, 'templates', fileName),
+      path.join(process.cwd(), 'dist', 'reports', 'templates', fileName),
+      path.join(process.cwd(), 'src', 'reports', 'templates', fileName),
+      path.join(process.cwd(), 'backend', 'src', 'reports', 'templates', fileName),
+    ];
+
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private buildFallbackMonthlyTemplate(): string {
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Relatório Mensal SST</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #1f2937; margin: 24px; }
+    h1 { margin: 0 0 6px; font-size: 20px; }
+    h2 { margin: 20px 0 8px; font-size: 14px; }
+    .muted { color: #6b7280; font-size: 12px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-top: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .k { color: #6b7280; font-size: 12px; }
+    .v { font-weight: 700; font-size: 14px; }
+    pre { white-space: pre-wrap; font-family: inherit; }
+  </style>
+</head>
+<body>
+  <h1>Relatório Mensal SST</h1>
+  <div class="muted">{{MES}}/{{ANO}} • {{COMPANY_NAME}}</div>
+
+  <div class="card">
+    <h2>Indicadores</h2>
+    <div class="grid">
+      <div><div class="k">APR</div><div class="v">{{APRS_COUNT}}</div></div>
+      <div><div class="k">PT</div><div class="v">{{PTS_COUNT}}</div></div>
+      <div><div class="k">DDS</div><div class="v">{{DDS_COUNT}}</div></div>
+      <div><div class="k">Checklists</div><div class="v">{{CHECKLISTS_COUNT}}</div></div>
+      <div><div class="k">Treinamentos</div><div class="v">{{TRAININGS_COUNT}}</div></div>
+      <div><div class="k">EPIs Vencidos</div><div class="v">{{EPIS_EXPIRED_COUNT}}</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Análise Técnica</h2>
+    <pre>{{ANALISE_GANDRA}}</pre>
+  </div>
+</body>
+</html>`;
+  }
+
   private loadTemplates() {
     try {
-      const templatePath = path.join(
-        __dirname,
-        'templates',
-        'monthly-report.template.html',
-      );
+      const templatePath = this.resolveMonthlyTemplatePath();
+      if (!templatePath) {
+        this.logger.warn(
+          'Template mensal não encontrado em disco. Usando template fallback embutido.',
+        );
+        this.monthlyReportTemplate = this.buildFallbackMonthlyTemplate();
+        return;
+      }
+
       this.monthlyReportTemplate = fs.readFileSync(templatePath, 'utf-8');
-      this.logger.log('Template de relatório mensal carregado com sucesso.');
+      this.logger.log(`Template de relatório mensal carregado: ${templatePath}`);
     } catch (error) {
-      this.logger.error('Falha ao carregar template de relatório mensal.', error);
-      throw new Error('Não foi possível carregar o template do relatório.');
+      this.logger.error(
+        'Falha ao carregar template de relatório mensal. Usando fallback embutido.',
+        error,
+      );
+      this.monthlyReportTemplate = this.buildFallbackMonthlyTemplate();
     }
   }
 
