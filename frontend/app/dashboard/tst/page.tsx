@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   AlertTriangle,
   ArrowRight,
+  Camera,
   ClipboardCheck,
   FileText,
   RefreshCw,
@@ -25,19 +26,25 @@ import { EmptyState, ErrorState, InlineLoadingState, PageLoadingState } from '@/
 
 const fieldActionCards = [
   {
-    title: 'Abrir APR',
-    description: 'Registrar risco e controles ainda em campo.',
-    href: '/dashboard/aprs/new',
+    title: 'Checklist rápido',
+    description: 'Fluxo mobile com foto do equipamento, autosave e fila offline.',
+    href: '/dashboard/checklists/new?field=1',
+    icon: ClipboardCheck,
+    badge: 'offline pronto',
   },
   {
-    title: 'Emitir PT',
-    description: 'Liberar trabalho com bloqueios e evidências.',
-    href: '/dashboard/pts/new',
+    title: 'Relatório fotográfico',
+    description: 'Captura por celular com foco em evidência visual e conclusão técnica.',
+    href: '/dashboard/inspections/new?field=1&kind=photographic',
+    icon: Camera,
+    badge: 'foto primeiro',
   },
   {
-    title: 'Pacote semanal',
-    description: 'Baixar ou imprimir documentos da semana.',
-    href: '/dashboard/document-registry',
+    title: 'Inspeção guiada',
+    description: 'Riscos, plano de ação e evidências com botões grandes para obra.',
+    href: '/dashboard/inspections/new?field=1',
+    icon: ShieldAlert,
+    badge: 'uso em campo',
   },
 ];
 
@@ -124,6 +131,11 @@ export default function TstFieldPage() {
       },
     ],
     [dashboard],
+  );
+
+  const offlineQueueItems = useMemo(
+    () => getOfflineQueueSnapshot().slice(-4).reverse(),
+    [offlineCount, syncingOfflineQueue],
   );
 
   const workerQuickFacts = useMemo(
@@ -233,11 +245,19 @@ export default function TstFieldPage() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-white/5 p-3.5 transition-colors hover:border-sky-400/35 hover:bg-white/10"
+                  className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-white/5 p-4 transition-colors hover:border-sky-400/35 hover:bg-white/10"
                 >
-                  <p className="text-[13px] font-semibold text-white">{item.title}</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500/12 text-sky-100">
+                      <item.icon className="h-5 w-5" />
+                    </div>
+                    <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-100">
+                      {item.badge}
+                    </span>
+                  </div>
+                  <p className="mt-4 text-[15px] font-semibold text-white">{item.title}</p>
                   <p className="mt-2 text-[13px] text-[var(--ds-color-text-secondary)]">{item.description}</p>
-                  <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-sky-200">
+                  <span className="mt-4 inline-flex items-center gap-1 text-[12px] font-semibold text-sky-200">
                     Abrir fluxo
                     <ArrowRight className="h-3.5 w-3.5" />
                   </span>
@@ -280,6 +300,34 @@ export default function TstFieldPage() {
                 <p className="text-xs text-amber-200">
                   Há itens aguardando envio. Priorize sincronização antes de encerrar o turno.
                 </p>
+              ) : null}
+              {offlineQueueItems.length > 0 ? (
+                <div className="rounded-[var(--ds-radius-lg)] border border-amber-300/20 bg-amber-500/8 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100">
+                    Últimos itens na fila
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    {offlineQueueItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-start justify-between gap-3 rounded-[var(--ds-radius-md)] border border-white/8 bg-black/10 px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-white">{item.label}</p>
+                          <p className="text-[11px] text-[var(--ds-color-text-muted)]">
+                            {item.method.toUpperCase()} {item.url}
+                          </p>
+                        </div>
+                        <span className="text-[11px] font-medium text-amber-100">
+                          {new Date(item.createdAt).toLocaleTimeString('pt-BR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : null}
             </div>
           </div>

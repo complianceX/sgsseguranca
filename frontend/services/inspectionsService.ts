@@ -1,7 +1,10 @@
 import api from '@/lib/api';
+import { AxiosError } from 'axios';
 import { Site } from './sitesService';
 import { User } from './usersService';
 import { fetchAllPages, PaginatedResponse } from './pagination';
+import { enqueueOfflineMutation } from '@/lib/offline-sync';
+import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
 
 export interface Inspection {
   id: string;
@@ -95,14 +98,27 @@ export const inspectionsService = {
     limit?: number;
     search?: string;
   }): Promise<PaginatedResponse<Inspection>> => {
-    const response = await api.get<PaginatedResponse<Inspection>>('/inspections', {
-      params: {
-        page: opts?.page ?? 1,
-        limit: opts?.limit ?? 20,
-        ...(opts?.search ? { search: opts.search } : {}),
-      },
-    });
-    return response.data;
+    const params = {
+      page: opts?.page ?? 1,
+      limit: opts?.limit ?? 20,
+      ...(opts?.search ? { search: opts.search } : {}),
+    };
+    const cacheKey = `inspections.paginated.${JSON.stringify(params)}`;
+
+    try {
+      const response = await api.get<PaginatedResponse<Inspection>>('/inspections', {
+        params,
+      });
+      setOfflineCache(cacheKey, response.data);
+      return response.data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = getOfflineCache<PaginatedResponse<Inspection>>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   findAll: async () => {
@@ -118,18 +134,73 @@ export const inspectionsService = {
   },
 
   findOne: async (id: string) => {
-    const response = await api.get<Inspection>(`/inspections/${id}`);
-    return response.data;
+    const cacheKey = `inspections.one.${id}`;
+    try {
+      const response = await api.get<Inspection>(`/inspections/${id}`);
+      setOfflineCache(cacheKey, response.data);
+      return response.data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = getOfflineCache<Inspection>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   create: async (data: CreateInspectionDto) => {
-    const response = await api.post<Inspection>('/inspections', data);
-    return response.data;
+    try {
+      const response = await api.post<Inspection>('/inspections', data);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.code !== 'ERR_NETWORK') {
+        throw error;
+      }
+
+      const queued = enqueueOfflineMutation({
+        url: '/inspections',
+        method: 'post',
+        data,
+        label: 'Inspecao',
+      });
+
+      return {
+        ...(data as unknown as Partial<Inspection>),
+        id: queued.id,
+        created_at: queued.createdAt,
+        updated_at: queued.createdAt,
+        offlineQueued: true,
+      } as Inspection & { offlineQueued: true };
+    }
   },
 
   update: async (id: string, data: UpdateInspectionDto) => {
-    const response = await api.patch<Inspection>(`/inspections/${id}`, data);
-    return response.data;
+    try {
+      const response = await api.patch<Inspection>(`/inspections/${id}`, data);
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.code !== 'ERR_NETWORK') {
+        throw error;
+      }
+
+      const queued = enqueueOfflineMutation({
+        url: `/inspections/${id}`,
+        method: 'patch',
+        data,
+        label: 'Inspecao',
+      });
+
+      return {
+        ...(data as unknown as Partial<Inspection>),
+        id,
+        created_at: queued.createdAt,
+        updated_at: queued.createdAt,
+        offlineQueued: true,
+      } as Inspection & { offlineQueued: true };
+    }
   },
 
   attachEvidence: async (id: string, file: File, descricao?: string) => {

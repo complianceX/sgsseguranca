@@ -50,6 +50,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   const prefillDescription = searchParams.get('description') || '';
   const prefillEquipment = searchParams.get('equipamento') || '';
   const prefillMachine = searchParams.get('maquina') || '';
+  const isFieldMode = searchParams.get('field') === '1';
   const { user } = useAuth();
   const isTemplateMode = mode === 'template';
   const isAdminGeneral = user?.profile?.nome === 'Administrador Geral';
@@ -552,6 +553,10 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       } else {
         saved = await checklistsService.create(payload, selectedCompanyId || undefined);
       }
+
+      if ((saved as Checklist & { offlineQueued?: boolean }).offlineQueued) {
+        toast.info('Checklist salvo na fila offline. A sincronização será retomada quando a conexão voltar.');
+      }
       
       if (saved?.id) {
         setCurrentChecklistId(saved.id);
@@ -655,7 +660,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   };
 
   return (
-    <div className="ds-form-page mx-auto max-w-4xl print:max-w-none print:p-0">
+    <div className={`ds-form-page mx-auto max-w-4xl print:max-w-none print:p-0 ${isFieldMode ? 'pb-28' : ''}`}>
       <div className="mb-6 flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
           <Link
@@ -704,6 +709,34 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
           </div>
         </div>
       </div>
+
+      {isFieldMode ? (
+        <div className={`${panelClassName} mb-6 border-emerald-400/25 bg-emerald-500/8 p-5 print:hidden`}>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-200">
+                Modo campo
+              </p>
+              <h2 className="mt-2 text-lg font-semibold text-[var(--ds-color-text-primary)]">
+                Checklist rápido para celular
+              </h2>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                Fluxo com botões maiores, câmera pronta e fila offline para uso em obra, rua e áreas industriais.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-center md:w-[260px]">
+              <div className="rounded-[var(--ds-radius-md)] border border-white/10 bg-white/5 px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">Câmera</p>
+                <p className="mt-1 text-sm font-semibold text-white">Pronta</p>
+              </div>
+              <div className="rounded-[var(--ds-radius-md)] border border-white/10 bg-white/5 px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">Fila</p>
+                <p className="mt-1 text-sm font-semibold text-white">Automática</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Cabeçalho de Impressão */}
       <div className="hidden print:mb-8 print:block">
@@ -872,6 +905,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                     id="checklist-form-foto-equipamento"
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     onChange={handlePhotoChange}
                     className="w-full text-sm text-[var(--ds-color-text-muted)] file:mr-4 file:rounded-[var(--ds-radius-md)] file:border-0 file:bg-[var(--ds-color-surface-muted)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--ds-color-text-secondary)] hover:file:bg-[var(--ds-color-primary-subtle)]/45"
                     title="Foto do equipamento"
@@ -984,7 +1018,16 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
         )}
 
         {/* Rodapé de Ações */}
-        <div className="flex items-center justify-end gap-3 print:hidden">
+        <div className={`print:hidden ${isFieldMode ? 'sticky bottom-4 z-10 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[var(--ds-color-surface-elevated)]/95 p-4 shadow-[var(--ds-shadow-lg)] backdrop-blur' : 'flex items-center justify-end gap-3'}`}>
+          {isFieldMode ? (
+            <div className="mb-3">
+              <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Pronto para salvar em campo</p>
+              <p className="text-xs text-[var(--ds-color-text-muted)]">
+                Se a internet cair, o checklist fica na fila local e sincroniza automaticamente depois.
+              </p>
+            </div>
+          ) : null}
+          <div className={isFieldMode ? 'grid grid-cols-2 gap-3' : 'flex items-center justify-end gap-3'}>
             <Link
                 href={isTemplateMode ? "/dashboard/checklist-models" : "/dashboard/checklists"}
                 className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/24"
@@ -999,10 +1042,10 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                 size="lg"
             >
                 <Save className="h-4 w-4" />
-                {isTemplateMode ? 'Salvar Modelo' : 'Salvar Checklist'}
+                {isTemplateMode ? 'Salvar Modelo' : isFieldMode ? 'Salvar em campo' : 'Salvar Checklist'}
             </Button>
             
-            {!isTemplateMode && (
+            {!isTemplateMode && !isFieldMode && (
                 <>
                     <Button
                         type="button"
@@ -1024,6 +1067,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                     </Button>
                 </>
             )}
+          </div>
         </div>
       </form>
 

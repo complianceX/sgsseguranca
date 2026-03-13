@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import type { FieldErrors } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { inspectionsService } from "@/services/inspectionsService";
+import { inspectionsService, type Inspection } from "@/services/inspectionsService";
 import { sitesService, Site } from "@/services/sitesService";
 import { usersService, User } from "@/services/usersService";
 import { getFormErrorMessage } from "@/lib/error-handler";
@@ -168,6 +168,15 @@ function normalizeTimeInput(value?: string | null) {
   if (!value) return currentTimeInputValue();
   const match = value.match(/^\d{2}:\d{2}/);
   return match ? match[0] : value;
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Nao foi possivel converter a imagem."));
+    reader.readAsDataURL(file);
+  });
 }
 
 function buildDefaultRisk(): RiskFormItem {
@@ -353,6 +362,7 @@ const nativeSelectClassName =
 
 export function InspectionForm({ id }: InspectionFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [loading, setLoading] = useState(false);
@@ -365,6 +375,18 @@ export function InspectionForm({ id }: InspectionFormProps) {
   const [cameraTargetIndex, setCameraTargetIndex] = useState<number | null>(
     null,
   );
+  const isFieldMode = searchParams.get("field") === "1";
+  const isPhotographicReport = searchParams.get("kind") === "photographic";
+  const prefillSiteId = searchParams.get("site_id") || "";
+  const prefillResponsibleId =
+    searchParams.get("responsavel_id") || searchParams.get("user_id") || "";
+  const prefillArea =
+    searchParams.get("setor_area") || searchParams.get("area") || "";
+  const prefillGoal =
+    searchParams.get("objetivo") ||
+    (isPhotographicReport
+      ? "Registrar evidencias fotograficas das frentes de servico e das condicoes observadas em campo."
+      : "");
 
   const {
     register,
@@ -447,6 +469,39 @@ export function InspectionForm({ id }: InspectionFormProps) {
     name: "descricao_local_atividades",
     defaultValue: "",
   });
+
+  useEffect(() => {
+    if (id) return;
+
+    if (prefillSiteId) {
+      setValue("site_id", prefillSiteId, { shouldDirty: false });
+    }
+    if (prefillResponsibleId) {
+      setValue("responsavel_id", prefillResponsibleId, { shouldDirty: false });
+    }
+    if (prefillArea) {
+      setValue("setor_area", prefillArea, { shouldDirty: false });
+    }
+    if (prefillGoal) {
+      setValue("objetivo", prefillGoal, { shouldDirty: false });
+    }
+    if (isPhotographicReport) {
+      setValue("tipo_inspecao", "Especial", { shouldDirty: false });
+      setValue(
+        "metodologia",
+        Array.from(new Set(["Observação direta em campo", "Registro fotográfico"])),
+        { shouldDirty: false },
+      );
+    }
+  }, [
+    id,
+    isPhotographicReport,
+    prefillArea,
+    prefillGoal,
+    prefillResponsibleId,
+    prefillSiteId,
+    setValue,
+  ]);
   const metodologiaSelecionada = watchedMetodologia ?? [];
   const riscos = watchedRiscos ?? [];
   const evidencias = watchedEvidencias ?? [];
@@ -680,6 +735,8 @@ export function InspectionForm({ id }: InspectionFormProps) {
     try {
       setLoading(true);
       setSubmitError(null);
+      const isBrowserOffline =
+        typeof navigator !== "undefined" ? !navigator.onLine : false;
 
       // Separar evidências com arquivo local para upload dedicado
       const evidenciasComArquivoIndices = Object.entries(evidenceFiles)
@@ -690,21 +747,55 @@ export function InspectionForm({ id }: InspectionFormProps) {
         (_item, idx) => !evidenciasComArquivoIndices.includes(idx),
       );
 
-      const payload = { ...data, evidencias: evidenciasSemArquivo };
+      const inlineEvidence = isBrowserOffline
+        ? (
+            await Promise.all(
+              evidenciasComArquivoIndices.flatMap((idx) =>
+                (evidenceFiles[idx] || []).map(async (file) => ({
+                  descricao:
+                    data.evidencias?.[idx]?.descricao ||
+                    `Foto de campo - ${file.name}`,
+                  url: await fileToDataUrl(file),
+                  original_name: file.name,
+                })),
+              ),
+            )
+          ).filter((item) => item.url)
+        : [];
+
+      const payload = {
+        ...data,
+        evidencias: [...evidenciasSemArquivo, ...inlineEvidence],
+      };
 
       let inspectionId = id;
+      let offlineQueued = false;
       if (id) {
         const updated = await inspectionsService.update(id, payload);
         inspectionId = updated.id;
-        toast.success("Relatório de inspeção atualizado com sucesso.");
+        offlineQueued = Boolean(
+          (updated as Inspection & { offlineQueued?: boolean }).offlineQueued,
+        );
+        toast.success(
+          offlineQueued
+            ? "Inspecao salva na fila offline. Ela sera sincronizada quando a conexao voltar."
+            : "Relatório de inspeção atualizado com sucesso.",
+        );
       } else {
         const created = await inspectionsService.create(payload);
         inspectionId = created.id;
-        toast.success("Relatório de inspeção criado com sucesso.");
+        offlineQueued = Boolean(
+          (created as Inspection & { offlineQueued?: boolean }).offlineQueued,
+        );
+        toast.success(
+          offlineQueued
+            ? "Inspecao registrada no modo offline. O envio sera retomado automaticamente."
+            : "Relatório de inspeção criado com sucesso.",
+        );
       }
 
       // Upload dos arquivos de evidência (se houver)
-      if (inspectionId) {
+      if (inspectionId && !offlineQueued) {
         for (const idx of evidenciasComArquivoIndices) {
           const files = evidenceFiles[idx];
           if (!files?.length) continue;
@@ -781,7 +872,10 @@ export function InspectionForm({ id }: InspectionFormProps) {
     <>
       <form
         onSubmit={handleSubmit(onSubmit, onInvalid)}
-        className="ds-form-page space-y-6 pb-12"
+        className={cn(
+          "ds-form-page space-y-6 pb-12",
+          isFieldMode && "mx-auto max-w-5xl space-y-4 pb-32",
+        )}
       >
         <Card tone="elevated" padding="lg" className="overflow-hidden">
           <CardHeader className="gap-4">
@@ -791,14 +885,22 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   <ClipboardList className="h-6 w-6" />
                 </div>
                 <div>
+                  {isFieldMode ? (
+                    <span className="inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200">
+                      modo campo
+                    </span>
+                  ) : null}
                   <CardTitle className="text-[1.15rem]">
                     {id
                       ? "Edição do relatório de inspeção"
-                      : "Novo relatório de inspeção"}
+                      : isPhotographicReport
+                        ? "Novo relatório fotográfico"
+                        : "Novo relatório de inspeção"}
                   </CardTitle>
                   <CardDescription className="mt-1 max-w-2xl">
-                    Organizamos o fluxo para registrar contexto, avaliar riscos,
-                    desdobrar ações e fechar a inspeção com mais clareza.
+                    {isFieldMode
+                      ? "Fluxo reduzido para celular, com captura rápida de evidências, botões maiores e tolerância ao modo offline."
+                      : "Organizamos o fluxo para registrar contexto, avaliar riscos, desdobrar ações e fechar a inspeção com mais clareza."}
                   </CardDescription>
                   {openNcWithSophieHref ? (
                     <Link
@@ -811,17 +913,23 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   ) : null}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className={cn("flex flex-wrap items-center gap-2", isFieldMode && "w-full md:w-auto")}>
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={() => router.push("/dashboard/inspections")}
+                  className={cn(isFieldMode && "flex-1 min-w-[150px]")}
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" loading={loading || isSubmitting}>
+                <Button
+                  type="submit"
+                  loading={loading || isSubmitting}
+                  className={cn(isFieldMode && "flex-1 min-w-[180px]")}
+                  size={isFieldMode ? "lg" : "md"}
+                >
                   <Save className="h-4 w-4" />
-                  {id ? "Salvar alterações" : "Salvar relatório"}
+                  {id ? "Salvar alterações" : isFieldMode ? "Salvar em campo" : "Salvar relatório"}
                 </Button>
               </div>
             </div>
@@ -1642,6 +1750,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                           <input
                             type="file"
                             accept="image/*"
+                            capture="environment"
                             onChange={(event) => {
                               const files = Array.from(event.target.files || []);
                               setEvidenceFiles((prev) => ({ ...prev, [index]: files }));
@@ -1700,27 +1809,37 @@ export function InspectionForm({ id }: InspectionFormProps) {
             padding="md"
             className="border-[var(--ds-color-border-strong)]"
           >
-            <CardContent className="mt-0 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <CardContent className={cn(
+              "mt-0 flex flex-col gap-3 md:flex-row md:items-center md:justify-between",
+              isFieldMode && "gap-4",
+            )}>
               <div>
                 <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                  Relatório pronto para salvar
+                  {isFieldMode ? "Pronto para salvar em campo" : "Relatório pronto para salvar"}
                 </p>
                 <p className="text-sm text-[var(--ds-color-text-muted)]">
-                  Revise riscos críticos, ações pendentes e evidências antes de
-                  concluir.
+                  {isFieldMode
+                    ? "Se a conexão cair, o relatório entra na fila local e sincroniza quando a internet voltar."
+                    : "Revise riscos críticos, ações pendentes e evidências antes de concluir."}
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className={cn("flex flex-wrap items-center gap-2", isFieldMode && "grid grid-cols-2")}>
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={() => router.push("/dashboard/inspections")}
+                  size={isFieldMode ? "lg" : "md"}
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" loading={loading || isSubmitting}>
+                <Button
+                  type="submit"
+                  loading={loading || isSubmitting}
+                  size={isFieldMode ? "lg" : "md"}
+                  className={cn(isFieldMode && "col-span-1")}
+                >
                   <Save className="h-4 w-4" />
-                  {id ? "Salvar alterações" : "Salvar relatório"}
+                  {id ? "Salvar alterações" : isFieldMode ? "Salvar agora" : "Salvar relatório"}
                 </Button>
               </div>
             </CardContent>

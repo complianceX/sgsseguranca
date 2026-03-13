@@ -11,8 +11,13 @@ import {
 import { cn } from "@/lib/utils";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 export default function NewInspectionPage() {
+  const searchParams = useSearchParams();
+  const isFieldMode = searchParams.get("field") === "1";
+  const isPhotographicReport = searchParams.get("kind") === "photographic";
+
   return (
     <div className="ds-form-page space-y-6">
       <Card tone="elevated" padding="lg">
@@ -23,11 +28,14 @@ export default function NewInspectionPage() {
             </div>
             <div>
               <CardTitle className="text-[1.2rem]">
-                Novo Relatório de Inspeção
+                {isPhotographicReport
+                  ? "Novo Relatório Fotográfico"
+                  : "Novo Relatório de Inspeção"}
               </CardTitle>
               <CardDescription className="mt-1 max-w-2xl">
-                Preencha contexto, riscos, plano de ação e evidências em um
-                fluxo mais direto para operação em campo.
+                {isFieldMode
+                  ? "Fluxo reduzido para celular, com evidência primeiro, fila offline e ações grandes para uso em obra."
+                  : "Preencha contexto, riscos, plano de ação e evidências em um fluxo mais direto para operação em campo."}
               </CardDescription>
             </div>
           </div>
