@@ -26,8 +26,8 @@ import { BruteForceService } from './brute-force.service';
 import { RbacService } from '../rbac/rbac.service';
 import { getRequestIp } from '../common/utils/request-ip.util';
 import {
-  getRefreshTokenCookieMaxAgeMs,
-  getRefreshTokenTtl,
+  getRefreshTokenClearCookieOptions,
+  getRefreshTokenCookieOptions,
 } from './auth-security.config';
 
 const isProd = process.env.NODE_ENV === 'production';
@@ -84,13 +84,7 @@ export class AuthController {
     const access = await this.rbacService.getUserAccess(user.id);
 
     // Refresh token - longa duração
-    response.cookie('refresh_token', result.refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: getRefreshTokenCookieMaxAgeMs(),
-      path: '/auth/refresh',
-    });
+    response.cookie('refresh_token', result.refreshToken, getRefreshTokenCookieOptions());
 
     // Modelo oficial: access token em Authorization Bearer (não em cookie).
     return {
@@ -118,13 +112,7 @@ export class AuthController {
     });
 
     if (result.refreshToken) {
-      res.cookie('refresh_token', result.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: getRefreshTokenCookieMaxAgeMs(),
-        path: '/auth/refresh',
-      });
+      res.cookie('refresh_token', result.refreshToken, getRefreshTokenCookieOptions());
     }
 
     return { accessToken: result.accessToken };
@@ -142,7 +130,7 @@ export class AuthController {
     if (refreshToken) {
       await this.authService.logout(refreshToken);
     }
-    response.clearCookie('refresh_token', { path: '/auth/refresh' });
+    response.clearCookie('refresh_token', getRefreshTokenClearCookieOptions());
     return { success: true };
   }
 

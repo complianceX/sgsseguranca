@@ -2,6 +2,11 @@ import api from '@/lib/api';
 import type { Checklist } from './checklistsService';
 import { isAiEnabled } from '@/lib/featureFlags';
 
+const AI_STATUS_TIMEOUT_MS = 20000;
+const AI_DEFAULT_TIMEOUT_MS = 45000;
+const AI_CHAT_TIMEOUT_MS = 90000;
+const AI_IMAGE_TIMEOUT_MS = 120000;
+
 function assertAiEnabled() {
   if (!isAiEnabled()) {
     throw new Error('IA desativada neste ambiente (FEATURE_AI_ENABLED=false).');
@@ -163,7 +168,9 @@ export interface ImageRiskAnalysis {
 export const sophieService = {
   async getStatus() {
     assertAiEnabled();
-    const { data } = await api.get('/ai/status');
+    const { data } = await api.get('/ai/status', {
+      timeout: AI_STATUS_TIMEOUT_MS,
+    });
     return data;
   },
 
@@ -175,43 +182,56 @@ export const sophieService = {
     const { data } = await api.post<SophieResponse>('/ai/sst/chat', {
       question,
       history,
+    }, {
+      timeout: AI_CHAT_TIMEOUT_MS,
     });
     return data;
   },
 
   async getHistory(limit = 20): Promise<SophieHistoryItem[]> {
     assertAiEnabled();
-    const { data } = await api.get<SophieHistoryItem[]>(`/ai/sst/history?limit=${limit}`);
+    const { data } = await api.get<SophieHistoryItem[]>(`/ai/sst/history?limit=${limit}`, {
+      timeout: AI_DEFAULT_TIMEOUT_MS,
+    });
     return data;
   },
 
   async getInsights() {
     assertAiEnabled();
-    const { data } = await api.post('/ai/insights');
+    const { data } = await api.post('/ai/insights', undefined, {
+      timeout: AI_DEFAULT_TIMEOUT_MS,
+    });
     return data;
   },
 
   async analyzeApr(description: string) {
     assertAiEnabled();
-    const { data } = await api.post('/ai/analyze-apr', { description });
+    const { data } = await api.post('/ai/analyze-apr', { description }, {
+      timeout: AI_DEFAULT_TIMEOUT_MS,
+    });
     return data;
   },
 
   async analyzePt(payload: AnalyzePtData) {
     assertAiEnabled();
-    const { data } = await api.post('/ai/analyze-pt', payload);
+    const { data } = await api.post('/ai/analyze-pt', payload, {
+      timeout: AI_DEFAULT_TIMEOUT_MS,
+    });
     return data;
   },
 
   async analyzeChecklist(id: string) {
     assertAiEnabled();
-    const { data } = await api.get(`/ai/analyze-checklist/${id}`);
+    const { data } = await api.get(`/ai/analyze-checklist/${id}`, {
+      timeout: AI_DEFAULT_TIMEOUT_MS,
+    });
     return data;
   },
 
   async generateChecklist(payload: GenerateChecklistPayload, companyId?: string) {
     assertAiEnabled();
     const { data } = await api.post<Checklist>('/ai/generate-checklist', payload, {
+      timeout: AI_DEFAULT_TIMEOUT_MS,
       headers: companyId ? { 'x-company-id': companyId } : undefined,
     });
     return data;
@@ -219,7 +239,9 @@ export const sophieService = {
 
   async generateDds() {
     assertAiEnabled();
-    const { data } = await api.post('/ai/generate-dds');
+    const { data } = await api.post('/ai/generate-dds', undefined, {
+      timeout: AI_DEFAULT_TIMEOUT_MS,
+    });
     return data;
   },
 
@@ -229,6 +251,7 @@ export const sophieService = {
   ) {
     assertAiEnabled();
     const { data } = await api.post<CreateChecklistAutomationResponse>('/ai/create-checklist', payload, {
+      timeout: AI_DEFAULT_TIMEOUT_MS,
       headers: companyId ? { 'x-company-id': companyId } : undefined,
     });
     return data;
@@ -240,6 +263,7 @@ export const sophieService = {
   ) {
     assertAiEnabled();
     const { data } = await api.post<CreateDdsAutomationResponse>('/ai/create-dds', payload, {
+      timeout: AI_DEFAULT_TIMEOUT_MS,
       headers: companyId ? { 'x-company-id': companyId } : undefined,
     });
     return data;
@@ -254,6 +278,7 @@ export const sophieService = {
       '/ai/create-nonconformity',
       payload,
       {
+        timeout: AI_DEFAULT_TIMEOUT_MS,
         headers: companyId ? { 'x-company-id': companyId } : undefined,
       },
     );
@@ -266,6 +291,7 @@ export const sophieService = {
   ) {
     assertAiEnabled();
     const { data } = await api.post<QueueMonthlyReportAutomationResponse>('/ai/generate-monthly-report', payload, {
+      timeout: AI_DEFAULT_TIMEOUT_MS,
       headers: companyId ? { 'x-company-id': companyId } : undefined,
     });
     return data;
@@ -278,7 +304,9 @@ export const sophieService = {
     if (context?.trim()) {
       formData.append('context', context.trim());
     }
-    const { data } = await api.post<ImageRiskAnalysis>('/ai/sst/analyze-image-risk', formData);
+    const { data } = await api.post<ImageRiskAnalysis>('/ai/sst/analyze-image-risk', formData, {
+      timeout: AI_IMAGE_TIMEOUT_MS,
+    });
     return data;
   },
 };

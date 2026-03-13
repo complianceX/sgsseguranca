@@ -95,8 +95,14 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
   };
 
   const getFriendlyErrorMessage = (error: unknown) => {
-    const maybeAxios = error as { response?: { status?: number } };
+    const maybeAxios = error as { response?: { status?: number }; code?: string; message?: string };
     const status = maybeAxios?.response?.status;
+    const code = maybeAxios?.code;
+    const message = String(maybeAxios?.message || '').toLowerCase();
+
+    if (status === 401) {
+      return 'Sua sessão expirou ou o refresh token não está disponível. Entre novamente para continuar usando a SOPHIE.';
+    }
 
     if (status === 403) {
       return 'Seu perfil nao possui permissao para usar a SOPHIE neste ambiente.';
@@ -108,6 +114,10 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
 
     if (status === 429) {
       return 'A SOPHIE atingiu o limite temporario de uso. Tente novamente em instantes.';
+    }
+
+    if (code === 'ECONNABORTED' || message.includes('timeout')) {
+      return 'A SOPHIE está demorando mais do que o esperado para responder. Aguarde alguns segundos e tente novamente.';
     }
 
     return 'Nao consegui responder agora. Tente novamente em instantes.';

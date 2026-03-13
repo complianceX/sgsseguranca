@@ -1,10 +1,13 @@
 import type { SignOptions } from 'jsonwebtoken';
+import type { CookieOptions } from 'express';
 
 // Ajustamos os padrões para "praticamente ilimitado": 10 anos.
 const DEFAULT_ACCESS_TOKEN_TTL = '3650d';
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 3650; // 10 anos
 const DEFAULT_MAX_ACTIVE_SESSIONS_PER_USER = 5;
+const REFRESH_COOKIE_PATH = '/auth/refresh';
 type TokenExpiresIn = NonNullable<SignOptions['expiresIn']>;
+type RefreshCookieSameSite = 'strict' | 'lax' | 'none';
 
 export function isInfiniteTtl(ttl: TokenExpiresIn | string): boolean {
   const normalized = String(ttl).toLowerCase();
@@ -74,6 +77,69 @@ export function getRefreshTokenTtl(): TokenExpiresIn {
 
 export function getRefreshTokenCookieMaxAgeMs(): number {
   return getRefreshTokenTtlDays() * 24 * 60 * 60 * 1000;
+}
+
+export function getRefreshTokenCookieSameSite(): RefreshCookieSameSite {
+  const raw = (process.env.AUTH_COOKIE_SAMESITE ||
+    process.env.REFRESH_TOKEN_COOKIE_SAMESITE ||
+    '')
+    .trim()
+    .toLowerCase();
+
+  if (raw === 'none' || raw === 'lax' || raw === 'strict') {
+    return raw;
+  }
+
+  return process.env.NODE_ENV === 'production' ? 'strict' : 'lax';
+}
+
+export function getRefreshTokenCookieSecure(): boolean {
+  const raw = (process.env.AUTH_COOKIE_SECURE ||
+    process.env.REFRESH_TOKEN_COOKIE_SECURE ||
+    '')
+    .trim()
+    .toLowerCase();
+
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+
+  // SameSite=None exige Secure nos navegadores modernos.
+  if (getRefreshTokenCookieSameSite() === 'none') {
+    return true;
+  }
+
+  return process.env.NODE_ENV === 'production';
+}
+
+export function getRefreshTokenCookieDomain(): string | undefined {
+  const value = (process.env.AUTH_COOKIE_DOMAIN ||
+    process.env.REFRESH_TOKEN_COOKIE_DOMAIN ||
+    '')
+    .trim();
+  return value || undefined;
+}
+
+export function getRefreshTokenCookieOptions(): CookieOptions {
+  const domain = getRefreshTokenCookieDomain();
+  return {
+    httpOnly: true,
+    secure: getRefreshTokenCookieSecure(),
+    sameSite: getRefreshTokenCookieSameSite(),
+    maxAge: getRefreshTokenCookieMaxAgeMs(),
+    path: REFRESH_COOKIE_PATH,
+    ...(domain ? { domain } : {}),
+  };
+}
+
+export function getRefreshTokenClearCookieOptions(): CookieOptions {
+  const domain = getRefreshTokenCookieDomain();
+  return {
+    httpOnly: true,
+    secure: getRefreshTokenCookieSecure(),
+    sameSite: getRefreshTokenCookieSameSite(),
+    path: REFRESH_COOKIE_PATH,
+    ...(domain ? { domain } : {}),
+  };
 }
 
 export function getMaxActiveSessionsPerUser(): number {
