@@ -70,6 +70,10 @@ export class AiService {
     return tenantId;
   }
 
+  private getCurrentUserId(): string {
+    return RequestContext.getUserId() || 'unknown';
+  }
+
   private async enforceRateLimit(tenantId: string): Promise<void> {
     const rlCheck = await this.rateLimitService.checkAndConsume(tenantId);
     if (!rlCheck.allowed) {
@@ -229,7 +233,7 @@ export class AiService {
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: 'system',
+      user_id: this.getCurrentUserId(),
       question: 'INSIGHTS',
       model: this.openaiModel,
       provider: 'openai',
@@ -334,7 +338,7 @@ export class AiService {
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: 'unknown',
+      user_id: this.getCurrentUserId(),
       question: `ANALYZE_APR: ${description.slice(0, 220)}`,
       model: this.openaiModel,
       provider: 'openai',
@@ -407,7 +411,7 @@ export class AiService {
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: 'unknown',
+      user_id: this.getCurrentUserId(),
       question: `ANALYZE_PT: ${data.titulo}`,
       model: this.openaiModel,
       provider: 'openai',
@@ -486,7 +490,7 @@ export class AiService {
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: 'unknown',
+      user_id: this.getCurrentUserId(),
       question: `ANALYZE_CHECKLIST: ${id}`,
       model: this.openaiModel,
       provider: 'openai',
@@ -563,7 +567,7 @@ export class AiService {
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: 'unknown',
+      user_id: this.getCurrentUserId(),
       question: 'GENERATE_DDS',
       model: this.openaiModel,
       provider: 'openai',
