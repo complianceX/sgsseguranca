@@ -17,6 +17,7 @@ import {
 import { sitesService, Site } from "@/services/sitesService";
 import { getFormErrorMessage } from "@/lib/error-handler";
 import { attachPdfIfProvided } from "@/lib/document-upload";
+import { readSophieNcPreview, SophieNcPreview } from "@/lib/sophie-draft-storage";
 
 const nonConformitySchema = z.object({
   codigo_nc: z.string().min(1, "O código é obrigatório"),
@@ -76,6 +77,44 @@ interface NonConformityFormProps {
   id?: string;
 }
 
+function isImageAttachment(url?: string) {
+  const normalized = String(url || "").trim().toLowerCase();
+  return (
+    normalized.startsWith("data:image/") ||
+    normalized.endsWith(".png") ||
+    normalized.endsWith(".jpg") ||
+    normalized.endsWith(".jpeg") ||
+    normalized.endsWith(".webp") ||
+    normalized.endsWith(".gif")
+  );
+}
+
+function resolveActionPriorityClass(priority?: string) {
+  switch (priority) {
+    case "critical":
+      return "border-red-300 bg-red-50 text-red-700";
+    case "high":
+      return "border-amber-300 bg-amber-50 text-amber-700";
+    case "medium":
+      return "border-sky-300 bg-sky-50 text-sky-700";
+    default:
+      return "border-slate-300 bg-slate-50 text-slate-700";
+  }
+}
+
+function resolveRiskLevelClass(riskLevel?: string) {
+  switch (riskLevel) {
+    case "Crítico":
+      return "border-red-300 bg-red-50 text-red-700";
+    case "Alto":
+      return "border-amber-300 bg-amber-50 text-amber-700";
+    case "Médio":
+      return "border-sky-300 bg-sky-50 text-sky-700";
+    default:
+      return "border-emerald-300 bg-emerald-50 text-emerald-700";
+  }
+}
+
 export function NonConformityForm({ id }: NonConformityFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -84,6 +123,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
   const [sites, setSites] = useState<Site[]>([]);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [sophiePreview, setSophiePreview] = useState<SophieNcPreview | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -93,6 +133,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     control,
     reset,
     setFocus,
+    watch,
     formState: { errors, isValid, isSubmitting },
   } = useForm<NonConformityFormData>({
     resolver: zodResolver(nonConformitySchema),
@@ -120,6 +161,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     control,
     name: "anexos",
   });
+  const watchedAnexos = watch("anexos") || [];
 
   const startCamera = async () => {
     try {
@@ -208,6 +250,15 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
 
     loadData();
   }, [id, reset]);
+
+  useEffect(() => {
+    if (!id) {
+      setSophiePreview(null);
+      return;
+    }
+
+    setSophiePreview(readSophieNcPreview(id));
+  }, [id]);
 
   const onSubmit = async (data: NonConformityFormData) => {
     setLoading(true);
@@ -338,6 +389,118 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           {submitError}
         </div>
       )}
+      {sophiePreview ? (
+        <div className="rounded-xl border border-[var(--ds-color-action-primary)]/20 bg-[var(--ds-color-action-primary)]/8 p-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-action-primary)]">
+                NC Assistida pela SOPHIE
+              </p>
+              <h2 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
+                Revisão guiada da não conformidade
+              </h2>
+              <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                A SOPHIE estruturou o plano inicial de ação e trouxe as evidências visuais da origem para acelerar sua validação técnica.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {sophiePreview.riskLevel ? (
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${resolveRiskLevelClass(
+                    sophiePreview.riskLevel,
+                  )}`}
+                >
+                  Risco {sophiePreview.riskLevel}
+                </span>
+              ) : null}
+              {sophiePreview.sourceType ? (
+                <span className="rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+                  Origem {sophiePreview.sourceType}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {sophiePreview.actionPlan?.length ? (
+            <div className="mt-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
+                Plano de ação estruturado pela SOPHIE
+              </p>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                {sophiePreview.actionPlan.map((item, index) => (
+                  <div
+                    key={`${item.type}-${item.title}-${index}`}
+                    className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-white/80 p-4 shadow-sm"
+                  >
+                    <div className="flex flex-wrap gap-2">
+                      <span
+                        className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${resolveActionPriorityClass(
+                          item.priority,
+                        )}`}
+                      >
+                        Prioridade {item.priority}
+                      </span>
+                      <span className="rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
+                        {item.type}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      {item.title}
+                    </p>
+                    <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
+                      Responsável sugerido: {item.owner}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                      Prazo sugerido: {item.timeline}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {sophiePreview.evidenceAttachments?.length ? (
+            <div className="mt-5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
+                Evidências importadas da origem
+              </p>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                {sophiePreview.evidenceAttachments.map((item, index) => (
+                  <div
+                    key={`${item.url}-${index}`}
+                    className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-white/80"
+                  >
+                    {isImageAttachment(item.url) ? (
+                      <img
+                        src={item.url}
+                        alt={item.label}
+                        className="h-40 w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-40 items-center justify-center bg-slate-100 px-4 text-center text-xs text-slate-500">
+                        Evidência disponível para abertura externa
+                      </div>
+                    )}
+                    <div className="p-3">
+                      <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                        {item.label}
+                      </p>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+                      >
+                        Abrir evidência
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       <div className="sst-card p-6">
         <h2 className="mb-4 text-lg font-bold text-gray-900">
           1. Identificação da Não Conformidade
@@ -1109,6 +1272,52 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             </button>
           </div>
           <div className="space-y-2">
+            {watchedAnexos.length > 0 ? (
+              <div className="grid gap-3 md:grid-cols-3">
+                {watchedAnexos.map((item, index) => {
+                  const url = String(item?.url || "");
+                  const previewLabel =
+                    sophiePreview?.evidenceAttachments?.find((entry) => entry.url === url)
+                      ?.label || `Anexo ${index + 1}`;
+
+                  if (!url) {
+                    return null;
+                  }
+
+                  return (
+                    <div
+                      key={`${url}-${index}`}
+                      className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
+                    >
+                      {isImageAttachment(url) ? (
+                        <img
+                          src={url}
+                          alt={previewLabel}
+                          className="h-32 w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-32 items-center justify-center bg-slate-100 px-4 text-center text-xs text-slate-500">
+                          Arquivo anexado
+                        </div>
+                      )}
+                      <div className="p-3">
+                        <p className="text-xs font-semibold text-[var(--ds-color-text-primary)]">
+                          {previewLabel}
+                        </p>
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-flex text-[11px] font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+                        >
+                          Abrir anexo
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
             {anexosFields.map((field, index) => (
               <div key={field.id} className="flex items-center space-x-2">
                 <input

@@ -204,7 +204,7 @@ export interface GeneratePtDraftAutomationResponse extends SophieDraftResponse {
 export interface SophieActionPlanItem {
   title: string;
   owner: string;
-  priority: 'low' | 'medium' | 'high';
+  priority: 'low' | 'medium' | 'high' | 'critical';
   timeline: string;
   type: 'immediate' | 'corrective' | 'preventive';
 }
@@ -221,6 +221,7 @@ export interface CreateNonConformityAutomationResponse {
     sourceType: 'manual' | 'image' | 'checklist' | 'inspection';
     actionPlan: SophieActionPlanItem[];
     evidenceCount?: number;
+    evidenceAttachments?: Array<{ url: string; label: string }>;
     confidence?: 'high' | 'medium' | 'low';
     notes?: string[];
   };

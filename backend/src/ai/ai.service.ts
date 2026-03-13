@@ -1626,7 +1626,9 @@ export class AiService {
           title: String(item.title || fallback.title || '').trim(),
           owner: String(item.owner || fallback.owner || 'Gestão SST').trim(),
           priority:
-            priority === 'high' || priority === 'low' ? priority : 'medium',
+            priority === 'critical' || priority === 'high' || priority === 'low'
+              ? priority
+              : 'medium',
           timeline: String(item.timeline || fallback.timeline || 'Curto prazo').trim(),
           type:
             type === 'immediate' || type === 'preventive' ? type : 'corrective',
@@ -1644,7 +1646,9 @@ export class AiService {
         title: String(entry.title || '').trim(),
         owner: String(entry.owner || 'Gestão SST').trim(),
         priority:
-          entry.priority === 'high' || entry.priority === 'low'
+          entry.priority === 'critical' ||
+          entry.priority === 'high' ||
+          entry.priority === 'low'
             ? entry.priority
             : ('medium' as const),
         timeline: String(entry.timeline || 'Curto prazo').trim(),
@@ -2440,7 +2444,7 @@ export class AiService {
         `  "acao_imediata_descricao": string,\n` +
         `  "acao_definitiva_descricao": string,\n` +
         `  "acao_preventiva_medidas": string,\n` +
-        `  "action_plan": [{"title": string, "owner": string, "priority": "low|medium|high", "timeline": string, "type": "immediate|corrective|preventive"}],\n` +
+        `  "action_plan": [{"title": string, "owner": string, "priority": "low|medium|high|critical", "timeline": string, "type": "immediate|corrective|preventive"}],\n` +
         `  "confidence": "low|medium|high",\n` +
         `  "notes": string[]\n` +
         `}\n\n` +
@@ -2469,7 +2473,12 @@ export class AiService {
           String(generated.acao_imediata_descricao || '').trim() ||
           'Executar contenção imediata do desvio.',
         owner: responsavelArea,
-        priority: normalizedRiskLevel === 'Crítico' || normalizedRiskLevel === 'Alto' ? 'high' : 'medium',
+        priority:
+          normalizedRiskLevel === 'Crítico'
+            ? 'critical'
+            : normalizedRiskLevel === 'Alto'
+              ? 'high'
+              : 'medium',
         timeline: 'Imediato',
         type: 'immediate',
       },
@@ -2478,7 +2487,7 @@ export class AiService {
           String(generated.acao_definitiva_descricao || '').trim() ||
           'Implementar correção definitiva do desvio.',
         owner: 'Gestão SST',
-        priority: 'high',
+        priority: normalizedRiskLevel === 'Crítico' ? 'critical' : 'high',
         timeline: 'Até 7 dias',
         type: 'corrective',
       },
@@ -2570,6 +2579,10 @@ export class AiService {
         sourceType: sourceSnapshot.sourceType,
         actionPlan,
         evidenceCount: importedEvidence.length,
+        evidenceAttachments: sourceSnapshot.evidenceAttachments.slice(
+          0,
+          MAX_IMPORTED_EVIDENCE_ATTACHMENTS,
+        ),
         confidence,
         notes: notes.length ? notes : undefined,
       },

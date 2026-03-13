@@ -34,7 +34,11 @@ import { useAuth } from '@/context/AuthContext';
 import { sitesService, Site } from '@/services/sitesService';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { storeSophieAprDraft, storeSophiePtDraft } from '@/lib/sophie-draft-storage';
+import {
+  storeSophieAprDraft,
+  storeSophieNcPreview,
+  storeSophiePtDraft,
+} from '@/lib/sophie-draft-storage';
 
 const quickActions = [
   {
@@ -523,6 +527,7 @@ export default function SstAgentPage() {
       });
       setCreatedPtDraft(response);
       storeSophiePtDraft(user?.company_id, response.draft, {
+        riskLevel: response.riskLevel,
         suggestedRisks: response.suggestedRisks,
         mandatoryChecklists: response.mandatoryChecklists,
       });
@@ -646,7 +651,16 @@ export default function SstAgentPage() {
         image_notes: imageAnalysis?.notes,
       });
       setCreatedNc(response);
-      toast.success('Não conformidade criada pela SOPHIE com sucesso.');
+      storeSophieNcPreview({
+        id: String(response.nonConformity.id),
+        riskLevel: response.generation.riskLevel,
+        sourceType: response.generation.sourceType,
+        actionPlan: response.generation.actionPlan,
+        evidenceAttachments: response.generation.evidenceAttachments,
+        notes: response.generation.notes,
+      });
+      toast.success('Não conformidade criada pela SOPHIE. Abrindo a tela para revisão.');
+      router.push(`/dashboard/nonconformities/edit/${response.nonConformity.id}?assistant=sophie`);
     } catch (error) {
       console.error('Erro ao criar NC assistida:', error);
       toast.error('Não foi possível criar a não conformidade assistida agora.');

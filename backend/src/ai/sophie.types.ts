@@ -154,7 +154,7 @@ export type GeneratePtDraftResponse = {
 export type SophieActionPlanItem = {
   title: string;
   owner: string;
-  priority: 'low' | 'medium' | 'high';
+  priority: 'low' | 'medium' | 'high' | 'critical';
   timeline: string;
   type: 'immediate' | 'corrective' | 'preventive';
 };
@@ -167,6 +167,7 @@ export type CreateNonConformityAutomationResponse = {
     sourceType: 'manual' | 'image' | 'checklist' | 'inspection';
     actionPlan: SophieActionPlanItem[];
     evidenceCount?: number;
+    evidenceAttachments?: Array<{ url: string; label: string }>;
     confidence?: SophieConfidence;
     notes?: string[];
   };

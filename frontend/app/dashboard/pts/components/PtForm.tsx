@@ -86,6 +86,107 @@ const PT_CHECKLIST_FLAG_FIELD_MAP = {
   trabalho_escavacao_checklist: 'escavacao',
 } as const;
 
+const SOPHIE_PT_CRITICAL_CHECKPOINTS = {
+  trabalho_altura_checklist: ['protecao_area', 'linha_vida', 'ancoragem', 'plano_resgate'],
+  trabalho_eletrico_checklist: ['nr10_verificacoes', 'loto', 'aterramento_isolamento', 'plano_emergencia'],
+  trabalho_quente_checklist: ['area_livre_combustiveis', 'riscos_incendio_15m', 'extintores_adequados', 'plano_resgate'],
+  trabalho_espaco_confinado_checklist: ['atmosfera_testada_antes', 'monitoramento_durante', 'isolamento_sistemas', 'procedimentos_resgate_disponiveis'],
+  trabalho_escavacao_checklist: ['servicos_publicos_notificados', 'escoramento_nr18', 'riscos_espaco_confinado_considerados', 'checklist_equipamento_pesado'],
+} as const;
+
+function buildCriticalChecklistJustification(
+  label: string,
+  riskLevel: string,
+  title?: string,
+) {
+  const activityLabel = title?.trim() || 'atividade';
+  return `Validação crítica pendente para ${activityLabel}. A SOPHIE marcou este item como barreira obrigatória antes da liberação devido ao risco ${riskLevel.toLowerCase()}.`;
+}
+
+function applySophieCriticalPtDefaults(
+  values: Partial<PtFormData>,
+  metadata?: SophieWizardDraft['metadata'],
+) {
+  const riskLevel = String(metadata?.riskLevel || '').trim();
+  if (riskLevel !== 'Alto' && riskLevel !== 'Crítico') {
+    return values;
+  }
+
+  const nextValues: Partial<PtFormData> = {
+    ...values,
+  };
+
+  const title = String(values.titulo || '').trim();
+  const hasSpecificPermit =
+    Boolean(values.trabalho_altura) ||
+    Boolean(values.eletricidade) ||
+    Boolean(values.trabalho_quente) ||
+    Boolean(values.espaco_confinado) ||
+    Boolean(values.escavacao);
+
+  nextValues.recomendacoes_gerais_checklist = (
+    values.recomendacoes_gerais_checklist || initialChecklists.recomendacoes_gerais_checklist
+  ).map((item) => ({
+    ...item,
+    resposta: item.resposta || 'Ciente',
+  }));
+
+  nextValues.analise_risco_rapida_checklist = (
+    values.analise_risco_rapida_checklist || initialChecklists.analise_risco_rapida_checklist
+  ).map((item) => {
+    if (item.id === 'requer_permissao_especifica') {
+      return { ...item, resposta: hasSpecificPermit ? 'Sim' : item.resposta || 'Não' };
+    }
+    if (item.id === 'condicao_incomum_detectada') {
+      return { ...item, resposta: 'Sim' };
+    }
+    if (item.id === 'outra_autorizacao_especifica') {
+      return { ...item, resposta: riskLevel === 'Crítico' ? 'Sim' : item.resposta };
+    }
+    return { ...item, resposta: item.resposta || 'Sim' };
+  });
+
+  nextValues.analise_risco_rapida_observacoes =
+    values.analise_risco_rapida_observacoes?.trim() ||
+    [
+      `SOPHIE classificou esta PT como risco ${riskLevel.toLowerCase()}.`,
+      'Realizar dupla checagem dos bloqueios críticos, confirmar permissões específicas e registrar evidências antes da liberação.',
+    ].join(' ');
+
+  (
+    Object.keys(SOPHIE_PT_CRITICAL_CHECKPOINTS) as Array<
+      keyof typeof SOPHIE_PT_CRITICAL_CHECKPOINTS
+    >
+  ).forEach((fieldName) => {
+    const relatedFlag = PT_CHECKLIST_FLAG_FIELD_MAP[fieldName];
+    if (!values[relatedFlag]) {
+      return;
+    }
+
+    const checklistItems = (
+      values[fieldName] || initialChecklists[fieldName]
+    ).map((item) => {
+      const criticalIds = SOPHIE_PT_CRITICAL_CHECKPOINTS[fieldName] as readonly string[];
+      if (!criticalIds.includes(item.id)) {
+        return item;
+      }
+
+      const response = item.resposta || 'Não';
+      return {
+        ...item,
+        resposta: response,
+        justificativa:
+          item.justificativa ||
+          buildCriticalChecklistJustification(item.pergunta, riskLevel, title),
+      };
+    });
+
+    nextValues[fieldName] = checklistItems as PtFormData[typeof fieldName];
+  });
+
+  return nextValues;
+}
+
 export function PtForm({ id }: PtFormProps) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -114,6 +215,7 @@ export function PtForm({ id }: PtFormProps) {
   const [draftRestored, setDraftRestored] = useState(false);
   const [sophieSuggestedRisks, setSophieSuggestedRisks] = useState<SophieDraftRiskSuggestion[]>([]);
   const [sophieMandatoryChecklists, setSophieMandatoryChecklists] = useState<SophieDraftChecklistSuggestion[]>([]);
+  const [sophieRiskLevel, setSophieRiskLevel] = useState<string>('');
 
   const methods = useForm<PtFormData>({
     resolver: zodResolver(ptSchema),
@@ -518,6 +620,7 @@ export function PtForm({ id }: PtFormProps) {
           });
           setSophieSuggestedRisks([]);
           setSophieMandatoryChecklists([]);
+          setSophieRiskLevel('');
         } else if (draftStorageKey && typeof window !== 'undefined') {
           const rawDraft =
             window.localStorage.getItem(draftStorageKey) ||
@@ -537,11 +640,15 @@ export function PtForm({ id }: PtFormProps) {
             };
 
             if (parsedDraft.values) {
+              const preparedValues = applySophieCriticalPtDefaults(
+                parsedDraft.values,
+                parsedDraft.metadata,
+              );
               reset({
                 ...methods.getValues(),
-                ...parsedDraft.values,
+                ...preparedValues,
               });
-              companySeedId = parsedDraft.values.company_id || companySeedId;
+              companySeedId = preparedValues.company_id || companySeedId;
             }
 
             if (parsedDraft.step && parsedDraft.step >= 1 && parsedDraft.step <= 3) {
@@ -553,10 +660,12 @@ export function PtForm({ id }: PtFormProps) {
             }
             setSophieSuggestedRisks(parsedDraft.metadata?.suggestedRisks || []);
             setSophieMandatoryChecklists(parsedDraft.metadata?.mandatoryChecklists || []);
+            setSophieRiskLevel(String(parsedDraft.metadata?.riskLevel || ''));
             setDraftRestored(true);
           } else {
             setSophieSuggestedRisks([]);
             setSophieMandatoryChecklists([]);
+            setSophieRiskLevel('');
           }
         }
 
@@ -1014,6 +1123,11 @@ export function PtForm({ id }: PtFormProps) {
                     <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
                       Ative grupos de risco e checklists mandatórios com um clique para deixar a liberação coerente com a atividade e o site.
                     </p>
+                    {sophieRiskLevel === 'Alto' || sophieRiskLevel === 'Crítico' ? (
+                      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-amber-200">
+                        SOPHIE já pré-preencheu observações e checkpoints críticos porque o risco sugerido foi {sophieRiskLevel}.
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {sophieSuggestedRisks.length > 0 ? (

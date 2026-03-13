@@ -16,6 +16,7 @@ export type SophieDraftChecklistSuggestion = {
 export type SophieWizardDraftMetadata = {
   suggestedRisks?: SophieDraftRiskSuggestion[];
   mandatoryChecklists?: SophieDraftChecklistSuggestion[];
+  riskLevel?: string;
 };
 
 export type SophieWizardDraft = {
@@ -23,6 +24,24 @@ export type SophieWizardDraft = {
   values: Record<string, unknown>;
   signatures?: WizardSignatureMap;
   metadata?: SophieWizardDraftMetadata;
+};
+
+export type SophieNcPreview = {
+  id: string;
+  riskLevel?: string;
+  sourceType?: 'manual' | 'image' | 'checklist' | 'inspection';
+  actionPlan?: Array<{
+    title: string;
+    owner: string;
+    priority: 'low' | 'medium' | 'high' | 'critical';
+    timeline: string;
+    type: 'immediate' | 'corrective' | 'preventive';
+  }>;
+  evidenceAttachments?: Array<{
+    url: string;
+    label: string;
+  }>;
+  notes?: string[];
 };
 
 function resolveCompanyStorageKey(companyId?: string | null) {
@@ -65,4 +84,32 @@ export function storeSophiePtDraft(
     ...draft,
     metadata: metadata || draft.metadata,
   });
+}
+
+export function storeSophieNcPreview(preview: SophieNcPreview) {
+  if (typeof window === 'undefined' || !preview.id) {
+    return;
+  }
+
+  window.localStorage.setItem(
+    `gst.nc.sophie.preview.${preview.id}`,
+    JSON.stringify(preview),
+  );
+}
+
+export function readSophieNcPreview(id: string): SophieNcPreview | null {
+  if (typeof window === 'undefined' || !id) {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(`gst.nc.sophie.preview.${id}`);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as SophieNcPreview;
+  } catch {
+    return null;
+  }
 }
