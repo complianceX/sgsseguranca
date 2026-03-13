@@ -54,7 +54,7 @@ import type { GenerateSophieReportDto } from './dto/generate-sophie-report.dto';
 import { defaultJobOptions } from '../queue/default-job-options';
 
 const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
-const DEFAULT_OPENAI_FALLBACK_MODEL = 'gpt-4.1-mini';
+const DEFAULT_OPENAI_FALLBACK_MODEL = 'gpt-4o-mini';
 const DEFAULT_OPENAI_REASONING_EFFORT = 'medium';
 const MAX_JSON_TOKENS = 1600;
 const PHASE2_DEFAULT_NC_THRESHOLD = 3;
