@@ -10,6 +10,9 @@ import { isAiEnabled } from '@/lib/featureFlags';
 type SophieStatus = {
   agent: {
     provider: string;
+    officialProvider?: string;
+    configured?: boolean;
+    runtimeMode?: 'online' | 'degraded' | string;
     imageAnalysisEnabled: boolean;
     localFallbackEnabled: boolean;
   };
@@ -26,14 +29,8 @@ function formatProvider(provider: string) {
   switch (provider) {
     case 'openai':
       return 'OpenAI';
-    case 'anthropic':
-      return 'Anthropic';
-    case 'gemini':
-      return 'Gemini';
-    case 'local':
-      return 'SOPHIE Local';
     case 'stub':
-      return 'Demonstracao';
+      return 'OpenAI indisponivel';
     default:
       return provider;
   }
@@ -82,7 +79,7 @@ export function SophieStatusMiniCard() {
           </div>
           <div>
             <CardTitle className="text-base">SOPHIE</CardTitle>
-            <CardDescription>Status operacional da assistente no ambiente atual.</CardDescription>
+            <CardDescription>Status operacional da SOPHIE no ambiente atual.</CardDescription>
           </div>
         </div>
         <Badge variant={badgeVariant} className="text-[10px] uppercase tracking-[0.12em]">
@@ -102,13 +99,15 @@ export function SophieStatusMiniCard() {
               <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/35 p-3">
                 <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
                   <BrainCircuit className="h-3.5 w-3.5" />
-                  Provider
+                  Motor oficial
                 </div>
                 <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                  {formatProvider(status.agent.provider)}
+                  {formatProvider(status.agent.officialProvider || status.agent.provider)}
                 </p>
                 <p className="text-xs text-[var(--ds-color-text-muted)]">
-                  Assistente central pronta para apoiar fluxos técnicos e operacionais.
+                  {status.agent.configured
+                    ? 'Motor oficial da SOPHIE conectado para fluxos técnicos e operacionais.'
+                    : 'OpenAI definida como motor oficial, aguardando disponibilidade/configuração.'}
                 </p>
               </div>
 
@@ -126,10 +125,10 @@ export function SophieStatusMiniCard() {
                 <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/35 p-3">
                   <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
                     <ShieldCheck className="h-3.5 w-3.5" />
-                    Base local
+                    Base tecnica
                   </div>
                   <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                    {status.agent.localFallbackEnabled ? 'Ativa' : 'Desativada'}
+                    {status.knowledgeBase.version ? 'Ativa' : 'Indisponivel'}
                   </p>
                 </div>
               </div>
@@ -149,7 +148,7 @@ export function SophieStatusMiniCard() {
             </div>
 
             <p className="text-xs text-[var(--ds-color-text-muted)]">
-              KB {status.knowledgeBase.version} pronta para apoiar chat, analises e automacoes.
+              KB {status.knowledgeBase.version} pronta para apoiar contexto técnico da SOPHIE.
             </p>
           </>
         ) : (

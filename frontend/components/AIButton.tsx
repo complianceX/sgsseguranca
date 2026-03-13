@@ -49,7 +49,7 @@ export function AIButton() {
             <span className="absolute bottom-full right-0 mb-3 hidden w-[18rem] rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] px-3.5 py-3 text-[11px] font-medium text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-md)] group-hover:block">
               <span className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
                 <LifeBuoy className="h-3.5 w-3.5 text-[var(--ds-color-action-primary)]" />
-                SOPHIE suporte
+                SOPHIE
               </span>
               <span className="flex items-start gap-1.5 leading-relaxed">
                 <Sparkles className="mt-0.5 h-3.5 w-3.5 text-[var(--ds-color-accent)]" />

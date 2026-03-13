@@ -90,6 +90,42 @@ export interface GenerateMonthlyReportPayload {
   ano?: number;
 }
 
+export interface CreateChecklistAutomationResponse {
+  checklist: {
+    id: string;
+    titulo?: string;
+  };
+  generation: {
+    titulo: string;
+    confidence?: 'high' | 'medium' | 'low';
+  };
+  persisted: true;
+  message: string;
+}
+
+export interface CreateDdsAutomationResponse {
+  dds: {
+    id: string;
+    tema?: string;
+  };
+  generation: {
+    tema: string;
+    confidence?: 'high' | 'medium' | 'low';
+  };
+  persisted: true;
+  message: string;
+}
+
+export interface QueueMonthlyReportAutomationResponse {
+  reportType: 'monthly';
+  year: number;
+  month: number;
+  jobId: string | number | undefined;
+  statusUrl: string;
+  queued: boolean;
+  message: string;
+}
+
 export interface ImageRiskAnalysis {
   summary: string;
   riskLevel: 'Baixo' | 'Medio' | 'Alto' | 'Critico' | 'Médio' | 'Crítico';
@@ -167,7 +203,7 @@ export const sophieService = {
     companyId?: string,
   ) {
     assertAiEnabled();
-    const { data } = await api.post('/ai/create-checklist', payload, {
+    const { data } = await api.post<CreateChecklistAutomationResponse>('/ai/create-checklist', payload, {
       headers: companyId ? { 'x-company-id': companyId } : undefined,
     });
     return data;
@@ -178,7 +214,7 @@ export const sophieService = {
     companyId?: string,
   ) {
     assertAiEnabled();
-    const { data } = await api.post('/ai/create-dds', payload, {
+    const { data } = await api.post<CreateDdsAutomationResponse>('/ai/create-dds', payload, {
       headers: companyId ? { 'x-company-id': companyId } : undefined,
     });
     return data;
@@ -189,7 +225,7 @@ export const sophieService = {
     companyId?: string,
   ) {
     assertAiEnabled();
-    const { data } = await api.post('/ai/generate-monthly-report', payload, {
+    const { data } = await api.post<QueueMonthlyReportAutomationResponse>('/ai/generate-monthly-report', payload, {
       headers: companyId ? { 'x-company-id': companyId } : undefined,
     });
     return data;

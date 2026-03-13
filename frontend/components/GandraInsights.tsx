@@ -59,7 +59,7 @@ export function GandraInsights() {
       <Card tone="elevated" padding="lg" className="overflow-hidden">
         <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] pb-3">
           <div>
-            <CardTitle className="text-base">SOPHIE Insights</CardTitle>
+            <CardTitle className="text-base">SOPHIE</CardTitle>
             <CardDescription>
               A assistente ainda nao conseguiu consolidar os insights deste ambiente.
             </CardDescription>
@@ -81,7 +81,7 @@ export function GandraInsights() {
               href="/dashboard/sst-agent"
               className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline"
             >
-              Abrir Central SOPHIE <ArrowRight className="h-3.5 w-3.5" />
+              Abrir SOPHIE <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
         </CardContent>
@@ -97,7 +97,7 @@ export function GandraInsights() {
             <span className="text-base font-black italic">G</span>
           </div>
           <div>
-            <CardTitle className="text-base">SOPHIE Insights</CardTitle>
+            <CardTitle className="text-base">SOPHIE</CardTitle>
             <CardDescription>Sintetiza tendências, riscos e pendências operacionais.</CardDescription>
           </div>
         </div>

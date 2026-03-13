@@ -16,8 +16,8 @@ import { isAiEnabled } from '@/lib/featureFlags';
 
 const supportActions = [
   {
-    title: 'Abrir Central SOPHIE',
-    description: 'Chat, trilha de auditoria e visão consolidada da assistente.',
+    title: 'Abrir SOPHIE',
+    description: 'Chat, trilha de auditoria e visão consolidada do suporte.',
     href: '/dashboard/sst-agent',
     icon: Bot,
   },
@@ -57,10 +57,10 @@ export function SophieSupportHub() {
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
-            suporte inteligente
+            suporte sst
           </p>
           <h2 className="mt-1 text-lg font-semibold text-[var(--ds-color-text-primary)]">
-            SOPHIE na tela inicial
+            SOPHIE
           </h2>
           <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
             A SOPHIE centraliza apoio operacional, criação assistida de documentos e decisões com rastreabilidade.
@@ -68,7 +68,7 @@ export function SophieSupportHub() {
         </div>
         <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-primary-subtle)] px-3 py-1 text-[11px] font-semibold text-[var(--ds-color-action-primary)]">
           <Sparkles className="h-3.5 w-3.5" />
-          Suporte ativo
+          ativa
         </span>
       </div>
 
@@ -142,7 +142,7 @@ export function SophieSupportHub() {
                 Proxima interacao
               </div>
               <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                Use a Central SOPHIE para pedir apoio técnico e abrir os fluxos certos.
+                Use a SOPHIE para pedir apoio técnico e abrir os fluxos certos.
               </p>
               <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
                 A tela inicial agora expõe a SOPHIE como suporte operacional, em vez de deixá-la escondida em cards secundários.

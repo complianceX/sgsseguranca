@@ -1,11 +1,11 @@
 /**
  * SstAgentService - Servico principal do Agente SST.
  *
- * Melhorias v2:
+ * SOPHIE runtime:
+ * - OpenAI como provedora oficial e unica do assistente
  * - Rate limit por tenant (Redis, fail-open)
  * - Auditoria completa: model, provider, latency_ms, tokens, custo estimado
- * - Deteccao hibrida de needsHumanReview (5 criterios)
- * - Log estruturado com todos os campos de observabilidade
+ * - Deteccao hibrida de needsHumanReview
  * - SstChatResponse com interactionId + status + timestamp
  * - Isolamento multi-tenant defensivo em todas as queries
  */
@@ -153,16 +153,7 @@ export class SstAgentService {
     private readonly rateLimitService: SstRateLimitService,
     private readonly sophieLocalChatService: SophieLocalChatService,
   ) {
-    const preferredProvider = this.configService
-      .get<string>('AI_PROVIDER')
-      ?.trim()
-      .toLowerCase();
     const openaiApiKey = this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
-    const anthropicApiKey = this.configService.get<string>('ANTHROPIC_API_KEY')?.trim();
-    const geminiApiKey =
-      this.configService.get<string>('GEMINI_API_KEY')?.trim() ||
-      this.configService.get<string>('GOOGLE_API_KEY')?.trim() ||
-      null;
     const anthropicModel =
       this.configService.get<string>('ANTHROPIC_MODEL')?.trim() ||
       DEFAULT_ANTHROPIC_MODEL;
@@ -194,97 +185,49 @@ export class SstAgentService {
       'AI_HISTORY_MAX_LIMIT',
       DEFAULT_AI_HISTORY_MAX_LIMIT,
     );
+    this.anthropic = null;
+    this.geminiApiKey = null;
 
-    if (preferredProvider === LOCAL_PROVIDER) {
-      this.anthropic = null;
-      this.geminiApiKey = null;
-      this.provider = LOCAL_PROVIDER;
-      this.model = 'sophie-local';
-      this.logger.log('SstAgentService iniciado com SOPHIE local (base interna)');
-      return;
-    }
+    const configuredProvider = this.configService
+      .get<string>('AI_PROVIDER')
+      ?.trim()
+      .toLowerCase();
 
-    if ((preferredProvider === OPENAI_PROVIDER || !preferredProvider) && openaiApiKey) {
-      this.anthropic = null;
-      this.provider = OPENAI_PROVIDER;
-      this.model = openaiModel;
-      this.logger.log(`SstAgentService iniciado com OpenAI API (${this.model})`);
-      return;
-    }
-
-    if ((preferredProvider === ANTHROPIC_PROVIDER || !preferredProvider) && anthropicApiKey) {
-      this.anthropic = new Anthropic({ apiKey: anthropicApiKey });
-      this.provider = ANTHROPIC_PROVIDER;
-      this.model = anthropicModel;
-      this.logger.log('SstAgentService iniciado com Anthropic API');
-      return;
-    }
-
-    if ((preferredProvider === GEMINI_PROVIDER || !preferredProvider) && geminiApiKey) {
-      this.anthropic = null;
-      this.geminiApiKey = geminiApiKey;
-      this.provider = GEMINI_PROVIDER;
-      this.model = geminiModel;
-      this.logger.log(`SstAgentService iniciado com Gemini API (${this.model})`);
-      return;
+    if (configuredProvider && configuredProvider !== OPENAI_PROVIDER && configuredProvider !== 'stub') {
+      this.logger.warn(
+        `AI_PROVIDER=${configuredProvider} ignorado. A SOPHIE usa OpenAI como provedora oficial unica.`,
+      );
     }
 
     if (openaiApiKey) {
-      this.anthropic = null;
       this.provider = OPENAI_PROVIDER;
       this.model = openaiModel;
-      this.logger.log(`SstAgentService iniciado com OpenAI API (${this.model})`);
+      this.logger.log(`SOPHIE iniciada com OpenAI (${this.model}) como motor oficial.`);
       return;
     }
 
-    if (anthropicApiKey) {
-      this.anthropic = new Anthropic({ apiKey: anthropicApiKey });
-      this.provider = ANTHROPIC_PROVIDER;
-      this.model = anthropicModel;
-      this.logger.log('SstAgentService iniciado com Anthropic API');
-      return;
-    }
-
-    if (geminiApiKey) {
-      this.anthropic = null;
-      this.geminiApiKey = geminiApiKey;
-      this.provider = GEMINI_PROVIDER;
-      this.model = geminiModel;
-      this.logger.log(`SstAgentService iniciado com Gemini API (${this.model})`);
-      return;
-    }
-
-    this.anthropic = null;
-    if (preferredProvider === 'stub') {
-      this.logger.warn(
-        'Nenhum provider de IA configurado (OPENAI_API_KEY, ANTHROPIC_API_KEY ou GEMINI_API_KEY) - SstAgentService em modo STUB',
-      );
-      return;
-    }
-
-    this.provider = LOCAL_PROVIDER;
-    this.model = 'sophie-local';
-    this.logger.log('Nenhum provider externo configurado - usando SOPHIE local (base interna)');
+    this.provider = 'stub';
+    this.model = 'openai-unconfigured';
+    this.logger.warn(
+      'OPENAI_API_KEY nao configurada. A SOPHIE permanece visivel, mas operando em modo indisponivel ate a OpenAI ser configurada.',
+    );
   }
 
   getRuntimeStatus() {
     return {
       provider: this.provider,
+      officialProvider: OPENAI_PROVIDER,
+      configured: this.provider === OPENAI_PROVIDER,
+      runtimeMode: this.provider === OPENAI_PROVIDER ? 'online' : 'degraded',
       model: this.model,
       openaiModel: this.openaiModel,
       openaiVisionModel: this.openaiVisionModel,
       historyDefaultDays: this.historyDefaultDays,
       historyMaxDays: this.historyMaxDays,
       historyMaxLimit: this.historyMaxLimit,
-      imageAnalysisEnabled:
-        this.provider === OPENAI_PROVIDER ||
-        this.provider === ANTHROPIC_PROVIDER ||
-        this.provider === GEMINI_PROVIDER,
-      externalProviderEnabled:
-        this.provider === OPENAI_PROVIDER ||
-        this.provider === ANTHROPIC_PROVIDER ||
-        this.provider === GEMINI_PROVIDER,
-      localFallbackEnabled: true,
+      imageAnalysisEnabled: this.provider === OPENAI_PROVIDER,
+      externalProviderEnabled: this.provider === OPENAI_PROVIDER,
+      localFallbackEnabled: false,
     };
   }
 
@@ -325,23 +268,6 @@ export class SstAgentService {
       status: AiInteractionStatus.SUCCESS,
     });
 
-    if (this.provider === LOCAL_PROVIDER) {
-      const localResp = this.sophieLocalChatService.chat(question);
-      interaction.response = localResp;
-      interaction.latency_ms = Date.now() - startTime;
-      interaction.confidence = localResp.confidence;
-      interaction.needs_human_review = localResp.needsHumanReview;
-      interaction.tools_called = localResp.toolsUsed;
-      try {
-        await this.interactionRepo.save(interaction);
-      } catch (saveErr) {
-        this.logger.warn(
-          `[SstAgent] Falha ao persistir interação local (non-fatal): ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`,
-        );
-      }
-      return this.toSstChatResponse(localResp, interaction.id, AiInteractionStatus.SUCCESS);
-    }
-
     if (this.provider === 'stub') {
       const stubResp = this.buildStubResponse(question);
       interaction.response = stubResp;
@@ -360,11 +286,7 @@ export class SstAgentService {
 
     try {
       const { result, inputTokens, outputTokens, toolsUsed } =
-        this.provider === OPENAI_PROVIDER
-          ? await this.runOpenAiAgentLoop(question, history)
-          : this.provider === ANTHROPIC_PROVIDER
-            ? await this.runAnthropicAgentLoop(question, history)
-            : await this.runGeminiAgentLoop(question, history);
+        await this.runOpenAiAgentLoop(question, history);
 
       const latency = Date.now() - startTime;
       const estimatedCost = this.estimateCost(inputTokens, outputTokens, this.provider);
@@ -472,22 +394,6 @@ export class SstAgentService {
       throw new UnauthorizedException('Tenant nao identificado. Verifique autenticacao.');
     }
 
-    if (this.provider === LOCAL_PROVIDER) {
-      // Sem modelo de visão local: orientar o usuário a descrever o cenário.
-      return {
-        summary:
-          'Análise de imagem indisponível no modo SOPHIE local. Descreva a atividade e o ambiente para eu analisar perigos e riscos.',
-        riskLevel: 'Médio',
-        imminentRisks: [],
-        immediateActions: [
-          'Descreva atividade, setor, máquinas e condições do ambiente',
-          'Informe se há trabalho em altura, eletricidade, espaço confinado ou químicos',
-        ],
-        ppeRecommendations: [],
-        notes: 'Para análise local, use o chat informando os campos: atividade/setor/máquina/ambiente.',
-      };
-    }
-
     if (!ALLOWED_IMAGE_MIME_TYPES.includes(mimeType as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {
       throw new HttpException('Formato de imagem nao suportado.', HttpStatus.BAD_REQUEST);
     }
@@ -530,11 +436,7 @@ export class SstAgentService {
 
     try {
       const { analysis, inputTokens, outputTokens } =
-        this.provider === OPENAI_PROVIDER
-          ? await this.analyzeImageWithOpenAi(imageBuffer, mimeType, context)
-          : this.provider === ANTHROPIC_PROVIDER
-            ? await this.analyzeImageWithAnthropic(imageBuffer, mimeType, context)
-            : await this.analyzeImageWithGemini(imageBuffer, mimeType, context);
+        await this.analyzeImageWithOpenAi(imageBuffer, mimeType, context);
 
       const latency = Date.now() - startTime;
       interaction.response = analysis;
@@ -1432,14 +1334,14 @@ export class SstAgentService {
   private buildStubResponse(question: string): SstAgentResponse {
     return {
       answer:
-        `Agente SST em modo demonstracao (nenhum provider configurado). ` +
+        `A SOPHIE usa OpenAI como motor oficial, mas a integração não está configurada neste ambiente. ` +
         `Pergunta registrada: "${question.slice(0, 100)}${question.length > 100 ? '...' : ''}".`,
       confidence: ConfidenceLevel.LOW,
       needsHumanReview: false,
       sources: [],
       suggestedActions: [{ label: 'Ver Dashboard', href: '/dashboard', priority: 'low' }],
       warnings: [
-        'Configure OPENAI_API_KEY (recomendado) ou ANTHROPIC_API_KEY/GEMINI_API_KEY para habilitar a SOPHIE.',
+        'Configure OPENAI_API_KEY para habilitar a SOPHIE com OpenAI.',
       ],
       toolsUsed: [],
     };
@@ -1451,14 +1353,14 @@ export class SstAgentService {
 
     return {
       answer:
-        `Estou com instabilidade momentanea no provedor de IA, mas registrei sua solicitacao: ` +
+        `Estou com instabilidade momentanea na integração da OpenAI, mas registrei sua solicitacao: ` +
         `"${truncatedQuestion}". Tente novamente em instantes.`,
       confidence: ConfidenceLevel.LOW,
       needsHumanReview: false,
       sources: [],
       suggestedActions: [{ label: 'Ver Dashboard', href: '/dashboard', priority: 'low' }],
       warnings: [
-        'A SOPHIE entrou em modo degradado porque o provedor de IA nao respondeu corretamente.',
+        'A SOPHIE entrou em modo degradado porque a OpenAI nao respondeu corretamente.',
       ],
       toolsUsed: [],
     };
@@ -1466,12 +1368,12 @@ export class SstAgentService {
 
   private buildStubImageAnalysis(): ImageRiskAnalysis {
     return {
-      summary: 'Analise de imagem indisponivel no modo stub.',
+      summary: 'Analise de imagem indisponivel porque a integração OpenAI não está configurada.',
       riskLevel: 'Médio',
       imminentRisks: [],
-      immediateActions: ['Configure um provider de IA para habilitar a analise de imagem.'],
+      immediateActions: ['Configure OPENAI_API_KEY para habilitar a analise de imagem da SOPHIE.'],
       ppeRecommendations: [],
-      notes: 'Configure OPENAI_API_KEY (recomendado) ou ANTHROPIC_API_KEY/GEMINI_API_KEY para usar a analise de fotos.',
+      notes: 'A SOPHIE usa OpenAI como motor oficial para análise de fotos neste ambiente.',
     };
   }
 
@@ -1485,7 +1387,7 @@ export class SstAgentService {
       ],
       ppeRecommendations: [],
       notes:
-        'O provedor de IA apresentou instabilidade temporaria. Nenhum risco automatico foi validado.',
+        'A OpenAI apresentou instabilidade temporaria. Nenhum risco automatico foi validado.',
     };
   }
 

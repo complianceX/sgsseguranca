@@ -75,7 +75,7 @@ const menuItems = [
   { icon: BookOpen, label: 'RDO', href: '/dashboard/rdos' },
   { icon: Wrench, label: 'OS (NR-1)', href: '/dashboard/service-orders' },
   { icon: Archive, label: 'Registry documental', href: '/dashboard/document-registry' },
-  { icon: Bot, label: 'SOPHIE IA', href: '/dashboard/sst-agent' },
+  { icon: Bot, label: 'SOPHIE', href: '/dashboard/sst-agent' },
   { type: 'divider', label: 'Conta & Sistema' },
   { icon: Settings, label: 'Configurações', href: '/dashboard/settings' },
   { icon: Paintbrush, label: 'Tema do Sistema', href: '/dashboard/system/settings/theme', superAdminOnly: true },

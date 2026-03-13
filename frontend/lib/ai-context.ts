@@ -10,7 +10,7 @@ export type AiRouteContext = {
 };
 
 const defaultContext: AiRouteContext = {
-  title: 'SOPHIE Suporte SST',
+  title: 'SOPHIE',
   subtitle: 'Suporte operacional para o TST com analise de imagem, riscos e orientacao tecnica.',
   icon: ShieldCheck,
   assistantIntro:
@@ -29,7 +29,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/tst'),
     context: {
-      title: 'SOPHIE Campo',
+      title: 'SOPHIE',
       subtitle: 'Suporte ao TST em campo com bloqueios, pendencias do dia e analise visual de risco.',
       icon: Radio,
       assistantIntro:
@@ -47,7 +47,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/aprs'),
     context: {
-      title: 'SOPHIE APR',
+      title: 'SOPHIE',
       subtitle: 'Risco residual, controles e análise operacional da atividade.',
       icon: FileText,
       assistantIntro:
@@ -64,7 +64,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/pts'),
     context: {
-      title: 'SOPHIE PT',
+      title: 'SOPHIE',
       subtitle: 'Liberação segura, bloqueios e evidências antes da aprovação.',
       icon: ClipboardCheck,
       assistantIntro:
@@ -81,7 +81,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/nonconformities'),
     context: {
-      title: 'SOPHIE NC',
+      title: 'SOPHIE',
       subtitle: 'Classificação, criticidade, contenção e plano de ação.',
       icon: AlertTriangle,
       assistantIntro:
@@ -98,7 +98,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/document-registry'),
     context: {
-      title: 'SOPHIE Documentos',
+      title: 'SOPHIE',
       subtitle: 'Pacote semanal, rastreabilidade e conformidade documental.',
       icon: Archive,
       assistantIntro:
@@ -115,7 +115,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/medical-exams'),
     context: {
-      title: 'SOPHIE ASO e PCMSO',
+      title: 'SOPHIE',
       subtitle: 'Aptidão, vencimentos e bloqueios médicos operacionais.',
       icon: Stethoscope,
       assistantIntro:
@@ -132,7 +132,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/employees'),
     context: {
-      title: 'SOPHIE Mobilização',
+      title: 'SOPHIE',
       subtitle: 'Status operacional do trabalhador e prontidão documental.',
       icon: Users,
       assistantIntro:

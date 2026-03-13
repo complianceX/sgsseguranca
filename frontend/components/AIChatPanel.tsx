@@ -221,7 +221,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
       <div className="flex-1 space-y-4 overflow-y-auto bg-[color:var(--ds-color-surface-muted)]/22 p-4">
         <div className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/95 p-3 text-xs text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-sm)]">
           <p className="font-semibold text-[var(--ds-color-text-primary)]">
-            Suporte ativo para o TST
+            SOPHIE
           </p>
           <p className="mt-1 leading-relaxed">
             Envie uma foto do ambiente, equipamento ou frente de servico para a SOPHIE analisar riscos, EPIs e acoes imediatas.
@@ -330,7 +330,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder={`Pergunte sobre ${context.title.toLowerCase()}...`}
+            placeholder="Pergunte para a SOPHIE..."
             className="rounded-full bg-[color:var(--ds-color-surface-muted)]/26 py-2 pl-11 pr-10"
           />
           <Button

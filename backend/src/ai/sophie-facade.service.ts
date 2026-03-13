@@ -29,6 +29,7 @@ export class SophieFacadeService {
       knowledgeBase,
       automation,
       capabilities: {
+        openAiProvider: true,
         insights: true,
         analyzeApr: true,
         analyzePt: true,
@@ -43,7 +44,7 @@ export class SophieFacadeService {
         chat: true,
         history: true,
         imageAnalysis: agent.imageAnalysisEnabled,
-        localKnowledgeBase: true,
+        sstKnowledgeBase: true,
       },
     };
   }

@@ -2,10 +2,32 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Bot, FileText, ClipboardCheck, ListChecks, MessageSquareText, Sparkles, Loader2 } from 'lucide-react';
+import {
+  Bot,
+  FileText,
+  ClipboardCheck,
+  ListChecks,
+  MessageSquareText,
+  Sparkles,
+  Loader2,
+  Wand2,
+  ArrowRight,
+  CalendarDays,
+  CheckCircle2,
+} from 'lucide-react';
 import { SophieStatusCard } from '@/components/SophieStatusCard';
 import { isAiEnabled, isSophieAutomationPhase1Enabled } from '@/lib/featureFlags';
-import { sophieService, SophieHistoryItem } from '@/services/sophieService';
+import {
+  sophieService,
+  SophieHistoryItem,
+  CreateChecklistAutomationResponse,
+  CreateDdsAutomationResponse,
+  QueueMonthlyReportAutomationResponse,
+} from '@/services/sophieService';
+import { useAuth } from '@/context/AuthContext';
+import { sitesService, Site } from '@/services/sitesService';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 const quickActions = [
   {
@@ -37,14 +59,66 @@ const quickActions = [
 export default function SstAgentPage() {
   const aiEnabled = isAiEnabled();
   const phase1Enabled = isSophieAutomationPhase1Enabled();
+  const { user, loading: authLoading, hasPermission } = useAuth();
   const [history, setHistory] = useState<SophieHistoryItem[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [loadingSites, setLoadingSites] = useState(false);
+  const [checklistSiteId, setChecklistSiteId] = useState('');
+  const [ddsSiteId, setDdsSiteId] = useState('');
+  const [checklistTitle, setChecklistTitle] = useState('');
+  const [checklistDescription, setChecklistDescription] = useState('');
+  const [checklistEquipment, setChecklistEquipment] = useState('');
+  const [checklistMachine, setChecklistMachine] = useState('');
+  const [ddsTheme, setDdsTheme] = useState('');
+  const [ddsContext, setDdsContext] = useState('');
+  const [reportMonth, setReportMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
+  const [reportYear, setReportYear] = useState(String(new Date().getFullYear()));
+  const [creatingChecklist, setCreatingChecklist] = useState(false);
+  const [creatingDds, setCreatingDds] = useState(false);
+  const [queueingReport, setQueueingReport] = useState(false);
+  const [createdChecklist, setCreatedChecklist] = useState<CreateChecklistAutomationResponse | null>(null);
+  const [createdDds, setCreatedDds] = useState<CreateDdsAutomationResponse | null>(null);
+  const [queuedReport, setQueuedReport] = useState<QueueMonthlyReportAutomationResponse | null>(null);
+  const canUseAi = hasPermission('can_use_ai');
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadSites() {
+      if (!aiEnabled || authLoading || !canUseAi) return;
+      try {
+        setLoadingSites(true);
+        const data = await sitesService.findAll();
+        if (!active) return;
+        setSites(data);
+
+        const preferredSiteId =
+          user?.site_id ||
+          data[0]?.id ||
+          '';
+
+        setChecklistSiteId((current) => current || preferredSiteId);
+        setDdsSiteId((current) => current || preferredSiteId);
+      } catch (error) {
+        console.error('Erro ao carregar sites para SOPHIE:', error);
+        if (active) setSites([]);
+      } finally {
+        if (active) setLoadingSites(false);
+      }
+    }
+
+    void loadSites();
+    return () => {
+      active = false;
+    };
+  }, [aiEnabled, authLoading, canUseAi, user?.site_id]);
 
   useEffect(() => {
     let active = true;
 
     async function loadHistory() {
-      if (!aiEnabled || !phase1Enabled) return;
+      if (!aiEnabled || !phase1Enabled || authLoading || !canUseAi) return;
       try {
         setLoadingHistory(true);
         const data = await sophieService.getHistory(12);
@@ -61,7 +135,7 @@ export default function SstAgentPage() {
     return () => {
       active = false;
     };
-  }, [aiEnabled, phase1Enabled]);
+  }, [aiEnabled, phase1Enabled, authLoading, canUseAi]);
 
   const sortedHistory = useMemo(
     () =>
@@ -70,6 +144,98 @@ export default function SstAgentPage() {
       ),
     [history],
   );
+
+  const currentUserId = user?.id || '';
+  const canRunAutomation = aiEnabled && canUseAi && Boolean(currentUserId);
+  const hasSites = sites.length > 0;
+
+  async function handleCreateChecklist() {
+    if (!currentUserId) {
+      toast.error('Usuário atual não identificado para criar checklist assistido.');
+      return;
+    }
+    if (!checklistSiteId) {
+      toast.error('Selecione um site para o checklist assistido.');
+      return;
+    }
+
+    try {
+      setCreatingChecklist(true);
+      const response = await sophieService.createChecklist({
+        titulo: checklistTitle || undefined,
+        descricao: checklistDescription || undefined,
+        equipamento: checklistEquipment || undefined,
+        maquina: checklistMachine || undefined,
+        site_id: checklistSiteId,
+        inspetor_id: currentUserId,
+      });
+      setCreatedChecklist(response);
+      toast.success('Checklist criado pela SOPHIE com sucesso.');
+    } catch (error) {
+      console.error('Erro ao criar checklist assistido:', error);
+      toast.error('Não foi possível criar o checklist assistido agora.');
+    } finally {
+      setCreatingChecklist(false);
+    }
+  }
+
+  async function handleCreateDds() {
+    if (!currentUserId) {
+      toast.error('Usuário atual não identificado para criar DDS assistido.');
+      return;
+    }
+    if (!ddsSiteId) {
+      toast.error('Selecione um site para o DDS assistido.');
+      return;
+    }
+
+    try {
+      setCreatingDds(true);
+      const response = await sophieService.createDds({
+        tema: ddsTheme || undefined,
+        contexto: ddsContext || undefined,
+        site_id: ddsSiteId,
+        facilitador_id: currentUserId,
+      });
+      setCreatedDds(response);
+      toast.success('DDS criado pela SOPHIE com sucesso.');
+    } catch (error) {
+      console.error('Erro ao criar DDS assistido:', error);
+      toast.error('Não foi possível criar o DDS assistido agora.');
+    } finally {
+      setCreatingDds(false);
+    }
+  }
+
+  async function handleQueueMonthlyReport() {
+    const month = Number.parseInt(reportMonth, 10);
+    const year = Number.parseInt(reportYear, 10);
+
+    if (!Number.isFinite(month) || month < 1 || month > 12) {
+      toast.error('Informe um mês válido para o relatório mensal.');
+      return;
+    }
+
+    if (!Number.isFinite(year) || year < 2000) {
+      toast.error('Informe um ano válido para o relatório mensal.');
+      return;
+    }
+
+    try {
+      setQueueingReport(true);
+      const response = await sophieService.queueMonthlyReport({
+        mes: month,
+        ano: year,
+      });
+      setQueuedReport(response);
+      toast.success('Relatório mensal enfileirado pela SOPHIE.');
+    } catch (error) {
+      console.error('Erro ao enfileirar relatório mensal:', error);
+      toast.error('Não foi possível enfileirar o relatório mensal agora.');
+    } finally {
+      setQueueingReport(false);
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -81,7 +247,7 @@ export default function SstAgentPage() {
           <div>
             <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">SOPHIE</h1>
             <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Assistente central de SST para apoio operacional, conformidade, análise técnica e decisões com prudência.
+              Apoio operacional de SST para conformidade, analise tecnica e decisoes com prudencia.
             </p>
           </div>
         </div>
@@ -118,6 +284,240 @@ export default function SstAgentPage() {
         </section>
       ) : null}
 
+      {aiEnabled ? (
+        <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-5 shadow-[var(--ds-shadow-sm)]">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">
+                Ações Operacionais da SOPHIE
+              </h2>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                A SOPHIE agora consegue criar documentos assistidos e enfileirar relatório mensal usando o usuário atual como responsável.
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-primary-subtle)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-action-primary)]">
+              <Wand2 className="h-3.5 w-3.5" />
+              automação assistida
+            </div>
+          </div>
+
+          {authLoading ? (
+            <div className="mt-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 text-sm text-[var(--ds-color-text-secondary)]">
+              Validando permissões e contexto operacional para liberar as ações da SOPHIE...
+            </div>
+          ) : !canUseAi ? (
+            <div className="mt-4 rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-4">
+              <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                Seu perfil ainda não possui a permissão <code>can_use_ai</code>.
+              </p>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                A SOPHIE fica visivel, mas a criacao assistida de documentos e os relatorios automaticos exigem liberacao no backend.
+              </p>
+            </div>
+          ) : (
+          <div className="mt-4 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+              <div className="flex items-center gap-2">
+                <ListChecks className="h-4.5 w-4.5 text-[var(--ds-color-action-primary)]" />
+                <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Criar Checklist
+                </h3>
+              </div>
+              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                Gere e salve checklist técnico com itens iniciais de inspeção SST.
+              </p>
+              <div className="mt-3 space-y-2.5">
+                <input
+                  value={checklistTitle}
+                  onChange={(event) => setChecklistTitle(event.target.value)}
+                  placeholder="Título opcional"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+                <textarea
+                  value={checklistDescription}
+                  onChange={(event) => setChecklistDescription(event.target.value)}
+                  placeholder="Descreva a atividade ou frente de serviço"
+                  rows={3}
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+                <input
+                  value={checklistEquipment}
+                  onChange={(event) => setChecklistEquipment(event.target.value)}
+                  placeholder="Equipamento opcional"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+                <input
+                  value={checklistMachine}
+                  onChange={(event) => setChecklistMachine(event.target.value)}
+                  placeholder="Máquina opcional"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+                <select
+                  value={checklistSiteId}
+                  onChange={(event) => setChecklistSiteId(event.target.value)}
+                  disabled={loadingSites || !hasSites}
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                >
+                  <option value="">
+                    {loadingSites ? 'Carregando sites...' : 'Selecione um site'}
+                  </option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.nome}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  onClick={handleCreateChecklist}
+                  loading={creatingChecklist}
+                  disabled={!canRunAutomation || !hasSites}
+                  className="w-full"
+                  leftIcon={<Wand2 className="h-4 w-4" />}
+                >
+                  Criar checklist pela SOPHIE
+                </Button>
+                {createdChecklist ? (
+                  <div className="rounded-xl border border-[var(--ds-color-success)]/20 bg-[var(--ds-color-success-subtle)] p-3">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      <CheckCircle2 className="h-4 w-4 text-[var(--ds-color-success)]" />
+                      {createdChecklist.generation.titulo}
+                    </p>
+                    <Link
+                      href={`/dashboard/checklists/edit/${createdChecklist.checklist.id}`}
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+                    >
+                      Abrir checklist <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+              <div className="flex items-center gap-2">
+                <MessageSquareText className="h-4.5 w-4.5 text-[var(--ds-color-accent)]" />
+                <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Criar DDS
+                </h3>
+              </div>
+              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                Gere e salve um DDS prático para condução em campo.
+              </p>
+              <div className="mt-3 space-y-2.5">
+                <input
+                  value={ddsTheme}
+                  onChange={(event) => setDdsTheme(event.target.value)}
+                  placeholder="Tema do DDS"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+                <textarea
+                  value={ddsContext}
+                  onChange={(event) => setDdsContext(event.target.value)}
+                  placeholder="Contexto operacional, tarefa ou risco dominante"
+                  rows={4}
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+                <select
+                  value={ddsSiteId}
+                  onChange={(event) => setDdsSiteId(event.target.value)}
+                  disabled={loadingSites || !hasSites}
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                >
+                  <option value="">
+                    {loadingSites ? 'Carregando sites...' : 'Selecione um site'}
+                  </option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.nome}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  onClick={handleCreateDds}
+                  loading={creatingDds}
+                  disabled={!canRunAutomation || !hasSites}
+                  variant="success"
+                  className="w-full"
+                  leftIcon={<MessageSquareText className="h-4 w-4" />}
+                >
+                  Criar DDS pela SOPHIE
+                </Button>
+                {createdDds ? (
+                  <div className="rounded-xl border border-[var(--ds-color-success)]/20 bg-[var(--ds-color-success-subtle)] p-3">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      <CheckCircle2 className="h-4 w-4 text-[var(--ds-color-success)]" />
+                      {createdDds.generation.tema}
+                    </p>
+                    <Link
+                      href={`/dashboard/dds/edit/${createdDds.dds.id}`}
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+                    >
+                      Abrir DDS <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-4.5 w-4.5 text-[var(--ds-color-warning)]" />
+                <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Relatório Mensal
+                </h3>
+              </div>
+              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                Enfileire o relatório mensal consolidado do tenant atual pela SOPHIE.
+              </p>
+              <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                <input
+                  value={reportMonth}
+                  onChange={(event) => setReportMonth(event.target.value)}
+                  placeholder="Mês"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+                <input
+                  value={reportYear}
+                  onChange={(event) => setReportYear(event.target.value)}
+                  placeholder="Ano"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+              </div>
+              <div className="mt-3">
+                <Button
+                  onClick={handleQueueMonthlyReport}
+                  loading={queueingReport}
+                  disabled={!canRunAutomation}
+                  variant="warning"
+                  className="w-full"
+                  leftIcon={<CalendarDays className="h-4 w-4" />}
+                >
+                  Enfileirar relatório mensal
+                </Button>
+              </div>
+              {queuedReport ? (
+                <div className="mt-3 rounded-xl border border-[var(--ds-color-success)]/20 bg-[var(--ds-color-success-subtle)] p-3">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                    <CheckCircle2 className="h-4 w-4 text-[var(--ds-color-success)]" />
+                    Relatório {String(queuedReport.month).padStart(2, '0')}/{queuedReport.year} na fila
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    Job ID: {String(queuedReport.jobId || 'n/a')}
+                  </p>
+                  <Link
+                    href="/dashboard/reports"
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+                  >
+                    Abrir relatórios <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+          </div>
+          )}
+        </section>
+      ) : null}
+
       {!aiEnabled ? (
         <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-5 text-[var(--ds-color-warning)] shadow-[var(--ds-shadow-sm)]">
           <div className="flex items-start gap-2">
@@ -132,7 +532,7 @@ export default function SstAgentPage() {
         </section>
       ) : null}
 
-      {aiEnabled && phase1Enabled ? (
+      {aiEnabled && phase1Enabled && canUseAi ? (
         <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-5 shadow-[var(--ds-shadow-sm)]">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Trilha de Auditoria da SOPHIE</h2>

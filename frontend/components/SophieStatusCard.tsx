@@ -16,6 +16,9 @@ import { isAiEnabled } from '@/lib/featureFlags';
 type SophieStatus = {
   agent: {
     provider: string;
+    officialProvider?: string;
+    configured?: boolean;
+    runtimeMode?: 'online' | 'degraded' | string;
     historyDefaultDays: number;
     historyMaxDays: number;
     historyMaxLimit: number;
@@ -35,14 +38,8 @@ function formatProvider(provider: string) {
   switch (provider) {
     case 'openai':
       return 'OpenAI';
-    case 'anthropic':
-      return 'Anthropic';
-    case 'gemini':
-      return 'Gemini';
-    case 'local':
-      return 'SOPHIE Local';
     case 'stub':
-      return 'Modo demonstracao';
+      return 'OpenAI indisponivel';
     default:
       return provider;
   }
@@ -59,7 +56,8 @@ function formatCapabilityLabel(key: string) {
     chat: 'Chat operacional',
     history: 'Historico',
     imageAnalysis: 'Analise de imagens',
-    localKnowledgeBase: 'Base local de conhecimento',
+    openAiProvider: 'OpenAI oficial',
+    sstKnowledgeBase: 'Base tecnica SST',
   };
   return labels[key] || key;
 }
@@ -106,7 +104,7 @@ export function SophieStatusCard() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">SOPHIE</h2>
             <p className="text-sm text-gray-500">
-              Status operacional da assistente central de SST.
+              Status operacional da SOPHIE no ambiente atual.
             </p>
           </div>
         </div>
@@ -130,14 +128,16 @@ export function SophieStatusCard() {
               <div className="mb-2 flex items-center gap-2 text-slate-700">
                 <BrainCircuit className="h-4 w-4" />
                 <span className="text-xs font-semibold uppercase tracking-[0.12em]">
-                  Provider
+                  Motor oficial
                 </span>
               </div>
               <p className="text-base font-semibold text-slate-900">
-                {formatProvider(status.agent.provider)}
+                {formatProvider(status.agent.officialProvider || status.agent.provider)}
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                Operando como assistente central de SST no ambiente atual.
+                {status.agent.configured
+                  ? 'OpenAI conectada como motor oficial da SOPHIE neste ambiente.'
+                  : 'OpenAI definida como motor oficial, mas ainda indisponivel neste ambiente.'}
               </p>
             </div>
 
@@ -160,11 +160,11 @@ export function SophieStatusCard() {
               <div className="mb-2 flex items-center gap-2 text-slate-700">
                 <ShieldCheck className="h-4 w-4" />
                 <span className="text-xs font-semibold uppercase tracking-[0.12em]">
-                  Base local
+                  Base tecnica SST
                 </span>
               </div>
               <p className="text-base font-semibold text-slate-900">
-                {status.agent.localFallbackEnabled ? 'Ativa' : 'Desativada'}
+                {status.knowledgeBase.version ? 'Ativa' : 'Indisponivel'}
               </p>
               <p className="mt-1 text-xs text-slate-500">
                 KB {status.knowledgeBase.version} · {status.knowledgeBase.updated_at}
