@@ -94,6 +94,25 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
     }
   };
 
+  const getFriendlyErrorMessage = (error: unknown) => {
+    const maybeAxios = error as { response?: { status?: number } };
+    const status = maybeAxios?.response?.status;
+
+    if (status === 403) {
+      return 'Seu perfil nao possui permissao para usar a SOPHIE neste ambiente.';
+    }
+
+    if (status === 404) {
+      return 'A SOPHIE esta desativada no backend deste ambiente no momento.';
+    }
+
+    if (status === 429) {
+      return 'A SOPHIE atingiu o limite temporario de uso. Tente novamente em instantes.';
+    }
+
+    return 'Nao consegui responder agora. Tente novamente em instantes.';
+  };
+
   const handleSelectImage = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     if (!file) {
@@ -159,7 +178,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
       console.error('Erro no chat da SOPHIE:', error);
       const errorMessage: Message = {
         role: 'assistant',
-        content: 'Não consegui responder agora. Tente novamente em instantes.',
+        content: getFriendlyErrorMessage(error),
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -174,8 +193,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
   const ContextIcon = context.icon;
 
   return (
-    <div className="fixed bottom-[8.5rem] left-4 right-4 z-50 flex h-[min(38rem,calc(100vh-10rem))] flex-col overflow-hidden rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-elevated)_94%,white_6%),color-mix(in_srgb,var(--ds-color-surface-base)_96%,transparent))] shadow-[var(--ds-shadow-xl)] transition-all animate-in slide-in-from-bottom-4 sm:bottom-24 sm:left-6 sm:right-auto sm:w-[420px]">
-      {/* Header */}
+    <div className="fixed bottom-[8.5rem] left-4 right-4 z-50 flex h-[min(40rem,calc(100vh-10rem))] flex-col overflow-hidden rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-elevated)_94%,white_6%),color-mix(in_srgb,var(--ds-color-surface-base)_96%,transparent))] shadow-[var(--ds-shadow-xl)] transition-all animate-in slide-in-from-bottom-4 sm:bottom-24 sm:left-auto sm:right-6 sm:w-[430px]">
       <div className="flex items-center justify-between border-b border-white/10 bg-[image:var(--ds-gradient-brand)] px-4 py-3 text-white">
         <div className="flex items-center space-x-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-white backdrop-blur-sm">
@@ -201,6 +219,14 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
 
       {/* Messages */}
       <div className="flex-1 space-y-4 overflow-y-auto bg-[color:var(--ds-color-surface-muted)]/22 p-4">
+        <div className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/95 p-3 text-xs text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-sm)]">
+          <p className="font-semibold text-[var(--ds-color-text-primary)]">
+            Suporte ativo para o TST
+          </p>
+          <p className="mt-1 leading-relaxed">
+            Envie uma foto do ambiente, equipamento ou frente de servico para a SOPHIE analisar riscos, EPIs e acoes imediatas.
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
           {context.suggestions.map((suggestion) => (
             <button
@@ -321,7 +347,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
         <div className="mt-2 flex items-center justify-center space-x-1">
           <Sparkles className="h-3 w-3 text-[var(--ds-color-accent)]" />
           <span className="text-[10px] text-[var(--ds-color-text-muted)]">
-            SOPHIE com contexto da tela e análise de fotos
+            SOPHIE com suporte ao TST, contexto da tela e analise de fotos
           </span>
         </div>
       </div>

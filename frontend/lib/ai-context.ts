@@ -10,14 +10,15 @@ export type AiRouteContext = {
 };
 
 const defaultContext: AiRouteContext = {
-  title: 'SOPHIE',
-  subtitle: 'Assistente operacional e normativa em segurança do trabalho.',
+  title: 'SOPHIE Suporte SST',
+  subtitle: 'Suporte operacional para o TST com analise de imagem, riscos e orientacao tecnica.',
   icon: ShieldCheck,
   assistantIntro:
-    'Sou a SOPHIE da GST. Posso apoiar com liberação operacional, conformidade, APR, PT, NC e documentos.',
+    'Sou a SOPHIE da GST. Posso apoiar o TST com análise de imagem, liberação operacional, conformidade, APR, PT, NC e documentos.',
   promptPrefix:
-    'Contexto atual: SOPHIE prestando apoio geral de SST no SaaS <GST> Gestão de Segurança do Trabalho. Responda de forma objetiva, segura e prática.',
+    'Contexto atual: SOPHIE prestando apoio geral de SST no SaaS <GST> Gestão de Segurança do Trabalho. Atue como suporte técnico para o TST, responda com objetividade, segurança e foco operacional.',
   suggestions: [
+    'Analise os riscos desta foto e diga as acoes imediatas.',
     'Quais bloqueios impedem liberar esta atividade com segurança?',
     'Monte uma orientação rápida de campo para hoje.',
     'Quais documentos preciso revisar antes da operação?',
@@ -29,13 +30,14 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
     matcher: (pathname) => pathname.startsWith('/dashboard/tst'),
     context: {
       title: 'SOPHIE Campo',
-      subtitle: 'Bloqueios, pendências do dia e decisão operacional em campo.',
+      subtitle: 'Suporte ao TST em campo com bloqueios, pendencias do dia e analise visual de risco.',
       icon: Radio,
       assistantIntro:
-        'Estou no modo TST em campo. Posso priorizar pendências do dia, validar bloqueios e orientar a liberação operacional.',
+        'Estou no modo TST em campo. Posso priorizar pendências do dia, analisar imagens, validar bloqueios e orientar a liberação operacional.',
       promptPrefix:
-        'Contexto atual: tela TST em campo com pendências do dia, consulta por CPF, bloqueios operacionais e fila offline.',
+        'Contexto atual: tela TST em campo com pendências do dia, consulta por CPF, bloqueios operacionais, fila offline e suporte para análise rápida de risco.',
       suggestions: [
+        'Analise esta imagem e aponte risco critico imediato.',
         'Quais prioridades devo atacar primeiro nesta operação?',
         'Como avaliar rapidamente um trabalhador bloqueado por CPF?',
         'Quais ações imediatas tomar em caso de risco crítico em campo?',
