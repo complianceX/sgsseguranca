@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
+import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
 
 export interface Company {
   id: string;
@@ -118,28 +119,64 @@ export const usersService = {
     search?: string;
     companyId?: string;
   }): Promise<PaginatedResponse<User>> => {
-    const response = await api.get<PaginatedResponse<User>>('/users', {
-      params: {
-        page: opts?.page ?? 1,
-        limit: opts?.limit ?? 20,
-        ...(opts?.search ? { search: opts.search } : {}),
-        ...(opts?.companyId ? { company_id: opts.companyId } : {}),
-      },
-    });
-    return response.data;
+    const params = {
+      page: opts?.page ?? 1,
+      limit: opts?.limit ?? 20,
+      ...(opts?.search ? { search: opts.search } : {}),
+      ...(opts?.companyId ? { company_id: opts.companyId } : {}),
+    };
+    const cacheKey = `users.paginated.${JSON.stringify(params)}`;
+
+    try {
+      const response = await api.get<PaginatedResponse<User>>('/users', {
+        params,
+      });
+      setOfflineCache(cacheKey, response.data);
+      return response.data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = getOfflineCache<PaginatedResponse<User>>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   findAll: async () => {
-    return fetchAllPages({
-      fetchPage: (page, limit) => usersService.findPaginated({ page, limit }),
-      limit: 100,
-      maxPages: 50,
-    });
+    const cacheKey = 'users.all';
+    try {
+      const data = await fetchAllPages({
+        fetchPage: (page, limit) => usersService.findPaginated({ page, limit }),
+        limit: 100,
+        maxPages: 50,
+      });
+      setOfflineCache(cacheKey, data);
+      return data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = getOfflineCache<User[]>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   findOne: async (id: string) => {
-    const response = await api.get<User>(`/users/${id}`);
-    return response.data;
+    const cacheKey = `users.one.${id}`;
+    try {
+      const response = await api.get<User>(`/users/${id}`);
+      setOfflineCache(cacheKey, response.data);
+      return response.data;
+    } catch (error) {
+      if (!isOfflineRequestError(error)) {
+        throw error;
+      }
+      const cached = getOfflineCache<User>(cacheKey);
+      if (cached) return cached;
+      throw error;
+    }
   },
 
   getWorkerStatusByCpf: async (cpf: string) => {
