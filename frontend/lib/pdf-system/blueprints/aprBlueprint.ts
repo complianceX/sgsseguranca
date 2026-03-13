@@ -96,6 +96,7 @@ export async function drawAprBlueprint(
       level: item.categoria_risco || item.prioridade,
       control: item.medidas_prevencao,
     })),
+    { semanticRules: { profile: "apr" } },
   );
 
   drawParticipantTable(
@@ -122,4 +123,3 @@ export async function drawAprBlueprint(
     subtitle: "Valide por QR Code ou codigo no portal publico.",
   });
 }
-

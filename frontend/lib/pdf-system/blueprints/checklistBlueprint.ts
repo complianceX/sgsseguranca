@@ -99,7 +99,7 @@ export async function drawChecklistBlueprint(
         statusLabel(item.status),
         sanitize(item.observacao),
       ]),
-      semanticRules: { columns: [3] },
+      semanticRules: { profile: "checklist", columns: [3] },
       overrides: {
         styles: { fontSize: 7.8, cellPadding: 2.2 },
         columnStyles: {

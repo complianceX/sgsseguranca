@@ -16,10 +16,13 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class ReportsService {
   private readonly logger = new Logger(ReportsService.name);
+  private monthlyReportTemplate: string;
 
   constructor(
     @InjectRepository(Report)
@@ -39,7 +42,24 @@ export class ReportsService {
     private readonly pdfService: PdfService,
     private readonly tenantService: TenantService,
     private readonly companiesService: CompaniesService,
-  ) {}
+  ) {
+    this.loadTemplates();
+  }
+
+  private loadTemplates() {
+    try {
+      const templatePath = path.join(
+        __dirname,
+        'templates',
+        'monthly-report.template.html',
+      );
+      this.monthlyReportTemplate = fs.readFileSync(templatePath, 'utf-8');
+      this.logger.log('Template de relatório mensal carregado com sucesso.');
+    } catch (error) {
+      this.logger.error('Falha ao carregar template de relatório mensal.', error);
+      throw new Error('Não foi possível carregar o template do relatório.');
+    }
+  }
 
   async findAll(): Promise<Report[]> {
     const tenantId = this.tenantService.getTenantId();
@@ -116,7 +136,7 @@ export class ReportsService {
       async () => this.buildMonthlyReportRecord(companyId, year, month),
     );
 
-    const html = this.buildMonthlyReportHtml({
+    const html = await this.buildMonthlyReportHtml({
       companyName: company.razao_social,
       month,
       year,
@@ -257,52 +277,48 @@ export class ReportsService {
     return `No período ${String(month).padStart(2, '0')}/${year}, foram registrados ${highlights.join(', ')}. Priorize revisão das frentes com menor emissão preventiva e trate imediatamente qualquer vencimento de EPI para evitar bloqueios operacionais.`;
   }
 
-  private buildMonthlyReportHtml(data: {
+  private async buildMonthlyReportHtml(data: {
     companyName: string;
     month: number;
     year: number;
     estatisticas: Record<string, any>;
     analise_gandra: string;
-  }): string {
+  }): Promise<string> {
     const { companyName, month, year, estatisticas, analise_gandra } = data;
 
-    const statsHtml = `
-      <h3>Estatísticas do Mês</h3>
-      <table>
-        <thead><tr><th>Métrica</th><th>Valor</th></tr></thead>
-        <tbody>
-          ${Object.entries(estatisticas)
-            .map(
-              ([key, value]) =>
-                `<tr><td>${key}</td><td>${String(value)}</td></tr>`,
-            )
-            .join('')}
-        </tbody>
-      </table>`;
+    const metricLabels: Record<string, { label: string; style: string }> = {
+      aprs_count: { label: 'APRs Emitidas', style: 'primary' },
+      pts_count: { label: 'PTs Emitidas', style: 'primary' },
+      dds_count: { label: 'DDS Realizados', style: 'success' },
+      checklists_count: { label: 'Checklists Aplicados', style: 'primary' },
+      trainings_count: { label: 'Treinamentos Concluídos', style: 'success' },
+      epis_expired_count: { label: 'EPIs com CA Vencido', style: 'danger' },
+    };
 
-    return `
-      <html>
-        <head>
-          <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #333; font-size: 12px; }
-            h1 { font-size: 24px; color: #111; text-align: center; }
-            h2 { font-size: 18px; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 30px; }
-            h3 { font-size: 14px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          <h1>Relatório Mensal de Conformidade</h1>
-          <h2>${companyName}</h2>
-          <p><strong>Período de Referência:</strong> ${String(month).padStart(2, '0')}/${year}</p>
-          <p><strong>Data de Emissão:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
-          ${statsHtml}
-          <h2>Análise e Recomendações</h2>
-          <p>${analise_gandra}</p>
-        </body>
-      </html>
-    `;
+    const statsCardsHtml = Object.entries(estatisticas)
+      .map(([key, value]) => {
+        const metric = metricLabels[key];
+        if (!metric) return '';
+        const cardStyle =
+          metric.style === 'danger' && value === 0 ? 'success' : metric.style;
+        const finalValue = value ?? 0;
+
+        return `
+          <div class="stat-card ${cardStyle}">
+            <span class="stat-value">${String(finalValue)}</span>
+            <span class="stat-label">${metric.label}</span>
+          </div>
+        `;
+      })
+      .join('');
+
+    let html = this.monthlyReportTemplate;
+    html = html.replace('{{companyName}}', companyName);
+    html = html.replace('{{periodo}}', `${String(month).padStart(2, '0')}/${year}`);
+    html = html.replace('{{dataEmissao}}', new Date().toLocaleDateString('pt-BR'));
+    html = html.replace('{{stats_cards}}', statsCardsHtml);
+    html = html.replace('{{analise_gandra}}', analise_gandra);
+
+    return html;
   }
 }

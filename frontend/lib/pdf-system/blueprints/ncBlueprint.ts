@@ -76,7 +76,7 @@ export async function drawNcBlueprint(
       evidence: sanitize(nc.evidencia_observada),
       classification: sanitize((nc.classificacao || []).join(", ") || nc.risco_nivel),
     },
-  ]);
+  ], { semanticRules: { profile: "nc", columns: [3] } });
 
   const actionRows = [];
   if (nc.acao_imediata_descricao) {
@@ -95,7 +95,7 @@ export async function drawNcBlueprint(
       status: sanitize(nc.status),
     });
   }
-  drawActionPlanTable(ctx, autoTable, actionRows);
+  drawActionPlanTable(ctx, autoTable, actionRows, { semanticRules: { profile: "nc" } });
 
   drawNarrativeSection(ctx, { title: "Verificacao e resultado", content: nc.verificacao_resultado });
   drawNarrativeSection(ctx, { title: "Observacoes finais", content: nc.observacoes_gerais });

@@ -1,5 +1,6 @@
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { drawSemanticTable } from "../components/SemanticTable";
+import type { SemanticRulesConfig } from "../components/SemanticTable";
 import { sanitize } from "../core/format";
 
 export type ActionPlanRow = {
@@ -9,7 +10,12 @@ export type ActionPlanRow = {
   status?: string;
 };
 
-export function drawActionPlanTable(ctx: PdfContext, autoTable: AutoTableFn, rows: ActionPlanRow[]) {
+export function drawActionPlanTable(
+  ctx: PdfContext,
+  autoTable: AutoTableFn,
+  rows: ActionPlanRow[],
+  options?: { semanticRules?: boolean | SemanticRulesConfig },
+) {
   if (!rows.length) return;
   drawSemanticTable(ctx, {
     title: "Plano de acao",
@@ -22,6 +28,6 @@ export function drawActionPlanTable(ctx: PdfContext, autoTable: AutoTableFn, row
       sanitize(r.dueDate),
       sanitize(r.status),
     ]),
+    semanticRules: options?.semanticRules,
   });
 }
-

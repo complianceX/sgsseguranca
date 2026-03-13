@@ -1,5 +1,6 @@
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { drawSemanticTable } from "../components/SemanticTable";
+import type { SemanticRulesConfig } from "../components/SemanticTable";
 import { sanitize } from "../core/format";
 
 export type ChecklistRow = {
@@ -13,6 +14,7 @@ export function drawChecklistTable(
   autoTable: AutoTableFn,
   title: string,
   rows: ChecklistRow[],
+  options?: { semanticRules?: boolean | SemanticRulesConfig },
 ) {
   if (!rows.length) return;
   drawSemanticTable(ctx, {
@@ -25,10 +27,10 @@ export function drawChecklistTable(
       sanitize(r.answer),
       sanitize(r.justification),
     ]),
+    semanticRules: options?.semanticRules,
     overrides: {
       styles: { fontSize: 7.6, cellPadding: 2.2 },
       columnStyles: { 0: { cellWidth: 96 }, 1: { cellWidth: 26 } },
     },
   });
 }
-

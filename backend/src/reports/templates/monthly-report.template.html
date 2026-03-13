@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório Mensal de Conformidade</title>
+  <style>
+    /* --- RESET E PADRÕES GERAIS --- */
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #fff;
+      color: #3d475c;
+      font-size: 10pt;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* --- ESTRUTURA E LAYOUT --- */
+    .page {
+      width: 210mm;
+      height: 297mm;
+      padding: 20mm;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .report-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #005a9e;
+      padding-bottom: 10px;
+    }
+    .report-header .logo {
+      font-size: 24pt;
+      font-weight: bold;
+      color: #005a9e;
+      /* Substituir por tag <img> para logo real */
+    }
+    .report-header .title-block {
+      text-align: right;
+    }
+    .report-title {
+      font-size: 16pt;
+      font-weight: 600;
+      color: #003d6b;
+      margin: 0;
+    }
+    .report-subtitle {
+      font-size: 11pt;
+      color: #5a7a9e;
+      margin: 4px 0 0;
+    }
+
+    .report-body {
+      flex-grow: 1;
+      padding: 20px 0;
+    }
+    
+    .report-footer {
+      position: absolute;
+      bottom: 10mm;
+      left: 20mm;
+      right: 20mm;
+      text-align: center;
+      font-size: 8pt;
+      color: #888;
+      border-top: 1px solid #e0e0e0;
+      padding-top: 5px;
+    }
+    /* --- COMPONENTES --- */
+    .section-title {
+      font-size: 14pt;
+      font-weight: 600;
+      color: #003d6b;
+      border-bottom: 1px solid #cce0f0;
+      padding-bottom: 6px;
+      margin-top: 25px;
+      margin-bottom: 15px;
+    }
+    
+    .metadata-grid {
+      display: flex;
+      justify-content: space-between;
+      background-color: #f8fafc;
+      border: 1px solid #e0e6ec;
+      border-radius: 4px;
+      padding: 12px 15px;
+      margin-bottom: 25px;
+    }
+    .metadata-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .metadata-label {
+      font-size: 8pt;
+      color: #5a7a9e;
+      margin-bottom: 2px;
+      text-transform: uppercase;
+    }
+    .metadata-value {
+      font-size: 10pt;
+      font-weight: 600;
+      color: #3d475c;
+    }
+
+    .stats-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+    }
+    .stat-card {
+      background-color: #ffffff;
+      border: 1px solid #e0e6ec;
+      border-left: 5px solid #007bff;
+      border-radius: 4px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .stat-card.primary { border-left-color: #005a9e; }
+    .stat-card.success { border-left-color: #28a745; }
+    .stat-card.warning { border-left-color: #ffc107; }
+    .stat-card.danger { border-left-color: #dc3545; }
+
+    .stat-value {
+      font-size: 24pt;
+      font-weight: 700;
+      color: #003d6b;
+    }
+    .stat-label {
+      font-size: 10pt;
+      color: #5a7a9e;
+      font-weight: 500;
+    }
+
+    .analysis-block {
+      background-color: #f8fafc;
+      border: 1px solid #e0e6ec;
+      border-radius: 4px;
+      padding: 15px;
+      margin-top: 20px;
+      font-size: 10pt;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="report-header">
+      <div class="logo">&lt;SST&gt;</div>
+      <div class="title-block">
+        <h1 class="report-title">Relatório Mensal de Conformidade</h1>
+        <h2 class="report-subtitle">Gestão de Segurança do Trabalho</h2>
+      </div>
+    </header>
+
+    <main class="report-body">
+      <div class="metadata-grid">
+        <div class="metadata-item">
+          <span class="metadata-label">Empresa</span>
+          <span class="metadata-value">{{companyName}}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="metadata-label">Período</span>
+          <span class="metadata-value">{{periodo}}</span>
+        </div>
+        <div class="metadata-item">
+          <span class="metadata-label">Data de Emissão</span>
+          <span class="metadata-value">{{dataEmissao}}</span>
+        </div>
+      </div>
+
+      <h3 class="section-title">Indicadores de Desempenho</h3>
+      <div class="stats-container">
+        {{stats_cards}}
+      </div>
+
+      <h3 class="section-title">Análise e Recomendações</h3>
+      <div class="analysis-block">
+        <p>{{analise_gandra}}</p>
+      </div>
+    </main>
+
+    <footer class="report-footer">
+      Gerado por Gandra. Todos os direitos reservados. | Documento confidencial | Página 1 de 1
+    </footer>
+  </div>
+</body>
+</html>

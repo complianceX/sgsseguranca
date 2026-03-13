@@ -1,5 +1,6 @@
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { drawSemanticTable } from "../components/SemanticTable";
+import type { SemanticRulesConfig } from "../components/SemanticTable";
 import { sanitize } from "../core/format";
 
 export type ComplianceRow = {
@@ -14,6 +15,7 @@ export function drawComplianceTable(
   autoTable: AutoTableFn,
   title: string,
   rows: ComplianceRow[],
+  options?: { semanticRules?: boolean | SemanticRulesConfig },
 ) {
   if (!rows.length) return;
   drawSemanticTable(ctx, {
@@ -27,6 +29,6 @@ export function drawComplianceTable(
       sanitize(r.evidence),
       sanitize(r.classification),
     ]),
+    semanticRules: options?.semanticRules,
   });
 }
-

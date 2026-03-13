@@ -120,6 +120,7 @@ export async function drawPtBlueprint(
         answer: item.resposta,
         justification: item.justificativa,
       })),
+      { semanticRules: { profile: "pt", columns: [1] } },
     );
   }
 
@@ -140,4 +141,3 @@ export async function drawPtBlueprint(
     subtitle: "Documento valido para auditoria por QR code e identificador publico.",
   });
 }
-

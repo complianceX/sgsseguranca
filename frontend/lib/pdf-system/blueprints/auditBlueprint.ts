@@ -76,6 +76,7 @@ export async function drawAuditBlueprint(
       evidence: item.evidencia,
       classification: item.classificacao,
     })),
+    { semanticRules: { profile: "audit", columns: [3] } },
   );
 
   drawActionPlanTable(
@@ -87,6 +88,7 @@ export async function drawAuditBlueprint(
       dueDate: sanitize(item.prazo),
       status: sanitize(item.status),
     })),
+    { semanticRules: { profile: "audit" } },
   );
 
   drawNarrativeSection(ctx, { title: "Parecer final", content: audit.conclusao });

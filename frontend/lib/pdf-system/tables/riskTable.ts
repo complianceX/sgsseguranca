@@ -1,5 +1,6 @@
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { drawSemanticTable } from "../components/SemanticTable";
+import type { SemanticRulesConfig } from "../components/SemanticTable";
 import { sanitize } from "../core/format";
 
 export type RiskRow = {
@@ -12,7 +13,12 @@ export type RiskRow = {
   control?: string;
 };
 
-export function drawRiskTable(ctx: PdfContext, autoTable: AutoTableFn, rows: RiskRow[]) {
+export function drawRiskTable(
+  ctx: PdfContext,
+  autoTable: AutoTableFn,
+  rows: RiskRow[],
+  options?: { semanticRules?: boolean | SemanticRulesConfig },
+) {
   if (!rows.length) return;
   drawSemanticTable(ctx, {
     title: "Matriz de risco e controles",
@@ -28,10 +34,10 @@ export function drawRiskTable(ctx: PdfContext, autoTable: AutoTableFn, rows: Ris
       sanitize(r.level),
       sanitize(r.control),
     ]),
+    semanticRules: options?.semanticRules,
     overrides: {
       styles: { fontSize: 7.5, cellPadding: 2.2 },
       columnStyles: { 2: { cellWidth: 9 }, 3: { cellWidth: 9 }, 4: { cellWidth: 11 } },
     },
   });
 }
-
