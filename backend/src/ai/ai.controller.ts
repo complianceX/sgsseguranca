@@ -21,7 +21,9 @@ import { AnalyzeAprDto } from './dto/analyze-apr.dto';
 import { Authorize } from '../auth/authorize.decorator';
 import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
 import { CreateAssistedChecklistDto } from './dto/create-assisted-checklist.dto';
+import { CreateAssistedAprDto } from './dto/create-assisted-apr.dto';
 import { CreateAssistedNonConformityDto } from './dto/create-assisted-nonconformity.dto';
+import { CreateAssistedPtDto } from './dto/create-assisted-pt.dto';
 import {
   CreateAssistedDdsDto,
   GenerateDdsDto,
@@ -81,6 +83,20 @@ export class AiController {
   @Authorize('can_use_ai')
   async generateChecklist(@Body() body: GenerateChecklistDto) {
     return this.sophieFacade.generateChecklist(body);
+  }
+
+  @Post('generate-apr-draft')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
+  async generateAprDraft(@Body() body: CreateAssistedAprDto) {
+    return this.sophieFacade.generateAprDraft(body);
+  }
+
+  @Post('generate-pt-draft')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
+  @Authorize('can_use_ai')
+  async generatePtDraft(@Body() body: CreateAssistedPtDto) {
+    return this.sophieFacade.generatePtDraft(body);
   }
 
   @Post('create-checklist')

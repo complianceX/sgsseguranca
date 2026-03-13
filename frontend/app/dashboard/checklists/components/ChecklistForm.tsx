@@ -13,7 +13,7 @@ import { ChecklistFormData, ChecklistItemForm, checklistSchema } from '../types'
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Image from 'next/image';
-import { ArrowLeft, Save, Plus, PenTool, CheckCircle, Sparkles, Printer, Send } from 'lucide-react';
+import { ArrowLeft, Bot, Save, Plus, PenTool, CheckCircle, Sparkles, Printer, Send } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { companiesService, Company } from '@/services/companiesService';
@@ -66,6 +66,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailTo, setEmailTo] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
+  const activeChecklistId = currentChecklistId || id;
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -149,6 +150,24 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   const equipamentoValue = watch('equipamento');
   const maquinaValue = watch('maquina');
   const tituloValue = watch('titulo');
+  const descricaoValue = watch('descricao');
+  const openNcWithSophieHref = useMemo(() => {
+    if (!activeChecklistId) return null;
+    const params = new URLSearchParams();
+    params.set('documentType', 'nc');
+    params.set('source_type', 'checklist');
+    params.set('source_reference', activeChecklistId);
+    params.set('title', tituloValue || 'Não conformidade oriunda de checklist');
+    params.set('description', descricaoValue || '');
+    if (selectedSiteId) {
+      params.set('site_id', selectedSiteId);
+    }
+    params.set(
+      'source_context',
+      `Checklist ${tituloValue || activeChecklistId} em revisão operacional.`,
+    );
+    return `/dashboard/sst-agent?${params.toString()}`;
+  }, [activeChecklistId, descricaoValue, selectedSiteId, tituloValue]);
 
   // Load Data
   useEffect(() => {
@@ -658,6 +677,15 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                   ? `Rascunho salvo às ${new Date(draftSavedAt).toLocaleTimeString('pt-BR')}`
                   : 'Rascunho salvo automaticamente'}
               </span>
+              {openNcWithSophieHref ? (
+                <Link
+                  href={openNcWithSophieHref}
+                  className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-2.5 py-1 font-semibold text-[var(--ds-color-warning)] transition-colors hover:border-[var(--ds-color-warning)]/50"
+                >
+                  <Bot className="h-3.5 w-3.5" />
+                  Abrir NC com SOPHIE
+                </Link>
+              ) : null}
               {isTemplateMode ? (
                 <span className="rounded-full bg-[var(--ds-color-primary-subtle)] px-2 py-0.5 text-[var(--ds-color-action-primary)]">
                   Versão local v{templateLocalVersion}

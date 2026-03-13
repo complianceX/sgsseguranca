@@ -15,6 +15,10 @@ import { CatsModule } from '../cats/cats.module';
 import { NonConformitiesModule } from '../nonconformities/nonconformities.module';
 import { ServiceOrdersModule } from '../service-orders/service-orders.module';
 import { DdsModule } from '../dds/dds.module';
+import { InspectionsModule } from '../inspections/inspections.module';
+import { ActivitiesModule } from '../activities/activities.module';
+import { ToolsModule } from '../tools/tools.module';
+import { MachinesModule } from '../machines/machines.module';
 
 // SST Agent
 import { AiInteraction } from './entities/ai-interaction.entity';
@@ -47,6 +51,10 @@ const isRedisDisabled = /^true$/i.test(process.env.REDIS_DISABLED || '');
     NonConformitiesModule,
     ServiceOrdersModule,
     DdsModule,
+    InspectionsModule,
+    ActivitiesModule,
+    ToolsModule,
+    MachinesModule,
   ],
   controllers: [AiController, SstAgentController],
   providers: [

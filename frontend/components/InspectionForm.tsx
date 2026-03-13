@@ -15,6 +15,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
   AlertTriangle,
+  Bot,
   Camera,
   CheckCircle2,
   ClipboardCheck,
@@ -26,6 +27,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { inspectionsService } from "@/services/inspectionsService";
 import { sitesService, Site } from "@/services/sitesService";
@@ -425,9 +427,57 @@ export function InspectionForm({ id }: InspectionFormProps) {
     name: "evidencias",
     defaultValue: [],
   });
+  const watchedSiteId = useWatch({
+    control,
+    name: "site_id",
+    defaultValue: "",
+  });
+  const watchedSetorArea = useWatch({
+    control,
+    name: "setor_area",
+    defaultValue: "",
+  });
+  const watchedTipoInspecao = useWatch({
+    control,
+    name: "tipo_inspecao",
+    defaultValue: "Rotina",
+  });
+  const watchedDescricaoLocalAtividades = useWatch({
+    control,
+    name: "descricao_local_atividades",
+    defaultValue: "",
+  });
   const metodologiaSelecionada = watchedMetodologia ?? [];
   const riscos = watchedRiscos ?? [];
   const evidencias = watchedEvidencias ?? [];
+  const openNcWithSophieHref = useMemo(() => {
+    if (!id) return null;
+    const params = new URLSearchParams();
+    params.set("documentType", "nc");
+    params.set("source_type", "inspection");
+    params.set("source_reference", id);
+    params.set(
+      "title",
+      watchedSetorArea
+        ? `NC de inspeção - ${watchedSetorArea}`
+        : "Não conformidade oriunda de inspeção",
+    );
+    params.set("description", watchedDescricaoLocalAtividades || "");
+    if (watchedSiteId) {
+      params.set("site_id", watchedSiteId);
+    }
+    params.set(
+      "source_context",
+      `Inspeção ${watchedTipoInspecao || "operacional"} no setor ${watchedSetorArea || id}.`,
+    );
+    return `/dashboard/sst-agent?${params.toString()}`;
+  }, [
+    id,
+    watchedDescricaoLocalAtividades,
+    watchedSetorArea,
+    watchedSiteId,
+    watchedTipoInspecao,
+  ]);
 
   const pendingActions = useMemo(
     () =>
@@ -750,6 +800,15 @@ export function InspectionForm({ id }: InspectionFormProps) {
                     Organizamos o fluxo para registrar contexto, avaliar riscos,
                     desdobrar ações e fechar a inspeção com mais clareza.
                   </CardDescription>
+                  {openNcWithSophieHref ? (
+                    <Link
+                      href={openNcWithSophieHref}
+                      className="mt-3 inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning)]/25 bg-[var(--ds-color-warning)]/12 px-3 py-1 text-xs font-semibold text-[var(--ds-color-warning)] transition-colors hover:border-[var(--ds-color-warning)]/45"
+                    >
+                      <Bot className="h-3.5 w-3.5" />
+                      Abrir NC com SOPHIE
+                    </Link>
+                  ) : null}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useDeferredValue, useMemo } from 'react';
 import { inspectionsService, Inspection } from '@/services/inspectionsService';
 import {
+  Bot,
   ClipboardList,
   Download,
   Edit,
@@ -374,6 +375,24 @@ export default function InspectionsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Link
+                          href={`/dashboard/sst-agent?${new URLSearchParams({
+                            documentType: 'nc',
+                            source_type: 'inspection',
+                            source_reference: inspection.id,
+                            title: `NC de inspeção - ${inspection.setor_area}`,
+                            description:
+                              inspection.descricao_local_atividades ||
+                              `Inspeção ${inspection.tipo_inspecao} em ${inspection.setor_area}.`,
+                            site_id: inspection.site_id || '',
+                            source_context: `Inspeção ${inspection.tipo_inspecao} realizada em ${format(new Date(inspection.data_inspecao), 'dd/MM/yyyy', { locale: ptBR })} no setor ${inspection.setor_area}.`,
+                          }).toString()}`}
+                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                          title="Abrir NC com SOPHIE"
+                          aria-label={`Abrir não conformidade com SOPHIE para inspeção ${inspection.setor_area}`}
+                        >
+                          <Bot className="h-4 w-4 text-[var(--ds-color-warning)]" />
+                        </Link>
                         <Button
                           type="button"
                           size="icon"

@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { isAiEnabled } from '@/lib/featureFlags';
-import { BrainCircuit, Printer, Download, Mail, Pencil, Trash2, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { BrainCircuit, Bot, Printer, Download, Mail, Pencil, Trash2, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
@@ -55,6 +55,25 @@ export const ChecklistsTableRow = React.memo(({
   onSendEmail,
   onDelete
 }: ChecklistsTableRowProps) => {
+  const sophieNcHref = (() => {
+    const params = new URLSearchParams();
+    params.set('documentType', 'nc');
+    params.set('source_type', 'checklist');
+    params.set('source_reference', checklist.id);
+    params.set('title', checklist.titulo || 'Não conformidade oriunda de checklist');
+    if (checklist.descricao) {
+      params.set('description', checklist.descricao);
+    }
+    if (checklist.site_id) {
+      params.set('site_id', checklist.site_id);
+    }
+    params.set(
+      'source_context',
+      `Checklist ${checklist.titulo} com status ${checklist.status}.`,
+    );
+    return `/dashboard/sst-agent?${params.toString()}`;
+  })();
+
   const renderCell = (column: ChecklistColumnKey) => {
     switch (column) {
       case 'data':
@@ -191,6 +210,14 @@ export const ChecklistsTableRow = React.memo(({
           >
             <Mail className="h-4 w-4" />
           </Button>
+          <Link
+            href={sophieNcHref}
+            className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+            title="Abrir NC com SOPHIE"
+            aria-label={`Abrir não conformidade com SOPHIE para checklist ${checklist.titulo}`}
+          >
+            <Bot className="h-4 w-4 text-[var(--ds-color-warning)]" />
+          </Link>
           <Link
             href={`/dashboard/checklists/edit/${checklist.id}`}
             className={buttonVariants({ size: 'icon', variant: 'ghost' })}

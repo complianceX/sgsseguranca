@@ -77,6 +77,35 @@ export interface CreateAssistedChecklistPayload
   nivel_risco_padrao?: string;
 }
 
+export interface CreateAssistedAprPayload {
+  title?: string;
+  description?: string;
+  activity?: string;
+  process?: string;
+  equipment?: string;
+  machine?: string;
+  site_id: string;
+  company_id?: string;
+  elaborador_id: string;
+  site_name?: string;
+  company_name?: string;
+}
+
+export interface CreateAssistedPtPayload {
+  title?: string;
+  description?: string;
+  site_id: string;
+  company_id?: string;
+  responsavel_id: string;
+  site_name?: string;
+  company_name?: string;
+  trabalho_altura?: boolean;
+  espaco_confinado?: boolean;
+  trabalho_quente?: boolean;
+  eletricidade?: boolean;
+  escavacao?: boolean;
+}
+
 export interface GenerateDdsPayload {
   tema?: string;
   contexto?: string;
@@ -124,10 +153,53 @@ export interface CreateDdsAutomationResponse {
 export interface CreateNonConformityPayload {
   title?: string;
   description?: string;
-  site_id: string;
+  site_id?: string;
   local_setor_area?: string;
   responsavel_area?: string;
   tipo?: string;
+  source_type?: 'manual' | 'image' | 'checklist' | 'inspection';
+  source_reference?: string;
+  source_context?: string;
+  image_analysis_summary?: string;
+  image_risks?: string[];
+  image_actions?: string[];
+  image_notes?: string;
+}
+
+export interface SophieDraftResponse {
+  draft: {
+    step: number;
+    values: Record<string, unknown>;
+    signatures: Record<string, { data: string; type: string }>;
+  };
+  summary: string;
+  suggestedActions: string[];
+  suggestedResources?: {
+    activities?: Array<{ id: string; label: string }>;
+    participants?: Array<{ id: string; label: string }>;
+    tools?: Array<{ id: string; label: string }>;
+    machines?: Array<{ id: string; label: string }>;
+  };
+  confidence?: 'high' | 'medium' | 'low';
+  notes?: string[];
+  message: string;
+}
+
+export interface GeneratePtDraftAutomationResponse extends SophieDraftResponse {
+  riskLevel: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+  suggestedResources?: {
+    participants: Array<{ id: string; label: string }>;
+    tools: Array<{ id: string; label: string }>;
+    machines: Array<{ id: string; label: string }>;
+  };
+}
+
+export interface SophieActionPlanItem {
+  title: string;
+  owner: string;
+  priority: 'low' | 'medium' | 'high';
+  timeline: string;
+  type: 'immediate' | 'corrective' | 'preventive';
 }
 
 export interface CreateNonConformityAutomationResponse {
@@ -139,6 +211,8 @@ export interface CreateNonConformityAutomationResponse {
   generation: {
     title: string;
     riskLevel: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+    sourceType: 'manual' | 'image' | 'checklist' | 'inspection';
+    actionPlan: SophieActionPlanItem[];
     confidence?: 'high' | 'medium' | 'low';
     notes?: string[];
   };
@@ -251,6 +325,30 @@ export const sophieService = {
   ) {
     assertAiEnabled();
     const { data } = await api.post<CreateChecklistAutomationResponse>('/ai/create-checklist', payload, {
+      timeout: AI_DEFAULT_TIMEOUT_MS,
+      headers: companyId ? { 'x-company-id': companyId } : undefined,
+    });
+    return data;
+  },
+
+  async generateAprDraft(
+    payload: CreateAssistedAprPayload,
+    companyId?: string,
+  ) {
+    assertAiEnabled();
+    const { data } = await api.post<SophieDraftResponse>('/ai/generate-apr-draft', payload, {
+      timeout: AI_DEFAULT_TIMEOUT_MS,
+      headers: companyId ? { 'x-company-id': companyId } : undefined,
+    });
+    return data;
+  },
+
+  async generatePtDraft(
+    payload: CreateAssistedPtPayload,
+    companyId?: string,
+  ) {
+    assertAiEnabled();
+    const { data } = await api.post<GeneratePtDraftAutomationResponse>('/ai/generate-pt-draft', payload, {
       timeout: AI_DEFAULT_TIMEOUT_MS,
       headers: companyId ? { 'x-company-id': companyId } : undefined,
     });

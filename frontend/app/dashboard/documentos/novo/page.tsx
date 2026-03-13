@@ -55,7 +55,7 @@ const DOCUMENT_TYPES: DocumentTypeConfig[] = [
     guidedHref: '/dashboard/aprs/new',
     libraryHref: '/dashboard/aprs',
     importLabel: 'Anexar APR já preenchida',
-    assistedLabel: 'SOPHIE apoia a análise dentro do formulário',
+    assistedLabel: 'SOPHIE monta um rascunho completo e abre a APR para revisão',
     assistedSupported: true,
     librarySupported: true,
   },
@@ -67,7 +67,7 @@ const DOCUMENT_TYPES: DocumentTypeConfig[] = [
     guidedHref: '/dashboard/pts/new',
     libraryHref: '/dashboard/pts',
     importLabel: 'Anexar PT já emitida',
-    assistedLabel: 'SOPHIE ajuda na criticidade e controles',
+    assistedLabel: 'SOPHIE monta a PT inicial com criticidade e controles prioritários',
     assistedSupported: true,
     librarySupported: true,
   },
@@ -156,7 +156,7 @@ function getDocumentConfig(documentType: DocumentType) {
 }
 
 function opensSophieAutomation(documentType: DocumentType) {
-  return documentType === 'checklist' || documentType === 'dds' || documentType === 'nc';
+  return ['apr', 'pt', 'checklist', 'dds', 'nc'].includes(documentType);
 }
 
 export default function NewDocumentHubPage() {

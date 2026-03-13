@@ -1,8 +1,8 @@
 import { Transform } from 'class-transformer';
 import { Trim } from 'class-sanitizer';
-import { IsArray, IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 
-export class CreateAssistedNonConformityDto {
+export class CreateAssistedAprDto {
   @IsString()
   @Trim()
   @Transform(({ value }: { value: unknown }) =>
@@ -19,42 +19,47 @@ export class CreateAssistedNonConformityDto {
   @IsOptional()
   description?: string;
 
+  @IsString()
+  @Trim()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+  )
+  @IsOptional()
+  activity?: string;
+
+  @IsString()
+  @Trim()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+  )
+  @IsOptional()
+  process?: string;
+
+  @IsString()
+  @Trim()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+  )
+  @IsOptional()
+  equipment?: string;
+
+  @IsString()
+  @Trim()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
+  )
+  @IsOptional()
+  machine?: string;
+
+  @IsUUID()
+  site_id: string;
+
   @IsUUID()
   @IsOptional()
-  site_id?: string;
-
-  @IsString()
-  @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
-  )
-  @IsOptional()
-  local_setor_area?: string;
-
-  @IsString()
-  @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
-  )
-  @IsOptional()
-  responsavel_area?: string;
-
-  @IsString()
-  @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
-  )
-  @IsOptional()
-  tipo?: string;
-
-  @IsString()
-  @IsOptional()
-  @IsIn(['manual', 'image', 'checklist', 'inspection'])
-  source_type?: 'manual' | 'image' | 'checklist' | 'inspection';
+  company_id?: string;
 
   @IsUUID()
-  @IsOptional()
-  source_reference?: string;
+  elaborador_id: string;
 
   @IsString()
   @Trim()
@@ -62,7 +67,7 @@ export class CreateAssistedNonConformityDto {
     typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
   )
   @IsOptional()
-  source_context?: string;
+  site_name?: string;
 
   @IsString()
   @Trim()
@@ -70,23 +75,5 @@ export class CreateAssistedNonConformityDto {
     typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
   )
   @IsOptional()
-  image_analysis_summary?: string;
-
-  @IsArray()
-  @IsString({ each: true })
-  @IsOptional()
-  image_risks?: string[];
-
-  @IsArray()
-  @IsString({ each: true })
-  @IsOptional()
-  image_actions?: string[];
-
-  @IsString()
-  @Trim()
-  @Transform(({ value }: { value: unknown }) =>
-    typeof value === 'string' ? value.replace(/<script.*?>/gi, '') : value,
-  )
-  @IsOptional()
-  image_notes?: string;
+  company_name?: string;
 }

@@ -98,11 +98,57 @@ export type CreateDdsAutomationResponse = {
   message: string;
 };
 
+export type SophieDraftPayload = {
+  step: number;
+  values: Record<string, unknown>;
+  signatures: Record<string, { data: string; type: string }>;
+};
+
+export type GenerateAprDraftResponse = {
+  draft: SophieDraftPayload;
+  summary: string;
+  suggestedActions: string[];
+  suggestedResources?: {
+    activities: Array<{ id: string; label: string }>;
+    participants: Array<{ id: string; label: string }>;
+    tools: Array<{ id: string; label: string }>;
+    machines: Array<{ id: string; label: string }>;
+  };
+  confidence?: SophieConfidence;
+  notes?: string[];
+  message: string;
+};
+
+export type GeneratePtDraftResponse = {
+  draft: SophieDraftPayload;
+  summary: string;
+  riskLevel: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+  suggestedActions: string[];
+  suggestedResources?: {
+    participants: Array<{ id: string; label: string }>;
+    tools: Array<{ id: string; label: string }>;
+    machines: Array<{ id: string; label: string }>;
+  };
+  confidence?: SophieConfidence;
+  notes?: string[];
+  message: string;
+};
+
+export type SophieActionPlanItem = {
+  title: string;
+  owner: string;
+  priority: 'low' | 'medium' | 'high';
+  timeline: string;
+  type: 'immediate' | 'corrective' | 'preventive';
+};
+
 export type CreateNonConformityAutomationResponse = {
   nonConformity: unknown;
   generation: {
     title: string;
     riskLevel: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+    sourceType: 'manual' | 'image' | 'checklist' | 'inspection';
+    actionPlan: SophieActionPlanItem[];
     confidence?: SophieConfidence;
     notes?: string[];
   };

@@ -24,6 +24,11 @@ import { TrainingsService } from '../trainings/trainings.service';
 import { MedicalExamsService } from '../medical-exams/medical-exams.service';
 import { NonConformitiesService } from '../nonconformities/nonconformities.service';
 import { DdsService } from '../dds/dds.service';
+import { InspectionsService } from '../inspections/inspections.service';
+import { ActivitiesService } from '../activities/activities.service';
+import { ToolsService } from '../tools/tools.service';
+import { MachinesService } from '../machines/machines.service';
+import { UsersService } from '../users/users.service';
 import { getSophieSystemPrompt } from './sophie.prompt-resolver';
 import {
   AnalyzeAprResponse,
@@ -32,11 +37,14 @@ import {
   CreateChecklistAutomationResponse,
   CreateDdsAutomationResponse,
   CreateNonConformityAutomationResponse,
+  GenerateAprDraftResponse,
   GenerateChecklistResponse,
   GenerateDdsResponse,
+  GeneratePtDraftResponse,
   InsightCard,
   InsightsResponse,
   QueueMonthlyReportAutomationResponse,
+  SophieActionPlanItem,
   SophieConfidence,
   SophieTask,
 } from './sophie.types';
@@ -45,7 +53,9 @@ import type { CreateChecklistDto } from '../checklists/dto/create-checklist.dto'
 import type { CreateDdsDto } from '../dds/dto/create-dds.dto';
 import type { GenerateChecklistDto } from './dto/generate-checklist.dto';
 import type { CreateAssistedChecklistDto } from './dto/create-assisted-checklist.dto';
+import type { CreateAssistedAprDto } from './dto/create-assisted-apr.dto';
 import type { CreateAssistedNonConformityDto } from './dto/create-assisted-nonconformity.dto';
+import type { CreateAssistedPtDto } from './dto/create-assisted-pt.dto';
 import type {
   CreateAssistedDdsDto,
   GenerateDdsDto,
@@ -75,11 +85,16 @@ export class AiService {
     private readonly rateLimitService: SstRateLimitService,
     private readonly risksService: RisksService,
     private readonly episService: EpisService,
+    private readonly activitiesService: ActivitiesService,
+    private readonly toolsService: ToolsService,
+    private readonly machinesService: MachinesService,
+    private readonly usersService: UsersService,
     private readonly checklistsService: ChecklistsService,
     private readonly trainingsService: TrainingsService,
     private readonly medicalExamsService: MedicalExamsService,
     private readonly nonConformitiesService: NonConformitiesService,
     private readonly ddsService: DdsService,
+    private readonly inspectionsService: InspectionsService,
     @InjectQueue('pdf-generation')
     private readonly pdfQueue: Queue,
   ) {
@@ -1165,6 +1180,716 @@ export class AiService {
     return `NC-SOPHIE-${stamp}-${suffix}`;
   }
 
+  private generateDocumentNumber(prefix: 'APR' | 'PT'): string {
+    const now = new Date();
+    const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(
+      now.getDate(),
+    ).padStart(2, '0')}`;
+    const suffix = Math.random().toString(36).slice(2, 5).toUpperCase();
+    return `${prefix}-SOPHIE-${stamp}-${suffix}`;
+  }
+
+  private normalizeBoolean(value: unknown): boolean | undefined {
+    if (typeof value === 'boolean') return value;
+    const normalized = String(value || '').trim().toLowerCase();
+    if (['true', '1', 'sim', 'yes'].includes(normalized)) return true;
+    if (['false', '0', 'nao', 'não', 'no'].includes(normalized)) return false;
+    return undefined;
+  }
+
+  private normalizeAprRiskItems(
+    value: unknown,
+  ): Array<Record<string, string>> {
+    if (!Array.isArray(value)) return [];
+
+    return value
+      .map((entry) => {
+        const item = (entry ?? {}) as Record<string, unknown>;
+        return {
+          atividade_processo: String(item.atividade_processo || '').trim(),
+          agente_ambiental: String(item.agente_ambiental || '').trim(),
+          condicao_perigosa: String(item.condicao_perigosa || '').trim(),
+          fontes_circunstancias: String(item.fontes_circunstancias || '').trim(),
+          possiveis_lesoes: String(item.possiveis_lesoes || '').trim(),
+          probabilidade: String(item.probabilidade || '').trim(),
+          severidade: String(item.severidade || '').trim(),
+          categoria_risco: String(item.categoria_risco || '').trim(),
+          medidas_prevencao: String(item.medidas_prevencao || '').trim(),
+        };
+      })
+      .filter(
+        (item) =>
+          item.atividade_processo ||
+          item.condicao_perigosa ||
+          item.agente_ambiental ||
+          item.medidas_prevencao,
+      )
+      .slice(0, 8);
+  }
+
+  private normalizeIdSelections(
+    value: unknown,
+    allowedIds: Set<string>,
+    maxItems = 8,
+  ): string[] {
+    if (!Array.isArray(value)) return [];
+    return Array.from(
+      new Set(
+        value
+          .map((item) => String(item || '').trim())
+          .filter((item) => item && allowedIds.has(item)),
+      ),
+    ).slice(0, Math.max(1, maxItems));
+  }
+
+  private formatSelectionLabel(entry: {
+    nome?: string | null;
+    funcao?: string | null;
+    descricao?: string | null;
+  }): string {
+    const parts = [
+      String(entry.nome || '').trim(),
+      String(entry.funcao || '').trim(),
+      String(entry.descricao || '').trim(),
+    ].filter(Boolean);
+    return parts.join(' • ');
+  }
+
+  private async loadAssistedDraftContext(companyId: string, siteId: string) {
+    const [activitiesPage, toolsPage, machinesPage, usersPage] = await Promise.all([
+      this.activitiesService.findPaginated({ page: 1, limit: 80, companyId }),
+      this.toolsService.findPaginated({ page: 1, limit: 80, companyId }),
+      this.machinesService.findPaginated({ page: 1, limit: 80, companyId }),
+      this.usersService.findPaginated({ page: 1, limit: 80, companyId }),
+    ]);
+
+    const participants = (usersPage.data || [])
+      .filter((user: any) => !siteId || !user.site_id || user.site_id === siteId)
+      .slice(0, 40)
+      .map((user: any) => ({
+        id: user.id,
+        label: this.formatSelectionLabel({
+          nome: user.nome,
+          funcao: user.funcao,
+          descricao: user.site_id ? `site:${user.site_id}` : '',
+        }),
+      }));
+
+    return {
+      activities: (activitiesPage.data || []).map((activity: any) => ({
+        id: activity.id,
+        label: this.formatSelectionLabel({
+          nome: activity.nome,
+          descricao: activity.descricao,
+        }),
+      })),
+      tools: (toolsPage.data || []).map((tool: any) => ({
+        id: tool.id,
+        label: this.formatSelectionLabel({
+          nome: tool.nome,
+          descricao: tool.descricao,
+        }),
+      })),
+      machines: (machinesPage.data || []).map((machine: any) => ({
+        id: machine.id,
+        label: this.formatSelectionLabel({
+          nome: machine.nome,
+          descricao: machine.descricao,
+        }),
+      })),
+      participants,
+    };
+  }
+
+  private normalizeActionPlan(
+    value: unknown,
+    defaults?: Array<Partial<SophieActionPlanItem>>,
+  ): SophieActionPlanItem[] {
+    const items = Array.isArray(value) ? value : [];
+    const normalized = items
+      .map((entry, index) => {
+        const item = (entry ?? {}) as Record<string, unknown>;
+        const fallback = defaults?.[index] || {};
+        const priority = String(item.priority || fallback.priority || 'medium')
+          .trim()
+          .toLowerCase();
+        const type = String(item.type || fallback.type || 'corrective')
+          .trim()
+          .toLowerCase();
+
+        return {
+          title: String(item.title || fallback.title || '').trim(),
+          owner: String(item.owner || fallback.owner || 'Gestão SST').trim(),
+          priority:
+            priority === 'high' || priority === 'low' ? priority : 'medium',
+          timeline: String(item.timeline || fallback.timeline || 'Curto prazo').trim(),
+          type:
+            type === 'immediate' || type === 'preventive' ? type : 'corrective',
+        } as SophieActionPlanItem;
+      })
+      .filter((item) => item.title)
+      .slice(0, 5);
+
+    if (normalized.length > 0) {
+      return normalized;
+    }
+
+    return (defaults || [])
+      .map((entry) => ({
+        title: String(entry.title || '').trim(),
+        owner: String(entry.owner || 'Gestão SST').trim(),
+        priority:
+          entry.priority === 'high' || entry.priority === 'low'
+            ? entry.priority
+            : ('medium' as const),
+        timeline: String(entry.timeline || 'Curto prazo').trim(),
+        type:
+          entry.type === 'immediate' || entry.type === 'preventive'
+            ? entry.type
+            : ('corrective' as const),
+      }))
+      .filter((item) => item.title)
+      .slice(0, 5);
+  }
+
+  private buildPtObservationText(params: {
+    summary: string;
+    riskLevel: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+    suggestedActions: string[];
+    mandatoryDocuments?: string[];
+  }): string {
+    const lines = [
+      `Resumo técnico SOPHIE: ${params.summary}`.trim(),
+      `Nível de risco sugerido: ${params.riskLevel}.`,
+    ];
+
+    if (params.suggestedActions.length > 0) {
+      lines.push(
+        `Controles prioritários: ${params.suggestedActions
+          .slice(0, 4)
+          .join('; ')}.`,
+      );
+    }
+
+    if ((params.mandatoryDocuments || []).length > 0) {
+      lines.push(
+        `Documentos e validações mandatórias: ${params.mandatoryDocuments
+          ?.slice(0, 4)
+          .join('; ')}.`,
+      );
+    }
+
+    return lines.filter(Boolean).join('\n');
+  }
+
+  private async buildNonConformitySourceSnapshot(
+    params: CreateAssistedNonConformityDto,
+  ): Promise<{
+    sourceType: 'manual' | 'image' | 'checklist' | 'inspection';
+    siteId?: string;
+    title?: string;
+    description?: string;
+    localSetorArea?: string;
+    promptSections: string[];
+    notes: string[];
+  }> {
+    const sourceType = (params.source_type || 'manual') as
+      | 'manual'
+      | 'image'
+      | 'checklist'
+      | 'inspection';
+
+    const promptSections: string[] = [];
+    const notes: string[] = [];
+    let siteId = params.site_id;
+    let title = params.title;
+    let description = params.description;
+    let localSetorArea = params.local_setor_area;
+
+    if (params.source_context?.trim()) {
+      promptSections.push(`Contexto adicional da origem: ${params.source_context.trim()}`);
+    }
+
+    if (sourceType === 'image') {
+      if (params.image_analysis_summary?.trim()) {
+        promptSections.push(`Síntese da análise da imagem: ${params.image_analysis_summary.trim()}`);
+      }
+      if (params.image_risks?.length) {
+        promptSections.push(`Riscos visíveis na imagem: ${params.image_risks.join('; ')}`);
+      }
+      if (params.image_actions?.length) {
+        promptSections.push(`Ações imediatas sugeridas para a imagem: ${params.image_actions.join('; ')}`);
+      }
+      if (params.image_notes?.trim()) {
+        promptSections.push(`Notas da análise da imagem: ${params.image_notes.trim()}`);
+      }
+    }
+
+    if (sourceType === 'checklist' && params.source_reference) {
+      try {
+        const checklist = await this.checklistsService.findOneEntity(params.source_reference);
+        siteId = siteId || checklist.site_id;
+        title = title || checklist.titulo;
+        description =
+          description ||
+          checklist.descricao ||
+          `Checklist ${checklist.titulo} com status ${checklist.status}.`;
+        localSetorArea =
+          localSetorArea ||
+          checklist.site?.nome ||
+          checklist.maquina ||
+          checklist.equipamento ||
+          'Área operacional';
+        promptSections.push(
+          `Origem checklist: ${JSON.stringify({
+            id: checklist.id,
+            titulo: checklist.titulo,
+            descricao: checklist.descricao,
+            equipamento: checklist.equipamento,
+            maquina: checklist.maquina,
+            status: checklist.status,
+            site: checklist.site?.nome,
+            itens: Array.isArray((checklist as any).itens)
+              ? (checklist as any).itens.slice(0, 20)
+              : [],
+          })}`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `[SOPHIE] Não foi possível carregar checklist ${params.source_reference} para NC assistida: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        notes.push('Origem checklist não pôde ser carregada integralmente.');
+      }
+    }
+
+    if (sourceType === 'inspection' && params.source_reference) {
+      try {
+        const tenantId = this.getTenantIdOrThrow();
+        const inspection = await this.inspectionsService.findOneEntity(
+          params.source_reference,
+          tenantId,
+        );
+        siteId = siteId || inspection.site_id;
+        title = title || `Achado da inspeção ${inspection.tipo_inspecao}`;
+        description =
+          description ||
+          inspection.conclusao ||
+          inspection.descricao_local_atividades ||
+          'Achado oriundo de inspeção operacional.';
+        localSetorArea =
+          localSetorArea ||
+          inspection.setor_area ||
+          inspection.site?.nome ||
+          'Área inspecionada';
+        promptSections.push(
+          `Origem inspeção: ${JSON.stringify({
+            id: inspection.id,
+            tipo_inspecao: inspection.tipo_inspecao,
+            setor_area: inspection.setor_area,
+            objetivo: inspection.objetivo,
+            descricao_local_atividades: inspection.descricao_local_atividades,
+            conclusao: inspection.conclusao,
+            perigos_riscos: inspection.perigos_riscos?.slice(0, 8),
+            plano_acao: inspection.plano_acao?.slice(0, 6),
+            evidencias: inspection.evidencias?.slice(0, 6),
+          })}`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `[SOPHIE] Não foi possível carregar inspeção ${params.source_reference} para NC assistida: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        notes.push('Origem inspeção não pôde ser carregada integralmente.');
+      }
+    }
+
+    return {
+      sourceType,
+      siteId,
+      title,
+      description,
+      localSetorArea,
+      promptSections,
+      notes,
+    };
+  }
+
+  async generateAprDraft(
+    params: CreateAssistedAprDto,
+  ): Promise<GenerateAprDraftResponse> {
+    if (!params.site_id || !params.elaborador_id) {
+      throw new BadRequestException(
+        'site_id e elaborador_id são obrigatórios para gerar APR assistida.',
+      );
+    }
+
+    const companyId = params.company_id || this.getTenantIdOrThrow();
+    const [risks, epis, draftContext] = await Promise.all([
+      this.risksService.findAll(),
+      this.episService.findAll(),
+      this.loadAssistedDraftContext(companyId, params.site_id),
+    ]);
+
+    const riskOptions = risks
+      .map((risk: any) => ({ id: risk.id, nome: risk.nome, categoria: risk.categoria ?? null }))
+      .slice(0, 300);
+    const epiOptions = epis
+      .map((epi: any) => ({ id: epi.id, nome: epi.nome, ca: epi.ca ?? null }))
+      .slice(0, 300);
+
+    type GeneratedAprDraft = {
+      title?: string;
+      description?: string;
+      risks?: string[];
+      epis?: string[];
+      activities?: string[];
+      tools?: string[];
+      machines?: string[];
+      participants?: string[];
+      risk_items?: Array<Record<string, unknown>>;
+      recommended_actions?: string[];
+      summary?: string;
+      confidence?: SophieConfidence;
+      notes?: string[];
+    };
+
+    const generated = await this.generateStructuredJson<GeneratedAprDraft>({
+      task: 'apr',
+      maxTokens: 1600,
+      prompt:
+        `Monte um rascunho inicial de APR para SST com foco corporativo e revisão humana.\n\n` +
+        `Contexto recebido:\n` +
+        `- Empresa: ${params.company_name || params.company_id || 'Empresa ativa'}\n` +
+        `- Site/obra: ${params.site_name || params.site_id}\n` +
+        `- Título sugerido: ${params.title || 'não informado'}\n` +
+        `- Descrição/escopo: ${params.description || 'não informado'}\n` +
+        `- Atividade: ${params.activity || 'não informada'}\n` +
+        `- Processo: ${params.process || 'não informado'}\n` +
+        `- Equipamento: ${params.equipment || 'não informado'}\n` +
+        `- Máquina: ${params.machine || 'não informada'}\n\n` +
+        `Objetivo:\n` +
+        `- propor uma APR inicial consistente, técnica e pronta para revisão\n` +
+        `- identificar de 3 a 6 riscos principais\n` +
+        `- priorizar hierarquia de controle antes de EPI\n` +
+        `- retornar apenas IDs presentes nas listas de riscos e EPIs fornecidas\n\n` +
+        `Atividades disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.activities)}\n\n` +
+        `Ferramentas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.tools)}\n\n` +
+        `Máquinas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.machines)}\n\n` +
+        `Participantes disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.participants)}\n\n` +
+        `Riscos disponíveis (usar somente IDs válidos):\n${JSON.stringify(riskOptions)}\n\n` +
+        `EPIs disponíveis (usar somente IDs válidos):\n${JSON.stringify(epiOptions)}\n\n` +
+        `Formato JSON:\n` +
+        `{\n` +
+        `  "title": string,\n` +
+        `  "description": string,\n` +
+        `  "activities": string[],\n` +
+        `  "risks": string[],\n` +
+        `  "epis": string[],\n` +
+        `  "tools": string[],\n` +
+        `  "machines": string[],\n` +
+        `  "participants": string[],\n` +
+        `  "risk_items": [{\n` +
+        `    "atividade_processo": string,\n` +
+        `    "agente_ambiental": string,\n` +
+        `    "condicao_perigosa": string,\n` +
+        `    "fontes_circunstancias": string,\n` +
+        `    "possiveis_lesoes": string,\n` +
+        `    "probabilidade": "1"|"2"|"3"|"4"|"5",\n` +
+        `    "severidade": "1"|"2"|"3"|"4"|"5",\n` +
+        `    "categoria_risco": string,\n` +
+        `    "medidas_prevencao": string\n` +
+        `  }],\n` +
+        `  "recommended_actions": string[],\n` +
+        `  "summary": string,\n` +
+        `  "confidence": "low|medium|high",\n` +
+        `  "notes": string[]\n` +
+        `}\n\n` +
+        `Regras:\n` +
+        `- title e description precisam estar prontos para abrir o formulário.\n` +
+        `- risk_items deve ter linguagem técnica, mas objetiva.\n` +
+        `- Não inventar medições quantitativas não informadas.\n` +
+        `- recommended_actions deve ter de 3 a 6 itens executáveis.\n` +
+        `- Retorne somente JSON válido.`,
+    });
+
+    const allowedRiskIds = new Set(riskOptions.map((item) => item.id));
+    const allowedEpiIds = new Set(epiOptions.map((item) => item.id));
+    const allowedActivityIds = new Set(draftContext.activities.map((item) => item.id));
+    const allowedToolIds = new Set(draftContext.tools.map((item) => item.id));
+    const allowedMachineIds = new Set(draftContext.machines.map((item) => item.id));
+    const allowedParticipantIds = new Set(draftContext.participants.map((item) => item.id));
+    const riskItems = this.normalizeAprRiskItems(generated.risk_items);
+    const suggestedActions =
+      this.normalizeStringArray(generated.recommended_actions, 6) ||
+      Array.from(
+        new Set(
+          riskItems
+            .map((item) => String(item.medidas_prevencao || '').trim())
+            .filter(Boolean),
+        ),
+      ).slice(0, 6);
+    const confidence = this.normalizeConfidence(generated.confidence);
+    const notes = this.normalizeStringArray(generated.notes, 10);
+    const selectedParticipants = Array.from(
+      new Set([
+        params.elaborador_id,
+        ...this.normalizeIdSelections(generated.participants, allowedParticipantIds, 4),
+      ]),
+    ).filter((id) => allowedParticipantIds.has(id));
+    const selectedActivities = this.normalizeIdSelections(
+      generated.activities,
+      allowedActivityIds,
+      4,
+    );
+    const selectedTools = this.normalizeIdSelections(generated.tools, allowedToolIds, 4);
+    const selectedMachines = this.normalizeIdSelections(
+      generated.machines,
+      allowedMachineIds,
+      4,
+    );
+
+    return {
+      draft: {
+        step: 1,
+        values: {
+          numero: this.generateDocumentNumber('APR'),
+          titulo:
+            String(generated.title || params.title || params.activity || 'APR Assistida').trim(),
+          descricao:
+            String(
+              generated.description ||
+                params.description ||
+                params.process ||
+                params.activity ||
+                '',
+            ).trim(),
+          status: 'Pendente',
+          company_id: params.company_id || this.getTenantIdOrThrow(),
+          site_id: params.site_id,
+          elaborador_id: params.elaborador_id,
+          participants: selectedParticipants.length ? selectedParticipants : [params.elaborador_id],
+          risks: (this.normalizeStringArray(generated.risks, 12) || []).filter((id) =>
+            allowedRiskIds.has(id),
+          ),
+          epis: (this.normalizeStringArray(generated.epis, 12) || []).filter((id) =>
+            allowedEpiIds.has(id),
+          ),
+          activities: selectedActivities,
+          tools: selectedTools,
+          machines: selectedMachines,
+          itens_risco: riskItems,
+        },
+        signatures: {},
+      },
+      summary:
+        String(generated.summary || '').trim() ||
+        'APR inicial gerada pela SOPHIE com foco em riscos prioritários e controles.',
+      suggestedActions,
+      suggestedResources: {
+        activities: draftContext.activities.filter((item) => selectedActivities.includes(item.id)),
+        participants: draftContext.participants.filter((item) =>
+          (selectedParticipants.length ? selectedParticipants : [params.elaborador_id]).includes(item.id),
+        ),
+        tools: draftContext.tools.filter((item) => selectedTools.includes(item.id)),
+        machines: draftContext.machines.filter((item) => selectedMachines.includes(item.id)),
+      },
+      confidence,
+      notes,
+      message:
+        'Rascunho de APR gerado pela SOPHIE. Revise o contexto operacional, complemente participantes e valide a matriz antes de emitir.',
+    };
+  }
+
+  async generatePtDraft(
+    params: CreateAssistedPtDto,
+  ): Promise<GeneratePtDraftResponse> {
+    if (!params.site_id || !params.responsavel_id) {
+      throw new BadRequestException(
+        'site_id e responsavel_id são obrigatórios para gerar PT assistida.',
+      );
+    }
+
+    const companyId = params.company_id || this.getTenantIdOrThrow();
+    const draftContext = await this.loadAssistedDraftContext(companyId, params.site_id);
+
+    type GeneratedPtDraft = {
+      title?: string;
+      description?: string;
+      riskLevel?: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+      summary?: string;
+      suggestions?: string[];
+      mandatory_documents?: string[];
+      participants?: string[];
+      tools?: string[];
+      machines?: string[];
+      flags?: {
+        trabalho_altura?: boolean;
+        espaco_confinado?: boolean;
+        trabalho_quente?: boolean;
+        eletricidade?: boolean;
+        escavacao?: boolean;
+      };
+      confidence?: SophieConfidence;
+      notes?: string[];
+    };
+
+    const generated = await this.generateStructuredJson<GeneratedPtDraft>({
+      task: 'pt',
+      maxTokens: 1400,
+      prompt:
+        `Monte um rascunho inicial de Permissão de Trabalho (PT) para SST.\n\n` +
+        `Contexto recebido:\n` +
+        `- Empresa: ${params.company_name || params.company_id || 'Empresa ativa'}\n` +
+        `- Site/obra: ${params.site_name || params.site_id}\n` +
+        `- Título sugerido: ${params.title || 'não informado'}\n` +
+        `- Descrição/escopo: ${params.description || 'não informado'}\n` +
+        `- Flags já informadas: ${JSON.stringify({
+          trabalho_altura: params.trabalho_altura,
+          espaco_confinado: params.espaco_confinado,
+          trabalho_quente: params.trabalho_quente,
+          eletricidade: params.eletricidade,
+          escavacao: params.escavacao,
+        })}\n\n` +
+        `Objetivo:\n` +
+        `- preparar uma PT inicial pronta para revisão humana\n` +
+        `- sugerir criticidade e controles imediatos\n` +
+        `- inferir flags críticas quando o contexto apontar necessidade\n` +
+        `- indicar documentos/validações mandatórias\n\n` +
+        `Participantes disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.participants)}\n\n` +
+        `Ferramentas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.tools)}\n\n` +
+        `Máquinas disponíveis (usar somente IDs válidos quando fizer sentido):\n${JSON.stringify(draftContext.machines)}\n\n` +
+        `Formato JSON:\n` +
+        `{\n` +
+        `  "title": string,\n` +
+        `  "description": string,\n` +
+        `  "riskLevel": "Baixo|Médio|Alto|Crítico",\n` +
+        `  "summary": string,\n` +
+        `  "suggestions": string[],\n` +
+        `  "mandatory_documents": string[],\n` +
+        `  "participants": string[],\n` +
+        `  "tools": string[],\n` +
+        `  "machines": string[],\n` +
+        `  "flags": {\n` +
+        `    "trabalho_altura": boolean,\n` +
+        `    "espaco_confinado": boolean,\n` +
+        `    "trabalho_quente": boolean,\n` +
+        `    "eletricidade": boolean,\n` +
+        `    "escavacao": boolean\n` +
+        `  },\n` +
+        `  "confidence": "low|medium|high",\n` +
+        `  "notes": string[]\n` +
+        `}\n\n` +
+        `Regras:\n` +
+        `- suggestions deve ter de 4 a 8 itens curtos e acionáveis.\n` +
+        `- mandatory_documents deve citar permissões, APR, inspeções, bloqueios ou treinamentos quando necessário.\n` +
+        `- respeitar flags já informadas pelo usuário.\n` +
+        `- priorizar controles de engenharia, administrativos e validações antes de liberar a execução.\n` +
+        `- Retorne somente JSON válido.`,
+    });
+
+    const resolvedFlags = {
+      trabalho_altura:
+        params.trabalho_altura ?? this.normalizeBoolean(generated.flags?.trabalho_altura) ?? false,
+      espaco_confinado:
+        params.espaco_confinado ??
+        this.normalizeBoolean(generated.flags?.espaco_confinado) ??
+        false,
+      trabalho_quente:
+        params.trabalho_quente ?? this.normalizeBoolean(generated.flags?.trabalho_quente) ?? false,
+      eletricidade:
+        params.eletricidade ?? this.normalizeBoolean(generated.flags?.eletricidade) ?? false,
+      escavacao:
+        params.escavacao ?? this.normalizeBoolean(generated.flags?.escavacao) ?? false,
+    };
+    const suggestedActions = this.normalizeStringArray(generated.suggestions, 8) || [];
+    const mandatoryDocuments =
+      this.normalizeStringArray(generated.mandatory_documents, 6) || [];
+    const allowedParticipantIds = new Set(draftContext.participants.map((item) => item.id));
+    const allowedToolIds = new Set(draftContext.tools.map((item) => item.id));
+    const allowedMachineIds = new Set(draftContext.machines.map((item) => item.id));
+    const selectedParticipants = Array.from(
+      new Set([
+        params.responsavel_id,
+        ...this.normalizeIdSelections(generated.participants, allowedParticipantIds, 5),
+      ]),
+    ).filter((id) => allowedParticipantIds.has(id));
+    const selectedTools = this.normalizeIdSelections(generated.tools, allowedToolIds, 4);
+    const selectedMachines = this.normalizeIdSelections(
+      generated.machines,
+      allowedMachineIds,
+      4,
+    );
+    const riskLevel = this.normalizeRiskLevel(generated.riskLevel);
+    const confidence = this.normalizeConfidence(generated.confidence);
+    const notes = this.normalizeStringArray(generated.notes, 10);
+    const resourceHints = [
+      selectedTools.length
+        ? `Ferramentas sugeridas: ${draftContext.tools
+            .filter((item) => selectedTools.includes(item.id))
+            .map((item) => item.label)
+            .join('; ')}.`
+        : null,
+      selectedMachines.length
+        ? `Máquinas associadas: ${draftContext.machines
+            .filter((item) => selectedMachines.includes(item.id))
+            .map((item) => item.label)
+            .join('; ')}.`
+        : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    return {
+      draft: {
+        step: 1,
+        values: {
+          numero: this.generateDocumentNumber('PT'),
+          titulo:
+            String(generated.title || params.title || 'PT Assistida').trim(),
+          descricao:
+            String(generated.description || params.description || '').trim(),
+          status: 'Pendente',
+          company_id: companyId,
+          site_id: params.site_id,
+          responsavel_id: params.responsavel_id,
+          executantes: selectedParticipants.length
+            ? selectedParticipants
+            : [params.responsavel_id],
+          ...resolvedFlags,
+          analise_risco_rapida_observacoes: this.buildPtObservationText({
+            summary:
+              String(generated.summary || '').trim() ||
+              'PT assistida gerada pela SOPHIE.',
+            riskLevel,
+            suggestedActions,
+            mandatoryDocuments,
+          })
+            .concat(resourceHints ? `\n${resourceHints}` : ''),
+        },
+        signatures: {},
+      },
+      summary:
+        String(generated.summary || '').trim() ||
+        'PT inicial gerada pela SOPHIE com criticidade e controles prioritários.',
+      riskLevel,
+      suggestedActions,
+      suggestedResources: {
+        participants: draftContext.participants.filter((item) =>
+          (selectedParticipants.length ? selectedParticipants : [params.responsavel_id]).includes(item.id),
+        ),
+        tools: draftContext.tools.filter((item) => selectedTools.includes(item.id)),
+        machines: draftContext.machines.filter((item) => selectedMachines.includes(item.id)),
+      },
+      confidence,
+      notes,
+      message:
+        'Rascunho de PT gerado pela SOPHIE. Revise as flags críticas, conclua os checklists mandatórios e valide assinaturas antes da liberação.',
+    };
+  }
+
   async createChecklist(
     params: CreateAssistedChecklistDto,
   ): Promise<CreateChecklistAutomationResponse> {
@@ -1250,19 +1975,23 @@ export class AiService {
   async createNonConformity(
     params: CreateAssistedNonConformityDto,
   ): Promise<CreateNonConformityAutomationResponse> {
-    if (!params.site_id) {
+    const sourceSnapshot = await this.buildNonConformitySourceSnapshot(params);
+    const resolvedSiteId = sourceSnapshot.siteId || params.site_id;
+    if (!resolvedSiteId) {
       throw new BadRequestException(
         'site_id é obrigatório para criar não conformidade pela SOPHIE.',
       );
     }
 
     const title =
-      String(params.title || '').trim() || 'Não conformidade SST';
+      String(sourceSnapshot.title || params.title || '').trim() ||
+      'Não conformidade SST';
     const description =
-      String(params.description || '').trim() ||
+      String(sourceSnapshot.description || params.description || '').trim() ||
       'Desvio operacional identificado e pendente de tratamento.';
     const localSetorArea =
-      String(params.local_setor_area || '').trim() || 'Área operacional';
+      String(sourceSnapshot.localSetorArea || params.local_setor_area || '').trim() ||
+      'Área operacional';
     const responsavelArea =
       String(params.responsavel_area || '').trim() || 'Responsável da área';
     const tipo =
@@ -1283,6 +2012,7 @@ export class AiService {
       acao_imediata_descricao?: string;
       acao_definitiva_descricao?: string;
       acao_preventiva_medidas?: string;
+      action_plan?: Array<Record<string, unknown>>;
       confidence?: SophieConfidence;
       notes?: string[];
     };
@@ -1296,7 +2026,13 @@ export class AiService {
         `- Título: ${title}\n` +
         `- Descrição: ${description}\n` +
         `- Local/setor/área: ${localSetorArea}\n` +
-        `- Tipo sugerido: ${tipo}\n\n` +
+        `- Tipo sugerido: ${tipo}\n` +
+        `- Origem do desvio: ${sourceSnapshot.sourceType}\n` +
+        `${
+          sourceSnapshot.promptSections.length
+            ? `- Dados adicionais da origem:\n${sourceSnapshot.promptSections.map((entry) => `  • ${entry}`).join('\n')}\n`
+            : ''
+        }\n` +
         `Objetivo:\n` +
         `- gerar um cadastro inicial consistente para revisão humana\n` +
         `- manter linguagem corporativa, técnica e objetiva\n` +
@@ -1318,6 +2054,7 @@ export class AiService {
         `  "acao_imediata_descricao": string,\n` +
         `  "acao_definitiva_descricao": string,\n` +
         `  "acao_preventiva_medidas": string,\n` +
+        `  "action_plan": [{"title": string, "owner": string, "priority": "low|medium|high", "timeline": string, "type": "immediate|corrective|preventive"}],\n` +
         `  "confidence": "low|medium|high",\n` +
         `  "notes": string[]\n` +
         `}\n\n` +
@@ -1326,6 +2063,7 @@ export class AiService {
         `- Se o contexto for insuficiente, assumir um desvio operacional plausível e declarar isso em notes.\n` +
         `- descricao, evidencia_observada e condicao_insegura devem ser úteis para cadastro real.\n` +
         `- acao_imediata_descricao e acao_definitiva_descricao devem ser executáveis.\n` +
+        `- action_plan deve trazer de 2 a 4 ações, com responsável sugerido e horizonte de prazo.\n` +
         `- Retorne somente JSON válido.`,
     });
 
@@ -1335,19 +2073,51 @@ export class AiService {
       .slice(0, 10);
     const normalizedRiskLevel = this.normalizeRiskLevel(generated.risco_nivel);
     const confidence = this.normalizeConfidence(generated.confidence);
-    const notes = this.normalizeStringArray(generated.notes);
+    const notes = [
+      ...(this.normalizeStringArray(generated.notes) || []),
+      ...sourceSnapshot.notes,
+    ];
+    const actionPlan = this.normalizeActionPlan(generated.action_plan, [
+      {
+        title:
+          String(generated.acao_imediata_descricao || '').trim() ||
+          'Executar contenção imediata do desvio.',
+        owner: responsavelArea,
+        priority: normalizedRiskLevel === 'Crítico' || normalizedRiskLevel === 'Alto' ? 'high' : 'medium',
+        timeline: 'Imediato',
+        type: 'immediate',
+      },
+      {
+        title:
+          String(generated.acao_definitiva_descricao || '').trim() ||
+          'Implementar correção definitiva do desvio.',
+        owner: 'Gestão SST',
+        priority: 'high',
+        timeline: 'Até 7 dias',
+        type: 'corrective',
+      },
+      {
+        title:
+          String(generated.acao_preventiva_medidas || '').trim() ||
+          'Reforçar monitoramento, orientação e prevenção recorrente.',
+        owner: 'Gestão operacional',
+        priority: 'medium',
+        timeline: 'Até 15 dias',
+        type: 'preventive',
+      },
+    ]);
 
     const createDto: CreateNonConformityDto = {
       codigo_nc: this.generateNonConformityCode(),
       tipo: String(generated.tipo || tipo).trim() || 'DESVIO_OPERACIONAL',
       data_identificacao: today,
-      site_id: params.site_id,
+      site_id: resolvedSiteId,
       local_setor_area: localSetorArea,
       atividade_envolvida: title,
       responsavel_area: responsavelArea,
       auditor_responsavel: 'SOPHIE',
       classificacao:
-        this.normalizeStringArray(generated.classificacao) || ['SOPHIE', 'NC_ASSISTIDA'],
+        this.normalizeStringArray(generated.classificacao) || ['SOPHIE', 'NC_ASSISTIDA', sourceSnapshot.sourceType.toUpperCase()],
       descricao:
         String(generated.descricao || '').trim() ||
         `${title}. ${description}`.trim(),
@@ -1378,15 +2148,16 @@ export class AiService {
         String(generated.acao_definitiva_descricao || '').trim() ||
         'Implementar correção definitiva e validar a eficácia do tratamento.',
       acao_definitiva_prazo: nextWeek,
-      acao_definitiva_responsavel: 'Gestão SST',
+      acao_definitiva_responsavel: actionPlan[1]?.owner || 'Gestão SST',
       acao_preventiva_medidas:
         String(generated.acao_preventiva_medidas || '').trim() ||
         'Revisar controles, orientar equipe e reforçar monitoramento.',
       status: 'ABERTA',
       observacoes_gerais: [
         'NC criada pela SOPHIE em modo assistido.',
+        `Origem da análise: ${sourceSnapshot.sourceType}.`,
         confidence ? `Confiança da geração: ${confidence}.` : null,
-        ...(notes || []),
+        ...notes,
       ]
         .filter(Boolean)
         .join(' '),
@@ -1399,8 +2170,10 @@ export class AiService {
       generation: {
         title,
         riskLevel: normalizedRiskLevel,
+        sourceType: sourceSnapshot.sourceType,
+        actionPlan,
         confidence,
-        notes,
+        notes: notes.length ? notes : undefined,
       },
       persisted: true,
       message:

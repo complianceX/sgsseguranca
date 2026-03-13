@@ -4,8 +4,10 @@ import { SstAgentService } from './sst-agent/sst-agent.service';
 import { SophieEngineService } from '../sophie/sophie.engine.service';
 import { AnalyzePtDto } from './dto/analyze-pt.dto';
 import { GenerateChecklistDto } from './dto/generate-checklist.dto';
+import { CreateAssistedAprDto } from './dto/create-assisted-apr.dto';
 import { CreateAssistedChecklistDto } from './dto/create-assisted-checklist.dto';
 import { CreateAssistedNonConformityDto } from './dto/create-assisted-nonconformity.dto';
+import { CreateAssistedPtDto } from './dto/create-assisted-pt.dto';
 import {
   CreateAssistedDdsDto,
   GenerateDdsDto,
@@ -37,9 +39,12 @@ export class SophieFacadeService {
         analyzeChecklist: true,
         generateDds: true,
         generateChecklist: true,
+        generateAprDraft: true,
+        generatePtDraft: true,
         createChecklist: true,
         createDds: true,
         createNonConformity: true,
+        createNonConformityFromSources: true,
         queueMonthlyReport: true,
         phase2RiskGate: true,
         phase2ChecklistAutoNc: automation.phase2Enabled,
@@ -73,6 +78,14 @@ export class SophieFacadeService {
 
   generateChecklist(payload: GenerateChecklistDto) {
     return this.aiService.generateChecklist(payload as any);
+  }
+
+  generateAprDraft(payload: CreateAssistedAprDto) {
+    return this.aiService.generateAprDraft(payload);
+  }
+
+  generatePtDraft(payload: CreateAssistedPtDto) {
+    return this.aiService.generatePtDraft(payload);
   }
 
   createChecklist(payload: CreateAssistedChecklistDto) {

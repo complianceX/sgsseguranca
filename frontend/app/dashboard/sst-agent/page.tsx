@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
   Bot,
@@ -23,15 +23,18 @@ import {
   sophieService,
   SophieHistoryItem,
   SophieResponse,
+  SophieDraftResponse,
   CreateChecklistAutomationResponse,
   CreateDdsAutomationResponse,
   CreateNonConformityAutomationResponse,
+  GeneratePtDraftAutomationResponse,
   QueueMonthlyReportAutomationResponse,
 } from '@/services/sophieService';
 import { useAuth } from '@/context/AuthContext';
 import { sitesService, Site } from '@/services/sitesService';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { storeSophieAprDraft, storeSophiePtDraft } from '@/lib/sophie-draft-storage';
 
 const quickActions = [
   {
@@ -109,7 +112,36 @@ function resolvePendingContextTitle(context: PendingContext) {
   return 'Pendência operacional trazida da fila central';
 }
 
+function SuggestedResourceGroup({
+  title,
+  items,
+}: {
+  title: string;
+  items?: Array<{ id: string; label: string }>;
+}) {
+  if (!items?.length) return null;
+
+  return (
+    <div className="mt-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
+        {title}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {items.slice(0, 5).map((item) => (
+          <span
+            key={item.id}
+            className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-1 text-[11px] font-medium text-[var(--ds-color-text-primary)]"
+          >
+            {item.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function SstAgentPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const aiEnabled = isAiEnabled();
   const phase1Enabled = isSophieAutomationPhase1Enabled();
@@ -118,6 +150,21 @@ export default function SstAgentPage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [sites, setSites] = useState<Site[]>([]);
   const [loadingSites, setLoadingSites] = useState(false);
+  const [aprSiteId, setAprSiteId] = useState('');
+  const [aprTitle, setAprTitle] = useState('');
+  const [aprDescription, setAprDescription] = useState('');
+  const [aprActivity, setAprActivity] = useState('');
+  const [aprProcess, setAprProcess] = useState('');
+  const [aprEquipment, setAprEquipment] = useState('');
+  const [aprMachine, setAprMachine] = useState('');
+  const [ptSiteId, setPtSiteId] = useState('');
+  const [ptTitle, setPtTitle] = useState('');
+  const [ptDescription, setPtDescription] = useState('');
+  const [ptTrabalhoAltura, setPtTrabalhoAltura] = useState(false);
+  const [ptEspacoConfinado, setPtEspacoConfinado] = useState(false);
+  const [ptTrabalhoQuente, setPtTrabalhoQuente] = useState(false);
+  const [ptEletricidade, setPtEletricidade] = useState(false);
+  const [ptEscavacao, setPtEscavacao] = useState(false);
   const [checklistSiteId, setChecklistSiteId] = useState('');
   const [ddsSiteId, setDdsSiteId] = useState('');
   const [checklistTitle, setChecklistTitle] = useState('');
@@ -129,12 +176,20 @@ export default function SstAgentPage() {
   const [ncSiteId, setNcSiteId] = useState('');
   const [ncTitle, setNcTitle] = useState('');
   const [ncDescription, setNcDescription] = useState('');
+  const [ncSourceType, setNcSourceType] = useState<'manual' | 'image' | 'checklist' | 'inspection'>('manual');
+  const [ncSourceReference, setNcSourceReference] = useState('');
+  const [ncSourceContext, setNcSourceContext] = useState('');
+  const [ncImageFile, setNcImageFile] = useState<File | null>(null);
   const [reportMonth, setReportMonth] = useState(String(new Date().getMonth() + 1).padStart(2, '0'));
   const [reportYear, setReportYear] = useState(String(new Date().getFullYear()));
+  const [creatingAprDraft, setCreatingAprDraft] = useState(false);
+  const [creatingPtDraft, setCreatingPtDraft] = useState(false);
   const [creatingChecklist, setCreatingChecklist] = useState(false);
   const [creatingDds, setCreatingDds] = useState(false);
   const [creatingNc, setCreatingNc] = useState(false);
   const [queueingReport, setQueueingReport] = useState(false);
+  const [createdAprDraft, setCreatedAprDraft] = useState<SophieDraftResponse | null>(null);
+  const [createdPtDraft, setCreatedPtDraft] = useState<GeneratePtDraftAutomationResponse | null>(null);
   const [createdChecklist, setCreatedChecklist] = useState<CreateChecklistAutomationResponse | null>(null);
   const [createdDds, setCreatedDds] = useState<CreateDdsAutomationResponse | null>(null);
   const [createdNc, setCreatedNc] = useState<CreateNonConformityAutomationResponse | null>(null);
@@ -146,6 +201,16 @@ export default function SstAgentPage() {
   const prefilledTitle = searchParams.get('title') || '';
   const prefilledDescription = searchParams.get('description') || '';
   const prefilledSiteId = searchParams.get('site_id') || '';
+  const prefilledResponsibleId =
+    searchParams.get('elaborador_id') ||
+    searchParams.get('responsavel_id') ||
+    searchParams.get('user_id') ||
+    '';
+  const prefilledSourceType =
+    (searchParams.get('source_type') as 'manual' | 'image' | 'checklist' | 'inspection' | null) ||
+    null;
+  const prefilledSourceReference = searchParams.get('source_reference') || '';
+  const prefilledSourceContext = searchParams.get('source_context') || '';
   const pendingContext = useMemo<PendingContext>(
     () => ({
       active: searchParams.get('pendingContext') === 'true',
@@ -180,6 +245,8 @@ export default function SstAgentPage() {
           data[0]?.id ||
           '';
 
+        setAprSiteId((current) => current || preferredSiteId);
+        setPtSiteId((current) => current || preferredSiteId);
         setChecklistSiteId((current) => current || preferredSiteId);
         setDdsSiteId((current) => current || preferredSiteId);
         setNcSiteId((current) => current || preferredSiteId);
@@ -222,13 +289,35 @@ export default function SstAgentPage() {
 
   useEffect(() => {
     if (!prefilledSiteId && !prefilledTitle && !prefilledDescription) {
+      if (prefilledSourceType) {
+        setNcSourceType(prefilledSourceType);
+      }
+      if (prefilledSourceReference) {
+        setNcSourceReference((current) => current || prefilledSourceReference);
+      }
+      if (prefilledSourceContext) {
+        setNcSourceContext((current) => current || prefilledSourceContext);
+      }
       return;
     }
 
     if (prefilledSiteId) {
+      setAprSiteId((current) => current || prefilledSiteId);
+      setPtSiteId((current) => current || prefilledSiteId);
       setChecklistSiteId((current) => current || prefilledSiteId);
       setDdsSiteId((current) => current || prefilledSiteId);
       setNcSiteId((current) => current || prefilledSiteId);
+    }
+
+    if (prefilledDocumentType === 'apr') {
+      setAprTitle((current) => current || prefilledTitle);
+      setAprDescription((current) => current || prefilledDescription);
+      setAprActivity((current) => current || prefilledTitle);
+    }
+
+    if (prefilledDocumentType === 'pt') {
+      setPtTitle((current) => current || prefilledTitle);
+      setPtDescription((current) => current || prefilledDescription);
     }
 
     if (prefilledDocumentType === 'checklist') {
@@ -245,9 +334,22 @@ export default function SstAgentPage() {
       setNcTitle((current) => current || prefilledTitle);
       setNcDescription((current) => current || prefilledDescription);
     }
+
+    if (prefilledSourceType) {
+      setNcSourceType(prefilledSourceType);
+    }
+    if (prefilledSourceReference) {
+      setNcSourceReference((current) => current || prefilledSourceReference);
+    }
+    if (prefilledSourceContext) {
+      setNcSourceContext((current) => current || prefilledSourceContext);
+    }
   }, [
     prefilledDescription,
     prefilledDocumentType,
+    prefilledSourceContext,
+    prefilledSourceReference,
+    prefilledSourceType,
     prefilledSiteId,
     prefilledTitle,
   ]);
@@ -273,14 +375,124 @@ export default function SstAgentPage() {
   );
 
   const currentUserId = user?.id || '';
+  const automationResponsibleId = prefilledResponsibleId || currentUserId;
   const canRunAutomation = aiEnabled && canUseAi && Boolean(currentUserId);
   const hasSites = sites.length > 0;
   const automationPrefillLabel =
     {
+      apr: 'APR',
+      pt: 'PT',
       checklist: 'Checklist',
       dds: 'DDS',
       nc: 'Não Conformidade',
     }[prefilledDocumentType] || null;
+
+  function resolveCompanyIdForSite(siteId: string) {
+    return sites.find((site) => site.id === siteId)?.company_id || user?.company_id || '';
+  }
+
+  async function handleGenerateAprDraft() {
+    const elaboradorId = automationResponsibleId || currentUserId;
+    if (!elaboradorId) {
+      toast.error('Usuário responsável não identificado para gerar APR assistida.');
+      return;
+    }
+    if (!aprSiteId) {
+      toast.error('Selecione um site para a APR assistida.');
+      return;
+    }
+
+    try {
+      setCreatingAprDraft(true);
+      const response = await sophieService.generateAprDraft({
+        title: aprTitle || undefined,
+        description: aprDescription || undefined,
+        activity: aprActivity || undefined,
+        process: aprProcess || undefined,
+        equipment: aprEquipment || undefined,
+        machine: aprMachine || undefined,
+        site_id: aprSiteId,
+        company_id: resolveCompanyIdForSite(aprSiteId) || undefined,
+        elaborador_id: elaboradorId,
+        site_name: sites.find((site) => site.id === aprSiteId)?.nome || undefined,
+        company_name: user?.company?.razao_social || undefined,
+      });
+      setCreatedAprDraft(response);
+      storeSophieAprDraft(user?.company_id, response.draft);
+      toast.success('APR assistida gerada. Abrindo o formulário para revisão.');
+
+      const params = new URLSearchParams();
+      if (response.draft.values.company_id) {
+        params.set('company_id', String(response.draft.values.company_id));
+      }
+      params.set('site_id', aprSiteId);
+      params.set('elaborador_id', elaboradorId);
+      if (response.draft.values.titulo) {
+        params.set('title', String(response.draft.values.titulo));
+      }
+      if (response.draft.values.descricao) {
+        params.set('description', String(response.draft.values.descricao));
+      }
+      router.push(`/dashboard/aprs/new?${params.toString()}`);
+    } catch (error) {
+      console.error('Erro ao gerar APR assistida:', error);
+      toast.error('Não foi possível gerar a APR assistida agora.');
+    } finally {
+      setCreatingAprDraft(false);
+    }
+  }
+
+  async function handleGeneratePtDraft() {
+    const responsavelId = automationResponsibleId || currentUserId;
+    if (!responsavelId) {
+      toast.error('Usuário responsável não identificado para gerar PT assistida.');
+      return;
+    }
+    if (!ptSiteId) {
+      toast.error('Selecione um site para a PT assistida.');
+      return;
+    }
+
+    try {
+      setCreatingPtDraft(true);
+      const response = await sophieService.generatePtDraft({
+        title: ptTitle || undefined,
+        description: ptDescription || undefined,
+        site_id: ptSiteId,
+        company_id: resolveCompanyIdForSite(ptSiteId) || undefined,
+        responsavel_id: responsavelId,
+        site_name: sites.find((site) => site.id === ptSiteId)?.nome || undefined,
+        company_name: user?.company?.razao_social || undefined,
+        trabalho_altura: ptTrabalhoAltura,
+        espaco_confinado: ptEspacoConfinado,
+        trabalho_quente: ptTrabalhoQuente,
+        eletricidade: ptEletricidade,
+        escavacao: ptEscavacao,
+      });
+      setCreatedPtDraft(response);
+      storeSophiePtDraft(user?.company_id, response.draft);
+      toast.success('PT assistida gerada. Abrindo o formulário para revisão.');
+
+      const params = new URLSearchParams();
+      if (response.draft.values.company_id) {
+        params.set('company_id', String(response.draft.values.company_id));
+      }
+      params.set('site_id', ptSiteId);
+      params.set('responsavel_id', responsavelId);
+      if (response.draft.values.titulo) {
+        params.set('title', String(response.draft.values.titulo));
+      }
+      if (response.draft.values.descricao) {
+        params.set('description', String(response.draft.values.descricao));
+      }
+      router.push(`/dashboard/pts/new?${params.toString()}`);
+    } catch (error) {
+      console.error('Erro ao gerar PT assistida:', error);
+      toast.error('Não foi possível gerar a PT assistida agora.');
+    } finally {
+      setCreatingPtDraft(false);
+    }
+  }
 
   async function handleCreateChecklist() {
     if (!currentUserId) {
@@ -341,20 +553,42 @@ export default function SstAgentPage() {
   }
 
   async function handleCreateNc() {
-    if (!ncSiteId) {
+    if (!ncSiteId && (ncSourceType === 'manual' || ncSourceType === 'image')) {
       toast.error('Selecione um site para a não conformidade assistida.');
+      return;
+    }
+    if ((ncSourceType === 'checklist' || ncSourceType === 'inspection') && !ncSourceReference.trim()) {
+      toast.error('Informe a referência do checklist ou da inspeção para abrir a NC assistida.');
+      return;
+    }
+    if (ncSourceType === 'image' && !ncImageFile) {
+      toast.error('Anexe uma imagem para abrir a NC a partir da análise visual.');
       return;
     }
 
     try {
       setCreatingNc(true);
       const selectedSiteName = sites.find((site) => site.id === ncSiteId)?.nome;
+      const imageAnalysis =
+        ncSourceType === 'image' && ncImageFile
+          ? await sophieService.analyzeImageRisk(
+              ncImageFile,
+              [ncTitle, ncDescription, selectedSiteName].filter(Boolean).join(' | '),
+            )
+          : null;
       const response = await sophieService.createNonConformity({
         title: ncTitle || undefined,
         description: ncDescription || undefined,
-        site_id: ncSiteId,
+        site_id: ncSiteId || undefined,
         local_setor_area: selectedSiteName || undefined,
         responsavel_area: user?.nome || undefined,
+        source_type: ncSourceType,
+        source_reference: ncSourceReference.trim() || undefined,
+        source_context: ncSourceContext.trim() || undefined,
+        image_analysis_summary: imageAnalysis?.summary,
+        image_risks: imageAnalysis?.imminentRisks,
+        image_actions: imageAnalysis?.immediateActions,
+        image_notes: imageAnalysis?.notes,
       });
       setCreatedNc(response);
       toast.success('Não conformidade criada pela SOPHIE com sucesso.');
@@ -635,7 +869,216 @@ export default function SstAgentPage() {
               </p>
             </div>
           ) : (
-          <div className="mt-4 grid gap-4 xl:grid-cols-2 2xl:grid-cols-4">
+          <div className="mt-4 grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4.5 w-4.5 text-[var(--ds-color-action-primary)]" />
+                <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Gerar APR Assistida
+                </h3>
+              </div>
+              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                A SOPHIE monta o rascunho completo da APR e abre o wizard com contexto de empresa, site, elaborador e riscos sugeridos.
+              </p>
+              <div className="mt-3 space-y-2.5">
+                <input
+                  value={aprTitle}
+                  onChange={(event) => setAprTitle(event.target.value)}
+                  placeholder="Título da APR"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+                <textarea
+                  value={aprDescription}
+                  onChange={(event) => setAprDescription(event.target.value)}
+                  placeholder="Escopo, frente de serviço ou cenário operacional"
+                  rows={3}
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  <input
+                    value={aprActivity}
+                    onChange={(event) => setAprActivity(event.target.value)}
+                    placeholder="Atividade"
+                    className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  />
+                  <input
+                    value={aprProcess}
+                    onChange={(event) => setAprProcess(event.target.value)}
+                    placeholder="Processo"
+                    className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  />
+                  <input
+                    value={aprEquipment}
+                    onChange={(event) => setAprEquipment(event.target.value)}
+                    placeholder="Equipamento"
+                    className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  />
+                  <input
+                    value={aprMachine}
+                    onChange={(event) => setAprMachine(event.target.value)}
+                    placeholder="Máquina"
+                    className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  />
+                </div>
+                <select
+                  value={aprSiteId}
+                  onChange={(event) => setAprSiteId(event.target.value)}
+                  disabled={loadingSites || !hasSites}
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                >
+                  <option value="">
+                    {loadingSites ? 'Carregando sites...' : 'Selecione um site'}
+                  </option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.nome}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  onClick={handleGenerateAprDraft}
+                  loading={creatingAprDraft}
+                  disabled={!canRunAutomation || !hasSites}
+                  className="w-full"
+                  leftIcon={<Wand2 className="h-4 w-4" />}
+                >
+                  Gerar APR completa pela SOPHIE
+                </Button>
+                {createdAprDraft ? (
+                  <div className="rounded-xl border border-[var(--ds-color-success)]/20 bg-[var(--ds-color-success-subtle)] p-3">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      <CheckCircle2 className="h-4 w-4 text-[var(--ds-color-success)]" />
+                      {createdAprDraft.summary}
+                    </p>
+                    {createdAprDraft.suggestedActions.length ? (
+                      <ul className="mt-2 space-y-1 text-xs text-[var(--ds-color-text-secondary)]">
+                        {createdAprDraft.suggestedActions.slice(0, 3).map((item) => (
+                          <li key={item}>• {item}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <SuggestedResourceGroup
+                      title="Atividades sugeridas"
+                      items={createdAprDraft.suggestedResources?.activities}
+                    />
+                    <SuggestedResourceGroup
+                      title="Participantes sugeridos"
+                      items={createdAprDraft.suggestedResources?.participants}
+                    />
+                    <SuggestedResourceGroup
+                      title="Ferramentas sugeridas"
+                      items={createdAprDraft.suggestedResources?.tools}
+                    />
+                    <SuggestedResourceGroup
+                      title="Máquinas sugeridas"
+                      items={createdAprDraft.suggestedResources?.machines}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="h-4.5 w-4.5 text-[var(--ds-color-accent)]" />
+                <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Gerar PT Assistida
+                </h3>
+              </div>
+              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                A SOPHIE estrutura a PT, define criticidade inicial, destaca controles e abre o formulário com os campos-chave preenchidos.
+              </p>
+              <div className="mt-3 space-y-2.5">
+                <input
+                  value={ptTitle}
+                  onChange={(event) => setPtTitle(event.target.value)}
+                  placeholder="Título da PT"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+                <textarea
+                  value={ptDescription}
+                  onChange={(event) => setPtDescription(event.target.value)}
+                  placeholder="Escopo, tarefa e condições da liberação"
+                  rows={3}
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                />
+                <select
+                  value={ptSiteId}
+                  onChange={(event) => setPtSiteId(event.target.value)}
+                  disabled={loadingSites || !hasSites}
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                >
+                  <option value="">
+                    {loadingSites ? 'Carregando sites...' : 'Selecione um site'}
+                  </option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.nome}
+                    </option>
+                  ))}
+                </select>
+                <div className="grid gap-2 sm:grid-cols-2 text-xs text-[var(--ds-color-text-secondary)]">
+                  {[
+                    { label: 'trabalho em altura', value: ptTrabalhoAltura, setter: setPtTrabalhoAltura },
+                    { label: 'espaço confinado', value: ptEspacoConfinado, setter: setPtEspacoConfinado },
+                    { label: 'trabalho a quente', value: ptTrabalhoQuente, setter: setPtTrabalhoQuente },
+                    { label: 'eletricidade', value: ptEletricidade, setter: setPtEletricidade },
+                    { label: 'escavação', value: ptEscavacao, setter: setPtEscavacao },
+                  ].map((item) => (
+                    <label key={item.label} className="flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={item.value}
+                        onChange={(event) => item.setter(event.target.checked)}
+                        className="h-4 w-4 rounded border-[var(--ds-color-border-subtle)]"
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+                <Button
+                  onClick={handleGeneratePtDraft}
+                  loading={creatingPtDraft}
+                  disabled={!canRunAutomation || !hasSites}
+                  variant="success"
+                  className="w-full"
+                  leftIcon={<ClipboardCheck className="h-4 w-4" />}
+                >
+                  Gerar PT completa pela SOPHIE
+                </Button>
+                {createdPtDraft ? (
+                  <div className="rounded-xl border border-[var(--ds-color-success)]/20 bg-[var(--ds-color-success-subtle)] p-3">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      <CheckCircle2 className="h-4 w-4 text-[var(--ds-color-success)]" />
+                      {createdPtDraft.summary}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                      Nível de risco sugerido: {createdPtDraft.riskLevel}
+                    </p>
+                    {createdPtDraft.suggestedActions.length ? (
+                      <ul className="mt-2 space-y-1 text-xs text-[var(--ds-color-text-secondary)]">
+                        {createdPtDraft.suggestedActions.slice(0, 3).map((item) => (
+                          <li key={item}>• {item}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    <SuggestedResourceGroup
+                      title="Executantes sugeridos"
+                      items={createdPtDraft.suggestedResources?.participants}
+                    />
+                    <SuggestedResourceGroup
+                      title="Ferramentas sugeridas"
+                      items={createdPtDraft.suggestedResources?.tools}
+                    />
+                    <SuggestedResourceGroup
+                      title="Máquinas sugeridas"
+                      items={createdPtDraft.suggestedResources?.machines}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
             <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
               <div className="flex items-center gap-2">
                 <ListChecks className="h-4.5 w-4.5 text-[var(--ds-color-action-primary)]" />
@@ -790,6 +1233,20 @@ export default function SstAgentPage() {
                 Gere uma não conformidade inicial com desvio, risco e ações para revisão humana.
               </p>
               <div className="mt-3 space-y-2.5">
+                <select
+                  value={ncSourceType}
+                  onChange={(event) =>
+                    setNcSourceType(
+                      event.target.value as 'manual' | 'image' | 'checklist' | 'inspection',
+                    )
+                  }
+                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                >
+                  <option value="manual">Origem manual</option>
+                  <option value="image">Abrir NC a partir de imagem</option>
+                  <option value="checklist">Abrir NC a partir de checklist</option>
+                  <option value="inspection">Abrir NC a partir de inspeção</option>
+                </select>
                 <input
                   value={ncTitle}
                   onChange={(event) => setNcTitle(event.target.value)}
@@ -803,6 +1260,35 @@ export default function SstAgentPage() {
                   rows={4}
                   className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
+                {ncSourceType === 'image' ? (
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => setNcImageFile(event.target.files?.[0] || null)}
+                    className="block w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--ds-color-primary-subtle)] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[var(--ds-color-action-primary)]"
+                  />
+                ) : null}
+                {(ncSourceType === 'checklist' || ncSourceType === 'inspection') ? (
+                  <input
+                    value={ncSourceReference}
+                    onChange={(event) => setNcSourceReference(event.target.value)}
+                    placeholder={
+                      ncSourceType === 'checklist'
+                        ? 'ID do checklist de origem'
+                        : 'ID da inspeção de origem'
+                    }
+                    className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  />
+                ) : null}
+                {(ncSourceType === 'image' || ncSourceType === 'checklist' || ncSourceType === 'inspection') ? (
+                  <textarea
+                    value={ncSourceContext}
+                    onChange={(event) => setNcSourceContext(event.target.value)}
+                    placeholder="Contexto adicional da origem, observações ou vínculo com a operação"
+                    rows={2}
+                    className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  />
+                ) : null}
                 <select
                   value={ncSiteId}
                   onChange={(event) => setNcSiteId(event.target.value)}
@@ -810,7 +1296,7 @@ export default function SstAgentPage() {
                   className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 >
                   <option value="">
-                    {loadingSites ? 'Carregando sites...' : 'Selecione um site'}
+                    {loadingSites ? 'Carregando sites...' : 'Selecione um site (ou deixe a origem definir)'}
                   </option>
                   {sites.map((site) => (
                     <option key={site.id} value={site.id}>
@@ -835,8 +1321,17 @@ export default function SstAgentPage() {
                       {createdNc.nonConformity.codigo_nc || createdNc.generation.title}
                     </p>
                     <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
-                      Nível de risco sugerido: {createdNc.generation.riskLevel}
+                      Nível de risco sugerido: {createdNc.generation.riskLevel} • origem {createdNc.generation.sourceType}
                     </p>
+                    {createdNc.generation.actionPlan?.length ? (
+                      <ul className="mt-2 space-y-1 text-xs text-[var(--ds-color-text-secondary)]">
+                        {createdNc.generation.actionPlan.slice(0, 3).map((item) => (
+                          <li key={`${item.type}-${item.title}`}>
+                            • {item.title} ({item.owner} • {item.timeline})
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                     <Link
                       href={`/dashboard/nonconformities/edit/${createdNc.nonConformity.id}`}
                       className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline"
