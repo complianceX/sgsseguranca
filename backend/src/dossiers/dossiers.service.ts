@@ -16,6 +16,14 @@ import { Pt } from '../pts/entities/pt.entity';
 import { Site } from '../sites/entities/site.entity';
 import { Training } from '../trainings/entities/training.entity';
 import { User } from '../users/entities/user.entity';
+import {
+  applyBackendPdfFooter,
+  backendPdfTheme,
+  createBackendPdfTableTheme,
+  drawBackendPdfHeader,
+  drawBackendSectionTitle,
+  getBackendLastTableY,
+} from '../common/services/pdf-branding';
 
 interface DossierAttachmentLine {
   tipo: string;
@@ -130,48 +138,17 @@ export class DossiersService {
   private buildPdf(doc: jsPDF, data: any) {
     const { user, trainings, assignments, pts, cats, attachmentLines } = data;
     const marginX = 40;
-    const theme = {
-      navy: [16, 32, 51] as [number, number, number],
-      blue: [31, 78, 121] as [number, number, number],
-      border: [203, 213, 225] as [number, number, number],
-      surface: [248, 250, 252] as [number, number, number],
-      text: [15, 23, 42] as [number, number, number],
-      muted: [100, 116, 139] as [number, number, number],
-    };
+    const tableTheme = createBackendPdfTableTheme();
 
-    const tableTheme = {
-      theme: 'grid' as const,
-      styles: {
-        fontSize: 8.5,
-        lineColor: theme.border,
-        lineWidth: 0.18,
-        cellPadding: 3,
-        textColor: theme.text,
-      },
-      headStyles: {
-        fillColor: theme.navy,
-        textColor: 255,
-        fontStyle: 'bold' as const,
-      },
-      alternateRowStyles: {
-        fillColor: theme.surface,
-      },
-    };
-
-    doc.setFillColor(...theme.navy);
-    doc.rect(0, 0, 595.28, 58, 'F');
-    doc.setFillColor(...theme.blue);
-    doc.rect(0, 58, 595.28, 4, 'F');
-    doc.setFontSize(18);
-    doc.setTextColor(255, 255, 255);
-    doc.text('Dossie de SST - Colaborador', marginX, 32);
-    doc.setFontSize(9);
-    doc.setTextColor(221, 229, 238);
-    doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, marginX, 44);
-    doc.text(`ID do colaborador: ${user.id}`, marginX, 54);
+    drawBackendPdfHeader(doc, {
+      title: 'Dossie de SST - Colaborador',
+      subtitle: `Gerado em: ${new Date().toLocaleString('pt-BR')}`,
+      metaRight: [`ID do colaborador: ${user.id}`],
+      marginX,
+    });
 
     doc.setFontSize(12);
-    doc.setTextColor(...theme.text);
+    doc.setTextColor(...backendPdfTheme.text);
     doc.text('Dados do colaborador', marginX, 92);
     autoTable(doc, {
       startY: 100,
@@ -187,7 +164,7 @@ export class DossiersService {
     });
 
     autoTable(doc, {
-      startY: this.getLastTableY(doc) + 16,
+      startY: getBackendLastTableY(doc) + 16,
       head: [['Treinamento', 'NR', 'Conclusao', 'Vencimento', 'Status']],
       body:
         trainings.length > 0
@@ -205,7 +182,7 @@ export class DossiersService {
     });
 
     autoTable(doc, {
-      startY: this.getLastTableY(doc) + 16,
+      startY: getBackendLastTableY(doc) + 16,
       head: [['EPI', 'CA', 'Validade CA', 'Status', 'Entrega', 'Devolucao']],
       body:
         assignments.length > 0
@@ -226,18 +203,7 @@ export class DossiersService {
     });
 
     this.appendAttachmentIndex(doc, attachmentLines);
-
-    const pages = doc.getNumberOfPages();
-    for (let page = 1; page <= pages; page += 1) {
-      doc.setPage(page);
-      doc.setDrawColor(...theme.border);
-      doc.setLineWidth(0.2);
-      doc.line(marginX, 805, 555, 805);
-      doc.setFontSize(7);
-      doc.setTextColor(...theme.muted);
-      doc.text('Sistema <GST> Gestão de Segurança do Trabalho', marginX, 818);
-      doc.text(`Página ${page} de ${pages}`, 555, 818, { align: 'right' });
-    }
+    applyBackendPdfFooter(doc, { marginX });
   }
 
   private async collectEmployeeAttachments(
@@ -295,8 +261,9 @@ export class DossiersService {
     doc: jsPDF,
     attachmentLines: DossierAttachmentLine[],
   ) {
+    drawBackendSectionTitle(doc, getBackendLastTableY(doc) + 8, 'Indice de anexos');
     autoTable(doc, {
-      startY: this.getLastTableY(doc) + 16,
+      startY: getBackendLastTableY(doc) + 16,
       head: [['Tipo', 'Referencia', 'Arquivo', 'URL/Chave']],
       body:
         attachmentLines.length > 0
@@ -307,26 +274,12 @@ export class DossiersService {
               item.url,
             ])
           : [['-', '-', '-', 'Nenhum anexo relacionado']],
-      theme: 'grid',
+      ...createBackendPdfTableTheme(),
       styles: {
+        ...createBackendPdfTableTheme().styles,
         fontSize: 8,
-        lineColor: [203, 213, 225],
-        lineWidth: 0.18,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [16, 32, 51],
-        textColor: 255,
-        fontStyle: 'bold',
-      },
-      alternateRowStyles: {
-        fillColor: [248, 250, 252],
       },
     });
-  }
-
-  private getLastTableY(doc: jsPDF): number {
-    return (doc as any).lastAutoTable?.finalY || 120;
   }
 
   private async safeSignedUrl(fileKey: string): Promise<string> {

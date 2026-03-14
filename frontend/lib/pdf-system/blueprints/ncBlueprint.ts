@@ -11,6 +11,7 @@ import {
   drawNarrativeSection,
 } from "../components";
 import { drawActionPlanTable, drawComplianceTable } from "../tables";
+import type { ActionPlanRow } from "../tables/actionPlanTable";
 
 export async function drawNcBlueprint(
   ctx: PdfContext,
@@ -81,7 +82,7 @@ export async function drawNcBlueprint(
     },
   ], { semanticRules: { profile: "nc", columns: [3] } });
 
-  const actionRows = [];
+  const actionRows: ActionPlanRow[] = [];
   if (nc.acao_imediata_descricao) {
     actionRows.push({
       action: `Imediata: ${sanitize(nc.acao_imediata_descricao)}`,

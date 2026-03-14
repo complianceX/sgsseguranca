@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["es2023", "dom"],
+    "rootDir": "..",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["../frontend/*"]
+    }
+  },
+  "include": [
+    "scripts/generate-pdf-homologation.ts",
+    "../frontend/lib/pdf-system/**/*.ts",
+    "../frontend/lib/pdf/monthlyReportGenerator.ts"
+  ]
+}

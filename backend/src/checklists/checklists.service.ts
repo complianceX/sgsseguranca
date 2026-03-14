@@ -22,6 +22,14 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { UsersService } from '../users/users.service';
 import { SitesService } from '../sites/sites.service';
+import {
+  applyBackendPdfFooter,
+  backendPdfTheme,
+  createBackendPdfTableTheme,
+  drawBackendPdfHeader,
+  drawBackendSectionTitle,
+  getBackendLastTableY,
+} from '../common/services/pdf-branding';
 
 import { NotificationsGateway } from '../notifications/notifications.gateway';
 import {
@@ -303,29 +311,18 @@ export class ChecklistsService {
     // RECOMENDAÇÃO: Mover esta lógica para um job em background (ex: usando BullMQ)
     // para não impactar a responsividade da API.
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    const theme = {
-      navy: [16, 32, 51] as [number, number, number],
-      blue: [31, 78, 121] as [number, number, number],
-      teal: [15, 118, 110] as [number, number, number],
-      border: [203, 213, 225] as [number, number, number],
-      surface: [248, 250, 252] as [number, number, number],
-      text: [15, 23, 42] as [number, number, number],
-      muted: [100, 116, 139] as [number, number, number],
-    };
-
-    doc.setFillColor(...theme.navy);
-    doc.rect(0, 0, 210, 30, 'F');
-    doc.setFillColor(...theme.blue);
-    doc.rect(0, 30, 210, 2.4, 'F');
-    doc.setFontSize(16);
-    doc.setTextColor(255, 255, 255);
-    doc.text('CHECKLIST SST', 16, 14);
-    doc.setFontSize(9);
-    doc.setTextColor(221, 229, 238);
-    doc.text(checklist.titulo, 16, 20);
+    const tableTheme = createBackendPdfTableTheme();
+    drawBackendPdfHeader(doc, {
+      title: 'CHECKLIST SST',
+      subtitle: checklist.titulo,
+      metaRight: [
+        `Data: ${new Date(checklist.data).toLocaleDateString('pt-BR')}`,
+        `Status: ${checklist.status || 'Pendente'}`,
+      ],
+    });
 
     doc.setFontSize(10);
-    doc.setTextColor(...theme.text);
+    doc.setTextColor(...backendPdfTheme.text);
     doc.text(
       `Data: ${new Date(checklist.data).toLocaleDateString('pt-BR')}`,
       16,
@@ -360,8 +357,9 @@ export class ChecklistsService {
         const imgData =
           checklist.foto_equipamento.split(',')[1] ||
           checklist.foto_equipamento;
-        doc.setFillColor(...theme.surface);
-        doc.setDrawColor(...theme.border);
+        drawBackendSectionTitle(doc, currentY - 10, 'Evidência do equipamento');
+        doc.setFillColor(...backendPdfTheme.surface);
+        doc.setDrawColor(...backendPdfTheme.border);
         doc.roundedRect(16, currentY - 4, 64, 64, 2, 2, 'FD');
         doc.addImage(imgData, 'PNG', 18, currentY - 2, 60, 60);
         currentY += 70;
@@ -374,16 +372,12 @@ export class ChecklistsService {
       startY: currentY,
       head: [['Item', 'Status', 'Observação']],
       body: tableData,
-      theme: 'grid',
+      ...tableTheme,
       styles: {
+        ...tableTheme.styles,
         fontSize: 9,
         cellPadding: 2.5,
-        lineColor: theme.border,
-        lineWidth: 0.18,
-        textColor: theme.text,
       },
-      headStyles: { fillColor: theme.navy, textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: theme.surface },
     });
 
     const signatures = await this.signaturesService.findByDocument(
@@ -391,16 +385,17 @@ export class ChecklistsService {
       'CHECKLIST',
     );
     if (signatures.length > 0) {
-      const finalY = (doc as any).lastAutoTable?.finalY || 150;
+      const finalY = getBackendLastTableY(doc, 150);
       let currentSigY = finalY + 20;
 
       if (currentSigY > 250) {
         doc.addPage();
         currentSigY = 20;
       }
+      drawBackendSectionTitle(doc, currentSigY - 4, 'Assinaturas');
       doc.setFontSize(12);
-      doc.setTextColor(...theme.text);
-      doc.text('Assinaturas', 16, currentSigY);
+      doc.setTextColor(...backendPdfTheme.text);
+      doc.text('Assinaturas', 16, currentSigY + 2);
       currentSigY += 10;
 
       for (const sig of signatures) {
@@ -431,17 +426,7 @@ export class ChecklistsService {
       }
     }
 
-    const pages = doc.getNumberOfPages();
-    for (let page = 1; page <= pages; page += 1) {
-      doc.setPage(page);
-      doc.setDrawColor(...theme.border);
-      doc.setLineWidth(0.2);
-      doc.line(16, 284, 194, 284);
-      doc.setFontSize(7);
-      doc.setTextColor(...theme.muted);
-      doc.text('Sistema <GST> Gestão de Segurança do Trabalho', 16, 289);
-      doc.text(`Página ${page} de ${pages}`, 194, 289, { align: 'right' });
-    }
+    applyBackendPdfFooter(doc);
 
     return Buffer.from(doc.output('arraybuffer'));
   }

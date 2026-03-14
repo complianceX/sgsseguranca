@@ -48,6 +48,7 @@ uploads/
 
 # Artefatos locais de dev
 backend/dev.sqlite
+artifacts/
 
 # Arquivos de build local do backend
 backend/dist/
