@@ -5,37 +5,37 @@ export class SystemTheme {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'background_color', default: '#122318' })
+  @Column({ name: 'background_color', default: '#f4f7fa' })
   backgroundColor: string;
 
-  @Column({ name: 'sidebar_color', default: '#0b1710' })
+  @Column({ name: 'sidebar_color', default: '#0d3d1f' })
   sidebarColor: string;
 
-  @Column({ name: 'card_color', default: '#183224' })
+  @Column({ name: 'card_color', default: '#ffffff' })
   cardColor: string;
 
-  @Column({ name: 'primary_color', default: '#22c55e' })
+  @Column({ name: 'primary_color', default: '#16a34a' })
   primaryColor: string;
 
-  @Column({ name: 'secondary_color', default: '#16a34a' })
+  @Column({ name: 'secondary_color', default: '#0052b4' })
   secondaryColor: string;
 
-  @Column({ name: 'text_primary', default: '#e2e8f0' })
+  @Column({ name: 'text_primary', default: '#101828' })
   textPrimary: string;
 
-  @Column({ name: 'text_secondary', default: '#b8c5d8' })
+  @Column({ name: 'text_secondary', default: '#344054' })
   textSecondary: string;
 
-  @Column({ name: 'success_color', default: '#4ade80' })
+  @Column({ name: 'success_color', default: '#15803d' })
   successColor: string;
 
-  @Column({ name: 'warning_color', default: '#facc15' })
+  @Column({ name: 'warning_color', default: '#d97706' })
   warningColor: string;
 
-  @Column({ name: 'danger_color', default: '#f87171' })
+  @Column({ name: 'danger_color', default: '#d92d20' })
   dangerColor: string;
 
-  @Column({ name: 'info_color', default: '#60a5fa' })
+  @Column({ name: 'info_color', default: '#0369a1' })
   infoColor: string;
 
   @UpdateDateColumn({ name: 'updated_at' })

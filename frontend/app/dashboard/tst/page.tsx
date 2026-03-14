@@ -149,7 +149,7 @@ export default function TstFieldPage() {
         value: dashboard?.summary.overdueInspections ?? 0,
         icon: ClipboardCheck,
         href: '/dashboard/inspections',
-        tone: 'text-sky-300',
+        tone: 'text-[var(--ds-color-success)]',
       },
       {
         label: 'Docs vencendo',
@@ -266,7 +266,7 @@ export default function TstFieldPage() {
       <Card tone="elevated" padding="lg">
         <CardHeader className="gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-200">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-success)]">
               {isOffline ? <WifiOff className="h-3.5 w-3.5" /> : <Wifi className="h-3.5 w-3.5" />}
               operação de campo
             </div>
@@ -306,19 +306,19 @@ export default function TstFieldPage() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-white/5 p-4 transition-colors hover:border-sky-400/35 hover:bg-white/10"
+                  className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-white/5 p-4 transition-colors hover:border-[color:var(--ds-color-success-border)] hover:bg-white/10"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500/12 text-sky-100">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success-fg)]">
                       <item.icon className="h-5 w-5" />
                     </div>
-                    <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-100">
+                    <span className="rounded-full border border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-success-fg)]">
                       {item.badge}
                     </span>
                   </div>
                   <p className="mt-4 text-[15px] font-semibold text-white">{item.title}</p>
                   <p className="mt-2 text-[13px] text-[var(--ds-color-text-secondary)]">{item.description}</p>
-                  <span className="mt-4 inline-flex items-center gap-1 text-[12px] font-semibold text-sky-200">
+                  <span className="mt-4 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--ds-color-success)]">
                     Abrir fluxo
                     <ArrowRight className="h-3.5 w-3.5" />
                   </span>
@@ -686,7 +686,7 @@ function OperationalChip({
     warning: 'border-amber-300/35 bg-amber-500/10 text-amber-100',
     danger: 'border-red-300/35 bg-red-500/10 text-red-100',
     success: 'border-emerald-300/35 bg-emerald-500/10 text-emerald-100',
-    info: 'border-sky-300/35 bg-sky-500/10 text-sky-100',
+    info: 'border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success-fg)]',
   };
 
   return (
