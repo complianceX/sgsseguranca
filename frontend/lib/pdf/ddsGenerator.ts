@@ -2,21 +2,16 @@ import type { Dds } from '@/services/ddsService';
 import type { Signature } from '@/services/signaturesService';
 import { pdfDocToBase64 } from './pdfBase64';
 import {
-  applyFooter,
+  applyFooterGovernance,
   buildDocumentCode,
   buildPdfFilename,
   buildValidationUrl,
-  drawBadge,
-  drawHeader,
-  drawInfoCard,
-  drawModernTable,
-  drawSignatureCard,
-  drawTextCard,
-  drawValidationCard,
-  formatDate,
+  createPdfContext,
+  drawDdsBlueprint,
+  drawPageBackground,
   formatDateTime,
   sanitize,
-} from './pdfLayout';
+} from '@/lib/pdf-system';
 
 type PdfOptions = { save?: boolean; output?: 'base64' };
 
@@ -29,50 +24,15 @@ export async function generateDdsPdf(
   const { default: autoTable } = await import('jspdf-autotable');
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const ctx = createPdfContext(doc, 'operational');
+  drawPageBackground(ctx);
   const code = buildDocumentCode('DDS', dds.id || dds.tema);
-  let y = drawHeader(doc, {
-    title: 'RELATÓRIO DDS',
-    subtitle: 'DIÁLOGO DIÁRIO DE SEGURANÇA',
-    date: formatDate(dds.data),
+  await drawDdsBlueprint(ctx, autoTable, dds, signatures, code, buildValidationUrl(code));
+
+  applyFooterGovernance(ctx, {
     code,
-    logoText: 'GST',
+    generatedAt: formatDateTime(new Date().toISOString()),
   });
-
-  y = drawBadge(doc, y, 'Tema DDS', sanitize(dds.tema), 'secondary');
-  y = drawInfoCard(doc, y, 'Informações do DDS', [
-    { label: 'Data', value: formatDate(dds.data) },
-    { label: 'Facilitador', value: sanitize(dds.facilitador?.nome) },
-    { label: 'Site / Obra', value: sanitize(dds.site?.nome) },
-    { label: 'Empresa', value: sanitize(dds.company?.razao_social) },
-  ]);
-  y = drawTextCard(doc, y, 'Conteúdo do DDS', dds.conteudo);
-
-  if (dds.participants?.length) {
-    y = drawModernTable(
-      doc,
-      autoTable,
-      y,
-      `Participantes (${dds.participants.length})`,
-      [['#', 'Nome']],
-      dds.participants.map((participant, index) => [index + 1, sanitize(participant.nome)]),
-      { columnStyles: { 0: { cellWidth: 12 } } },
-    );
-  }
-
-  y = drawSignatureCard(
-    doc,
-    y,
-    signatures.map((signature) => ({
-      label: sanitize(signature.type),
-      name: sanitize(signature.user?.nome || signature.type),
-      role: sanitize(signature.type),
-      date: formatDate(signature.signed_at || signature.created_at),
-      image: signature.signature_data,
-    })),
-  );
-
-  await drawValidationCard(doc, y, code, buildValidationUrl(code));
-  applyFooter(doc, { code, generatedAt: formatDateTime(new Date().toISOString()) });
 
   const filename = buildPdfFilename('DDS', sanitize(dds.tema), dds.data);
   if (options?.save === false && options?.output === 'base64') {

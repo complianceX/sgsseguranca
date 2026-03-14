@@ -1,7 +1,7 @@
 import type { PdfVariant } from "./types";
 
 export const complianceTheme: PdfVariant = {
-  name: "operational",
+  name: "compliance",
   label: "Documento Compliance",
   tone: {
     brand: [28, 62, 96],
@@ -10,4 +10,3 @@ export const complianceTheme: PdfVariant = {
     warning: [180, 83, 9],
   },
 };
-

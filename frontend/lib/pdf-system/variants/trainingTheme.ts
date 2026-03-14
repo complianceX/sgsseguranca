@@ -1,7 +1,7 @@
 import type { PdfVariant } from "./types";
 
 export const trainingTheme: PdfVariant = {
-  name: "operational",
+  name: "training",
   label: "Documento Treinamento",
   tone: {
     brand: [31, 78, 121],
@@ -10,4 +10,3 @@ export const trainingTheme: PdfVariant = {
     info: [2, 132, 199],
   },
 };
-
