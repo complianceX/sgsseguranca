@@ -1,0 +1,227 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { DataSource, EntityManager } from 'typeorm';
+import { PdfService } from '../common/services/pdf.service';
+import { DocumentRegistryService } from './document-registry.service';
+import { DocumentRegistryEntry } from './entities/document-registry.entity';
+
+type GovernedModule =
+  | 'apr'
+  | 'pt'
+  | 'dds'
+  | 'checklist'
+  | 'audit'
+  | 'nonconformity';
+
+type RegisterFinalDocumentInput = {
+  companyId: string;
+  module: GovernedModule;
+  entityId: string;
+  title: string;
+  documentDate?: Date | string | null;
+  fileKey: string;
+  folderPath?: string | null;
+  originalName?: string | null;
+  mimeType?: string | null;
+  fileBuffer: Buffer;
+  createdBy?: string | null;
+  documentType?: string;
+  persistEntityMetadata?: (
+    manager: EntityManager,
+    hash: string,
+  ) => Promise<void>;
+};
+
+type SyncFinalDocumentMetadataInput = Omit<
+  RegisterFinalDocumentInput,
+  'fileBuffer'
+> & {
+  fileHash?: string | null;
+};
+
+type RemoveFinalDocumentReferenceInput = {
+  companyId: string;
+  module: GovernedModule;
+  entityId: string;
+  documentType?: string;
+  removeEntityState?: (manager: EntityManager) => Promise<void>;
+};
+
+const signatureDocumentTypeToRegistryModule = new Map<string, GovernedModule>([
+  ['APR', 'apr'],
+  ['PT', 'pt'],
+  ['DDS', 'dds'],
+  ['CHECKLIST', 'checklist'],
+  ['AUDIT', 'audit'],
+  ['AUDITORIA', 'audit'],
+  ['NONCONFORMITY', 'nonconformity'],
+  ['NAO_CONFORMIDADE', 'nonconformity'],
+  ['NC', 'nonconformity'],
+]);
+
+function normalizeSignatureDocumentType(documentType: string): string {
+  return String(documentType || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toUpperCase();
+}
+
+function resolveRegistryModuleForSignatureDocumentType(
+  documentType: string,
+): GovernedModule | null {
+  return (
+    signatureDocumentTypeToRegistryModule.get(
+      normalizeSignatureDocumentType(documentType),
+    ) || null
+  );
+}
+
+@Injectable()
+export class DocumentGovernanceService {
+  private readonly logger = new Logger(DocumentGovernanceService.name);
+
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly pdfService: PdfService,
+    private readonly documentRegistryService: DocumentRegistryService,
+  ) {}
+
+  async registerFinalDocument(
+    input: RegisterFinalDocumentInput,
+  ): Promise<{ hash: string; registryEntry: DocumentRegistryEntry }> {
+    const hash = this.pdfService.computeHash(input.fileBuffer);
+
+    try {
+      return await this.dataSource.transaction(async (manager) => {
+        // O upload externo já ocorreu fora deste bloco. Daqui em diante,
+        // mantemos a persistência relacional (entidade + integridade +
+        // registry) dentro da mesma transação para evitar estado parcial.
+        if (input.persistEntityMetadata) {
+          await input.persistEntityMetadata(manager, hash);
+        }
+
+        await this.pdfService.registerHashIntegrity(
+          hash,
+          {
+            originalName: input.originalName || input.title,
+            recordedByUserId: input.createdBy || null,
+            companyId: input.companyId,
+          },
+          { manager },
+        );
+
+        const registryEntry =
+          await this.documentRegistryService.upsertWithManager(manager, {
+            companyId: input.companyId,
+            module: input.module,
+            entityId: input.entityId,
+            title: input.title,
+            documentDate: input.documentDate,
+            fileKey: input.fileKey,
+            folderPath: input.folderPath,
+            originalName: input.originalName,
+            mimeType: input.mimeType,
+            fileHash: hash,
+            createdBy: input.createdBy,
+            documentType: input.documentType,
+          });
+
+        return { hash, registryEntry };
+      });
+    } catch (error) {
+      this.logger.error(
+        `Falha ao registrar governança documental para ${input.module}:${input.entityId}. O upload externo, se já concluído, deve ser revisado manualmente (${input.fileKey}).`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw error;
+    }
+  }
+
+  async syncFinalDocumentMetadata(
+    input: SyncFinalDocumentMetadataInput,
+  ): Promise<DocumentRegistryEntry> {
+    return this.documentRegistryService.upsert({
+      companyId: input.companyId,
+      module: input.module,
+      entityId: input.entityId,
+      title: input.title,
+      documentDate: input.documentDate,
+      fileKey: input.fileKey,
+      folderPath: input.folderPath,
+      originalName: input.originalName,
+      mimeType: input.mimeType,
+      fileHash: input.fileHash,
+      createdBy: input.createdBy,
+      documentType: input.documentType,
+    });
+  }
+
+  async removeFinalDocumentReference(
+    input: RemoveFinalDocumentReferenceInput,
+  ): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      if (input.removeEntityState) {
+        await input.removeEntityState(manager);
+      }
+
+      // Policy atual: ao excluir o documento de negócio, o registry é removido
+      // para não manter o documento como ativo/localizável, mas o registro de
+      // integridade permanece para rastreabilidade histórica por hash.
+      await this.documentRegistryService.removeWithManager(manager, {
+        companyId: input.companyId,
+        module: input.module,
+        entityId: input.entityId,
+        documentType: input.documentType,
+      });
+    });
+    this.logger.debug(
+      `Registry removido para ${input.module}:${input.entityId}; registro de integridade preservado por rastreabilidade histórica.`,
+    );
+  }
+
+  async findRegistryContextForSignature(
+    documentId: string,
+    documentType: string,
+    companyId?: string | null,
+  ): Promise<{
+    registryEntryId: string;
+    documentCode: string | null;
+    fileHash: string | null;
+    fileKey: string;
+    module: GovernedModule;
+  } | null> {
+    const registryModule =
+      resolveRegistryModuleForSignatureDocumentType(documentType);
+
+    if (!registryModule) {
+      this.logger.warn(
+        `Tipo documental sem mapeamento para contexto de assinatura: "${documentType}" (${documentId}).`,
+      );
+      return null;
+    }
+
+    const entry = await this.documentRegistryService.findByDocument(
+      registryModule,
+      documentId,
+      'pdf',
+      companyId || undefined,
+    );
+
+    if (!entry) {
+      this.logger.debug(
+        `Registry não localizado para assinatura de ${registryModule}:${documentId}${companyId ? ` (company=${companyId})` : ''}.`,
+      );
+      return null;
+    }
+
+    return {
+      registryEntryId: entry.id,
+      documentCode: entry.document_code,
+      fileHash: entry.file_hash,
+      fileKey: entry.file_key,
+      module: registryModule,
+    };
+  }
+}

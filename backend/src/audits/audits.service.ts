@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Audit } from './entities/audit.entity';
@@ -17,9 +22,8 @@ import {
   DocumentBundleService,
   WeeklyBundleFilters,
 } from '../common/services/document-bundle.service';
-import { DocumentRegistryService } from '../document-registry/document-registry.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { S3Service } from '../common/storage/s3.service';
-import { RequestContext } from '../common/middleware/request-context.middleware';
 
 @Injectable()
 export class AuditsService {
@@ -31,47 +35,10 @@ export class AuditsService {
     private auditsRepository: Repository<Audit>,
     tenantRepositoryFactory: TenantRepositoryFactory,
     private readonly documentBundleService: DocumentBundleService,
-    private readonly documentRegistryService: DocumentRegistryService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly s3Service: S3Service,
   ) {
     this.tenantRepo = tenantRepositoryFactory.wrap(this.auditsRepository);
-  }
-
-  private async syncDocumentRegistry(
-    audit: Pick<
-      Audit,
-      | 'id'
-      | 'company_id'
-      | 'titulo'
-      | 'data_auditoria'
-      | 'created_at'
-      | 'pdf_file_key'
-      | 'pdf_folder_path'
-      | 'pdf_original_name'
-    >,
-    options?: {
-      fileBuffer?: Buffer;
-      mimeType?: string;
-      createdBy?: string;
-    },
-  ) {
-    if (!audit.pdf_file_key) {
-      return;
-    }
-
-    await this.documentRegistryService.upsert({
-      companyId: audit.company_id,
-      module: 'audit',
-      entityId: audit.id,
-      title: audit.titulo || 'Auditoria',
-      documentDate: audit.data_auditoria || audit.created_at,
-      fileKey: audit.pdf_file_key,
-      folderPath: audit.pdf_folder_path,
-      originalName: audit.pdf_original_name,
-      mimeType: options?.mimeType || 'application/pdf',
-      fileBuffer: options?.fileBuffer,
-      createdBy: options?.createdBy,
-    });
   }
 
   async create(createAuditDto: CreateAuditDto, companyId: string) {
@@ -129,8 +96,9 @@ export class AuditsService {
     const params = companyId ? [companyId] : [];
     const where = companyId ? 'WHERE a.company_id = $1' : '';
 
-    const rows = (await this.auditsRepository.query(
-      `
+    const rows: Array<{ total?: number | string }> =
+      await this.auditsRepository.query(
+        `
         SELECT COALESCE(
           SUM(
             (
@@ -145,8 +113,8 @@ export class AuditsService {
         FROM audits a
         ${where}
       `,
-      params,
-    )) as Array<{ total?: number | string }>;
+        params,
+      );
 
     return Number(rows[0]?.total ?? 0);
   }
@@ -165,11 +133,13 @@ export class AuditsService {
 
   async update(id: string, updateAuditDto: UpdateAuditDto, companyId: string) {
     const audit = await this.findOne(id, companyId);
+    if (audit.pdf_file_key) {
+      throw new BadRequestException(
+        'Auditoria com PDF final anexado. Edição bloqueada. Gere uma nova auditoria para alterar o documento.',
+      );
+    }
     Object.assign(audit, updateAuditDto);
     const saved = await this.auditsRepository.save(audit);
-    await this.syncDocumentRegistry(saved, {
-      createdBy: RequestContext.getUserId() || undefined,
-    });
     this.logger.log({
       event: 'audit_updated',
       auditId: saved.id,
@@ -180,15 +150,18 @@ export class AuditsService {
 
   async remove(id: string, companyId: string) {
     const audit = await this.findOne(id, companyId);
-    await this.auditsRepository.remove(audit);
-    await this.documentRegistryService.remove({
+    const auditId = audit.id;
+    await this.documentGovernanceService.removeFinalDocumentReference({
       companyId: audit.company_id,
       module: 'audit',
-      entityId: audit.id,
+      entityId: auditId,
+      removeEntityState: async (manager) => {
+        await manager.getRepository(Audit).remove(audit);
+      },
     });
     this.logger.log({
       event: 'audit_removed',
-      auditId: audit.id,
+      auditId,
       companyId,
     });
   }
@@ -200,6 +173,11 @@ export class AuditsService {
     userId?: string,
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
     const audit = await this.findOne(id, companyId);
+    if (audit.pdf_file_key) {
+      throw new BadRequestException(
+        'Esta auditoria já possui PDF final anexado. Gere uma nova auditoria para substituir o documento.',
+      );
+    }
     const key = this.s3Service.generateDocumentKey(
       audit.company_id,
       'audits',
@@ -214,24 +192,26 @@ export class AuditsService {
     }
 
     const folder = `audits/${audit.company_id}`;
-    await this.auditsRepository.update(id, {
-      pdf_file_key: key,
-      pdf_folder_path: folder,
-      pdf_original_name: file.originalname,
+    await this.documentGovernanceService.registerFinalDocument({
+      companyId: audit.company_id,
+      module: 'audit',
+      entityId: audit.id,
+      title: audit.titulo || 'Auditoria',
+      documentDate: audit.data_auditoria || audit.created_at,
+      fileKey: key,
+      folderPath: folder,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      createdBy: userId || undefined,
+      fileBuffer: file.buffer,
+      persistEntityMetadata: async (manager) => {
+        await manager.getRepository(Audit).update(id, {
+          pdf_file_key: key,
+          pdf_folder_path: folder,
+          pdf_original_name: file.originalname,
+        });
+      },
     });
-    await this.syncDocumentRegistry(
-      {
-        ...audit,
-        pdf_file_key: key,
-        pdf_folder_path: folder,
-        pdf_original_name: file.originalname,
-      },
-      {
-        fileBuffer: file.buffer,
-        mimeType: file.mimetype,
-        createdBy: userId || RequestContext.getUserId() || undefined,
-      },
-    );
 
     this.logger.log({
       event: 'audit_pdf_attached',
@@ -241,10 +221,17 @@ export class AuditsService {
       fileKey: key,
     });
 
-    return { fileKey: key, folderPath: folder, originalName: file.originalname };
+    return {
+      fileKey: key,
+      folderPath: folder,
+      originalName: file.originalname,
+    };
   }
 
-  async getPdfAccess(id: string, companyId: string): Promise<{
+  async getPdfAccess(
+    id: string,
+    companyId: string,
+  ): Promise<{
     entityId: string;
     fileKey: string;
     folderPath: string;

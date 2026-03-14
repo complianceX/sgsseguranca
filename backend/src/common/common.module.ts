@@ -16,10 +16,14 @@ import { TenantGuard } from './guards/tenant.guard';
 import { RiskCalculationService } from './services/risk-calculation.service';
 import { DocumentBundleService } from './services/document-bundle.service';
 import { PdfIntegrityRecord } from './entities/pdf-integrity-record.entity';
+import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
 
 @Global()
 @Module({
-  imports: [RedisModule, TypeOrmModule.forFeature([PdfIntegrityRecord])],
+  imports: [
+    RedisModule,
+    TypeOrmModule.forFeature([PdfIntegrityRecord, DocumentRegistryEntry]),
+  ],
   providers: [
     TenantService,
     TenantRepositoryFactory,

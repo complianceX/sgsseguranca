@@ -8,7 +8,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, FindOptionsSelect } from 'typeorm';
 import { plainToClass } from 'class-transformer';
 import { Checklist } from './entities/checklist.entity';
 import { ChecklistResponseDto } from './dto/checklist-response.dto';
@@ -41,7 +41,7 @@ import {
   DocumentBundleService,
   WeeklyBundleFilters,
 } from '../common/services/document-bundle.service';
-import { DocumentRegistryService } from '../document-registry/document-registry.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 
 @Injectable({ scope: Scope.REQUEST })
@@ -55,23 +55,56 @@ export class ChecklistsService {
       periodicidade: 'Por tarefa',
       nivel_risco_padrao: 'Alto',
       itens: [
-        { item: 'Linha de vida inspecionada e liberada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Cinto paraquedista em bom estado', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Ancoragem definida e sinalizada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Permissão de trabalho emitida', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        {
+          item: 'Linha de vida inspecionada e liberada',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Cinto paraquedista em bom estado',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Ancoragem definida e sinalizada',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Permissão de trabalho emitida',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
       ],
     },
     {
       titulo: 'Checklist - Eletricidade',
-      descricao: 'Verificação pré-serviço para atividades com energia elétrica.',
+      descricao:
+        'Verificação pré-serviço para atividades com energia elétrica.',
       categoria: 'Atividade Crítica',
       periodicidade: 'Por tarefa',
       nivel_risco_padrao: 'Alto',
       itens: [
-        { item: 'Bloqueio e etiquetagem aplicados', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Ausência de tensão confirmada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Ferramentas isoladas inspecionadas', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Equipe com treinamento NR-10 válido', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        {
+          item: 'Bloqueio e etiquetagem aplicados',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Ausência de tensão confirmada',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Ferramentas isoladas inspecionadas',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Equipe com treinamento NR-10 válido',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
       ],
     },
     {
@@ -81,10 +114,26 @@ export class ChecklistsService {
       periodicidade: 'Por turno',
       nivel_risco_padrao: 'Alto',
       itens: [
-        { item: 'Talude ou escoramento conforme projeto', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Acesso seguro à escavação disponível', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Interferências subterrâneas verificadas', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Área isolada e sinalizada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        {
+          item: 'Talude ou escoramento conforme projeto',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Acesso seguro à escavação disponível',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Interferências subterrâneas verificadas',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Área isolada e sinalizada',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
       ],
     },
     {
@@ -94,10 +143,26 @@ export class ChecklistsService {
       periodicidade: 'Por tarefa',
       nivel_risco_padrao: 'Alto',
       itens: [
-        { item: 'Plano de içamento disponível', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Acessórios inspecionados e identificados', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Sinaleiro definido', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Área de giro isolada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        {
+          item: 'Plano de içamento disponível',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Acessórios inspecionados e identificados',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Sinaleiro definido',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Área de giro isolada',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
       ],
     },
     {
@@ -107,10 +172,26 @@ export class ChecklistsService {
       periodicidade: 'Por entrada',
       nivel_risco_padrao: 'Crítico',
       itens: [
-        { item: 'Medição atmosférica realizada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Vigia designado', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Resgate definido e disponível', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Permissão de entrada liberada', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        {
+          item: 'Medição atmosférica realizada',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Vigia designado',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Resgate definido e disponível',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Permissão de entrada liberada',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
       ],
     },
     {
@@ -120,10 +201,26 @@ export class ChecklistsService {
       periodicidade: 'Diário',
       nivel_risco_padrao: 'Médio',
       itens: [
-        { item: 'Proteções fixas e móveis instaladas', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Botão de emergência testado', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Sem vazamentos aparentes', tipo_resposta: 'sim_nao_na', obrigatorio: true },
-        { item: 'Checklist diário preenchido pelo operador', tipo_resposta: 'sim_nao_na', obrigatorio: true },
+        {
+          item: 'Proteções fixas e móveis instaladas',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Botão de emergência testado',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Sem vazamentos aparentes',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
+        {
+          item: 'Checklist diário preenchido pelo operador',
+          tipo_resposta: 'sim_nao_na',
+          obrigatorio: true,
+        },
       ],
     },
   ];
@@ -141,8 +238,24 @@ export class ChecklistsService {
     private usersService: UsersService,
     private sitesService: SitesService,
     private readonly documentBundleService: DocumentBundleService,
-    private readonly documentRegistryService: DocumentRegistryService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
+
+  private readonly checklistListSelect: FindOptionsSelect<Checklist> = {
+    id: true,
+    titulo: true,
+    descricao: true,
+    equipamento: true,
+    maquina: true,
+    data: true,
+    status: true,
+    company_id: true,
+    site_id: true,
+    inspetor_id: true,
+    is_modelo: true,
+    created_at: true,
+    updated_at: true,
+  };
 
   async create(
     createChecklistDto: CreateChecklistDto,
@@ -213,21 +326,7 @@ export class ChecklistsService {
     const [rows, total] = await this.checklistsRepository.findAndCount({
       where: filter,
       // LISTING: evitar relations pesadas no endpoint de listagem.
-      select: {
-        id: true,
-        titulo: true,
-        descricao: true,
-        equipamento: true,
-        maquina: true,
-        data: true,
-        status: true,
-        company_id: true,
-        site_id: true,
-        inspetor_id: true,
-        is_modelo: true,
-        created_at: true,
-        updated_at: true,
-      } as any,
+      select: this.checklistListSelect,
       order: { created_at: 'DESC' },
       skip,
       take: limit,
@@ -280,7 +379,14 @@ export class ChecklistsService {
 
   async remove(id: string): Promise<void> {
     const checklist = await this.findOneEntity(id);
-    await this.checklistsRepository.remove(checklist);
+    await this.documentGovernanceService.removeFinalDocumentReference({
+      companyId: checklist.company_id,
+      module: 'checklist',
+      entityId: checklist.id,
+      removeEntityState: async (manager) => {
+        await manager.getRepository(Checklist).remove(checklist);
+      },
+    });
   }
 
   async sendEmail(id: string, to: string) {
@@ -525,7 +631,9 @@ export class ChecklistsService {
       where: { company_id: companyId, is_modelo: true },
       select: ['titulo'],
     });
-    const existingTitles = new Set(existingTemplates.map((item) => item.titulo));
+    const existingTitles = new Set(
+      existingTemplates.map((item) => item.titulo),
+    );
 
     const templatesToCreate = this.checklistTemplatesByActivity
       .filter((template) => !existingTitles.has(template.titulo))
@@ -614,11 +722,7 @@ export class ChecklistsService {
     await this.storageService.uploadFile(fileKey, pdfBuffer, 'application/pdf');
     const fileUrl = await this.storageService.getPresignedDownloadUrl(fileKey);
 
-    checklist.pdf_file_key = fileKey;
-    checklist.pdf_folder_path = folderPath;
-    checklist.pdf_original_name = fileName;
-    await this.checklistsRepository.save(checklist);
-    await this.documentRegistryService.upsert({
+    await this.documentGovernanceService.registerFinalDocument({
       companyId: checklist.company_id,
       module: 'checklist',
       entityId: checklist.id,
@@ -628,14 +732,24 @@ export class ChecklistsService {
       folderPath,
       originalName: fileName,
       mimeType: 'application/pdf',
-      fileBuffer: pdfBuffer,
       createdBy: RequestContext.getUserId() || undefined,
+      fileBuffer: pdfBuffer,
+      persistEntityMetadata: async (manager) => {
+        await manager.getRepository(Checklist).update(
+          { id: checklist.id },
+          {
+            pdf_file_key: fileKey,
+            pdf_folder_path: folderPath,
+            pdf_original_name: fileName,
+          },
+        );
+      },
     });
 
     return { fileKey, folderPath, fileUrl };
   }
 
-  async count(options?: any): Promise<number> {
+  async count(options?: { where?: Record<string, unknown> }): Promise<number> {
     const tenantId = this.tenantService.getTenantId();
     const where = options?.where || {};
     return this.checklistsRepository.count({

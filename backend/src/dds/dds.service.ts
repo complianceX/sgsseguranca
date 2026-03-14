@@ -21,8 +21,7 @@ import {
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
 import { S3Service } from '../common/storage/s3.service';
-import { DocumentRegistryService } from '../document-registry/document-registry.service';
-import { RequestContext } from '../common/middleware/request-context.middleware';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 
 @Injectable()
 export class DdsService {
@@ -34,45 +33,8 @@ export class DdsService {
     private tenantService: TenantService,
     private readonly documentBundleService: DocumentBundleService,
     private readonly s3Service: S3Service,
-    private readonly documentRegistryService: DocumentRegistryService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
-
-  private async syncDocumentRegistry(
-    dds: Pick<
-      Dds,
-      | 'id'
-      | 'company_id'
-      | 'tema'
-      | 'data'
-      | 'created_at'
-      | 'pdf_file_key'
-      | 'pdf_folder_path'
-      | 'pdf_original_name'
-    >,
-    options?: {
-      fileBuffer?: Buffer;
-      mimeType?: string;
-      createdBy?: string;
-    },
-  ) {
-    if (!dds.pdf_file_key) {
-      return;
-    }
-
-    await this.documentRegistryService.upsert({
-      companyId: dds.company_id,
-      module: 'dds',
-      entityId: dds.id,
-      title: dds.tema || 'DDS',
-      documentDate: dds.data || dds.created_at,
-      fileKey: dds.pdf_file_key,
-      folderPath: dds.pdf_folder_path,
-      originalName: dds.pdf_original_name,
-      mimeType: options?.mimeType || 'application/pdf',
-      fileBuffer: options?.fileBuffer,
-      createdBy: options?.createdBy,
-    });
-  }
 
   async create(createDdsDto: CreateDdsDto): Promise<Dds> {
     const { participants, company_id, ...rest } = createDdsDto;
@@ -193,6 +155,11 @@ export class DdsService {
 
   async updateStatus(id: string, status: DdsStatus): Promise<Dds> {
     const dds = await this.findOne(id);
+    if (dds.pdf_file_key) {
+      throw new BadRequestException(
+        'DDS com PDF final anexado. Edição bloqueada. Gere um novo DDS para alterar o documento.',
+      );
+    }
     const allowed = DDS_ALLOWED_TRANSITIONS[dds.status];
     if (!allowed.includes(status)) {
       throw new BadRequestException(
@@ -208,6 +175,11 @@ export class DdsService {
     file: Express.Multer.File,
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
     const dds = await this.findOne(id);
+    if (dds.pdf_file_key) {
+      throw new BadRequestException(
+        'Este DDS já possui PDF final anexado. Gere um novo DDS para substituir o documento.',
+      );
+    }
     const companyId = dds.company_id;
     const key = this.s3Service.generateDocumentKey(
       companyId,
@@ -224,26 +196,32 @@ export class DdsService {
     }
 
     const folder = `dds/${companyId}`;
-    await this.ddsRepository.update(id, {
-      pdf_file_key: key,
-      pdf_folder_path: folder,
-      pdf_original_name: file.originalname,
+    await this.documentGovernanceService.registerFinalDocument({
+      companyId: dds.company_id,
+      module: 'dds',
+      entityId: dds.id,
+      title: dds.tema || 'DDS',
+      documentDate: dds.data || dds.created_at,
+      fileKey: key,
+      folderPath: folder,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      createdBy: undefined,
+      fileBuffer: file.buffer,
+      persistEntityMetadata: async (manager) => {
+        await manager.getRepository(Dds).update(id, {
+          pdf_file_key: key,
+          pdf_folder_path: folder,
+          pdf_original_name: file.originalname,
+        });
+      },
     });
-    await this.syncDocumentRegistry(
-      {
-        ...dds,
-        pdf_file_key: key,
-        pdf_folder_path: folder,
-        pdf_original_name: file.originalname,
-      },
-      {
-        fileBuffer: file.buffer,
-        mimeType: file.mimetype,
-        createdBy: RequestContext.getUserId() || undefined,
-      },
-    );
 
-    return { fileKey: key, folderPath: folder, originalName: file.originalname };
+    return {
+      fileKey: key,
+      folderPath: folder,
+      originalName: file.originalname,
+    };
   }
 
   async getPdfAccess(id: string): Promise<{
@@ -275,7 +253,9 @@ export class DdsService {
     };
   }
 
-  async getHistoricalPhotoHashes(limit = 100): Promise<{ ddsId: string; hashes: string[] }[]> {
+  async getHistoricalPhotoHashes(
+    limit = 100,
+  ): Promise<{ ddsId: string; hashes: string[] }[]> {
     const tenantId = this.tenantService.getTenantId();
 
     // Busca os IDs mais recentes sem fazer N+1
@@ -296,6 +276,11 @@ export class DdsService {
 
   async update(id: string, updateDdsDto: UpdateDdsDto): Promise<Dds> {
     const dds = await this.findOne(id);
+    if (dds.pdf_file_key) {
+      throw new BadRequestException(
+        'DDS com PDF final anexado. Edição bloqueada. Gere um novo DDS para alterar o documento.',
+      );
+    }
     const { participants, ...rest } = updateDdsDto;
 
     Object.assign(dds, rest);
@@ -305,9 +290,6 @@ export class DdsService {
     }
 
     const saved = await this.ddsRepository.save(dds);
-    await this.syncDocumentRegistry(saved, {
-      createdBy: RequestContext.getUserId() || undefined,
-    });
     this.logger.log({
       event: 'dds_updated',
       ddsId: saved.id,
@@ -318,11 +300,13 @@ export class DdsService {
 
   async remove(id: string): Promise<void> {
     const dds = await this.findOne(id);
-    await this.ddsRepository.softDelete(id);
-    await this.documentRegistryService.remove({
+    await this.documentGovernanceService.removeFinalDocumentReference({
       companyId: dds.company_id,
       module: 'dds',
       entityId: dds.id,
+      removeEntityState: async (manager) => {
+        await manager.getRepository(Dds).softDelete(id);
+      },
     });
     this.logger.log({
       event: 'dds_archived',
@@ -331,11 +315,13 @@ export class DdsService {
     });
   }
 
-  async count(options?: any): Promise<number> {
+  async count(options?: { where?: Record<string, unknown> }): Promise<number> {
     const tenantId = this.tenantService.getTenantId();
     const where = options?.where || {};
     return this.ddsRepository.count({
-      where: tenantId ? { ...where, company_id: tenantId } : where,
+      where: tenantId
+        ? ({ ...where, company_id: tenantId } as Record<string, unknown>)
+        : where,
     });
   }
 

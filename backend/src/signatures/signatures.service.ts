@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
 import { TenantService } from '../common/tenant/tenant.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { Signature } from './entities/signature.entity';
 import { CreateSignatureDto } from './dto/create-signature.dto';
 
@@ -17,6 +18,7 @@ export class SignaturesService {
     private signaturesRepository: Repository<Signature>,
     private readonly tenantService: TenantService,
     private readonly signatureTimestampService: SignatureTimestampService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
 
   async create(
@@ -28,6 +30,12 @@ export class SignaturesService {
       createSignatureDto.signature_data,
     );
     const signedAt = new Date(generatedStamp.timestamp_issued_at);
+    const registryContext =
+      await this.documentGovernanceService.findRegistryContextForSignature(
+        createSignatureDto.document_id,
+        createSignatureDto.document_type,
+        createSignatureDto.company_id || tenantId || null,
+      );
     const signature = this.signaturesRepository.create({
       document_id: createSignatureDto.document_id,
       document_type: createSignatureDto.document_type,
@@ -49,6 +57,15 @@ export class SignaturesService {
         user_id: authenticatedUserId,
         type: createSignatureDto.type,
         signed_at: signedAt.toISOString(),
+        document_registry: registryContext
+          ? {
+              entry_id: registryContext.registryEntryId,
+              module: registryContext.module,
+              document_code: registryContext.documentCode,
+              file_hash: registryContext.fileHash,
+              file_key: registryContext.fileKey,
+            }
+          : undefined,
       },
     });
     return this.signaturesRepository.save(signature);
@@ -189,7 +206,9 @@ export class SignaturesService {
       document_type?: string;
     };
   }> {
-    const normalizedHash = String(signatureHash || '').trim().toLowerCase();
+    const normalizedHash = String(signatureHash || '')
+      .trim()
+      .toLowerCase();
     if (!/^[a-f0-9]{64}$/.test(normalizedHash)) {
       return {
         valid: false,
@@ -210,16 +229,18 @@ export class SignaturesService {
 
     const valid = Boolean(
       signature.signature_hash &&
-        signature.timestamp_token &&
-        this.signatureTimestampService.verify(
-          signature.signature_hash,
-          signature.timestamp_token,
-        ),
+      signature.timestamp_token &&
+      this.signatureTimestampService.verify(
+        signature.signature_hash,
+        signature.timestamp_token,
+      ),
     );
 
     return {
       valid,
-      message: valid ? 'Assinatura validada com sucesso.' : 'Assinatura localizada, mas inválida.',
+      message: valid
+        ? 'Assinatura validada com sucesso.'
+        : 'Assinatura localizada, mas inválida.',
       signature: {
         hash: signature.signature_hash as string,
         signed_at: signature.signed_at?.toISOString(),

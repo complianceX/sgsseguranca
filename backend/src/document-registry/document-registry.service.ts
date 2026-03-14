@@ -1,9 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { createHash } from 'crypto';
 import { DocumentRegistryEntry } from './entities/document-registry.entity';
 import { TenantService } from '../common/tenant/tenant.service';
@@ -31,6 +28,7 @@ type UpsertRegistryInput = {
   originalName?: string | null;
   mimeType?: string | null;
   fileBuffer?: Buffer | null;
+  fileHash?: string | null;
   createdBy?: string | null;
   documentType?: string;
 };
@@ -52,8 +50,16 @@ export class DocumentRegistryService {
   ) {}
 
   async upsert(input: UpsertRegistryInput): Promise<DocumentRegistryEntry> {
+    return this.upsertWithManager(this.registryRepository.manager, input);
+  }
+
+  async upsertWithManager(
+    manager: EntityManager,
+    input: UpsertRegistryInput,
+  ): Promise<DocumentRegistryEntry> {
+    const registryRepository = manager.getRepository(DocumentRegistryEntry);
     const documentDate = this.resolveDocumentDate(input.documentDate);
-    const existing = await this.registryRepository.findOne({
+    const existing = await registryRepository.findOne({
       where: {
         module: input.module,
         entity_id: input.entityId,
@@ -61,7 +67,7 @@ export class DocumentRegistryService {
       },
     });
 
-    const entity = existing ?? this.registryRepository.create();
+    const entity = existing ?? registryRepository.create();
     entity.company_id = input.companyId;
     entity.module = input.module;
     entity.document_type = input.documentType || 'pdf';
@@ -74,19 +80,29 @@ export class DocumentRegistryService {
     entity.folder_path = input.folderPath || null;
     entity.original_name = input.originalName || null;
     entity.mime_type = input.mimeType || 'application/pdf';
-    entity.file_hash = input.fileBuffer
-      ? createHash('sha256').update(input.fileBuffer).digest('hex')
-      : entity.file_hash || null;
+    entity.file_hash = input.fileHash
+      ? input.fileHash
+      : input.fileBuffer
+        ? createHash('sha256').update(input.fileBuffer).digest('hex')
+        : entity.file_hash || null;
     entity.document_code =
       entity.document_code ||
       `${input.module.toUpperCase()}-${String(entity.iso_year)}-${String(entity.iso_week).padStart(2, '0')}-${input.entityId.slice(0, 8).toUpperCase()}`;
     entity.created_by = input.createdBy || entity.created_by || null;
 
-    return this.registryRepository.save(entity);
+    return registryRepository.save(entity);
   }
 
   async remove(input: RemoveRegistryInput): Promise<void> {
-    await this.registryRepository.delete({
+    await this.removeWithManager(this.registryRepository.manager, input);
+  }
+
+  async removeWithManager(
+    manager: EntityManager,
+    input: RemoveRegistryInput,
+  ): Promise<void> {
+    const registryRepository = manager.getRepository(DocumentRegistryEntry);
+    await registryRepository.delete({
       company_id: input.companyId,
       module: input.module,
       entity_id: input.entityId,
@@ -94,11 +110,42 @@ export class DocumentRegistryService {
     });
   }
 
+  async findByDocument(
+    module: RegistryModule,
+    entityId: string,
+    documentType = 'pdf',
+    companyId?: string,
+  ): Promise<DocumentRegistryEntry | null> {
+    return this.registryRepository.findOne({
+      where: {
+        ...(companyId ? { company_id: companyId } : {}),
+        module,
+        entity_id: entityId,
+        document_type: documentType,
+      },
+    });
+  }
+
+  async findByHash(hash: string): Promise<DocumentRegistryEntry | null> {
+    const normalizedHash = String(hash || '')
+      .trim()
+      .toLowerCase();
+    if (!normalizedHash) {
+      return null;
+    }
+
+    return this.registryRepository.findOne({
+      where: { file_hash: normalizedHash },
+    });
+  }
+
   async list(filters: WeeklyBundleFilters & { modules?: string[] }) {
     const effectiveCompanyId = this.resolveCompanyId(filters.companyId);
     const query = this.registryRepository
       .createQueryBuilder('document')
-      .where('document.company_id = :companyId', { companyId: effectiveCompanyId })
+      .where('document.company_id = :companyId', {
+        companyId: effectiveCompanyId,
+      })
       .orderBy('document.document_date', 'DESC')
       .addOrderBy('document.created_at', 'DESC');
 
@@ -166,7 +213,9 @@ export class DocumentRegistryService {
     );
     target.setUTCDate(target.getUTCDate() + 4 - (target.getUTCDay() || 7));
     const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
-    return Math.ceil(((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+    return Math.ceil(
+      ((target.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
+    );
   }
 
   private getIsoYear(date: Date) {

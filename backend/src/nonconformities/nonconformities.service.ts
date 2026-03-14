@@ -18,7 +18,7 @@ import {
   DocumentBundleService,
   WeeklyBundleFilters,
 } from '../common/services/document-bundle.service';
-import { DocumentRegistryService } from '../document-registry/document-registry.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { RequestContext } from '../common/middleware/request-context.middleware';
@@ -53,7 +53,7 @@ export class NonConformitiesService {
     private tenantService: TenantService,
     private storageService: StorageService,
     private readonly documentBundleService: DocumentBundleService,
-    private readonly documentRegistryService: DocumentRegistryService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly auditService: AuditService,
   ) {}
 
@@ -591,7 +591,14 @@ export class NonConformitiesService {
   async remove(id: string) {
     const nonConformity = await this.findOne(id);
     const before = { ...nonConformity };
-    await this.nonConformitiesRepository.remove(nonConformity);
+    await this.documentGovernanceService.removeFinalDocumentReference({
+      companyId: nonConformity.company_id,
+      module: 'nonconformity',
+      entityId: nonConformity.id,
+      removeEntityState: async (manager) => {
+        await manager.getRepository(NonConformity).remove(nonConformity);
+      },
+    });
     await this.logAudit(AuditAction.DELETE, id, before, null);
   }
 
@@ -686,25 +693,31 @@ export class NonConformitiesService {
 
     await this.storageService.uploadFile(fileKey, buffer, mimetype);
 
-    nc.pdf_file_key = fileKey;
-    nc.pdf_folder_path = folderPath;
-    nc.pdf_original_name = originalName;
-    const saved = await this.nonConformitiesRepository.save(nc);
-    await this.documentRegistryService.upsert({
-      companyId: saved.company_id,
+    await this.documentGovernanceService.registerFinalDocument({
+      companyId: nc.company_id,
       module: 'nonconformity',
-      entityId: saved.id,
-      title: saved.codigo_nc || saved.tipo || 'Nao Conformidade',
-      documentDate: saved.data_identificacao || date,
+      entityId: nc.id,
+      title: nc.codigo_nc || nc.tipo || 'Nao Conformidade',
+      documentDate: nc.data_identificacao || date,
       fileKey,
       folderPath,
       originalName,
       mimeType: mimetype,
-      fileBuffer: buffer,
       createdBy: RequestContext.getUserId() || undefined,
+      fileBuffer: buffer,
+      persistEntityMetadata: async (manager) => {
+        await manager.getRepository(NonConformity).update(
+          { id: nc.id },
+          {
+            pdf_file_key: fileKey,
+            pdf_folder_path: folderPath,
+            pdf_original_name: originalName,
+          },
+        );
+      },
     });
 
-    return saved;
+    return this.findOne(id);
   }
 
   async getMonthlyAnalytics(): Promise<{ mes: string; total: number }[]> {

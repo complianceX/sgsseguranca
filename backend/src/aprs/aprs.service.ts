@@ -1,6 +1,11 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Apr, AprStatus, APR_ALLOWED_TRANSITIONS } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
@@ -27,7 +32,7 @@ import {
   WeeklyBundleFilters,
 } from '../common/services/document-bundle.service';
 import { S3Service } from '../common/storage/s3.service';
-import { DocumentRegistryService } from '../document-registry/document-registry.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 
 @Injectable()
 export class AprsService {
@@ -42,7 +47,7 @@ export class AprsService {
     private readonly riskCalculationService: RiskCalculationService,
     private readonly documentBundleService: DocumentBundleService,
     private readonly s3Service: S3Service,
-    private readonly documentRegistryService: DocumentRegistryService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -110,7 +115,11 @@ export class AprsService {
         { is_modelo_padrao: true, is_modelo: true },
       );
     }
-    this.logger.log({ event: 'apr_created', aprId: saved.id, companyId: saved.company_id });
+    this.logger.log({
+      event: 'apr_created',
+      aprId: saved.id,
+      companyId: saved.company_id,
+    });
     return saved;
   }
 
@@ -119,8 +128,16 @@ export class AprsService {
     return this.aprsRepository.find({
       where: tenantId ? { company_id: tenantId } : {},
       relations: [
-        'company', 'site', 'elaborador', 'activities', 'risks',
-        'epis', 'tools', 'machines', 'participants', 'auditado_por',
+        'company',
+        'site',
+        'elaborador',
+        'activities',
+        'risks',
+        'epis',
+        'tools',
+        'machines',
+        'participants',
+        'auditado_por',
       ],
     });
   }
@@ -142,10 +159,19 @@ export class AprsService {
     const qb = this.aprsRepository
       .createQueryBuilder('apr')
       .select([
-        'apr.id', 'apr.numero', 'apr.titulo', 'apr.descricao',
-        'apr.data_inicio', 'apr.data_fim', 'apr.status', 'apr.versao',
-        'apr.is_modelo', 'apr.is_modelo_padrao', 'apr.company_id',
-        'apr.classificacao_resumo', 'apr.created_at',
+        'apr.id',
+        'apr.numero',
+        'apr.titulo',
+        'apr.descricao',
+        'apr.data_inicio',
+        'apr.data_fim',
+        'apr.status',
+        'apr.versao',
+        'apr.is_modelo',
+        'apr.is_modelo_padrao',
+        'apr.company_id',
+        'apr.classificacao_resumo',
+        'apr.created_at',
       ])
       .orderBy('apr.created_at', 'DESC')
       .skip(skip)
@@ -158,9 +184,11 @@ export class AprsService {
     }
     if (opts?.search) {
       const clause = 'apr.titulo ILIKE :search';
-      tenantId || opts?.companyId
-        ? qb.andWhere(clause, { search: `%${opts.search}%` })
-        : qb.where(clause, { search: `%${opts.search}%` });
+      if (tenantId || opts?.companyId) {
+        qb.andWhere(clause, { search: `%${opts.search}%` });
+      } else {
+        qb.where(clause, { search: `%${opts.search}%` });
+      }
     }
     if (opts?.status) {
       qb.andWhere('apr.status = :status', { status: opts.status });
@@ -181,8 +209,16 @@ export class AprsService {
     const apr = await this.aprsRepository.findOne({
       where: tenantId ? { id, company_id: tenantId } : { id },
       relations: [
-        'company', 'site', 'elaborador', 'activities', 'risks',
-        'epis', 'tools', 'machines', 'participants', 'auditado_por',
+        'company',
+        'site',
+        'elaborador',
+        'activities',
+        'risks',
+        'epis',
+        'tools',
+        'machines',
+        'participants',
+        'auditado_por',
       ],
     });
     if (!apr) {
@@ -240,12 +276,15 @@ export class AprsService {
           : Boolean(apr.control_evidence),
     });
 
-    if (activities) apr.activities = activities.map((id) => ({ id }) as unknown as Activity);
+    if (activities)
+      apr.activities = activities.map((id) => ({ id }) as unknown as Activity);
     if (risks) apr.risks = risks.map((id) => ({ id }) as unknown as Risk);
     if (epis) apr.epis = epis.map((id) => ({ id }) as unknown as Epi);
     if (tools) apr.tools = tools.map((id) => ({ id }) as unknown as Tool);
-    if (machines) apr.machines = machines.map((id) => ({ id }) as unknown as Machine);
-    if (participants) apr.participants = participants.map((id) => ({ id }) as unknown as User);
+    if (machines)
+      apr.machines = machines.map((id) => ({ id }) as unknown as Machine);
+    if (participants)
+      apr.participants = participants.map((id) => ({ id }) as unknown as User);
 
     const saved = await this.aprsRepository.save(apr);
     if (saved.is_modelo_padrao) {
@@ -258,20 +297,30 @@ export class AprsService {
         { is_modelo_padrao: true, is_modelo: true },
       );
     }
-    this.logger.log({ event: 'apr_updated', aprId: saved.id, companyId: saved.company_id });
+    this.logger.log({
+      event: 'apr_updated',
+      aprId: saved.id,
+      companyId: saved.company_id,
+    });
     return saved;
   }
 
   async remove(id: string, userId?: string): Promise<void> {
     const apr = await this.findOneForWrite(id);
-    await this.aprsRepository.softDelete(id);
-    await this.documentRegistryService.remove({
+    await this.documentGovernanceService.removeFinalDocumentReference({
       companyId: apr.company_id,
       module: 'apr',
       entityId: apr.id,
+      removeEntityState: async (manager) => {
+        await manager.getRepository(Apr).softDelete(id);
+      },
     });
     await this.addLog(id, userId, 'removido', { companyId: apr.company_id });
-    this.logger.log({ event: 'apr_soft_deleted', aprId: apr.id, companyId: apr.company_id });
+    this.logger.log({
+      event: 'apr_soft_deleted',
+      aprId: apr.id,
+      companyId: apr.company_id,
+    });
   }
 
   // ─── Workflow ────────────────────────────────────────────────────────────────
@@ -329,7 +378,7 @@ export class AprsService {
 
   async createNewVersion(id: string, userId: string): Promise<Apr> {
     const original = await this.findOneForWrite(id);
-    if (original.status !== AprStatus.APROVADA) {
+    if (original.status !== 'Aprovada') {
       throw new BadRequestException(
         `Somente APRs Aprovadas podem gerar nova versão. Status atual: ${original.status}`,
       );
@@ -367,8 +416,16 @@ export class AprsService {
     });
 
     const saved = await this.aprsRepository.save(novo);
-    await this.addLog(id, userId, 'nova_versao_criada', { novaAprId: saved.id, versao: nextVersion });
-    this.logger.log({ event: 'apr_new_version', originalId: id, newId: saved.id, versao: nextVersion });
+    await this.addLog(id, userId, 'nova_versao_criada', {
+      novaAprId: saved.id,
+      versao: nextVersion,
+    });
+    this.logger.log({
+      event: 'apr_new_version',
+      originalId: id,
+      newId: saved.id,
+      versao: nextVersion,
+    });
     return saved;
   }
 
@@ -381,7 +438,9 @@ export class AprsService {
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
     const apr = await this.findOneForWrite(id);
     if (apr.pdf_file_key) {
-      throw new BadRequestException('Esta APR já possui PDF anexado e está bloqueada para edição.');
+      throw new BadRequestException(
+        'Esta APR já possui PDF anexado e está bloqueada para edição.',
+      );
     }
     const key = this.s3Service.generateDocumentKey(
       apr.company_id,
@@ -400,16 +459,7 @@ export class AprsService {
     // Anexar PDF assinado finaliza a APR: aprova e bloqueia edição.
     const approvalReason = 'PDF assinado anexado';
     const now = new Date();
-    await this.aprsRepository.update(id, {
-      pdf_file_key: key,
-      pdf_folder_path: folder,
-      pdf_original_name: file.originalname,
-      status: AprStatus.APROVADA,
-      aprovado_por_id: userId ?? null,
-      aprovado_em: now,
-      aprovado_motivo: approvalReason,
-    });
-    await this.documentRegistryService.upsert({
+    await this.documentGovernanceService.registerFinalDocument({
       companyId: apr.company_id,
       module: 'apr',
       entityId: apr.id,
@@ -419,13 +469,30 @@ export class AprsService {
       folderPath: folder,
       originalName: file.originalname,
       mimeType: file.mimetype,
-      fileBuffer: file.buffer,
       createdBy: userId,
+      fileBuffer: file.buffer,
+      persistEntityMetadata: async (manager) => {
+        await manager.getRepository(Apr).update(id, {
+          pdf_file_key: key,
+          pdf_folder_path: folder,
+          pdf_original_name: file.originalname,
+          status: AprStatus.APROVADA,
+          aprovado_por_id: userId ?? null,
+          aprovado_em: now,
+          aprovado_motivo: approvalReason,
+        });
+      },
     });
     await this.addLog(id, userId, 'pdf_anexado', { fileKey: key });
-    await this.addLog(id, userId, 'aprovado_por_pdf', { motivo: approvalReason });
+    await this.addLog(id, userId, 'aprovado_por_pdf', {
+      motivo: approvalReason,
+    });
 
-    return { fileKey: key, folderPath: folder, originalName: file.originalname };
+    return {
+      fileKey: key,
+      folderPath: folder,
+      originalName: file.originalname,
+    };
   }
 
   async verifyEvidenceByHashPublic(hash: string): Promise<{
@@ -442,7 +509,9 @@ export class AprsService {
       integrity_flags?: Record<string, unknown> | null;
     };
   }> {
-    const normalizedHash = String(hash || '').trim().toLowerCase();
+    const normalizedHash = String(hash || '')
+      .trim()
+      .toLowerCase();
     if (!/^[a-f0-9]{64}$/.test(normalizedHash)) {
       return {
         verified: false,
@@ -529,8 +598,13 @@ export class AprsService {
     const qb = this.aprsRepository
       .createQueryBuilder('apr')
       .select([
-        'apr.id', 'apr.numero', 'apr.versao', 'apr.status',
-        'apr.parent_apr_id', 'apr.aprovado_em', 'apr.updated_at',
+        'apr.id',
+        'apr.numero',
+        'apr.versao',
+        'apr.status',
+        'apr.parent_apr_id',
+        'apr.aprovado_em',
+        'apr.updated_at',
         'apr.classificacao_resumo',
       ])
       .where('(apr.id = :rootId OR apr.parent_apr_id = :rootId)', { rootId })
@@ -551,13 +625,26 @@ export class AprsService {
     mediaScoreRisco: number;
   }> {
     const tenantId = this.tenantService.getTenantId();
-    const baseWhere: Record<string, unknown> = {};
-    if (tenantId) baseWhere.company_id = tenantId;
+    const baseWhere: FindOptionsWhere<Apr> = tenantId
+      ? { company_id: tenantId }
+      : {};
+    const approvedWhere: FindOptionsWhere<Apr> = {
+      ...baseWhere,
+      status: AprStatus.APROVADA,
+    };
+    const pendingWhere: FindOptionsWhere<Apr> = {
+      ...baseWhere,
+      status: AprStatus.PENDENTE,
+    };
 
     const [totalAprs, aprovadas, pendentes] = await Promise.all([
-      this.aprsRepository.count({ where: baseWhere as any }),
-      this.aprsRepository.count({ where: { ...baseWhere, status: AprStatus.APROVADA } as any }),
-      this.aprsRepository.count({ where: { ...baseWhere, status: AprStatus.PENDENTE } as any }),
+      this.aprsRepository.count({ where: baseWhere }),
+      this.aprsRepository.count({
+        where: approvedWhere,
+      }),
+      this.aprsRepository.count({
+        where: pendingWhere,
+      }),
     ]);
 
     const riskQb = this.aprsRepository
@@ -571,7 +658,10 @@ export class AprsService {
 
     if (tenantId) riskQb.where('apr.company_id = :tenantId', { tenantId });
 
-    const riskStats = await riskQb.getRawOne<{ avg: string; criticos: string }>();
+    const riskStats = await riskQb.getRawOne<{
+      avg: string;
+      criticos: string;
+    }>();
 
     return {
       totalAprs,
@@ -584,11 +674,13 @@ export class AprsService {
 
   // ─── Misc ────────────────────────────────────────────────────────────────────
 
-  async count(options?: any): Promise<number> {
+  async count(options?: { where?: Record<string, unknown> }): Promise<number> {
     const tenantId = this.tenantService.getTenantId();
     const where = options?.where || {};
     return this.aprsRepository.count({
-      where: tenantId ? { ...where, company_id: tenantId } : where,
+      where: tenantId
+        ? ({ ...where, company_id: tenantId } as Record<string, unknown>)
+        : where,
     });
   }
 
@@ -600,7 +692,9 @@ export class AprsService {
 
     if (tenantId) query.andWhere('apr.company_id = :tenantId', { tenantId });
     if (filters.companyId) {
-      query.andWhere('apr.company_id = :companyId', { companyId: filters.companyId });
+      query.andWhere('apr.company_id = :companyId', {
+        companyId: filters.companyId,
+      });
     }
 
     const results = await query.getMany();
@@ -611,10 +705,14 @@ export class AprsService {
         const date = new Date(apr.created_at);
         if (filters.year && date.getFullYear() !== filters.year) return false;
         if (filters.week) {
-          const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+          const d = new Date(
+            Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+          );
           d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
           const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-          const isoWeek = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+          const isoWeek = Math.ceil(
+            ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
+          );
           if (isoWeek !== filters.week) return false;
         }
         return true;
@@ -652,20 +750,29 @@ export class AprsService {
     const qb = this.aprsRepository
       .createQueryBuilder('apr')
       .select([
-        'apr.numero', 'apr.titulo', 'apr.status',
-        'apr.data_inicio', 'apr.data_fim', 'apr.versao', 'apr.created_at',
+        'apr.numero',
+        'apr.titulo',
+        'apr.status',
+        'apr.data_inicio',
+        'apr.data_fim',
+        'apr.versao',
+        'apr.created_at',
       ])
       .orderBy('apr.created_at', 'DESC');
     if (tenantId) qb.where('apr.company_id = :tenantId', { tenantId });
     const aprs = await qb.getMany();
 
     const rows = aprs.map((a) => ({
-      'Número': a.numero,
-      'Título': a.titulo,
-      'Status': a.status,
-      'Data Início': a.data_inicio ? new Date(a.data_inicio).toLocaleDateString('pt-BR') : '',
-      'Data Fim': a.data_fim ? new Date(a.data_fim).toLocaleDateString('pt-BR') : '',
-      'Versão': a.versao ?? 1,
+      Número: a.numero,
+      Título: a.titulo,
+      Status: a.status,
+      'Data Início': a.data_inicio
+        ? new Date(a.data_inicio).toLocaleDateString('pt-BR')
+        : '',
+      'Data Fim': a.data_fim
+        ? new Date(a.data_fim).toLocaleDateString('pt-BR')
+        : '',
+      Versão: a.versao ?? 1,
       'Criado em': new Date(a.created_at).toLocaleDateString('pt-BR'),
     }));
 
@@ -675,7 +782,9 @@ export class AprsService {
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
   }
 
-  async getRiskMatrix(siteId?: string): Promise<{ matrix: { categoria: string; prob: number; sev: number; count: number }[] }> {
+  async getRiskMatrix(siteId?: string): Promise<{
+    matrix: { categoria: string; prob: number; sev: number; count: number }[];
+  }> {
     const tenantId = this.tenantService.getTenantId();
     const qb = this.aprsRepository
       .createQueryBuilder('apr')
@@ -693,10 +802,15 @@ export class AprsService {
     if (tenantId) qb.andWhere('apr.company_id = :tenantId', { tenantId });
     if (siteId) qb.andWhere('apr.site_id = :siteId', { siteId });
 
-    const raw = await qb.getRawMany();
+    const raw = await qb.getRawMany<{
+      categoria: string;
+      prob: string | number;
+      sev: string | number;
+      count: string | number;
+    }>();
     return {
       matrix: raw.map((r) => ({
-        categoria: r.categoria as string,
+        categoria: r.categoria,
         prob: Number(r.prob),
         sev: Number(r.sev),
         count: Number(r.count),

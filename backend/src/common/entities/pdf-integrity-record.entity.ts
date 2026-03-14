@@ -1,4 +1,11 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
 
@@ -13,6 +20,8 @@ export class PdfIntegrityRecord {
   @Column({ type: 'text', nullable: true })
   original_name: string | null;
 
+  // Mantido por compatibilidade: em fluxos de assinatura armazena o signatário;
+  // em fluxos de governança documental armazena quem registrou a integridade final.
   @Column({ type: 'varchar', nullable: true })
   signed_by_user_id: string | null;
 
