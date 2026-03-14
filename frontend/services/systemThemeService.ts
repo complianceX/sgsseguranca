@@ -26,34 +26,34 @@ export interface SystemThemePreset {
   tokens: Omit<SystemThemeTokens, 'id' | 'updatedAt'>;
 }
 
-// SST Professional "Compliance Blue" — ANSI Z535 · ISO 3864 · OSHA
+// SST Professional "Safety Green" — ANSI Z535 · ISO 3864 · ABNT NBR ISO 3864
 export const DEFAULT_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
   backgroundColor: '#f4f7fa',
-  sidebarColor: '#091624',
+  sidebarColor: '#0d3d1f',
   cardColor: '#ffffff',
-  primaryColor: '#0052b4',
-  secondaryColor: '#0b8a52',
+  primaryColor: '#16a34a',
+  secondaryColor: '#0052b4',
   textPrimary: '#101828',
   textSecondary: '#344054',
-  successColor: '#157347',
+  successColor: '#15803d',
   warningColor: '#d97706',
   dangerColor: '#d92d20',
   infoColor: '#0369a1',
 };
 
-// SST Dark — deep navy, high contrast for field/low-light use
+// SST Dark — deep forest green, high contrast for field/low-light use
 export const DARK_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#090f1c',
-  sidebarColor: '#040a14',
-  cardColor: '#111c2c',
-  primaryColor: '#4d94e0',
-  secondaryColor: '#1ab870',
+  backgroundColor: '#091a0f',
+  sidebarColor: '#061209',
+  cardColor: '#112218',
+  primaryColor: '#4ade80',
+  secondaryColor: '#60a5fa',
   textPrimary: '#f0f4f8',
   textSecondary: '#c8d6e4',
-  successColor: '#22a65e',
+  successColor: '#22c55e',
   warningColor: '#f59e0b',
   dangerColor: '#ef4444',
-  infoColor: '#38a6e0',
+  infoColor: '#38bdf8',
 };
 
 export const ADAPTIVE_THEME_PRESETS = {

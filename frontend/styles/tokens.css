@@ -1,32 +1,32 @@
 :root {
   /* ═══════════════════════════════════════════════════════════════
-     SST PROFESSIONAL PALETTE — "Compliance Blue"
+     SST PROFESSIONAL PALETTE — "Safety Green"
      ───────────────────────────────────────────────────────────────
      Referências normativas:
        · ANSI Z535.1  — American National Safety Color Code
        · ISO 3864-1   — Safety signs and colours (worldwide)
-       · OSHA Brand   — Occupational Safety and Health Administration
+       · ABNT NBR ISO 3864 — Sinalização de Segurança
        · ISO 45001    — Occupational health and safety management
        · SafetyCulture · Intelex · Cority visual language
 
-     SIDEBAR   #091624  Deep navy — authority, seriousness, trust
-     PRIMARY   #0052B4  OSHA/ISO compliance blue — regulatory blue
-     SECONDARY #0B8A52  ANSI Z535 green — safe, approved, compliant
+     SIDEBAR   #0D3D1F  Deep forest green — safety, authority, trust
+     PRIMARY   #16A34A  Safety green — safe, compliant, operational
+     SECONDARY #0052B4  OSHA/ISO blue — regulatory, informational
      BACKGROUND #F4F7FA Clinical neutral — institutional, clean
      ─── Status — ANSI Z535 standard ──────────────────────────────
-     SUCCESS   #157347  Forest safety green
+     SUCCESS   #15803D  Forest green — confirmed safe
      WARNING   #D97706  ANSI Z535 caution amber/orange
      DANGER    #D92D20  ANSI Z535 danger red
      INFO      #0369A1  Information / notice blue
   ══════════════════════════════════════════════════════════════ */
   --brand-background: #f4f7fa;
-  --brand-sidebar: #091624;
+  --brand-sidebar: #0d3d1f;
   --brand-card: #ffffff;
-  --brand-primary: #0052b4;
-  --brand-secondary: #0b8a52;
+  --brand-primary: #16a34a;
+  --brand-secondary: #0052b4;
   --brand-text-primary: #101828;
   --brand-text-secondary: #344054;
-  --brand-success: #157347;
+  --brand-success: #15803d;
   --brand-warning: #d97706;
   --brand-danger: #d92d20;
   --brand-info: #0369a1;

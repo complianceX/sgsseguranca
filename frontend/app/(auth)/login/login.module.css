@@ -1,7 +1,7 @@
 .page {
-  --cx-bg-start: #18191c;
-  --cx-bg-mid: #23252b;
-  --cx-bg-end: #2e3038;
+  --cx-bg-start: #0d3d1f;
+  --cx-bg-mid: #1a5c38;
+  --cx-bg-end: #245e42;
   --cx-surface: color-mix(in srgb, var(--ds-color-surface-elevated) 12%, transparent);
   --cx-surface-soft: color-mix(in srgb, var(--ds-color-surface-elevated) 18%, transparent);
   --cx-border: color-mix(in srgb, var(--ds-color-border-subtle) 56%, transparent);
@@ -40,7 +40,7 @@
   height: 360px;
   left: -80px;
   top: -90px;
-  background: rgba(120, 120, 130, 0.12);
+  background: rgba(22, 163, 74, 0.15);
 }
 
 .backgroundGlowB {
@@ -48,7 +48,7 @@
   height: 460px;
   right: -120px;
   bottom: -150px;
-  background: rgba(100, 100, 110, 0.10);
+  background: rgba(15, 128, 61, 0.12);
 }
 
 .backgroundGrid {
@@ -160,7 +160,7 @@
 
 .statCard:hover {
   transform: translateY(-2px);
-  border-color: rgba(0, 82, 180, 0.50);
+  border-color: rgba(22, 163, 74, 0.50);
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -200,7 +200,7 @@
 }
 
 .loginCard:hover {
-  border-color: rgba(0, 82, 180, 0.26);
+  border-color: rgba(22, 163, 74, 0.26);
   transform: translateY(-1px);
 }
 
@@ -276,7 +276,7 @@
 }
 
 .inputField:focus {
-  border-color: rgba(0, 82, 180, 0.88) !important;
+  border-color: rgba(22, 163, 74, 0.88) !important;
   box-shadow: 0 0 0 3px var(--cx-focus) !important;
   background: rgba(11, 18, 32, 0.76) !important;
 }
@@ -376,13 +376,13 @@
   font-weight: 600;
   color: var(--cx-text-inverse);
   background: linear-gradient(90deg, var(--cx-primary), var(--cx-primary-2));
-  box-shadow: 0 12px 28px rgba(0, 82, 180, 0.32);
+  box-shadow: 0 12px 28px rgba(22, 163, 74, 0.32);
   transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
 .submitButton:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 14px 34px rgba(11, 138, 82, 0.30);
+  box-shadow: 0 14px 34px rgba(22, 163, 74, 0.36);
 }
 
 .submitButton:disabled {

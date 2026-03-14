@@ -1,14 +1,14 @@
 :root,
 :root[data-theme='dark'],
 .theme-dark {
-  --ds-color-bg-canvas: color-mix(in srgb, var(--brand-background) 6%, #090f1c 94%);
-  --ds-color-bg-subtle: color-mix(in srgb, var(--brand-background) 9%, #0e1828 91%);
-  --ds-color-surface-base: color-mix(in srgb, var(--brand-card) 10%, #111c2c 90%);
-  --ds-color-surface-elevated: color-mix(in srgb, var(--brand-card) 14%, #172234 86%);
-  --ds-color-surface-overlay: color-mix(in srgb, var(--brand-card) 12%, #0c1622 88%);
-  --ds-color-surface-muted: color-mix(in srgb, var(--brand-card) 12%, #1a2a3c 88%);
-  --ds-color-surface-sunken: color-mix(in srgb, var(--brand-background) 6%, #080e1a 94%);
-  --ds-color-surface-muted-hover: color-mix(in srgb, var(--brand-card) 16%, #203248 84%);
+  --ds-color-bg-canvas: color-mix(in srgb, var(--brand-background) 6%, #091a0f 94%);
+  --ds-color-bg-subtle: color-mix(in srgb, var(--brand-background) 9%, #0e2016 91%);
+  --ds-color-surface-base: color-mix(in srgb, var(--brand-card) 10%, #112218 90%);
+  --ds-color-surface-elevated: color-mix(in srgb, var(--brand-card) 14%, #172e1e 86%);
+  --ds-color-surface-overlay: color-mix(in srgb, var(--brand-card) 12%, #0c1a12 88%);
+  --ds-color-surface-muted: color-mix(in srgb, var(--brand-card) 12%, #1a2e20 88%);
+  --ds-color-surface-sunken: color-mix(in srgb, var(--brand-background) 6%, #08140c 94%);
+  --ds-color-surface-muted-hover: color-mix(in srgb, var(--brand-card) 16%, #203828 84%);
 
   --ds-color-border-subtle: color-mix(in srgb, white 10%, var(--ds-color-bg-canvas) 90%);
   --ds-color-border-default: color-mix(in srgb, white 16%, var(--ds-color-bg-canvas) 84%);
@@ -83,10 +83,10 @@
   --risk-critical: var(--ds-color-danger);
 
   --ds-color-overlay: rgba(2, 4, 14, 0.80);
-  --ds-shell-backdrop: radial-gradient(ellipse at top left, color-mix(in srgb, var(--brand-primary) 18%, transparent), transparent 30%),
-    radial-gradient(ellipse at bottom right, color-mix(in srgb, var(--brand-secondary) 12%, transparent), transparent 26%),
-    linear-gradient(180deg, color-mix(in srgb, var(--brand-background) 5%, #090f1c 95%), color-mix(in srgb, var(--brand-background) 7%, #0e1828 93%));
-  --ds-color-command-surface: linear-gradient(180deg, color-mix(in srgb, var(--brand-card) 7%, #0c1624 93%), color-mix(in srgb, var(--brand-card) 10%, #101e2c 90%));
+  --ds-shell-backdrop: radial-gradient(ellipse at top left, color-mix(in srgb, var(--brand-primary) 14%, transparent), transparent 30%),
+    radial-gradient(ellipse at bottom right, color-mix(in srgb, var(--brand-secondary) 10%, transparent), transparent 26%),
+    linear-gradient(180deg, color-mix(in srgb, var(--brand-background) 5%, #091a0f 95%), color-mix(in srgb, var(--brand-background) 7%, #0e2016 93%));
+  --ds-color-command-surface: linear-gradient(180deg, color-mix(in srgb, var(--brand-card) 7%, #0c1e12 93%), color-mix(in srgb, var(--brand-card) 10%, #101e14 90%));
   --ds-color-command-border: color-mix(in srgb, white 10%, transparent);
 
   --ds-gradient-brand: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 76%, white 24%) 0%, color-mix(in srgb, var(--brand-primary) 68%, var(--brand-secondary) 32%) 55%, color-mix(in srgb, var(--brand-secondary) 52%, #091019 48%) 100%);
