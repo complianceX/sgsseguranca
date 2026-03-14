@@ -31,6 +31,7 @@ import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { toast } from 'sonner';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isAiEnabled } from '@/lib/featureFlags';
+import { cn } from '@/lib/utils';
 import type {
   SophieDraftChecklistSuggestion,
   SophieDraftRiskSuggestion,
@@ -95,7 +96,7 @@ const SOPHIE_PT_CRITICAL_CHECKPOINTS = {
 } as const;
 
 function buildCriticalChecklistJustification(
-  label: string,
+  _label: string,
   riskLevel: string,
   title?: string,
 ) {
@@ -224,6 +225,7 @@ export function PtForm({ id }: PtFormProps) {
     '';
   const prefillTitle = searchParams.get('title') || '';
   const prefillDescription = searchParams.get('description') || '';
+  const isFieldMode = searchParams.get('field') === '1';
   const [fetching, setFetching] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [pdfKey, setPdfKey] = useState<string>('');
@@ -232,6 +234,11 @@ export function PtForm({ id }: PtFormProps) {
   const [sites, setSites] = useState<Site[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+
+  // Email modal
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailDraft, setEmailDraft] = useState('');
+  const [emailSending, setEmailSending] = useState(false);
 
   // Signature States
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
@@ -835,6 +842,27 @@ export function PtForm({ id }: PtFormProps) {
     }
   }, [id, selectedCompanyId, setValue, user?.company_id, user?.site_id]);
 
+  // APR auto-fill: propaga site_id e responsavel_id quando o usuário seleciona uma APR
+  useEffect(() => {
+    if (!selectedAprId) return;
+    const apr = filteredAprs.find((a) => a.id === selectedAprId);
+    if (!apr) return;
+
+    const changes: string[] = [];
+    if (!selectedSiteId && apr.site_id) {
+      setValue('site_id', apr.site_id, { shouldDirty: true });
+      changes.push('obra');
+    }
+    if (!selectedResponsavelId && apr.elaborador_id) {
+      setValue('responsavel_id', apr.elaborador_id, { shouldDirty: true });
+      changes.push('responsável');
+    }
+    if (changes.length > 0) {
+      toast.info(`Preenchido automaticamente a partir da APR: ${changes.join(', ')}.`);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAprId]);
+
   useEffect(() => {
     if (!draftStorageKey || typeof window === 'undefined' || id) {
       return;
@@ -946,18 +974,24 @@ export function PtForm({ id }: PtFormProps) {
     }
   };
 
-  const handleSendEmail = async () => {
+  const handleSendEmail = () => {
     if (!id) return;
-    const email = window.prompt('Digite o e-mail do destinatário:');
-    if (!email) return;
+    setEmailDraft('');
+    setIsEmailModalOpen(true);
+  };
 
+  const handleConfirmSendEmail = async () => {
+    if (!id || !emailDraft.trim()) return;
+    setEmailSending(true);
     try {
-      toast.info('Enviando documento...');
-      await mailService.sendStoredDocument(id, 'PT', email);
+      await mailService.sendStoredDocument(id, 'PT', emailDraft.trim());
       toast.success('Documento enviado com sucesso!');
+      setIsEmailModalOpen(false);
     } catch (error) {
       console.error('Erro ao enviar email:', error);
       toast.error('Erro ao enviar o documento. Verifique se o PDF foi gerado.');
+    } finally {
+      setEmailSending(false);
     }
   };
 
@@ -995,7 +1029,10 @@ export function PtForm({ id }: PtFormProps) {
   }
 
   return (
-    <div className="ds-form-page mx-auto max-w-7xl space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className={cn(
+      "ds-form-page mx-auto max-w-7xl space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500",
+      isFieldMode && "pb-28",
+    )}>
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Link
@@ -1005,16 +1042,68 @@ export function PtForm({ id }: PtFormProps) {
             <ArrowLeft className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
           </Link>
           <div>
+            {isFieldMode ? (
+              <span className="inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200">
+                modo campo
+              </span>
+            ) : null}
             <h1 className="text-2xl font-bold text-gray-900">
-              {id ? 'Editar PT' : 'Nova PT'}
+              {id ? 'Editar PT' : isFieldMode ? 'Nova PT em campo' : 'Nova PT'}
             </h1>
-            <p className="text-sm text-gray-500">Preencha os campos abaixo para {id ? 'atualizar' : 'criar'} a Permissão de Trabalho.</p>
+            <p className="text-sm text-gray-500">
+              {isFieldMode
+                ? 'Liberação operacional adaptada para obra, com rascunho automático e navegação reduzida para celular.'
+                : `Preencha os campos abaixo para ${id ? 'atualizar' : 'criar'} a Permissão de Trabalho.`}
+            </p>
           </div>
         </div>
       </div>
 
+      {isFieldMode ? (
+        <div className="rounded-[var(--ds-radius-xl)] border border-emerald-400/25 bg-emerald-500/8 p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-200">
+                PT em campo
+              </p>
+              <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                Wizard pensado para liberação rápida, com retomada automática e foco em checklists críticos da operação.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-center md:w-[260px]">
+              <div className="rounded-[var(--ds-radius-md)] border border-white/10 bg-white/5 px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">Rascunho</p>
+                <p className="mt-1 text-sm font-semibold text-white">Automático</p>
+              </div>
+              <div className="rounded-[var(--ds-radius-md)] border border-white/10 bg-white/5 px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">Operação</p>
+                <p className="mt-1 text-sm font-semibold text-white">Campo / obra</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <FormProvider {...methods}>
-        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <form
+          onSubmit={handleSubmit(onSubmit, (errors) => {
+            const step1Fields = ['numero', 'titulo', 'data_hora_inicio', 'data_hora_fim', 'company_id', 'site_id', 'responsavel_id'];
+            const step2Fields = ['recomendacoes_gerais_checklist', 'trabalho_altura_checklist', 'trabalho_eletrico_checklist', 'trabalho_quente_checklist', 'trabalho_espaco_confinado_checklist', 'trabalho_escavacao_checklist'];
+            const errorKeys = Object.keys(errors);
+            if (errorKeys.some((k) => step1Fields.includes(k))) {
+              setCurrentStep(1);
+              toast.error('Corrija os campos obrigatórios na etapa 1 antes de continuar.');
+            } else if (errorKeys.some((k) => step2Fields.includes(k))) {
+              setCurrentStep(2);
+              toast.error('Há itens de checklist pendentes na etapa 2.');
+            } else if (errors.executantes) {
+              setCurrentStep(3);
+              toast.error('Adicione pelo menos um executante antes de salvar.');
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          })}
+          className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]"
+        >
           <aside className="space-y-4 xl:sticky xl:top-28 xl:self-start">
             <div className="ds-dashboard-panel overflow-hidden">
               <div className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/16 px-5 py-4">
@@ -1347,7 +1436,10 @@ export function PtForm({ id }: PtFormProps) {
               </>
             )}
 
-            <div className="flex flex-col gap-4 border-t border-[var(--ds-color-border-subtle)] pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className={cn(
+              "flex flex-col gap-4 border-t border-[var(--ds-color-border-subtle)] pt-6 sm:flex-row sm:items-center sm:justify-between",
+              isFieldMode && "sticky bottom-4 z-10 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[var(--ds-color-surface-elevated)]/95 p-4 shadow-[var(--ds-shadow-lg)] backdrop-blur",
+            )}>
               <div className="flex gap-2">
                 {currentStep > 1 ? (
                   <button
@@ -1367,12 +1459,18 @@ export function PtForm({ id }: PtFormProps) {
                 )}
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-4 sm:gap-0">
+              <div className={cn(
+                "flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-4 sm:gap-0",
+                isFieldMode && "grid grid-cols-2 gap-3 sm:flex-none sm:space-x-0",
+              )}>
                 {id && (
                   <button
                     type="button"
                     onClick={handleSendEmail}
-                    className="flex items-center justify-center space-x-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50"
+                    className={cn(
+                      "flex items-center justify-center space-x-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50",
+                      isFieldMode && "min-h-12",
+                    )}
                   >
                     <Mail className="h-4 w-4" />
                     <span>Enviar por E-mail</span>
@@ -1383,7 +1481,10 @@ export function PtForm({ id }: PtFormProps) {
                   <button
                     type="button"
                     onClick={nextStep}
-                    className="flex items-center justify-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-[var(--ds-color-action-primary-hover)]"
+                    className={cn(
+                      "flex items-center justify-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-[var(--ds-color-action-primary-hover)]",
+                      isFieldMode && "min-h-12",
+                    )}
                   >
                     <span>Próximo</span>
                     <ArrowRight className="h-4 w-4" />
@@ -1392,14 +1493,17 @@ export function PtForm({ id }: PtFormProps) {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex items-center justify-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
+                    className={cn(
+                      "flex items-center justify-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition-all hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50",
+                      isFieldMode && "min-h-12",
+                    )}
                   >
                     {loading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Save className="h-4 w-4" />
                     )}
-                    <span>{id ? 'Salvar Alterações' : 'Criar Permissão de Trabalho'}</span>
+                    <span>{id ? 'Salvar Alterações' : isFieldMode ? 'Salvar PT em campo' : 'Criar Permissão de Trabalho'}</span>
                   </button>
                 )}
               </div>
@@ -1407,6 +1511,43 @@ export function PtForm({ id }: PtFormProps) {
           </div>
         </form>
       </FormProvider>
+
+      {isEmailModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] p-6 shadow-[var(--ds-shadow-xl)]">
+            <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">Enviar PT por e-mail</h2>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              O PDF armazenado desta PT será enviado para o endereço informado.
+            </p>
+            <input
+              type="email"
+              value={emailDraft}
+              onChange={(e) => setEmailDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void handleConfirmSendEmail(); }}
+              placeholder="destinatario@empresa.com.br"
+              className="mt-4 block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-3 py-2.5 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] focus:border-[var(--component-field-border-focus)] focus:outline-none"
+            />
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsEmailModalOpen(false)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSendEmail}
+                disabled={emailSending || !emailDraft.trim()}
+                className="flex items-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-5 py-2 text-sm font-bold text-white disabled:opacity-50 hover:bg-[var(--ds-color-action-primary-hover)]"
+              >
+                {emailSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                Enviar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <SignatureModal
         isOpen={isSignatureModalOpen}

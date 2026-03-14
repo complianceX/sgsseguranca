@@ -1,5 +1,5 @@
 import React from 'react';
-import { type Path, useFieldArray, useFormContext } from 'react-hook-form';
+import { type Path, useFieldArray, useFormContext, useWatch } from 'react-hook-form';
 import { cn } from '@/lib/utils';
 import type { PtFormData } from './pt-schema-and-data';
 
@@ -41,10 +41,10 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
   showJustificationOn,
 }) => {
   const { control, formState: { errors }, setValue } = useFormContext<PtFormData>();
-  const { fields } = useFieldArray({
-    control,
-    name,
-  });
+  const { fields } = useFieldArray({ control, name });
+  const watchedItems = useWatch({ control, name }) as Array<{ resposta?: string }> | undefined;
+  const answeredCount = (watchedItems ?? []).filter((item) => item?.resposta).length;
+  const totalCount = fields.length;
 
   type ChecklistItemError = {
     resposta?: { message?: unknown };
@@ -66,7 +66,17 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
 
   return (
     <div className="sst-card p-6 transition-shadow hover:shadow-md">
-      <h2 className="mb-2 text-lg font-bold text-[var(--color-text)]">{title}</h2>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-bold text-[var(--color-text)]">{title}</h2>
+        <span className={cn(
+          'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+          answeredCount === totalCount
+            ? 'bg-emerald-500/15 text-emerald-300'
+            : 'bg-amber-500/12 text-amber-200',
+        )}>
+          {answeredCount}/{totalCount}
+        </span>
+      </div>
       <p className="mb-6 text-sm text-[var(--color-text-secondary)]">{description}</p>
       <div className="space-y-4">
         {fields.map((item, index) => {
