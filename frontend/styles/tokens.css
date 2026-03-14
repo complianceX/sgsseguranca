@@ -1,15 +1,22 @@
 :root {
-  --brand-background: #e7f1eb;
-  --brand-sidebar: #10202a;
+  /* ─── Navy Safety Palette ───────────────────────────────────────
+     Inspired by Intelex · SafetyCulture · Cority · ISO 45001 visual language
+     Primary:    Deep navy blue (authority, compliance, trust)
+     Secondary:  SST safety green (safe, approved — ANSI Z535 inspired)
+     Background: Clean neutral slate — no green tint on canvas
+     Status:     ANSI Z535 standard: green/amber/red/blue
+  ──────────────────────────────────────────────────────────────── */
+  --brand-background: #f0f4f8;
+  --brand-sidebar: #0c1b2e;
   --brand-card: #ffffff;
-  --brand-primary: #1554d1;
-  --brand-secondary: #0f766e;
-  --brand-text-primary: #10202a;
-  --brand-text-secondary: #52606d;
-  --brand-success: #177245;
-  --brand-warning: #b45309;
-  --brand-danger: #b42318;
-  --brand-info: #0b6e99;
+  --brand-primary: #1046a0;
+  --brand-secondary: #0c7a5c;
+  --brand-text-primary: #0c1b2e;
+  --brand-text-secondary: #3d5168;
+  --brand-success: #15763a;
+  --brand-warning: #c47a0a;
+  --brand-danger: #c4281c;
+  --brand-info: #0b5fa5;
 
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;

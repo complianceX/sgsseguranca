@@ -1,13 +1,13 @@
 :root[data-theme='light'],
 .theme-light {
-  --ds-color-bg-canvas: color-mix(in srgb, #f4f7f5 82%, var(--brand-background) 18%);
-  --ds-color-bg-subtle: color-mix(in srgb, #ecf2ef 72%, var(--brand-background) 28%);
+  --ds-color-bg-canvas: color-mix(in srgb, #f3f6fb 82%, var(--brand-background) 18%);
+  --ds-color-bg-subtle: color-mix(in srgb, #eaf0f7 72%, var(--brand-background) 28%);
   --ds-color-surface-base: color-mix(in srgb, #ffffff 92%, var(--brand-card) 8%);
-  --ds-color-surface-elevated: color-mix(in srgb, #fbfdfc 86%, var(--brand-card) 14%);
+  --ds-color-surface-elevated: color-mix(in srgb, #fafcff 86%, var(--brand-card) 14%);
   --ds-color-surface-overlay: color-mix(in srgb, #ffffff 88%, var(--brand-card) 12%);
-  --ds-color-surface-muted: color-mix(in srgb, #edf3f0 80%, var(--brand-background) 20%);
-  --ds-color-surface-sunken: color-mix(in srgb, #e7efea 74%, var(--brand-background) 26%);
-  --ds-color-surface-muted-hover: color-mix(in srgb, #dce7e1 68%, var(--brand-background) 32%);
+  --ds-color-surface-muted: color-mix(in srgb, #edf2f8 80%, var(--brand-background) 20%);
+  --ds-color-surface-sunken: color-mix(in srgb, #e6ecf4 74%, var(--brand-background) 26%);
+  --ds-color-surface-muted-hover: color-mix(in srgb, #dae2ee 68%, var(--brand-background) 32%);
 
   --ds-color-border-subtle: color-mix(in srgb, var(--brand-background) 34%, #cbd5e1 66%);
   --ds-color-border-default: color-mix(in srgb, var(--brand-background) 30%, #94a3b8 70%);
@@ -22,12 +22,12 @@
   --ds-color-text-inverse: #ffffff;
   --ds-color-text-link: #1247b3;
 
-  --ds-color-sidebar-bg: color-mix(in srgb, var(--brand-sidebar) 62%, #0b141c 38%);
-  --ds-color-sidebar-bg-soft: color-mix(in srgb, var(--brand-sidebar) 56%, #14202a 44%);
-  --ds-color-sidebar-surface: color-mix(in srgb, var(--brand-sidebar) 48%, #1b2a34 52%);
-  --ds-color-sidebar-text: color-mix(in srgb, white 90%, var(--brand-background) 10%);
-  --ds-color-sidebar-muted: color-mix(in srgb, white 62%, var(--brand-background) 38%);
-  --ds-color-sidebar-border: color-mix(in srgb, var(--brand-sidebar) 44%, #4a6a5f 56%);
+  --ds-color-sidebar-bg: color-mix(in srgb, var(--brand-sidebar) 62%, #070f1c 38%);
+  --ds-color-sidebar-bg-soft: color-mix(in srgb, var(--brand-sidebar) 56%, #0d1828 44%);
+  --ds-color-sidebar-surface: color-mix(in srgb, var(--brand-sidebar) 48%, #152235 52%);
+  --ds-color-sidebar-text: color-mix(in srgb, white 92%, var(--brand-background) 8%);
+  --ds-color-sidebar-muted: color-mix(in srgb, white 60%, #a0b4c8 40%);
+  --ds-color-sidebar-border: color-mix(in srgb, var(--brand-sidebar) 44%, #2a4a6e 56%);
 
   --ds-color-action-primary: var(--brand-primary);
   --ds-color-action-primary-hover: color-mix(in srgb, var(--brand-primary) 86%, #0f172a 14%);
@@ -81,11 +81,11 @@
   --risk-substantial: color-mix(in srgb, var(--ds-color-warning) 72%, var(--ds-color-danger) 28%);
   --risk-critical: var(--ds-color-danger);
 
-  --ds-color-overlay: rgba(5, 12, 20, 0.58);
-  --ds-shell-backdrop: radial-gradient(circle at top left, color-mix(in srgb, var(--brand-primary) 11%, transparent), transparent 28%),
-    radial-gradient(circle at bottom right, color-mix(in srgb, var(--brand-secondary) 13%, transparent), transparent 24%),
-    linear-gradient(180deg, color-mix(in srgb, #f4f7f5 88%, var(--brand-background) 12%), color-mix(in srgb, #edf3f0 80%, var(--brand-background) 20%));
-  --ds-color-command-surface: linear-gradient(180deg, color-mix(in srgb, #ffffff 90%, var(--brand-card) 10%), color-mix(in srgb, #f7faf8 84%, var(--brand-background) 16%));
+  --ds-color-overlay: rgba(4, 10, 22, 0.58);
+  --ds-shell-backdrop: radial-gradient(circle at top left, color-mix(in srgb, var(--brand-primary) 9%, transparent), transparent 28%),
+    radial-gradient(circle at bottom right, color-mix(in srgb, var(--brand-secondary) 8%, transparent), transparent 24%),
+    linear-gradient(180deg, color-mix(in srgb, #f3f6fb 88%, var(--brand-background) 12%), color-mix(in srgb, #edf2f8 80%, var(--brand-background) 20%));
+  --ds-color-command-surface: linear-gradient(180deg, color-mix(in srgb, #ffffff 90%, var(--brand-card) 10%), color-mix(in srgb, #f7fafd 84%, var(--brand-background) 16%));
   --ds-color-command-border: color-mix(in srgb, var(--brand-primary) 10%, white 90%);
 
   --ds-gradient-brand: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 92%, white 8%) 0%, color-mix(in srgb, var(--brand-primary) 76%, var(--brand-secondary) 24%) 58%, color-mix(in srgb, var(--brand-primary) 68%, #0f172a 32%) 100%);

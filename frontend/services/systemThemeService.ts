@@ -26,32 +26,34 @@ export interface SystemThemePreset {
   tokens: Omit<SystemThemeTokens, 'id' | 'updatedAt'>;
 }
 
+// Navy Safety — paleta profissional SST (Intelex · SafetyCulture · ISO 45001)
 export const DEFAULT_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#e7f1eb',
-  sidebarColor: '#10202a',
+  backgroundColor: '#f0f4f8',
+  sidebarColor: '#0c1b2e',
   cardColor: '#ffffff',
-  primaryColor: '#1554d1',
-  secondaryColor: '#0f766e',
-  textPrimary: '#10202a',
-  textSecondary: '#52606d',
-  successColor: '#177245',
-  warningColor: '#b45309',
-  dangerColor: '#b42318',
-  infoColor: '#0b6e99',
+  primaryColor: '#1046a0',
+  secondaryColor: '#0c7a5c',
+  textPrimary: '#0c1b2e',
+  textSecondary: '#3d5168',
+  successColor: '#15763a',
+  warningColor: '#c47a0a',
+  dangerColor: '#c4281c',
+  infoColor: '#0b5fa5',
 };
 
+// Navy Safety Dark — deep navy base, high contrast
 export const DARK_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#0f1720',
-  sidebarColor: '#091018',
-  cardColor: '#16212b',
-  primaryColor: '#3b82f6',
-  secondaryColor: '#14b8a6',
-  textPrimary: '#e7eef3',
-  textSecondary: '#a9b8c5',
-  successColor: '#22c55e',
-  warningColor: '#f59e0b',
-  dangerColor: '#ef4444',
-  infoColor: '#38bdf8',
+  backgroundColor: '#0a1424',
+  sidebarColor: '#060e1c',
+  cardColor: '#131e2e',
+  primaryColor: '#4d8edf',
+  secondaryColor: '#1aad7a',
+  textPrimary: '#e8f0f8',
+  textSecondary: '#a0b4c8',
+  successColor: '#24a85a',
+  warningColor: '#e8920e',
+  dangerColor: '#e03a30',
+  infoColor: '#3a9ee0',
 };
 
 export const ADAPTIVE_THEME_PRESETS = {
