@@ -227,6 +227,7 @@ export function AprForm({ id }: AprFormProps) {
     '';
   const prefillTitle = searchParams.get('title') || '';
   const prefillDescription = searchParams.get('description') || '';
+  const isFieldMode = searchParams.get('field') === '1';
   const [fetching, setFetching] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
@@ -1312,7 +1313,10 @@ export function AprForm({ id }: AprFormProps) {
   }
 
   return (
-    <div className="ds-form-page mx-auto max-w-4xl space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className={cn(
+      "ds-form-page mx-auto max-w-4xl space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500",
+      isFieldMode && "max-w-5xl pb-28",
+    )}>
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <Link
@@ -1323,13 +1327,47 @@ export function AprForm({ id }: AprFormProps) {
             <ArrowLeft className="h-5 w-5 group-hover:-translate-x-0.5 transition-transform" />
           </Link>
           <div>
+            {isFieldMode ? (
+              <span className="inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200">
+                modo campo
+              </span>
+            ) : null}
             <h1 className={aprHeadingClass}>
-              {id ? 'Editar APR' : 'Nova APR'}
+              {id ? 'Editar APR' : isFieldMode ? 'Nova APR em campo' : 'Nova APR'}
             </h1>
-            <p className={aprSubheadingClass}>Preencha os campos abaixo para {id ? 'atualizar' : 'criar'} a Análise Preliminar de Risco.</p>
+            <p className={aprSubheadingClass}>
+              {isFieldMode
+                ? 'Fluxo adaptado para obra e celular, com retomada automática do rascunho e ações maiores para uso em campo.'
+                : `Preencha os campos abaixo para ${id ? 'atualizar' : 'criar'} a Análise Preliminar de Risco.`}
+            </p>
           </div>
         </div>
       </div>
+
+      {isFieldMode ? (
+        <div className="rounded-[var(--ds-radius-xl)] border border-emerald-400/25 bg-emerald-500/8 p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-200">
+                APR em campo
+              </p>
+              <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                Registre atividade, riscos e controles no local da operação. O rascunho continua salvo enquanto você avança no wizard.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-center md:w-[260px]">
+              <div className="rounded-[var(--ds-radius-md)] border border-white/10 bg-white/5 px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">Rascunho</p>
+                <p className="mt-1 text-sm font-semibold text-white">Automático</p>
+              </div>
+              <div className="rounded-[var(--ds-radius-md)] border border-white/10 bg-white/5 px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">Uso</p>
+                <p className="mt-1 text-sm font-semibold text-white">Obra / celular</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {id && currentApr && (
         <div className="sst-card p-4">
@@ -2464,7 +2502,10 @@ export function AprForm({ id }: AprFormProps) {
             </>
           )}
 
-          <div className="flex flex-col gap-4 border-t border-[var(--ds-color-border-subtle)] pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className={cn(
+            "flex flex-col gap-4 border-t border-[var(--ds-color-border-subtle)] pt-6 sm:flex-row sm:items-center sm:justify-between",
+            isFieldMode && "sticky bottom-4 z-10 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[var(--color-card)]/95 p-4 shadow-[var(--ds-shadow-lg)] backdrop-blur",
+          )}>
             <div className="flex gap-2">
               {currentStep > 1 ? (
                 <button
@@ -2484,12 +2525,15 @@ export function AprForm({ id }: AprFormProps) {
               )}
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-0 sm:space-x-4">
+            <div className={cn(
+              "flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-0 sm:space-x-4",
+              isFieldMode && "grid grid-cols-2 gap-3 sm:flex-none sm:space-x-0",
+            )}>
               {signedPdfMode || currentStep >= 3 ? (
                 <button
                   type="submit"
                   disabled={loading || isApproved}
-                  className={aprPrimarySubmitActionClass}
+                  className={cn(aprPrimarySubmitActionClass, isFieldMode && "min-h-12")}
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -2510,7 +2554,7 @@ export function AprForm({ id }: AprFormProps) {
                 <button
                   type="button"
                   onClick={nextStep}
-                  className={aprPrimaryActionClass}
+                  className={cn(aprPrimaryActionClass, isFieldMode && "min-h-12")}
                 >
                   <span>Próximo</span>
                   <ArrowRight className="h-4 w-4" />

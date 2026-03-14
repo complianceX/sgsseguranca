@@ -1,6 +1,6 @@
 import api from '@/lib/api';
 
-type OfflineQueueItem = {
+export type OfflineQueueItem = {
   id: string;
   url: string;
   method: 'post' | 'patch';
@@ -26,6 +26,12 @@ type OfflineSyncSummary = {
   failed: number;
   pending: number;
 };
+
+type OfflineQueueItemResult =
+  | { status: 'sent'; itemId: string }
+  | { status: 'pending'; itemId: string; item: OfflineQueueItem }
+  | { status: 'offline'; itemId: string }
+  | { status: 'missing'; itemId: string };
 
 const isOnline = () =>
   typeof window !== 'undefined' ? navigator.onLine : false;
@@ -89,6 +95,67 @@ const writeQueue = (items: OfflineQueueItem[]) => {
   );
 };
 
+const dispatchSyncStarted = (detail: OfflineSyncSummary | { total: number; itemId?: string }) => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent('app:offline-sync-started', {
+      detail,
+    }),
+  );
+};
+
+const dispatchSyncCompleted = (detail: OfflineSyncSummary | { itemId?: string; status: string }) => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent('app:offline-sync-completed', {
+      detail,
+    }),
+  );
+};
+
+const processQueueItem = async (
+  item: OfflineQueueItem,
+  forceRetry = false,
+): Promise<OfflineQueueItemResult> => {
+  if (typeof window === 'undefined' || !isOnline()) {
+    return { status: 'offline', itemId: item.id };
+  }
+
+  if (!forceRetry && item.nextRetryAt && Date.now() < new Date(item.nextRetryAt).getTime()) {
+    return { status: 'pending', itemId: item.id, item };
+  }
+
+  try {
+    await api.request({
+      url: item.url,
+      method: item.method,
+      data: item.data,
+      headers: item.headers,
+    });
+    return { status: 'sent', itemId: item.id };
+  } catch (error) {
+    const attempts = (item.attempts || 0) + 1;
+    const retryable = shouldRetry(error);
+    const allowRetry = retryable && attempts < MAX_RETRY_ATTEMPTS;
+
+    const nextItem: OfflineQueueItem = {
+      ...item,
+      attempts,
+      lastAttemptAt: new Date().toISOString(),
+      lastError: (error as { message?: string })?.message || 'Falha de sincronização',
+      nextRetryAt: allowRetry
+        ? new Date(Date.now() + computeRetryDelay(attempts)).toISOString()
+        : undefined,
+    };
+
+    return {
+      status: 'pending',
+      itemId: item.id,
+      item: nextItem,
+    };
+  }
+};
+
 export const enqueueOfflineMutation = (item: Omit<OfflineQueueItem, 'id' | 'createdAt'>) => {
   const queue = readQueue();
   const queuedItem: OfflineQueueItem = {
@@ -104,6 +171,40 @@ export const enqueueOfflineMutation = (item: Omit<OfflineQueueItem, 'id' | 'crea
 export const getOfflineQueueCount = () => readQueue().length;
 
 export const getOfflineQueueSnapshot = () => readQueue();
+
+export const removeOfflineQueueItem = (itemId: string) => {
+  const nextQueue = readQueue().filter((item) => item.id !== itemId);
+  writeQueue(nextQueue);
+};
+
+export const retryOfflineQueueItem = async (itemId: string) => {
+  const queue = readQueue();
+  const target = queue.find((item) => item.id === itemId);
+
+  if (!target) {
+    return { status: 'missing', itemId } as const;
+  }
+
+  dispatchSyncStarted({ total: 1, itemId });
+  const result = await processQueueItem(target, true);
+
+  if (result.status === 'sent') {
+    writeQueue(queue.filter((item) => item.id !== itemId));
+    dispatchSyncCompleted({ itemId, status: 'sent' });
+    return result;
+  }
+
+  if (result.status === 'pending') {
+    writeQueue(
+      queue.map((item) => (item.id === itemId ? result.item : item)),
+    );
+    dispatchSyncCompleted({ itemId, status: 'pending' });
+    return result;
+  }
+
+  dispatchSyncCompleted({ itemId, status: result.status });
+  return result;
+};
 
 export const flushOfflineQueue = async () => {
   if (typeof window === 'undefined' || !isOnline()) {
@@ -123,54 +224,32 @@ export const flushOfflineQueue = async () => {
     pending: 0,
   };
 
-  window.dispatchEvent(
-    new CustomEvent('app:offline-sync-started', {
-      detail: summary,
-    }),
-  );
+  dispatchSyncStarted(summary);
 
   for (const item of queue) {
-    if (item.nextRetryAt && Date.now() < new Date(item.nextRetryAt).getTime()) {
+    const result = await processQueueItem(item);
+    if (result.status === 'sent') {
+      summary.sent += 1;
+      continue;
+    }
+
+    if (result.status === 'pending') {
+      pending.push(result.item);
+      continue;
+    }
+
+    if (result.status === 'offline') {
       pending.push(item);
       continue;
     }
 
-    try {
-      await api.request({
-        url: item.url,
-        method: item.method,
-        data: item.data,
-        headers: item.headers,
-      });
-      summary.sent += 1;
-    } catch (error) {
-      const attempts = (item.attempts || 0) + 1;
-      const retryable = shouldRetry(error);
-      const allowRetry = retryable && attempts < MAX_RETRY_ATTEMPTS;
-
-      if (allowRetry) {
-        const nextRetryAt = new Date(Date.now() + computeRetryDelay(attempts)).toISOString();
-        pending.push({
-          ...item,
-          attempts,
-          lastAttemptAt: new Date().toISOString(),
-          lastError: (error as { message?: string })?.message || 'Falha de sincronização',
-          nextRetryAt,
-        });
-      } else {
-        summary.failed += 1;
-      }
-    }
+    summary.failed += 1;
   }
 
   summary.pending = pending.length;
   writeQueue(pending);
 
-  window.dispatchEvent(
-    new CustomEvent('app:offline-sync-completed', {
-      detail: summary,
-    }),
-  );
+  dispatchSyncCompleted(summary);
 };
 
 export const registerOfflineSync = () => {

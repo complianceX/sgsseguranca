@@ -7,22 +7,32 @@ import {
   ArrowRight,
   Camera,
   ClipboardCheck,
+  FileCheck2,
   FileText,
   RefreshCw,
   Search,
   ShieldAlert,
+  Trash2,
   UserRoundSearch,
   Wifi,
   WifiOff,
 } from 'lucide-react';
 import { dashboardService, TstDayDashboard } from '@/services/dashboardService';
 import { usersService, WorkerOperationalStatus } from '@/services/usersService';
-import { flushOfflineQueue, getOfflineQueueCount, getOfflineQueueSnapshot } from '@/lib/offline-sync';
+import {
+  flushOfflineQueue,
+  getOfflineQueueCount,
+  getOfflineQueueSnapshot,
+  removeOfflineQueueItem,
+  retryOfflineQueueItem,
+  type OfflineQueueItem,
+} from '@/lib/offline-sync';
 import { useApiStatus } from '@/hooks/useApiStatus';
 import { useApiReconnect } from '@/hooks/useApiReconnect';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorState, InlineLoadingState, PageLoadingState } from '@/components/ui/state';
+import { toast } from 'sonner';
 
 const fieldActionCards = [
   {
@@ -46,6 +56,20 @@ const fieldActionCards = [
     icon: ShieldAlert,
     badge: 'uso em campo',
   },
+  {
+    title: 'APR em campo',
+    description: 'Abertura rápida da APR com rascunho local e contexto operacional.',
+    href: '/dashboard/aprs/new?field=1',
+    icon: FileText,
+    badge: 'aprovacao guiada',
+  },
+  {
+    title: 'PT em campo',
+    description: 'Liberação operacional com wizard reduzido e retomada automática.',
+    href: '/dashboard/pts/new?field=1',
+    icon: FileCheck2,
+    badge: 'liberacao',
+  },
 ];
 
 export default function TstFieldPage() {
@@ -56,7 +80,9 @@ export default function TstFieldPage() {
   const [workerLoading, setWorkerLoading] = useState(false);
   const [workerError, setWorkerError] = useState<string | null>(null);
   const [offlineCount, setOfflineCount] = useState(0);
+  const [offlineQueueItems, setOfflineQueueItems] = useState<OfflineQueueItem[]>([]);
   const [syncingOfflineQueue, setSyncingOfflineQueue] = useState(false);
+  const [retryingQueueItemId, setRetryingQueueItemId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { isOffline, apiBaseUrl } = useApiStatus();
   const { isReconnecting, reconnect } = useApiReconnect(apiBaseUrl);
@@ -77,15 +103,18 @@ export default function TstFieldPage() {
   useEffect(() => {
     void loadDashboard();
     setOfflineCount(getOfflineQueueCount());
+    setOfflineQueueItems(getOfflineQueueSnapshot().slice().reverse());
 
     const onQueueUpdate = (event: Event) => {
       const detail = (event as CustomEvent<{ count?: number }>).detail;
       setOfflineCount(detail?.count ?? getOfflineQueueCount());
+      setOfflineQueueItems(getOfflineQueueSnapshot().slice().reverse());
     };
     const onSyncStarted = () => setSyncingOfflineQueue(true);
     const onSyncCompleted = () => {
       setSyncingOfflineQueue(false);
       setOfflineCount(getOfflineQueueCount());
+      setOfflineQueueItems(getOfflineQueueSnapshot().slice().reverse());
     };
 
     window.addEventListener('app:offline-queue-updated', onQueueUpdate as EventListener);
@@ -133,9 +162,9 @@ export default function TstFieldPage() {
     [dashboard],
   );
 
-  const offlineQueueItems = useMemo(
-    () => getOfflineQueueSnapshot().slice(-4).reverse(),
-    [offlineCount, syncingOfflineQueue],
+  const recentOfflineQueueItems = useMemo(
+    () => offlineQueueItems.slice(0, 4),
+    [offlineQueueItems],
   );
 
   const workerQuickFacts = useMemo(
@@ -173,6 +202,38 @@ export default function TstFieldPage() {
     } finally {
       setWorkerLoading(false);
     }
+  };
+
+  const handleRetryQueueItem = async (itemId: string) => {
+    try {
+      setRetryingQueueItemId(itemId);
+      const result = await retryOfflineQueueItem(itemId);
+
+      if (result.status === 'sent') {
+        return;
+      }
+      if (result.status === 'offline') {
+        toast.info('Você ainda está offline. Assim que a conexão voltar, o item poderá ser sincronizado.');
+        return;
+      }
+      if (result.status === 'pending') {
+        toast.info('O item continua na fila e será tentado novamente.');
+        return;
+      }
+      toast.error('Não foi possível localizar este item na fila offline.');
+    } catch {
+      toast.error('Falha ao reenviar o item da fila offline.');
+    } finally {
+      setRetryingQueueItemId(null);
+      setOfflineCount(getOfflineQueueCount());
+      setOfflineQueueItems(getOfflineQueueSnapshot().slice().reverse());
+    }
+  };
+
+  const handleRemoveQueueItem = (itemId: string) => {
+    removeOfflineQueueItem(itemId);
+    setOfflineCount(getOfflineQueueCount());
+    setOfflineQueueItems(getOfflineQueueSnapshot().slice().reverse());
   };
 
   if (loading) {
@@ -240,7 +301,7 @@ export default function TstFieldPage() {
             <p className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Próximas ações de maior impacto
             </p>
-            <div className="mt-3 grid gap-3 md:grid-cols-3">
+            <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               {fieldActionCards.map((item) => (
                 <Link
                   key={item.href}
@@ -301,13 +362,13 @@ export default function TstFieldPage() {
                   Há itens aguardando envio. Priorize sincronização antes de encerrar o turno.
                 </p>
               ) : null}
-              {offlineQueueItems.length > 0 ? (
+              {recentOfflineQueueItems.length > 0 ? (
                 <div className="rounded-[var(--ds-radius-lg)] border border-amber-300/20 bg-amber-500/8 p-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100">
                     Últimos itens na fila
                   </p>
                   <div className="mt-3 space-y-2">
-                    {offlineQueueItems.map((item) => (
+                    {recentOfflineQueueItems.map((item) => (
                       <div
                         key={item.id}
                         className="flex items-start justify-between gap-3 rounded-[var(--ds-radius-md)] border border-white/8 bg-black/10 px-3 py-2"
@@ -465,6 +526,80 @@ export default function TstFieldPage() {
         </Card>
 
         <div className="space-y-6">
+          <Card tone="default" padding="none">
+            <CardHeader className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3.5">
+              <div className="flex items-center gap-2">
+                <WifiOff className="h-5 w-5 text-[var(--ds-color-warning)]" />
+                <div>
+                  <CardTitle>Fila de sincronização</CardTitle>
+                  <CardDescription>
+                    Gerencie cada item salvo offline e envie novamente quando a conexão estiver estável.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {offlineQueueItems.length === 0 ? (
+                <EmptyState
+                  title="Fila offline vazia"
+                  description="Nenhum item aguardando sincronização no momento."
+                  compact
+                />
+              ) : (
+                offlineQueueItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3.5"
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                          {item.label}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
+                          {item.method.toUpperCase()} {item.url}
+                        </p>
+                        <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
+                          Criado em {new Date(item.createdAt).toLocaleString('pt-BR')}
+                        </p>
+                        {item.lastError ? (
+                          <p className="mt-2 text-xs text-amber-200">
+                            Último erro: {item.lastError}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => void handleRetryQueueItem(item.id)}
+                          disabled={retryingQueueItemId === item.id || syncingOfflineQueue}
+                          leftIcon={
+                            retryingQueueItemId === item.id ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4" />
+                            )
+                          }
+                        >
+                          Reenviar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => handleRemoveQueueItem(item.id)}
+                          leftIcon={<Trash2 className="h-4 w-4" />}
+                        >
+                          Remover
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
           <OperationalListCard
             title="PTs pendentes de liberação"
             description="Permissões com bloqueio ou validação pendente antes da execução."

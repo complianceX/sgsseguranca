@@ -45,6 +45,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ErrorState, PageLoadingState } from "@/components/ui/state";
+import { useAuth } from "@/context/AuthContext";
 
 const methodologyOptions = [
   "Observação direta em campo",
@@ -363,12 +364,16 @@ const nativeSelectClassName =
 export function InspectionForm({ id }: InspectionFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const draftBootstrappedRef = useRef(false);
+  const draftSaveTimerRef = useRef<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const [evidenceFiles, setEvidenceFiles] = useState<Record<number, File[]>>({});
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -387,6 +392,13 @@ export function InspectionForm({ id }: InspectionFormProps) {
     (isPhotographicReport
       ? "Registrar evidencias fotograficas das frentes de servico e das condicoes observadas em campo."
       : "");
+  const draftStorageKey = useMemo(
+    () =>
+      id
+        ? null
+        : `inspection.form.draft.${user?.id || "anon"}.${isPhotographicReport ? "photographic" : "standard"}`,
+    [id, isPhotographicReport, user?.id],
+  );
 
   const {
     register,
@@ -396,6 +408,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
     setFocus,
     setValue,
     getValues,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<InspectionFormData>({
     resolver: zodResolver(inspectionSchema),
@@ -469,6 +482,11 @@ export function InspectionForm({ id }: InspectionFormProps) {
     name: "descricao_local_atividades",
     defaultValue: "",
   });
+  const watchedObjective = useWatch({
+    control,
+    name: "objetivo",
+    defaultValue: "",
+  });
 
   useEffect(() => {
     if (id) return;
@@ -502,6 +520,64 @@ export function InspectionForm({ id }: InspectionFormProps) {
     prefillSiteId,
     setValue,
   ]);
+
+  useEffect(() => {
+    if (!draftStorageKey || fetching || draftBootstrappedRef.current) return;
+    draftBootstrappedRef.current = true;
+    if (typeof window === "undefined") return;
+
+    const rawDraft = window.localStorage.getItem(draftStorageKey);
+    if (!rawDraft) return;
+
+    try {
+      const parsed = JSON.parse(rawDraft) as {
+        savedAt?: number;
+        values?: InspectionFormData;
+      };
+
+      if (!parsed.values) return;
+
+      reset(buildDefaultValues(parsed.values));
+      if (parsed.savedAt) {
+        setDraftSavedAt(parsed.savedAt);
+      }
+      toast.info("Rascunho da inspeção restaurado automaticamente.");
+    } catch (error) {
+      console.error("Erro ao restaurar rascunho da inspeção:", error);
+    }
+  }, [draftStorageKey, fetching, reset]);
+
+  useEffect(() => {
+    if (!draftStorageKey || fetching || id) return;
+    if (typeof window === "undefined") return;
+
+    const subscription = watch(() => {
+      if (!draftBootstrappedRef.current) return;
+
+      if (draftSaveTimerRef.current) {
+        window.clearTimeout(draftSaveTimerRef.current);
+      }
+
+      draftSaveTimerRef.current = window.setTimeout(() => {
+        const now = Date.now();
+        window.localStorage.setItem(
+          draftStorageKey,
+          JSON.stringify({
+            savedAt: now,
+            values: getValues(),
+          }),
+        );
+        setDraftSavedAt(now);
+      }, 800);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      if (draftSaveTimerRef.current) {
+        window.clearTimeout(draftSaveTimerRef.current);
+      }
+    };
+  }, [draftStorageKey, fetching, getValues, id, watch]);
   const metodologiaSelecionada = watchedMetodologia ?? [];
   const riscos = watchedRiscos ?? [];
   const evidencias = watchedEvidencias ?? [];
@@ -810,6 +886,11 @@ export function InspectionForm({ id }: InspectionFormProps) {
         }
       }
 
+      if (draftStorageKey && typeof window !== "undefined") {
+        window.localStorage.removeItem(draftStorageKey);
+        setDraftSavedAt(null);
+      }
+
       router.push("/dashboard/inspections");
       router.refresh();
     } catch (error) {
@@ -902,6 +983,13 @@ export function InspectionForm({ id }: InspectionFormProps) {
                       ? "Fluxo reduzido para celular, com captura rápida de evidências, botões maiores e tolerância ao modo offline."
                       : "Organizamos o fluxo para registrar contexto, avaliar riscos, desdobrar ações e fechar a inspeção com mais clareza."}
                   </CardDescription>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--ds-color-text-muted)]">
+                    <span>
+                      {draftSavedAt
+                        ? `Rascunho salvo às ${new Date(draftSavedAt).toLocaleTimeString("pt-BR")}`
+                        : "Rascunho salvo automaticamente"}
+                    </span>
+                  </div>
                   {openNcWithSophieHref ? (
                     <Link
                       href={openNcWithSophieHref}
@@ -957,6 +1045,11 @@ export function InspectionForm({ id }: InspectionFormProps) {
               <CardTitle className="mt-2 text-2xl">
                 {evidencias.length}
               </CardTitle>
+              <CardDescription className="mt-2">
+                {watchedObjective || watchedDescricaoLocalAtividades
+                  ? "Contexto em edição"
+                  : "Comece por local, objetivo e fotos"}
+              </CardDescription>
             </Card>
           </CardContent>
         </Card>
