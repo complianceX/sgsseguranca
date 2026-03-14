@@ -160,7 +160,7 @@
 
 .statCard:hover {
   transform: translateY(-2px);
-  border-color: rgba(96, 165, 250, 0.45);
+  border-color: rgba(0, 82, 180, 0.50);
   background: rgba(255, 255, 255, 0.08);
 }
 
@@ -200,7 +200,7 @@
 }
 
 .loginCard:hover {
-  border-color: rgba(96, 165, 250, 0.24);
+  border-color: rgba(0, 82, 180, 0.26);
   transform: translateY(-1px);
 }
 
@@ -276,7 +276,7 @@
 }
 
 .inputField:focus {
-  border-color: rgba(37, 99, 235, 0.86) !important;
+  border-color: rgba(0, 82, 180, 0.88) !important;
   box-shadow: 0 0 0 3px var(--cx-focus) !important;
   background: rgba(11, 18, 32, 0.76) !important;
 }
@@ -304,7 +304,7 @@
 
 .passwordToggle:hover {
   color: var(--cx-text);
-  background: rgba(20, 184, 166, 0.14);
+  background: rgba(11, 138, 82, 0.14);
 }
 
 .capsWarning {
@@ -376,13 +376,13 @@
   font-weight: 600;
   color: var(--cx-text-inverse);
   background: linear-gradient(90deg, var(--cx-primary), var(--cx-primary-2));
-  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 12px 28px rgba(0, 82, 180, 0.32);
   transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
 .submitButton:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 14px 34px rgba(15, 118, 110, 0.28);
+  box-shadow: 0 14px 34px rgba(11, 138, 82, 0.30);
 }
 
 .submitButton:disabled {

@@ -1,22 +1,35 @@
 :root {
-  /* ─── Navy Safety Palette ───────────────────────────────────────
-     Inspired by Intelex · SafetyCulture · Cority · ISO 45001 visual language
-     Primary:    Deep navy blue (authority, compliance, trust)
-     Secondary:  SST safety green (safe, approved — ANSI Z535 inspired)
-     Background: Clean neutral slate — no green tint on canvas
-     Status:     ANSI Z535 standard: green/amber/red/blue
-  ──────────────────────────────────────────────────────────────── */
-  --brand-background: #f0f4f8;
-  --brand-sidebar: #0c1b2e;
+  /* ═══════════════════════════════════════════════════════════════
+     SST PROFESSIONAL PALETTE — "Compliance Blue"
+     ───────────────────────────────────────────────────────────────
+     Referências normativas:
+       · ANSI Z535.1  — American National Safety Color Code
+       · ISO 3864-1   — Safety signs and colours (worldwide)
+       · OSHA Brand   — Occupational Safety and Health Administration
+       · ISO 45001    — Occupational health and safety management
+       · SafetyCulture · Intelex · Cority visual language
+
+     SIDEBAR   #091624  Deep navy — authority, seriousness, trust
+     PRIMARY   #0052B4  OSHA/ISO compliance blue — regulatory blue
+     SECONDARY #0B8A52  ANSI Z535 green — safe, approved, compliant
+     BACKGROUND #F4F7FA Clinical neutral — institutional, clean
+     ─── Status — ANSI Z535 standard ──────────────────────────────
+     SUCCESS   #157347  Forest safety green
+     WARNING   #D97706  ANSI Z535 caution amber/orange
+     DANGER    #D92D20  ANSI Z535 danger red
+     INFO      #0369A1  Information / notice blue
+  ══════════════════════════════════════════════════════════════ */
+  --brand-background: #f4f7fa;
+  --brand-sidebar: #091624;
   --brand-card: #ffffff;
-  --brand-primary: #1046a0;
-  --brand-secondary: #0c7a5c;
-  --brand-text-primary: #0c1b2e;
-  --brand-text-secondary: #3d5168;
-  --brand-success: #15763a;
-  --brand-warning: #c47a0a;
-  --brand-danger: #c4281c;
-  --brand-info: #0b5fa5;
+  --brand-primary: #0052b4;
+  --brand-secondary: #0b8a52;
+  --brand-text-primary: #101828;
+  --brand-text-secondary: #344054;
+  --brand-success: #157347;
+  --brand-warning: #d97706;
+  --brand-danger: #d92d20;
+  --brand-info: #0369a1;
 
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;

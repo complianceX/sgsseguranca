@@ -26,34 +26,34 @@ export interface SystemThemePreset {
   tokens: Omit<SystemThemeTokens, 'id' | 'updatedAt'>;
 }
 
-// Navy Safety — paleta profissional SST (Intelex · SafetyCulture · ISO 45001)
+// SST Professional "Compliance Blue" — ANSI Z535 · ISO 3864 · OSHA
 export const DEFAULT_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#f0f4f8',
-  sidebarColor: '#0c1b2e',
+  backgroundColor: '#f4f7fa',
+  sidebarColor: '#091624',
   cardColor: '#ffffff',
-  primaryColor: '#1046a0',
-  secondaryColor: '#0c7a5c',
-  textPrimary: '#0c1b2e',
-  textSecondary: '#3d5168',
-  successColor: '#15763a',
-  warningColor: '#c47a0a',
-  dangerColor: '#c4281c',
-  infoColor: '#0b5fa5',
+  primaryColor: '#0052b4',
+  secondaryColor: '#0b8a52',
+  textPrimary: '#101828',
+  textSecondary: '#344054',
+  successColor: '#157347',
+  warningColor: '#d97706',
+  dangerColor: '#d92d20',
+  infoColor: '#0369a1',
 };
 
-// Navy Safety Dark — deep navy base, high contrast
+// SST Dark — deep navy, high contrast for field/low-light use
 export const DARK_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#0a1424',
-  sidebarColor: '#060e1c',
-  cardColor: '#131e2e',
-  primaryColor: '#4d8edf',
-  secondaryColor: '#1aad7a',
-  textPrimary: '#e8f0f8',
-  textSecondary: '#a0b4c8',
-  successColor: '#24a85a',
-  warningColor: '#e8920e',
-  dangerColor: '#e03a30',
-  infoColor: '#3a9ee0',
+  backgroundColor: '#090f1c',
+  sidebarColor: '#040a14',
+  cardColor: '#111c2c',
+  primaryColor: '#4d94e0',
+  secondaryColor: '#1ab870',
+  textPrimary: '#f0f4f8',
+  textSecondary: '#c8d6e4',
+  successColor: '#22a65e',
+  warningColor: '#f59e0b',
+  dangerColor: '#ef4444',
+  infoColor: '#38a6e0',
 };
 
 export const ADAPTIVE_THEME_PRESETS = {
