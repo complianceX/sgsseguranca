@@ -212,6 +212,24 @@ html[data-theme='light'] {
     border: 1px solid var(--ds-color-border-subtle);
     border-radius: var(--ds-radius-lg);
     box-shadow: var(--ds-shadow-sm);
+    transition: box-shadow var(--ds-motion-base), border-color var(--ds-motion-base);
+  }
+
+  /* Variante com borda-topo colorida para seções de destaque */
+  .sst-card--accent {
+    border-top: 3px solid var(--ds-color-action-primary);
+  }
+
+  /* Seção interna de formulário dentro de sst-card */
+  .sst-card__section {
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--ds-color-border-subtle);
+    margin-bottom: 1.25rem;
+  }
+  .sst-card__section:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+    margin-bottom: 0;
   }
 
   .ds-surface-card {
@@ -219,6 +237,7 @@ html[data-theme='light'] {
     border: 1px solid var(--ds-color-border-subtle);
     border-radius: var(--ds-radius-lg);
     box-shadow: var(--ds-shadow-sm);
+    transition: box-shadow var(--ds-motion-base), border-color var(--ds-motion-base);
   }
 
   .ds-focus-ring {
@@ -1290,16 +1309,33 @@ html[data-theme='light'] {
     position: relative;
     overflow: hidden;
     border-radius: var(--ds-radius-xl);
-    padding: 0.95rem;
+    padding: 1.1rem 1.15rem;
     color: white;
     box-shadow: var(--ds-shadow-md);
+    transition: transform var(--ds-motion-base), box-shadow var(--ds-motion-base);
+  }
+
+  .ds-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--ds-shadow-lg);
+  }
+
+  /* Linha decorativa no topo — reforça a cor do card */
+  .ds-kpi-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.35);
   }
 
   .ds-kpi-card::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 42%);
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.14) 0%, transparent 48%);
     pointer-events: none;
   }
 
@@ -1323,11 +1359,28 @@ html[data-theme='light'] {
     background: var(--ds-kpi-danger);
   }
 
-  /* ── KPI Cards — light theme: tinted, sem gradientes escuros ── */
+  /* ── Variante teal (secondary) ── */
+  .ds-kpi-card--teal {
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--brand-secondary) 90%, white 10%),
+      color-mix(in srgb, var(--brand-secondary) 68%, #052f2d 32%));
+  }
+
+  /* ── KPI Cards — light theme: tinted, bordas coloridas no topo ── */
   :root[data-theme='light'] .ds-kpi-card,
   .theme-light .ds-kpi-card {
     color: inherit;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    box-shadow: var(--ds-shadow-sm);
+  }
+
+  :root[data-theme='light'] .ds-kpi-card:hover,
+  .theme-light .ds-kpi-card:hover {
+    box-shadow: var(--ds-shadow-md);
+  }
+
+  :root[data-theme='light'] .ds-kpi-card::before,
+  .theme-light .ds-kpi-card::before {
+    background: none;
   }
 
   :root[data-theme='light'] .ds-kpi-card::after,
@@ -1339,6 +1392,7 @@ html[data-theme='light'] {
   .theme-light .ds-kpi-card--primary {
     background: var(--ds-kpi-blue-bg);
     border: 1px solid var(--ds-kpi-blue-border);
+    border-top: 3px solid var(--ds-kpi-blue-fg);
     color: var(--ds-kpi-blue-fg);
   }
 
@@ -1346,6 +1400,7 @@ html[data-theme='light'] {
   .theme-light .ds-kpi-card--accent {
     background: var(--ds-kpi-violet-bg);
     border: 1px solid var(--ds-kpi-violet-border);
+    border-top: 3px solid var(--ds-kpi-violet-fg);
     color: var(--ds-kpi-violet-fg);
   }
 
@@ -1353,6 +1408,7 @@ html[data-theme='light'] {
   .theme-light .ds-kpi-card--success {
     background: var(--ds-kpi-green-bg);
     border: 1px solid var(--ds-kpi-green-border);
+    border-top: 3px solid var(--ds-kpi-green-fg);
     color: var(--ds-kpi-green-fg);
   }
 
@@ -1360,6 +1416,7 @@ html[data-theme='light'] {
   .theme-light .ds-kpi-card--warning {
     background: var(--ds-kpi-amber-bg);
     border: 1px solid var(--ds-kpi-amber-border);
+    border-top: 3px solid var(--ds-kpi-amber-fg);
     color: var(--ds-kpi-amber-fg);
   }
 
@@ -1367,7 +1424,16 @@ html[data-theme='light'] {
   .theme-light .ds-kpi-card--danger {
     background: var(--ds-kpi-red-bg);
     border: 1px solid var(--ds-kpi-red-border);
+    border-top: 3px solid var(--ds-kpi-red-fg);
     color: var(--ds-kpi-red-fg);
+  }
+
+  :root[data-theme='light'] .ds-kpi-card--teal,
+  .theme-light .ds-kpi-card--teal {
+    background: var(--ds-kpi-teal-bg);
+    border: 1px solid var(--ds-kpi-teal-border);
+    border-top: 3px solid var(--ds-kpi-teal-fg);
+    color: var(--ds-kpi-teal-fg);
   }
 
   .ds-section-link {

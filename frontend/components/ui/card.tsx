@@ -3,32 +3,53 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const cardVariants = cva(
-  'rounded-[var(--ds-radius-lg)] border shadow-[var(--component-card-shadow)] transition-all duration-[var(--ds-motion-base)] backdrop-blur-sm',
+  'rounded-[var(--ds-radius-lg)] border transition-all duration-[var(--ds-motion-base)] backdrop-blur-sm',
   {
     variants: {
       tone: {
+        /** Padrão — gradiente suave, borda sutil */
         default:
-          'border-[var(--component-card-border)] bg-[image:var(--component-card-bg)]',
+          'border-[var(--component-card-border)] bg-[image:var(--component-card-bg)] shadow-[var(--component-card-shadow)]',
+        /** Elevado — mais sombra e borda forte, para cards de destaque */
         elevated:
           'border-[color:var(--component-card-border-strong)]/70 bg-[image:var(--component-card-bg-elevated)] shadow-[var(--component-card-shadow-elevated)]',
+        /** Muted — fundo rebaixado, para painéis de contexto */
         muted:
-          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg-muted)]',
+          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg-muted)] shadow-[var(--ds-shadow-xs)]',
+        /** Accent — borda esquerda colorida, para seções com destaque primário */
+        accent:
+          'border-[var(--component-card-border)] bg-[image:var(--component-card-bg)] shadow-[var(--component-card-shadow)] border-l-[3px] border-l-[var(--color-primary)]',
+        /** Ghost — sem fundo, só borda sutil — ideal para sub-seções */
+        ghost:
+          'border-[var(--component-card-border)]/60 bg-transparent shadow-none',
+        /** Stat — card compacto de métrica, clean sem gradiente */
+        stat:
+          'border-[var(--component-card-border)] bg-[color:var(--ds-color-surface-base)] shadow-[var(--component-card-shadow)]',
       },
       interactive: {
-        true: 'hover:-translate-y-px hover:border-[var(--color-primary)]/45 hover:shadow-[var(--component-card-shadow-elevated)]',
+        true: [
+          'cursor-pointer select-none',
+          'hover:-translate-y-0.5',
+          'hover:border-[var(--color-primary)]/50',
+          'hover:shadow-[var(--component-card-shadow-elevated)]',
+          'hover:ring-1 hover:ring-[var(--color-primary)]/20',
+          'active:translate-y-0 active:shadow-[var(--component-card-shadow)]',
+        ],
         false: '',
       },
       padding: {
         none: '',
-        sm: 'p-3',
-        md: 'p-4',
-        lg: 'p-5',
+        xs: 'p-3',
+        sm: 'p-4',
+        md: 'p-5',
+        lg: 'p-6',
+        xl: 'p-8',
       },
     },
     defaultVariants: {
       tone: 'default',
       interactive: false,
-      padding: 'md',
+      padding: 'sm',
     },
   },
 );
@@ -48,19 +69,39 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
 );
 Card.displayName = 'Card';
 
+/** Cabeçalho do card — suporta layout coluna (padrão) ou linha (md:flex-row) */
 const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('flex flex-col gap-1', className)} {...props} />
+    <div
+      ref={ref}
+      className={cn('flex flex-col gap-1.5', className)}
+      {...props}
+    />
   ),
 );
 CardHeader.displayName = 'CardHeader';
+
+/** Eyebrow — label de contexto acima do título (ex: "COCKPIT OPERACIONAL") */
+const CardEyebrow = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
+  ({ className, ...props }, ref) => (
+    <p
+      ref={ref}
+      className={cn(
+        'text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-[var(--color-primary)]',
+        className,
+      )}
+      {...props}
+    />
+  ),
+);
+CardEyebrow.displayName = 'CardEyebrow';
 
 const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
     <h3
       ref={ref}
       className={cn(
-        'text-[0.95rem] font-semibold tracking-[-0.02em] text-[var(--color-text)]',
+        'text-[1rem] font-semibold leading-tight tracking-[-0.02em] text-[var(--color-text-primary)]',
         className,
       )}
       {...props}
@@ -75,7 +116,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn('text-[13px] leading-5 text-[var(--color-text-muted)]', className)}
+    className={cn('text-[0.8125rem] leading-[1.45] text-[var(--color-text-muted)]', className)}
     {...props}
   />
 ));
@@ -83,17 +124,29 @@ CardDescription.displayName = 'CardDescription';
 
 const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('mt-3', className)} {...props} />
+    <div ref={ref} className={cn('mt-4', className)} {...props} />
   ),
 );
 CardContent.displayName = 'CardContent';
+
+/** Divisor interno — separa seções dentro do card */
+const CardDivider = React.forwardRef<HTMLHRElement, React.HTMLAttributes<HTMLHRElement>>(
+  ({ className, ...props }, ref) => (
+    <hr
+      ref={ref}
+      className={cn('my-4 border-0 border-t border-[var(--color-border-subtle)]', className)}
+      {...props}
+    />
+  ),
+);
+CardDivider.displayName = 'CardDivider';
 
 const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
-        'mt-4 flex items-center gap-2.5 border-t border-[var(--color-border-subtle)] pt-3',
+        'mt-5 flex items-center gap-2.5 border-t border-[var(--color-border-subtle)] pt-4',
         className,
       )}
       {...props}
@@ -102,4 +155,13 @@ const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardFooter.displayName = 'CardFooter';
 
-export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter };
+export {
+  Card,
+  CardHeader,
+  CardEyebrow,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardDivider,
+  CardFooter,
+};
