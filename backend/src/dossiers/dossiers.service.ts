@@ -130,18 +130,51 @@ export class DossiersService {
   private buildPdf(doc: jsPDF, data: any) {
     const { user, trainings, assignments, pts, cats, attachmentLines } = data;
     const marginX = 40;
+    const theme = {
+      navy: [16, 32, 51] as [number, number, number],
+      blue: [31, 78, 121] as [number, number, number],
+      border: [203, 213, 225] as [number, number, number],
+      surface: [248, 250, 252] as [number, number, number],
+      text: [15, 23, 42] as [number, number, number],
+      muted: [100, 116, 139] as [number, number, number],
+    };
 
+    const tableTheme = {
+      theme: 'grid' as const,
+      styles: {
+        fontSize: 8.5,
+        lineColor: theme.border,
+        lineWidth: 0.18,
+        cellPadding: 3,
+        textColor: theme.text,
+      },
+      headStyles: {
+        fillColor: theme.navy,
+        textColor: 255,
+        fontStyle: 'bold' as const,
+      },
+      alternateRowStyles: {
+        fillColor: theme.surface,
+      },
+    };
+
+    doc.setFillColor(...theme.navy);
+    doc.rect(0, 0, 595.28, 58, 'F');
+    doc.setFillColor(...theme.blue);
+    doc.rect(0, 58, 595.28, 4, 'F');
     doc.setFontSize(18);
-    doc.text('Dossie de SST - Colaborador', marginX, 40);
-    doc.setFontSize(10);
-    doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, marginX, 58);
-    doc.text(`ID do colaborador: ${user.id}`, marginX, 72);
+    doc.setTextColor(255, 255, 255);
+    doc.text('Dossie de SST - Colaborador', marginX, 32);
+    doc.setFontSize(9);
+    doc.setTextColor(221, 229, 238);
+    doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, marginX, 44);
+    doc.text(`ID do colaborador: ${user.id}`, marginX, 54);
 
     doc.setFontSize(12);
-    doc.text('Dados do colaborador', marginX, 100);
+    doc.setTextColor(...theme.text);
+    doc.text('Dados do colaborador', marginX, 92);
     autoTable(doc, {
-      startY: 108,
-      styles: { fontSize: 9 },
+      startY: 100,
       head: [['Campo', 'Valor']],
       body: [
         ['Nome', user.nome],
@@ -150,11 +183,11 @@ export class DossiersService {
         ['Obra/Setor', user.site?.nome || '-'],
         ['Status', user.status ? 'Ativo' : 'Inativo'],
       ],
+      ...tableTheme,
     });
 
     autoTable(doc, {
       startY: this.getLastTableY(doc) + 16,
-      styles: { fontSize: 9 },
       head: [['Treinamento', 'NR', 'Conclusao', 'Vencimento', 'Status']],
       body:
         trainings.length > 0
@@ -168,11 +201,11 @@ export class DossiersService {
                 : 'Valido',
             ])
           : [['-', '-', '-', '-', 'Nenhum treinamento encontrado']],
+      ...tableTheme,
     });
 
     autoTable(doc, {
       startY: this.getLastTableY(doc) + 16,
-      styles: { fontSize: 9 },
       head: [['EPI', 'CA', 'Validade CA', 'Status', 'Entrega', 'Devolucao']],
       body:
         assignments.length > 0
@@ -189,9 +222,22 @@ export class DossiersService {
                 : '-',
             ])
           : [['-', '-', '-', '-', '-', 'Nenhuma ficha EPI encontrada']],
+      ...tableTheme,
     });
 
     this.appendAttachmentIndex(doc, attachmentLines);
+
+    const pages = doc.getNumberOfPages();
+    for (let page = 1; page <= pages; page += 1) {
+      doc.setPage(page);
+      doc.setDrawColor(...theme.border);
+      doc.setLineWidth(0.2);
+      doc.line(marginX, 805, 555, 805);
+      doc.setFontSize(7);
+      doc.setTextColor(...theme.muted);
+      doc.text('Sistema <GST> Gestão de Segurança do Trabalho', marginX, 818);
+      doc.text(`Página ${page} de ${pages}`, 555, 818, { align: 'right' });
+    }
   }
 
   private async collectEmployeeAttachments(
@@ -251,7 +297,6 @@ export class DossiersService {
   ) {
     autoTable(doc, {
       startY: this.getLastTableY(doc) + 16,
-      styles: { fontSize: 8 },
       head: [['Tipo', 'Referencia', 'Arquivo', 'URL/Chave']],
       body:
         attachmentLines.length > 0
@@ -262,6 +307,21 @@ export class DossiersService {
               item.url,
             ])
           : [['-', '-', '-', 'Nenhum anexo relacionado']],
+      theme: 'grid',
+      styles: {
+        fontSize: 8,
+        lineColor: [203, 213, 225],
+        lineWidth: 0.18,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [16, 32, 51],
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
     });
   }
 

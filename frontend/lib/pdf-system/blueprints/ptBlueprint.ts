@@ -39,7 +39,10 @@ export async function drawPtBlueprint(
     date: formatDate(pt.data_hora_inicio),
     status: sanitize(pt.status),
     version: "1",
-    company: "-",
+    company: sanitize(
+      (pt as Pt & { company?: { razao_social?: string } }).company?.razao_social ||
+        pt.company_id,
+    ),
     site: sanitize(pt.site?.nome),
   });
 

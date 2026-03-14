@@ -22,13 +22,14 @@ async function drawOneEvidence(
   resolveImageDataUrl?: (item: EvidenceGalleryItem, index: number) => Promise<string | null>,
 ) {
   const { doc, margin, contentWidth, theme } = ctx;
-  const imageWrapH = 74;
-  const detailsW = 86;
+  const imageWrapW = 74;
+  const imageWrapH = 66;
+  const detailsW = contentWidth - imageWrapW - 16;
   const descLines = doc.splitTextToSize(sanitize(item.description), detailsW);
   const metaLines = doc.splitTextToSize(sanitize(item.meta), detailsW);
-  const contentTextHeight = 6 + 6 + descLines.length * 4 + 4 + metaLines.length * 3.5;
-  const cardInnerH = Math.max(imageWrapH, contentTextHeight + 6);
-  const cardH = cardInnerH + 10;
+  const contentTextHeight = 8 + 6 + descLines.length * 4 + 5 + metaLines.length * 3.4;
+  const cardInnerH = Math.max(imageWrapH, contentTextHeight + 8);
+  const cardH = cardInnerH + 12;
   ensureSpace(ctx, cardH + 6);
 
   doc.setFillColor(...theme.tone.surface);
@@ -37,41 +38,41 @@ async function drawOneEvidence(
   doc.roundedRect(margin, ctx.y, contentWidth, cardH, 2, 2, "FD");
 
   doc.setFillColor(...theme.tone.surfaceMuted);
-  doc.roundedRect(margin + 4, ctx.y + 5, 82, cardInnerH, 1.5, 1.5, "F");
+  doc.roundedRect(margin + 5, ctx.y + 6, imageWrapW, cardInnerH, 1.5, 1.5, "F");
   doc.setDrawColor(...theme.tone.borderStrong);
   doc.setLineWidth(0.18);
-  doc.roundedRect(margin + 4, ctx.y + 5, 82, cardInnerH, 1.5, 1.5, "S");
+  doc.roundedRect(margin + 5, ctx.y + 6, imageWrapW, cardInnerH, 1.5, 1.5, "S");
 
-  const textX = margin + 90;
+  const textX = margin + imageWrapW + 11;
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(theme.typography.bodySm);
+  doc.setFontSize(theme.typography.caption);
   doc.setTextColor(...theme.tone.textMuted);
-  doc.text(`EVIDENCIA ${index + 1}`, textX, ctx.y + 11);
+  doc.text(`EVIDENCIA ${index + 1}`, textX, ctx.y + 12);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.headingSm);
   doc.setTextColor(...theme.tone.textPrimary);
-  doc.text(sanitize(item.title || "Registro fotografico"), textX, ctx.y + 17, { maxWidth: 86 });
+  doc.text(sanitize(item.title || "Registro fotografico"), textX, ctx.y + 18, { maxWidth: detailsW });
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(theme.typography.bodySm);
   doc.setTextColor(...theme.tone.textSecondary);
-  doc.text(descLines, textX, ctx.y + 23);
+  doc.text(descLines, textX, ctx.y + 24);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(theme.typography.caption);
   doc.setTextColor(...theme.tone.textMuted);
-  const metaY = ctx.y + 24 + descLines.length * 4 + 4;
+  const metaY = ctx.y + 26 + descLines.length * 4 + 4;
   doc.text(metaLines, textX, metaY);
 
   if (!resolveImageDataUrl) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(theme.typography.bodySm);
-    doc.setTextColor(...theme.tone.textMuted);
-    doc.text("Imagem nao disponivel para renderizacao.", margin + 11, ctx.y + 42);
-    moveY(ctx, 89);
-    return;
-  }
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(theme.typography.bodySm);
+      doc.setTextColor(...theme.tone.textMuted);
+      doc.text("Imagem nao disponivel para renderizacao.", margin + 10, ctx.y + 42);
+      moveY(ctx, cardH + 5);
+      return;
+    }
 
   try {
     const dataUrl = await resolveImageDataUrl(item, index);
@@ -79,22 +80,22 @@ async function drawOneEvidence(
       doc.setFont("helvetica", "normal");
       doc.setFontSize(theme.typography.bodySm);
       doc.setTextColor(...theme.tone.textMuted);
-      doc.text("Imagem nao encontrada.", margin + 25, ctx.y + 42);
-      moveY(ctx, 89);
+      doc.text("Imagem nao encontrada.", margin + 20, ctx.y + 42);
+      moveY(ctx, cardH + 5);
       return;
     }
     const props = doc.getImageProperties(dataUrl as unknown as string);
-    const ratio = Math.min(78 / props.width, (cardInnerH - 4) / props.height, 1);
+    const ratio = Math.min((imageWrapW - 4) / props.width, (cardInnerH - 4) / props.height, 1);
     const w = props.width * ratio;
     const h = props.height * ratio;
-    const x = margin + 4 + (82 - w) / 2;
-    const y = ctx.y + 5 + (cardInnerH - h) / 2;
+    const x = margin + 5 + (imageWrapW - w) / 2;
+    const y = ctx.y + 6 + (cardInnerH - h) / 2;
     doc.addImage(dataUrl, props.fileType || "PNG", x, y, w, h);
   } catch {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(theme.typography.bodySm);
     doc.setTextColor(...theme.tone.danger);
-    doc.text("Falha ao carregar imagem.", margin + 23, ctx.y + 42);
+    doc.text("Falha ao carregar imagem.", margin + 18, ctx.y + 42);
   }
 
   moveY(ctx, cardH + 5);

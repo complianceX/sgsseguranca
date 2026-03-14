@@ -302,23 +302,40 @@ export class ChecklistsService {
     // e degradar a performance da aplicação.
     // RECOMENDAÇÃO: Mover esta lógica para um job em background (ex: usando BullMQ)
     // para não impactar a responsividade da API.
-    const doc = new jsPDF();
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const theme = {
+      navy: [16, 32, 51] as [number, number, number],
+      blue: [31, 78, 121] as [number, number, number],
+      teal: [15, 118, 110] as [number, number, number],
+      border: [203, 213, 225] as [number, number, number],
+      surface: [248, 250, 252] as [number, number, number],
+      text: [15, 23, 42] as [number, number, number],
+      muted: [100, 116, 139] as [number, number, number],
+    };
 
-    doc.setFontSize(18);
-    doc.text('GST', 14, 20);
-    doc.setFontSize(14);
-    doc.text(checklist.titulo, 14, 30);
+    doc.setFillColor(...theme.navy);
+    doc.rect(0, 0, 210, 30, 'F');
+    doc.setFillColor(...theme.blue);
+    doc.rect(0, 30, 210, 2.4, 'F');
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text('CHECKLIST SST', 16, 14);
+    doc.setFontSize(9);
+    doc.setTextColor(221, 229, 238);
+    doc.text(checklist.titulo, 16, 20);
+
     doc.setFontSize(10);
+    doc.setTextColor(...theme.text);
     doc.text(
       `Data: ${new Date(checklist.data).toLocaleDateString('pt-BR')}`,
-      14,
-      38,
+      16,
+      41,
     );
-    doc.text(`Inspetor: ${checklist.inspetor?.nome || 'N/A'}`, 14, 44);
-    doc.text(`Obra/Setor: ${checklist.site?.nome || 'N/A'}`, 14, 50);
+    doc.text(`Inspetor: ${checklist.inspetor?.nome || 'N/A'}`, 16, 47);
+    doc.text(`Obra/Setor: ${checklist.site?.nome || 'N/A'}`, 16, 53);
     if (checklist.equipamento)
-      doc.text(`Equipamento: ${checklist.equipamento}`, 14, 56);
-    if (checklist.maquina) doc.text(`Máquina: ${checklist.maquina}`, 14, 62);
+      doc.text(`Equipamento: ${checklist.equipamento}`, 16, 59);
+    if (checklist.maquina) doc.text(`Máquina: ${checklist.maquina}`, 16, 65);
 
     interface ChecklistItem {
       item: string;
@@ -337,13 +354,16 @@ export class ChecklistsService {
       ],
     );
 
-    let currentY = 70;
+    let currentY = 74;
     if (checklist.foto_equipamento) {
       try {
         const imgData =
           checklist.foto_equipamento.split(',')[1] ||
           checklist.foto_equipamento;
-        doc.addImage(imgData, 'PNG', 14, currentY, 60, 60);
+        doc.setFillColor(...theme.surface);
+        doc.setDrawColor(...theme.border);
+        doc.roundedRect(16, currentY - 4, 64, 64, 2, 2, 'FD');
+        doc.addImage(imgData, 'PNG', 18, currentY - 2, 60, 60);
         currentY += 70;
       } catch (e) {
         this.logger.error('Erro ao adicionar imagem do equipamento:', e);
@@ -355,7 +375,15 @@ export class ChecklistsService {
       head: [['Item', 'Status', 'Observação']],
       body: tableData,
       theme: 'grid',
-      headStyles: { fillColor: [41, 128, 185] },
+      styles: {
+        fontSize: 9,
+        cellPadding: 2.5,
+        lineColor: theme.border,
+        lineWidth: 0.18,
+        textColor: theme.text,
+      },
+      headStyles: { fillColor: theme.navy, textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: theme.surface },
     });
 
     const signatures = await this.signaturesService.findByDocument(
@@ -371,7 +399,8 @@ export class ChecklistsService {
         currentSigY = 20;
       }
       doc.setFontSize(12);
-      doc.text('Assinaturas', 14, currentSigY);
+      doc.setTextColor(...theme.text);
+      doc.text('Assinaturas', 16, currentSigY);
       currentSigY += 10;
 
       for (const sig of signatures) {
@@ -382,7 +411,7 @@ export class ChecklistsService {
         doc.setFontSize(10);
         doc.text(
           `Assinado por: ${sig.user?.nome || 'Usuário'} em ${new Date(sig.created_at).toLocaleString('pt-BR')}`,
-          14,
+          16,
           currentSigY,
         );
         currentSigY += 5;
@@ -390,7 +419,7 @@ export class ChecklistsService {
           try {
             const imgData =
               sig.signature_data.split(',')[1] || sig.signature_data;
-            doc.addImage(imgData, 'PNG', 14, currentSigY, 50, 20);
+            doc.addImage(imgData, 'PNG', 16, currentSigY, 50, 20);
             currentSigY += 25;
           } catch (e) {
             this.logger.error('Erro ao adicionar imagem de assinatura:', e);
@@ -400,6 +429,18 @@ export class ChecklistsService {
           currentSigY += 10;
         }
       }
+    }
+
+    const pages = doc.getNumberOfPages();
+    for (let page = 1; page <= pages; page += 1) {
+      doc.setPage(page);
+      doc.setDrawColor(...theme.border);
+      doc.setLineWidth(0.2);
+      doc.line(16, 284, 194, 284);
+      doc.setFontSize(7);
+      doc.setTextColor(...theme.muted);
+      doc.text('Sistema <GST> Gestão de Segurança do Trabalho', 16, 289);
+      doc.text(`Página ${page} de ${pages}`, 194, 289, { align: 'right' });
     }
 
     return Buffer.from(doc.output('arraybuffer'));

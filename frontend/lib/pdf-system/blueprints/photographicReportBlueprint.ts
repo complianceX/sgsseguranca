@@ -33,7 +33,10 @@ export async function drawPhotographicReportBlueprint(
     date: formatDate(inspection.data_inspecao),
     status: "Emitido",
     version: "1",
-    company: "-",
+    company: sanitize(
+      (inspection as Inspection & { company?: { razao_social?: string } }).company?.razao_social ||
+        inspection.company_id,
+    ),
     site: sanitize(inspection.site?.nome),
   });
 
@@ -118,4 +121,3 @@ export async function drawPhotographicReportBlueprint(
     subtitle: "Valide por QR Code ou codigo no portal publico.",
   });
 }
-

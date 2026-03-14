@@ -71,36 +71,59 @@ export class ReportsService {
   <meta charset="UTF-8" />
   <title>Relatório Mensal SST</title>
   <style>
-    body { font-family: Arial, sans-serif; color: #1f2937; margin: 24px; }
-    h1 { margin: 0 0 6px; font-size: 20px; }
-    h2 { margin: 20px 0 8px; font-size: 14px; }
-    .muted { color: #6b7280; font-size: 12px; }
-    .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-top: 12px; }
-    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-    .k { color: #6b7280; font-size: 12px; }
-    .v { font-weight: 700; font-size: 14px; }
-    pre { white-space: pre-wrap; font-family: inherit; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; color: #0f172a; margin: 0; padding: 0; background: #fff; }
+    .page { width: 210mm; height: 297mm; padding: 16mm; position: relative; }
+    .header { margin: -16mm -16mm 0; padding: 14mm 16mm 10mm; background: #102033; color: #fff; border-bottom: 2.5mm solid #1f4e79; }
+    .logo { font-size: 16pt; font-weight: 700; letter-spacing: .06em; }
+    h1 { margin: 10px 0 0; font-size: 18px; }
+    .muted { color: #dbe5ee; font-size: 11px; }
+    .meta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+    .meta { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; }
+    .k { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+    .v { font-weight: 700; font-size: 14px; color: #0f172a; margin-top: 4px; }
+    h2 { margin: 18px 0 10px; font-size: 13px; border-bottom: 1px solid #cbd5e1; padding-bottom: 4px; }
+    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .stat { border: 1px solid #cbd5e1; border-left: 4px solid #1f4e79; border-radius: 6px; padding: 12px; }
+    .stat .value { font-size: 20px; font-weight: 700; color: #102033; }
+    .analysis { margin-top: 14px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; padding: 14px; line-height: 1.65; }
+    pre { white-space: pre-wrap; font-family: inherit; margin: 0; }
+    .footer { position: absolute; left: 16mm; right: 16mm; bottom: 8mm; display: flex; justify-content: space-between; border-top: 1px solid #cbd5e1; padding-top: 4mm; font-size: 8pt; color: #64748b; }
   </style>
 </head>
 <body>
-  <h1>Relatório Mensal SST</h1>
-  <div class="muted">{{MES}}/{{ANO}} • {{COMPANY_NAME}}</div>
-
-  <div class="card">
-    <h2>Indicadores</h2>
-    <div class="grid">
-      <div><div class="k">APR</div><div class="v">{{APRS_COUNT}}</div></div>
-      <div><div class="k">PT</div><div class="v">{{PTS_COUNT}}</div></div>
-      <div><div class="k">DDS</div><div class="v">{{DDS_COUNT}}</div></div>
-      <div><div class="k">Checklists</div><div class="v">{{CHECKLISTS_COUNT}}</div></div>
-      <div><div class="k">Treinamentos</div><div class="v">{{TRAININGS_COUNT}}</div></div>
-      <div><div class="k">EPIs Vencidos</div><div class="v">{{EPIS_EXPIRED_COUNT}}</div></div>
+  <div class="page">
+    <div class="header">
+      <div class="logo">&lt;GST&gt;</div>
+      <h1>Relatório Mensal SST</h1>
+      <div class="muted">{{MES}}/{{ANO}} • {{COMPANY_NAME}}</div>
     </div>
-  </div>
 
-  <div class="card">
+    <div class="meta-grid">
+      <div class="meta"><div class="k">Empresa</div><div class="v">{{COMPANY_NAME}}</div></div>
+      <div class="meta"><div class="k">Período</div><div class="v">{{MES}}/{{ANO}}</div></div>
+      <div class="meta"><div class="k">Emissão</div><div class="v">{{MES}}/{{ANO}}</div></div>
+    </div>
+
+    <h2>Indicadores</h2>
+    <div class="stats">
+      <div class="stat"><div class="k">APR</div><div class="value">{{APRS_COUNT}}</div></div>
+      <div class="stat"><div class="k">PT</div><div class="value">{{PTS_COUNT}}</div></div>
+      <div class="stat"><div class="k">DDS</div><div class="value">{{DDS_COUNT}}</div></div>
+      <div class="stat"><div class="k">Checklists</div><div class="value">{{CHECKLISTS_COUNT}}</div></div>
+      <div class="stat"><div class="k">Treinamentos</div><div class="value">{{TRAININGS_COUNT}}</div></div>
+      <div class="stat"><div class="k">EPIs Vencidos</div><div class="value">{{EPIS_EXPIRED_COUNT}}</div></div>
+    </div>
+
     <h2>Análise Técnica</h2>
-    <pre>{{ANALISE_GANDRA}}</pre>
+    <div class="analysis">
+      <pre>{{ANALISE_GANDRA}}</pre>
+    </div>
+
+    <div class="footer">
+      <span>Sistema &lt;GST&gt; Gestão de Segurança do Trabalho</span>
+      <span>Documento confidencial | Página 1 de 1</span>
+    </div>
   </div>
 </body>
 </html>`;

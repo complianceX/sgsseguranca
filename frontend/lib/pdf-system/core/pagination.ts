@@ -17,24 +17,23 @@ export function applyDocumentFooter(
     ctx.doc.setPage(page);
     ctx.doc.setDrawColor(...ctx.theme.tone.border);
     ctx.doc.setLineWidth(0.25);
-    ctx.doc.line(ctx.margin, 284.5, ctx.pageWidth - ctx.margin, 284.5);
+    ctx.doc.line(ctx.margin, 283.5, ctx.pageWidth - ctx.margin, 283.5);
 
     ctx.doc.setFont("helvetica", "bold");
     ctx.doc.setFontSize(ctx.theme.typography.caption);
     ctx.doc.setTextColor(...ctx.theme.tone.textSecondary);
-    ctx.doc.text(issuer, ctx.margin, 289.5);
+    ctx.doc.text(issuer, ctx.margin, 288.7);
 
     ctx.doc.setFont("helvetica", "normal");
     ctx.doc.setTextColor(...ctx.theme.tone.textMuted);
-    ctx.doc.text(`Gerado em ${generatedAt}`, ctx.margin, 293.5);
+    ctx.doc.text(`Gerado em ${generatedAt}`, ctx.margin, 292.7);
 
     ctx.doc.setFont("helvetica", "bold");
     ctx.doc.setTextColor(...ctx.theme.tone.textSecondary);
-    ctx.doc.text(`ID: ${options.code}`, ctx.pageWidth - ctx.margin, 289.5, { align: "right" });
+    ctx.doc.text(`ID: ${options.code}`, ctx.pageWidth - ctx.margin, 288.7, { align: "right" });
 
     ctx.doc.setFont("helvetica", "normal");
     ctx.doc.setTextColor(...ctx.theme.tone.textMuted);
-    ctx.doc.text(`Pagina ${page} de ${pages}`, ctx.pageWidth - ctx.margin, 293.5, { align: "right" });
+    ctx.doc.text(`Pagina ${page} de ${pages}`, ctx.pageWidth - ctx.margin, 292.7, { align: "right" });
   }
 }
-

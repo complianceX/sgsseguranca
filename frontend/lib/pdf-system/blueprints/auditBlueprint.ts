@@ -25,7 +25,10 @@ export async function drawAuditBlueprint(
     date: formatDate(audit.data_auditoria),
     status: "Emitido",
     version: "1",
-    company: "-",
+    company: sanitize(
+      (audit as Audit & { company?: { razao_social?: string } }).company?.razao_social ||
+        audit.company_id,
+    ),
     site: sanitize(audit.site?.nome),
   });
 

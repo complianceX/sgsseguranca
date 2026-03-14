@@ -37,20 +37,20 @@ type FooterOptions = {
 export const PDF_THEME = {
   pageWidth: 210,
   pageHeight: 297,
-  margin: 14,
-  contentWidth: 182,
+  margin: 16,
+  contentWidth: 178,
   colors: {
     // Fundo da página — branco puro para melhor legibilidade
     pageBg: [255, 255, 255] as Color,
 
     // Header — azul corporativo profundo
-    headerBg: [10, 22, 40] as Color,   // #0a1628
-    headerAccent: [15, 30, 58] as Color,   // faixa interna do header
+    headerBg: [16, 32, 51] as Color,   // #102033
+    headerAccent: [31, 78, 121] as Color,
 
     // Identidade SST — azul corporativo como cor primária
-    primary: [30, 58, 92] as Color,   // #1e3a5c  navy
-    primaryDark: [22, 45, 72] as Color,   // #162d48  navy-dark
-    primaryBg: [235, 242, 250] as Color,   // navy-50
+    primary: [31, 78, 121] as Color,
+    primaryDark: [16, 32, 51] as Color,
+    primaryBg: [238, 242, 247] as Color,
 
     // Azul céu operacional — obras, equipamentos
     accent: [15, 118, 110] as Color,   // #0f766e  teal-700
@@ -76,7 +76,7 @@ export const PDF_THEME = {
     // Superfícies
     cardBg: [255, 255, 255] as Color,
     sectionBg: [248, 250, 252] as Color,   // slate-50
-    stripeBg: [241, 245, 249] as Color,   // slate-100
+    stripeBg: [248, 250, 252] as Color,
 
     // Bordas
     border: [203, 213, 225] as Color,   // slate-300
@@ -140,10 +140,10 @@ export function createPdfDoc() {
 }
 
 export function ensurePageSpace(doc: PdfDoc, y: number, heightNeeded: number, top = 24): number {
-  if (y + heightNeeded <= PDF_THEME.pageHeight - 24) return y;
+  if (y + heightNeeded <= PDF_THEME.pageHeight - 28) return y;
   doc.addPage();
   drawPageBackground(doc);
-  return top;
+  return Math.max(top, PDF_THEME.margin);
 }
 
 export function drawPageBackground(doc: PdfDoc) {

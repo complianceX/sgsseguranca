@@ -26,7 +26,10 @@ export async function drawNcBlueprint(
     date: formatDate(nc.data_identificacao),
     status: sanitize(nc.status),
     version: "1",
-    company: "-",
+    company: sanitize(
+      (nc as NonConformity & { company?: { razao_social?: string } }).company?.razao_social ||
+        nc.company_id,
+    ),
     site: sanitize(nc.site?.nome || nc.local_setor_area),
   });
 

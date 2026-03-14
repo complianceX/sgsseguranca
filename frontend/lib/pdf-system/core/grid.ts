@@ -5,7 +5,8 @@ import type { PdfVariantName } from "../variants";
 export function createPdfContext(doc: PdfDoc, variant: PdfVariantName): PdfContext {
   const pageWidth = 210;
   const pageHeight = 297;
-  const margin = 14;
+  const theme = createPdfTheme(variant);
+  const margin = theme.spacing.pageMargin;
   return {
     doc,
     pageWidth,
@@ -13,7 +14,7 @@ export function createPdfContext(doc: PdfDoc, variant: PdfVariantName): PdfConte
     margin,
     contentWidth: pageWidth - margin * 2,
     y: margin,
-    theme: createPdfTheme(variant),
+    theme,
   };
 }
 
@@ -24,10 +25,11 @@ export function drawPageBackground(ctx: PdfContext) {
 }
 
 export function ensureSpace(ctx: PdfContext, heightNeeded: number, top = 22): number {
-  if (ctx.y + heightNeeded <= ctx.pageHeight - 20) return ctx.y;
+  const safeBottom = 24;
+  if (ctx.y + heightNeeded <= ctx.pageHeight - safeBottom) return ctx.y;
   ctx.doc.addPage();
   drawPageBackground(ctx);
-  ctx.y = top;
+  ctx.y = Math.max(top, ctx.margin);
   return ctx.y;
 }
 
@@ -35,4 +37,3 @@ export function moveY(ctx: PdfContext, delta: number): number {
   ctx.y += delta;
   return ctx.y;
 }
-

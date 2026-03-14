@@ -5,41 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Relatório Mensal de Conformidade</title>
   <style>
-    /* --- RESET E PADRÕES GERAIS --- */
     *, *::before, *::after { box-sizing: border-box; }
     body {
       font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
       margin: 0;
       padding: 0;
-      background-color: #fff;
-      color: #3d475c;
+      background-color: #ffffff;
+      color: #0f172a;
       font-size: 10pt;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
-    /* --- ESTRUTURA E LAYOUT --- */
     .page {
       width: 210mm;
       height: 297mm;
-      padding: 20mm;
+      padding: 16mm;
       position: relative;
       display: flex;
       flex-direction: column;
     }
-    
+
     .report-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      border-bottom: 2px solid #005a9e;
-      padding-bottom: 10px;
+      background: #102033;
+      color: #ffffff;
+      margin: -16mm -16mm 0;
+      padding: 14mm 16mm 10mm;
+      border-bottom: 2.5mm solid #1f4e79;
     }
     .report-header .logo {
-      font-size: 24pt;
+      font-size: 16pt;
       font-weight: bold;
-      color: #005a9e;
-      /* Substituir por tag <img> para logo real */
+      color: #ffffff;
+      letter-spacing: 0.06em;
     }
     .report-header .title-block {
       text-align: right;
@@ -47,106 +48,110 @@
     .report-title {
       font-size: 16pt;
       font-weight: 600;
-      color: #003d6b;
+      color: #ffffff;
       margin: 0;
     }
     .report-subtitle {
-      font-size: 11pt;
-      color: #5a7a9e;
+      font-size: 9.5pt;
+      color: #dbe5ee;
       margin: 4px 0 0;
     }
 
     .report-body {
       flex-grow: 1;
-      padding: 20px 0;
+      padding: 10mm 0 0;
     }
-    
+
     .report-footer {
       position: absolute;
-      bottom: 10mm;
-      left: 20mm;
-      right: 20mm;
-      text-align: center;
-      font-size: 8pt;
-      color: #888;
-      border-top: 1px solid #e0e0e0;
-      padding-top: 5px;
-    }
-    /* --- COMPONENTES --- */
-    .section-title {
-      font-size: 14pt;
-      font-weight: 600;
-      color: #003d6b;
-      border-bottom: 1px solid #cce0f0;
-      padding-bottom: 6px;
-      margin-top: 25px;
-      margin-bottom: 15px;
-    }
-    
-    .metadata-grid {
+      bottom: 8mm;
+      left: 16mm;
+      right: 16mm;
       display: flex;
       justify-content: space-between;
-      background-color: #f8fafc;
-      border: 1px solid #e0e6ec;
-      border-radius: 4px;
-      padding: 12px 15px;
-      margin-bottom: 25px;
+      align-items: center;
+      font-size: 8pt;
+      color: #64748b;
+      border-top: 1px solid #cbd5e1;
+      padding-top: 4mm;
+    }
+
+    .section-title {
+      font-size: 12pt;
+      font-weight: 600;
+      color: #0f172a;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 4px;
+      margin-top: 16px;
+      margin-bottom: 10px;
+    }
+
+    .metadata-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
     }
     .metadata-item {
       display: flex;
       flex-direction: column;
+      background-color: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 10px 12px;
     }
     .metadata-label {
-      font-size: 8pt;
-      color: #5a7a9e;
+      font-size: 7.5pt;
+      color: #64748b;
       margin-bottom: 2px;
       text-transform: uppercase;
+      letter-spacing: 0.08em;
     }
     .metadata-value {
       font-size: 10pt;
       font-weight: 600;
-      color: #3d475c;
+      color: #0f172a;
     }
 
     .stats-container {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 15px;
+      gap: 12px;
     }
     .stat-card {
       background-color: #ffffff;
-      border: 1px solid #e0e6ec;
-      border-left: 5px solid #007bff;
-      border-radius: 4px;
-      padding: 15px;
+      border: 1px solid #cbd5e1;
+      border-left: 4px solid #1f4e79;
+      border-radius: 6px;
+      padding: 12px 14px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
     }
-    .stat-card.primary { border-left-color: #005a9e; }
-    .stat-card.success { border-left-color: #28a745; }
-    .stat-card.warning { border-left-color: #ffc107; }
-    .stat-card.danger { border-left-color: #dc3545; }
+    .stat-card.primary { border-left-color: #1f4e79; }
+    .stat-card.success { border-left-color: #166534; }
+    .stat-card.warning { border-left-color: #b45309; }
+    .stat-card.danger { border-left-color: #b91c1c; }
 
     .stat-value {
-      font-size: 24pt;
+      font-size: 21pt;
       font-weight: 700;
-      color: #003d6b;
+      color: #102033;
     }
     .stat-label {
-      font-size: 10pt;
-      color: #5a7a9e;
+      font-size: 9pt;
+      color: #475569;
       font-weight: 500;
     }
 
     .analysis-block {
       background-color: #f8fafc;
-      border: 1px solid #e0e6ec;
-      border-radius: 4px;
-      padding: 15px;
-      margin-top: 20px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 14px;
+      margin-top: 14px;
       font-size: 10pt;
-      line-height: 1.6;
+      line-height: 1.65;
     }
   </style>
 </head>
@@ -188,7 +193,8 @@
     </main>
 
     <footer class="report-footer">
-      Gerado por Gandra. Todos os direitos reservados. | Documento confidencial | Página 1 de 1
+      <span>Sistema &lt;GST&gt; Gestão de Segurança do Trabalho</span>
+      <span>Documento confidencial | Página 1 de 1</span>
     </footer>
   </div>
 </body>
