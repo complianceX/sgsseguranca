@@ -12,7 +12,12 @@ import {
   UnauthorizedException,
   ParseUUIDPipe,
   StreamableFile,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { AuditsService } from './audits.service';
 import { CreateAuditDto, UpdateAuditDto } from './dto/create-audit.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -100,6 +105,38 @@ export class AuditsController {
   @Authorize('can_view_audits')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.auditsService.findOne(id, this.getTenantIdOrThrow());
+  }
+
+  @Get(':id/pdf')
+  @Authorize('can_view_audits')
+  getPdfAccess(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.auditsService.getPdfAccess(id, this.getTenantIdOrThrow());
+  }
+
+  @Post(':id/file')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_audits')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 20 * 1024 * 1024 },
+    }),
+  )
+  attachFile(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Request() req: any,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Nenhum arquivo enviado');
+    }
+
+    return this.auditsService.attachPdf(
+      id,
+      this.getTenantIdOrThrow(),
+      file,
+      req.user?.id,
+    );
   }
 
   @Patch(':id')

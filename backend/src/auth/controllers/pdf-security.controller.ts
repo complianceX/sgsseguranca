@@ -92,10 +92,11 @@ export class PdfSecurityController {
     }
 
     // Sign and save hash
-    const hash = await this.pdfService.signAndSave(
-      file.buffer,
-      originalName || file.originalname,
-    );
+    const hash = await this.pdfService.signAndSave(file.buffer, {
+      originalName: originalName || file.originalname,
+      signedByUserId: req.user?.id ?? req.user?.userId ?? null,
+      companyId: req.user?.company_id ?? req.user?.companyId ?? null,
+    });
 
     return {
       status: 'success',

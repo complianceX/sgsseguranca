@@ -21,6 +21,8 @@
     "start:prod": "node dist/main",
     "start:worker": "node dist/worker.js",
     "migration:run": "node scripts/run-migrations.js",
+    "registry:reconcile": "node scripts/reconcile-document-registry.js --apply",
+    "registry:reconcile:dry": "node scripts/reconcile-document-registry.js --dry-run",
     "pdf:homologation": "node ./node_modules/ts-node/dist/bin.js --project tsconfig.pdf-homologation.json scripts/generate-pdf-homologation.ts",
     "migration:revert": "typeorm migration:revert -d dist/data-source.js",
     "verify:rls": "node scripts/verify-tenant-rls.js",

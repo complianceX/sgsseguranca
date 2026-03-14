@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Apr, AprStatus, APR_ALLOWED_TRANSITIONS } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
+import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreateAprDto } from './dto/create-apr.dto';
 import { UpdateAprDto } from './dto/update-apr.dto';
@@ -26,6 +27,7 @@ import {
   WeeklyBundleFilters,
 } from '../common/services/document-bundle.service';
 import { S3Service } from '../common/storage/s3.service';
+import { DocumentRegistryService } from '../document-registry/document-registry.service';
 
 @Injectable()
 export class AprsService {
@@ -40,6 +42,7 @@ export class AprsService {
     private readonly riskCalculationService: RiskCalculationService,
     private readonly documentBundleService: DocumentBundleService,
     private readonly s3Service: S3Service,
+    private readonly documentRegistryService: DocumentRegistryService,
   ) {}
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -262,6 +265,11 @@ export class AprsService {
   async remove(id: string, userId?: string): Promise<void> {
     const apr = await this.findOneForWrite(id);
     await this.aprsRepository.softDelete(id);
+    await this.documentRegistryService.remove({
+      companyId: apr.company_id,
+      module: 'apr',
+      entityId: apr.id,
+    });
     await this.addLog(id, userId, 'removido', { companyId: apr.company_id });
     this.logger.log({ event: 'apr_soft_deleted', aprId: apr.id, companyId: apr.company_id });
   }
@@ -401,10 +409,78 @@ export class AprsService {
       aprovado_em: now,
       aprovado_motivo: approvalReason,
     });
+    await this.documentRegistryService.upsert({
+      companyId: apr.company_id,
+      module: 'apr',
+      entityId: apr.id,
+      title: apr.titulo || apr.numero || 'APR',
+      documentDate: apr.data_inicio || apr.created_at,
+      fileKey: key,
+      folderPath: folder,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      fileBuffer: file.buffer,
+      createdBy: userId,
+    });
     await this.addLog(id, userId, 'pdf_anexado', { fileKey: key });
     await this.addLog(id, userId, 'aprovado_por_pdf', { motivo: approvalReason });
 
     return { fileKey: key, folderPath: folder, originalName: file.originalname };
+  }
+
+  async verifyEvidenceByHashPublic(hash: string): Promise<{
+    verified: boolean;
+    matchedIn?: 'original' | 'watermarked';
+    message?: string;
+    evidence?: {
+      apr_numero?: string;
+      apr_versao?: number;
+      risk_item_ordem?: number;
+      uploaded_at?: string;
+      original_hash?: string;
+      watermarked_hash?: string | null;
+      integrity_flags?: Record<string, unknown> | null;
+    };
+  }> {
+    const normalizedHash = String(hash || '').trim().toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(normalizedHash)) {
+      return {
+        verified: false,
+        message: 'Hash SHA-256 inválido.',
+      };
+    }
+
+    const evidence = await this.aprsRepository.manager
+      .getRepository(AprRiskEvidence)
+      .findOne({
+        where: [
+          { hash_sha256: normalizedHash },
+          { watermarked_hash_sha256: normalizedHash },
+        ],
+        relations: ['apr', 'apr_risk_item'],
+      });
+
+    if (!evidence) {
+      return {
+        verified: false,
+        message: 'Hash não localizado na base de evidências da APR.',
+      };
+    }
+
+    return {
+      verified: true,
+      matchedIn:
+        evidence.hash_sha256 === normalizedHash ? 'original' : 'watermarked',
+      evidence: {
+        apr_numero: evidence.apr?.numero,
+        apr_versao: evidence.apr?.versao,
+        risk_item_ordem: evidence.apr_risk_item?.ordem,
+        uploaded_at: evidence.uploaded_at?.toISOString(),
+        original_hash: evidence.hash_sha256,
+        watermarked_hash: evidence.watermarked_hash_sha256,
+        integrity_flags: evidence.integrity_flags,
+      },
+    };
   }
 
   async getPdfAccess(id: string): Promise<{

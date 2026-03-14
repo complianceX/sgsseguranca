@@ -17,6 +17,9 @@ import {
   DocumentBundleService,
   WeeklyBundleFilters,
 } from '../common/services/document-bundle.service';
+import { DocumentRegistryService } from '../document-registry/document-registry.service';
+import { S3Service } from '../common/storage/s3.service';
+import { RequestContext } from '../common/middleware/request-context.middleware';
 
 @Injectable()
 export class AuditsService {
@@ -28,8 +31,47 @@ export class AuditsService {
     private auditsRepository: Repository<Audit>,
     tenantRepositoryFactory: TenantRepositoryFactory,
     private readonly documentBundleService: DocumentBundleService,
+    private readonly documentRegistryService: DocumentRegistryService,
+    private readonly s3Service: S3Service,
   ) {
     this.tenantRepo = tenantRepositoryFactory.wrap(this.auditsRepository);
+  }
+
+  private async syncDocumentRegistry(
+    audit: Pick<
+      Audit,
+      | 'id'
+      | 'company_id'
+      | 'titulo'
+      | 'data_auditoria'
+      | 'created_at'
+      | 'pdf_file_key'
+      | 'pdf_folder_path'
+      | 'pdf_original_name'
+    >,
+    options?: {
+      fileBuffer?: Buffer;
+      mimeType?: string;
+      createdBy?: string;
+    },
+  ) {
+    if (!audit.pdf_file_key) {
+      return;
+    }
+
+    await this.documentRegistryService.upsert({
+      companyId: audit.company_id,
+      module: 'audit',
+      entityId: audit.id,
+      title: audit.titulo || 'Auditoria',
+      documentDate: audit.data_auditoria || audit.created_at,
+      fileKey: audit.pdf_file_key,
+      folderPath: audit.pdf_folder_path,
+      originalName: audit.pdf_original_name,
+      mimeType: options?.mimeType || 'application/pdf',
+      fileBuffer: options?.fileBuffer,
+      createdBy: options?.createdBy,
+    });
   }
 
   async create(createAuditDto: CreateAuditDto, companyId: string) {
@@ -125,6 +167,9 @@ export class AuditsService {
     const audit = await this.findOne(id, companyId);
     Object.assign(audit, updateAuditDto);
     const saved = await this.auditsRepository.save(audit);
+    await this.syncDocumentRegistry(saved, {
+      createdBy: RequestContext.getUserId() || undefined,
+    });
     this.logger.log({
       event: 'audit_updated',
       auditId: saved.id,
@@ -136,11 +181,95 @@ export class AuditsService {
   async remove(id: string, companyId: string) {
     const audit = await this.findOne(id, companyId);
     await this.auditsRepository.remove(audit);
+    await this.documentRegistryService.remove({
+      companyId: audit.company_id,
+      module: 'audit',
+      entityId: audit.id,
+    });
     this.logger.log({
       event: 'audit_removed',
       auditId: audit.id,
       companyId,
     });
+  }
+
+  async attachPdf(
+    id: string,
+    companyId: string,
+    file: Express.Multer.File,
+    userId?: string,
+  ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
+    const audit = await this.findOne(id, companyId);
+    const key = this.s3Service.generateDocumentKey(
+      audit.company_id,
+      'audits',
+      audit.id,
+      file.originalname,
+    );
+
+    try {
+      await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
+    } catch {
+      this.logger.warn(`S3 desabilitado, armazenando referência local: ${key}`);
+    }
+
+    const folder = `audits/${audit.company_id}`;
+    await this.auditsRepository.update(id, {
+      pdf_file_key: key,
+      pdf_folder_path: folder,
+      pdf_original_name: file.originalname,
+    });
+    await this.syncDocumentRegistry(
+      {
+        ...audit,
+        pdf_file_key: key,
+        pdf_folder_path: folder,
+        pdf_original_name: file.originalname,
+      },
+      {
+        fileBuffer: file.buffer,
+        mimeType: file.mimetype,
+        createdBy: userId || RequestContext.getUserId() || undefined,
+      },
+    );
+
+    this.logger.log({
+      event: 'audit_pdf_attached',
+      auditId: audit.id,
+      companyId: audit.company_id,
+      userId,
+      fileKey: key,
+    });
+
+    return { fileKey: key, folderPath: folder, originalName: file.originalname };
+  }
+
+  async getPdfAccess(id: string, companyId: string): Promise<{
+    entityId: string;
+    fileKey: string;
+    folderPath: string;
+    originalName: string;
+    url: string | null;
+  }> {
+    const audit = await this.findOne(id, companyId);
+    if (!audit.pdf_file_key) {
+      throw new NotFoundException(`Auditoria ${id} não possui PDF armazenado`);
+    }
+
+    let url: string | null = null;
+    try {
+      url = await this.s3Service.getSignedUrl(audit.pdf_file_key, 3600);
+    } catch {
+      url = null;
+    }
+
+    return {
+      entityId: audit.id,
+      fileKey: audit.pdf_file_key,
+      folderPath: audit.pdf_folder_path,
+      originalName: audit.pdf_original_name,
+      url,
+    };
   }
 
   async listStoredFiles(filters: WeeklyBundleFilters) {

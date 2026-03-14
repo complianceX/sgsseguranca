@@ -21,6 +21,8 @@ import {
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
 import { S3Service } from '../common/storage/s3.service';
+import { DocumentRegistryService } from '../document-registry/document-registry.service';
+import { RequestContext } from '../common/middleware/request-context.middleware';
 
 @Injectable()
 export class DdsService {
@@ -32,7 +34,45 @@ export class DdsService {
     private tenantService: TenantService,
     private readonly documentBundleService: DocumentBundleService,
     private readonly s3Service: S3Service,
+    private readonly documentRegistryService: DocumentRegistryService,
   ) {}
+
+  private async syncDocumentRegistry(
+    dds: Pick<
+      Dds,
+      | 'id'
+      | 'company_id'
+      | 'tema'
+      | 'data'
+      | 'created_at'
+      | 'pdf_file_key'
+      | 'pdf_folder_path'
+      | 'pdf_original_name'
+    >,
+    options?: {
+      fileBuffer?: Buffer;
+      mimeType?: string;
+      createdBy?: string;
+    },
+  ) {
+    if (!dds.pdf_file_key) {
+      return;
+    }
+
+    await this.documentRegistryService.upsert({
+      companyId: dds.company_id,
+      module: 'dds',
+      entityId: dds.id,
+      title: dds.tema || 'DDS',
+      documentDate: dds.data || dds.created_at,
+      fileKey: dds.pdf_file_key,
+      folderPath: dds.pdf_folder_path,
+      originalName: dds.pdf_original_name,
+      mimeType: options?.mimeType || 'application/pdf',
+      fileBuffer: options?.fileBuffer,
+      createdBy: options?.createdBy,
+    });
+  }
 
   async create(createDdsDto: CreateDdsDto): Promise<Dds> {
     const { participants, company_id, ...rest } = createDdsDto;
@@ -189,6 +229,19 @@ export class DdsService {
       pdf_folder_path: folder,
       pdf_original_name: file.originalname,
     });
+    await this.syncDocumentRegistry(
+      {
+        ...dds,
+        pdf_file_key: key,
+        pdf_folder_path: folder,
+        pdf_original_name: file.originalname,
+      },
+      {
+        fileBuffer: file.buffer,
+        mimeType: file.mimetype,
+        createdBy: RequestContext.getUserId() || undefined,
+      },
+    );
 
     return { fileKey: key, folderPath: folder, originalName: file.originalname };
   }
@@ -252,6 +305,9 @@ export class DdsService {
     }
 
     const saved = await this.ddsRepository.save(dds);
+    await this.syncDocumentRegistry(saved, {
+      createdBy: RequestContext.getUserId() || undefined,
+    });
     this.logger.log({
       event: 'dds_updated',
       ddsId: saved.id,
@@ -263,6 +319,11 @@ export class DdsService {
   async remove(id: string): Promise<void> {
     const dds = await this.findOne(id);
     await this.ddsRepository.softDelete(id);
+    await this.documentRegistryService.remove({
+      companyId: dds.company_id,
+      module: 'dds',
+      entityId: dds.id,
+    });
     this.logger.log({
       event: 'dds_archived',
       ddsId: dds.id,

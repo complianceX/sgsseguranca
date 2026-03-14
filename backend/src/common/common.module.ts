@@ -1,4 +1,5 @@
 import { Module, Global } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { RedisModule } from './redis/redis.module';
 import { TenantService } from './tenant/tenant.service';
 import { TenantDbContextService } from './database/tenant-db-context.service';
@@ -14,10 +15,11 @@ import { TenantRepositoryFactory } from './tenant/tenant-repository';
 import { TenantGuard } from './guards/tenant.guard';
 import { RiskCalculationService } from './services/risk-calculation.service';
 import { DocumentBundleService } from './services/document-bundle.service';
+import { PdfIntegrityRecord } from './entities/pdf-integrity-record.entity';
 
 @Global()
 @Module({
-  imports: [RedisModule],
+  imports: [RedisModule, TypeOrmModule.forFeature([PdfIntegrityRecord])],
   providers: [
     TenantService,
     TenantRepositoryFactory,
@@ -36,6 +38,7 @@ import { DocumentBundleService } from './services/document-bundle.service';
   ],
   exports: [
     RedisModule,
+    TypeOrmModule,
     TenantService,
     TenantRepositoryFactory,
     TenantGuard,

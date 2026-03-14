@@ -35,6 +35,13 @@ type UpsertRegistryInput = {
   documentType?: string;
 };
 
+type RemoveRegistryInput = {
+  companyId: string;
+  module: RegistryModule;
+  entityId: string;
+  documentType?: string;
+};
+
 @Injectable()
 export class DocumentRegistryService {
   constructor(
@@ -76,6 +83,15 @@ export class DocumentRegistryService {
     entity.created_by = input.createdBy || entity.created_by || null;
 
     return this.registryRepository.save(entity);
+  }
+
+  async remove(input: RemoveRegistryInput): Promise<void> {
+    await this.registryRepository.delete({
+      company_id: input.companyId,
+      module: input.module,
+      entity_id: input.entityId,
+      document_type: input.documentType || 'pdf',
+    });
   }
 
   async list(filters: WeeklyBundleFilters & { modules?: string[] }) {

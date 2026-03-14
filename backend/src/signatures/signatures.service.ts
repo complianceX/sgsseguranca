@@ -178,6 +178,58 @@ export class SignaturesService {
     };
   }
 
+  async verifyByHashPublic(signatureHash: string): Promise<{
+    valid: boolean;
+    message?: string;
+    signature?: {
+      hash: string;
+      signed_at?: string;
+      timestamp_authority?: string;
+      document_id?: string;
+      document_type?: string;
+    };
+  }> {
+    const normalizedHash = String(signatureHash || '').trim().toLowerCase();
+    if (!/^[a-f0-9]{64}$/.test(normalizedHash)) {
+      return {
+        valid: false,
+        message: 'Hash SHA-256 inválido.',
+      };
+    }
+
+    const signature = await this.signaturesRepository.findOne({
+      where: { signature_hash: normalizedHash },
+    });
+
+    if (!signature) {
+      return {
+        valid: false,
+        message: 'Assinatura não localizada.',
+      };
+    }
+
+    const valid = Boolean(
+      signature.signature_hash &&
+        signature.timestamp_token &&
+        this.signatureTimestampService.verify(
+          signature.signature_hash,
+          signature.timestamp_token,
+        ),
+    );
+
+    return {
+      valid,
+      message: valid ? 'Assinatura validada com sucesso.' : 'Assinatura localizada, mas inválida.',
+      signature: {
+        hash: signature.signature_hash as string,
+        signed_at: signature.signed_at?.toISOString(),
+        timestamp_authority: signature.timestamp_authority,
+        document_id: signature.document_id,
+        document_type: signature.document_type,
+      },
+    };
+  }
+
   private isPrivilegedRole(roleName?: string | null): boolean {
     if (!roleName) {
       return false;

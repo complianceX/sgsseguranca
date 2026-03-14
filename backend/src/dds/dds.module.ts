@@ -6,9 +6,15 @@ import { Dds } from './entities/dds.entity';
 import { CommonModule } from '../common/common.module';
 import { AuthModule } from '../auth/auth.module';
 import { Company } from '../companies/entities/company.entity';
+import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Dds, Company]), CommonModule, AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([Dds, Company]),
+    CommonModule,
+    AuthModule,
+    DocumentRegistryModule,
+  ],
   controllers: [DdsController],
   providers: [DdsService],
   exports: [DdsService],

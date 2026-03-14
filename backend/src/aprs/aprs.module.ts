@@ -10,6 +10,8 @@ import { CommonModule } from '../common/common.module';
 import { AuthModule } from '../auth/auth.module';
 import { Company } from '../companies/entities/company.entity';
 import { StorageModule } from '../common/storage/storage.module';
+import { DocumentRegistryModule } from '../document-registry/document-registry.module';
+import { PublicAprEvidenceController } from './public-apr-evidence.controller';
 
 @Module({
   imports: [
@@ -23,8 +25,9 @@ import { StorageModule } from '../common/storage/storage.module';
     CommonModule,
     AuthModule,
     StorageModule,
+    DocumentRegistryModule,
   ],
-  controllers: [AprsController],
+  controllers: [AprsController, PublicAprEvidenceController],
   providers: [AprsService],
   exports: [AprsService],
 })

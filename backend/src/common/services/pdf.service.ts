@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
+import { Repository } from 'typeorm';
+import { PdfIntegrityRecord } from '../entities/pdf-integrity-record.entity';
 import { PuppeteerPoolService } from './puppeteer-pool.service';
 import { PdfValidatorService } from './pdf-validator.service';
 
@@ -8,6 +11,8 @@ export class PdfService {
   private readonly logger = new Logger(PdfService.name);
 
   constructor(
+    @InjectRepository(PdfIntegrityRecord)
+    private readonly pdfIntegrityRepository: Repository<PdfIntegrityRecord>,
     private readonly puppeteerPool: PuppeteerPoolService,
     private readonly pdfValidator: PdfValidatorService,
   ) {}
@@ -52,22 +57,57 @@ export class PdfService {
     }
   }
 
-  signAndSave(buffer: Buffer, originalName: string): Promise<string> {
+  async signAndSave(
+    buffer: Buffer,
+    input: {
+      originalName: string;
+      signedByUserId?: string | null;
+      companyId?: string | null;
+    },
+  ): Promise<string> {
     this.pdfValidator.validatePdfBuffer(buffer, 'sign');
     const hash = createHash('sha256').update(buffer).digest('hex');
+    await this.pdfIntegrityRepository.upsert(
+      {
+        hash,
+        original_name: input.originalName || null,
+        signed_by_user_id: input.signedByUserId || null,
+        company_id: input.companyId || null,
+      },
+      ['hash'],
+    );
     this.logger.log({
       event: 'pdf_signed',
-      originalName,
+      originalName: input.originalName,
       hash,
     });
-    return Promise.resolve(hash);
+    return hash;
   }
 
-  verify(hash: string): Promise<{ hash: string; valid: boolean }> {
+  async verify(hash: string): Promise<{
+    hash: string;
+    valid: boolean;
+    originalName?: string | null;
+    signedAt?: string;
+  }> {
     this.logger.log({
       event: 'pdf_verify',
       hash,
     });
-    return Promise.resolve({ hash, valid: false });
+
+    const record = await this.pdfIntegrityRepository.findOne({
+      where: { hash },
+    });
+
+    if (!record) {
+      return { hash, valid: false };
+    }
+
+    return {
+      hash,
+      valid: true,
+      originalName: record.original_name,
+      signedAt: record.created_at?.toISOString(),
+    };
   }
 }

@@ -10,6 +10,7 @@ import { TrainingsModule } from '../trainings/trainings.module';
 import { User } from '../users/entities/user.entity';
 import { AuditModule } from '../audit/audit.module';
 import { UsersModule } from '../users/users.module';
+import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { UsersModule } from '../users/users.module';
     TrainingsModule,
     AuditModule,
     UsersModule,
+    DocumentRegistryModule,
   ],
   controllers: [PtsController],
   providers: [PtsService],

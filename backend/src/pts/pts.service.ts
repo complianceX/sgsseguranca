@@ -29,6 +29,7 @@ import {
   DocumentBundleService,
   WeeklyBundleFilters,
 } from '../common/services/document-bundle.service';
+import { DocumentRegistryService } from '../document-registry/document-registry.service';
 
 @Injectable()
 export class PtsService {
@@ -51,7 +52,46 @@ export class PtsService {
     private readonly workerOperationalStatusService: WorkerOperationalStatusService,
     private readonly documentBundleService: DocumentBundleService,
     private readonly s3Service: S3Service,
+    private readonly documentRegistryService: DocumentRegistryService,
   ) {}
+
+  private async syncDocumentRegistry(
+    pt: Pick<
+      Pt,
+      | 'id'
+      | 'company_id'
+      | 'titulo'
+      | 'numero'
+      | 'data_hora_inicio'
+      | 'created_at'
+      | 'pdf_file_key'
+      | 'pdf_folder_path'
+      | 'pdf_original_name'
+    >,
+    options?: {
+      fileBuffer?: Buffer;
+      mimeType?: string;
+      createdBy?: string;
+    },
+  ) {
+    if (!pt.pdf_file_key) {
+      return;
+    }
+
+    await this.documentRegistryService.upsert({
+      companyId: pt.company_id,
+      module: 'pt',
+      entityId: pt.id,
+      title: pt.titulo || pt.numero || 'PT',
+      documentDate: pt.data_hora_inicio || pt.created_at,
+      fileKey: pt.pdf_file_key,
+      folderPath: pt.pdf_folder_path,
+      originalName: pt.pdf_original_name,
+      mimeType: options?.mimeType || 'application/pdf',
+      fileBuffer: options?.fileBuffer,
+      createdBy: options?.createdBy,
+    });
+  }
 
   async create(createPtDto: CreatePtDto): Promise<Pt> {
     const { executantes, ...rest } = createPtDto;
@@ -173,6 +213,9 @@ export class PtsService {
     }
 
     const saved = await this.ptsRepository.save(pt);
+    await this.syncDocumentRegistry(saved, {
+      createdBy: RequestContext.getUserId() || undefined,
+    });
     this.logger.log({
       event: 'pt_updated',
       ptId: saved.id,
@@ -206,6 +249,19 @@ export class PtsService {
       pdf_folder_path: folder,
       pdf_original_name: file.originalname,
     });
+    await this.syncDocumentRegistry(
+      {
+        ...pt,
+        pdf_file_key: key,
+        pdf_folder_path: folder,
+        pdf_original_name: file.originalname,
+      },
+      {
+        fileBuffer: file.buffer,
+        mimeType: file.mimetype,
+        createdBy: userId || RequestContext.getUserId() || undefined,
+      },
+    );
     this.logger.log({ event: 'pt_pdf_anexado', ptId: id, userId, fileKey: key });
 
     return { fileKey: key, folderPath: folder, originalName: file.originalname };
@@ -292,8 +348,13 @@ export class PtsService {
   }
 
   async remove(id: string): Promise<void> {
-    await this.findOne(id);
+    const pt = await this.findOne(id);
     await this.ptsRepository.softDelete(id);
+    await this.documentRegistryService.remove({
+      companyId: pt.company_id,
+      module: 'pt',
+      entityId: pt.id,
+    });
     this.logger.log({ event: 'pt_soft_deleted', ptId: id });
   }
 

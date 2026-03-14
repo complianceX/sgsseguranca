@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   NotFoundException,
   Param,
@@ -112,9 +113,12 @@ export class ReportsController {
   @Get('status/:jobId')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_dashboard')
-  async getStatus(@Param('jobId') jobId: string) {
+  async getStatus(
+    @Param('jobId') jobId: string,
+    @Request() req: { user: { company_id?: string; companyId?: string; userId?: string } },
+  ) {
     const job = await this.pdfQueue.getJob(jobId);
-    if (!job) {
+    if (!job || !this.isJobVisibleToRequest(job, req.user)) {
       throw new NotFoundException();
     }
     const state = await job.getState();
@@ -124,21 +128,42 @@ export class ReportsController {
   @Get('queue/stats')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_dashboard')
-  async getQueueStats() {
-    const counts = await this.pdfQueue.getJobCounts(
-      'active',
-      'wait',
-      'completed',
-      'failed',
-      'delayed',
+  async getQueueStats(
+    @Request() req: { user: { company_id?: string; companyId?: string; userId?: string } },
+  ) {
+    const jobs = await this.getVisibleJobsForRequest(req.user);
+    const counts = jobs.reduce(
+      (acc, job) => {
+        switch (job.state) {
+          case 'active':
+            acc.active += 1;
+            break;
+          case 'waiting':
+            acc.waiting += 1;
+            break;
+          case 'completed':
+            acc.completed += 1;
+            break;
+          case 'failed':
+            acc.failed += 1;
+            break;
+          case 'delayed':
+            acc.delayed += 1;
+            break;
+          default:
+            break;
+        }
+        return acc;
+      },
+      { active: 0, waiting: 0, completed: 0, failed: 0, delayed: 0 },
     );
 
     return {
-      active: counts.active || 0,
-      waiting: counts.wait || 0,
-      completed: counts.completed || 0,
-      failed: counts.failed || 0,
-      delayed: counts.delayed || 0,
+      active: counts.active,
+      waiting: counts.waiting,
+      completed: counts.completed,
+      failed: counts.failed,
+      delayed: counts.delayed,
       total: Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0),
     };
   }
@@ -148,31 +173,24 @@ export class ReportsController {
   @Authorize('can_view_dashboard')
   async listJobs(
     @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit: number,
+    @Request() req: { user: { company_id?: string; companyId?: string; userId?: string } },
   ) {
     const safeLimit = Math.max(1, Math.min(limit, 30));
-    const jobs = await this.pdfQueue.getJobs(
-      ['active', 'wait', 'completed', 'failed', 'delayed'],
-      0,
-      safeLimit - 1,
-      true,
-    );
+    const jobs = await this.getVisibleJobsForRequest(req.user, safeLimit);
 
-    const items = await Promise.all(
-      jobs.map(async (job) => ({
-        id: String(job.id),
-        name: job.name,
-        state: await job.getState(),
-        createdAt: job.timestamp ? new Date(job.timestamp).toISOString() : null,
-        finishedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
-        failedReason: job.failedReason || null,
-        attemptsMade: job.attemptsMade,
-        reportType: job.data?.reportType || null,
-        month: job.data?.params?.month || null,
-        year: job.data?.params?.year || null,
-        companyId: job.data?.companyId || null,
-        result: job.returnvalue ?? null,
-      })),
-    );
+    const items = jobs.map(({ job, state }) => ({
+      id: String(job.id),
+      name: job.name,
+      state,
+      createdAt: job.timestamp ? new Date(job.timestamp).toISOString() : null,
+      finishedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
+      failedReason: job.failedReason || null,
+      attemptsMade: job.attemptsMade,
+      reportType: job.data?.reportType || null,
+      month: job.data?.params?.month || null,
+      year: job.data?.params?.year || null,
+      result: job.returnvalue ?? null,
+    }));
 
     return { items };
   }
@@ -182,5 +200,52 @@ export class ReportsController {
   @Authorize('can_view_dashboard')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.reportsService.findOne(id);
+  }
+
+  private async getVisibleJobsForRequest(
+    user: { company_id?: string; companyId?: string; userId?: string },
+    limit?: number,
+  ) {
+    const jobs = await this.pdfQueue.getJobs(
+      ['active', 'wait', 'completed', 'failed', 'delayed'],
+      0,
+      -1,
+      true,
+    );
+
+    const visible = await Promise.all(
+      jobs.map(async (job) => ({
+        job,
+        state: await job.getState(),
+      })),
+    );
+
+    const filtered = visible
+      .filter(({ job }) => this.isJobVisibleToRequest(job, user))
+      .sort((left, right) => (right.job.timestamp || 0) - (left.job.timestamp || 0));
+
+    if (typeof limit === 'number') {
+      return filtered.slice(0, limit);
+    }
+
+    return filtered;
+  }
+
+  private isJobVisibleToRequest(
+    job: {
+      data?: { companyId?: string; userId?: string };
+    },
+    user: { company_id?: string; companyId?: string; userId?: string },
+  ) {
+    const tenantCompanyId = user.company_id || user.companyId;
+    if (tenantCompanyId) {
+      return job.data?.companyId === tenantCompanyId;
+    }
+
+    if (user.userId) {
+      return job.data?.userId === user.userId;
+    }
+
+    throw new ForbiddenException('Contexto de tenant não resolvido para consultar a fila.');
   }
 }
