@@ -2,6 +2,10 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/layout';
 import { buildApiUrl } from '@/lib/api';
 
 type VerifyMode = 'evidence' | 'signature' | 'code';
@@ -69,16 +73,18 @@ interface CodeVerifyResponse {
   };
 }
 
+const modeLabels: Record<VerifyMode, string> = {
+  evidence: 'Evidência APR',
+  signature: 'Assinatura PDF',
+  code: 'Código do documento',
+};
+
 export default function PublicHashVerifyPage() {
   const [mode, setMode] = useState<VerifyMode>('code');
   const [hash, setHash] = useState('');
   const [loading, setLoading] = useState(false);
-  const [evidenceResult, setEvidenceResult] = useState<EvidenceVerifyResponse | null>(
-    null,
-  );
-  const [signatureResult, setSignatureResult] = useState<SignatureVerifyResponse | null>(
-    null,
-  );
+  const [evidenceResult, setEvidenceResult] = useState<EvidenceVerifyResponse | null>(null);
+  const [signatureResult, setSignatureResult] = useState<SignatureVerifyResponse | null>(null);
   const [codeResult, setCodeResult] = useState<CodeVerifyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,9 +117,7 @@ export default function PublicHashVerifyPage() {
       try {
         setLoading(true);
         const response = await fetch(
-          resolvePublicUrl(
-            `/public/inspections/validate?code=${encodeURIComponent(code)}`,
-          ),
+          resolvePublicUrl(`/public/inspections/validate?code=${encodeURIComponent(code)}`),
           { method: 'GET', cache: 'no-store' },
         );
         const data = (await response.json()) as CodeVerifyResponse;
@@ -139,25 +143,15 @@ export default function PublicHashVerifyPage() {
       setLoading(true);
       if (targetMode === 'evidence') {
         const response = await fetch(
-          resolvePublicUrl(
-            `/public/evidence/verify?hash=${encodeURIComponent(normalizedHash)}`,
-          ),
-          {
-            method: 'GET',
-            cache: 'no-store',
-          },
+          resolvePublicUrl(`/public/evidence/verify?hash=${encodeURIComponent(normalizedHash)}`),
+          { method: 'GET', cache: 'no-store' },
         );
         const data = (await response.json()) as EvidenceVerifyResponse;
         setEvidenceResult(data);
       } else {
         const response = await fetch(
-          resolvePublicUrl(
-            `/public/signature/verify?hash=${encodeURIComponent(normalizedHash)}`,
-          ),
-          {
-            method: 'GET',
-            cache: 'no-store',
-          },
+          resolvePublicUrl(`/public/signature/verify?hash=${encodeURIComponent(normalizedHash)}`),
+          { method: 'GET', cache: 'no-store' },
         );
         const data = (await response.json()) as SignatureVerifyResponse;
         setSignatureResult(data);
@@ -178,9 +172,7 @@ export default function PublicHashVerifyPage() {
     const params = new URLSearchParams(window.location.search);
     const hashParam = params.get('hash');
     const codeParam = params.get('code');
-    const requestedMode =
-      normalizeVerifyMode(params.get('type')) ??
-      normalizeVerifyMode(params.get('mode'));
+    const requestedMode = normalizeVerifyMode(params.get('type')) ?? normalizeVerifyMode(params.get('mode'));
     if (codeParam) {
       setHash(codeParam);
       setMode('code');
@@ -188,10 +180,7 @@ export default function PublicHashVerifyPage() {
       return;
     }
     if (hashParam) {
-      const targetMode =
-        requestedMode === 'signature' || requestedMode === 'evidence'
-          ? requestedMode
-          : 'evidence';
+      const targetMode = requestedMode === 'signature' || requestedMode === 'evidence' ? requestedMode : 'evidence';
       setHash(hashParam);
       setMode(targetMode);
       void runVerify(hashParam, targetMode);
@@ -207,147 +196,133 @@ export default function PublicHashVerifyPage() {
 
   return (
     <main className="min-h-screen bg-[var(--ds-color-bg-subtle)] px-4 py-10">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <section className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
-          <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">Validação Pública por Hash</h1>
-          <p className="mt-1 text-[13px] text-[var(--ds-color-text-secondary)]">
-            Consulte autenticidade por código do documento ou por hash SHA-256.
-          </p>
+      <div className="mx-auto max-w-4xl space-y-6">
+        <PageHeader
+          eyebrow="Validação pública"
+          title="Autenticidade documental"
+          description="Consulte autenticidade por código do documento ou por hash previamente registrado no backend real do sistema."
+          icon={<ShieldCheck className="h-5 w-5" />}
+        />
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <Card>
+          <CardHeader className="space-y-3">
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('evidence');
-                  resetResults();
-                }}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold ${
-                  mode === 'evidence'
-                    ? 'bg-[var(--ds-color-action-primary)] text-white'
-                    : 'bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]'
-                }`}
-              >
-                Evidência APR
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('signature');
-                  resetResults();
-                }}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold ${
-                  mode === 'signature'
-                    ? 'bg-[var(--ds-color-success)] text-white'
-                    : 'bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]'
-                }`}
-              >
-                Assinatura PDF
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('code');
-                  resetResults();
-                }}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold ${
-                  mode === 'code'
-                    ? 'bg-[var(--ds-color-focus)] text-white'
-                    : 'bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]'
-                }`}
-              >
-                Código do documento
-              </button>
+              {(['evidence', 'signature', 'code'] as VerifyMode[]).map((item) => (
+                <Button
+                  key={item}
+                  type="button"
+                  variant={mode === item ? 'default' : 'secondary'}
+                  size="sm"
+                  onClick={() => {
+                    setMode(item);
+                    resetResults();
+                  }}
+                >
+                  {modeLabels[item]}
+                </Button>
+              ))}
             </div>
-
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={hash}
-                onChange={(e) => setHash(e.target.value)}
-                placeholder={
-                  mode === 'code'
-                  ? 'Cole o código (ex.: INS-2026-22D77ACC)'
-                    : 'Cole o hash SHA-256'
-                }
-                className="w-full rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-[13px] text-[var(--ds-color-text-primary)]"
-              />
-              <button
-                type="submit"
-                disabled={loading}
-                className="inline-flex items-center gap-1 rounded-lg bg-[var(--ds-color-action-secondary)] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
-              >
-                <Search className="h-4 w-4" />
-                {loading ? 'Consultando...' : 'Validar'}
-              </button>
-            </div>
-          </form>
-        </section>
-
-        {(error || evidenceResult || signatureResult || codeResult) && (
-          <section className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
-            {error ? (
-              <div className="flex items-start gap-2 text-[var(--ds-color-danger)]">
-                <ShieldAlert className="mt-0.5 h-5 w-5" />
-                <p className="text-[13px] font-medium">{error}</p>
+            <CardDescription>
+              {mode === 'code'
+                ? 'Use o código público do documento para validar inspeções publicadas.'
+                : 'Use o hash SHA-256 do artefato registrado para consultar autenticidade.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Input
+                  type="text"
+                  value={hash}
+                  onChange={(e) => setHash(e.target.value)}
+                  placeholder={
+                    mode === 'code'
+                      ? 'Cole o código (ex.: INS-2026-22D77ACC)'
+                      : 'Cole o hash SHA-256'
+                  }
+                  aria-label={mode === 'code' ? 'Código do documento' : 'Hash SHA-256'}
+                  className="flex-1"
+                />
+                <Button type="submit" disabled={loading} className="sm:min-w-[10rem]">
+                  <Search className="h-4 w-4" />
+                  {loading ? 'Consultando...' : 'Validar'}
+                </Button>
               </div>
-            ) : isValid ? (
-              <div className="space-y-3">
-                <div className="flex items-start gap-2 text-[var(--ds-color-success)]">
-                  <ShieldCheck className="mt-0.5 h-5 w-5" />
-                  <p className="text-[13px] font-semibold">Registro validado com sucesso.</p>
+            </form>
+          </CardContent>
+        </Card>
+
+        {(error || evidenceResult || signatureResult || codeResult) ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Resultado da validação
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {error ? (
+                <div className="flex items-start gap-2 text-[var(--ds-color-danger)]">
+                  <ShieldAlert className="mt-0.5 h-5 w-5" />
+                  <p className="text-[13px] font-medium">{error}</p>
                 </div>
-
-                {mode === 'code' && codeResult?.inspection && (
-                  <div className="rounded-lg bg-[color:var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
-                    <p>Código: {codeResult.code}</p>
-                    <p>Inspeção: {codeResult.inspection.id}</p>
-                    <p>Tipo: {codeResult.inspection.tipo_inspecao || '-'}</p>
-                    <p>Setor/Área: {codeResult.inspection.setor_area || '-'}</p>
-                    <p>Data: {codeResult.inspection.data_inspecao || '-'}</p>
-                    <p>Última atualização: {codeResult.inspection.updated_at || '-'}</p>
+              ) : isValid ? (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2 text-[var(--ds-color-success)]">
+                    <ShieldCheck className="mt-0.5 h-5 w-5" />
+                    <p className="text-[13px] font-semibold">Registro validado com sucesso.</p>
                   </div>
-                )}
 
-                {mode === 'evidence' && evidenceResult?.evidence && (
-                  <div className="rounded-lg bg-[color:var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
-                    <p>APR: {evidenceResult.evidence.apr_numero || '-'}</p>
-                    <p>Versão: {evidenceResult.evidence.apr_versao ?? '-'}</p>
-                    <p>
-                      Item de risco:{' '}
-                      {typeof evidenceResult.evidence.risk_item_ordem === 'number'
-                        ? `#${evidenceResult.evidence.risk_item_ordem + 1}`
-                        : '-'}
-                    </p>
-                    <p>Upload: {evidenceResult.evidence.uploaded_at || '-'}</p>
-                    <p>Tipo de hash: {evidenceResult.matchedIn || '-'}</p>
-                  </div>
-                )}
+                  {mode === 'code' && codeResult?.inspection ? (
+                    <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
+                      <p>Código: {codeResult.code}</p>
+                      <p>Inspeção: {codeResult.inspection.id}</p>
+                      <p>Tipo: {codeResult.inspection.tipo_inspecao || '-'}</p>
+                      <p>Setor/Área: {codeResult.inspection.setor_area || '-'}</p>
+                      <p>Data: {codeResult.inspection.data_inspecao || '-'}</p>
+                      <p>Última atualização: {codeResult.inspection.updated_at || '-'}</p>
+                    </div>
+                  ) : null}
 
-                {mode === 'signature' && signatureResult?.signature && (
-                  <div className="rounded-lg bg-[color:var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
-                    <p>Documento: {signatureResult.signature.document_type || '-'}</p>
-                    <p>ID do documento: {signatureResult.signature.document_id || '-'}</p>
-                    <p>Assinado em: {signatureResult.signature.signed_at || '-'}</p>
-                    <p>Autoridade: {signatureResult.signature.timestamp_authority || '-'}</p>
-                    <p>Hash: {signatureResult.signature.hash}</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-start gap-2 text-[var(--ds-color-warning)]">
-                <ShieldAlert className="mt-0.5 h-5 w-5" />
-                <p className="text-[13px] font-medium">
-                  {mode === 'evidence'
-                    ? evidenceResult?.message || 'Hash não localizado.'
-                    : mode === 'signature'
-                      ? signatureResult?.message || 'Assinatura não localizada.'
-                      : codeResult?.message || 'Documento não localizado.'}
-                </p>
-              </div>
-            )}
-          </section>
-        )}
+                  {mode === 'evidence' && evidenceResult?.evidence ? (
+                    <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
+                      <p>APR: {evidenceResult.evidence.apr_numero || '-'}</p>
+                      <p>Versão: {evidenceResult.evidence.apr_versao ?? '-'}</p>
+                      <p>
+                        Item de risco:{' '}
+                        {typeof evidenceResult.evidence.risk_item_ordem === 'number'
+                          ? `#${evidenceResult.evidence.risk_item_ordem + 1}`
+                          : '-'}
+                      </p>
+                      <p>Upload: {evidenceResult.evidence.uploaded_at || '-'}</p>
+                      <p>Tipo de hash: {evidenceResult.matchedIn || '-'}</p>
+                    </div>
+                  ) : null}
+
+                  {mode === 'signature' && signatureResult?.signature ? (
+                    <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
+                      <p>Documento: {signatureResult.signature.document_type || '-'}</p>
+                      <p>ID do documento: {signatureResult.signature.document_id || '-'}</p>
+                      <p>Assinado em: {signatureResult.signature.signed_at || '-'}</p>
+                      <p>Autoridade: {signatureResult.signature.timestamp_authority || '-'}</p>
+                      <p>Hash: {signatureResult.signature.hash}</p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="flex items-start gap-2 text-[var(--ds-color-warning)]">
+                  <ShieldAlert className="mt-0.5 h-5 w-5" />
+                  <p className="text-[13px] font-medium">
+                    {mode === 'evidence'
+                      ? evidenceResult?.message || 'Hash não localizado.'
+                      : mode === 'signature'
+                        ? signatureResult?.message || 'Assinatura não localizada.'
+                        : codeResult?.message || 'Documento não localizado.'}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
 
         <p className="flex items-center gap-1 text-[11px] text-[var(--ds-color-text-muted)]">
           <CheckCircle2 className="h-3.5 w-3.5" />

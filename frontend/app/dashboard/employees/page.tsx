@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useDeferredValue, useMemo } from 'react';
-import { usersService, User } from '@/services/usersService';
+import Link from 'next/link';
 import {
   Building2,
   Clock3,
@@ -13,30 +13,13 @@ import {
   Trash2,
   UserRound,
 } from 'lucide-react';
-import Link from 'next/link';
 import { toast } from 'sonner';
+import { usersService, User } from '@/services/usersService';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  EmptyState,
-  ErrorState,
-  PageLoadingState,
-} from '@/components/ui/state';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 
 const searchInputClassName =
@@ -64,9 +47,9 @@ export default function EmployeesPage() {
       setTotal(res.total);
       setLastPage(res.lastPage);
     } catch (error) {
-      console.error('Erro ao carregar funcionários:', error);
+      console.error('Erro ao carregar funcionarios:', error);
       setLoadError('Nao foi possivel carregar a lista de funcionarios.');
-      toast.error('Erro ao carregar lista de funcionários.');
+      toast.error('Erro ao carregar lista de funcionarios.');
     } finally {
       setLoading(false);
     }
@@ -77,19 +60,19 @@ export default function EmployeesPage() {
   }, [deferredSearchTerm]);
 
   useEffect(() => {
-    loadEmployees();
+    void loadEmployees();
   }, [loadEmployees]);
 
   async function handleDelete(id: string) {
-    if (!confirm('Tem certeza que deseja excluir este funcionário?')) return;
+    if (!confirm('Tem certeza que deseja excluir este funcionario?')) return;
 
     try {
       await usersService.delete(id);
       setEmployees((current) => current.filter((employee) => employee.id !== id));
-      toast.success('Funcionário excluído com sucesso.');
+      toast.success('Funcionario excluido com sucesso.');
     } catch (error) {
-      console.error('Erro ao excluir funcionário:', error);
-      toast.error('Erro ao excluir funcionário. Verifique se existem dependências.');
+      console.error('Erro ao excluir funcionario:', error);
+      toast.error('Erro ao excluir funcionario. Verifique se existem dependencias.');
     }
   }
 
@@ -113,8 +96,8 @@ export default function EmployeesPage() {
   if (loading) {
     return (
       <PageLoadingState
-        title="Carregando funcionários"
-        description="Buscando colaboradores, vínculos com empresa e obra, e controles de cadastro."
+        title="Carregando funcionarios"
+        description="Buscando colaboradores, vinculos com empresa e obra, e controles de cadastro."
         cards={4}
         tableRows={6}
       />
@@ -124,7 +107,7 @@ export default function EmployeesPage() {
   if (loadError) {
     return (
       <ErrorState
-        title="Falha ao carregar funcionários"
+        title="Falha ao carregar funcionarios"
         description={loadError}
         action={
           <Button type="button" onClick={loadEmployees}>
@@ -136,206 +119,59 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div className="ds-crud-page">
-      <Card tone="elevated" padding="lg" className="ds-crud-hero">
-        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
-          <div className="ds-crud-hero__lead">
-            <div className="ds-crud-hero__icon">
-              <UserRound className="h-5 w-5" />
-            </div>
-            <div className="ds-crud-hero__copy">
-              <span className="ds-crud-hero__eyebrow">Base de pessoas</span>
-              <CardTitle className="text-2xl">Funcionários</CardTitle>
-              <CardDescription>
-                Gerencie colaboradores por empresa, obra/setor e contexto operacional.
-              </CardDescription>
-            </div>
-          </div>
-          <Link
-            href="/dashboard/employees/new"
-            className={cn(buttonVariants(), 'inline-flex items-center')}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Novo funcionário
-          </Link>
-        </CardHeader>
-      </Card>
-
-      <div className="ds-crud-stats xl:grid-cols-4">
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Funcionários no recorte</CardDescription>
-            <CardTitle className="ds-crud-stat__value">{total}</CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Colaboradores operacionais visíveis nesta página.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--primary">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Empresas no recorte</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-action-primary)]">
-              {summary.companies}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Diversidade de vínculo empresarial na amostra.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Vinculados à obra</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
-              {summary.withSite}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Colaboradores com contexto de campo definido.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--warning">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Sem obra vinculada</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-warning)]">
-              {summary.withoutSite}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Pendências de alocação operacional.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-
-      <Card tone="default" padding="none" className="ds-crud-filter-card">
-        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <CardTitle>Base de funcionários</CardTitle>
-            <CardDescription>
-              {displayedEmployees.length} registro(s) visíveis nesta página, com administrador geral oculto da visão operacional.
-            </CardDescription>
-          </div>
-          <div className="ds-crud-search">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
-            <input
-              type="text"
-              placeholder="Pesquisar por nome ou CPF"
-              aria-label="Pesquisar funcionários por nome ou CPF"
-              className={searchInputClassName}
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
-          </div>
-        </CardHeader>
-
-        <CardContent className="mt-0">
-          {displayedEmployees.length === 0 ? (
-            <div className="p-5">
-              <EmptyState
-                title="Nenhum funcionário encontrado"
-                description={
-                  deferredSearchTerm
-                    ? 'Nenhum colaborador corresponde ao filtro aplicado.'
-                    : 'Ainda não existem funcionários operacionais cadastrados para este tenant.'
-                }
-                action={
-                  !deferredSearchTerm ? (
-                    <Link
-                      href="/dashboard/employees/new"
-                      className={cn(buttonVariants(), 'inline-flex items-center')}
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Novo funcionário
-                    </Link>
-                  ) : undefined
-                }
-              />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>CPF</TableHead>
-                  <TableHead>Função</TableHead>
-                  <TableHead>Empresa</TableHead>
-                  <TableHead>Obra/Setor</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {displayedEmployees.map((employee) => (
-                  <TableRow key={employee.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
-                          <UserRound className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <div className="font-medium text-[var(--ds-color-text-primary)]">
-                            {employee.nome}
-                          </div>
-                          <div className="text-xs text-[var(--ds-color-text-muted)]">
-                            Perfil {employee.profile?.nome ?? 'Não definido'}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{employee.cpf}</TableCell>
-                    <TableCell className="text-[var(--ds-color-text-secondary)]">
-                      {employee.funcao || '—'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
-                        <Building2 className="h-4 w-4 text-[var(--ds-color-text-muted)]" />
-                        <span>{employee.company?.razao_social || 'N/A'}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
-                        <MapIcon className="h-4 w-4 text-[var(--ds-color-text-muted)]" />
-                        <span>
-                          {employee.site?.nome || (
-                            <span className="text-[var(--ds-color-text-muted)]">Não vinculada</span>
-                          )}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Link
-                          href={`/dashboard/employees/${employee.id}`}
-                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
-                          title="Editar funcionário"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Link>
-                        <Link
-                          href={`/dashboard/workers/timeline?cpf=${employee.cpf ?? ''}`}
-                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
-                          title="Abrir timeline operacional"
-                        >
-                          <Clock3 className="h-4 w-4" />
-                        </Link>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleDelete(employee.id)}
-                          title="Excluir funcionário"
-                          className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-
-        {displayedEmployees.length > 0 ? (
+    <ListPageLayout
+      eyebrow="Base de pessoas"
+      title="Funcionarios"
+      description="Gerencie colaboradores por empresa, obra/setor e contexto operacional."
+      icon={<UserRound className="h-5 w-5" />}
+      actions={
+        <Link href="/dashboard/employees/new" className={buttonVariants()}>
+          <Plus className="mr-2 h-4 w-4" />
+          Novo funcionario
+        </Link>
+      }
+      metrics={[
+        {
+          label: 'Funcionarios no recorte',
+          value: total,
+          note: 'Colaboradores visiveis nesta pagina.',
+        },
+        {
+          label: 'Empresas no recorte',
+          value: summary.companies,
+          note: 'Diversidade de vinculo empresarial.',
+          tone: 'primary',
+        },
+        {
+          label: 'Vinculados a obra',
+          value: summary.withSite,
+          note: 'Colaboradores com contexto de campo definido.',
+          tone: 'success',
+        },
+        {
+          label: 'Sem obra vinculada',
+          value: summary.withoutSite,
+          note: 'Pendencias de alocacao operacional.',
+          tone: 'warning',
+        },
+      ]}
+      toolbarTitle="Base de funcionarios"
+      toolbarDescription={`${displayedEmployees.length} registro(s) visiveis nesta pagina, com administrador geral oculto da visao operacional.`}
+      toolbarContent={
+        <div className="ds-list-search">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
+          <input
+            type="text"
+            placeholder="Pesquisar por nome ou CPF"
+            aria-label="Pesquisar funcionarios por nome ou CPF"
+            className={searchInputClassName}
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+          />
+        </div>
+      }
+      footer={
+        displayedEmployees.length > 0 ? (
           <PaginationControls
             page={page}
             lastPage={lastPage}
@@ -343,22 +179,130 @@ export default function EmployeesPage() {
             onPrev={() => setPage((current) => Math.max(1, current - 1))}
             onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
           />
-        ) : null}
-      </Card>
-
-      {summary.withoutSite > 0 ? (
-        <Card tone="muted" padding="md" className="ds-crud-callout ds-crud-callout--warning">
-          <CardHeader className="gap-2">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-[var(--ds-color-warning)]" />
-              <CardTitle className="text-base">Atenção operacional</CardTitle>
+        ) : null
+      }
+    >
+      <div className="space-y-4">
+        {summary.withoutSite > 0 ? (
+          <div className="mx-4 mt-4 rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-warning)]/20 bg-[color:var(--ds-color-warning-subtle)]/70 px-4 py-3">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-4 w-4 text-[var(--ds-color-warning)]" />
+              <div>
+                <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Atencao operacional</p>
+                <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                  Ha {summary.withoutSite} colaborador(es) sem obra/setor vinculado nesta pagina. Revise a alocacao para evitar inconsistencias em APR, PT e relatorios por obra.
+                </p>
+              </div>
             </div>
-            <CardDescription>
-              Há {summary.withoutSite} colaborador(es) sem obra/setor vinculado nesta página. Revise a alocação para evitar inconsistências em APR, PT e relatórios por obra.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : null}
-    </div>
+          </div>
+        ) : null}
+
+        {displayedEmployees.length === 0 ? (
+          <div className="p-6">
+            <EmptyState
+              title="Nenhum funcionario encontrado"
+              description={
+                deferredSearchTerm
+                  ? 'Nenhum colaborador corresponde ao filtro aplicado.'
+                  : 'Ainda nao existem funcionarios operacionais cadastrados para este tenant.'
+              }
+              action={
+                !deferredSearchTerm ? (
+                  <Link
+                    href="/dashboard/employees/new"
+                    className={cn(buttonVariants(), 'inline-flex items-center')}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Novo funcionario
+                  </Link>
+                ) : undefined
+              }
+            />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>CPF</TableHead>
+                <TableHead>Funcao</TableHead>
+                <TableHead>Empresa</TableHead>
+                <TableHead>Obra/Setor</TableHead>
+                <TableHead className="text-right">Acoes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {displayedEmployees.map((employee) => (
+                <TableRow key={employee.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--ds-color-action-primary)]/12 text-[var(--ds-color-action-primary)]">
+                        <UserRound className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className="font-medium text-[var(--ds-color-text-primary)]">
+                          {employee.nome}
+                        </div>
+                        <div className="text-xs text-[var(--ds-color-text-muted)]">
+                          Perfil {employee.profile?.nome ?? 'Nao definido'}
+                        </div>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{employee.cpf}</TableCell>
+                  <TableCell className="text-[var(--ds-color-text-secondary)]">
+                    {employee.funcao || '-'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
+                      <Building2 className="h-4 w-4 text-[var(--ds-color-text-muted)]" />
+                      <span>{employee.company?.razao_social || 'N/A'}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
+                      <MapIcon className="h-4 w-4 text-[var(--ds-color-text-muted)]" />
+                      <span>
+                        {employee.site?.nome || (
+                          <span className="text-[var(--ds-color-text-muted)]">Nao vinculada</span>
+                        )}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Link
+                        href={`/dashboard/employees/${employee.id}`}
+                        className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                        title="Editar funcionario"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Link>
+                      <Link
+                        href={`/dashboard/workers/timeline?cpf=${employee.cpf ?? ''}`}
+                        className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                        title="Abrir timeline operacional"
+                      >
+                        <Clock3 className="h-4 w-4" />
+                      </Link>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleDelete(employee.id)}
+                        title="Excluir funcionario"
+                        className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+    </ListPageLayout>
   );
 }

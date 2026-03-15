@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { usePts } from './hooks/usePts';
-import { FileSpreadsheet, Plus } from 'lucide-react';
-import { downloadExcel } from '@/lib/download-excel';
+import { useEffect, useMemo, useState } from 'react';
+import { FileLock2, FileSpreadsheet, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { downloadExcel } from '@/lib/download-excel';
+import { usePts } from './hooks/usePts';
 import { PtsFilters } from './components/PtsFilters';
 import { PtsTable } from './components/PtsTable';
 import { PtsInsights } from './components/PtsInsights';
@@ -14,17 +14,8 @@ import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { ptsService } from '@/services/ptsService';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  ErrorState,
-  PageLoadingState,
-} from '@/components/ui/state';
+import { ErrorState, PageLoadingState } from '@/components/ui/state';
+import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 
 export default function PtsPage() {
@@ -88,6 +79,14 @@ export default function PtsPage() {
     );
   }, []);
 
+  const metrics = useMemo(() => {
+    const approved = filteredPts.filter((pt) => pt.status === 'Aprovada').length;
+    const pending = filteredPts.filter((pt) => pt.status === 'Pendente').length;
+    const finalized = filteredPts.filter((pt) => Boolean(pt.pdf_file_key)).length;
+
+    return { approved, pending, finalized };
+  }, [filteredPts]);
+
   if (loading) {
     return (
       <PageLoadingState
@@ -114,16 +113,14 @@ export default function PtsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-2">
-            <CardTitle className="text-2xl">Permissão de Trabalho (PT)</CardTitle>
-            <CardDescription>
-              Gerencie permissões emitidas, acompanhe aprovações e rastreie documentos operacionais.
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+    <>
+      <ListPageLayout
+        eyebrow="Permissão operacional"
+        title="Permissão de Trabalho (PT)"
+        description="Gerencie permissões emitidas, acompanhe aprovações e rastreie documentos operacionais em uma visão mais limpa e direta."
+        icon={<FileLock2 className="h-5 w-5" />}
+        actions={
+          <>
             <Button
               type="button"
               variant="outline"
@@ -148,26 +145,63 @@ export default function PtsPage() {
               <Plus className="mr-2 h-4 w-4" />
               Nova PT
             </Link>
-          </div>
-        </CardHeader>
-      </Card>
+          </>
+        }
+        metrics={[
+          {
+            label: 'PTs visíveis',
+            value: filteredPts.length,
+            note: `${total} registro(s) no recorte atual.`,
+          },
+          {
+            label: 'Pendentes',
+            value: metrics.pending,
+            note: 'Aguardando avanço ou aprovação.',
+            tone: 'warning',
+          },
+          {
+            label: 'Aprovadas',
+            value: metrics.approved,
+            note: 'PTs prontas para governança final.',
+            tone: 'success',
+          },
+          {
+            label: 'Com PDF final',
+            value: metrics.finalized,
+            note: 'Documentos já governados e congelados.',
+            tone: 'primary',
+          },
+        ]}
+        toolbarTitle="Base de PTs"
+        toolbarDescription="Pesquise permissões, filtre por status e acompanhe os bloqueios sem se perder em contêineres redundantes."
+        toolbarContent={
+          <PtsFilters
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            statusFilter={statusFilter}
+            onStatusChange={setStatusFilter}
+          />
+        }
+        footer={
+          filteredPts.length > 0 ? (
+            <PaginationControls
+              page={page}
+              lastPage={lastPage}
+              total={total}
+              onPrev={() => setPage((current) => Math.max(1, current - 1))}
+              onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+            />
+          ) : null
+        }
+      >
+        <div className="space-y-4">
+          {insights.length > 0 ? <PtsInsights insights={insights} /> : null}
 
-      <PtsInsights insights={insights} />
+          <PtApprovalRulesPanel
+            rules={approvalRules}
+            loading={approvalRulesLoading}
+          />
 
-      <PtApprovalRulesPanel
-        rules={approvalRules}
-        loading={approvalRulesLoading}
-      />
-
-      <Card tone="default" padding="none">
-        <PtsFilters
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          statusFilter={statusFilter}
-          onStatusChange={setStatusFilter}
-        />
-
-        <CardContent className="mt-0">
           <PtsTable
             pts={filteredPts}
             loading={loading}
@@ -188,18 +222,8 @@ export default function PtsPage() {
             onDismissApprovalReview={dismissApprovalReview}
             onUpdateApprovalChecklist={updateApprovalChecklist}
           />
-        </CardContent>
-
-        {filteredPts.length > 0 ? (
-          <PaginationControls
-            page={page}
-            lastPage={lastPage}
-            total={total}
-            onPrev={() => setPage((current) => Math.max(1, current - 1))}
-            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
-          />
-        ) : null}
-      </Card>
+        </div>
+      </ListPageLayout>
 
       <StoredFilesPanel
         title="Arquivos PT (Storage)"
@@ -222,6 +246,6 @@ export default function PtsPage() {
           base64={selectedDoc.base64}
         />
       ) : null}
-    </div>
+    </>
   );
 }

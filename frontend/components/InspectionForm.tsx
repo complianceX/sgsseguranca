@@ -46,6 +46,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ErrorState, PageLoadingState } from "@/components/ui/state";
 import { useAuth } from "@/context/AuthContext";
+import { FormPageLayout } from "@/components/layout";
 
 const methodologyOptions = [
   "Observação direta em campo",
@@ -359,7 +360,7 @@ function SectionHeader({
 const labelClassName =
   "mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]";
 const nativeSelectClassName =
-  "flex h-10 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-elevated)_84%,white_16%),color-mix(in_srgb,var(--ds-color-surface-base)_96%,transparent))] px-3 text-[13px] font-medium text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60";
+  "flex h-10 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 text-[13px] font-medium text-[var(--ds-color-text-primary)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60";
 
 export function InspectionForm({ id }: InspectionFormProps) {
   const router = useRouter();
@@ -958,101 +959,108 @@ export function InspectionForm({ id }: InspectionFormProps) {
           isFieldMode && "mx-auto max-w-5xl space-y-4 pb-32",
         )}
       >
-        <Card tone="elevated" padding="lg" className="overflow-hidden">
-          <CardHeader className="gap-4">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div className="flex gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]">
-                  <ClipboardList className="h-6 w-6" />
-                </div>
-                <div>
-                  {isFieldMode ? (
-                    <span className="inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200">
-                      modo campo
-                    </span>
-                  ) : null}
-                  <CardTitle className="text-[1.15rem]">
-                    {id
-                      ? "Edição do relatório de inspeção"
-                      : isPhotographicReport
-                        ? "Novo relatório fotográfico"
-                        : "Novo relatório de inspeção"}
-                  </CardTitle>
-                  <CardDescription className="mt-1 max-w-2xl">
-                    {isFieldMode
-                      ? "Fluxo reduzido para celular, com captura rápida de evidências, botões maiores e tolerância ao modo offline."
-                      : "Organizamos o fluxo para registrar contexto, avaliar riscos, desdobrar ações e fechar a inspeção com mais clareza."}
-                  </CardDescription>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--ds-color-text-muted)]">
-                    <span>
-                      {draftSavedAt
-                        ? `Rascunho salvo às ${new Date(draftSavedAt).toLocaleTimeString("pt-BR")}`
-                        : "Rascunho salvo automaticamente"}
-                    </span>
-                  </div>
-                  {openNcWithSophieHref ? (
-                    <Link
-                      href={openNcWithSophieHref}
-                      className="mt-3 inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning)]/25 bg-[var(--ds-color-warning)]/12 px-3 py-1 text-xs font-semibold text-[var(--ds-color-warning)] transition-colors hover:border-[var(--ds-color-warning)]/45"
-                    >
-                      <Bot className="h-3.5 w-3.5" />
-                      Abrir NC com SOPHIE
-                    </Link>
-                  ) : null}
-                </div>
+        <FormPageLayout
+          eyebrow={isFieldMode ? "Modo campo" : "Inspeção operacional"}
+          title={
+            id
+              ? "Edição do relatório de inspeção"
+              : isPhotographicReport
+                ? "Novo relatório fotográfico"
+                : "Novo relatório de inspeção"
+          }
+          description={
+            isFieldMode
+              ? "Fluxo reduzido para celular, com captura rápida de evidências, botões maiores e tolerância ao modo offline."
+              : "Organizamos o fluxo para registrar contexto, avaliar riscos, desdobrar ações e fechar a inspeção com mais clareza."
+          }
+          icon={<ClipboardList className="h-5 w-5" />}
+          actions={
+            <div className={cn("flex flex-wrap items-center gap-2", isFieldMode && "w-full md:w-auto")}>
+              {openNcWithSophieHref ? (
+                <Link
+                  href={openNcWithSophieHref}
+                  className="ds-badge ds-badge--warning"
+                >
+                  <Bot className="h-3.5 w-3.5" />
+                  Abrir NC com SOPHIE
+                </Link>
+              ) : null}
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => router.push("/dashboard/inspections")}
+                className={cn(isFieldMode && "flex-1 min-w-[150px]")}
+              >
+                Cancelar
+              </Button>
+            </div>
+          }
+          summary={
+            <section className="ds-metric-strip">
+              <article className="ds-metric-item">
+                <p className="ds-metric-item__label">Metodologias</p>
+                <div className="ds-metric-item__value">{metodologiaSelecionada.length}</div>
+                <p className="ds-metric-item__note">
+                  {draftSavedAt
+                    ? `Rascunho salvo às ${new Date(draftSavedAt).toLocaleTimeString("pt-BR")}`
+                    : "Rascunho salvo automaticamente"}
+                </p>
+              </article>
+              <article className="ds-metric-item ds-metric-item--warning">
+                <p className="ds-metric-item__label">Riscos</p>
+                <div className="ds-metric-item__value">{riscos.length}</div>
+                <p className="ds-metric-item__note">{highRiskCount} altos ou muito altos</p>
+              </article>
+              <article className="ds-metric-item ds-metric-item--primary">
+                <p className="ds-metric-item__label">Ações pendentes</p>
+                <div className="ds-metric-item__value">{pendingActions}</div>
+                <p className="ds-metric-item__note">Priorize o que ainda depende de execução.</p>
+              </article>
+              <article className="ds-metric-item ds-metric-item--success">
+                <p className="ds-metric-item__label">Evidências</p>
+                <div className="ds-metric-item__value">{evidencias.length}</div>
+                <p className="ds-metric-item__note">
+                  {watchedObjective || watchedDescricaoLocalAtividades
+                    ? "Contexto em edição"
+                    : "Comece por local, objetivo e fotos"}
+                </p>
+              </article>
+            </section>
+          }
+          footer={
+            <div className={cn("flex flex-col gap-3 md:flex-row md:items-center md:justify-between", isFieldMode && "gap-4")}>
+              <div>
+                <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  {isFieldMode ? "Pronto para salvar em campo" : "Relatório pronto para salvar"}
+                </p>
+                <p className="text-sm text-[var(--ds-color-text-muted)]">
+                  {isFieldMode
+                    ? "Se a conexão cair, o relatório entra na fila local e sincroniza quando a internet voltar."
+                    : "Revise riscos críticos, ações pendentes e evidências antes de concluir."}
+                </p>
               </div>
-              <div className={cn("flex flex-wrap items-center gap-2", isFieldMode && "w-full md:w-auto")}>
+              <div className={cn("flex flex-wrap items-center gap-2", isFieldMode && "grid grid-cols-2")}>
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={() => router.push("/dashboard/inspections")}
-                  className={cn(isFieldMode && "flex-1 min-w-[150px]")}
+                  size={isFieldMode ? "lg" : "md"}
                 >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
                   loading={loading || isSubmitting}
-                  className={cn(isFieldMode && "flex-1 min-w-[180px]")}
                   size={isFieldMode ? "lg" : "md"}
+                  className={cn(isFieldMode && "col-span-1")}
                 >
                   <Save className="h-4 w-4" />
-                  {id ? "Salvar alterações" : isFieldMode ? "Salvar em campo" : "Salvar relatório"}
+                  {id ? "Salvar alterações" : isFieldMode ? "Salvar agora" : "Salvar relatório"}
                 </Button>
               </div>
             </div>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Card tone="muted" padding="md">
-              <CardDescription>Metodologias</CardDescription>
-              <CardTitle className="mt-2 text-2xl">
-                {metodologiaSelecionada.length}
-              </CardTitle>
-            </Card>
-            <Card tone="muted" padding="md">
-              <CardDescription>Riscos</CardDescription>
-              <CardTitle className="mt-2 text-2xl">{riscos.length}</CardTitle>
-              <CardDescription className="mt-2">
-                {highRiskCount} altos ou muito altos
-              </CardDescription>
-            </Card>
-            <Card tone="muted" padding="md">
-              <CardDescription>Ações pendentes</CardDescription>
-              <CardTitle className="mt-2 text-2xl">{pendingActions}</CardTitle>
-            </Card>
-            <Card tone="muted" padding="md">
-              <CardDescription>Evidências</CardDescription>
-              <CardTitle className="mt-2 text-2xl">
-                {evidencias.length}
-              </CardTitle>
-              <CardDescription className="mt-2">
-                {watchedObjective || watchedDescricaoLocalAtividades
-                  ? "Contexto em edição"
-                  : "Comece por local, objetivo e fotos"}
-              </CardDescription>
-            </Card>
-          </CardContent>
-        </Card>
+          }
+        >
 
         {submitError ? (
           <div className="rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-danger)]/30 bg-[color:var(--ds-color-danger)]/10 px-4 py-3 text-sm text-[var(--ds-color-text-primary)]">
@@ -1070,14 +1078,14 @@ export function InspectionForm({ id }: InspectionFormProps) {
           </div>
         ) : null}
 
-        <Card tone="default" padding="lg">
-          <CardContent className="mt-0 space-y-6">
+        <section className="ds-form-section">
             <SectionHeader
               title="Contexto da inspeção"
               description="Defina onde a inspeção ocorreu, quem conduziu a avaliação e qual é o recorte do relatório."
               icon={<ClipboardCheck className="h-5 w-5" />}
               badge="Etapa 1"
             />
+            <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="xl:col-span-2">
                 <label htmlFor="inspection-site-id" className={labelClassName}>
@@ -1171,17 +1179,17 @@ export function InspectionForm({ id }: InspectionFormProps) {
                 <FieldErrorText message={errors.responsavel_id?.message} />
               </div>
             </div>
-          </CardContent>
-        </Card>
+            </div>
+        </section>
 
-        <Card tone="default" padding="lg">
-          <CardContent className="mt-0 space-y-6">
+        <section className="ds-form-section">
             <SectionHeader
               title="Objetivo, escopo e metodologia"
               description="Registre o propósito da inspeção, o contexto operacional e as técnicas que sustentaram a avaliação."
               icon={<Sparkles className="h-5 w-5" />}
               badge="Etapa 2"
             />
+            <div className="space-y-6">
 
             <div className="grid gap-4 lg:grid-cols-2">
               <div>
@@ -1250,17 +1258,17 @@ export function InspectionForm({ id }: InspectionFormProps) {
                 })}
               </div>
             </div>
-          </CardContent>
-        </Card>
+            </div>
+        </section>
 
-        <Card tone="default" padding="lg">
-          <CardContent className="mt-0 space-y-6">
+        <section className="ds-form-section">
             <SectionHeader
               title="Perigos, riscos e controles"
               description="Para cada achado, registre o cenário, os expostos, os controles existentes e a ação necessária."
               icon={<ShieldAlert className="h-5 w-5" />}
               badge="Etapa 3"
             />
+            <div className="space-y-6">
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-[var(--ds-color-text-muted)]">
@@ -1298,23 +1306,24 @@ export function InspectionForm({ id }: InspectionFormProps) {
                 );
 
                 return (
-                  <Card key={field.id} tone="muted" padding="md">
-                    <CardHeader className="gap-3">
-                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                        <div>
-                          <CardTitle>Risco #{index + 1}</CardTitle>
-                          <CardDescription>
-                            Estruture o achado e deixe o plano de ação pronto
-                            para execução.
-                          </CardDescription>
-                        </div>
+                  <div key={field.id} className="ds-form-array-item">
+                    <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-subtle)] pb-4 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <h3 className="text-base font-semibold text-[var(--ds-color-text-primary)]">
+                          Risco #{index + 1}
+                        </h3>
+                        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                          Estruture o achado e deixe o plano de ação pronto
+                          para execução.
+                        </p>
+                      </div>
                         <div className="flex flex-wrap items-center gap-2">
                           {suggestion ? (
-                            <span className="inline-flex items-center rounded-full border border-[color:var(--ds-color-warning)]/30 bg-[color:var(--ds-color-warning)]/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-primary)]">
+                            <span className="ds-badge ds-badge--warning">
                               Score {suggestion.score}: {suggestion.label}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
+                            <span className="ds-badge">
                               Defina severidade e probabilidade
                             </span>
                           )}
@@ -1328,9 +1337,8 @@ export function InspectionForm({ id }: InspectionFormProps) {
                             Remover
                           </Button>
                         </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-5">
+                    </div>
+                    <div className="space-y-5 pt-5">
                       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                         <div>
                           <label className={labelClassName}>
@@ -1619,22 +1627,22 @@ export function InspectionForm({ id }: InspectionFormProps) {
                           </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
+            </div>
+        </section>
 
-        <Card tone="default" padding="lg">
-          <CardContent className="mt-0 space-y-6">
+        <section className="ds-form-section">
             <SectionHeader
               title="Plano de ação"
               description="Consolide as ações corretivas e acompanhe o status de execução diretamente no relatório."
               icon={<ClipboardCheck className="h-5 w-5" />}
               badge="Etapa 4"
             />
+            <div className="space-y-6">
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-[var(--ds-color-text-muted)]">
@@ -1665,14 +1673,16 @@ export function InspectionForm({ id }: InspectionFormProps) {
 
             <div className="space-y-4">
               {actionFields.map((field, index) => (
-                <Card key={field.id} tone="muted" padding="md">
-                  <CardHeader className="flex flex-row items-start justify-between gap-3">
+                <div key={field.id} className="ds-form-array-item">
+                  <div className="flex flex-row items-start justify-between gap-3 border-b border-[var(--ds-color-border-subtle)] pb-4">
                     <div>
-                      <CardTitle>Ação #{index + 1}</CardTitle>
-                      <CardDescription>
+                      <h3 className="text-base font-semibold text-[var(--ds-color-text-primary)]">
+                        Ação #{index + 1}
+                      </h3>
+                      <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
                         Descreva claramente o que precisa acontecer e quem
                         conduz.
-                      </CardDescription>
+                      </p>
                     </div>
                     <Button
                       type="button"
@@ -1683,8 +1693,8 @@ export function InspectionForm({ id }: InspectionFormProps) {
                       <Trash2 className="h-4 w-4" />
                       Remover
                     </Button>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+                  </div>
+                  <div className="space-y-4 pt-5">
                     <div>
                       <label className={labelClassName}>Ação</label>
                       <Textarea
@@ -1736,21 +1746,21 @@ export function InspectionForm({ id }: InspectionFormProps) {
                         />
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+            </div>
+        </section>
 
-        <Card tone="default" padding="lg">
-          <CardContent className="mt-0 space-y-6">
+        <section className="ds-form-section">
             <SectionHeader
               title="Evidências e conclusão"
               description="Feche a inspeção com rastreabilidade. Inclua evidências e uma conclusão objetiva sobre a condição observada."
               icon={<Camera className="h-5 w-5" />}
               badge="Etapa 5"
             />
+            <div className="space-y-6">
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-[var(--ds-color-text-muted)]">
@@ -1785,13 +1795,15 @@ export function InspectionForm({ id }: InspectionFormProps) {
                 const isImage = evidenceUrl.startsWith("data:image");
 
                 return (
-                  <Card key={field.id} tone="muted" padding="md">
-                    <CardHeader className="flex flex-row items-start justify-between gap-3">
+                  <div key={field.id} className="ds-form-array-item">
+                    <div className="flex flex-row items-start justify-between gap-3 border-b border-[var(--ds-color-border-subtle)] pb-4">
                       <div>
-                        <CardTitle>Evidência #{index + 1}</CardTitle>
-                        <CardDescription>
+                        <h3 className="text-base font-semibold text-[var(--ds-color-text-primary)]">
+                          Evidência #{index + 1}
+                        </h3>
+                        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
                           Descreva o que a evidência comprova e como acessá-la.
-                        </CardDescription>
+                        </p>
                       </div>
                       <Button
                         type="button"
@@ -1802,8 +1814,8 @@ export function InspectionForm({ id }: InspectionFormProps) {
                         <Trash2 className="h-4 w-4" />
                         Remover
                       </Button>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                    </div>
+                    <div className="space-y-4 pt-5">
                       <div>
                         <label className={labelClassName}>Descrição</label>
                         <Input
@@ -1876,8 +1888,8 @@ export function InspectionForm({ id }: InspectionFormProps) {
                             .join(", ")}
                         </div>
                       ) : null}
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -1893,51 +1905,10 @@ export function InspectionForm({ id }: InspectionFormProps) {
                 {...register("conclusao")}
               />
             </div>
-          </CardContent>
-        </Card>
+            </div>
+        </section>
 
-        <div className="sticky bottom-4 z-10">
-          <Card
-            tone="elevated"
-            padding="md"
-            className="border-[var(--ds-color-border-strong)]"
-          >
-            <CardContent className={cn(
-              "mt-0 flex flex-col gap-3 md:flex-row md:items-center md:justify-between",
-              isFieldMode && "gap-4",
-            )}>
-              <div>
-                <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                  {isFieldMode ? "Pronto para salvar em campo" : "Relatório pronto para salvar"}
-                </p>
-                <p className="text-sm text-[var(--ds-color-text-muted)]">
-                  {isFieldMode
-                    ? "Se a conexão cair, o relatório entra na fila local e sincroniza quando a internet voltar."
-                    : "Revise riscos críticos, ações pendentes e evidências antes de concluir."}
-                </p>
-              </div>
-              <div className={cn("flex flex-wrap items-center gap-2", isFieldMode && "grid grid-cols-2")}>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => router.push("/dashboard/inspections")}
-                  size={isFieldMode ? "lg" : "md"}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  loading={loading || isSubmitting}
-                  size={isFieldMode ? "lg" : "md"}
-                  className={cn(isFieldMode && "col-span-1")}
-                >
-                  <Save className="h-4 w-4" />
-                  {id ? "Salvar alterações" : isFieldMode ? "Salvar agora" : "Salvar relatório"}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        </FormPageLayout>
       </form>
 
       {cameraTargetIndex !== null ? (

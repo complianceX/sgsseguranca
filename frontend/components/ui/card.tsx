@@ -3,37 +3,28 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const cardVariants = cva(
-  'rounded-[var(--ds-radius-lg)] border transition-all duration-[var(--ds-motion-base)] backdrop-blur-sm',
+  'rounded-[var(--ds-radius-lg)] border transition-all duration-[var(--ds-motion-base)]',
   {
     variants: {
       tone: {
-        /** Padrão — gradiente suave, borda sutil */
         default:
-          'border-[var(--component-card-border)] bg-[image:var(--component-card-bg)] shadow-[var(--component-card-shadow)]',
-        /** Elevado — mais sombra e borda forte, para cards de destaque */
+          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] shadow-[var(--ds-shadow-xs)]',
         elevated:
-          'border-[color:var(--component-card-border-strong)]/70 bg-[image:var(--component-card-bg-elevated)] shadow-[var(--component-card-shadow-elevated)]',
-        /** Muted — fundo rebaixado, para painéis de contexto */
+          'border-[var(--component-card-border)] bg-[color:var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]',
         muted:
-          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg-muted)] shadow-[var(--ds-shadow-xs)]',
-        /** Accent — borda esquerda colorida, para seções com destaque primário */
+          'border-[var(--component-card-border)] bg-[color:var(--ds-color-surface-muted)] shadow-none',
         accent:
-          'border-[var(--component-card-border)] bg-[image:var(--component-card-bg)] shadow-[var(--component-card-shadow)] border-l-[3px] border-l-[var(--color-primary)]',
-        /** Ghost — sem fundo, só borda sutil — ideal para sub-seções */
+          'border-[var(--component-card-border)] bg-[color:var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)] border-l-[3px] border-l-[var(--color-primary)]',
         ghost:
           'border-[var(--component-card-border)]/60 bg-transparent shadow-none',
-        /** Stat — card compacto de métrica, clean sem gradiente */
         stat:
-          'border-[var(--component-card-border)] bg-[color:var(--ds-color-surface-base)] shadow-[var(--component-card-shadow)]',
+          'border-[var(--component-card-border)] bg-[color:var(--ds-color-surface-base)] shadow-none',
       },
       interactive: {
         true: [
           'cursor-pointer select-none',
-          'hover:-translate-y-0.5',
-          'hover:border-[var(--color-primary)]/50',
-          'hover:shadow-[var(--component-card-shadow-elevated)]',
-          'hover:ring-1 hover:ring-[var(--color-primary)]/20',
-          'active:translate-y-0 active:shadow-[var(--component-card-shadow)]',
+          'hover:border-[var(--color-primary)]/35',
+          'hover:shadow-[var(--ds-shadow-sm)]',
         ],
         false: '',
       },

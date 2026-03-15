@@ -1,13 +1,9 @@
 'use client';
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
 import {
   Archive,
-  Building2,
   Download,
-  FileStack,
-  Filter,
   Printer,
   Search,
   Sparkles,
@@ -16,33 +12,13 @@ import { format, getISOWeek, getISOWeekYear, subWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { companiesService, Company } from '@/services/companiesService';
-import {
-  documentRegistryService,
-  DocumentRegistryEntry,
-} from '@/services/documentRegistryService';
+import { documentRegistryService, DocumentRegistryEntry } from '@/services/documentRegistryService';
 import { openPdfForPrint } from '@/lib/print-utils';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  EmptyState,
-  ErrorState,
-  InlineLoadingState,
-  PageLoadingState,
-} from '@/components/ui/state';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Card, CardContent } from '@/components/ui/card';
+import { EmptyState, ErrorState, InlineLoadingState, PageLoadingState } from '@/components/ui/state';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 
@@ -124,7 +100,7 @@ export default function DocumentRegistryPage() {
   }, [companyId, year, week, selectedModules]);
 
   useEffect(() => {
-    loadPageData();
+    void loadPageData();
   }, [loadPageData]);
 
   useEffect(() => {
@@ -291,180 +267,125 @@ export default function DocumentRegistryPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
+    <ListPageLayout
+      eyebrow="Governança documental"
+      title="Registry documental"
+      description="Índice central de documentos SST por empresa, semana e módulo, com pacote consolidado."
+      icon={<Archive className="h-5 w-5" />}
+      actions={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            leftIcon={<Download className="h-4 w-4" />}
+            onClick={handleDownloadBundle}
+            disabled={loadingBundle || !year || !week}
+          >
+            Baixar pacote
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            leftIcon={<Printer className="h-4 w-4" />}
+            onClick={handlePrintBundle}
+            disabled={loadingBundle || !year || !week}
+          >
+            Imprimir pacote
+          </Button>
+        </>
+      }
+      metrics={[
+        {
+          label: 'Documentos indexados',
+          value: summary.total,
+          note: 'Total governado no recorte atual.',
+        },
+        {
+          label: 'Módulos presentes',
+          value: summary.modules,
+          note: 'Cobertura efetiva no índice semanal.',
+          tone: 'primary',
+        },
+        {
+          label: 'Semanas no recorte',
+          value: summary.weeks,
+          note: 'Histórico disponível com os filtros atuais.',
+        },
+        {
+          label: 'Empresas no seletor',
+          value: companyId ? 1 : companies.length,
+          note: 'Escopo filtrado para a empresa ativa.',
+          tone: 'success',
+        },
+      ]}
+      toolbarTitle="Filtros do pacote semanal"
+      toolbarDescription="Selecione empresa, semana e módulos para consolidar os documentos operacionais."
+      toolbarContent={
+        <div className="grid w-full grid-cols-1 gap-3 xl:grid-cols-[1.2fr_repeat(2,minmax(0,0.55fr))_1fr]">
           <div className="space-y-2">
-            <CardTitle className="text-2xl">Registry documental</CardTitle>
-            <CardDescription>
-              Índice central de documentos SST por empresa, semana e módulo, com pacote consolidado.
-            </CardDescription>
-            <div className="flex flex-wrap gap-2 pt-2">
-              <button
-                type="button"
-                onClick={applyCurrentWeek}
-                className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-100 transition-colors hover:border-sky-300/40 hover:bg-sky-500/15"
-              >
-                Semana atual
-              </button>
-              <button
-                type="button"
-                onClick={applyPreviousWeek}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:border-white/20 hover:bg-white/10 hover:text-white"
-              >
-                Semana anterior
-              </button>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              leftIcon={<Download className="h-4 w-4" />}
-              onClick={handleDownloadBundle}
-              disabled={loadingBundle || !year || !week}
+            <input
+              type="text"
+              value={companySearchTerm}
+              onChange={(event) => setCompanySearchTerm(event.target.value)}
+              placeholder="Buscar empresa no seletor"
+              aria-label="Buscar empresa do pacote semanal"
+              className={inputClassName}
+            />
+            <select
+              aria-label="Selecionar empresa do pacote semanal"
+              value={companyId}
+              onChange={(event) => setCompanyId(event.target.value)}
+              className={inputClassName}
+              disabled={loadingCompanies}
             >
-              Baixar pacote
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              leftIcon={<Printer className="h-4 w-4" />}
-              onClick={handlePrintBundle}
-              disabled={loadingBundle || !year || !week}
-            >
-              Imprimir pacote
-            </Button>
-          </div>
-        </CardHeader>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <RegistryMetricCard
-          label="Documentos indexados"
-          value={summary.total}
-          icon={<FileStack className="h-4 w-4" />}
-        />
-        <RegistryMetricCard
-          label="Módulos presentes"
-          value={summary.modules}
-          icon={<Archive className="h-4 w-4" />}
-        />
-        <RegistryMetricCard
-          label="Semanas no recorte"
-          value={summary.weeks}
-          icon={<Filter className="h-4 w-4" />}
-        />
-        <RegistryMetricCard
-          label="Empresas no seletor"
-          value={companyId ? 1 : companies.length}
-          icon={<Building2 className="h-4 w-4" />}
-        />
-      </div>
-
-      <Card tone="default" padding="md">
-        <CardHeader className="space-y-3">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <CardTitle className="text-lg">Pacote operacional ativo</CardTitle>
-              <CardDescription>
-                Empresa: {activeCompanyName} · Semana {String(week || '—').padStart(2, '0')}/{year || '—'}
-              </CardDescription>
-            </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/25 bg-slate-900/10 px-3 py-1 text-xs font-semibold text-blue-100">
-              <Sparkles className="h-3.5 w-3.5" />
-              {selectedModules.length > 0 ? `${selectedModules.length} módulo(s) filtrado(s)` : 'Todos os módulos'}
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {weeklyHighlights.length > 0 ? (
-              weeklyHighlights.map((item) => (
-                <span
-                  key={item.value}
-                  className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/20 px-3 py-1 text-xs font-semibold text-[var(--ds-color-text-secondary)]"
-                >
-                  {item.label}: {item.count}
-                </span>
-              ))
-            ) : (
-              <span className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/20 px-3 py-1 text-xs font-semibold text-[var(--ds-color-text-muted)]">
-                Sem documentos no recorte atual
-              </span>
-            )}
-          </div>
-        </CardHeader>
-      </Card>
-
-      <Card tone="default" padding="none">
-        <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
-          <div className="space-y-1">
-            <CardTitle>Filtros do pacote semanal</CardTitle>
-            <CardDescription>
-              Selecione empresa, semana e módulos para consolidar os documentos operacionais.
-            </CardDescription>
-          </div>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-            <div className="space-y-2">
-              <input
-                type="text"
-                value={companySearchTerm}
-                onChange={(event) => setCompanySearchTerm(event.target.value)}
-                placeholder="Buscar empresa no seletor"
-                aria-label="Buscar empresa do pacote semanal"
-                className={inputClassName}
-              />
-              <select
-                aria-label="Selecionar empresa do pacote semanal"
-                value={companyId}
-                onChange={(event) => setCompanyId(event.target.value)}
-                className={inputClassName}
-                disabled={loadingCompanies}
-              >
-                <option value="">
-                  {loadingCompanies
-                    ? 'Carregando empresas...'
-                    : 'Tenant atual / empresas encontradas'}
+              <option value="">
+                {loadingCompanies ? 'Carregando empresas...' : 'Tenant atual / empresas encontradas'}
+              </option>
+              {companies.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.razao_social}
                 </option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>
-                    {company.razao_social}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <input
-              type="number"
-              min={2020}
-              max={2100}
-              aria-label="Selecionar ano documental"
-              value={year}
-              onChange={(event) => setYear(event.target.value)}
-              placeholder="Ano"
-              className={inputClassName}
-            />
-            <input
-              type="number"
-              min={1}
-              max={53}
-              aria-label="Selecionar semana ISO"
-              value={week}
-              onChange={(event) => setWeek(event.target.value)}
-              placeholder="Semana ISO"
-              className={inputClassName}
-            />
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Buscar no índice"
-                aria-label="Buscar documentos no índice central"
-                className={cn(inputClassName, 'pl-10')}
-              />
-            </div>
+              ))}
+            </select>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <input
+            type="number"
+            min={2020}
+            max={2100}
+            aria-label="Selecionar ano documental"
+            value={year}
+            onChange={(event) => setYear(event.target.value)}
+            placeholder="Ano"
+            className={inputClassName}
+          />
+          <input
+            type="number"
+            min={1}
+            max={53}
+            aria-label="Selecionar semana ISO"
+            value={week}
+            onChange={(event) => setWeek(event.target.value)}
+            placeholder="Semana ISO"
+            className={inputClassName}
+          />
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Buscar no índice"
+              aria-label="Buscar documentos no índice central"
+              className={cn(inputClassName, 'pl-10')}
+            />
+          </div>
+          <div className="xl:col-span-4 flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={applyCurrentWeek}>
+              Semana atual
+            </Button>
+            <Button type="button" variant="secondary" size="sm" onClick={applyPreviousWeek}>
+              Semana anterior
+            </Button>
             {moduleOptions.map((option) => {
               const active = selectedModules.includes(option.value);
               return (
@@ -474,7 +395,7 @@ export default function DocumentRegistryPage() {
                   onClick={() => handleToggleModule(option.value)}
                   aria-pressed={active}
                   className={cn(
-                    'rounded-full border px-3 py-1.5 text-sm transition-colors',
+                    'rounded-lg border px-3 py-1.5 text-sm transition-colors',
                     active
                       ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-white'
                       : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)]',
@@ -484,127 +405,120 @@ export default function DocumentRegistryPage() {
                 </button>
               );
             })}
-            <Button type="button" variant="ghost" onClick={loadPageData}>
+            <Button type="button" variant="ghost" size="sm" onClick={loadPageData}>
               Atualizar lista
             </Button>
           </div>
-        </CardHeader>
-        <CardContent className="mt-0">
-          {loadingBundle ? (
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <Card tone="muted" padding="md">
+          <CardContent className="mt-0 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Pacote operacional ativo</p>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                Empresa: {activeCompanyName} · Semana {String(week || '—').padStart(2, '0')}/{year || '—'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="ds-badge ds-badge--info">
+                <Sparkles className="h-3.5 w-3.5" />
+                {selectedModules.length > 0 ? `${selectedModules.length} módulo(s) filtrado(s)` : 'Todos os módulos'}
+              </span>
+              {weeklyHighlights.length > 0 ? (
+                weeklyHighlights.map((item) => (
+                  <span key={item.value} className="ds-badge">
+                    {item.label}: {item.count}
+                  </span>
+                ))
+              ) : (
+                <span className="ds-badge">Sem documentos no recorte atual</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {loadingBundle ? (
+          <div className="px-4 pb-4">
             <InlineLoadingState label="Gerando pacote consolidado" />
-          ) : filteredEntries.length === 0 ? (
+          </div>
+        ) : filteredEntries.length === 0 ? (
+          <div className="p-6">
             <EmptyState
               title="Nenhum documento indexado"
               description="Não há documentos no registry para o filtro aplicado."
               compact
             />
-          ) : (
-            <>
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <p className="text-sm text-[var(--ds-color-text-secondary)]">
-                  {filteredEntries.length} documento(s) encontrado(s) no índice consolidado.
-                </p>
-              </div>
-              <div className="hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Módulo</TableHead>
-                      <TableHead>Título</TableHead>
-                      <TableHead>Código</TableHead>
-                      <TableHead>Arquivo</TableHead>
-                      <TableHead>Semana</TableHead>
+          </div>
+        ) : (
+          <>
+            <div className="px-4 pt-2 text-sm text-[var(--ds-color-text-secondary)]">
+              {filteredEntries.length} documento(s) encontrado(s) no índice consolidado.
+            </div>
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Módulo</TableHead>
+                    <TableHead>Título</TableHead>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Arquivo</TableHead>
+                    <TableHead>Semana</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredEntries.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell>
+                        {entry.document_date
+                          ? format(new Date(entry.document_date), 'dd/MM/yyyy', { locale: ptBR })
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <span className="ds-badge">{entry.module}</span>
+                      </TableCell>
+                      <TableCell className="font-medium text-[var(--ds-color-text-primary)]">{entry.title}</TableCell>
+                      <TableCell className="text-[var(--ds-color-text-secondary)]">{entry.document_code || '—'}</TableCell>
+                      <TableCell className="text-[var(--ds-color-text-secondary)]">{entry.original_name || '—'}</TableCell>
+                      <TableCell className="text-[var(--ds-color-text-secondary)]">
+                        {String(entry.iso_week).padStart(2, '0')}/{entry.iso_year}
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredEntries.map((entry) => (
-                      <TableRow key={entry.id}>
-                        <TableCell>
-                          {entry.document_date
-                            ? format(new Date(entry.document_date), 'dd/MM/yyyy', {
-                                locale: ptBR,
-                              })
-                            : '—'}
-                        </TableCell>
-                        <TableCell>
-                          <span className="rounded-full bg-[color:var(--ds-color-surface-muted)] px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                            {entry.module}
-                          </span>
-                        </TableCell>
-                        <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
-                          {entry.title}
-                        </TableCell>
-                        <TableCell className="text-[var(--ds-color-text-secondary)]">
-                          {entry.document_code || '—'}
-                        </TableCell>
-                        <TableCell className="text-[var(--ds-color-text-secondary)]">
-                          {entry.original_name || '—'}
-                        </TableCell>
-                        <TableCell className="text-[var(--ds-color-text-secondary)]">
-                          {String(entry.iso_week).padStart(2, '0')}/{entry.iso_year}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="space-y-3 md:hidden">
-                {filteredEntries.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                          {entry.title}
-                        </p>
-                        <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
-                          {entry.document_date
-                            ? format(new Date(entry.document_date), 'dd/MM/yyyy', { locale: ptBR })
-                            : 'Sem data documental'}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-[color:var(--ds-color-surface-muted)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
-                        {entry.module}
-                      </span>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="space-y-3 px-4 pb-4 md:hidden">
+              {filteredEntries.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{entry.title}</p>
+                      <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
+                        {entry.document_date
+                          ? format(new Date(entry.document_date), 'dd/MM/yyyy', { locale: ptBR })
+                          : 'Sem data documental'}
+                      </p>
                     </div>
-                    <div className="mt-3 space-y-1 text-xs text-[var(--ds-color-text-secondary)]">
-                      <p>Código: {entry.document_code || '—'}</p>
-                      <p>Arquivo: {entry.original_name || '—'}</p>
-                      <p>Semana: {String(entry.iso_week).padStart(2, '0')}/{entry.iso_year}</p>
-                    </div>
+                    <span className="ds-badge">{entry.module}</span>
                   </div>
-                ))}
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function RegistryMetricCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: number;
-  icon: ReactNode;
-}) {
-  return (
-    <Card interactive padding="md">
-      <CardHeader className="space-y-3">
-        <div className="flex items-center justify-between text-[var(--ds-color-text-secondary)]">
-          <CardDescription>{label}</CardDescription>
-          {icon}
-        </div>
-        <CardTitle className="text-3xl">{value}</CardTitle>
-      </CardHeader>
-    </Card>
+                  <div className="mt-3 space-y-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    <p>Código: {entry.document_code || '—'}</p>
+                    <p>Arquivo: {entry.original_name || '—'}</p>
+                    <p>Semana: {String(entry.iso_week).padStart(2, '0')}/{entry.iso_year}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </ListPageLayout>
   );
 }
 

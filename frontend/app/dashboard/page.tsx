@@ -876,7 +876,7 @@ export default function DashboardPage() {
       <div className="ds-dashboard-panel ds-hero-panel overflow-hidden p-5 lg:p-6">
         <div className="relative z-[1] flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div className="max-w-3xl">
-            <div className="mb-2.5 inline-flex items-center rounded-full border border-[color:var(--ds-color-border-strong)]/70 bg-[color:var(--ds-color-surface-muted)]/55 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
+            <div className="mb-2.5 inline-flex items-center rounded-md border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
               {personaGuide.badge}
             </div>
             <h1 className="text-2xl font-bold tracking-[-0.03em] text-[var(--ds-color-text-primary)] lg:text-[2rem]">{personaGuide.title}</h1>
@@ -885,7 +885,7 @@ export default function DashboardPage() {
             </p>
             <div className="mt-4 flex flex-wrap gap-2.5">
               {heroChips.map((chip) => (
-                <div key={chip.label} className="ds-topbar-chip">
+                <div key={chip.label} className="ds-badge ds-badge--info">
                   <chip.icon className={`h-4 w-4 ${chip.tone}`} />
                   {chip.label}
                 </div>
@@ -913,7 +913,7 @@ export default function DashboardPage() {
             <Link 
               key={index} 
               href={action.href}
-              className={`${action.color} flex items-center space-x-2 rounded-xl border border-white/10 px-3.5 py-2.5 text-[13px] font-semibold text-white shadow-[0_16px_32px_rgba(15,23,42,0.22)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-105 hover:shadow-[0_20px_36px_rgba(15,23,42,0.3)]`}
+              className="inline-flex items-center gap-2 rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3.5 py-2.5 text-[13px] font-semibold text-[var(--ds-color-text-primary)] transition-colors hover:border-[var(--ds-color-action-primary)]/30 hover:bg-[var(--ds-color-surface-muted)]"
             >
               <action.icon className="h-4 w-4" />
               <span>{action.label}</span>
@@ -993,7 +993,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="ds-dashboard-panel p-5">
-          <div className="inline-flex items-center rounded-full border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/35 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[var(--ds-color-text-secondary)]">
+          <div className="inline-flex items-center rounded-md border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
             Entrada por perfil
           </div>
           <h2 className="mt-3 text-lg font-bold text-[var(--ds-color-text-primary)]">
@@ -1029,14 +1029,14 @@ export default function DashboardPage() {
           <div className="mt-4 flex flex-wrap gap-2.5">
             <Link
               href={personaGuide.primaryAction.href}
-              className="inline-flex items-center gap-2 rounded-xl bg-[image:var(--ds-gradient-brand)] px-3.5 py-2.5 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(15,23,42,0.18)] transition-all hover:-translate-y-0.5 hover:brightness-105"
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-3.5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--ds-color-action-primary-hover)]"
             >
               {personaGuide.primaryAction.label}
               <ArrowUpRight className="h-4 w-4" />
             </Link>
             <Link
               href={secondaryEntryAction.href}
-              className="inline-flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] px-3.5 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/40"
+              className="inline-flex items-center gap-2 rounded-lg border border-[var(--ds-color-border-subtle)] px-3.5 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/40"
             >
               {secondaryEntryAction.label}
             </Link>

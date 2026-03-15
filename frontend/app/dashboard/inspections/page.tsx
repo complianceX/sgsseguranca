@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useDeferredValue, useMemo } from 'react';
-import { inspectionsService, Inspection } from '@/services/inspectionsService';
+import Link from 'next/link';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import {
   Bot,
   ClipboardList,
@@ -14,35 +16,16 @@ import {
   ShieldAlert,
   Trash2,
 } from 'lucide-react';
-import Link from 'next/link';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { inspectionsService, Inspection } from '@/services/inspectionsService';
 import { generateInspectionPdf } from '@/lib/pdf/inspectionGenerator';
 import { SendMailModal } from '@/components/SendMailModal';
 import { openPdfForPrint } from '@/lib/print-utils';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  EmptyState,
-  ErrorState,
-  PageLoadingState,
-} from '@/components/ui/state';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
+import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 
 const inputClassName =
@@ -86,7 +69,7 @@ export default function InspectionsPage() {
   }, [deferredSearchTerm, page]);
 
   useEffect(() => {
-    fetchInspections();
+    void fetchInspections();
   }, [fetchInspections]);
 
   const handleDelete = async (id: string) => {
@@ -212,99 +195,47 @@ export default function InspectionsPage() {
   }
 
   return (
-    <div className="ds-crud-page">
-      <Card tone="elevated" padding="lg" className="ds-crud-hero">
-        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
-          <div className="ds-crud-hero__lead">
-            <div className="ds-crud-hero__icon">
-              <ClipboardList className="h-5 w-5" />
-            </div>
-            <div className="ds-crud-hero__copy">
-              <span className="ds-crud-hero__eyebrow">Inspeção e rastreio</span>
-              <CardTitle className="text-2xl">Relatórios de Inspeção</CardTitle>
-              <CardDescription>
-                Gerencie inspeções de segurança, riscos observados e ações recomendadas por área.
-              </CardDescription>
-            </div>
-          </div>
-          <Link
-            href="/dashboard/inspections/new"
-            className={cn(buttonVariants(), 'inline-flex items-center')}
-          >
+    <>
+      <ListPageLayout
+        eyebrow="Inspeção e rastreio"
+        title="Relatórios de inspeção"
+        description="Gerencie inspeções de segurança, riscos observados e ações recomendadas por área."
+        icon={<ClipboardList className="h-5 w-5" />}
+        actions={
+          <Link href="/dashboard/inspections/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
             <Plus className="mr-2 h-4 w-4" />
             Novo relatório
           </Link>
-        </CardHeader>
-      </Card>
-
-      <div className="ds-crud-stats xl:grid-cols-4">
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Total de inspeções</CardDescription>
-            <CardTitle className="ds-crud-stat__value">{summary.total}</CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Volume total carregado no recorte atual.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--primary">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Tipos na página</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-action-primary)]">
-              {summary.tipos}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Cobertura de modalidades no recorte exibido.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--warning">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Com plano na página</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-warning)]">
-              {summary.comPlano}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Inspeções com tratativa já registrada.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Sites na página</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
-              {summary.sites}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Frentes de trabalho cobertas nesta amostra.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-
-      {summary.comRiscos > 0 ? (
-        <Card tone="muted" padding="md" className="ds-crud-callout ds-crud-callout--warning">
-          <CardHeader className="gap-2">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-[var(--ds-color-warning)]" />
-              <CardTitle className="text-base">Foco operacional</CardTitle>
-            </div>
-            <CardDescription>
-              Nesta página, {summary.comRiscos} inspeção(ões) possuem perigos/riscos registrados. Revise planos de ação e responsáveis para acelerar tratativas.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : null}
-
-      <Card tone="default" padding="none" className="ds-crud-filter-card">
-        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <CardTitle>Base de inspeções</CardTitle>
-            <CardDescription>
-              {total} relatório(s) encontrados com busca por setor, tipo, site e responsável.
-            </CardDescription>
-          </div>
-          <div className="ds-crud-search ds-crud-search--wide">
+        }
+        metrics={[
+          {
+            label: 'Total de inspeções',
+            value: summary.total,
+            note: 'Volume total carregado no recorte atual.',
+          },
+          {
+            label: 'Tipos na página',
+            value: summary.tipos,
+            note: 'Cobertura de modalidades no recorte exibido.',
+            tone: 'primary',
+          },
+          {
+            label: 'Com plano na página',
+            value: summary.comPlano,
+            note: 'Inspeções com tratativa já registrada.',
+            tone: 'warning',
+          },
+          {
+            label: 'Sites na página',
+            value: summary.sites,
+            note: 'Frentes de trabalho cobertas nesta amostra.',
+            tone: 'success',
+          },
+        ]}
+        toolbarTitle="Base de inspeções"
+        toolbarDescription={`${total} relatório(s) encontrados com busca por setor, tipo, site e responsável.`}
+        toolbarContent={
+          <div className="ds-list-search ds-list-search--wide">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
             <input
               type="text"
@@ -318,29 +249,53 @@ export default function InspectionsPage() {
               }}
             />
           </div>
-        </CardHeader>
-
-        <CardContent className="mt-0">
-          {inspections.length === 0 ? (
-            <EmptyState
-              title="Nenhum relatório de inspeção encontrado"
-              description={
-                deferredSearchTerm
-                  ? 'Nenhum resultado corresponde ao filtro aplicado.'
-                  : 'Ainda não existem inspeções registradas para este tenant.'
-              }
-              action={
-                !deferredSearchTerm ? (
-                  <Link
-                    href="/dashboard/inspections/new"
-                    className={cn(buttonVariants(), 'inline-flex items-center')}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo relatório
-                  </Link>
-                ) : undefined
-              }
+        }
+        footer={
+          !loading && total > 0 ? (
+            <PaginationControls
+              page={page}
+              lastPage={lastPage}
+              total={total}
+              onPrev={() => setPage((current) => Math.max(1, current - 1))}
+              onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
             />
+          ) : null
+        }
+      >
+        <div className="space-y-4 p-0">
+          {summary.comRiscos > 0 ? (
+            <div className="mx-4 mt-4 rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-warning)]/20 bg-[color:var(--ds-color-warning-subtle)]/70 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <ShieldAlert className="mt-0.5 h-4 w-4 text-[var(--ds-color-warning)]" />
+                <div>
+                  <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Foco operacional</p>
+                  <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                    Nesta página, {summary.comRiscos} inspeção(ões) possuem perigos/riscos registrados. Revise planos de ação e responsáveis para acelerar tratativas.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {inspections.length === 0 ? (
+            <div className="p-6">
+              <EmptyState
+                title="Nenhum relatório de inspeção encontrado"
+                description={
+                  deferredSearchTerm
+                    ? 'Nenhum resultado corresponde ao filtro aplicado.'
+                    : 'Ainda não existem inspeções registradas para este tenant.'
+                }
+                action={
+                  !deferredSearchTerm ? (
+                    <Link href="/dashboard/inspections/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Novo relatório
+                    </Link>
+                  ) : undefined
+                }
+              />
+            </div>
           ) : (
             <Table>
               <TableHeader>
@@ -356,23 +311,13 @@ export default function InspectionsPage() {
               <TableBody>
                 {inspections.map((inspection) => (
                   <TableRow key={inspection.id}>
-                    <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
-                      {inspection.setor_area}
-                    </TableCell>
+                    <TableCell className="font-medium text-[var(--ds-color-text-primary)]">{inspection.setor_area}</TableCell>
                     <TableCell>
-                      <span className="inline-flex rounded-full bg-[color:var(--ds-color-action-primary)]/12 px-2.5 py-1 text-xs font-semibold text-[var(--ds-color-action-primary)]">
-                        {inspection.tipo_inspecao}
-                      </span>
+                      <span className="ds-badge ds-badge--primary">{inspection.tipo_inspecao}</span>
                     </TableCell>
-                    <TableCell className="text-[var(--ds-color-text-secondary)]">
-                      {inspection.site?.nome || '—'}
-                    </TableCell>
-                    <TableCell>
-                      {format(new Date(inspection.data_inspecao), 'dd/MM/yyyy', { locale: ptBR })}
-                    </TableCell>
-                    <TableCell className="text-[var(--ds-color-text-secondary)]">
-                      {inspection.responsavel?.nome || '—'}
-                    </TableCell>
+                    <TableCell className="text-[var(--ds-color-text-secondary)]">{inspection.site?.nome || '—'}</TableCell>
+                    <TableCell>{format(new Date(inspection.data_inspecao), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                    <TableCell className="text-[var(--ds-color-text-secondary)]">{inspection.responsavel?.nome || '—'}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Link
@@ -393,38 +338,16 @@ export default function InspectionsPage() {
                         >
                           <Bot className="h-4 w-4 text-[var(--ds-color-warning)]" />
                         </Link>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handlePrint(inspection)}
-                          title="Imprimir"
-                        >
+                        <Button type="button" size="icon" variant="ghost" onClick={() => handlePrint(inspection)} title="Imprimir">
                           <Printer className="h-4 w-4" />
                         </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleSendEmail(inspection)}
-                          title="Enviar por e-mail"
-                        >
+                        <Button type="button" size="icon" variant="ghost" onClick={() => handleSendEmail(inspection)} title="Enviar por e-mail">
                           <Mail className="h-4 w-4" />
                         </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleDownloadPdf(inspection)}
-                          title="Baixar PDF"
-                        >
+                        <Button type="button" size="icon" variant="ghost" onClick={() => handleDownloadPdf(inspection)} title="Baixar PDF">
                           <Download className="h-4 w-4" />
                         </Button>
-                        <Link
-                          href={`/dashboard/inspections/edit/${inspection.id}`}
-                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
-                          title="Editar"
-                        >
+                        <Link href={`/dashboard/inspections/edit/${inspection.id}`} className={buttonVariants({ size: 'icon', variant: 'ghost' })} title="Editar">
                           <Edit className="h-4 w-4" />
                         </Link>
                         <Button
@@ -444,17 +367,8 @@ export default function InspectionsPage() {
               </TableBody>
             </Table>
           )}
-        </CardContent>
-        {!loading && total > 0 ? (
-          <PaginationControls
-            page={page}
-            lastPage={lastPage}
-            total={total}
-            onPrev={() => setPage((current) => Math.max(1, current - 1))}
-            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
-          />
-        ) : null}
-      </Card>
+        </div>
+      </ListPageLayout>
 
       {selectedDoc ? (
         <SendMailModal
@@ -468,6 +382,6 @@ export default function InspectionsPage() {
           base64={selectedDoc.base64}
         />
       ) : null}
-    </div>
+    </>
   );
 }

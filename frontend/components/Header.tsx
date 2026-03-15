@@ -1,22 +1,18 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import {
   Bell,
+  Command,
+  Info,
+  Menu,
+  RefreshCw,
   Search,
+  ShieldCheck,
   User,
+  WifiOff,
   X,
   AlertTriangle,
-  Info,
   CheckCircle,
-  CalendarDays,
-  Command,
-  FilePlus2,
-  ShieldCheck,
-  WifiOff,
-  RefreshCw,
-  Menu,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -35,7 +31,6 @@ export function Header({
   onOpenMobileNav?: () => void;
 }) {
   const { user } = useAuth();
-  const pathname = usePathname();
   const { isOffline, apiBaseUrl } = useApiStatus();
   const { isReconnecting, reconnect } = useApiReconnect(apiBaseUrl);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -55,16 +50,6 @@ export function Header({
     const parts = raw.split(/\s+/).slice(0, 2);
     return parts.map((part) => part[0]?.toUpperCase()).join('');
   }, [user?.nome]);
-
-  const currentDateLabel = useMemo(
-    () =>
-      new Intl.DateTimeFormat('pt-BR', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      }).format(new Date()),
-    [],
-  );
 
   const loadUnreadCount = useCallback(async () => {
     try {
@@ -185,10 +170,23 @@ export function Header({
     window.dispatchEvent(new CustomEvent('app:command-palette-open'));
   };
 
+  const tenantLabel = selectedTenant?.companyName || user?.company?.razao_social || 'Tenant não selecionado';
+  const showOfflineChip = syncingOfflineQueue || offlineQueueCount > 0;
+
   return (
     <header className="ds-topbar">
-      <div className="flex flex-1 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex min-w-0 flex-1 items-center gap-4">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={onOpenMobileNav}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)] xl:hidden"
+            aria-label="Abrir navegação"
+            title="Abrir navegação"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
           <button
             type="button"
             onClick={openCommandPalette}
@@ -197,110 +195,67 @@ export function Header({
           >
             <Search className="h-4 w-4 text-[var(--ds-color-text-muted)]" />
             <span className="min-w-0 flex-1 text-left text-[13px] text-[var(--ds-color-text-muted)]">
-              Pesquisar módulos, documentos, colaboradores ou ações...
+              Pesquisar módulos, documentos ou ações...
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/72 px-2 py-1 text-[10px] font-semibold text-[var(--ds-color-text-muted)]">
+            <span className="inline-flex items-center gap-1 rounded-md border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-2 py-1 text-[10px] font-semibold text-[var(--ds-color-text-muted)]">
               <Command className="h-3 w-3" />
               Ctrl K
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={onOpenMobileNav}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/74 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/80 hover:text-[var(--ds-color-text-primary)] xl:hidden"
-            aria-label="Abrir navegação"
-            title="Abrir navegação"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-
-          <div className="hidden min-w-0 items-center gap-3 xl:flex">
-            <div className="ds-topbar-chip">
-              <CalendarDays className="h-4 w-4 text-[var(--ds-color-info)]" />
-              {currentDateLabel}
-            </div>
-            <div className="ds-topbar-chip">
+          <div className="hidden min-w-0 items-center gap-2 xl:flex">
+            <div className="ds-topbar-chip max-w-[24rem] truncate">
               <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
-              {selectedTenant?.companyName || user?.company?.razao_social || 'Tenant não selecionado'}
+              <span className="truncate">{tenantLabel}</span>
+            </div>
+            <div
+              className={`ds-topbar-chip ${
+                isOffline
+                  ? 'border-[color:var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]'
+                  : 'border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
+              }`}
+              title={isOffline ? `API offline${apiBaseUrl ? ` (${apiBaseUrl})` : ''}` : 'API online'}
+            >
+              <span className={`h-2 w-2 rounded-full ${isOffline ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-success)]'}`} />
+              {isOffline ? 'API offline' : 'API online'}
             </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex w-full items-center gap-2 xl:hidden">
-            <div className="ds-topbar-chip min-w-0 flex-1 justify-center">
-              <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
-              <span className="truncate">
-                {selectedTenant?.companyName || user?.company?.razao_social || 'Tenant não selecionado'}
-              </span>
-            </div>
-            <div className="ds-topbar-chip">
-              <CalendarDays className="h-4 w-4 text-[var(--ds-color-info)]" />
-              {currentDateLabel}
-            </div>
-          </div>
-
-          <div className="ds-topbar-mobile-context xl:hidden">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
-              Contexto ativo
-            </p>
-            <p className="mt-1 text-sm font-medium text-[var(--ds-color-text-primary)]">
-              {pathname === '/dashboard'
-                ? 'Cockpit operacional'
-                : pathname.replace('/dashboard/', '').replaceAll('-', ' ')}
-            </p>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <div className="ds-topbar-chip min-w-0 flex-1 justify-center xl:hidden">
+            <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
+            <span className="truncate">{tenantLabel}</span>
           </div>
 
           <button
             type="button"
             onClick={openCommandPalette}
-            className="ds-topbar-chip xl:hidden"
+            className="ds-topbar-chip lg:hidden"
             title="Abrir command palette"
           >
             <Command className="h-4 w-4 text-[var(--ds-color-info)]" />
-            Busca rápida
+            Buscar
           </button>
 
-          <div className="hidden items-center gap-2 2xl:flex">
-            <Link href="/dashboard/aprs/new" className="ds-topbar-action">
-              <FilePlus2 className="h-4 w-4" />
-              Nova APR
-            </Link>
-            <Link href="/dashboard/pts/new" className="ds-topbar-action ds-topbar-action--secondary">
-              <FilePlus2 className="h-4 w-4" />
-              Nova PT
-            </Link>
-          </div>
+          {showOfflineChip ? (
+            <button
+              type="button"
+              onClick={() => void flushOfflineQueue()}
+              disabled={syncingOfflineQueue || offlineQueueCount === 0}
+              className="ds-topbar-chip disabled:cursor-not-allowed disabled:opacity-60"
+              title="Sincronizar itens salvos offline"
+            >
+              {syncingOfflineQueue ? (
+                <RefreshCw className="h-4 w-4 animate-spin text-[var(--ds-color-warning)]" />
+              ) : (
+                <WifiOff className="h-4 w-4 text-[var(--ds-color-warning)]" />
+              )}
+              {syncingOfflineQueue ? 'Sincronizando' : `${offlineQueueCount} offline`}
+            </button>
+          ) : null}
 
-          <button
-            type="button"
-            onClick={() => void flushOfflineQueue()}
-            disabled={syncingOfflineQueue || offlineQueueCount === 0}
-            className="ds-topbar-chip disabled:cursor-not-allowed disabled:opacity-60"
-            title="Sincronizar itens salvos offline"
-          >
-            {syncingOfflineQueue ? (
-              <RefreshCw className="h-4 w-4 animate-spin text-[var(--ds-color-warning)]" />
-            ) : (
-              <WifiOff className={`h-4 w-4 ${offlineQueueCount > 0 ? 'text-[var(--ds-color-warning)]' : 'text-[var(--ds-color-text-muted)]'}`} />
-            )}
-            {syncingOfflineQueue ? 'Sincronizando' : `Offline: ${offlineQueueCount}`}
-          </button>
-
-          <div
-            className={`ds-topbar-chip ${
-              isOffline
-                ? 'border-[color:var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]'
-                : 'border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
-            }`}
-            title={isOffline ? `API offline${apiBaseUrl ? ` (${apiBaseUrl})` : ''}` : 'API online'}
-          >
-            <span className={`h-2 w-2 rounded-full ${isOffline ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-success)]'}`} />
-            {isOffline ? 'API offline' : 'API online'}
-          </div>
-
-          {isOffline && (
+          {isOffline ? (
             <button
               type="button"
               onClick={reconnect}
@@ -310,7 +265,7 @@ export function Header({
               <RefreshCw className={`h-4 w-4 ${isReconnecting ? 'animate-spin' : ''}`} />
               {isReconnecting ? 'Reconectando' : 'Reconectar'}
             </button>
-          )}
+          ) : null}
 
           <ThemeToggle />
 
@@ -319,22 +274,22 @@ export function Header({
               type="button"
               title="Notificações"
               onClick={handleOpen}
-              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/74 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/80 hover:text-[var(--ds-color-text-primary)]"
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
             >
               <Bell className="h-5 w-5" />
-              {unreadCount > 0 && (
+              {unreadCount > 0 ? (
                 <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--ds-color-danger)] text-[10px] font-bold text-white">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
-              )}
+              ) : null}
             </button>
 
-            {showNotifications && (
-              <div className="absolute right-0 z-50 mt-3 w-[20.5rem] overflow-hidden rounded-[1.4rem] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-lg)]">
+            {showNotifications ? (
+              <div className="absolute right-0 z-50 mt-3 w-[20.5rem] overflow-hidden rounded-[1.2rem] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-lg)]">
                 <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-4 py-3.5">
                   <div>
                     <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Notificações</h3>
-                    <p className="text-xs text-[var(--ds-color-text-muted)]">Eventos recentes da operação SST</p>
+                    <p className="text-xs text-[var(--ds-color-text-muted)]">Eventos recentes da operação</p>
                   </div>
                   <button type="button" title="Fechar" onClick={() => setShowNotifications(false)}>
                     <X className="h-4 w-4 text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)]" />
@@ -348,8 +303,8 @@ export function Header({
                         key={notification.id}
                         type="button"
                         onClick={() => !notification.read && handleMarkOne(notification.id)}
-                        className={`w-full border-b border-[var(--ds-color-border-subtle)] px-4 py-3.5 text-left transition-colors hover:bg-[color:var(--ds-color-surface-muted)]/40 ${
-                          !notification.read ? 'bg-[var(--ds-color-action-primary)]/8' : ''
+                        className={`w-full border-b border-[var(--ds-color-border-subtle)] px-4 py-3.5 text-left transition-colors hover:bg-[var(--ds-color-surface-muted)] ${
+                          !notification.read ? 'bg-[var(--ds-color-primary-subtle)]/55' : ''
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -359,10 +314,10 @@ export function Header({
                               <p className={`truncate text-sm font-semibold ${notification.read ? 'text-[var(--ds-color-text-secondary)]' : 'text-[var(--ds-color-text-primary)]'}`}>
                                 {notification.title}
                               </p>
-                              {!notification.read && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--ds-color-info)]" />}
+                              {!notification.read ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--ds-color-info)]" /> : null}
                             </div>
                             <p className="mt-1 line-clamp-2 text-xs text-[var(--ds-color-text-muted)]">{notification.message}</p>
-                            <p className="mt-2 text-[10px] uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]/70">
+                            <p className="mt-2 text-[10px] uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]/70">
                               {formatDate(notification.createdAt)}
                             </p>
                           </div>
@@ -377,26 +332,26 @@ export function Header({
                   )}
                 </div>
 
-                <div className="bg-[color:var(--ds-color-surface-muted)]/45 px-4 py-2.5 text-center">
+                <div className="bg-[var(--ds-color-surface-muted)] px-4 py-2.5 text-center">
                   <button
                     type="button"
                     onClick={handleMarkAllAsRead}
                     disabled={markingAll || unreadCount === 0}
-                    className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="text-xs font-semibold text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {markingAll ? 'Marcando...' : 'Marcar todas como lidas'}
                   </button>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
 
-          <div className="flex items-center gap-2.5 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/74 px-3 py-2">
+          <div className="flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2">
             <div className="text-right">
               <p className="text-[13px] font-semibold text-[var(--ds-color-text-primary)]">{user?.nome}</p>
               <p className="text-xs text-[var(--ds-color-text-muted)]">{user?.profile?.nome || 'Perfil não definido'}</p>
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[image:var(--ds-gradient-brand)] text-[13px] font-bold text-white shadow-[0_14px_28px_rgba(22,101,52,0.28)]">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--ds-color-action-primary)] text-[13px] font-bold text-white">
               {userInitials || <User className="h-5 w-5" />}
             </div>
           </div>

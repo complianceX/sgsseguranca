@@ -1,32 +1,15 @@
 'use client';
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { toolsService, Tool } from '@/services/toolsService';
-import { Plus, Pencil, Trash2, Search, ClipboardList, Wrench } from 'lucide-react';
 import Link from 'next/link';
+import { ClipboardList, Pencil, Plus, Search, Trash2, Wrench } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { toolsService, Tool } from '@/services/toolsService';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  EmptyState,
-  ErrorState,
-  PageLoadingState,
-} from '@/components/ui/state';
+import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
+import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 
 const inputClassName =
@@ -99,7 +82,7 @@ export default function ToolsPage() {
     return (
       <PageLoadingState
         title="Carregando ferramentas"
-        description="Buscando cadastro patrimonial e inventário operacional."
+        description="Buscando cadastro patrimonial e inventario operacional."
         cards={3}
         tableRows={6}
       />
@@ -121,165 +104,56 @@ export default function ToolsPage() {
   }
 
   return (
-    <div className="ds-crud-page">
-      <Card tone="elevated" padding="lg" className="ds-crud-hero">
-        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
-          <div className="ds-crud-hero__lead">
-            <div className="ds-crud-hero__icon">
-              <Wrench className="h-5 w-5" />
-            </div>
-            <div className="ds-crud-hero__copy">
-              <span className="ds-crud-hero__eyebrow">Inventário de ferramentas</span>
-              <CardTitle className="text-2xl">Ferramentas</CardTitle>
-              <CardDescription>
-                Gerencie o inventário de ferramentas e acesse rapidamente o fluxo de checklist por equipamento.
-              </CardDescription>
-            </div>
-          </div>
-          <Link
-            href="/dashboard/tools/new"
-            className={cn(buttonVariants(), 'inline-flex items-center')}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Nova ferramenta
-          </Link>
-        </CardHeader>
-      </Card>
-
-      <div className="ds-crud-stats">
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Total cadastrado</CardDescription>
-            <CardTitle className="ds-crud-stat__value">{summary.total}</CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Ferramentas registradas no inventário.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--primary">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Resultados visíveis</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-action-primary)]">
-              {summary.visiveis}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Retorno atual da listagem operacional.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Com número de série</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
-              {summary.comSerie}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Itens prontos para rastreabilidade patrimonial.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-
-      <Card tone="default" padding="none" className="ds-crud-filter-card">
-        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <CardTitle>Base de ferramentas</CardTitle>
-            <CardDescription>
-              {total} ferramenta(s) encontrada(s) com busca por nome e número de série.
-            </CardDescription>
-          </div>
-          <div className="ds-crud-search">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
-            <input
-              type="text"
-              placeholder="Buscar ferramentas..."
-              aria-label="Buscar ferramentas por nome ou número de série"
-              className={cn(inputClassName, 'pl-10')}
-              value={searchTerm}
-              onChange={(event) => {
-                setSearchTerm(event.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        </CardHeader>
-
-        <CardContent className="mt-0">
-          {tools.length === 0 ? (
-            <EmptyState
-              title="Nenhuma ferramenta encontrada"
-              description={
-                deferredSearchTerm
-                  ? 'Nenhum resultado corresponde ao filtro aplicado.'
-                  : 'Ainda nao existem ferramentas cadastradas para este tenant.'
-              }
-              action={
-                !deferredSearchTerm ? (
-                  <Link
-                    href="/dashboard/tools/new"
-                    className={cn(buttonVariants(), 'inline-flex items-center')}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nova ferramenta
-                  </Link>
-                ) : undefined
-              }
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Número de série</TableHead>
-                  <TableHead>Data de criação</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tools.map((tool) => (
-                  <TableRow key={tool.id}>
-                    <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
-                      {tool.nome}
-                    </TableCell>
-                    <TableCell className="text-[var(--ds-color-text-secondary)]">
-                      {tool.numero_serie || '—'}
-                    </TableCell>
-                    <TableCell>{new Date(tool.created_at).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Link
-                          href={`/dashboard/checklist-models/new?equipamento=${encodeURIComponent(tool.nome)}&company_id=${tool.company_id}`}
-                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
-                          title="Montar checklist"
-                        >
-                          <ClipboardList className="h-4 w-4" />
-                        </Link>
-                        <Link
-                          href={`/dashboard/tools/edit/${tool.id}`}
-                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
-                          title="Editar ferramenta"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Link>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleDelete(tool.id)}
-                          className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-                          title="Excluir ferramenta"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-        {!loading && total > 0 ? (
+    <ListPageLayout
+      eyebrow="Inventario de ferramentas"
+      title="Ferramentas"
+      description="Gerencie o inventario de ferramentas e acesse rapidamente o fluxo de checklist por equipamento."
+      icon={<Wrench className="h-5 w-5" />}
+      actions={
+        <Link href="/dashboard/tools/new" className={buttonVariants()}>
+          <Plus className="mr-2 h-4 w-4" />
+          Nova ferramenta
+        </Link>
+      }
+      metrics={[
+        {
+          label: 'Total cadastrado',
+          value: summary.total,
+          note: 'Ferramentas registradas no inventario.',
+        },
+        {
+          label: 'Resultados visiveis',
+          value: summary.visiveis,
+          note: 'Retorno atual da listagem operacional.',
+          tone: 'primary',
+        },
+        {
+          label: 'Com numero de serie',
+          value: summary.comSerie,
+          note: 'Itens prontos para rastreabilidade patrimonial.',
+          tone: 'success',
+        },
+      ]}
+      toolbarTitle="Base de ferramentas"
+      toolbarDescription={`${total} ferramenta(s) encontrada(s) com busca por nome e numero de serie.`}
+      toolbarContent={
+        <div className="ds-list-search">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
+          <input
+            type="text"
+            placeholder="Buscar ferramentas..."
+            aria-label="Buscar ferramentas por nome ou numero de serie"
+            className={cn(inputClassName, 'pl-10')}
+            value={searchTerm}
+            onChange={(event) => {
+              setSearchTerm(event.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+      }
+      footer={
+        !loading && total > 0 ? (
           <PaginationControls
             page={page}
             lastPage={lastPage}
@@ -287,8 +161,84 @@ export default function ToolsPage() {
             onPrev={() => setPage((current) => Math.max(1, current - 1))}
             onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
           />
-        ) : null}
-      </Card>
-    </div>
+        ) : null
+      }
+    >
+      {tools.length === 0 ? (
+        <div className="p-6">
+          <EmptyState
+            title="Nenhuma ferramenta encontrada"
+            description={
+              deferredSearchTerm
+                ? 'Nenhum resultado corresponde ao filtro aplicado.'
+                : 'Ainda nao existem ferramentas cadastradas para este tenant.'
+            }
+            action={
+              !deferredSearchTerm ? (
+                <Link
+                  href="/dashboard/tools/new"
+                  className={cn(buttonVariants(), 'inline-flex items-center')}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova ferramenta
+                </Link>
+              ) : undefined
+            }
+          />
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nome</TableHead>
+              <TableHead>Numero de serie</TableHead>
+              <TableHead>Data de criacao</TableHead>
+              <TableHead className="text-right">Acoes</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {tools.map((tool) => (
+              <TableRow key={tool.id}>
+                <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
+                  {tool.nome}
+                </TableCell>
+                <TableCell className="text-[var(--ds-color-text-secondary)]">
+                  {tool.numero_serie || '-'}
+                </TableCell>
+                <TableCell>{new Date(tool.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-1">
+                    <Link
+                      href={`/dashboard/checklist-models/new?equipamento=${encodeURIComponent(tool.nome)}&company_id=${tool.company_id}`}
+                      className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                      title="Montar checklist"
+                    >
+                      <ClipboardList className="h-4 w-4" />
+                    </Link>
+                    <Link
+                      href={`/dashboard/tools/edit/${tool.id}`}
+                      className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                      title="Editar ferramenta"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Link>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleDelete(tool.id)}
+                      className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                      title="Excluir ferramenta"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </ListPageLayout>
   );
 }

@@ -29,12 +29,12 @@ export const PtsInsights = React.memo(({ insights }: PtsInsightsProps) => {
     <Card
       tone="muted"
       padding="md"
-      className="border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/8 animate-in fade-in slide-in-from-top-4"
+      className="border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
     >
       <CardHeader className="gap-2">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
-          <CardTitle className="text-sm uppercase tracking-wider text-[var(--ds-color-action-primary)]">
+          <CardTitle className="text-sm text-[var(--ds-color-text-primary)]">
             Insights da SOPHIE
           </CardTitle>
         </div>
@@ -46,7 +46,7 @@ export const PtsInsights = React.memo(({ insights }: PtsInsightsProps) => {
         {insights.map((insight, idx) => (
           <div
             key={idx}
-            className="flex items-start gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 transition-all duration-[var(--ds-motion-base)] hover:-translate-y-px hover:shadow-[var(--ds-shadow-sm)]"
+            className="flex items-start gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/38 p-4"
           >
             <div
               className={cn(

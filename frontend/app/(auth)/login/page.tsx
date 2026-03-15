@@ -5,7 +5,6 @@ import { useAuth } from '@/context/AuthContext';
 import { useSearchParams, useRouter as useNextRouter } from 'next/navigation';
 import Image from 'next/image';
 import axios from 'axios';
-import { Inter } from 'next/font/google';
 import {
   AlertCircle,
   AlertTriangle,
@@ -21,11 +20,6 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import styles from './login.module.css';
-
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-});
 
 function getLoginErrorMessage(error: unknown): string {
   if (!axios.isAxiosError(error)) {
@@ -143,7 +137,7 @@ function LoginPageContent() {
   };
 
   return (
-    <div className={`${inter.className} ${styles.page}`}>
+    <div className={styles.page}>
       <div className={styles.backgroundGlowA} />
       <div className={styles.backgroundGlowB} />
       <div className={styles.backgroundGrid} />
@@ -326,7 +320,7 @@ function LoginPageContent() {
 
 function LoginFallback() {
   return (
-    <div className={`${inter.className} ${styles.page}`}>
+    <div className={styles.page}>
       <div className={styles.loadingFallback}>
         <KeyRound size={20} />
       </div>

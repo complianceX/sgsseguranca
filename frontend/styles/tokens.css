@@ -19,17 +19,17 @@
      DANGER    #D92D20  ANSI Z535 danger red
      INFO      #0369A1  Information / notice blue
   ══════════════════════════════════════════════════════════════ */
-  --brand-background: #f4f7fa;
-  --brand-sidebar: #0d3d1f;
+  --brand-background: #f7f8fa;
+  --brand-sidebar: #183a2c;
   --brand-card: #ffffff;
-  --brand-primary: #16a34a;
-  --brand-secondary: #0052b4;
-  --brand-text-primary: #101828;
-  --brand-text-secondary: #344054;
-  --brand-success: #15803d;
-  --brand-warning: #d97706;
-  --brand-danger: #d92d20;
-  --brand-info: #0369a1;
+  --brand-primary: #1e6b43;
+  --brand-secondary: #274c77;
+  --brand-text-primary: #111827;
+  --brand-text-secondary: #6b7785;
+  --brand-success: #2e7d32;
+  --brand-warning: #b7791f;
+  --brand-danger: #c0392b;
+  --brand-info: #3b6b93;
 
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;
