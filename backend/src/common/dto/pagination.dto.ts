@@ -1,4 +1,11 @@
-import { IsOptional, IsNumber, Min, Max, IsString } from 'class-validator';
+import {
+  IsOptional,
+  IsNumber,
+  Min,
+  Max,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -55,6 +62,15 @@ export class PaginationDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Filtro opcional por empresa para endpoints multi-tenant administrados',
+    example: '11111111-1111-4111-8111-111111111111',
+  })
+  @IsOptional()
+  @IsUUID('4', { message: 'ID de empresa inválido' })
+  company_id?: string;
 
   /**
    * Calcular offset para banco de dados

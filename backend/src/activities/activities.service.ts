@@ -37,7 +37,7 @@ export class ActivitiesService {
 
     const query = this.activitiesRepository
       .createQueryBuilder('activity')
-      .orderBy('activity.createdAt', 'DESC')
+      .orderBy('activity.created_at', 'DESC')
       .skip(skip)
       .take(limit);
 

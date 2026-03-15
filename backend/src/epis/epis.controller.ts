@@ -29,8 +29,8 @@ export class EpisController extends BaseController<
     return this.episService.findPaginated({
       page: pagination.page,
       limit: pagination.limit,
-      search,
-      companyId: companyId || undefined,
+      search: search ?? pagination.search,
+      companyId: companyId ?? pagination.company_id ?? undefined,
     });
   }
 }

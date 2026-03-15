@@ -117,6 +117,7 @@ const aprSchema = z.object({
 });
 
 type AprFormData = z.infer<typeof aprSchema>;
+type AprMutationPayload = Omit<AprFormData, 'pdf_signed'>;
 
 interface AprFormProps {
   id?: string;
@@ -501,11 +502,13 @@ export function AprForm({ id }: AprFormProps) {
 
       let aprId = id;
       // Remove campo interno (não existe no DTO do backend) e força status Aprovada quando há PDF assinado.
-      const { pdf_signed, ...payload } = data as any;
+      const payload = Object.fromEntries(
+        Object.entries(data).filter(([key]) => key !== 'pdf_signed'),
+      ) as AprMutationPayload;
       const finalPayload = {
         ...payload,
         status: signedPdfMode ? 'Aprovada' : payload.status,
-      } as AprFormData;
+      } as AprMutationPayload;
       
       if (id) {
         await aprsService.update(id, finalPayload);
@@ -1097,16 +1100,29 @@ export function AprForm({ id }: AprFormProps) {
         return;
       }
 
+      if (!isUuidLike(selectedCompanyId)) {
+        console.warn('Empresa inválida ao carregar catálogos da APR:', selectedCompanyId);
+        setActivities([]);
+        setRisks([]);
+        setEpis([]);
+        setTools([]);
+        setMachines([]);
+        setSites([]);
+        setUsers([]);
+        toast.error('A empresa selecionada para a APR está inválida. Recarregue a tela e selecione novamente.');
+        return;
+      }
+
       try {
         const [
-          actPage,
-          riskPage,
-          epiPage,
-          sitePage,
-          userPage,
-          toolPage,
-          machinePage,
-        ] = await Promise.all([
+          actResult,
+          riskResult,
+          epiResult,
+          siteResult,
+          userResult,
+          toolResult,
+          machineResult,
+        ] = await Promise.allSettled([
           activitiesService.findPaginated({
             page: 1,
             limit: 100,
@@ -1144,50 +1160,42 @@ export function AprForm({ id }: AprFormProps) {
           }),
         ]);
 
-        setActivities((prev) =>
-          dedupeById([
-            ...prev.filter((item) => item.company_id === selectedCompanyId),
-            ...actPage.data,
-          ]),
-        );
-        setRisks((prev) =>
-          dedupeById([
-            ...prev.filter((item) => item.company_id === selectedCompanyId),
-            ...riskPage.data,
-          ]),
-        );
-        setEpis((prev) =>
-          dedupeById([
-            ...prev.filter((item) => item.company_id === selectedCompanyId),
-            ...epiPage.data,
-          ]),
-        );
-        setSites((prev) =>
-          dedupeById([
-            ...prev.filter((item) => item.company_id === selectedCompanyId),
-            ...sitePage.data,
-          ]),
-        );
-        setUsers((prev) =>
-          dedupeById([
-            ...prev.filter((item) => item.company_id === selectedCompanyId),
-            ...userPage.data,
-          ]),
-        );
-        setTools((prev) =>
-          dedupeById([
-            ...prev.filter((item) => item.company_id === selectedCompanyId),
-            ...toolPage.data,
-          ]),
-        );
-        setMachines((prev) =>
-          dedupeById([
-            ...prev.filter((item) => item.company_id === selectedCompanyId),
-            ...machinePage.data,
-          ]),
-        );
+        const catalogFailures: string[] = [];
+
+        const mergeCatalog = <T extends { id: string; company_id: string }>(
+          result: PromiseSettledResult<{ data: T[] }>,
+          label: string,
+          setter: (updater: (prev: T[]) => T[]) => void,
+        ) => {
+          if (result.status === 'fulfilled') {
+            setter((prev) =>
+              dedupeById([
+                ...prev.filter((item) => item.company_id !== selectedCompanyId),
+                ...result.value.data,
+              ]),
+            );
+            return;
+          }
+
+          catalogFailures.push(label);
+          console.error(`Erro ao carregar catálogo da APR: ${label}`, result.reason);
+        };
+
+        mergeCatalog(actResult, 'atividades', setActivities);
+        mergeCatalog(riskResult, 'riscos', setRisks);
+        mergeCatalog(epiResult, 'EPIs', setEpis);
+        mergeCatalog(siteResult, 'obras', setSites);
+        mergeCatalog(userResult, 'usuários', setUsers);
+        mergeCatalog(toolResult, 'ferramentas', setTools);
+        mergeCatalog(machineResult, 'máquinas', setMachines);
+
+        if (catalogFailures.length > 0) {
+          toast.error('Alguns catálogos da APR não puderam ser carregados.', {
+            description: `Falharam: ${catalogFailures.join(', ')}.`,
+          });
+        }
       } catch (error) {
-        console.error('Erro ao carregar catálogos da APR:', error);
+        console.error('Erro inesperado ao carregar catálogos da APR:', error);
         toast.error('Erro ao carregar catálogos da APR.');
       }
     }
@@ -2713,5 +2721,11 @@ function SectionGrid({ title, items, selectedIds, onToggle, error, signatures, c
 
 function dedupeById<T extends { id: string }>(items: T[]) {
   return Array.from(new Map(items.map((item) => [item.id, item])).values());
+}
+
+function isUuidLike(value?: string | null) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || '').trim(),
+  );
 }
 
