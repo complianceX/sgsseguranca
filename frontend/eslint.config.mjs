@@ -14,6 +14,20 @@ const config = [
   {
     ignores: ['.next/**', 'out/**', 'build/**', 'next-env.d.ts'],
   },
+  {
+    files: ['**/*.test.ts', '**/*.test.tsx', 'jest.setup.ts'],
+    languageOptions: {
+      globals: {
+        jest: 'readonly',
+        describe: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        global: 'readonly',
+      },
+    },
+  },
 ];
 
 export default config;

@@ -20,35 +20,24 @@
     .page {
       width: 210mm;
       height: 297mm;
-      padding: 16mm;
+      padding: 14mm;
       position: relative;
       display: flex;
       flex-direction: column;
     }
 
     .report-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
       background: #102033;
       color: #ffffff;
-      margin: -16mm -16mm 0;
-      padding: 14mm 16mm 10mm;
-      border-bottom: 2.5mm solid #1f4e79;
-    }
-    .report-header .logo {
-      font-size: 16pt;
-      font-weight: bold;
-      color: #ffffff;
-      letter-spacing: 0.06em;
-    }
-    .report-header .title-block {
-      text-align: right;
+      margin: -14mm -14mm 0;
+      padding: 14mm 14mm 10mm;
+      border-bottom: 2.6mm solid #1f4e79;
+      position: relative;
+      min-height: 36mm;
     }
     .report-title {
       font-size: 16pt;
-      font-weight: 600;
-      color: #ffffff;
+      font-weight: 700;
       margin: 0;
     }
     .report-subtitle {
@@ -56,17 +45,202 @@
       color: #dbe5ee;
       margin: 4px 0 0;
     }
+    .document-chip {
+      position: absolute;
+      top: 10mm;
+      right: 14mm;
+      width: 52mm;
+      background: #ffffff;
+      color: #0f172a;
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .document-chip .label {
+      font-size: 7pt;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: #64748b;
+      font-weight: 700;
+    }
+    .document-chip .value {
+      margin-top: 6px;
+      font-size: 11pt;
+      font-weight: 700;
+    }
+    .document-chip .meta {
+      margin-top: 4px;
+      font-size: 7.5pt;
+      color: #475569;
+    }
 
     .report-body {
       flex-grow: 1;
-      padding: 10mm 0 0;
+      padding-top: 8mm;
+    }
+
+    .metadata-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .metadata-item {
+      background-color: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .metadata-label {
+      display: block;
+      font-size: 7.3pt;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    .metadata-value {
+      display: block;
+      font-size: 10pt;
+      font-weight: 600;
+      color: #0f172a;
+      line-height: 1.35;
+    }
+
+    .executive-strip {
+      display: grid;
+      grid-template-columns: 1.3fr repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    .executive-summary {
+      border-left: 4px solid #0f766e;
+      padding: 12px 14px;
+    }
+    .executive-summary .title {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 4px;
+    }
+    .executive-summary .body {
+      font-size: 8.6pt;
+      line-height: 1.45;
+      color: #334155;
+    }
+    .metric-pill {
+      background: #ffffff;
+      border-left: 4px solid #1f4e79;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .metric-pill.warning { border-left-color: #b45309; }
+    .metric-pill.success { border-left-color: #166534; }
+    .metric-pill.danger { border-left-color: #b91c1c; }
+    .metric-pill .label {
+      font-size: 7pt;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 700;
+      color: #64748b;
+      margin-bottom: 5px;
+    }
+    .metric-pill .value {
+      font-size: 13pt;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .section-title {
+      font-size: 11pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 14px 0 8px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .stat-card {
+      background-color: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-left: 4px solid #1f4e79;
+      border-radius: 6px;
+      padding: 12px 14px;
+      min-height: 72px;
+    }
+    .stat-card.primary { border-left-color: #1f4e79; }
+    .stat-card.success { border-left-color: #166534; }
+    .stat-card.warning { border-left-color: #b45309; }
+    .stat-card.danger { border-left-color: #b91c1c; }
+    .stat-value {
+      font-size: 19pt;
+      font-weight: 700;
+      color: #102033;
+      margin-bottom: 4px;
+    }
+    .stat-label {
+      font-size: 8.3pt;
+      color: #475569;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .analysis-block {
+      background-color: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 14px;
+      min-height: 60mm;
+      font-size: 9.6pt;
+      line-height: 1.65;
+    }
+    .analysis-block .title {
+      font-size: 10.5pt;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #0f172a;
+    }
+    .analysis-block p {
+      margin: 0;
+      white-space: pre-wrap;
+    }
+
+    .governance {
+      margin-top: 12px;
+      background: #eef2f7;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .governance .label {
+      font-size: 7.2pt;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 700;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+    .governance .value {
+      font-size: 8.5pt;
+      color: #334155;
+      line-height: 1.45;
     }
 
     .report-footer {
       position: absolute;
       bottom: 8mm;
-      left: 16mm;
-      right: 16mm;
+      left: 14mm;
+      right: 14mm;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -75,93 +249,18 @@
       border-top: 1px solid #cbd5e1;
       padding-top: 4mm;
     }
-
-    .section-title {
-      font-size: 12pt;
-      font-weight: 600;
-      color: #0f172a;
-      border-bottom: 1px solid #cbd5e1;
-      padding-bottom: 4px;
-      margin-top: 16px;
-      margin-bottom: 10px;
-    }
-
-    .metadata-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 18px;
-    }
-    .metadata-item {
-      display: flex;
-      flex-direction: column;
-      background-color: #f8fafc;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      padding: 10px 12px;
-    }
-    .metadata-label {
-      font-size: 7.5pt;
-      color: #64748b;
-      margin-bottom: 2px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-    .metadata-value {
-      font-size: 10pt;
-      font-weight: 600;
-      color: #0f172a;
-    }
-
-    .stats-container {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-    }
-    .stat-card {
-      background-color: #ffffff;
-      border: 1px solid #cbd5e1;
-      border-left: 4px solid #1f4e79;
-      border-radius: 6px;
-      padding: 12px 14px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-    .stat-card.primary { border-left-color: #1f4e79; }
-    .stat-card.success { border-left-color: #166534; }
-    .stat-card.warning { border-left-color: #b45309; }
-    .stat-card.danger { border-left-color: #b91c1c; }
-
-    .stat-value {
-      font-size: 21pt;
-      font-weight: 700;
-      color: #102033;
-    }
-    .stat-label {
-      font-size: 9pt;
-      color: #475569;
-      font-weight: 500;
-    }
-
-    .analysis-block {
-      background-color: #f8fafc;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      padding: 14px;
-      margin-top: 14px;
-      font-size: 10pt;
-      line-height: 1.65;
-    }
   </style>
 </head>
 <body>
   <div class="page">
     <header class="report-header">
-      <div class="logo">&lt;SST&gt;</div>
-      <div class="title-block">
-        <h1 class="report-title">Relatório Mensal de Conformidade</h1>
-        <h2 class="report-subtitle">Gestão de Segurança do Trabalho</h2>
+      <h1 class="report-title">Relatório &lt;GST&gt; - {{periodo}}</h1>
+      <p class="report-subtitle">Relatório executivo de desempenho documental e conformidade</p>
+
+      <div class="document-chip">
+        <div class="label">Emissão documental</div>
+        <div class="value">{{periodo}}</div>
+        <div class="meta">{{dataEmissao}}</div>
       </div>
     </header>
 
@@ -172,23 +271,51 @@
           <span class="metadata-value">{{companyName}}</span>
         </div>
         <div class="metadata-item">
+          <span class="metadata-label">Documento</span>
+          <span class="metadata-value">{{documentTitle}}</span>
+        </div>
+        <div class="metadata-item">
           <span class="metadata-label">Período</span>
           <span class="metadata-value">{{periodo}}</span>
         </div>
         <div class="metadata-item">
-          <span class="metadata-label">Data de Emissão</span>
+          <span class="metadata-label">Emissão</span>
           <span class="metadata-value">{{dataEmissao}}</span>
         </div>
       </div>
 
-      <h3 class="section-title">Indicadores de Desempenho</h3>
-      <div class="stats-container">
+      <section class="executive-strip">
+        <div class="executive-summary">
+          <div class="title">Leitura executiva do período</div>
+          <div class="body">Síntese rápida da movimentação documental, capacitação e foco corretivo do fechamento mensal.</div>
+        </div>
+        <div class="metric-pill">
+          <span class="label">Registros</span>
+          <span class="value">{{operational_total}}</span>
+        </div>
+        <div class="metric-pill {{training_tone}}">
+          <span class="label">Treinamentos</span>
+          <span class="value">{{trainings_count}}</span>
+        </div>
+        <div class="metric-pill {{status_tone}}">
+          <span class="label">Status</span>
+          <span class="value">{{status_signal}}</span>
+        </div>
+      </section>
+
+      <h3 class="section-title">Indicadores mensais</h3>
+      <div class="stats-grid">
         {{stats_cards}}
       </div>
 
-      <h3 class="section-title">Análise e Recomendações</h3>
       <div class="analysis-block">
+        <div class="title">Análise e recomendações</div>
         <p>{{analise_gandra}}</p>
+      </div>
+
+      <div class="governance">
+        <div class="label">Governança documental</div>
+        <div class="value">{{governance_note}}</div>
       </div>
     </main>
 

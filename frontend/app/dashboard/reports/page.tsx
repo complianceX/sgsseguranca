@@ -32,8 +32,16 @@ import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { generateMonthlyReportPdf } from '@/lib/pdf/monthlyReportGenerator';
+import { selectedTenantStore } from '@/lib/selectedTenantStore';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function enrichReportForPdf(report: Report, companyName?: string | null) {
+  return {
+    ...report,
+    companyName: companyName?.trim() || 'Empresa nao informada',
+  };
+}
 
 function buildReportsSophieHref(params: {
   module: string;
@@ -149,7 +157,7 @@ const EMPTY_QUEUE_STATS: ReportQueueStats = {
 };
 
 export default function ReportsPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const canViewMail = hasPermission('can_view_mail');
   const canUseAi = hasPermission('can_use_ai');
 
@@ -363,7 +371,10 @@ export default function ReportsPage() {
 
   function handleDownloadPdf(report: Report) {
     try {
-      generateMonthlyReportPdf(report);
+      const selectedTenant = selectedTenantStore.get();
+      generateMonthlyReportPdf(
+        enrichReportForPdf(report, selectedTenant?.companyName || user?.company?.razao_social),
+      );
       toast.success('PDF gerado com sucesso.');
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
@@ -373,9 +384,11 @@ export default function ReportsPage() {
 
   function handlePrint(report: Report) {
     try {
-      const result = generateMonthlyReportPdf(report, { save: false, output: 'base64' }) as {
-        base64: string;
-      } | null;
+      const selectedTenant = selectedTenantStore.get();
+      const result = generateMonthlyReportPdf(
+        enrichReportForPdf(report, selectedTenant?.companyName || user?.company?.razao_social),
+        { save: false, output: 'base64' },
+      ) as { base64: string } | null;
 
       if (!result?.base64) {
         toast.error('Não foi possível preparar o PDF para impressão.');
@@ -401,10 +414,11 @@ export default function ReportsPage() {
 
   function handleSendEmail(report: Report) {
     try {
-      const result = generateMonthlyReportPdf(report, { save: false, output: 'base64' }) as {
-        filename: string;
-        base64: string;
-      } | null;
+      const selectedTenant = selectedTenantStore.get();
+      const result = generateMonthlyReportPdf(
+        enrichReportForPdf(report, selectedTenant?.companyName || user?.company?.razao_social),
+        { save: false, output: 'base64' },
+      ) as { filename: string; base64: string } | null;
 
       if (!result?.base64) {
         toast.error('Não foi possível preparar o PDF para envio.');
