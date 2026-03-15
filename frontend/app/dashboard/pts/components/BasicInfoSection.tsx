@@ -19,7 +19,9 @@ type BasicInfoSectionProps = {
   filteredUsers: User[];
   analyzing: boolean;
   onAiAnalysis: () => void;
-  onPdfUploaded: (key: string) => void;
+  onPdfSelected: (file: File | null) => void;
+  onCompanyChange?: (companyId: string) => void;
+  onAprChange?: (aprId: string) => void;
 };
 
 export function BasicInfoSection({
@@ -29,7 +31,9 @@ export function BasicInfoSection({
   filteredUsers,
   analyzing,
   onAiAnalysis,
-  onPdfUploaded,
+  onPdfSelected,
+  onCompanyChange,
+  onAprChange,
 }: BasicInfoSectionProps) {
   const {
     register,
@@ -42,6 +46,8 @@ export function BasicInfoSection({
 
   const companyId = watch('company_id');
   const siteId = watch('site_id');
+  const currentStatus = watch('status') || 'Pendente';
+  const statusOptions = useMemo(() => [currentStatus], [currentStatus]);
 
   const responsaveis = useMemo(() => {
     if (!companyId) return [];
@@ -122,12 +128,15 @@ export function BasicInfoSection({
               errors.status ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
             )}
           >
-            <option value="Pendente">Pendente</option>
-            <option value="Aprovada">Aprovada</option>
-            <option value="Cancelada">Cancelada</option>
-            <option value="Encerrada">Encerrada</option>
-            <option value="Expirada">Expirada</option>
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
           </select>
+          <p className="mt-1 text-[11px] text-gray-500">
+            Aprovação e cancelamento usam o fluxo operacional dedicado da PT. Aqui o status é apenas informativo.
+          </p>
         </div>
 
         <div className="md:col-span-2">
@@ -210,6 +219,7 @@ export function BasicInfoSection({
               setValue('site_id', '', { shouldValidate: true });
               setValue('apr_id', '', { shouldValidate: true });
               setValue('responsavel_id', '', { shouldValidate: true });
+              onCompanyChange?.(e.target.value);
             }}
             aria-invalid={errors.company_id ? 'true' : undefined}
             className={cn(
@@ -256,6 +266,10 @@ export function BasicInfoSection({
           <select
             id="pt-apr-id"
             {...register('apr_id')}
+            onChange={(e) => {
+              setValue('apr_id', e.target.value, { shouldValidate: true });
+              onAprChange?.(e.target.value);
+            }}
             disabled={!companyId}
             aria-label="APR vinculada"
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:bg-gray-100"
@@ -267,6 +281,9 @@ export function BasicInfoSection({
               </option>
             ))}
           </select>
+          <p className="mt-1 text-[11px] text-gray-500">
+            Ao vincular uma APR, a PT pode herdar contexto operacional e sugestões de grupos críticos.
+          </p>
         </div>
 
         <div>
@@ -317,8 +334,7 @@ export function BasicInfoSection({
                 if (!file) return;
                 setSelectedPdfName(file.name);
                 toast.message('PDF selecionado', { description: file.name });
-                // Sem endpoint definido aqui; o upload é tratado no fluxo de salvar/editar PT.
-                onPdfUploaded('');
+                onPdfSelected(file);
               }}
             />
           </label>

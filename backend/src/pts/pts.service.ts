@@ -12,11 +12,13 @@ import { S3Service } from '../common/storage/s3.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreatePtDto } from './dto/create-pt.dto';
 import { UpdatePtDto } from './dto/update-pt.dto';
+import { LogPreApprovalReviewDto } from './dto/log-pre-approval-review.dto';
 import { User } from '../users/entities/user.entity';
 import { Company } from '../companies/entities/company.entity';
 import { RiskCalculationService } from '../common/services/risk-calculation.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import { WorkerOperationalStatusService } from '../users/worker-operational-status.service';
 import { UpdatePtApprovalRulesDto } from './dto/update-pt-approval-rules.dto';
@@ -29,7 +31,7 @@ import {
   DocumentBundleService,
   WeeklyBundleFilters,
 } from '../common/services/document-bundle.service';
-import { DocumentRegistryService } from '../document-registry/document-registry.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 
 @Injectable()
 export class PtsService {
@@ -46,55 +48,60 @@ export class PtsService {
     private ptsRepository: Repository<Pt>,
     @InjectRepository(Company)
     private readonly companiesRepository: Repository<Company>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogsRepository: Repository<AuditLog>,
     private tenantService: TenantService,
     private readonly riskCalculationService: RiskCalculationService,
     private readonly auditService: AuditService,
     private readonly workerOperationalStatusService: WorkerOperationalStatusService,
     private readonly documentBundleService: DocumentBundleService,
     private readonly s3Service: S3Service,
-    private readonly documentRegistryService: DocumentRegistryService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
 
-  private async syncDocumentRegistry(
-    pt: Pick<
-      Pt,
-      | 'id'
-      | 'company_id'
-      | 'titulo'
-      | 'numero'
-      | 'data_hora_inicio'
-      | 'created_at'
-      | 'pdf_file_key'
-      | 'pdf_folder_path'
-      | 'pdf_original_name'
-    >,
-    options?: {
-      fileBuffer?: Buffer;
-      mimeType?: string;
-      createdBy?: string;
-    },
-  ) {
-    if (!pt.pdf_file_key) {
-      return;
+  private assertPtDocumentMutable(pt: Pick<Pt, 'pdf_file_key'>) {
+    if (pt.pdf_file_key) {
+      throw new BadRequestException(
+        'PT com PDF final anexado. Edição bloqueada. Gere uma nova PT para alterar o documento.',
+      );
+    }
+  }
+
+  private assertPtReadyForFinalPdf(pt: Pick<Pt, 'status' | 'pdf_file_key'>) {
+    this.assertPtDocumentMutable(pt);
+
+    if (pt.status !== PtStatus.APROVADA) {
+      throw new BadRequestException(
+        'A PT precisa estar aprovada antes do anexo do PDF final.',
+      );
+    }
+  }
+
+  private resolveStatusForGenericCreate(requestedStatus?: string | null): PtStatus {
+    if (!requestedStatus || requestedStatus === PtStatus.PENDENTE) {
+      return PtStatus.PENDENTE;
     }
 
-    await this.documentRegistryService.upsert({
-      companyId: pt.company_id,
-      module: 'pt',
-      entityId: pt.id,
-      title: pt.titulo || pt.numero || 'PT',
-      documentDate: pt.data_hora_inicio || pt.created_at,
-      fileKey: pt.pdf_file_key,
-      folderPath: pt.pdf_folder_path,
-      originalName: pt.pdf_original_name,
-      mimeType: options?.mimeType || 'application/pdf',
-      fileBuffer: options?.fileBuffer,
-      createdBy: options?.createdBy,
-    });
+    throw new BadRequestException(
+      'O status da PT é controlado pelos fluxos formais de aprovação e cancelamento.',
+    );
+  }
+
+  private resolveStatusForGenericUpdate(
+    currentStatus: string,
+    requestedStatus?: string | null,
+  ): string {
+    if (!requestedStatus || requestedStatus === currentStatus) {
+      return currentStatus;
+    }
+
+    throw new BadRequestException(
+      'O status da PT é controlado pelos fluxos formais de aprovação e cancelamento.',
+    );
   }
 
   async create(createPtDto: CreatePtDto): Promise<Pt> {
-    const { executantes, ...rest } = createPtDto;
+    const { executantes, status, ...rest } = createPtDto;
     const initialRisk = this.riskCalculationService.calculateScore(
       rest.probability,
       rest.severity,
@@ -107,6 +114,7 @@ export class PtsService {
 
     const pt = this.ptsRepository.create({
       ...rest,
+      status: this.resolveStatusForGenericCreate(status),
       initial_risk: initialRisk,
       residual_risk: residualRisk,
       control_evidence: Boolean(rest.control_evidence),
@@ -186,7 +194,8 @@ export class PtsService {
 
   async update(id: string, updatePtDto: UpdatePtDto): Promise<Pt> {
     const pt = await this.findOne(id);
-    const { executantes, ...rest } = updatePtDto;
+    this.assertPtDocumentMutable(pt);
+    const { executantes, status, ...rest } = updatePtDto;
     const initialRisk = this.riskCalculationService.calculateScore(
       rest.probability ?? pt.probability,
       rest.severity ?? pt.severity,
@@ -200,6 +209,7 @@ export class PtsService {
 
     Object.assign(pt, {
       ...rest,
+      status: this.resolveStatusForGenericUpdate(pt.status, status),
       initial_risk: initialRisk,
       residual_risk: residualRisk,
       control_evidence:
@@ -213,9 +223,6 @@ export class PtsService {
     }
 
     const saved = await this.ptsRepository.save(pt);
-    await this.syncDocumentRegistry(saved, {
-      createdBy: RequestContext.getUserId() || undefined,
-    });
     this.logger.log({
       event: 'pt_updated',
       ptId: saved.id,
@@ -230,6 +237,7 @@ export class PtsService {
     userId?: string,
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
     const pt = await this.findOne(id);
+    this.assertPtReadyForFinalPdf(pt);
     const key = this.s3Service.generateDocumentKey(
       pt.company_id,
       'pts',
@@ -244,24 +252,26 @@ export class PtsService {
     }
 
     const folder = `pts/${pt.company_id}`;
-    await this.ptsRepository.update(id, {
-      pdf_file_key: key,
-      pdf_folder_path: folder,
-      pdf_original_name: file.originalname,
+    await this.documentGovernanceService.registerFinalDocument({
+      companyId: pt.company_id,
+      module: 'pt',
+      entityId: pt.id,
+      title: pt.titulo || pt.numero || 'PT',
+      documentDate: pt.data_hora_inicio || pt.created_at,
+      fileKey: key,
+      folderPath: folder,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      createdBy: userId || RequestContext.getUserId() || undefined,
+      fileBuffer: file.buffer,
+      persistEntityMetadata: async (manager) => {
+        await manager.getRepository(Pt).update(id, {
+          pdf_file_key: key,
+          pdf_folder_path: folder,
+          pdf_original_name: file.originalname,
+        });
+      },
     });
-    await this.syncDocumentRegistry(
-      {
-        ...pt,
-        pdf_file_key: key,
-        pdf_folder_path: folder,
-        pdf_original_name: file.originalname,
-      },
-      {
-        fileBuffer: file.buffer,
-        mimeType: file.mimetype,
-        createdBy: userId || RequestContext.getUserId() || undefined,
-      },
-    );
     this.logger.log({ event: 'pt_pdf_anexado', ptId: id, userId, fileKey: key });
 
     return { fileKey: key, folderPath: folder, originalName: file.originalname };
@@ -297,6 +307,7 @@ export class PtsService {
 
   async approve(id: string, approvedByUserId: string, reason?: string): Promise<Pt> {
     const pt = await this.findOne(id);
+    this.assertPtDocumentMutable(pt);
     const allowed = PT_ALLOWED_TRANSITIONS[pt.status as PtStatus];
     if (!allowed?.includes(PtStatus.APROVADA)) {
       throw new BadRequestException(
@@ -325,6 +336,7 @@ export class PtsService {
 
   async reject(id: string, rejectedByUserId: string, reason: string): Promise<Pt> {
     const pt = await this.findOne(id);
+    this.assertPtDocumentMutable(pt);
     const allowed = PT_ALLOWED_TRANSITIONS[pt.status as PtStatus];
     if (!allowed?.includes(PtStatus.CANCELADA)) {
       throw new BadRequestException(
@@ -347,13 +359,110 @@ export class PtsService {
     return saved;
   }
 
+  async logPreApprovalReview(
+    id: string,
+    reviewedByUserId: string,
+    payload: LogPreApprovalReviewDto,
+  ): Promise<{ logged: true }> {
+    const pt = await this.findOne(id);
+
+    await this.auditService.log({
+      userId: reviewedByUserId,
+      action: AuditAction.PRE_APPROVAL,
+      entity: 'PT',
+      entityId: pt.id,
+      changes: {
+        after: {
+          auditStage: 'pre_approval_review',
+          reviewStage: payload.stage,
+          pt: {
+            id: pt.id,
+            numero: pt.numero,
+            titulo: pt.titulo,
+            status: pt.status,
+          },
+          review: payload,
+        },
+      },
+      ip: (RequestContext.get('ip') as string) || 'unknown',
+      userAgent: (RequestContext.get('userAgent') as string) || 'unknown',
+      companyId: pt.company_id,
+    });
+
+    this.logger.log({
+      event: 'pt_pre_approval_review_logged',
+      ptId: pt.id,
+      stage: payload.stage,
+      userId: reviewedByUserId,
+    });
+
+    return { logged: true };
+  }
+
+  async getPreApprovalHistory(id: string) {
+    const pt = await this.findOne(id);
+    const records = await this.auditLogsRepository.find({
+      where: {
+        entity: 'PT',
+        entityId: pt.id,
+        action: AuditAction.PRE_APPROVAL,
+        companyId: pt.company_id,
+      },
+      order: {
+        created_at: 'DESC',
+        timestamp: 'DESC',
+      },
+      take: 20,
+    });
+
+    return records.map((record) => {
+      const review = (record.after as Record<string, any> | null)?.review ?? {};
+
+      return {
+        id: record.id,
+        action: record.action,
+        userId: record.userId || record.user_id || null,
+        createdAt: record.created_at || record.timestamp,
+        stage: review.stage || null,
+        readyForRelease:
+          typeof review.readyForRelease === 'boolean'
+            ? review.readyForRelease
+            : null,
+        blockers: Array.isArray(review.blockers) ? review.blockers : [],
+        unansweredChecklistItems:
+          typeof review.unansweredChecklistItems === 'number'
+            ? review.unansweredChecklistItems
+            : 0,
+        adverseChecklistItems:
+          typeof review.adverseChecklistItems === 'number'
+            ? review.adverseChecklistItems
+            : 0,
+        pendingSignatures:
+          typeof review.pendingSignatures === 'number'
+            ? review.pendingSignatures
+            : 0,
+        hasRapidRiskBlocker:
+          typeof review.hasRapidRiskBlocker === 'boolean'
+            ? review.hasRapidRiskBlocker
+            : false,
+        warnings: Array.isArray(review.warnings) ? review.warnings : [],
+        checklist:
+          review.checklist && typeof review.checklist === 'object'
+            ? review.checklist
+            : null,
+      };
+    });
+  }
+
   async remove(id: string): Promise<void> {
     const pt = await this.findOne(id);
-    await this.ptsRepository.softDelete(id);
-    await this.documentRegistryService.remove({
+    await this.documentGovernanceService.removeFinalDocumentReference({
       companyId: pt.company_id,
       module: 'pt',
       entityId: pt.id,
+      removeEntityState: async (manager) => {
+        await manager.getRepository(Pt).softDelete(id);
+      },
     });
     this.logger.log({ event: 'pt_soft_deleted', ptId: id });
   }

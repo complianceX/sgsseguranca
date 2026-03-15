@@ -3,5 +3,6 @@ export enum AuditAction {
   UPDATE = 'UPDATE',
   DELETE = 'DELETE',
   READ = 'READ',
+  PRE_APPROVAL = 'PRE_APPROVAL',
   GDPR_ERASURE = 'GDPR_ERASURE',
 }

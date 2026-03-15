@@ -108,6 +108,93 @@ export interface PtApprovalRules {
   requireAtLeastOneExecutante: boolean;
 }
 
+export interface PtApprovalBlockedPayload {
+  code: 'PT_APPROVAL_BLOCKED';
+  message: string;
+  reasons: string[];
+  rules: PtApprovalRules;
+}
+
+export interface PtPreApprovalWorkerReviewPayload {
+  userId: string;
+  nome: string;
+  roleLabel: string;
+  blocked: boolean;
+  unavailable?: boolean;
+  reasons: string[];
+}
+
+export interface PtPreApprovalChecklistPayload {
+  reviewedReadiness: boolean;
+  reviewedWorkers: boolean;
+  confirmedRelease: boolean;
+}
+
+export interface PtPreApprovalReviewPayload {
+  stage: 'preview' | 'approval_requested';
+  readyForRelease: boolean;
+  blockers: string[];
+  unansweredChecklistItems: number;
+  adverseChecklistItems: number;
+  pendingSignatures: number;
+  hasRapidRiskBlocker: boolean;
+  workerStatuses: PtPreApprovalWorkerReviewPayload[];
+  warnings: string[];
+  rules?: PtApprovalRules;
+  checklist?: PtPreApprovalChecklistPayload;
+}
+
+export interface PtPreApprovalHistoryEntry {
+  id: string;
+  action: 'PRE_APPROVAL';
+  userId: string | null;
+  createdAt: string;
+  stage: 'preview' | 'approval_requested' | null;
+  readyForRelease: boolean | null;
+  blockers: string[];
+  unansweredChecklistItems: number;
+  adverseChecklistItems: number;
+  pendingSignatures: number;
+  hasRapidRiskBlocker: boolean;
+  warnings: string[];
+  checklist: PtPreApprovalChecklistPayload | null;
+}
+
+export function getPtApprovalBlockedPayload(
+  error: unknown,
+): PtApprovalBlockedPayload | null {
+  const axiosError = error as AxiosError<Partial<PtApprovalBlockedPayload>>;
+  const payload = axiosError.response?.data;
+
+  if (
+    payload?.code !== 'PT_APPROVAL_BLOCKED' ||
+    !Array.isArray(payload.reasons)
+  ) {
+    return null;
+  }
+
+  return {
+    code: 'PT_APPROVAL_BLOCKED',
+    message:
+      typeof payload.message === 'string'
+        ? payload.message
+        : 'PT bloqueada pelas regras de segurança da empresa.',
+    reasons: payload.reasons.filter(
+      (reason): reason is string => typeof reason === 'string' && reason.trim().length > 0,
+    ),
+    rules: {
+      blockCriticalRiskWithoutEvidence:
+        payload.rules?.blockCriticalRiskWithoutEvidence ?? true,
+      blockWorkerWithoutValidMedicalExam:
+        payload.rules?.blockWorkerWithoutValidMedicalExam ?? true,
+      blockWorkerWithExpiredBlockingTraining:
+        payload.rules?.blockWorkerWithExpiredBlockingTraining ?? true,
+      requireAtLeastOneExecutante:
+        payload.rules?.requireAtLeastOneExecutante ?? false,
+    },
+  };
+}
+
 export const ptsService = {
   findPaginated: async (opts?: { page?: number; limit?: number; search?: string; status?: string }) => {
     const params = {
@@ -225,6 +312,24 @@ export const ptsService = {
 
   approve: async (id: string, reason?: string) => {
     const response = await api.post<Pt>(`/pts/${id}/approve`, { reason });
+    return response.data;
+  },
+
+  logPreApprovalReview: async (
+    id: string,
+    payload: PtPreApprovalReviewPayload,
+  ) => {
+    const response = await api.post<{ logged: true }>(
+      `/pts/${id}/pre-approval-review`,
+      payload,
+    );
+    return response.data;
+  },
+
+  getPreApprovalHistory: async (id: string) => {
+    const response = await api.get<PtPreApprovalHistoryEntry[]>(
+      `/pts/${id}/pre-approval-history`,
+    );
     return response.data;
   },
 

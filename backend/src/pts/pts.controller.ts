@@ -28,6 +28,7 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreatePtDto } from './dto/create-pt.dto';
 import { UpdatePtDto } from './dto/update-pt.dto';
+import { LogPreApprovalReviewDto } from './dto/log-pre-approval-review.dto';
 import { UpdatePtApprovalRulesDto } from './dto/update-pt-approval-rules.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Authorize } from '../auth/authorize.decorator';
@@ -67,6 +68,27 @@ export class PtsController {
       throw new BadRequestException('Usuário autenticado inválido');
     }
     return this.ptsService.approve(id, userId, reason);
+  }
+
+  @Post(':id/pre-approval-review')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_approve_pt')
+  logPreApprovalReview(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() payload: LogPreApprovalReviewDto,
+    @Req() req: { user?: { userId?: string } },
+  ) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new BadRequestException('Usuário autenticado inválido');
+    }
+    return this.ptsService.logPreApprovalReview(id, userId, payload);
+  }
+
+  @Get(':id/pre-approval-history')
+  @Authorize('can_view_pt')
+  getPreApprovalHistory(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.ptsService.getPreApprovalHistory(id);
   }
 
   @Post(':id/reject')
@@ -174,7 +196,7 @@ export class PtsController {
     @Req() req: any,
   ) {
     if (!file) throw new BadRequestException('Nenhum arquivo enviado');
-    return this.ptsService.attachPdf(id, file, req.user?.id);
+    return this.ptsService.attachPdf(id, file, req.user?.userId ?? req.user?.id);
   }
 
   @Get(':id')

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { usePts } from './hooks/usePts';
 import { FileSpreadsheet, Plus } from 'lucide-react';
 import { downloadExcel } from '@/lib/download-excel';
@@ -7,6 +8,7 @@ import Link from 'next/link';
 import { PtsFilters } from './components/PtsFilters';
 import { PtsTable } from './components/PtsTable';
 import { PtsInsights } from './components/PtsInsights';
+import { PtApprovalRulesPanel } from './components/PtApprovalRulesPanel';
 import { SendMailModal } from '@/components/SendMailModal';
 import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { ptsService } from '@/services/ptsService';
@@ -26,6 +28,7 @@ import {
 import { cn } from '@/lib/utils';
 
 export default function PtsPage() {
+  const [hasDraft, setHasDraft] = useState(false);
   const {
     loading,
     loadError,
@@ -43,10 +46,22 @@ export default function PtsPage() {
     selectedDoc,
     setSelectedDoc,
     filteredPts,
+    approvalRules,
+    approvalRulesLoading,
+    approvingId,
+    rejectingId,
+    approvalIssuesById,
+    approvalReviewLoadingId,
+    approvalReviewById,
+    approvalChecklistById,
+    dismissApprovalIssue,
+    dismissApprovalReview,
+    updateApprovalChecklist,
     handleDelete,
     handleDownloadPdf,
     handleSendEmail,
     handlePrint,
+    handlePrepareApproval,
     handleApprove,
     handleReject,
     loadPts,
@@ -59,6 +74,19 @@ export default function PtsPage() {
         .map((item) => [item.company_id, item.company_id]),
     ).entries(),
   ).map(([id, name]) => ({ id, name }));
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const keys = Object.keys(window.localStorage);
+    setHasDraft(
+      keys.some(
+        (key) =>
+          key.startsWith('gst.pt.wizard.draft.') ||
+          key.startsWith('compliancex.pt.wizard.draft.'),
+      ),
+    );
+  }, []);
 
   if (loading) {
     return (
@@ -105,6 +133,17 @@ export default function PtsPage() {
             >
               Exportar Excel
             </Button>
+            {hasDraft ? (
+              <Link href="/dashboard/pts/new" className={cn(buttonVariants({ variant: 'outline' }), 'inline-flex items-center')}>
+                Retomar rascunho
+              </Link>
+            ) : null}
+            <Link
+              href="/dashboard/pts/new?field=1"
+              className={cn(buttonVariants({ variant: 'outline' }), 'inline-flex items-center')}
+            >
+              PT em campo
+            </Link>
             <Link href="/dashboard/pts/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
               <Plus className="mr-2 h-4 w-4" />
               Nova PT
@@ -114,6 +153,11 @@ export default function PtsPage() {
       </Card>
 
       <PtsInsights insights={insights} />
+
+      <PtApprovalRulesPanel
+        rules={approvalRules}
+        loading={approvalRulesLoading}
+      />
 
       <Card tone="default" padding="none">
         <PtsFilters
@@ -131,8 +175,18 @@ export default function PtsPage() {
             onPrint={handlePrint}
             onSendEmail={handleSendEmail}
             onDownloadPdf={handleDownloadPdf}
+            onPrepareApproval={handlePrepareApproval}
             onApprove={handleApprove}
             onReject={handleReject}
+            approvingId={approvingId}
+            rejectingId={rejectingId}
+            approvalReviewLoadingId={approvalReviewLoadingId}
+            approvalIssuesById={approvalIssuesById}
+            approvalReviewById={approvalReviewById}
+            approvalChecklistById={approvalChecklistById}
+            onDismissApprovalIssue={dismissApprovalIssue}
+            onDismissApprovalReview={dismissApprovalReview}
+            onUpdateApprovalChecklist={updateApprovalChecklist}
           />
         </CardContent>
 

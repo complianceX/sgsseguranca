@@ -179,4 +179,36 @@ describe('SignaturesService', () => {
       file_key: 'documents/company-1/dds/doc.pdf',
     });
   });
+
+  it('enriquece assinatura com contexto de PT governada', async () => {
+    (
+      documentGovernanceService.findRegistryContextForSignature as jest.Mock
+    ).mockResolvedValue({
+      registryEntryId: 'registry-pt',
+      documentCode: 'PT-2026-11-PT12345',
+      fileHash: 'pt-file-hash',
+      fileKey: 'documents/company-1/pts/doc.pdf',
+      module: 'pt',
+    });
+
+    await service.create(
+      {
+        document_id: 'pt-1',
+        document_type: 'PT',
+        signature_data: 'base64-signature',
+        type: 'digital',
+      },
+      'user-1',
+    );
+
+    const [createdInput] = repository.create.mock.calls[0];
+
+    expect(createdInput.integrity_payload?.document_registry).toEqual({
+      entry_id: 'registry-pt',
+      module: 'pt',
+      document_code: 'PT-2026-11-PT12345',
+      file_hash: 'pt-file-hash',
+      file_key: 'documents/company-1/pts/doc.pdf',
+    });
+  });
 });

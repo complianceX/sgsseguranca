@@ -1,7 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Pt } from '@/services/ptsService';
+import { Pt, PtApprovalBlockedPayload } from '@/services/ptsService';
+import type {
+  PtApprovalChecklistState,
+  PtApprovalReview,
+} from './PtApprovalReviewPanel';
 import { PtsTableRow } from './PtsTableRow';
 import {
   Table,
@@ -21,8 +25,22 @@ interface PtsTableProps {
   onPrint: (id: string) => void;
   onSendEmail: (id: string) => void;
   onDownloadPdf: (id: string) => void;
+  onPrepareApproval: (id: string) => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  approvingId: string | null;
+  rejectingId: string | null;
+  approvalReviewLoadingId: string | null;
+  approvalIssuesById: Record<string, PtApprovalBlockedPayload>;
+  approvalReviewById: Record<string, PtApprovalReview>;
+  approvalChecklistById: Record<string, PtApprovalChecklistState>;
+  onDismissApprovalIssue: (id: string) => void;
+  onDismissApprovalReview: (id: string) => void;
+  onUpdateApprovalChecklist: (
+    id: string,
+    key: keyof PtApprovalChecklistState,
+    checked: boolean,
+  ) => void;
 }
 
 export const PtsTable = React.memo(
@@ -33,8 +51,18 @@ export const PtsTable = React.memo(
     onPrint,
     onSendEmail,
     onDownloadPdf,
+    onPrepareApproval,
     onApprove,
     onReject,
+    approvingId,
+    rejectingId,
+    approvalReviewLoadingId,
+    approvalIssuesById,
+    approvalReviewById,
+    approvalChecklistById,
+    onDismissApprovalIssue,
+    onDismissApprovalReview,
+    onUpdateApprovalChecklist,
   }: PtsTableProps) => {
     return (
       <div className="overflow-x-auto">
@@ -72,8 +100,24 @@ export const PtsTable = React.memo(
                   onPrint={onPrint}
                   onSendEmail={onSendEmail}
                   onDownloadPdf={onDownloadPdf}
+                  onPrepareApproval={onPrepareApproval}
                   onApprove={onApprove}
                   onReject={onReject}
+                  approvingId={approvingId}
+                  rejectingId={rejectingId}
+                  approvalReviewLoadingId={approvalReviewLoadingId}
+                  approvalIssue={approvalIssuesById[pt.id]}
+                  approvalReview={approvalReviewById[pt.id]}
+                  approvalChecklist={
+                    approvalChecklistById[pt.id] || {
+                      reviewedReadiness: false,
+                      reviewedWorkers: false,
+                      confirmedRelease: false,
+                    }
+                  }
+                  onDismissApprovalIssue={onDismissApprovalIssue}
+                  onDismissApprovalReview={onDismissApprovalReview}
+                  onUpdateApprovalChecklist={onUpdateApprovalChecklist}
                 />
               ))
             )}

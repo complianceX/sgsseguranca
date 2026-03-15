@@ -9,12 +9,13 @@ import { Company } from '../companies/entities/company.entity';
 import { TrainingsModule } from '../trainings/trainings.module';
 import { User } from '../users/entities/user.entity';
 import { AuditModule } from '../audit/audit.module';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { UsersModule } from '../users/users.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Pt, Company, User]),
+    TypeOrmModule.forFeature([Pt, Company, User, AuditLog]),
     CommonModule,
     AuthModule,
     TrainingsModule,

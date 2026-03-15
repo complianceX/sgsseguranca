@@ -1,7 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ptsService } from '@/services/ptsService';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  PtPreApprovalHistoryEntry,
+  ptsService,
+} from '@/services/ptsService';
 import { aprsService, Apr } from '@/services/aprsService';
 import { sitesService, Site } from '@/services/sitesService';
 import { companiesService, Company } from '@/services/companiesService';
@@ -32,6 +35,10 @@ import { toast } from 'sonner';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isAiEnabled } from '@/lib/featureFlags';
 import { cn } from '@/lib/utils';
+import {
+  getPtFocusLabel,
+  PtFocusTarget,
+} from './pt-approval-focus';
 import type {
   SophieDraftChecklistSuggestion,
   SophieDraftRiskSuggestion,
@@ -53,6 +60,8 @@ import { RiskTypesSection } from './RiskTypesSection';
 import { RapidRiskAnalysisSection } from './RapidRiskAnalysisSection';
 import { ResponsibleExecutorsSection } from './ResponsibleExecutorsSection';
 import ChecklistSection from './ChecklistSection';
+import { PtPreApprovalHistoryPanel } from './PtPreApprovalHistoryPanel';
+import { PtReadinessPanel } from './PtReadinessPanel';
 
 interface PtFormProps {
   id?: string;
@@ -214,6 +223,43 @@ function buildPtMutationPayload(values: PtFormData): PtMutationPayload {
   };
 }
 
+function extractPtKeywordsFromApr(apr?: Apr | null) {
+  if (!apr) return '';
+
+  const parts = [
+    apr.titulo,
+    apr.descricao,
+    ...(apr.risks || []).map((risk) => risk.nome),
+    ...(apr.activities || []).map((activity) => activity.nome),
+    ...(apr.tools || []).map((tool) => tool.nome),
+    ...(apr.machines || []).map((machine) => machine.nome),
+    ...(apr.risk_items || []).flatMap((item) => [
+      item.atividade,
+      item.agente_ambiental,
+      item.condicao_perigosa,
+      item.fonte_circunstancia,
+      item.categoria_risco,
+      item.prioridade,
+    ]),
+  ];
+
+  return parts.filter(Boolean).join(' ');
+}
+
+function summarizeChecklistAnswers<T extends { resposta?: string }>(items: T[]) {
+  return items.reduce(
+    (acc, item) => {
+      if (!item.resposta) {
+        acc.unanswered += 1;
+      } else if (item.resposta === 'Não' || item.resposta === 'Não aplicável') {
+        acc.adverse += 1;
+      }
+      return acc;
+    },
+    { unanswered: 0, adverse: 0 },
+  );
+}
+
 export function PtForm({ id }: PtFormProps) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -226,9 +272,10 @@ export function PtForm({ id }: PtFormProps) {
   const prefillTitle = searchParams.get('title') || '';
   const prefillDescription = searchParams.get('description') || '';
   const isFieldMode = searchParams.get('field') === '1';
+  const focusTarget = searchParams.get('focus') as PtFocusTarget | null;
   const [fetching, setFetching] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
-  const [pdfKey, setPdfKey] = useState<string>('');
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   
   const [aprs, setAprs] = useState<Apr[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
@@ -249,6 +296,23 @@ export function PtForm({ id }: PtFormProps) {
   const [sophieSuggestedRisks, setSophieSuggestedRisks] = useState<SophieDraftRiskSuggestion[]>([]);
   const [sophieMandatoryChecklists, setSophieMandatoryChecklists] = useState<SophieDraftChecklistSuggestion[]>([]);
   const [sophieRiskLevel, setSophieRiskLevel] = useState<string>('');
+  const [draftSavedAt, setDraftSavedAt] = useState<string>('');
+  const [preApprovalHistory, setPreApprovalHistory] = useState<PtPreApprovalHistoryEntry[]>([]);
+  const [preApprovalHistoryLoading, setPreApprovalHistoryLoading] = useState(false);
+  const lastHandledAprIdRef = useRef<string>('');
+  const focusStepMap: Record<PtFocusTarget, number> = {
+    'basic-info': 1,
+    'risk-analysis': 1,
+    checklists: 2,
+    team: 3,
+  };
+  const getFocusHighlightClass = useCallback(
+    (target: PtFocusTarget) =>
+      focusTarget === target
+        ? 'scroll-mt-28 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-action-primary)]/35 bg-[var(--ds-color-action-primary)]/8 p-3 shadow-[var(--ds-shadow-sm)]'
+        : '',
+    [focusTarget],
+  );
 
   const methods = useForm<PtFormData>({
     resolver: zodResolver(ptSchema),
@@ -290,6 +354,31 @@ export function PtForm({ id }: PtFormProps) {
     () => (id ? null : `gst.pt.wizard.draft.${user?.company_id || 'default'}`),
     [id, user?.company_id],
   );
+
+  useEffect(() => {
+    if (!focusTarget) return;
+
+    const nextStep = focusStepMap[focusTarget];
+    if (nextStep) {
+      setCurrentStep(nextStep);
+    }
+  }, [focusTarget]);
+
+  useEffect(() => {
+    if (!focusTarget) return;
+
+    const timeout = window.setTimeout(() => {
+      const targetElement = document.querySelector<HTMLElement>(
+        `[data-pt-focus-target="${focusTarget}"]`,
+      );
+
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 80);
+
+    return () => window.clearTimeout(timeout);
+  }, [currentStep, focusTarget]);
   const legacyDraftStorageKey = useMemo(
     () => (id ? null : `compliancex.pt.wizard.draft.${user?.company_id || 'default'}`),
     [id, user?.company_id],
@@ -318,6 +407,21 @@ export function PtForm({ id }: PtFormProps) {
   const selectedSite = filteredSites.find((site) => site.id === selectedSiteId);
   const selectedResponsavel = filteredUsers.find((responsavel) => responsavel.id === selectedResponsavelId);
   const selectedApr = filteredAprs.find((apr) => apr.id === selectedAprId);
+  const rapidRiskChecklist =
+    watch('analise_risco_rapida_checklist') ?? initialChecklists.analise_risco_rapida_checklist;
+  const rapidRiskObservacoes = watch('analise_risco_rapida_observacoes') ?? '';
+  const generalChecklist =
+    watch('recomendacoes_gerais_checklist') ?? initialChecklists.recomendacoes_gerais_checklist;
+  const workAtHeightChecklist =
+    watch('trabalho_altura_checklist') ?? initialChecklists.trabalho_altura_checklist;
+  const workElectricChecklist =
+    watch('trabalho_eletrico_checklist') ?? initialChecklists.trabalho_eletrico_checklist;
+  const workHotChecklist =
+    watch('trabalho_quente_checklist') ?? initialChecklists.trabalho_quente_checklist;
+  const workConfinedChecklist =
+    watch('trabalho_espaco_confinado_checklist') ?? initialChecklists.trabalho_espaco_confinado_checklist;
+  const workExcavationChecklist =
+    watch('trabalho_escavacao_checklist') ?? initialChecklists.trabalho_escavacao_checklist;
   const selectedRiskTypes = [
     workAtHeight && 'Altura',
     workElectric && 'Eletricidade',
@@ -334,6 +438,88 @@ export function PtForm({ id }: PtFormProps) {
     workExcavation,
   ].filter(Boolean).length;
   const completedSignatures = Object.keys(signatures).length;
+  const pendingSignatures = Math.max(0, selectedExecutanteIds.length - completedSignatures);
+
+  const rapidRiskSummary = useMemo(
+    () => summarizeChecklistAnswers(rapidRiskChecklist),
+    [rapidRiskChecklist],
+  );
+  const generalChecklistSummary = useMemo(
+    () => summarizeChecklistAnswers(generalChecklist),
+    [generalChecklist],
+  );
+  const workAtHeightSummary = useMemo(
+    () => summarizeChecklistAnswers(workAtHeightChecklist),
+    [workAtHeightChecklist],
+  );
+  const workElectricSummary = useMemo(
+    () => summarizeChecklistAnswers(workElectricChecklist),
+    [workElectricChecklist],
+  );
+  const workHotSummary = useMemo(
+    () => summarizeChecklistAnswers(workHotChecklist),
+    [workHotChecklist],
+  );
+  const workConfinedSummary = useMemo(
+    () => summarizeChecklistAnswers(workConfinedChecklist),
+    [workConfinedChecklist],
+  );
+  const workExcavationSummary = useMemo(
+    () => summarizeChecklistAnswers(workExcavationChecklist),
+    [workExcavationChecklist],
+  );
+  const unansweredChecklistItems =
+    generalChecklistSummary.unanswered +
+    (workAtHeight ? workAtHeightSummary.unanswered : 0) +
+    (workElectric ? workElectricSummary.unanswered : 0) +
+    (workHot ? workHotSummary.unanswered : 0) +
+    (workConfined ? workConfinedSummary.unanswered : 0) +
+    (workExcavation ? workExcavationSummary.unanswered : 0);
+  const adverseChecklistItems =
+    generalChecklistSummary.adverse +
+    (workAtHeight ? workAtHeightSummary.adverse : 0) +
+    (workElectric ? workElectricSummary.adverse : 0) +
+    (workHot ? workHotSummary.adverse : 0) +
+    (workConfined ? workConfinedSummary.adverse : 0) +
+    (workExcavation ? workExcavationSummary.adverse : 0);
+  const hasRapidRiskBasicNo = rapidRiskChecklist.some(
+    (item) => item.secao === 'basica' && item.resposta === 'Não',
+  );
+  const readinessBlockers = useMemo(() => {
+    const blockers: string[] = [];
+
+    if (!selectedCompanyId) blockers.push('Selecionar a empresa da PT.');
+    if (!selectedSiteId) blockers.push('Selecionar a obra/site da PT.');
+    if (!selectedResponsavelId) blockers.push('Definir o responsável pela liberação.');
+    if (!String(selectedTitle || '').trim()) blockers.push('Informar um título claro da atividade.');
+    if (selectedRiskTypes.length === 0) blockers.push('Marcar pelo menos um tipo de trabalho crítico ou confirmar que a PT é geral.');
+    if (hasRapidRiskBasicNo && !String(rapidRiskObservacoes || '').trim()) {
+      blockers.push('Registrar ações corretivas na análise de risco rápida.');
+    }
+    if (unansweredChecklistItems > 0) {
+      blockers.push(`${unansweredChecklistItems} item(ns) de checklist ainda sem resposta.`);
+    }
+    if (selectedExecutanteIds.length === 0) {
+      blockers.push('Selecionar ao menos um executante.');
+    }
+    if (pendingSignatures > 0) {
+      blockers.push(`${pendingSignatures} assinatura(s) ainda pendente(s).`);
+    }
+
+    return blockers;
+  }, [
+    hasRapidRiskBasicNo,
+    pendingSignatures,
+    rapidRiskObservacoes,
+    selectedCompanyId,
+    selectedExecutanteIds.length,
+    selectedResponsavelId,
+    selectedRiskTypes.length,
+    selectedSiteId,
+    selectedTitle,
+    unansweredChecklistItems,
+  ]);
+  const readyForRelease = readinessBlockers.length === 0;
 
   const normalizeSuggestionText = useCallback(
     (value: string) =>
@@ -497,26 +683,150 @@ export function PtForm({ id }: PtFormProps) {
     }
   }, [applyPtFlags, sophieMandatoryChecklists]);
 
+  const handleCompanyChange = useCallback(
+    (companyId: string) => {
+      setValue('site_id', '', { shouldDirty: true, shouldValidate: true });
+      setValue('apr_id', '', { shouldDirty: true, shouldValidate: false });
+      setValue('responsavel_id', '', { shouldDirty: true, shouldValidate: true });
+      setValue('auditado_por_id', '', { shouldDirty: true, shouldValidate: false });
+      setValue('executantes', [], { shouldDirty: true, shouldValidate: true });
+      setSignatures({});
+      lastHandledAprIdRef.current = '';
+
+      if (companyId) {
+        toast.info('Empresa alterada. Obra, APR, responsável, executantes e assinaturas foram limpos para evitar inconsistências.');
+      }
+    },
+    [setValue],
+  );
+
+  const handleAprLinked = useCallback(
+    async (aprId: string) => {
+      if (aprId && lastHandledAprIdRef.current === aprId) {
+        return;
+      }
+      lastHandledAprIdRef.current = aprId;
+
+      if (!aprId) {
+        toast.info('APR desvinculada. A PT mantém os dados já preenchidos.');
+        return;
+      }
+
+      try {
+        const apr = filteredAprs.find((currentApr) => currentApr.id === aprId) || (await aprsService.findOne(aprId));
+        const currentValues = methods.getValues();
+
+        if (!currentValues.company_id) {
+          setValue('company_id', apr.company_id, { shouldDirty: true, shouldValidate: true });
+        }
+        if (!currentValues.site_id && apr.site_id) {
+          setValue('site_id', apr.site_id, { shouldDirty: true, shouldValidate: true });
+        }
+        if (!String(currentValues.titulo || '').trim()) {
+          setValue('titulo', apr.titulo, { shouldDirty: true, shouldValidate: true });
+        }
+        if (!String(currentValues.descricao || '').trim() && apr.descricao) {
+          setValue('descricao', apr.descricao, { shouldDirty: true, shouldValidate: false });
+        }
+
+        const eligibleResponsibleId =
+          apr.elaborador?.id && apr.elaborador.company_id === apr.company_id
+            ? apr.elaborador.id
+            : '';
+        if (!currentValues.responsavel_id && eligibleResponsibleId) {
+          setValue('responsavel_id', eligibleResponsibleId, {
+            shouldDirty: true,
+            shouldValidate: true,
+          });
+        }
+
+        if ((currentValues.executantes || []).length === 0 && apr.participants?.length > 0) {
+          const participantIds = apr.participants
+            .filter((participant) => participant.company_id === apr.company_id)
+            .map((participant) => participant.id);
+          if (participantIds.length > 0) {
+            setValue('executantes', participantIds, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
+          }
+        }
+
+        const aprFlagChanges = applyPtFlags(
+          resolvePtRiskFlagsFromText(extractPtKeywordsFromApr(apr)),
+        );
+
+        toast.success('APR vinculada com sucesso.', {
+          description:
+            aprFlagChanges.length > 0
+              ? `A SOPHIE ativou grupos coerentes com a APR: ${aprFlagChanges.join(', ')}.`
+              : 'Título, descrição e contexto operacional foram reaproveitados quando estavam em branco.',
+        });
+      } catch (error) {
+        console.error('Erro ao aplicar contexto da APR na PT:', error);
+        toast.error('Não foi possível aproveitar automaticamente o contexto da APR.');
+      }
+    },
+    [applyPtFlags, filteredAprs, methods, resolvePtRiskFlagsFromText, setValue],
+  );
+
+  const saveDraftSnapshot = useCallback(() => {
+    if (!draftStorageKey || typeof window === 'undefined' || id) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      draftStorageKey,
+      JSON.stringify({
+        step: currentStep,
+        values: methods.getValues(),
+        signatures,
+        metadata: {
+          suggestedRisks: sophieSuggestedRisks,
+          mandatoryChecklists: sophieMandatoryChecklists,
+          riskLevel: sophieRiskLevel,
+        },
+      }),
+    );
+    setDraftSavedAt(new Date().toISOString());
+    toast.success('Rascunho local da PT atualizado.');
+  }, [
+    currentStep,
+    draftStorageKey,
+    id,
+    methods,
+    signatures,
+    sophieMandatoryChecklists,
+    sophieRiskLevel,
+    sophieSuggestedRisks,
+  ]);
+
   const { handleSubmit: onSubmit, loading } = useFormSubmit(
     async (data: PtFormData) => {
       let ptId = id;
+      let queuedOffline = false;
       const payload = buildPtMutationPayload(data);
 
       if (id) {
-        await ptsService.update(id, payload);
+        const updatedPt = await ptsService.update(id, payload);
+        queuedOffline = 'offlineQueued' in updatedPt && Boolean(updatedPt.offlineQueued);
       } else {
         const newPt = await ptsService.create(payload);
         ptId = newPt.id;
+        queuedOffline = 'offlineQueued' in newPt && Boolean(newPt.offlineQueued);
       }
 
-      // Save signatures if we have a ptId
-      if (ptId) {
-        // Se houver um arquivo carregado no S3, atualizamos a PT com a chave
-        if (pdfKey) {
-          await ptsService.update(ptId, { pdf_file_key: pdfKey });
-        }
+      if (queuedOffline) {
+        return { offlineQueued: true, ptId };
+      }
 
-        const signaturePromises = Object.entries(signatures).map(([userId, sig]) => 
+        // Attach final PDF and save signatures if we have a ptId
+        if (ptId) {
+          if (pdfFile) {
+            await ptsService.attachFile(ptId, pdfFile);
+          }
+
+          const signaturePromises = Object.entries(signatures).map(([userId, sig]) => 
           signaturesService.create({
             user_id: userId,
             document_id: ptId as string,
@@ -530,18 +840,51 @@ export function PtForm({ id }: PtFormProps) {
           await Promise.all(signaturePromises);
         }
       }
+
+      return { offlineQueued: false, ptId };
     },
     {
-      successMessage: id ? 'Permissão de Trabalho atualizada com sucesso!' : 'Permissão de Trabalho cadastrada com sucesso!',
+      successMessage: (result) => {
+        const queuedOffline =
+          typeof result === 'object' &&
+          result !== null &&
+          'offlineQueued' in result &&
+          Boolean(result.offlineQueued);
+
+        if (queuedOffline) {
+          return 'PT salva na fila offline. Vamos sincronizar quando a conexão voltar.';
+        }
+
+        return id
+          ? 'Permissão de Trabalho atualizada com sucesso!'
+          : 'Permissão de Trabalho cadastrada com sucesso!';
+      },
       redirectTo: '/dashboard/pts',
       context: 'PT',
-      onSuccess: () => {
+      skipRedirect: (result) =>
+        typeof result === 'object' &&
+        result !== null &&
+        'offlineQueued' in result &&
+        Boolean(result.offlineQueued),
+      onSuccess: (result) => {
+        const queuedOffline =
+          typeof result === 'object' &&
+          result !== null &&
+          'offlineQueued' in result &&
+          Boolean(result.offlineQueued);
+
+        if (queuedOffline) {
+          saveDraftSnapshot();
+          return;
+        }
+
         if (draftStorageKey && typeof window !== 'undefined') {
           window.localStorage.removeItem(draftStorageKey);
         }
         if (legacyDraftStorageKey && typeof window !== 'undefined') {
           window.localStorage.removeItem(legacyDraftStorageKey);
         }
+        setDraftSavedAt('');
       },
     }
   );
@@ -587,10 +930,13 @@ export function PtForm({ id }: PtFormProps) {
         };
 
         if (id) {
-          const [pt, sigs] = await Promise.all([
+          setPreApprovalHistoryLoading(true);
+          const [pt, sigs, history] = await Promise.all([
             ptsService.findOne(id),
-            signaturesService.findByDocument(id, 'PT')
+            signaturesService.findByDocument(id, 'PT'),
+            ptsService.getPreApprovalHistory(id).catch(() => []),
           ]);
+          setPreApprovalHistory(history);
 
           // Pre-populate signatures state from backend
           const sigMap: Record<string, { data: string; type: string }> = {};
@@ -656,6 +1002,7 @@ export function PtForm({ id }: PtFormProps) {
           setSophieMandatoryChecklists([]);
           setSophieRiskLevel('');
         } else if (draftStorageKey && typeof window !== 'undefined') {
+          setPreApprovalHistory([]);
           const rawDraft =
             window.localStorage.getItem(draftStorageKey) ||
             (legacyDraftStorageKey
@@ -696,6 +1043,7 @@ export function PtForm({ id }: PtFormProps) {
             setSophieMandatoryChecklists(parsedDraft.metadata?.mandatoryChecklists || []);
             setSophieRiskLevel(String(parsedDraft.metadata?.riskLevel || ''));
             setDraftRestored(true);
+            setDraftSavedAt(new Date().toISOString());
           } else {
             setSophieSuggestedRisks([]);
             setSophieMandatoryChecklists([]);
@@ -708,6 +1056,7 @@ export function PtForm({ id }: PtFormProps) {
         console.error('Erro ao carregar dados:', error);
         toast.error('Erro ao carregar dados para o formulário.');
       } finally {
+        setPreApprovalHistoryLoading(false);
         setFetching(false);
       }
     }
@@ -875,12 +1224,27 @@ export function PtForm({ id }: PtFormProps) {
           step: currentStep,
           values,
           signatures,
+          metadata: {
+            suggestedRisks: sophieSuggestedRisks,
+            mandatoryChecklists: sophieMandatoryChecklists,
+            riskLevel: sophieRiskLevel,
+          },
         }),
       );
+      setDraftSavedAt(new Date().toISOString());
     });
 
     return () => subscription.unsubscribe();
-  }, [currentStep, draftStorageKey, id, methods, signatures]);
+  }, [
+    currentStep,
+    draftStorageKey,
+    id,
+    methods,
+    signatures,
+    sophieMandatoryChecklists,
+    sophieRiskLevel,
+    sophieSuggestedRisks,
+  ]);
 
   useEffect(() => {
     if (!draftStorageKey || typeof window === 'undefined' || id) {
@@ -893,9 +1257,24 @@ export function PtForm({ id }: PtFormProps) {
         step: currentStep,
         values: methods.getValues(),
         signatures,
+        metadata: {
+          suggestedRisks: sophieSuggestedRisks,
+          mandatoryChecklists: sophieMandatoryChecklists,
+          riskLevel: sophieRiskLevel,
+        },
       }),
     );
-  }, [currentStep, draftStorageKey, id, methods, signatures]);
+    setDraftSavedAt(new Date().toISOString());
+  }, [
+    currentStep,
+    draftStorageKey,
+    id,
+    methods,
+    signatures,
+    sophieMandatoryChecklists,
+    sophieRiskLevel,
+    sophieSuggestedRisks,
+  ]);
 
   const toggleExecutante = useCallback((userId: string) => {
     const selectedExecutanteIds = methods.getValues('executantes') || [];
@@ -1213,7 +1592,26 @@ export function PtForm({ id }: PtFormProps) {
                   Marque os tipos de trabalho para habilitar os checklists específicos.
                 </div>
               )}
+
+              {draftSavedAt ? (
+                <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                  Último rascunho salvo às{' '}
+                  {new Date(draftSavedAt).toLocaleTimeString('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              ) : null}
             </div>
+
+            <PtReadinessPanel
+              readyForRelease={readyForRelease}
+              blockers={readinessBlockers}
+              unansweredChecklistItems={unansweredChecklistItems}
+              adverseChecklistItems={adverseChecklistItems}
+              pendingSignatures={pendingSignatures}
+              hasRapidRiskBlocker={hasRapidRiskBasicNo}
+            />
 
             <div className="rounded-[var(--ds-radius-xl)] border border-red-400/18 bg-red-500/8 px-4 py-3 text-sm text-red-100">
               <div className="flex items-start gap-2">
@@ -1334,24 +1732,50 @@ export function PtForm({ id }: PtFormProps) {
               </div>
             )}
 
+            {focusTarget ? (
+              <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-action-primary)]/25 bg-[var(--ds-color-action-primary)]/10 px-4 py-3 text-sm text-[var(--ds-color-text-primary)]">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-action-primary)]">
+                  Correção guiada
+                </p>
+                <p className="mt-2">
+                  Esta PT foi aberta já focada em <strong>{getPtFocusLabel(focusTarget)}</strong> a partir da pré-liberação.
+                </p>
+              </div>
+            ) : null}
+
             {currentStep === 1 && (
-              <>
-                <BasicInfoSection
-                  companies={companies}
-                  filteredSites={filteredSites}
-                  filteredAprs={filteredAprs}
-                  filteredUsers={filteredUsers}
-                  analyzing={analyzing}
-                  onAiAnalysis={handleAiAnalysis}
-                  onPdfUploaded={(key) => setPdfKey(key)}
-                />
-                <RiskTypesSection />
-                <RapidRiskAnalysisSection />
-              </>
+              <div className="space-y-4">
+                <div
+                  data-pt-focus-target="basic-info"
+                  className={getFocusHighlightClass('basic-info')}
+                >
+                  <BasicInfoSection
+                    companies={companies}
+                    filteredSites={filteredSites}
+                    filteredAprs={filteredAprs}
+                    filteredUsers={filteredUsers}
+                    analyzing={analyzing}
+                    onAiAnalysis={handleAiAnalysis}
+                    onPdfSelected={setPdfFile}
+                    onCompanyChange={handleCompanyChange}
+                    onAprChange={handleAprLinked}
+                  />
+                </div>
+                <div
+                  data-pt-focus-target="risk-analysis"
+                  className={cn('space-y-4', getFocusHighlightClass('risk-analysis'))}
+                >
+                  <RiskTypesSection />
+                  <RapidRiskAnalysisSection />
+                </div>
+              </div>
             )}
 
             {currentStep === 2 && (
-              <>
+              <div
+                data-pt-focus-target="checklists"
+                className={cn('space-y-4', getFocusHighlightClass('checklists'))}
+              >
                 <ChecklistSection
                   name="recomendacoes_gerais_checklist"
                   title="Recomendações Gerais"
@@ -1410,16 +1834,27 @@ export function PtForm({ id }: PtFormProps) {
                     showJustificationOn={['Não']}
                   />
                 )}
-              </>
+              </div>
             )}
 
             {currentStep === 3 && (
-              <>
+              <div
+                data-pt-focus-target="team"
+                className={cn('space-y-4', getFocusHighlightClass('team'))}
+              >
                 <ResponsibleExecutorsSection
                   filteredUsers={filteredUsers}
                   selectedCompanyId={selectedCompanyId}
                   signatures={signatures}
                   onToggleExecutante={toggleExecutante}
+                />
+                <PtReadinessPanel
+                  readyForRelease={readyForRelease}
+                  blockers={readinessBlockers}
+                  unansweredChecklistItems={unansweredChecklistItems}
+                  adverseChecklistItems={adverseChecklistItems}
+                  pendingSignatures={pendingSignatures}
+                  hasRapidRiskBlocker={hasRapidRiskBasicNo}
                 />
                 {id && (
                   <div className="sst-card p-6 transition-shadow hover:shadow-md">
@@ -1433,7 +1868,14 @@ export function PtForm({ id }: PtFormProps) {
                     />
                   </div>
                 )}
-              </>
+                {id && (
+                  <PtPreApprovalHistoryPanel
+                    entries={preApprovalHistory}
+                    users={filteredUsers}
+                    loading={preApprovalHistoryLoading}
+                  />
+                )}
+              </div>
             )}
 
             <div className={cn(
@@ -1463,6 +1905,19 @@ export function PtForm({ id }: PtFormProps) {
                 "flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-4 sm:gap-0",
                 isFieldMode && "grid grid-cols-2 gap-3 sm:flex-none sm:space-x-0",
               )}>
+                {!id && draftStorageKey ? (
+                  <button
+                    type="button"
+                    onClick={saveDraftSnapshot}
+                    className={cn(
+                      "flex items-center justify-center space-x-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:bg-gray-50",
+                      isFieldMode && "min-h-12",
+                    )}
+                  >
+                    <Save className="h-4 w-4" />
+                    <span>Salvar rascunho</span>
+                  </button>
+                ) : null}
                 {id && (
                   <button
                     type="button"

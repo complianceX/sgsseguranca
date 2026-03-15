@@ -10,6 +10,8 @@ import { AprLog } from '../aprs/entities/apr-log.entity';
 import { AprRiskEvidence } from '../aprs/entities/apr-risk-evidence.entity';
 import { AprRiskItem } from '../aprs/entities/apr-risk-item.entity';
 import { Activity } from '../activities/entities/activity.entity';
+import type { AuditService } from '../audit/audit.service';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { Audit } from '../audits/entities/audit.entity';
 import { AuditsService } from '../audits/audits.service';
 import { Company } from '../companies/entities/company.entity';
@@ -30,10 +32,13 @@ import { DocumentGovernanceService } from './document-governance.service';
 import { Epi } from '../epis/entities/epi.entity';
 import { Machine } from '../machines/entities/machine.entity';
 import { Profile } from '../profiles/entities/profile.entity';
+import { Pt, PtStatus } from '../pts/entities/pt.entity';
+import { PtsService } from '../pts/pts.service';
 import { Risk } from '../risks/entities/risk.entity';
 import { Site } from '../sites/entities/site.entity';
 import { Tool } from '../tools/entities/tool.entity';
 import { User } from '../users/entities/user.entity';
+import type { WorkerOperationalStatusService } from '../users/worker-operational-status.service';
 
 dotenv.config({ path: path.resolve(__dirname, '../../test/.env') });
 
@@ -72,6 +77,14 @@ function buildBundleService(): DocumentBundleService {
 
 function buildRiskCalculationService(): RiskCalculationService {
   return {} as unknown as RiskCalculationService;
+}
+
+function buildAuditService(): AuditService {
+  return {} as unknown as AuditService;
+}
+
+function buildWorkerOperationalStatusService(): WorkerOperationalStatusService {
+  return {} as unknown as WorkerOperationalStatusService;
 }
 
 function buildPuppeteerPoolStub(): PuppeteerPoolService {
@@ -158,6 +171,8 @@ async function createIntegrationDataSource(schema: string) {
       AprRiskEvidence,
       Dds,
       Audit,
+      Pt,
+      AuditLog,
       DocumentRegistryEntry,
       PdfIntegrityRecord,
     ],
@@ -173,6 +188,7 @@ describe('Document governance integration', () => {
   let aprsService: AprsService;
   let ddsService: DdsService;
   let auditsService: AuditsService;
+  let ptsService: PtsService;
   let registryRepository: Repository<DocumentRegistryEntry>;
   let integrityRepository: Repository<PdfIntegrityRecord>;
   let companyRepository: Repository<Company>;
@@ -182,6 +198,7 @@ describe('Document governance integration', () => {
   let aprRepository: Repository<Apr>;
   let ddsRepository: Repository<Dds>;
   let auditRepository: Repository<Audit>;
+  let ptRepository: Repository<Pt>;
 
   const schema = `phase3_doc_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
   const companyId = '11111111-1111-4111-8111-111111111111';
@@ -233,6 +250,18 @@ describe('Document governance integration', () => {
       governanceService,
       s3Service as unknown as S3Service,
     );
+    ptsService = new PtsService(
+      dataSource.getRepository(Pt),
+      dataSource.getRepository(Company),
+      dataSource.getRepository(AuditLog),
+      buildTenantService(companyId),
+      buildRiskCalculationService(),
+      buildAuditService(),
+      buildWorkerOperationalStatusService(),
+      buildBundleService(),
+      s3Service as unknown as S3Service,
+      governanceService,
+    );
 
     registryRepository = dataSource.getRepository(DocumentRegistryEntry);
     integrityRepository = dataSource.getRepository(PdfIntegrityRecord);
@@ -243,6 +272,7 @@ describe('Document governance integration', () => {
     aprRepository = dataSource.getRepository(Apr);
     ddsRepository = dataSource.getRepository(Dds);
     auditRepository = dataSource.getRepository(Audit);
+    ptRepository = dataSource.getRepository(Pt);
   });
 
   afterAll(async () => {
@@ -437,6 +467,62 @@ describe('Document governance integration', () => {
     await expect(
       registryRepository.findOne({
         where: { module: 'audit', entity_id: audit.id, company_id: companyId },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      integrityRepository.findOne({
+        where: { hash: registry.file_hash as string },
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        hash: registry.file_hash,
+        company_id: companyId,
+      }),
+    );
+  });
+
+  it('governa PT final no banco real e preserva integridade historica apos remocao', async () => {
+    const pt = await ptRepository.save({
+      numero: 'PT-001',
+      titulo: 'PT Integracao',
+      descricao: 'Teste de integracao',
+      data_hora_inicio: new Date('2026-03-14T08:00:00.000Z'),
+      data_hora_fim: new Date('2026-03-14T18:00:00.000Z'),
+      status: PtStatus.APROVADA,
+      company_id: companyId,
+      site_id: siteId,
+      responsavel_id: userId,
+      control_evidence: false,
+    });
+
+    await ptsService.attachPdf(
+      pt.id,
+      {
+        originalname: 'pt-final.pdf',
+        mimetype: 'application/pdf',
+        buffer: buildPdfBuffer('pt'),
+      } as Express.Multer.File,
+      userId,
+    );
+
+    const registry = await registryRepository.findOneOrFail({
+      where: { module: 'pt', entity_id: pt.id, company_id: companyId },
+    });
+    const integrity = await integrityRepository.findOneOrFail({
+      where: { hash: registry.file_hash as string },
+    });
+
+    expect(registry.file_key).toContain(`/pts/${pt.id}/pt-final.pdf`);
+    expect(registry.file_hash).toHaveLength(64);
+    expect(registry.company_id).toBe(companyId);
+    expect(integrity.company_id).toBe(companyId);
+    expect(integrity.signed_by_user_id).toBe(userId);
+
+    await ptsService.remove(pt.id);
+
+    await expect(
+      registryRepository.findOne({
+        where: { module: 'pt', entity_id: pt.id, company_id: companyId },
       }),
     ).resolves.toBeNull();
     await expect(

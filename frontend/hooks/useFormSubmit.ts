@@ -4,9 +4,10 @@ import { toast } from 'sonner';
 import { handleApiError } from '@/lib/error-handler';
 
 interface UseFormSubmitOptions {
-  successMessage?: string;
+  successMessage?: string | ((result: unknown) => string | undefined | null);
   redirectTo?: string;
-  onSuccess?: () => void;
+  onSuccess?: (result: unknown) => void;
+  skipRedirect?: (result: unknown) => boolean;
   context?: string;
 }
 
@@ -21,13 +22,20 @@ export function useFormSubmit<T>(
     setLoading(true);
     try {
       const result = await submitFn(data);
-      toast.success(options?.successMessage || 'Salvo com sucesso!');
+      const successMessage =
+        typeof options?.successMessage === 'function'
+          ? options.successMessage(result)
+          : options?.successMessage;
+
+      toast.success(successMessage || 'Salvo com sucesso!');
       
       if (options?.onSuccess) {
-        options.onSuccess();
+        options.onSuccess(result);
       }
 
-      if (options?.redirectTo) {
+      const shouldSkipRedirect = options?.skipRedirect?.(result) ?? false;
+
+      if (options?.redirectTo && !shouldSkipRedirect) {
         router.push(options.redirectTo);
         router.refresh();
       }

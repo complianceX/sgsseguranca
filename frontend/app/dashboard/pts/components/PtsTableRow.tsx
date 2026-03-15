@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Pt } from '@/services/ptsService';
+import { Pt, PtApprovalBlockedPayload } from '@/services/ptsService';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle,
   Clock,
   Download,
@@ -24,7 +25,14 @@ import { signaturesService } from '@/services/signaturesService';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
+import {
+  PtApprovalChecklistState,
+  PtApprovalReview,
+  PtApprovalReviewPanel,
+} from './PtApprovalReviewPanel';
+import { buildPtEditFocusHref } from './pt-approval-focus';
 
 interface PtsTableRowProps {
   pt: Pt;
@@ -32,9 +40,45 @@ interface PtsTableRowProps {
   onPrint: (id: string) => void;
   onSendEmail: (id: string) => void;
   onDownloadPdf: (id: string) => void;
+  onPrepareApproval: (id: string) => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  approvingId: string | null;
+  rejectingId: string | null;
+  approvalReviewLoadingId: string | null;
+  approvalIssue?: PtApprovalBlockedPayload;
+  approvalReview?: PtApprovalReview;
+  approvalChecklist: PtApprovalChecklistState;
+  onDismissApprovalIssue: (id: string) => void;
+  onDismissApprovalReview: (id: string) => void;
+  onUpdateApprovalChecklist: (
+    id: string,
+    key: keyof PtApprovalChecklistState,
+    checked: boolean,
+  ) => void;
 }
+
+const approvalRuleLabels: Array<{
+  key: keyof PtApprovalBlockedPayload['rules'];
+  label: string;
+}> = [
+  {
+    key: 'blockCriticalRiskWithoutEvidence',
+    label: 'Bloquear risco crítico sem evidência',
+  },
+  {
+    key: 'blockWorkerWithoutValidMedicalExam',
+    label: 'Bloquear ASO inválido ou vencido',
+  },
+  {
+    key: 'blockWorkerWithExpiredBlockingTraining',
+    label: 'Bloquear treinamento crítico vencido',
+  },
+  {
+    key: 'requireAtLeastOneExecutante',
+    label: 'Exigir ao menos um executante',
+  },
+];
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -77,13 +121,29 @@ export const PtsTableRow = React.memo(
     onPrint,
     onSendEmail,
     onDownloadPdf,
+    onPrepareApproval,
     onApprove,
     onReject,
+    approvingId,
+    rejectingId,
+    approvalReviewLoadingId,
+    approvalIssue,
+    approvalReview,
+    approvalChecklist,
+    onDismissApprovalIssue,
+    onDismissApprovalReview,
+    onUpdateApprovalChecklist,
   }: PtsTableRowProps) => {
     const { user, hasPermission } = useAuth();
     const [showSignModal, setShowSignModal] = useState(false);
     const [showSignaturesPanel, setShowSignaturesPanel] = useState(false);
     const isApproved = pt.status === 'Aprovada';
+    const activeApprovalRules = approvalRuleLabels.filter(
+      ({ key }) => approvalIssue?.rules[key],
+    );
+    const isApproving = approvingId === pt.id;
+    const isRejecting = rejectingId === pt.id;
+    const isPreparingApproval = approvalReviewLoadingId === pt.id;
 
     const handleSignSave = async (signatureData: string, type: string) => {
       try {
@@ -106,7 +166,12 @@ export const PtsTableRow = React.memo(
         <TableRow>
           <TableCell>
             <div className="space-y-1">
-              <div className="font-medium text-[var(--ds-color-text-primary)]">{pt.numero}</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="font-medium text-[var(--ds-color-text-primary)]">{pt.numero}</div>
+                {approvalIssue ? (
+                  <Badge variant="warning">Aprovação bloqueada</Badge>
+                ) : null}
+              </div>
               <div className="text-[var(--ds-color-text-secondary)]">{pt.titulo}</div>
             </div>
           </TableCell>
@@ -158,13 +223,21 @@ export const PtsTableRow = React.memo(
               </Button>
               {!isApproved && hasPermission('can_approve_pt') ? (
                 <>
-                  <Button type="button" size="sm" variant="outline" onClick={() => onApprove(pt.id)} title="Aprovar PT">
-                    Aprovar
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    loading={isPreparingApproval}
+                    onClick={() => onPrepareApproval(pt.id)}
+                    title="Abrir pré-liberação da PT"
+                  >
+                    {approvalReview ? 'Atualizar pré-liberação' : 'Pré-liberação'}
                   </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
+                    loading={isRejecting}
                     onClick={() => onReject(pt.id)}
                     className="border-[color:var(--ds-color-danger)]/30 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
                     title="Reprovar PT"
@@ -216,6 +289,87 @@ export const PtsTableRow = React.memo(
             </div>
           </TableCell>
         </TableRow>
+
+        {approvalReview ? (
+          <TableRow>
+            <TableCell colSpan={5} className="bg-[color:var(--ds-color-action-primary)]/6">
+              <PtApprovalReviewPanel
+                ptId={pt.id}
+                review={approvalReview}
+                checklist={approvalChecklist}
+                confirming={isApproving}
+                onChecklistChange={(key, checked) =>
+                  onUpdateApprovalChecklist(pt.id, key, checked)
+                }
+                onConfirm={() => onApprove(pt.id)}
+                onDismiss={() => onDismissApprovalReview(pt.id)}
+              />
+            </TableCell>
+          </TableRow>
+        ) : null}
+
+        {approvalIssue ? (
+          <TableRow>
+            <TableCell colSpan={5} className="bg-[color:var(--ds-color-warning-subtle)]/20">
+              <div className="rounded-[var(--ds-radius-lg)] border border-amber-300/30 bg-amber-500/10 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200">
+                      <AlertTriangle className="h-4 w-4" />
+                      Bloqueio de aprovação
+                    </div>
+                    <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      {approvalIssue.message}
+                    </p>
+                    <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                      Corrija os itens abaixo antes de tentar liberar a permissão.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {activeApprovalRules.map((rule) => (
+                      <Badge key={rule.key} variant="neutral">
+                        {rule.label}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-2 md:grid-cols-2">
+                  {approvalIssue.reasons.map((reason) => (
+                    <div
+                      key={reason}
+                      className="rounded-[var(--ds-radius-md)] border border-white/10 bg-black/10 px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                    >
+                      {reason}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <Link
+                    href={buildPtEditFocusHref(
+                      pt.id,
+                      approvalIssue.reasons[0] || approvalIssue.message,
+                    )}
+                    className={cn(buttonVariants({ size: 'sm' }), 'inline-flex items-center')}
+                  >
+                    Abrir PT para corrigir
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => onDismissApprovalIssue(pt.id)}
+                  >
+                    Dispensar aviso
+                  </Button>
+                </div>
+              </div>
+            </TableCell>
+          </TableRow>
+        ) : null}
 
         <SignatureModal
           isOpen={showSignModal}
