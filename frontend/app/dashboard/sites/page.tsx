@@ -1,33 +1,17 @@
 'use client';
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { sitesService, Site } from '@/services/sitesService';
-import { Building2, MapPinned, Plus, Pencil, Trash2, Search, QrCode } from 'lucide-react';
 import Link from 'next/link';
+import { Building2, MapPinned, Pencil, Plus, QrCode, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { QRCodeCanvas } from 'qrcode.react';
+import { sitesService, Site } from '@/services/sitesService';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  EmptyState,
-  ErrorState,
-  PageLoadingState,
-} from '@/components/ui/state';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
 import { PaginationControls } from '@/components/PaginationControls';
+import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 
 const inputClassName =
@@ -127,74 +111,41 @@ export default function SitesPage() {
   }
 
   return (
-    <div className="ds-crud-page">
-      <Card tone="elevated" padding="lg" className="ds-crud-hero">
-        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
-          <div className="ds-crud-hero__lead">
-            <div className="ds-crud-hero__icon">
-              <MapPinned className="h-5 w-5" />
-            </div>
-            <div className="ds-crud-hero__copy">
-              <span className="ds-crud-hero__eyebrow">Estrutura de campo</span>
-              <CardTitle className="text-2xl">Obras/Setores</CardTitle>
-              <CardDescription>
-                Gerencie as obras e setores usados nos fluxos de campo, mobilização e DDS.
-              </CardDescription>
-            </div>
-          </div>
-          <Link
-            href="/dashboard/sites/new"
-            className={cn(buttonVariants(), 'inline-flex items-center')}
-          >
+    <>
+      <ListPageLayout
+        eyebrow="Estrutura de campo"
+        title="Obras/Setores"
+        description="Gerencie as obras e setores usados nos fluxos de campo, mobilizacao e DDS."
+        icon={<MapPinned className="h-5 w-5" />}
+        actions={
+          <Link href="/dashboard/sites/new" className={buttonVariants()}>
             <Plus className="mr-2 h-4 w-4" />
             Nova obra/setor
           </Link>
-        </CardHeader>
-      </Card>
-
-      <div className="ds-crud-stats">
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Total cadastrado</CardDescription>
-            <CardTitle className="ds-crud-stat__value">{summary.total}</CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Obras e setores disponíveis no ambiente.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--primary">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Resultados visíveis</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-action-primary)]">
-              {summary.visiveis}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Registros no recorte atual da busca.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Com cidade informada</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
-              {summary.comCidade}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Estruturas com localização mais completa.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-
-      <Card tone="default" padding="none" className="ds-crud-filter-card">
-        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <CardTitle>Base de obras/setores</CardTitle>
-            <CardDescription>
-              {total} obra(s)/setor(es) encontrada(s) com busca por nome, cidade e UF.
-            </CardDescription>
-          </div>
-          <div className="ds-crud-search">
+        }
+        metrics={[
+          {
+            label: 'Total cadastrado',
+            value: summary.total,
+            note: 'Obras e setores disponiveis no ambiente.',
+          },
+          {
+            label: 'Resultados visiveis',
+            value: summary.visiveis,
+            note: 'Registros no recorte atual da busca.',
+            tone: 'primary',
+          },
+          {
+            label: 'Com cidade informada',
+            value: summary.comCidade,
+            note: 'Estruturas com localizacao mais completa.',
+            tone: 'success',
+          },
+        ]}
+        toolbarTitle="Base de obras/setores"
+        toolbarDescription={`${total} obra(s)/setor(es) encontrada(s) com busca por nome, cidade e UF.`}
+        toolbarContent={
+          <div className="ds-list-search">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
             <input
               type="text"
@@ -208,10 +159,21 @@ export default function SitesPage() {
               }}
             />
           </div>
-        </CardHeader>
-
-        <CardContent className="mt-0">
-          {sites.length === 0 ? (
+        }
+        footer={
+          !loading && total > 0 ? (
+            <PaginationControls
+              page={page}
+              lastPage={lastPage}
+              total={total}
+              onPrev={() => setPage((current) => Math.max(1, current - 1))}
+              onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+            />
+          ) : null
+        }
+      >
+        {sites.length === 0 ? (
+          <div className="p-6">
             <EmptyState
               title="Nenhuma obra/setor encontrada"
               description={
@@ -231,78 +193,69 @@ export default function SitesPage() {
                 ) : undefined
               }
             />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Cidade/Estado</TableHead>
-                  <TableHead>Data de criação</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>Cidade/Estado</TableHead>
+                <TableHead>Data de criacao</TableHead>
+                <TableHead className="text-right">Acoes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sites.map((site) => (
+                <TableRow key={site.id}>
+                  <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
+                      <span>{site.nome}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-[var(--ds-color-text-secondary)]">
+                    {site.cidade && site.estado
+                      ? `${site.cidade}/${site.estado}`
+                      : site.cidade || site.estado || '-'}
+                  </TableCell>
+                  <TableCell>{new Date(site.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Link
+                        href={`/dashboard/sites/edit/${site.id}`}
+                        className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                        title="Editar obra/setor"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Link>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setQrSiteId(site.id)}
+                        className="text-[var(--ds-color-text-secondary)]"
+                        title="QR Code da obra"
+                      >
+                        <QrCode className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleDelete(site.id)}
+                        className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                        title="Excluir obra/setor"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sites.map((site) => (
-                  <TableRow key={site.id}>
-                    <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
-                        <span>{site.nome}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-[var(--ds-color-text-secondary)]">
-                      {site.cidade && site.estado
-                        ? `${site.cidade}/${site.estado}`
-                        : site.cidade || site.estado || '—'}
-                    </TableCell>
-                    <TableCell>{new Date(site.created_at).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Link
-                          href={`/dashboard/sites/edit/${site.id}`}
-                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
-                          title="Editar obra/setor"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Link>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => setQrSiteId(site.id)}
-                          className="text-[var(--ds-color-text-secondary)]"
-                          title="QR Code da obra"
-                        >
-                          <QrCode className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleDelete(site.id)}
-                          className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-                          title="Excluir obra/setor"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-        {!loading && total > 0 ? (
-          <PaginationControls
-            page={page}
-            lastPage={lastPage}
-            total={total}
-            onPrev={() => setPage((current) => Math.max(1, current - 1))}
-            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
-          />
-        ) : null}
-      </Card>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </ListPageLayout>
 
       {qrSiteId ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -327,6 +280,6 @@ export default function SitesPage() {
           </Card>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

@@ -37,18 +37,8 @@ import {
 import { PaginationControls } from '@/components/PaginationControls';
 import { openPdfForPrint } from '@/lib/print-utils';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  EmptyState,
-  ErrorState,
-  PageLoadingState,
-} from '@/components/ui/state';
+import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 
 type PrintablePdfResult = { base64: string; filename: string };
@@ -95,26 +85,26 @@ export default function TrainingsPage() {
     } catch (error) {
       console.error('Erro ao carregar treinamentos:', error);
       setLoadError('Nao foi possivel carregar o monitor de treinamentos.');
-      toast.error('Não foi possível carregar os treinamentos.');
+      toast.error('Nao foi possivel carregar os treinamentos.');
     } finally {
       setLoading(false);
     }
   }, [page, limit]);
 
   useEffect(() => {
-    loadTrainings();
+    void loadTrainings();
   }, [loadTrainings]);
 
   const handleNotifyExpiring = async () => {
     try {
       const result = await trainingsService.notifyExpiry(7);
       toast.success(
-        `${result.notificationsCreated} notificações enviadas para ${result.trainings} treinamento(s).`,
+        `${result.notificationsCreated} notificacoes enviadas para ${result.trainings} treinamento(s).`,
       );
       await loadTrainings();
     } catch (error) {
       console.error('Erro ao notificar vencimentos:', error);
-      toast.error('Não foi possível enviar alertas automáticos.');
+      toast.error('Nao foi possivel enviar alertas automaticos.');
     }
   };
 
@@ -175,12 +165,12 @@ export default function TrainingsPage() {
         const file = new Blob([byteArray], { type: 'application/pdf' });
         const fileURL = URL.createObjectURL(file);
         openPdfForPrint(fileURL, () => {
-          toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba para impressão.');
+          toast.info('Pop-up bloqueado. O PDF foi aberto na mesma aba para impressao.');
         });
       }
     } catch (error) {
       console.error('Erro ao imprimir:', error);
-      toast.error('Erro ao preparar impressão do treinamento.');
+      toast.error('Erro ao preparar impressao do treinamento.');
     } finally {
       setPrintingId(null);
     }
@@ -191,7 +181,7 @@ export default function TrainingsPage() {
 
     try {
       await trainingsService.delete(id);
-      toast.success('Treinamento excluído com sucesso.');
+      toast.success('Treinamento excluido com sucesso.');
       await loadTrainings();
     } catch (error) {
       console.error('Erro ao excluir treinamento:', error);
@@ -231,7 +221,7 @@ export default function TrainingsPage() {
 
   const handleExportCsv = () => {
     const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
-    const header = ['Colaborador', 'Treinamento', 'Conclusão', 'Vencimento', 'Status'];
+    const header = ['Colaborador', 'Treinamento', 'Conclusao', 'Vencimento', 'Status'];
     const rows = filteredTrainings.map((training) => [
       training.user?.nome || 'Colaborador',
       training.nome,
@@ -277,22 +267,14 @@ export default function TrainingsPage() {
   }
 
   return (
-    <div className="ds-crud-page">
-      <Card tone="elevated" padding="lg" className="ds-crud-hero">
-        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
-          <div className="ds-crud-hero__lead">
-            <div className="ds-crud-hero__icon">
-              <Calendar className="h-5 w-5" />
-            </div>
-            <div className="ds-crud-hero__copy">
-              <span className="ds-crud-hero__eyebrow">Validade e bloqueio</span>
-              <CardTitle className="text-2xl">Monitor de Treinamentos</CardTitle>
-              <CardDescription>
-                Controle validade de NRs, bloqueios operacionais e disparo de alertas automáticos.
-              </CardDescription>
-            </div>
-          </div>
-          <div className="ds-crud-hero__actions">
+    <>
+      <ListPageLayout
+        eyebrow="Validade e bloqueio"
+        title="Monitor de Treinamentos"
+        description="Controle validade de NRs, bloqueios operacionais e disparo de alertas automaticos."
+        icon={<Calendar className="h-5 w-5" />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="outline"
@@ -302,90 +284,43 @@ export default function TrainingsPage() {
             >
               Exportar Excel
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={handleNotifyExpiring}
-            >
+            <Button type="button" variant="secondary" size="sm" onClick={handleNotifyExpiring}>
               Notificar vencimentos
             </Button>
             <Link
               href="/dashboard/trainings/new"
-              className={cn(
-                buttonVariants({ size: 'sm' }),
-                'inline-flex items-center',
-              )}
+              className={cn(buttonVariants({ size: 'sm' }), 'inline-flex items-center')}
             >
               <Plus className="mr-2 h-4 w-4" />
               Registrar treinamento
             </Link>
           </div>
-        </CardHeader>
-      </Card>
-
-      <div className="ds-crud-stats xl:grid-cols-3">
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--danger">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Treinamentos vencidos</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-danger)]">
-              {expirySummary.expired}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Colaboradores em risco de bloqueio operacional.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--warning">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Vencendo em breve</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-warning)]">
-              {expirySummary.expiringSoon}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Janela de ação para renovação preventiva.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Treinamentos válidos</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
-              {expirySummary.valid}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Capacitações regulares e sem vencimento próximo.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-
-      {blockingUsers.length > 0 ? (
-        <Card tone="muted" padding="md" className="ds-crud-callout ds-crud-callout--danger">
-          <CardHeader className="gap-2">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-[var(--ds-color-danger)]" />
-              <CardTitle className="text-base">
-                Bloqueio operacional por treinamento pendente
-              </CardTitle>
-            </div>
-            <CardDescription>
-              {blockingUsers.length} colaborador(es) estão bloqueados para emissao de PT ate regularizacao.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : null}
-
-      <Card tone="default" padding="none" className="ds-crud-filter-card">
-        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <CardTitle>Treinamentos registrados</CardTitle>
-            <CardDescription>
-              {filteredTrainings.length} resultado(s) exibidos nesta página.
-            </CardDescription>
-          </div>
-          <div className="ds-crud-filter-bar md:w-auto">
-            <div className="ds-crud-search ds-crud-search--wide min-w-[240px] flex-1 md:flex-none">
+        }
+        metrics={[
+          {
+            label: 'Treinamentos vencidos',
+            value: expirySummary.expired,
+            note: 'Colaboradores em risco de bloqueio operacional.',
+            tone: 'danger',
+          },
+          {
+            label: 'Vencendo em breve',
+            value: expirySummary.expiringSoon,
+            note: 'Janela de acao para renovacao preventiva.',
+            tone: 'warning',
+          },
+          {
+            label: 'Treinamentos validos',
+            value: expirySummary.valid,
+            note: 'Capacitacoes regulares e sem vencimento proximo.',
+            tone: 'success',
+          },
+        ]}
+        toolbarTitle="Treinamentos registrados"
+        toolbarDescription={`${filteredTrainings.length} resultado(s) exibidos nesta pagina.`}
+        toolbarContent={
+          <div className="flex w-full flex-col gap-3 md:flex-row md:items-center md:justify-end">
+            <div className="ds-list-search ds-list-search--wide min-w-[240px] flex-1 md:flex-none">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
               <input
                 type="text"
@@ -401,11 +336,38 @@ export default function TrainingsPage() {
               Exportar CSV
             </Button>
           </div>
-        </CardHeader>
+        }
+        footer={
+          filteredTrainings.length > 0 ? (
+            <PaginationControls
+              page={page}
+              lastPage={lastPage}
+              total={total}
+              onPrev={() => setPage((current) => Math.max(1, current - 1))}
+              onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+            />
+          ) : null
+        }
+      >
+        <div className="space-y-4">
+          {blockingUsers.length > 0 ? (
+            <div className="mx-4 mt-4 rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-danger)]/18 bg-[color:var(--ds-color-danger)]/6 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <ShieldAlert className="mt-0.5 h-4 w-4 text-[var(--ds-color-danger)]" />
+                <div>
+                  <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                    Bloqueio operacional por treinamento pendente
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                    {blockingUsers.length} colaborador(es) estao bloqueados para emissao de PT ate regularizacao.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
-        <CardContent className="mt-0">
           {filteredTrainings.length === 0 ? (
-            <div className="p-5">
+            <div className="p-6">
               <EmptyState
                 title="Nenhum treinamento encontrado"
                 description={
@@ -432,10 +394,10 @@ export default function TrainingsPage() {
                 <TableRow>
                   <TableHead>Colaborador</TableHead>
                   <TableHead>Treinamento / NR</TableHead>
-                  <TableHead>Conclusão</TableHead>
+                  <TableHead>Conclusao</TableHead>
                   <TableHead>Vencimento</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="text-right">Acoes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -536,18 +498,8 @@ export default function TrainingsPage() {
               </TableBody>
             </Table>
           )}
-        </CardContent>
-
-        {filteredTrainings.length > 0 ? (
-          <PaginationControls
-            page={page}
-            lastPage={lastPage}
-            total={total}
-            onPrev={() => setPage((current) => Math.max(1, current - 1))}
-            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
-          />
-        ) : null}
-      </Card>
+        </div>
+      </ListPageLayout>
 
       {selectedDoc ? (
         <SendMailModal
@@ -561,6 +513,6 @@ export default function TrainingsPage() {
           base64={selectedDoc.base64}
         />
       ) : null}
-    </div>
+    </>
   );
 }
