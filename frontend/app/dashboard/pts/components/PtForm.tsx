@@ -19,7 +19,6 @@ import {
   ClipboardCheck,
   FileText,
   ShieldCheck,
-  TriangleAlert,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -535,13 +534,27 @@ export function PtForm({ id }: PtFormProps) {
             { label: 'Executantes', value: `${selectedExecutanteIds.length} vinculados` },
             { label: 'Assinaturas', value: `${pendingSignatures} pendentes` },
           ];
+  const currentStepSidebarTitle =
+    currentStep === 1
+      ? 'Contexto da emissão'
+      : currentStep === 2
+        ? 'Leitura dos checklists'
+        : 'Fechamento da liberação';
+  const currentStepSidebarDescription =
+    currentStep === 1
+      ? 'Defina empresa, obra e responsável antes de aprofundar os riscos.'
+      : currentStep === 2
+        ? 'Use esta lateral para enxergar rapidamente bloqueios e respostas críticas.'
+        : 'Confirme executantes, assinaturas e bloqueios finais antes de salvar.';
   const sidebarSummaryRows =
     currentStep === 1
       ? [
           { label: 'Empresa', value: selectedCompany?.razao_social || 'Não definida' },
           { label: 'Obra', value: selectedSite?.nome || 'Não definida' },
           { label: 'Responsável', value: selectedResponsavel?.nome || 'Não definido' },
-          { label: 'APR vinculada', value: selectedApr?.numero || 'Não vinculada' },
+          ...(selectedApr?.numero
+            ? [{ label: 'APR vinculada', value: selectedApr.numero }]
+            : []),
         ]
       : currentStep === 2
         ? [
@@ -571,6 +584,16 @@ export function PtForm({ id }: PtFormProps) {
             { label: 'Executantes', value: String(selectedExecutanteIds.length), tone: 'success' as const },
             { label: 'Assinaturas', value: String(completedSignatures), tone: 'default' as const },
           ];
+  const currentStepSupportingNote =
+    currentStep === 1
+      ? 'Uma base bem definida evita retrabalho e bloqueios nas etapas seguintes.'
+      : currentStep === 2
+        ? adverseChecklistItems > 0 || unansweredChecklistItems > 0
+          ? 'Respostas críticas ou pendentes precisam ser resolvidas antes do fechamento.'
+          : 'Os checklists estão consistentes para seguir ao fechamento.'
+        : readyForRelease
+          ? 'A PT está consistente para salvamento final e emissão do documento.'
+          : 'Revise o painel de prontidão para remover os bloqueios antes de salvar.';
 
   const normalizeSuggestionText = useCallback(
     (value: string) =>
@@ -1589,10 +1612,13 @@ export function PtForm({ id }: PtFormProps) {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
-                    Contexto rápido
+                    {currentStepSidebarTitle}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                     {selectedTitle || 'Título ainda não definido'}
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    {currentStepSidebarDescription}
                   </p>
                 </div>
                 {draftStorageKey && draftRestored ? (
@@ -1642,9 +1668,13 @@ export function PtForm({ id }: PtFormProps) {
                   })}
                 </p>
               ) : null}
+
+              <div className="mt-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-3 py-3 text-xs text-[var(--ds-color-text-secondary)]">
+                {currentStepSupportingNote}
+              </div>
             </div>
 
-            {currentStep >= 2 ? (
+            {currentStep === 3 ? (
               <PtReadinessPanel
                 readyForRelease={readyForRelease}
                 blockers={readinessBlockers}
@@ -1654,15 +1684,6 @@ export function PtForm({ id }: PtFormProps) {
                 hasRapidRiskBlocker={hasRapidRiskBasicNo}
               />
             ) : null}
-
-            <div className="rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-danger)]/18 bg-[color:var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]">
-              <div className="flex items-start gap-2">
-                <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                <p>
-                  Valide bloqueios críticos, vigência documental e assinaturas mínimas antes de concluir a liberação.
-                </p>
-              </div>
-            </div>
           </aside>
 
           <div className="space-y-6">

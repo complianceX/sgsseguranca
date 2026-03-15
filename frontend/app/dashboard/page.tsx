@@ -889,6 +889,9 @@ export default function DashboardPage() {
   const averageSiteCompliance = siteCompliance.length
     ? Math.round(siteCompliance.reduce((acc, site) => acc + site.taxa, 0) / siteCompliance.length)
     : 0;
+  const topSiteCompliance = [...siteCompliance]
+    .sort((first, second) => second.taxa - first.taxa)
+    .slice(0, 3);
 
   return (
     <div className="ds-dashboard-shell">
@@ -1356,65 +1359,76 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="space-y-4">
-          <div className="ds-dashboard-panel p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Risco e controle documental</h2>
-              <Link href="/dashboard/risks" className="text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline">
-                Abrir matriz
-              </Link>
+        <div className="ds-dashboard-panel p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                governança prioritária
+              </p>
+              <h2 className="mt-1 text-base font-bold text-[var(--ds-color-text-primary)]">Risco, aprovações e rastreabilidade no mesmo recorte</h2>
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between rounded-xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-3.5 py-2.5">
-                <span className="text-sm font-semibold text-[var(--ds-color-danger)]">Riscos altos</span>
-                <span className="text-lg font-bold text-[var(--ds-color-danger)]">{riskSummary.alto}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">Evidências</p>
-                  <p className="mt-1 text-xl font-bold text-[var(--ds-color-text-primary)]">{evidenceSummary.total}</p>
-                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
-                    {evidenceSummary.inspections} inspeções • {evidenceSummary.audits} auditorias • {evidenceSummary.nonconformities} NCs
-                  </p>
+            <Link href="/dashboard/risks" className="text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline">
+              Abrir matriz
+            </Link>
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-3.5 py-2.5">
+            <span className="text-sm font-semibold text-[var(--ds-color-danger)]">Riscos altos</span>
+            <span className="text-lg font-bold text-[var(--ds-color-danger)]">{riskSummary.alto}</span>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                Aprovações pendentes
+              </p>
+              <p className="mt-2 text-2xl font-bold text-[var(--ds-color-text-primary)]">{pendingApprovalsTotal}</p>
+              <div className="mt-3 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--ds-color-text-secondary)]">APRs</span>
+                  <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.aprs}</span>
                 </div>
-                <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">Modelos</p>
-                  <p className="mt-1 text-xl font-bold text-[var(--ds-color-text-primary)]">{documentControlTotal}</p>
-                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
-                    {modelCounts.aprs} APR • {modelCounts.dds} DDS • {modelCounts.checklists} checklist
-                  </p>
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--ds-color-text-secondary)]">PTs</span>
+                  <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.pts}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--ds-color-text-secondary)]">Checklists</span>
+                  <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.checklists}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--ds-color-text-secondary)]">NCs</span>
+                  <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.nonconformities}</span>
                 </div>
               </div>
             </div>
-            <div className="ds-inline-link-list mt-4">
-              <Link href="/dashboard/inspections" className="ds-inline-link-list__item">Evidências</Link>
-              <Link href="/dashboard/checklist-models" className="ds-inline-link-list__item">Modelos</Link>
-              <Link href="/dashboard/document-registry" className="ds-inline-link-list__item">Registry</Link>
+
+            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                Rastreabilidade documental
+              </p>
+              <p className="mt-2 text-2xl font-bold text-[var(--ds-color-text-primary)]">{documentControlTotal}</p>
+              <div className="mt-3 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--ds-color-text-secondary)]">Evidências</span>
+                  <span className="font-semibold text-[var(--ds-color-text-primary)]">{evidenceSummary.total}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--ds-color-text-secondary)]">Inspeções e auditorias</span>
+                  <span className="font-semibold text-[var(--ds-color-text-primary)]">{evidenceSummary.inspections + evidenceSummary.audits}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--ds-color-text-secondary)]">Modelos ativos</span>
+                  <span className="font-semibold text-[var(--ds-color-text-primary)]">{documentControlTotal}</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="ds-dashboard-panel p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
-              aprovações em aberto
-            </p>
-            <div className="mt-4 space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-[var(--ds-color-text-secondary)]">APRs</span>
-                <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.aprs}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[var(--ds-color-text-secondary)]">PTs</span>
-                <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.pts}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[var(--ds-color-text-secondary)]">Checklists</span>
-                <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.checklists}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[var(--ds-color-text-secondary)]">NCs</span>
-                <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.nonconformities}</span>
-              </div>
-            </div>
+          <div className="ds-inline-link-list mt-4">
+            <Link href="/dashboard/inspections" className="ds-inline-link-list__item">Evidências</Link>
+            <Link href="/dashboard/checklist-models" className="ds-inline-link-list__item">Modelos</Link>
+            <Link href="/dashboard/document-registry" className="ds-inline-link-list__item">Registry</Link>
           </div>
         </div>
       </div>
@@ -1529,56 +1543,16 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="ds-dashboard-panel p-5">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
-              <MapPin className="mr-2 h-5 w-5 text-[var(--ds-color-action-primary)]" />
-              Benchmark de conformidade por obra
-            </h2>
-            <Link href="/dashboard/checklists" className="ds-section-link">
-              Ver todos
-            </Link>
-          </div>
-
-          {loading ? (
-            <div className="flex h-32 items-center justify-center">
-              <div className="h-7 w-7 animate-spin rounded-full border-4 border-[color:var(--ds-color-action-primary)] border-t-transparent"></div>
-            </div>
-          ) : siteCompliance.length > 0 ? (
-            <div className="space-y-4">
-              {siteCompliance.map((site) => (
-                <div key={site.id} className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
-                  <div className="flex items-center space-x-3">
-                    <div className="h-2 w-2 rounded-full bg-[var(--ds-color-action-primary)]"></div>
-                    <div>
-                      <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">{site.nome}</p>
-                      <p className="text-xs text-[var(--ds-color-text-muted)]">{site.conformes} conformes de {site.total}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-[var(--ds-color-action-primary)]">{site.taxa}%</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
-              <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Nenhum checklist registrado.</p>
-            </div>
-          )}
+      <div className="ds-dashboard-panel p-5">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Atividade e relatórios</h2>
+          <Link href="/dashboard/reports" className="ds-section-link">
+            Ver central
+          </Link>
         </div>
 
-        <div className="ds-dashboard-panel p-5">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Atividade e relatórios</h2>
-            <Link href="/dashboard/reports" className="ds-section-link">
-              Ver central
-            </Link>
-          </div>
-
-          <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div>
             {mappedRecentActivities.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
@@ -1602,29 +1576,33 @@ export default function DashboardPage() {
                 ))}
               </div>
             )}
+          </div>
 
+          <div className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+              Relatórios recentes
+            </p>
             {recentReportHighlights.length > 0 ? (
-              <div className="border-t border-[var(--ds-color-border-subtle)] pt-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
-                  Relatórios recentes
-                </p>
-                <div className="mt-3 space-y-2">
-                  {recentReportHighlights.map((report) => (
-                    <Link
-                      key={report.id}
-                      href="/dashboard/reports"
-                      className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3.5 py-2.5 hover:border-[var(--ds-color-action-primary)]/25 hover:bg-[color:var(--ds-color-surface-muted)]/12"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{report.titulo}</p>
-                        <p className="text-xs text-[var(--ds-color-text-muted)]">{report.mes}/{report.ano}</p>
-                      </div>
-                      <span className="text-xs text-[var(--ds-color-text-muted)]">{format(new Date(report.created_at), 'dd/MM/yyyy')}</span>
-                    </Link>
-                  ))}
-                </div>
+              <div className="mt-3 space-y-2">
+                {recentReportHighlights.map((report) => (
+                  <Link
+                    key={report.id}
+                    href="/dashboard/reports"
+                    className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3.5 py-2.5 hover:border-[var(--ds-color-action-primary)]/25 hover:bg-[color:var(--ds-color-surface-muted)]/12"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{report.titulo}</p>
+                      <p className="text-xs text-[var(--ds-color-text-muted)]">{report.mes}/{report.ano}</p>
+                    </div>
+                    <span className="text-xs text-[var(--ds-color-text-muted)]">{format(new Date(report.created_at), 'dd/MM/yyyy')}</span>
+                  </Link>
+                ))}
               </div>
-            ) : null}
+            ) : (
+              <div className="flex min-h-[12rem] items-center justify-center text-center text-sm text-[var(--ds-color-text-muted)]">
+                Nenhum relatório recente disponível agora.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1697,6 +1675,31 @@ export default function DashboardPage() {
             <div className="mt-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-3 text-sm text-[var(--ds-color-text-secondary)]">
               Use este bloco para leitura gerencial. As listas críticas já estão destacadas acima para atuação operacional.
             </div>
+            {topSiteCompliance.length > 0 ? (
+              <div className="mt-4 border-t border-[var(--ds-color-border-subtle)] pt-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                  Obras com melhor leitura
+                </p>
+                <div className="mt-3 space-y-2">
+                  {topSiteCompliance.map((site) => (
+                    <div
+                      key={site.id}
+                      className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{site.nome}</p>
+                        <p className="text-xs text-[var(--ds-color-text-muted)]">
+                          {site.conformes} conformes de {site.total}
+                        </p>
+                      </div>
+                      <StatusPill tone={site.taxa >= 80 ? 'success' : site.taxa >= 60 ? 'warning' : 'danger'}>
+                        {site.taxa}%
+                      </StatusPill>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

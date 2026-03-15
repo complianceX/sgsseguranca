@@ -26,8 +26,9 @@ export function GandraInsights() {
 
   const [data, setData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(aiEnabled);
-  const topInsights = useMemo(() => data?.insights.slice(0, 2) ?? [], [data]);
-  const remainingInsights = Math.max(0, (data?.insights.length ?? 0) - topInsights.length);
+  const primaryInsight = useMemo(() => data?.insights[0] ?? null, [data]);
+  const secondaryInsights = useMemo(() => data?.insights.slice(1, 3) ?? [], [data]);
+  const remainingInsights = Math.max(0, (data?.insights.length ?? 0) - (primaryInsight ? 1 : 0) - secondaryInsights.length);
 
   useEffect(() => {
     if (!aiEnabled) {
@@ -151,42 +152,41 @@ export function GandraInsights() {
         </div>
       </div>
 
-      <div className="p-5">
-        <div className="space-y-3">
-          {topInsights.map((insight, index) => (
+        <div className="p-5">
+        <div className="space-y-4">
+          {primaryInsight ? (
             <div
-              key={index}
               className={cn(
-                'rounded-xl border px-4 py-3',
-                insight.type === 'warning' &&
+                'rounded-xl border px-4 py-4',
+                primaryInsight.type === 'warning' &&
                   'border-[color:var(--ds-color-warning)]/18 bg-[var(--ds-color-warning-subtle)]',
-                insight.type === 'success' &&
+                primaryInsight.type === 'success' &&
                   'border-[color:var(--ds-color-success)]/18 bg-[var(--ds-color-success-subtle)]',
-                insight.type === 'info' &&
+                primaryInsight.type === 'info' &&
                   'border-[color:var(--ds-color-info)]/18 bg-[var(--ds-color-info-subtle)]',
               )}
             >
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    {insight.type === 'warning' && <AlertTriangle className="h-4 w-4 text-[var(--ds-color-warning)]" />}
-                    {insight.type === 'success' && <CheckCircle className="h-4 w-4 text-[var(--ds-color-success)]" />}
-                    {insight.type === 'info' && <Info className="h-4 w-4 text-[var(--ds-color-info)]" />}
+                    {primaryInsight.type === 'warning' && <AlertTriangle className="h-4 w-4 text-[var(--ds-color-warning)]" />}
+                    {primaryInsight.type === 'success' && <CheckCircle className="h-4 w-4 text-[var(--ds-color-success)]" />}
+                    {primaryInsight.type === 'info' && <Info className="h-4 w-4 text-[var(--ds-color-info)]" />}
                     <h3
                       className={cn(
                         'text-sm font-semibold',
-                        insight.type === 'warning' && 'text-[var(--ds-color-warning)]',
-                        insight.type === 'success' && 'text-[var(--ds-color-success)]',
-                        insight.type === 'info' && 'text-[var(--ds-color-info)]',
+                        primaryInsight.type === 'warning' && 'text-[var(--ds-color-warning)]',
+                        primaryInsight.type === 'success' && 'text-[var(--ds-color-success)]',
+                        primaryInsight.type === 'info' && 'text-[var(--ds-color-info)]',
                       )}
                     >
-                      {insight.title}
+                      {primaryInsight.title}
                     </h3>
                   </div>
-                  <p className="mt-2 text-sm leading-relaxed text-[var(--ds-color-text-secondary)]">{insight.message}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--ds-color-text-secondary)]">{primaryInsight.message}</p>
                 </div>
                 <Link
-                  href={insight.action}
+                  href={primaryInsight.action}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--ds-color-action-primary)] transition-transform hover:translate-x-0.5"
                 >
                   Abrir contexto
@@ -194,7 +194,31 @@ export function GandraInsights() {
                 </Link>
               </div>
             </div>
-          ))}
+          ) : null}
+
+          {secondaryInsights.length > 0 ? (
+            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                próximos sinais
+              </p>
+              <div className="mt-3 space-y-3">
+                {secondaryInsights.map((insight, index) => (
+                  <div key={`${insight.title}-${index}`} className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{insight.title}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-[var(--ds-color-text-secondary)]">{insight.message}</p>
+                    </div>
+                    <Link
+                      href={insight.action}
+                      className="shrink-0 text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+                    >
+                      Abrir
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {remainingInsights > 0 ? (

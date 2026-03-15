@@ -40,8 +40,9 @@ import {
   Wrench,
   Activity,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import type { User } from '@/services/usersService';
 
 type MenuEntry = {
   icon?: typeof LayoutDashboard;
@@ -58,17 +59,19 @@ type MenuSection = {
   defaultOpen?: boolean;
 };
 
+type SidebarContext =
+  | 'admin-geral'
+  | 'admin-empresa'
+  | 'tst'
+  | 'supervisor'
+  | 'operacional';
+
 const menuSections: MenuSection[] = [
   {
     id: 'essenciais',
     label: 'Acesso rápido',
     defaultOpen: true,
-    items: [
-      { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-      { icon: Radio, label: 'Campo', href: '/dashboard/tst' },
-      { icon: PlusCircle, label: 'Novo documento', href: '/dashboard/documentos/novo' },
-      { icon: BarChart3, label: 'Relatórios GST', href: '/dashboard/reports' },
-    ],
+    items: [],
   },
   {
     id: 'principal',
@@ -136,6 +139,100 @@ const menuSections: MenuSection[] = [
   },
 ];
 
+const SECTION_IDS = menuSections.map((section) => section.id);
+
+function resolveSidebarContext(user: User | null, roles: string[]): SidebarContext {
+  const parts = [user?.profile?.nome, user?.role, user?.funcao, ...roles]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  if (parts.includes('administrador geral')) return 'admin-geral';
+  if (parts.includes('administrador da empresa') || parts.includes('admin_empresa')) return 'admin-empresa';
+  if (parts.includes('técnico de segurança') || parts.includes('tecnico de seguranca') || parts.includes('tst')) return 'tst';
+  if (parts.includes('supervisor') || parts.includes('encarregado')) return 'supervisor';
+  return 'operacional';
+}
+
+function buildQuickAccessItems(context: SidebarContext): MenuEntry[] {
+  switch (context) {
+    case 'admin-geral':
+      return [
+        { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+        { icon: Building2, label: 'Empresas', href: '/dashboard/companies', adminOnly: true },
+        { icon: Users, label: 'Usuários', href: '/dashboard/users', adminOnly: true },
+        { icon: BarChart3, label: 'Relatórios GST', href: '/dashboard/reports' },
+      ];
+    case 'admin-empresa':
+      return [
+        { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+        { icon: PlusCircle, label: 'Novo documento', href: '/dashboard/documentos/novo' },
+        { icon: GraduationCap, label: 'Treinamentos', href: '/dashboard/trainings' },
+        { icon: BarChart3, label: 'Relatórios GST', href: '/dashboard/reports' },
+      ];
+    case 'tst':
+      return [
+        { icon: Radio, label: 'Campo', href: '/dashboard/tst' },
+        { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
+        { icon: AlertTriangle, label: 'Não conformidades', href: '/dashboard/nonconformities' },
+        { icon: PlusCircle, label: 'Novo documento', href: '/dashboard/documentos/novo' },
+      ];
+    case 'supervisor':
+      return [
+        { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
+        { icon: ClipboardList, label: 'Checklists', href: '/dashboard/checklist-models' },
+        { icon: CheckSquare, label: 'Ações corretivas', href: '/dashboard/corrective-actions' },
+        { icon: Radio, label: 'Campo', href: '/dashboard/tst' },
+      ];
+    default:
+      return [
+        { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+        { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
+        { icon: MessageSquare, label: 'DDS', href: '/dashboard/dds' },
+        { icon: GraduationCap, label: 'Treinamentos', href: '/dashboard/trainings' },
+      ];
+  }
+}
+
+function shouldShowSectionForContext(sectionId: string, context: SidebarContext, pathname: string) {
+  if (context === 'admin-geral' || context === 'admin-empresa') {
+    return true;
+  }
+
+  if (sectionId === 'principal') {
+    return pathname.startsWith('/dashboard/kpis') || pathname.startsWith('/dashboard/executive');
+  }
+
+  return true;
+}
+
+function getDefaultOpenSections(context: SidebarContext): Record<string, boolean> {
+  const defaults = Object.fromEntries(SECTION_IDS.map((id) => [id, false])) as Record<string, boolean>;
+
+  defaults.essenciais = true;
+
+  if (context === 'admin-geral') {
+    defaults.principal = true;
+    defaults.documentos = true;
+    return defaults;
+  }
+
+  if (context === 'admin-empresa') {
+    defaults.operacao = true;
+    defaults.documentos = true;
+    return defaults;
+  }
+
+  if (context === 'tst' || context === 'supervisor') {
+    defaults.operacao = true;
+    defaults.documentos = true;
+    return defaults;
+  }
+
+  defaults.documentos = true;
+  return defaults;
+}
+
 export function Sidebar({
   isOpen = false,
   onClose,
@@ -144,14 +241,17 @@ export function Sidebar({
   onClose?: () => void;
 }) {
   const pathname = usePathname();
-  const { logout, user, hasPermission } = useAuth();
+  const { logout, user, roles, hasPermission } = useAuth();
   const isAdmin = user?.profile?.nome === 'Administrador Geral';
+  const sidebarContext = useMemo(() => resolveSidebarContext(user, roles), [roles, user]);
+  const defaultOpenSections = useMemo(() => getDefaultOpenSections(sidebarContext), [sidebarContext]);
 
   const visibleSections = useMemo(() => {
     return menuSections
+      .filter((section) => shouldShowSectionForContext(section.id, sidebarContext, pathname))
       .map((section) => ({
         ...section,
-        items: section.items.filter((item) => {
+        items: (section.id === 'essenciais' ? buildQuickAccessItems(sidebarContext) : section.items).filter((item) => {
           if (item.adminOnly && !isAdmin) return false;
           if (item.superAdminOnly && !isAdmin) return false;
 
@@ -178,13 +278,20 @@ export function Sidebar({
         }),
       }))
       .filter((section) => section.items.length > 0);
-  }, [hasPermission, isAdmin]);
+  }, [hasPermission, isAdmin, pathname, sidebarContext]);
 
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(
-      menuSections.map((section) => [section.id, Boolean(section.defaultOpen)]),
-    ),
-  );
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(defaultOpenSections);
+
+  useEffect(() => {
+    setOpenSections((current) =>
+      Object.fromEntries(
+        SECTION_IDS.map((sectionId) => [
+          sectionId,
+          current[sectionId] ?? defaultOpenSections[sectionId] ?? false,
+        ]),
+      ),
+    );
+  }, [defaultOpenSections]);
 
   const toggleSection = (sectionId: string) => {
     setOpenSections((current) => ({
