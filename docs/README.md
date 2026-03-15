@@ -2,6 +2,7 @@
 
 ## Architecture Baseline
 - [architecture/README.md](./architecture/README.md)
+- [architecture/AUDIT-2026-03-remediation-roadmap.md](./architecture/AUDIT-2026-03-remediation-roadmap.md)
 
 ## Conventions
 - [conventions/frontend.md](./conventions/frontend.md)

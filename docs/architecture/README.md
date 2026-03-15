@@ -48,6 +48,7 @@ Este baseline define:
 - [ADR-003-api-result-error-contracts.md](./ADR-003-api-result-error-contracts.md)
 - [ADR-004-tenant-aware-module-contract.md](./ADR-004-tenant-aware-module-contract.md)
 - [ADR-005-design-system-ui-state-contracts.md](./ADR-005-design-system-ui-state-contracts.md)
+- [AUDIT-2026-03-remediation-roadmap.md](./AUDIT-2026-03-remediation-roadmap.md)
 
 ## Checklists operacionais
 - [module-tenant-aware.md](../checklists/module-tenant-aware.md)

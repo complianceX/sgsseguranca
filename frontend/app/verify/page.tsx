@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { buildApiUrl } from '@/lib/api';
 
 type VerifyMode = 'evidence' | 'signature' | 'code';
 
@@ -25,8 +26,10 @@ interface SignatureVerifyResponse {
   message?: string;
   signature?: {
     hash: string;
-    original_name?: string;
     signed_at?: string;
+    timestamp_authority?: string;
+    document_id?: string;
+    document_type?: string;
   };
 }
 
@@ -58,6 +61,16 @@ export default function PublicHashVerifyPage() {
   const [codeResult, setCodeResult] = useState<CodeVerifyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const resolvePublicUrl = useCallback((path: string) => {
+    const url = buildApiUrl(path);
+    if (!url) {
+      throw new Error(
+        'API pública não configurada para este ambiente. Defina NEXT_PUBLIC_API_URL no frontend.',
+      );
+    }
+    return url;
+  }, []);
+
   const resetResults = () => {
     setEvidenceResult(null);
     setSignatureResult(null);
@@ -77,7 +90,9 @@ export default function PublicHashVerifyPage() {
       try {
         setLoading(true);
         const response = await fetch(
-          `/api/v1/public/inspections/validate?code=${encodeURIComponent(code)}`,
+          resolvePublicUrl(
+            `/public/inspections/validate?code=${encodeURIComponent(code)}`,
+          ),
           { method: 'GET', cache: 'no-store' },
         );
         const data = (await response.json()) as CodeVerifyResponse;
@@ -103,7 +118,9 @@ export default function PublicHashVerifyPage() {
       setLoading(true);
       if (targetMode === 'evidence') {
         const response = await fetch(
-          `/api/v1/public/evidence/verify?hash=${encodeURIComponent(normalizedHash)}`,
+          resolvePublicUrl(
+            `/public/evidence/verify?hash=${encodeURIComponent(normalizedHash)}`,
+          ),
           {
             method: 'GET',
             cache: 'no-store',
@@ -113,7 +130,9 @@ export default function PublicHashVerifyPage() {
         setEvidenceResult(data);
       } else {
         const response = await fetch(
-          `/api/v1/public/signature/verify?hash=${encodeURIComponent(normalizedHash)}`,
+          resolvePublicUrl(
+            `/public/signature/verify?hash=${encodeURIComponent(normalizedHash)}`,
+          ),
           {
             method: 'GET',
             cache: 'no-store',
@@ -127,7 +146,7 @@ export default function PublicHashVerifyPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [resolvePublicUrl]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -237,7 +256,7 @@ export default function PublicHashVerifyPage() {
           </form>
         </section>
 
-        {(error || evidenceResult || signatureResult) && (
+        {(error || evidenceResult || signatureResult || codeResult) && (
           <section className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
             {error ? (
               <div className="flex items-start gap-2 text-[var(--ds-color-danger)]">
@@ -279,8 +298,10 @@ export default function PublicHashVerifyPage() {
 
                 {mode === 'signature' && signatureResult?.signature && (
                   <div className="rounded-lg bg-[color:var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
-                    <p>Documento: {signatureResult.signature.original_name || '-'}</p>
+                    <p>Documento: {signatureResult.signature.document_type || '-'}</p>
+                    <p>ID do documento: {signatureResult.signature.document_id || '-'}</p>
                     <p>Assinado em: {signatureResult.signature.signed_at || '-'}</p>
+                    <p>Autoridade: {signatureResult.signature.timestamp_authority || '-'}</p>
                     <p>Hash: {signatureResult.signature.hash}</p>
                   </div>
                 )}
@@ -291,7 +312,9 @@ export default function PublicHashVerifyPage() {
                 <p className="text-[13px] font-medium">
                   {mode === 'evidence'
                     ? evidenceResult?.message || 'Hash não localizado.'
-                    : signatureResult?.message || 'Assinatura não localizada.'}
+                    : mode === 'signature'
+                      ? signatureResult?.message || 'Assinatura não localizada.'
+                      : codeResult?.message || 'Documento não localizado.'}
                 </p>
               </div>
             )}
@@ -300,7 +323,7 @@ export default function PublicHashVerifyPage() {
 
         <p className="flex items-center gap-1 text-[11px] text-[var(--ds-color-text-muted)]">
           <CheckCircle2 className="h-3.5 w-3.5" />
-          Endpoint público de auditoria externa ativo.
+          Validação pública alinhada com os endpoints reais do backend.
         </p>
       </div>
     </main>

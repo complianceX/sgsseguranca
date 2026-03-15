@@ -14,6 +14,7 @@ import {
   DefaultValuePipe,
   Request,
   UseInterceptors,
+  Logger,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
@@ -28,10 +29,24 @@ import { ReportsService } from './reports.service';
 import { Authorize } from '../auth/authorize.decorator';
 import { GenerateReportDto } from './dto/generate-report.dto';
 
+type ReportQueueJobParams = {
+  month?: number;
+  year?: number;
+};
+
+type ReportQueueJobData = {
+  companyId?: string;
+  userId?: string;
+  reportType?: string;
+  params?: ReportQueueJobParams;
+};
+
 @Controller('reports')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class ReportsController {
+  private readonly logger = new Logger(ReportsController.name);
+
   constructor(
     @InjectQueue('pdf-generation') private readonly pdfQueue: Queue,
     private readonly reportsService: ReportsService,
@@ -115,21 +130,25 @@ export class ReportsController {
   @Authorize('can_view_dashboard')
   async getStatus(
     @Param('jobId') jobId: string,
-    @Request() req: { user: { company_id?: string; companyId?: string; userId?: string } },
+    @Request()
+    req: { user: { company_id?: string; companyId?: string; userId?: string } },
   ) {
     const job = await this.pdfQueue.getJob(jobId);
     if (!job || !this.isJobVisibleToRequest(job, req.user)) {
       throw new NotFoundException();
     }
     const state = await job.getState();
-    return { state, result: job.returnvalue ?? null };
+    return { state, result: this.getJobResult(job) };
   }
 
   @Get('queue/stats')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_dashboard')
   async getQueueStats(
-    @Request() req: { user: { company_id?: string; companyId?: string; userId?: string } },
+    @Request()
+    req: {
+      user: { company_id?: string; companyId?: string; userId?: string };
+    },
   ) {
     const jobs = await this.getVisibleJobsForRequest(req.user);
     const counts = jobs.reduce(
@@ -164,7 +183,10 @@ export class ReportsController {
       completed: counts.completed,
       failed: counts.failed,
       delayed: counts.delayed,
-      total: Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0),
+      total: Object.values(counts).reduce(
+        (sum, value) => sum + Number(value || 0),
+        0,
+      ),
     };
   }
 
@@ -173,24 +195,31 @@ export class ReportsController {
   @Authorize('can_view_dashboard')
   async listJobs(
     @Query('limit', new DefaultValuePipe(12), ParseIntPipe) limit: number,
-    @Request() req: { user: { company_id?: string; companyId?: string; userId?: string } },
+    @Request()
+    req: { user: { company_id?: string; companyId?: string; userId?: string } },
   ) {
     const safeLimit = Math.max(1, Math.min(limit, 30));
     const jobs = await this.getVisibleJobsForRequest(req.user, safeLimit);
 
-    const items = jobs.map(({ job, state }) => ({
-      id: String(job.id),
-      name: job.name,
-      state,
-      createdAt: job.timestamp ? new Date(job.timestamp).toISOString() : null,
-      finishedAt: job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
-      failedReason: job.failedReason || null,
-      attemptsMade: job.attemptsMade,
-      reportType: job.data?.reportType || null,
-      month: job.data?.params?.month || null,
-      year: job.data?.params?.year || null,
-      result: job.returnvalue ?? null,
-    }));
+    const items = jobs.map(({ job, state }) => {
+      const jobData = this.getJobData(job);
+
+      return {
+        id: String(job.id),
+        name: job.name,
+        state,
+        createdAt: job.timestamp ? new Date(job.timestamp).toISOString() : null,
+        finishedAt: job.finishedOn
+          ? new Date(job.finishedOn).toISOString()
+          : null,
+        failedReason: job.failedReason || null,
+        attemptsMade: job.attemptsMade,
+        reportType: jobData?.reportType || null,
+        month: jobData?.params?.month ?? null,
+        year: jobData?.params?.year ?? null,
+        result: this.getJobResult(job),
+      };
+    });
 
     return { items };
   }
@@ -220,9 +249,23 @@ export class ReportsController {
       })),
     );
 
+    const tenantCompanyId = user.company_id || user.companyId;
+    if (tenantCompanyId) {
+      const ignoredWithoutCompanyId = visible.filter(
+        ({ job }) => !this.getJobData(job)?.companyId,
+      ).length;
+      if (ignoredWithoutCompanyId > 0) {
+        this.logger.debug(
+          `[reports-queue] ${ignoredWithoutCompanyId} job(s) ignorado(s) por não possuírem companyId. O filtro multi-tenant foi mantido.`,
+        );
+      }
+    }
+
     const filtered = visible
       .filter(({ job }) => this.isJobVisibleToRequest(job, user))
-      .sort((left, right) => (right.job.timestamp || 0) - (left.job.timestamp || 0));
+      .sort(
+        (left, right) => (right.job.timestamp || 0) - (left.job.timestamp || 0),
+      );
 
     if (typeof limit === 'number') {
       return filtered.slice(0, limit);
@@ -233,19 +276,52 @@ export class ReportsController {
 
   private isJobVisibleToRequest(
     job: {
-      data?: { companyId?: string; userId?: string };
+      data?: unknown;
     },
     user: { company_id?: string; companyId?: string; userId?: string },
   ) {
+    const jobData = this.getJobData(job);
     const tenantCompanyId = user.company_id || user.companyId;
     if (tenantCompanyId) {
-      return job.data?.companyId === tenantCompanyId;
+      return jobData?.companyId === tenantCompanyId;
     }
 
     if (user.userId) {
-      return job.data?.userId === user.userId;
+      return jobData?.userId === user.userId;
     }
 
-    throw new ForbiddenException('Contexto de tenant não resolvido para consultar a fila.');
+    throw new ForbiddenException(
+      'Contexto de tenant não resolvido para consultar a fila.',
+    );
+  }
+
+  private getJobResult(job: { returnvalue?: unknown }) {
+    return job.returnvalue ?? null;
+  }
+
+  private getJobData(job: { data?: unknown }): ReportQueueJobData | null {
+    if (!job.data || typeof job.data !== 'object') {
+      return null;
+    }
+
+    const data = job.data as Record<string, unknown>;
+    const params =
+      data.params && typeof data.params === 'object'
+        ? (data.params as Record<string, unknown>)
+        : null;
+
+    return {
+      companyId:
+        typeof data.companyId === 'string' ? data.companyId : undefined,
+      userId: typeof data.userId === 'string' ? data.userId : undefined,
+      reportType:
+        typeof data.reportType === 'string' ? data.reportType : undefined,
+      params: params
+        ? {
+            month: typeof params.month === 'number' ? params.month : undefined,
+            year: typeof params.year === 'number' ? params.year : undefined,
+          }
+        : undefined,
+    };
   }
 }

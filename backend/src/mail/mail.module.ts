@@ -1,6 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { BullModule, getQueueToken } from '@nestjs/bullmq';
+import { BullModule } from '@nestjs/bullmq';
 import { MailService } from './mail.service';
 import { MailController } from './mail.controller';
 import { MailLog } from './entities/mail-log.entity';
@@ -16,8 +16,10 @@ import { AuditsModule } from '../audits/audits.module';
 import { CompaniesModule } from '../companies/companies.module';
 import { StorageModule } from '../storage/storage.module';
 import { ReportsModule } from '../reports/reports.module';
-
-const isRedisDisabled = /^true$/i.test(process.env.REDIS_DISABLED || '');
+import {
+  createRedisDisabledQueueProvider,
+  isRedisDisabled,
+} from '../queue/redis-disabled-queue';
 
 @Module({
   imports: [
@@ -38,20 +40,7 @@ const isRedisDisabled = /^true$/i.test(process.env.REDIS_DISABLED || '');
   ],
   providers: [
     MailService,
-    ...(isRedisDisabled
-      ? [
-          {
-            provide: getQueueToken('mail'),
-            useValue: {
-              add: async () => {
-                throw new Error(
-                  'Fila de e-mail desabilitada (REDIS_DISABLED=true).',
-                );
-              },
-            },
-          },
-        ]
-      : []),
+    ...(isRedisDisabled ? [createRedisDisabledQueueProvider('mail')] : []),
   ],
   controllers: [MailController],
   exports: [MailService],

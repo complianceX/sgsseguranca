@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { BullModule, getQueueToken } from '@nestjs/bullmq';
+import { BullModule } from '@nestjs/bullmq';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 import { EpisModule } from '../epis/epis.module';
@@ -29,8 +29,10 @@ import { SstRateLimitService } from './sst-agent/sst-rate-limit.service';
 import { SophieFacadeService } from './sophie-facade.service';
 import { SophieModule } from '../sophie/sophie.module';
 import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
-
-const isRedisDisabled = /^true$/i.test(process.env.REDIS_DISABLED || '');
+import {
+  createRedisDisabledQueueProvider,
+  isRedisDisabled,
+} from '../queue/redis-disabled-queue';
 
 @Module({
   imports: [
@@ -65,19 +67,7 @@ const isRedisDisabled = /^true$/i.test(process.env.REDIS_DISABLED || '');
     SophieFacadeService,
     FeatureAiGuard,
     ...(isRedisDisabled
-      ? [
-          {
-            provide: getQueueToken('pdf-generation'),
-            useValue: {
-              add: async () => {
-                throw new Error(
-                  'Fila de relatórios desabilitada (REDIS_DISABLED=true).',
-                );
-              },
-              getJob: async () => null,
-            },
-          },
-        ]
+      ? [createRedisDisabledQueueProvider('pdf-generation')]
       : []),
   ],
   exports: [AiService, SstAgentService, SophieFacadeService],

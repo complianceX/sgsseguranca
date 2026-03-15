@@ -90,11 +90,8 @@ import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
+import { isRedisDisabled } from './queue/redis-disabled-queue';
 
-const isRedisDisabled = /^true$/i.test(process.env.REDIS_DISABLED || '');
-const queueBackedModules = isRedisDisabled
-  ? []
-  : [TasksModule, ReportsModule, MailModule];
 const queueInfraModules = isRedisDisabled
   ? []
   : [
@@ -148,7 +145,9 @@ const queueInfraModules = isRedisDisabled
       ),
     ];
 
-function firstNonEmpty(values: Array<string | undefined | null>): string | undefined {
+function firstNonEmpty(
+  values: Array<string | undefined | null>,
+): string | undefined {
   for (const value of values) {
     if (typeof value === 'string' && value.trim().length > 0) {
       return value;
@@ -260,13 +259,18 @@ const validationSchema = Joi.object({
   DATABASE_SSL: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
   REDIS_URL: Joi.string().optional(),
-  REDIS_HOST: Joi.string().when('REDIS_URL', {
-    is: Joi.exist(),
-    then: Joi.optional(),
-    otherwise: Joi.string().when('NODE_ENV', {
-      is: 'production',
-      then: Joi.required(),
-      otherwise: Joi.string().default('127.0.0.1'),
+  REDIS_DISABLED: Joi.string().valid('true', 'false').optional().allow(''),
+  REDIS_HOST: Joi.string().when('REDIS_DISABLED', {
+    is: 'true',
+    then: Joi.optional().allow(''),
+    otherwise: Joi.string().when('REDIS_URL', {
+      is: Joi.exist(),
+      then: Joi.optional(),
+      otherwise: Joi.string().when('NODE_ENV', {
+        is: 'production',
+        then: Joi.required(),
+        otherwise: Joi.string().default('127.0.0.1'),
+      }),
     }),
   }),
   REDIS_PORT: Joi.number().default(6379),
@@ -338,18 +342,32 @@ const validationSchema = Joi.object({
   JAEGER_AGENT_HOST: Joi.string().optional(),
   JAEGER_AGENT_PORT: Joi.number().optional(),
   PROMETHEUS_PORT: Joi.number().optional(),
-  AI_PROVIDER: Joi.string().valid('openai', 'anthropic', 'gemini', 'stub', 'local').default('openai'),
+  AI_PROVIDER: Joi.string()
+    .valid('openai', 'anthropic', 'gemini', 'stub', 'local')
+    .default('openai'),
   FEATURE_AI_ENABLED: Joi.string().valid('true', 'false').optional(),
   OPENAI_API_KEY: Joi.string().optional().allow(''),
   OPENAI_MODEL: Joi.string().optional().allow(''),
   OPENAI_VISION_MODEL: Joi.string().optional().allow(''),
   OPENAI_FALLBACK_MODEL: Joi.string().optional().allow(''),
-  OPENAI_REASONING_EFFORT: Joi.string().valid('minimal', 'low', 'medium', 'high').optional().allow(''),
-  AUTH_COOKIE_SAMESITE: Joi.string().valid('strict', 'lax', 'none').optional().allow(''),
+  OPENAI_REASONING_EFFORT: Joi.string()
+    .valid('minimal', 'low', 'medium', 'high')
+    .optional()
+    .allow(''),
+  AUTH_COOKIE_SAMESITE: Joi.string()
+    .valid('strict', 'lax', 'none')
+    .optional()
+    .allow(''),
   AUTH_COOKIE_SECURE: Joi.string().valid('true', 'false').optional().allow(''),
   AUTH_COOKIE_DOMAIN: Joi.string().optional().allow(''),
-  REFRESH_TOKEN_COOKIE_SAMESITE: Joi.string().valid('strict', 'lax', 'none').optional().allow(''),
-  REFRESH_TOKEN_COOKIE_SECURE: Joi.string().valid('true', 'false').optional().allow(''),
+  REFRESH_TOKEN_COOKIE_SAMESITE: Joi.string()
+    .valid('strict', 'lax', 'none')
+    .optional()
+    .allow(''),
+  REFRESH_TOKEN_COOKIE_SECURE: Joi.string()
+    .valid('true', 'false')
+    .optional()
+    .allow(''),
   REFRESH_TOKEN_COOKIE_DOMAIN: Joi.string().optional().allow(''),
   ANTHROPIC_API_KEY: Joi.string().optional(),
   ANTHROPIC_MODEL: Joi.string().optional().allow(''),
@@ -364,34 +382,58 @@ const validationSchema = Joi.object({
   LOGIN_FAIL_MAX: Joi.number().default(10),
   LOGIN_FAIL_WINDOW_SECONDS: Joi.number().default(900),
   LOGIN_FAIL_BLOCK_SECONDS: Joi.number().default(900),
-}).custom((value, helpers) => {
-  const bypassEnabled = value.DEV_LOGIN_BYPASS === true;
-  const explicitlyAllowed = value.ALLOW_DEV_LOGIN_BYPASS === true;
-  const isLocalDev = value.NODE_ENV === 'development';
+}).custom((value: Record<string, unknown>, helpers) => {
+  const env = value as {
+    DEV_LOGIN_BYPASS?: boolean;
+    ALLOW_DEV_LOGIN_BYPASS?: boolean;
+    NODE_ENV?: string;
+    DATABASE_URL?: string;
+    DATABASE_PUBLIC_URL?: string;
+    URL_DO_BANCO_DE_DADOS?: string;
+    POSTGRES_URL?: string;
+    POSTGRESQL_URL?: string;
+    DATABASE_HOST?: string;
+    PGHOST?: string;
+    POSTGRES_HOST?: string;
+    DATABASE_USER?: string;
+    PGUSER?: string;
+    POSTGRES_USER?: string;
+    DATABASE_PASSWORD?: string;
+    PGPASSWORD?: string;
+    POSTGRES_PASSWORD?: string;
+    DATABASE_NAME?: string;
+    PGDATABASE?: string;
+    POSTGRES_DB?: string;
+    DATABASE_TYPE?: string;
+  };
+
+  const bypassEnabled = env.DEV_LOGIN_BYPASS === true;
+  const explicitlyAllowed = env.ALLOW_DEV_LOGIN_BYPASS === true;
+  const isLocalDev = env.NODE_ENV === 'development';
   const hasDatabaseUrl = Boolean(
     firstNonEmpty([
-      value.DATABASE_URL,
-      value.DATABASE_PUBLIC_URL,
-      value.URL_DO_BANCO_DE_DADOS,
-      value.POSTGRES_URL,
-      value.POSTGRESQL_URL,
+      env.DATABASE_URL,
+      env.DATABASE_PUBLIC_URL,
+      env.URL_DO_BANCO_DE_DADOS,
+      env.POSTGRES_URL,
+      env.POSTGRESQL_URL,
     ]),
   );
   const hasDatabaseHost = Boolean(
-    firstNonEmpty([value.DATABASE_HOST, value.PGHOST, value.POSTGRES_HOST]),
+    firstNonEmpty([env.DATABASE_HOST, env.PGHOST, env.POSTGRES_HOST]),
   );
   const hasDatabaseUser = Boolean(
-    firstNonEmpty([value.DATABASE_USER, value.PGUSER, value.POSTGRES_USER]),
+    firstNonEmpty([env.DATABASE_USER, env.PGUSER, env.POSTGRES_USER]),
   );
   const hasDatabasePassword = Boolean(
     firstNonEmpty([
-      value.DATABASE_PASSWORD,
-      value.PGPASSWORD,
-      value.POSTGRES_PASSWORD,
+      env.DATABASE_PASSWORD,
+      env.PGPASSWORD,
+      env.POSTGRES_PASSWORD,
     ]),
   );
   const hasDatabaseName = Boolean(
-    firstNonEmpty([value.DATABASE_NAME, value.PGDATABASE, value.POSTGRES_DB]),
+    firstNonEmpty([env.DATABASE_NAME, env.PGDATABASE, env.POSTGRES_DB]),
   );
 
   if (bypassEnabled && (!isLocalDev || !explicitlyAllowed)) {
@@ -402,10 +444,13 @@ const validationSchema = Joi.object({
   }
 
   if (
-    value.DATABASE_TYPE !== 'sqlite' &&
-    value.DATABASE_TYPE !== 'better-sqlite3' &&
+    env.DATABASE_TYPE !== 'sqlite' &&
+    env.DATABASE_TYPE !== 'better-sqlite3' &&
     !hasDatabaseUrl &&
-    (!hasDatabaseHost || !hasDatabaseUser || !hasDatabasePassword || !hasDatabaseName)
+    (!hasDatabaseHost ||
+      !hasDatabaseUser ||
+      !hasDatabasePassword ||
+      !hasDatabaseName)
   ) {
     return helpers.error('any.invalid', {
       message:
@@ -413,7 +458,7 @@ const validationSchema = Joi.object({
     });
   }
 
-  return value;
+  return env;
 });
 
 @Module({
@@ -484,9 +529,7 @@ const validationSchema = Joi.object({
             '⚠️ REDIS_DISABLED=true: usando Memory Cache em produção',
           );
         } else if (isProduction && !hasRedisUrl) {
-          logger.warn(
-            '⚠️ Redis URL ausente: usando Memory Cache em produção',
-          );
+          logger.warn('⚠️ Redis URL ausente: usando Memory Cache em produção');
         } else {
           logger.log('💾 Configurando Memory Cache para DESENVOLVIMENTO');
         }
@@ -506,7 +549,10 @@ const validationSchema = Joi.object({
       useFactory: (config: ConfigService) => {
         const logger = new Logger('TypeORM');
         const isProduction = config.get('NODE_ENV') === 'production';
-        const dbType = config.get<'postgres' | 'sqlite'>('DATABASE_TYPE', 'postgres');
+        const dbType = config.get<'postgres' | 'sqlite'>(
+          'DATABASE_TYPE',
+          'postgres',
+        );
         const url = resolveDatabaseUrl(config);
         logger.log(`🗄️ DATABASE_TYPE=${dbType}`);
 
@@ -588,7 +634,7 @@ const validationSchema = Joi.object({
        * A conexão é estabelecida em background com retry exponencial.
        * Requests que precisam do DB recebem erro até a conexão estar pronta.
        */
-      dataSourceFactory: async (options) => {
+      dataSourceFactory: (options) => {
         const dsLogger = new Logger('LazyDataSource');
         const dataSource = new DataSource(options!);
 
@@ -631,12 +677,14 @@ const validationSchema = Joi.object({
         };
 
         void connectWithRetry();
-        return dataSource;
+        return Promise.resolve(dataSource);
       },
     }),
 
     // Feature Modules
-    ...queueBackedModules,
+    TasksModule,
+    ReportsModule,
+    MailModule,
     // NotificationsModule,
     PushModule,
     CompaniesModule,
@@ -737,7 +785,7 @@ export class AppModule implements OnModuleInit {
 
     if (/^true$/i.test(process.env.REDIS_DISABLED || '')) {
       this.logger.warn(
-        '⚠️ REDIS_DISABLED=true: módulos de fila (mail/reports/tasks) estão desabilitados neste runtime.',
+        '⚠️ REDIS_DISABLED=true: runtime em modo degradado. Módulos de fila permanecem ativos, mas jobs assíncronos e Bull Board ficam indisponíveis.',
       );
     }
 
@@ -774,9 +822,7 @@ export class AppModule implements OnModuleInit {
       {
         name: 'DATABASE_SSL',
         valid:
-          databaseSSL === true ||
-          railwaySelfSigned === true ||
-          !!databaseUrl,
+          databaseSSL === true || railwaySelfSigned === true || !!databaseUrl,
         message:
           'Configure DATABASE_URL (Railway) ou habilite DATABASE_SSL/BANCO_DE_DADOS_SSL em produção',
       },
