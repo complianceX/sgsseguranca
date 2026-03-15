@@ -32,19 +32,9 @@ import {
 } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  EmptyState,
-  ErrorState,
-  PageLoadingState,
-} from '@/components/ui/state';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 
 type UserOption = { id: string; nome: string };
@@ -163,27 +153,27 @@ export default function MedicalExamsPage() {
       setLastPage(paged.lastPage);
       setSummary(sum);
     } catch (error) {
-      console.error('Erro ao carregar exames médicos:', error);
+      console.error('Erro ao carregar exames medicos:', error);
       setLoadError('Nao foi possivel carregar o monitor de exames medicos.');
-      toast.error('Erro ao carregar exames médicos.');
+      toast.error('Erro ao carregar exames medicos.');
     } finally {
       setLoading(false);
     }
   }, [page, limit, filterTipo, filterResultado]);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
   useEffect(() => {
-    usersService
+    void usersService
       .findPaginated({ page: 1, limit: 100 })
       .then((res) => {
         setUsers(res.data);
       })
       .catch((error) => {
-        console.error('Erro ao carregar colaboradores para exames médicos:', error);
-        toast.error('Não foi possível carregar a lista de colaboradores.');
+        console.error('Erro ao carregar colaboradores para exames medicos:', error);
+        toast.error('Nao foi possivel carregar a lista de colaboradores.');
       });
   }, []);
 
@@ -195,7 +185,7 @@ export default function MedicalExamsPage() {
 
   const openEdit = (exam: MedicalExam) => {
     if (!users.some((user) => user.id === exam.user_id)) {
-      usersService
+      void usersService
         .findOne(exam.user_id)
         .then((user) => {
           setUsers((current) => {
@@ -230,7 +220,7 @@ export default function MedicalExamsPage() {
 
   const handleSave = async () => {
     if (!form.user_id || !form.data_realizacao) {
-      toast.error('Funcionário e data de realização são obrigatórios.');
+      toast.error('Funcionario e data de realizacao sao obrigatorios.');
       return;
     }
 
@@ -256,7 +246,7 @@ export default function MedicalExamsPage() {
       setShowModal(false);
       await loadData();
     } catch (error) {
-      console.error('Erro ao salvar exame médico:', error);
+      console.error('Erro ao salvar exame medico:', error);
       toast.error('Erro ao salvar exame.');
     } finally {
       setSaving(false);
@@ -264,14 +254,14 @@ export default function MedicalExamsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Excluir este exame médico?')) return;
+    if (!confirm('Excluir este exame medico?')) return;
 
     try {
       await medicalExamsService.delete(id);
-      toast.success('Exame excluído.');
+      toast.success('Exame excluido.');
       await loadData();
     } catch (error) {
-      console.error('Erro ao excluir exame médico:', error);
+      console.error('Erro ao excluir exame medico:', error);
       toast.error('Erro ao excluir exame.');
     }
   };
@@ -279,8 +269,8 @@ export default function MedicalExamsPage() {
   if (loading) {
     return (
       <PageLoadingState
-        title="Carregando monitor de exames médicos"
-        description="Buscando vencimentos de ASO, status ocupacional e pendências do PCMSO."
+        title="Carregando monitor de exames medicos"
+        description="Buscando vencimentos de ASO, status ocupacional e pendencias do PCMSO."
         cards={4}
         tableRows={6}
       />
@@ -290,7 +280,7 @@ export default function MedicalExamsPage() {
   if (loadError) {
     return (
       <ErrorState
-        title="Falha ao carregar exames médicos"
+        title="Falha ao carregar exames medicos"
         description={loadError}
         action={
           <Button type="button" onClick={loadData}>
@@ -302,22 +292,14 @@ export default function MedicalExamsPage() {
   }
 
   return (
-    <div className="ds-crud-page">
-      <Card tone="elevated" padding="lg" className="ds-crud-hero">
-        <CardHeader className="ds-crud-hero__header md:flex-row md:items-start md:justify-between">
-          <div className="ds-crud-hero__lead">
-            <div className="ds-crud-hero__icon">
-              <Stethoscope className="h-5 w-5" />
-            </div>
-            <div className="ds-crud-hero__copy">
-              <span className="ds-crud-hero__eyebrow">Saúde ocupacional</span>
-              <CardTitle className="text-2xl">Exames Médicos (PCMSO)</CardTitle>
-              <CardDescription>
-                Controle de ASOs conforme NR-7, com visão de vencimentos e status ocupacional.
-              </CardDescription>
-            </div>
-          </div>
-          <div className="ds-crud-hero__actions">
+    <>
+      <ListPageLayout
+        eyebrow="Saude ocupacional"
+        title="Exames Medicos (PCMSO)"
+        description="Controle de ASOs conforme NR-7, com visao de vencimentos e status ocupacional."
+        icon={<Stethoscope className="h-5 w-5" />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="outline"
@@ -336,78 +318,36 @@ export default function MedicalExamsPage() {
               Registrar exame
             </Button>
           </div>
-        </CardHeader>
-      </Card>
-
-      <div className="ds-crud-stats xl:grid-cols-4">
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--neutral">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Total monitorado</CardDescription>
-            <CardTitle className="ds-crud-stat__value">{summary.total}</CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              ASOs registrados no recorte atual.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--danger">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">ASOs vencidos</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-danger)]">
-              {summary.expired}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Colaboradores já fora de conformidade ocupacional.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--warning">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Vencendo em 30 dias</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-warning)]">
-              {summary.expiringSoon}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              Prioridade de agenda para evitar bloqueios.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card interactive padding="md" className="ds-crud-stat ds-crud-stat--success">
-          <CardHeader className="gap-2">
-            <CardDescription className="ds-crud-stat__label">Exames válidos</CardDescription>
-            <CardTitle className="ds-crud-stat__value text-[var(--ds-color-success)]">
-              {summary.valid}
-            </CardTitle>
-            <CardDescription className="ds-crud-stat__note">
-              População liberada dentro do PCMSO.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-
-      {summary.expired > 0 ? (
-        <Card tone="muted" padding="md" className="ds-crud-callout ds-crud-callout--danger">
-          <CardHeader className="gap-2">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-[var(--ds-color-danger)]" />
-              <CardTitle className="text-base">Ação recomendada</CardTitle>
-            </div>
-            <CardDescription>
-              Existem {summary.expired} exame(s) vencido(s). Priorize a regularização para evitar
-              bloqueio ocupacional e não conformidades no PCMSO.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : null}
-
-      <Card tone="default" padding="none" className="ds-crud-filter-card">
-        <CardHeader className="ds-crud-filter-header md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <CardTitle>Exames registrados</CardTitle>
-            <CardDescription>
-              {total} registro(s) monitorados com filtros por tipo e resultado.
-            </CardDescription>
-          </div>
-          <div className="ds-crud-filter-bar md:w-auto md:flex-row">
+        }
+        metrics={[
+          {
+            label: 'Total monitorado',
+            value: summary.total,
+            note: 'ASOs registrados no recorte atual.',
+          },
+          {
+            label: 'ASOs vencidos',
+            value: summary.expired,
+            note: 'Colaboradores fora de conformidade ocupacional.',
+            tone: 'danger',
+          },
+          {
+            label: 'Vencendo em 30 dias',
+            value: summary.expiringSoon,
+            note: 'Prioridade de agenda para evitar bloqueios.',
+            tone: 'warning',
+          },
+          {
+            label: 'Exames validos',
+            value: summary.valid,
+            note: 'Populacao liberada dentro do PCMSO.',
+            tone: 'success',
+          },
+        ]}
+        toolbarTitle="Exames registrados"
+        toolbarDescription={`${total} registro(s) monitorados com filtros por tipo e resultado.`}
+        toolbarContent={
+          <div className="flex w-full flex-col gap-3 md:flex-row md:items-center md:justify-end">
             <select
               value={filterTipo}
               onChange={(event) => {
@@ -439,14 +379,39 @@ export default function MedicalExamsPage() {
               ))}
             </select>
           </div>
-        </CardHeader>
+        }
+        footer={
+          exams.length > 0 ? (
+            <PaginationControls
+              page={page}
+              lastPage={lastPage}
+              total={total}
+              onPrev={() => setPage((current) => Math.max(1, current - 1))}
+              onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+            />
+          ) : null
+        }
+      >
+        <div className="space-y-4">
+          {summary.expired > 0 ? (
+            <div className="mx-4 mt-4 rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-danger)]/18 bg-[color:var(--ds-color-danger)]/6 px-4 py-3">
+              <div className="flex items-start gap-3">
+                <ShieldAlert className="mt-0.5 h-4 w-4 text-[var(--ds-color-danger)]" />
+                <div>
+                  <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Acao recomendada</p>
+                  <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                    Existem {summary.expired} exame(s) vencido(s). Priorize a regularizacao para evitar bloqueio ocupacional e nao conformidades no PCMSO.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
-        <CardContent className="mt-0">
           {exams.length === 0 ? (
-            <div className="p-5">
+            <div className="p-6">
               <EmptyState
-                title="Nenhum exame médico encontrado"
-                description="Ainda não existem ASOs registrados para este tenant com os filtros atuais."
+                title="Nenhum exame medico encontrado"
+                description="Ainda nao existem ASOs registrados para este tenant com os filtros atuais."
                 action={
                   <Button type="button" leftIcon={<Plus className="h-4 w-4" />} onClick={openCreate}>
                     Registrar exame
@@ -458,13 +423,13 @@ export default function MedicalExamsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Funcionário</TableHead>
+                  <TableHead>Funcionario</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Resultado</TableHead>
-                  <TableHead>Data realização</TableHead>
+                  <TableHead>Data realizacao</TableHead>
                   <TableHead>Vencimento</TableHead>
-                  <TableHead>Médico responsável</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead>Medico responsavel</TableHead>
+                  <TableHead className="text-right">Acoes</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -531,7 +496,7 @@ export default function MedicalExamsPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-[var(--ds-color-text-secondary)]">
-                        {exam.medico_responsavel ?? '—'}
+                        {exam.medico_responsavel ?? '-'}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -562,27 +527,17 @@ export default function MedicalExamsPage() {
               </TableBody>
             </Table>
           )}
-        </CardContent>
-
-        {exams.length > 0 ? (
-          <PaginationControls
-            page={page}
-            lastPage={lastPage}
-            total={total}
-            onPrev={() => setPage((current) => Math.max(1, current - 1))}
-            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
-          />
-        ) : null}
-      </Card>
+        </div>
+      </ListPageLayout>
 
       {showModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
           <Card tone="elevated" padding="none" className="w-full max-w-3xl shadow-[var(--ds-shadow-lg)]">
             <CardHeader className="border-b border-[var(--ds-color-border-subtle)] px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
-                <CardTitle>{editId ? 'Editar exame médico' : 'Registrar exame médico'}</CardTitle>
+                <CardTitle>{editId ? 'Editar exame medico' : 'Registrar exame medico'}</CardTitle>
                 <CardDescription>
-                  Preencha os dados clínicos e de validade do ASO ocupacional.
+                  Preencha os dados clinicos e de validade do ASO ocupacional.
                 </CardDescription>
               </div>
               <Button type="button" variant="ghost" size="icon" onClick={closeModal} title="Fechar">
@@ -592,12 +547,12 @@ export default function MedicalExamsPage() {
 
             <CardContent className="grid gap-4 px-6 py-6 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label htmlFor="medical-exam-user-id" className={labelClassName}>Funcionário *</label>
+                <label htmlFor="medical-exam-user-id" className={labelClassName}>Funcionario *</label>
                 <select
                   id="medical-exam-user-id"
                   value={form.user_id}
                   onChange={(event) => setForm({ ...form, user_id: event.target.value })}
-                  aria-label="Funcionário do exame médico"
+                  aria-label="Funcionario do exame medico"
                   className={fieldClassName}
                   disabled={saving}
                 >
@@ -647,13 +602,13 @@ export default function MedicalExamsPage() {
               </div>
 
               <div>
-                <label htmlFor="medical-exam-data-realizacao" className={labelClassName}>Data de realização *</label>
+                <label htmlFor="medical-exam-data-realizacao" className={labelClassName}>Data de realizacao *</label>
                 <input
                   id="medical-exam-data-realizacao"
                   type="date"
                   value={form.data_realizacao}
                   onChange={(event) => setForm({ ...form, data_realizacao: event.target.value })}
-                  aria-label="Data de realização do exame"
+                  aria-label="Data de realizacao do exame"
                   className={fieldClassName}
                   disabled={saving}
                 />
@@ -673,14 +628,12 @@ export default function MedicalExamsPage() {
               </div>
 
               <div>
-                <label htmlFor="medical-exam-medico" className={labelClassName}>Médico responsável</label>
+                <label htmlFor="medical-exam-medico" className={labelClassName}>Medico responsavel</label>
                 <input
                   id="medical-exam-medico"
                   type="text"
                   value={form.medico_responsavel}
-                  onChange={(event) =>
-                    setForm({ ...form, medico_responsavel: event.target.value })
-                  }
+                  onChange={(event) => setForm({ ...form, medico_responsavel: event.target.value })}
                   placeholder="Dr. Nome"
                   className={fieldClassName}
                   disabled={saving}
@@ -694,7 +647,7 @@ export default function MedicalExamsPage() {
                   type="text"
                   value={form.crm_medico}
                   onChange={(event) => setForm({ ...form, crm_medico: event.target.value })}
-                  aria-label="CRM do médico"
+                  aria-label="CRM do medico"
                   placeholder="CRM/SP 123456"
                   className={fieldClassName}
                   disabled={saving}
@@ -702,12 +655,12 @@ export default function MedicalExamsPage() {
               </div>
 
               <div className="md:col-span-2">
-                <label htmlFor="medical-exam-observacoes" className={labelClassName}>Observações</label>
+                <label htmlFor="medical-exam-observacoes" className={labelClassName}>Observacoes</label>
                 <textarea
                   id="medical-exam-observacoes"
                   value={form.observacoes}
                   onChange={(event) => setForm({ ...form, observacoes: event.target.value })}
-                  aria-label="Observações do exame médico"
+                  aria-label="Observacoes do exame medico"
                   rows={4}
                   className={fieldClassName}
                   disabled={saving}
@@ -715,17 +668,17 @@ export default function MedicalExamsPage() {
               </div>
             </CardContent>
 
-            <CardFooter className="justify-end px-6 py-4">
+            <CardFooter className="justify-end gap-3 px-6 py-4">
               <Button type="button" variant="outline" onClick={closeModal} disabled={saving}>
                 Cancelar
               </Button>
               <Button type="button" onClick={handleSave} loading={saving}>
-                {editId ? 'Salvar alterações' : 'Registrar exame'}
+                {editId ? 'Salvar alteracoes' : 'Registrar exame'}
               </Button>
             </CardFooter>
           </Card>
         </div>
       ) : null}
-    </div>
+    </>
   );
 }
