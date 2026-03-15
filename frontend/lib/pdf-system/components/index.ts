@@ -4,6 +4,7 @@ export * from "./DocumentIdentityRail";
 export * from "./EvidenceGallery";
 export * from "./ExecutiveSummaryStrip";
 export * from "./FooterGovernance";
+export * from "./GovernanceClosingBlock";
 export * from "./IntegrityValidationBlock";
 export * from "./MetadataGrid";
 export * from "./NarrativeSection";

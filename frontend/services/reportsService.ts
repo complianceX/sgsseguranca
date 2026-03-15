@@ -12,6 +12,7 @@ export interface Report {
     dds_count: number;
     checklists_count: number;
     trainings_count: number;
+    epis_expired_count?: number;
   };
   analise_gandra: string;
   created_at: string;

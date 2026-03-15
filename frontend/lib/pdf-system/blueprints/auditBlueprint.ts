@@ -5,7 +5,7 @@ import {
   drawDocumentHeader,
   drawDocumentIdentityRail,
   drawExecutiveSummaryStrip,
-  drawIntegrityValidationBlock,
+  drawGovernanceClosingBlock,
   drawMetadataGrid,
   drawNarrativeSection,
 } from "../components";
@@ -96,7 +96,7 @@ export async function drawAuditBlueprint(
 
   drawNarrativeSection(ctx, { title: "Parecer final", content: audit.conclusao });
 
-  await drawIntegrityValidationBlock(ctx, {
+  await drawGovernanceClosingBlock(ctx, {
     code,
     url: validationUrl,
     title: "Governanca e autenticidade",

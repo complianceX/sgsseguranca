@@ -22,13 +22,26 @@ async function drawOneEvidence(
   resolveImageDataUrl?: (item: EvidenceGalleryItem, index: number) => Promise<string | null>,
 ) {
   const { doc, margin, contentWidth, theme } = ctx;
-  const imageWrapW = 74;
-  const imageWrapH = 66;
+  let dataUrl: string | null = null;
+  let imageState: "loaded" | "missing" | "error" = "missing";
+
+  if (resolveImageDataUrl) {
+    try {
+      dataUrl = await resolveImageDataUrl(item, index);
+      imageState = dataUrl ? "loaded" : "missing";
+    } catch {
+      imageState = "error";
+    }
+  }
+
+  const hasImage = imageState === "loaded" && Boolean(dataUrl);
+  const imageWrapW = hasImage ? 74 : 52;
+  const imageWrapH = hasImage ? 66 : 36;
   const detailsW = contentWidth - imageWrapW - 16;
   const descLines = doc.splitTextToSize(sanitize(item.description), detailsW);
   const metaLines = doc.splitTextToSize(sanitize(item.meta), detailsW);
   const contentTextHeight = 8 + 6 + descLines.length * 4 + 5 + metaLines.length * 3.4;
-  const cardInnerH = Math.max(imageWrapH, contentTextHeight + 8);
+  const cardInnerH = Math.max(imageWrapH, contentTextHeight + (hasImage ? 8 : 5));
   const cardH = cardInnerH + 12;
   ensureSpace(ctx, cardH + 6);
 
@@ -65,25 +78,8 @@ async function drawOneEvidence(
   const metaY = ctx.y + 26 + descLines.length * 4 + 4;
   doc.text(metaLines, textX, metaY);
 
-  if (!resolveImageDataUrl) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(theme.typography.bodySm);
-      doc.setTextColor(...theme.tone.textMuted);
-      doc.text("Imagem nao disponivel para renderizacao.", margin + 10, ctx.y + 42);
-      moveY(ctx, cardH + 5);
-      return;
-    }
-
-  try {
-    const dataUrl = await resolveImageDataUrl(item, index);
-    if (!dataUrl) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(theme.typography.bodySm);
-      doc.setTextColor(...theme.tone.textMuted);
-      doc.text("Imagem nao encontrada.", margin + 20, ctx.y + 42);
-      moveY(ctx, cardH + 5);
-      return;
-    }
+  if (hasImage && dataUrl) {
+    try {
     const props = doc.getImageProperties(dataUrl as unknown as string);
     const ratio = Math.min((imageWrapW - 4) / props.width, (cardInnerH - 4) / props.height, 1);
     const w = props.width * ratio;
@@ -91,11 +87,41 @@ async function drawOneEvidence(
     const x = margin + 5 + (imageWrapW - w) / 2;
     const y = ctx.y + 6 + (cardInnerH - h) / 2;
     doc.addImage(dataUrl, props.fileType || "PNG", x, y, w, h);
-  } catch {
+    } catch {
+      imageState = "error";
+    }
+  }
+
+  if (!hasImage || imageState === "error") {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(theme.typography.caption);
+    doc.setTextColor(...theme.tone.textMuted);
+    doc.text(
+      imageState === "error" ? "FOTO INDISPONIVEL" : "SEM FOTO",
+      margin + 5 + imageWrapW / 2,
+      ctx.y + 20,
+      { align: "center" },
+    );
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(theme.typography.bodySm);
-    doc.setTextColor(...theme.tone.danger);
-    doc.text("Falha ao carregar imagem.", margin + 18, ctx.y + 42);
+    if (imageState === "error") {
+      doc.setTextColor(...theme.tone.danger);
+    } else {
+      doc.setTextColor(...theme.tone.textSecondary);
+    }
+    doc.text(
+      imageState === "error"
+        ? "Registro visual nao pode ser carregado."
+        : "Evidencia textual preservada no documento.",
+      margin + 5 + imageWrapW / 2,
+      ctx.y + 25.5,
+      { align: "center", maxWidth: imageWrapW - 6 },
+    );
+
+    doc.setDrawColor(...theme.tone.border);
+    doc.setLineWidth(0.2);
+    doc.line(margin + 11, ctx.y + 31, margin + imageWrapW - 1, ctx.y + 31);
   }
 
   moveY(ctx, cardH + 5);

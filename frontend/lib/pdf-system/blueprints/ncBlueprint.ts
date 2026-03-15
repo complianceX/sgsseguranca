@@ -2,11 +2,10 @@ import type { NonConformity } from "@/services/nonConformitiesService";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, sanitize } from "../core/format";
 import {
-  drawAuthoritySignatureBlock,
   drawDocumentHeader,
   drawDocumentIdentityRail,
   drawExecutiveSummaryStrip,
-  drawIntegrityValidationBlock,
+  drawGovernanceClosingBlock,
   drawMetadataGrid,
   drawNarrativeSection,
 } from "../components";
@@ -104,15 +103,12 @@ export async function drawNcBlueprint(
   drawNarrativeSection(ctx, { title: "Verificacao e resultado", content: nc.verificacao_resultado });
   drawNarrativeSection(ctx, { title: "Observacoes finais", content: nc.observacoes_gerais });
 
-  drawAuthoritySignatureBlock(ctx, {
+  await drawGovernanceClosingBlock(ctx, {
     signatures: [
       { label: "Responsavel da area", name: sanitize(nc.responsavel_area), role: "Responsavel", image: nc.assinatura_responsavel_area || null },
       { label: "Tecnico/Auditor", name: sanitize(nc.auditor_responsavel), role: "TST/Auditor", image: nc.assinatura_tecnico_auditor || null },
       { label: "Gestao", name: "Gestao", role: "Gestao", image: nc.assinatura_gestao || null },
     ],
-  });
-
-  await drawIntegrityValidationBlock(ctx, {
     code,
     url: validationUrl,
     title: "Governanca e autenticidade",

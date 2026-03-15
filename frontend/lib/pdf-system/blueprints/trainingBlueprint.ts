@@ -3,11 +3,10 @@ import type { Signature } from "@/services/signaturesService";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, sanitize } from "../core/format";
 import {
-  drawAuthoritySignatureBlock,
   drawDocumentHeader,
   drawDocumentIdentityRail,
   drawExecutiveSummaryStrip,
-  drawIntegrityValidationBlock,
+  drawGovernanceClosingBlock,
   drawMetadataGrid,
   drawNarrativeSection,
   drawSemanticTable,
@@ -112,7 +111,7 @@ export async function drawTrainingBlueprint(
     });
   }
 
-  drawAuthoritySignatureBlock(ctx, {
+  await drawGovernanceClosingBlock(ctx, {
     signatures: signatures.map((signature) => ({
       label: sanitize(signature.type),
       name: sanitize(signature.user?.nome || signature.type),
@@ -120,9 +119,6 @@ export async function drawTrainingBlueprint(
       date: formatDate(signature.signed_at || signature.created_at),
       image: signature.signature_data,
     })),
-  });
-
-  await drawIntegrityValidationBlock(ctx, {
     code,
     url: validationUrl,
     title: "Governanca e comprovacao documental",
