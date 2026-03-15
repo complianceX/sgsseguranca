@@ -24,6 +24,10 @@ import {
 } from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { S3Service } from '../common/storage/s3.service';
+import {
+  cleanupUploadedFile,
+  isS3DisabledUploadError,
+} from '../common/storage/storage-compensation.util';
 
 @Injectable()
 export class AuditsService {
@@ -184,34 +188,51 @@ export class AuditsService {
       audit.id,
       file.originalname,
     );
+    let uploadedToStorage = false;
 
     try {
       await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
-    } catch {
+      uploadedToStorage = true;
+    } catch (error) {
+      if (!isS3DisabledUploadError(error)) {
+        throw error;
+      }
       this.logger.warn(`S3 desabilitado, armazenando referência local: ${key}`);
     }
 
     const folder = `audits/${audit.company_id}`;
-    await this.documentGovernanceService.registerFinalDocument({
-      companyId: audit.company_id,
-      module: 'audit',
-      entityId: audit.id,
-      title: audit.titulo || 'Auditoria',
-      documentDate: audit.data_auditoria || audit.created_at,
-      fileKey: key,
-      folderPath: folder,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      createdBy: userId || undefined,
-      fileBuffer: file.buffer,
-      persistEntityMetadata: async (manager) => {
-        await manager.getRepository(Audit).update(id, {
-          pdf_file_key: key,
-          pdf_folder_path: folder,
-          pdf_original_name: file.originalname,
-        });
-      },
-    });
+    try {
+      await this.documentGovernanceService.registerFinalDocument({
+        companyId: audit.company_id,
+        module: 'audit',
+        entityId: audit.id,
+        title: audit.titulo || 'Auditoria',
+        documentDate: audit.data_auditoria || audit.created_at,
+        fileKey: key,
+        folderPath: folder,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        createdBy: userId || undefined,
+        fileBuffer: file.buffer,
+        persistEntityMetadata: async (manager) => {
+          await manager.getRepository(Audit).update(id, {
+            pdf_file_key: key,
+            pdf_folder_path: folder,
+            pdf_original_name: file.originalname,
+          });
+        },
+      });
+    } catch (error) {
+      if (uploadedToStorage) {
+        await cleanupUploadedFile(
+          this.logger,
+          `audit:${audit.id}`,
+          key,
+          (fileKey) => this.s3Service.deleteFile(fileKey),
+        );
+      }
+      throw error;
+    }
 
     this.logger.log({
       event: 'audit_pdf_attached',

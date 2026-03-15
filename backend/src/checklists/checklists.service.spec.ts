@@ -25,7 +25,7 @@ describe('ChecklistsService', () => {
   };
   let storageService: Pick<
     StorageService,
-    'uploadFile' | 'getPresignedDownloadUrl'
+    'uploadFile' | 'getPresignedDownloadUrl' | 'deleteFile'
   >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
@@ -41,6 +41,7 @@ describe('ChecklistsService', () => {
       getPresignedDownloadUrl: jest.fn(() =>
         Promise.resolve('https://example.com/checklist.pdf'),
       ),
+      deleteFile: jest.fn(() => Promise.resolve()),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
@@ -148,5 +149,29 @@ describe('ChecklistsService', () => {
     expect(removeInput.entityId).toBe('checklist-1');
     expect(typeof removeInput.removeEntityState).toBe('function');
     expect(remove).toHaveBeenCalledWith(checklist);
+  });
+
+  it('limpa o PDF do checklist no storage quando a governanca falha', async () => {
+    const checklist = {
+      id: 'checklist-1',
+      company_id: 'company-1',
+      titulo: 'Checklist de campo',
+      data: new Date('2026-03-14T12:00:00.000Z'),
+    } as Checklist;
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue(checklist);
+    jest
+      .spyOn(service, 'generatePdf')
+      .mockResolvedValue(Buffer.from('%PDF-checklist'));
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockRejectedValue(new Error('governance failed'));
+
+    await expect(service.savePdfToStorage('checklist-1')).rejects.toThrow(
+      'governance failed',
+    );
+
+    expect(storageService.deleteFile).toHaveBeenCalledWith(
+      expect.stringContaining('checklist-checklist-1.pdf'),
+    );
   });
 });

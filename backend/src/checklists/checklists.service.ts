@@ -18,6 +18,7 @@ import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { MailService } from '../mail/mail.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { StorageService } from '../common/services/storage.service';
+import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { UsersService } from '../users/users.service';
@@ -720,33 +721,44 @@ export class ChecklistsService {
     const fileKey = `${folderPath}/${fileName}`;
 
     await this.storageService.uploadFile(fileKey, pdfBuffer, 'application/pdf');
-    const fileUrl = await this.storageService.getPresignedDownloadUrl(fileKey);
+    try {
+      const fileUrl =
+        await this.storageService.getPresignedDownloadUrl(fileKey);
 
-    await this.documentGovernanceService.registerFinalDocument({
-      companyId: checklist.company_id,
-      module: 'checklist',
-      entityId: checklist.id,
-      title: checklist.titulo,
-      documentDate: checklist.data,
-      fileKey,
-      folderPath,
-      originalName: fileName,
-      mimeType: 'application/pdf',
-      createdBy: RequestContext.getUserId() || undefined,
-      fileBuffer: pdfBuffer,
-      persistEntityMetadata: async (manager) => {
-        await manager.getRepository(Checklist).update(
-          { id: checklist.id },
-          {
-            pdf_file_key: fileKey,
-            pdf_folder_path: folderPath,
-            pdf_original_name: fileName,
-          },
-        );
-      },
-    });
+      await this.documentGovernanceService.registerFinalDocument({
+        companyId: checklist.company_id,
+        module: 'checklist',
+        entityId: checklist.id,
+        title: checklist.titulo,
+        documentDate: checklist.data,
+        fileKey,
+        folderPath,
+        originalName: fileName,
+        mimeType: 'application/pdf',
+        createdBy: RequestContext.getUserId() || undefined,
+        fileBuffer: pdfBuffer,
+        persistEntityMetadata: async (manager) => {
+          await manager.getRepository(Checklist).update(
+            { id: checklist.id },
+            {
+              pdf_file_key: fileKey,
+              pdf_folder_path: folderPath,
+              pdf_original_name: fileName,
+            },
+          );
+        },
+      });
 
-    return { fileKey, folderPath, fileUrl };
+      return { fileKey, folderPath, fileUrl };
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `checklist:${checklist.id}`,
+        fileKey,
+        (key) => this.storageService.deleteFile(key),
+      );
+      throw error;
+    }
   }
 
   async count(options?: { where?: Record<string, unknown> }): Promise<number> {

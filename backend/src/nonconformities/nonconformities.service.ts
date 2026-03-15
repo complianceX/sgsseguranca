@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,6 +15,7 @@ import {
 } from './dto/create-nonconformity.dto';
 import { TenantService } from '../common/tenant/tenant.service';
 import { StorageService } from '../common/services/storage.service';
+import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import {
   DocumentBundleService,
   WeeklyBundleFilters,
@@ -45,6 +47,8 @@ const ALLOWED_TRANSITIONS: Record<NcStatus, NcStatus[]> = {
 
 @Injectable()
 export class NonConformitiesService {
+  private readonly logger = new Logger(NonConformitiesService.name);
+
   constructor(
     @InjectRepository(NonConformity)
     private nonConformitiesRepository: Repository<NonConformity>,
@@ -692,30 +696,39 @@ export class NonConformitiesService {
     const fileKey = `${folderPath}/${id}.pdf`;
 
     await this.storageService.uploadFile(fileKey, buffer, mimetype);
-
-    await this.documentGovernanceService.registerFinalDocument({
-      companyId: nc.company_id,
-      module: 'nonconformity',
-      entityId: nc.id,
-      title: nc.codigo_nc || nc.tipo || 'Nao Conformidade',
-      documentDate: nc.data_identificacao || date,
-      fileKey,
-      folderPath,
-      originalName,
-      mimeType: mimetype,
-      createdBy: RequestContext.getUserId() || undefined,
-      fileBuffer: buffer,
-      persistEntityMetadata: async (manager) => {
-        await manager.getRepository(NonConformity).update(
-          { id: nc.id },
-          {
-            pdf_file_key: fileKey,
-            pdf_folder_path: folderPath,
-            pdf_original_name: originalName,
-          },
-        );
-      },
-    });
+    try {
+      await this.documentGovernanceService.registerFinalDocument({
+        companyId: nc.company_id,
+        module: 'nonconformity',
+        entityId: nc.id,
+        title: nc.codigo_nc || nc.tipo || 'Nao Conformidade',
+        documentDate: nc.data_identificacao || date,
+        fileKey,
+        folderPath,
+        originalName,
+        mimeType: mimetype,
+        createdBy: RequestContext.getUserId() || undefined,
+        fileBuffer: buffer,
+        persistEntityMetadata: async (manager) => {
+          await manager.getRepository(NonConformity).update(
+            { id: nc.id },
+            {
+              pdf_file_key: fileKey,
+              pdf_folder_path: folderPath,
+              pdf_original_name: originalName,
+            },
+          );
+        },
+      });
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `nonconformity:${nc.id}`,
+        fileKey,
+        (key) => this.storageService.deleteFile(key),
+      );
+      throw error;
+    }
 
     return this.findOne(id);
   }

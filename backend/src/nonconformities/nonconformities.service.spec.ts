@@ -22,7 +22,7 @@ describe('NonConformitiesService', () => {
     save: jest.Mock;
     update: jest.Mock;
   };
-  let storageService: Pick<StorageService, 'uploadFile'>;
+  let storageService: Pick<StorageService, 'uploadFile' | 'deleteFile'>;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     'registerFinalDocument' | 'removeFinalDocumentReference'
@@ -36,6 +36,7 @@ describe('NonConformitiesService', () => {
     };
     storageService = {
       uploadFile: jest.fn(),
+      deleteFile: jest.fn(() => Promise.resolve()),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
@@ -134,5 +135,33 @@ describe('NonConformitiesService', () => {
     expect(removeInput.entityId).toBe('nc-1');
     expect(typeof removeInput.removeEntityState).toBe('function');
     expect(remove).toHaveBeenCalledWith(nc);
+  });
+
+  it('remove o arquivo da NC do storage quando a governanca falha', async () => {
+    const nc = {
+      id: 'nc-1',
+      company_id: 'company-1',
+      codigo_nc: 'NC-001',
+      tipo: 'Operacional',
+      data_identificacao: new Date('2026-03-10T00:00:00.000Z'),
+    } as NonConformity;
+    repository.findOne.mockResolvedValue(nc);
+    jest.spyOn(service, 'findOne').mockResolvedValue(nc);
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockRejectedValue(new Error('governance failed'));
+
+    await expect(
+      service.attachPdf(
+        'nc-1',
+        Buffer.from('pdf-content'),
+        'nc-001.pdf',
+        'application/pdf',
+      ),
+    ).rejects.toThrow('governance failed');
+
+    expect(storageService.deleteFile).toHaveBeenCalledWith(
+      expect.stringContaining('/nc-1.pdf'),
+    );
   });
 });

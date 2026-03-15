@@ -20,7 +20,10 @@ describe('DdsService', () => {
     findOne: jest.Mock;
     save: jest.Mock;
   };
-  let s3Service: Pick<S3Service, 'generateDocumentKey' | 'uploadFile'>;
+  let s3Service: Pick<
+    S3Service,
+    'generateDocumentKey' | 'uploadFile' | 'deleteFile'
+  >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     'registerFinalDocument' | 'removeFinalDocumentReference'
@@ -36,6 +39,7 @@ describe('DdsService', () => {
         () => 'documents/company-1/dds/dds-1/dds-final.pdf',
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
+      deleteFile: jest.fn(() => Promise.resolve()),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
@@ -185,5 +189,33 @@ describe('DdsService', () => {
     expect(removeInput.entityId).toBe('dds-1');
     expect(typeof removeInput.removeEntityState).toBe('function');
     expect(softDelete).toHaveBeenCalledWith('dds-1');
+  });
+
+  it('remove o arquivo do DDS do storage quando a governanca falha depois do upload', async () => {
+    const dds = {
+      id: 'dds-1',
+      company_id: 'company-1',
+      tema: 'DDS Trabalho em Altura',
+      data: new Date('2026-03-14T08:00:00.000Z'),
+      created_at: new Date('2026-03-14T07:00:00.000Z'),
+    } as Dds;
+    repository.findOne.mockResolvedValue(dds);
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockRejectedValue(new Error('governance failed'));
+
+    const file = {
+      originalname: 'dds-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-dds'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('dds-1', file)).rejects.toThrow(
+      'governance failed',
+    );
+
+    expect(s3Service.deleteFile).toHaveBeenCalledWith(
+      'documents/company-1/dds/dds-1/dds-final.pdf',
+    );
   });
 });

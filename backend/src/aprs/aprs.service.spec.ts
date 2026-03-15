@@ -24,7 +24,10 @@ describe('AprsService', () => {
     create: jest.Mock;
     save: jest.Mock;
   };
-  let s3Service: Pick<S3Service, 'generateDocumentKey' | 'uploadFile'>;
+  let s3Service: Pick<
+    S3Service,
+    'generateDocumentKey' | 'uploadFile' | 'deleteFile'
+  >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     'registerFinalDocument' | 'removeFinalDocumentReference'
@@ -43,6 +46,7 @@ describe('AprsService', () => {
         () => 'documents/company-1/aprs/apr-1/apr-final.pdf',
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
+      deleteFile: jest.fn(() => Promise.resolve()),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
@@ -159,5 +163,35 @@ describe('AprsService', () => {
     expect(removeInput.entityId).toBe('apr-1');
     expect(typeof removeInput.removeEntityState).toBe('function');
     expect(softDelete).toHaveBeenCalledWith('apr-1');
+  });
+
+  it('remove o arquivo da APR do storage quando a governanca falha depois do upload', async () => {
+    const apr = {
+      id: 'apr-1',
+      company_id: 'company-1',
+      titulo: 'APR Torre',
+      numero: 'APR-001',
+      data_inicio: new Date('2026-03-14T10:00:00.000Z'),
+      created_at: new Date('2026-03-14T09:00:00.000Z'),
+      pdf_file_key: null,
+    } as unknown as Apr;
+    aprRepository.findOne.mockResolvedValue(apr);
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockRejectedValue(new Error('governance failed'));
+
+    const file = {
+      originalname: 'apr-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-apr'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('apr-1', file, 'user-1')).rejects.toThrow(
+      'governance failed',
+    );
+
+    expect(s3Service.deleteFile).toHaveBeenCalledWith(
+      'documents/company-1/aprs/apr-1/apr-final.pdf',
+    );
   });
 });

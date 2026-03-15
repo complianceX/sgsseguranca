@@ -9,6 +9,10 @@ import { Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Pt, PtStatus, PT_ALLOWED_TRANSITIONS } from './entities/pt.entity';
 import { S3Service } from '../common/storage/s3.service';
+import {
+  cleanupUploadedFile,
+  isS3DisabledUploadError,
+} from '../common/storage/storage-compensation.util';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreatePtDto } from './dto/create-pt.dto';
 import { UpdatePtDto } from './dto/update-pt.dto';
@@ -255,34 +259,51 @@ export class PtsService {
       id,
       file.originalname,
     );
+    let uploadedToStorage = false;
 
     try {
       await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
-    } catch {
+      uploadedToStorage = true;
+    } catch (error) {
+      if (!isS3DisabledUploadError(error)) {
+        throw error;
+      }
       this.logger.warn(`S3 desabilitado, armazenando referência local: ${key}`);
     }
 
     const folder = `pts/${pt.company_id}`;
-    await this.documentGovernanceService.registerFinalDocument({
-      companyId: pt.company_id,
-      module: 'pt',
-      entityId: pt.id,
-      title: pt.titulo || pt.numero || 'PT',
-      documentDate: pt.data_hora_inicio || pt.created_at,
-      fileKey: key,
-      folderPath: folder,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      createdBy: userId || RequestContext.getUserId() || undefined,
-      fileBuffer: file.buffer,
-      persistEntityMetadata: async (manager) => {
-        await manager.getRepository(Pt).update(id, {
-          pdf_file_key: key,
-          pdf_folder_path: folder,
-          pdf_original_name: file.originalname,
-        });
-      },
-    });
+    try {
+      await this.documentGovernanceService.registerFinalDocument({
+        companyId: pt.company_id,
+        module: 'pt',
+        entityId: pt.id,
+        title: pt.titulo || pt.numero || 'PT',
+        documentDate: pt.data_hora_inicio || pt.created_at,
+        fileKey: key,
+        folderPath: folder,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        createdBy: userId || RequestContext.getUserId() || undefined,
+        fileBuffer: file.buffer,
+        persistEntityMetadata: async (manager) => {
+          await manager.getRepository(Pt).update(id, {
+            pdf_file_key: key,
+            pdf_folder_path: folder,
+            pdf_original_name: file.originalname,
+          });
+        },
+      });
+    } catch (error) {
+      if (uploadedToStorage) {
+        await cleanupUploadedFile(
+          this.logger,
+          `pt:${pt.id}`,
+          key,
+          (fileKey) => this.s3Service.deleteFile(fileKey),
+        );
+      }
+      throw error;
+    }
     this.logger.log({
       event: 'pt_pdf_anexado',
       ptId: id,

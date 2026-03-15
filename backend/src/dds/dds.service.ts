@@ -21,6 +21,10 @@ import {
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
 import { S3Service } from '../common/storage/s3.service';
+import {
+  cleanupUploadedFile,
+  isS3DisabledUploadError,
+} from '../common/storage/storage-compensation.util';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 
 @Injectable()
@@ -187,35 +191,52 @@ export class DdsService {
       id,
       file.originalname,
     );
+    let uploadedToStorage = false;
 
     try {
       await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
-    } catch {
+      uploadedToStorage = true;
+    } catch (error) {
+      if (!isS3DisabledUploadError(error)) {
+        throw error;
+      }
       // S3 desabilitado — armazena a referência sem upload real
       this.logger.warn(`S3 desabilitado, armazenando referência local: ${key}`);
     }
 
     const folder = `dds/${companyId}`;
-    await this.documentGovernanceService.registerFinalDocument({
-      companyId: dds.company_id,
-      module: 'dds',
-      entityId: dds.id,
-      title: dds.tema || 'DDS',
-      documentDate: dds.data || dds.created_at,
-      fileKey: key,
-      folderPath: folder,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      createdBy: undefined,
-      fileBuffer: file.buffer,
-      persistEntityMetadata: async (manager) => {
-        await manager.getRepository(Dds).update(id, {
-          pdf_file_key: key,
-          pdf_folder_path: folder,
-          pdf_original_name: file.originalname,
-        });
-      },
-    });
+    try {
+      await this.documentGovernanceService.registerFinalDocument({
+        companyId: dds.company_id,
+        module: 'dds',
+        entityId: dds.id,
+        title: dds.tema || 'DDS',
+        documentDate: dds.data || dds.created_at,
+        fileKey: key,
+        folderPath: folder,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        createdBy: undefined,
+        fileBuffer: file.buffer,
+        persistEntityMetadata: async (manager) => {
+          await manager.getRepository(Dds).update(id, {
+            pdf_file_key: key,
+            pdf_folder_path: folder,
+            pdf_original_name: file.originalname,
+          });
+        },
+      });
+    } catch (error) {
+      if (uploadedToStorage) {
+        await cleanupUploadedFile(
+          this.logger,
+          `dds:${dds.id}`,
+          key,
+          (fileKey) => this.s3Service.deleteFile(fileKey),
+        );
+      }
+      throw error;
+    }
 
     return {
       fileKey: key,

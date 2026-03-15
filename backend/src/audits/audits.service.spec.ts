@@ -22,7 +22,10 @@ describe('AuditsService', () => {
   let tenantRepo: {
     findOne: jest.Mock;
   };
-  let s3Service: Pick<S3Service, 'generateDocumentKey' | 'uploadFile'>;
+  let s3Service: Pick<
+    S3Service,
+    'generateDocumentKey' | 'uploadFile' | 'deleteFile'
+  >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     'registerFinalDocument' | 'removeFinalDocumentReference'
@@ -40,6 +43,7 @@ describe('AuditsService', () => {
         () => 'documents/company-1/audits/audit-1/audit-final.pdf',
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
+      deleteFile: jest.fn(() => Promise.resolve()),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
@@ -182,5 +186,33 @@ describe('AuditsService', () => {
     expect(removeInput.entityId).toBe('audit-1');
     expect(typeof removeInput.removeEntityState).toBe('function');
     expect(remove).toHaveBeenCalledWith(audit);
+  });
+
+  it('remove o arquivo da auditoria do storage quando a governanca falha depois do upload', async () => {
+    const audit = {
+      id: 'audit-1',
+      company_id: 'company-1',
+      titulo: 'Auditoria de campo',
+      data_auditoria: new Date('2026-03-14T08:00:00.000Z'),
+      created_at: new Date('2026-03-14T07:00:00.000Z'),
+    } as Audit;
+    tenantRepo.findOne.mockResolvedValue(audit);
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockRejectedValue(new Error('governance failed'));
+
+    const file = {
+      originalname: 'audit-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-audit'),
+    } as Express.Multer.File;
+
+    await expect(
+      service.attachPdf('audit-1', 'company-1', file, 'user-1'),
+    ).rejects.toThrow('governance failed');
+
+    expect(s3Service.deleteFile).toHaveBeenCalledWith(
+      'documents/company-1/audits/audit-1/audit-final.pdf',
+    );
   });
 });

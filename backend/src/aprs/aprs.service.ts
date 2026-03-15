@@ -32,6 +32,10 @@ import {
   WeeklyBundleFilters,
 } from '../common/services/document-bundle.service';
 import { S3Service } from '../common/storage/s3.service';
+import {
+  cleanupUploadedFile,
+  isS3DisabledUploadError,
+} from '../common/storage/storage-compensation.util';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 
 @Injectable()
@@ -448,10 +452,15 @@ export class AprsService {
       id,
       file.originalname,
     );
+    let uploadedToStorage = false;
 
     try {
       await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
-    } catch {
+      uploadedToStorage = true;
+    } catch (error) {
+      if (!isS3DisabledUploadError(error)) {
+        throw error;
+      }
       this.logger.warn(`S3 desabilitado, armazenando referência local: ${key}`);
     }
 
@@ -459,30 +468,42 @@ export class AprsService {
     // Anexar PDF assinado finaliza a APR: aprova e bloqueia edição.
     const approvalReason = 'PDF assinado anexado';
     const now = new Date();
-    await this.documentGovernanceService.registerFinalDocument({
-      companyId: apr.company_id,
-      module: 'apr',
-      entityId: apr.id,
-      title: apr.titulo || apr.numero || 'APR',
-      documentDate: apr.data_inicio || apr.created_at,
-      fileKey: key,
-      folderPath: folder,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      createdBy: userId,
-      fileBuffer: file.buffer,
-      persistEntityMetadata: async (manager) => {
-        await manager.getRepository(Apr).update(id, {
-          pdf_file_key: key,
-          pdf_folder_path: folder,
-          pdf_original_name: file.originalname,
-          status: AprStatus.APROVADA,
-          aprovado_por_id: userId ?? null,
-          aprovado_em: now,
-          aprovado_motivo: approvalReason,
-        });
-      },
-    });
+    try {
+      await this.documentGovernanceService.registerFinalDocument({
+        companyId: apr.company_id,
+        module: 'apr',
+        entityId: apr.id,
+        title: apr.titulo || apr.numero || 'APR',
+        documentDate: apr.data_inicio || apr.created_at,
+        fileKey: key,
+        folderPath: folder,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        createdBy: userId,
+        fileBuffer: file.buffer,
+        persistEntityMetadata: async (manager) => {
+          await manager.getRepository(Apr).update(id, {
+            pdf_file_key: key,
+            pdf_folder_path: folder,
+            pdf_original_name: file.originalname,
+            status: AprStatus.APROVADA,
+            aprovado_por_id: userId ?? null,
+            aprovado_em: now,
+            aprovado_motivo: approvalReason,
+          });
+        },
+      });
+    } catch (error) {
+      if (uploadedToStorage) {
+        await cleanupUploadedFile(
+          this.logger,
+          `apr:${apr.id}`,
+          key,
+          (fileKey) => this.s3Service.deleteFile(fileKey),
+        );
+      }
+      throw error;
+    }
     await this.addLog(id, userId, 'pdf_anexado', { fileKey: key });
     await this.addLog(id, userId, 'aprovado_por_pdf', {
       motivo: approvalReason,

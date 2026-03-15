@@ -63,6 +63,7 @@ describe('PtsService', () => {
         () => 'documents/company-1/pts/pt-1/pt-final.pdf',
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
+      deleteFile: jest.fn(() => Promise.resolve()),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
@@ -248,6 +249,67 @@ describe('PtsService', () => {
       pdf_folder_path: 'pts/company-1',
       pdf_original_name: 'pt-final.pdf',
     });
+  });
+
+  it('remove o arquivo do storage quando a governanca falha depois do upload da PT', async () => {
+    const pt = {
+      id: 'pt-1',
+      company_id: 'company-1',
+      titulo: 'PT Trabalho em altura',
+      numero: 'PT-001',
+      status: PtStatus.APROVADA,
+      data_hora_inicio: new Date('2026-03-14T08:00:00.000Z'),
+      created_at: new Date('2026-03-14T07:00:00.000Z'),
+    } as Pt;
+    ptsRepository.findOne.mockResolvedValue(pt);
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockRejectedValue(new Error('governance failed'));
+
+    const file = {
+      originalname: 'pt-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-pt'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('pt-1', file, 'user-1')).rejects.toThrow(
+      'governance failed',
+    );
+
+    expect(s3Service.deleteFile).toHaveBeenCalledWith(
+      'documents/company-1/pts/pt-1/pt-final.pdf',
+    );
+  });
+
+  it('nao tenta limpar storage quando o fallback local da PT foi usado', async () => {
+    const pt = {
+      id: 'pt-1',
+      company_id: 'company-1',
+      titulo: 'PT Trabalho em altura',
+      numero: 'PT-001',
+      status: PtStatus.APROVADA,
+      data_hora_inicio: new Date('2026-03-14T08:00:00.000Z'),
+      created_at: new Date('2026-03-14T07:00:00.000Z'),
+    } as Pt;
+    ptsRepository.findOne.mockResolvedValue(pt);
+    (s3Service.uploadFile as jest.Mock).mockRejectedValue(
+      new Error('S3 is not enabled'),
+    );
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockRejectedValue(new Error('governance failed'));
+
+    const file = {
+      originalname: 'pt-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-pt'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('pt-1', file, 'user-1')).rejects.toThrow(
+      'governance failed',
+    );
+
+    expect(s3Service.deleteFile).not.toHaveBeenCalled();
   });
 
   it('bloqueia o anexo final quando a PT ainda nao esta aprovada', async () => {
