@@ -519,6 +519,58 @@ export function PtForm({ id }: PtFormProps) {
     unansweredChecklistItems,
   ]);
   const readyForRelease = readinessBlockers.length === 0;
+  const currentStepConfig = PT_STEPS.find((step) => step.id === currentStep) ?? PT_STEPS[0];
+  const currentStepHighlights =
+    currentStep === 1
+      ? [
+          { label: 'Empresa', value: selectedCompany?.razao_social || 'Definir contexto' },
+          { label: 'Riscos', value: `${selectedRiskTypes.length} marcados` },
+        ]
+      : currentStep === 2
+        ? [
+            { label: 'Checklists', value: `${checklistGroupsEnabled} ativos` },
+            { label: 'Pendências', value: `${unansweredChecklistItems} respostas pendentes` },
+          ]
+        : [
+            { label: 'Executantes', value: `${selectedExecutanteIds.length} vinculados` },
+            { label: 'Assinaturas', value: `${pendingSignatures} pendentes` },
+          ];
+  const sidebarSummaryRows =
+    currentStep === 1
+      ? [
+          { label: 'Empresa', value: selectedCompany?.razao_social || 'Não definida' },
+          { label: 'Obra', value: selectedSite?.nome || 'Não definida' },
+          { label: 'Responsável', value: selectedResponsavel?.nome || 'Não definido' },
+          { label: 'APR vinculada', value: selectedApr?.numero || 'Não vinculada' },
+        ]
+      : currentStep === 2
+        ? [
+            { label: 'Tipos de trabalho', value: selectedRiskTypes.length > 0 ? `${selectedRiskTypes.length} ativos` : 'Nenhum marcado' },
+            { label: 'Checklists', value: `${checklistGroupsEnabled} habilitados` },
+            { label: 'Pendências', value: `${unansweredChecklistItems} resposta(s)` },
+            { label: 'Respostas críticas', value: `${adverseChecklistItems} item(ns)` },
+          ]
+        : [
+            { label: 'Responsável', value: selectedResponsavel?.nome || 'Não definido' },
+            { label: 'Executantes', value: `${selectedExecutanteIds.length} vinculados` },
+            { label: 'Assinaturas', value: `${completedSignatures} registradas` },
+            { label: 'Situação', value: readyForRelease ? 'Liberável' : 'Com bloqueios' },
+          ];
+  const sidebarMetrics =
+    currentStep === 1
+      ? [
+          { label: 'Riscos marcados', value: String(selectedRiskTypes.length), tone: 'info' as const },
+          { label: 'Checklists ativos', value: String(checklistGroupsEnabled), tone: 'warning' as const },
+        ]
+      : currentStep === 2
+        ? [
+            { label: 'Respostas pendentes', value: String(unansweredChecklistItems), tone: 'warning' as const },
+            { label: 'Críticas sinalizadas', value: String(adverseChecklistItems), tone: 'default' as const },
+          ]
+        : [
+            { label: 'Executantes', value: String(selectedExecutanteIds.length), tone: 'success' as const },
+            { label: 'Assinaturas', value: String(completedSignatures), tone: 'default' as const },
+          ];
 
   const normalizeSuggestionText = useCallback(
     (value: string) =>
@@ -1469,22 +1521,22 @@ export function PtForm({ id }: PtFormProps) {
             }
             window.scrollTo({ top: 0, behavior: 'smooth' });
           })}
-          className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]"
+          className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]"
         >
-          <aside className="space-y-4 xl:sticky xl:top-28 xl:self-start">
+          <aside className="space-y-3 xl:sticky xl:top-28 xl:self-start">
             <div className="ds-form-section overflow-hidden p-0">
               <div className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/16 px-5 py-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
-                  Wizard operacional
+                  fluxo guiado
                 </p>
                 <h2 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
                   Emissão guiada de PT
                 </h2>
                 <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-                  Avance etapa por etapa para reduzir falhas de liberação e manter rastreabilidade.
+                  Uma etapa por vez para reduzir falhas de liberação e manter rastreabilidade.
                 </p>
               </div>
-              <div className="space-y-3 px-4 py-4">
+              <div className="space-y-2.5 px-4 py-4">
                 {PT_STEPS.map((step) => {
                   const Icon = step.icon;
                   const isActive = currentStep === step.id;
@@ -1537,7 +1589,7 @@ export function PtForm({ id }: PtFormProps) {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
-                    Resumo da PT
+                    Contexto rápido
                   </p>
                   <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                     {selectedTitle || 'Título ainda não definido'}
@@ -1551,32 +1603,35 @@ export function PtForm({ id }: PtFormProps) {
               </div>
 
               <div className="mt-4 space-y-3 text-sm text-[var(--ds-color-text-secondary)]">
-                <SummaryRow label="Empresa" value={selectedCompany?.razao_social || 'Não definida'} />
-                <SummaryRow label="Obra" value={selectedSite?.nome || 'Não definida'} />
-                <SummaryRow label="Responsável" value={selectedResponsavel?.nome || 'Não definido'} />
-                <SummaryRow label="APR vinculada" value={selectedApr?.numero || 'Não vinculada'} />
+                {sidebarSummaryRows.map((item) => (
+                  <SummaryRow key={item.label} label={item.label} value={item.value} />
+                ))}
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <WizardMetric label="Riscos marcados" value={String(selectedRiskTypes.length)} tone="info" />
-                <WizardMetric label="Checklists ativos" value={String(checklistGroupsEnabled)} tone="warning" />
-                <WizardMetric label="Executantes" value={String(selectedExecutanteIds.length)} tone="success" />
-                <WizardMetric label="Assinaturas" value={String(completedSignatures)} tone="default" />
+                {sidebarMetrics.map((item) => (
+                  <WizardMetric key={item.label} label={item.label} value={item.value} tone={item.tone} />
+                ))}
               </div>
 
-              {selectedRiskTypes.length > 0 ? (
+              {selectedRiskTypes.length > 0 && currentStep !== 3 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {selectedRiskTypes.map((risk) => (
+                  {selectedRiskTypes.slice(0, 4).map((risk) => (
                     <StatusPill key={risk}>
                       {risk}
                     </StatusPill>
                   ))}
+                  {selectedRiskTypes.length > 4 ? (
+                    <StatusPill tone="neutral">
+                      +{selectedRiskTypes.length - 4} tipos
+                    </StatusPill>
+                  ) : null}
                 </div>
-              ) : (
+              ) : selectedRiskTypes.length === 0 ? (
                 <div className="mt-4 rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-warning)]/20 bg-[color:var(--ds-color-warning-subtle)] px-3 py-2 text-xs text-[var(--ds-color-warning)]">
                   Marque os tipos de trabalho para habilitar os checklists específicos.
                 </div>
-              )}
+              ) : null}
 
               {draftSavedAt ? (
                 <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
@@ -1589,27 +1644,67 @@ export function PtForm({ id }: PtFormProps) {
               ) : null}
             </div>
 
-            <PtReadinessPanel
-              readyForRelease={readyForRelease}
-              blockers={readinessBlockers}
-              unansweredChecklistItems={unansweredChecklistItems}
-              adverseChecklistItems={adverseChecklistItems}
-              pendingSignatures={pendingSignatures}
-              hasRapidRiskBlocker={hasRapidRiskBasicNo}
-            />
+            {currentStep >= 2 ? (
+              <PtReadinessPanel
+                readyForRelease={readyForRelease}
+                blockers={readinessBlockers}
+                unansweredChecklistItems={unansweredChecklistItems}
+                adverseChecklistItems={adverseChecklistItems}
+                pendingSignatures={pendingSignatures}
+                hasRapidRiskBlocker={hasRapidRiskBasicNo}
+              />
+            ) : null}
 
             <div className="rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-danger)]/18 bg-[color:var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]">
               <div className="flex items-start gap-2">
                 <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
                 <p>
-                  Não avance sem validar bloqueios críticos, vigência documental e assinaturas mínimas dos executantes.
+                  Valide bloqueios críticos, vigência documental e assinaturas mínimas antes de concluir a liberação.
                 </p>
               </div>
             </div>
           </aside>
 
-          <div className="space-y-8">
-            {(sophieSuggestedRisks.length > 0 || sophieMandatoryChecklists.length > 0) && (
+          <div className="space-y-6">
+            <div className="ds-form-section">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                    Etapa {currentStepConfig.id} de {PT_STEPS.length}
+                  </p>
+                  <h2 className="mt-2 text-xl font-bold text-[var(--ds-color-text-primary)]">
+                    {currentStepConfig.title}
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm text-[var(--ds-color-text-secondary)]">
+                    {currentStepConfig.description}
+                  </p>
+                  {focusTarget ? (
+                    <p className="mt-3 text-sm text-[var(--ds-color-text-secondary)]">
+                      Esta PT foi aberta com foco em <strong>{getPtFocusLabel(focusTarget)}</strong> a partir da pré-liberação.
+                    </p>
+                  ) : null}
+                </div>
+                <StatusPill tone={currentStep === 3 ? (readyForRelease ? 'success' : 'warning') : 'neutral'} size="md">
+                  {currentStep === 3 ? (readyForRelease ? 'Pronta para liberar' : 'Há bloqueios de fechamento') : 'Fluxo em andamento'}
+                </StatusPill>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {currentStepHighlights.map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3"
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                      {item.label}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{item.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {currentStep !== 3 && (sophieSuggestedRisks.length > 0 || sophieMandatoryChecklists.length > 0) && (
               <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-action-primary)]/25 bg-[var(--ds-color-action-primary)]/8 p-5">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
@@ -1717,17 +1812,6 @@ export function PtForm({ id }: PtFormProps) {
               </div>
             )}
 
-            {focusTarget ? (
-              <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-action-primary)]/25 bg-[var(--ds-color-action-primary)]/10 px-4 py-3 text-sm text-[var(--ds-color-text-primary)]">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-action-primary)]">
-                  Correção guiada
-                </p>
-                <p className="mt-2">
-                  Esta PT foi aberta já focada em <strong>{getPtFocusLabel(focusTarget)}</strong> a partir da pré-liberação.
-                </p>
-              </div>
-            ) : null}
-
             {currentStep === 1 && (
               <div className="space-y-4">
                 <div
@@ -1833,14 +1917,21 @@ export function PtForm({ id }: PtFormProps) {
                   signatures={signatures}
                   onToggleExecutante={toggleExecutante}
                 />
-                <PtReadinessPanel
-                  readyForRelease={readyForRelease}
-                  blockers={readinessBlockers}
-                  unansweredChecklistItems={unansweredChecklistItems}
-                  adverseChecklistItems={adverseChecklistItems}
-                  pendingSignatures={pendingSignatures}
-                  hasRapidRiskBlocker={hasRapidRiskBasicNo}
-                />
+                <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                        Fechamento da liberação
+                      </p>
+                      <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                        Use o painel lateral para revisar bloqueios, assinaturas pendentes e confirmar se a PT já pode seguir para o salvamento final.
+                      </p>
+                    </div>
+                    <StatusPill tone={readyForRelease ? 'success' : 'warning'}>
+                      {readyForRelease ? 'Liberável' : `${readinessBlockers.length} bloqueio(s)`}
+                    </StatusPill>
+                  </div>
+                </div>
                 {id && (
                   <div className="ds-form-section">
                     <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-[var(--ds-color-text-primary)]">

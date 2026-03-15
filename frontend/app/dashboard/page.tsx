@@ -31,7 +31,6 @@ import {
   DashboardSummaryResponse,
 } from '@/services/dashboardService';
 import { nonConformitiesService } from '@/services/nonConformitiesService';
-import { trainingsService } from '@/services/trainingsService';
 import { aiService } from '@/services/aiService';
 import { useAuth } from '@/context/AuthContext';
 import type { User } from '@/services/usersService';
@@ -43,7 +42,6 @@ import { cn } from '@/lib/utils';
 import {
   BarChart,
   Bar,
-  Cell,
   LineChart,
   Line,
   XAxis,
@@ -552,7 +550,6 @@ export default function DashboardPage() {
   const [siteCompliance, setSiteCompliance] = useState<DashboardSummaryResponse['siteCompliance']>([]);
   const [recentReports, setRecentReports] = useState<DashboardSummaryResponse['recentReports']>([]);
   const [ncMonthlyData, setNcMonthlyData] = useState<{ mes: string; total: number }[]>([]);
-  const [trainingSummaryData, setTrainingSummaryData] = useState<{ name: string; value: number; fill: string }[]>([]);
   const [resumeItems, setResumeItems] = useState<ResumeItem[]>([]);
   const [pendingQueue, setPendingQueue] = useState<DashboardPendingQueueResponse>({
     summary: {
@@ -631,11 +628,10 @@ export default function DashboardPage() {
       try {
         const aiInsightsPromise = isAiEnabled() ? aiService.getInsights() : Promise.resolve(null);
 
-        const [summaryR, aiInsightsR, monthlyR, expSummaryR, pendingQueueR] = await Promise.allSettled([
+        const [summaryR, aiInsightsR, monthlyR, pendingQueueR] = await Promise.allSettled([
           dashboardService.getSummary(),
           aiInsightsPromise,
           nonConformitiesService.getMonthlyAnalytics(),
-          trainingsService.getExpirySummary(),
           dashboardService.getPendingQueue(),
         ]);
 
@@ -665,15 +661,6 @@ export default function DashboardPage() {
               total: row.total,
             })),
           );
-        }
-
-        if (expSummaryR.status === 'fulfilled') {
-          const summary = expSummaryR.value;
-          setTrainingSummaryData([
-            { name: 'Em dia', value: summary.valid, fill: CHART_TOKENS.success },
-            { name: 'Vencendo', value: summary.expiringSoon, fill: CHART_TOKENS.warning },
-            { name: 'Vencidos', value: summary.expired, fill: CHART_TOKENS.danger },
-          ]);
         }
 
         if (pendingQueueR.status === 'fulfilled') {
@@ -890,6 +877,19 @@ export default function DashboardPage() {
     },
   ];
 
+  const pendingApprovalsTotal =
+    pendingApprovals.aprs +
+    pendingApprovals.pts +
+    pendingApprovals.checklists +
+    pendingApprovals.nonconformities;
+  const documentControlTotal = modelCounts.aprs + modelCounts.dds + modelCounts.checklists;
+  const recentReportHighlights = recentReports.slice(0, 3);
+  const expiredEpisCount = expiringEpis.filter((epi) => isBefore(new Date(epi.validade_ca || ''), new Date())).length;
+  const expiredTrainingsCount = expiringTrainings.filter((training) => isBefore(new Date(training.data_vencimento), new Date())).length;
+  const averageSiteCompliance = siteCompliance.length
+    ? Math.round(siteCompliance.reduce((acc, site) => acc + site.taxa, 0) / siteCompliance.length)
+    : 0;
+
   return (
     <div className="ds-dashboard-shell">
       <div className="ds-dashboard-panel ds-hero-panel overflow-hidden p-5 lg:p-6">
@@ -1069,78 +1069,59 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Card de Score de Segurança */}
-        <div className="ds-dashboard-panel flex flex-col items-center justify-center p-5 text-center">
-          <div className="mb-3 flex items-center space-x-2">
-            <TrendingUp className="h-5 w-5 text-[var(--ds-color-action-primary)]" />
-            <h3 className="text-base font-bold text-[var(--ds-color-text-primary)]">Compliance SST</h3>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[0.7fr_1.3fr]">
+        <div className="ds-dashboard-panel p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                sinal do dia
+              </p>
+              <h2 className="mt-1 text-lg font-bold text-[var(--ds-color-text-primary)]">Leitura rápida da operação</h2>
+            </div>
+            <StatusPill tone={safetyScore > 80 ? 'success' : safetyScore > 50 ? 'warning' : 'danger'}>
+              {safetyScore}% de compliance
+            </StatusPill>
           </div>
-          
-          <div className="relative mb-3 h-28 w-28">
-            <svg className="h-full w-full" viewBox="0 0 36 36">
-              <path
-                className="fill-none"
-                stroke="var(--ds-color-border-default)"
-                strokeWidth="3"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <path
-                className="fill-none transition-all duration-1000 ease-out"
-                stroke={safetyScore > 80 ? 'var(--ds-color-success)' : safetyScore > 50 ? 'var(--ds-color-warning)' : 'var(--ds-color-danger)'}
-                strokeWidth="3"
-                strokeDasharray={`${safetyScore}, 100`}
-                strokeLinecap="round"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold text-[var(--ds-color-text-primary)]">{safetyScore}%</span>
-              <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--ds-color-text-muted)]">Score</span>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                Aprovações e desvios
+              </p>
+              <p className="mt-2 text-2xl font-bold text-[var(--ds-color-text-primary)]">{pendingApprovalsTotal}</p>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">Itens aguardando decisão, assinatura ou fechamento.</p>
+            </div>
+            <div className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                Evidências rastreadas
+              </p>
+              <p className="mt-2 text-2xl font-bold text-[var(--ds-color-text-primary)]">{evidenceSummary.total}</p>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">Inspeções, auditorias e NCs já vinculadas com prova operacional.</p>
+            </div>
+            <div className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                Biblioteca ativa
+              </p>
+              <p className="mt-2 text-2xl font-bold text-[var(--ds-color-text-primary)]">{documentControlTotal}</p>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">Modelos em uso para APR, DDS e checklists operacionais.</p>
             </div>
           </div>
-          
-          <p className="px-3 text-sm text-[var(--ds-color-text-secondary)]">
-            {safetyScore > 80 
-              ? 'Sua empresa está com um excelente nível de conformidade.' 
-              : safetyScore > 50 
-                ? 'Existem pendências importantes que precisam de atenção.' 
-                : 'Atenção crítica: Nível de conformidade abaixo do recomendado.'}
-          </p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Link href="/dashboard/pts" className="ds-inline-link-list__item">
+              Ver PTs pendentes
+            </Link>
+            <Link href="/dashboard/nonconformities" className="ds-inline-link-list__item">
+              Tratar NCs
+            </Link>
+            <Link href="/dashboard/document-registry" className="ds-inline-link-list__item">
+              Abrir registry
+            </Link>
+          </div>
         </div>
 
-        {/* Gandra Insights (Colspan 2) */}
-        <div className="lg:col-span-2">
-          <GandraInsights />
-        </div>
+        <GandraInsights />
       </div>
-
-        {canUseAi ? (
-          <div className="ds-dashboard-panel p-5">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
-                  assistente sst
-                </p>
-                <h2 className="mt-1 text-base font-semibold text-[var(--ds-color-text-primary)]">
-                  Chat da SOPHIE e documentos assistidos
-                </h2>
-                <p className="mt-2 max-w-3xl text-sm text-[var(--ds-color-text-secondary)]">
-                  Use o chat flutuante para pedir ideias, revisar riscos e tirar dúvidas rápidas. Quando precisar montar um documento com apoio da SOPHIE, entre pelo fluxo de novo documento assistido.
-                </p>
-              </div>
-
-              <div className="ds-inline-link-list md:justify-end">
-                <Link href="/dashboard/documentos/novo" className="ds-inline-link-list__item">
-                  Novo documento assistido
-                </Link>
-                <Link href="/dashboard/sst-agent" className="ds-inline-link-list__item">
-                  Abrir workspace assistido
-                </Link>
-              </div>
-            </div>
-          </div>
-        ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {stats.map((stat, index) => (
@@ -1333,41 +1314,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_0.75fr]">
         <div className="ds-dashboard-panel p-5">
-          <h2 className="flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
-            <AlertTriangle className="mr-2 h-5 w-5 text-[var(--ds-color-warning)]" />
-            Pendências de Aprovação
-          </h2>
-          <div className="mt-4 space-y-3 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--ds-color-text-secondary)]">APRs pendentes</span>
-              <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.aprs}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--ds-color-text-secondary)]">PTs pendentes</span>
-              <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.pts}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--ds-color-text-secondary)]">Checklists pendentes</span>
-              <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.checklists}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--ds-color-text-secondary)]">NCs em aberto</span>
-              <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.nonconformities}</span>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-            <Link href="/dashboard/aprs" className="ds-badge ds-badge--primary">APRs</Link>
-            <Link href="/dashboard/pts" className="ds-badge ds-badge--accent">PTs</Link>
-            <Link href="/dashboard/checklists" className="ds-badge ds-badge--info">Checklists</Link>
-            <Link href="/dashboard/nonconformities" className="ds-badge ds-badge--warning">NCs</Link>
-          </div>
-        </div>
-
-        <div className="ds-dashboard-panel p-5 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Plano de Ação Prioritário</h2>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                execução priorizada
+              </p>
+              <h2 className="mt-1 text-lg font-bold text-[var(--ds-color-text-primary)]">Plano de ação do turno</h2>
+            </div>
             <Link href="/dashboard/inspections" className="text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline">
               Ver ações
             </Link>
@@ -1375,13 +1330,17 @@ export default function DashboardPage() {
           {actionPlanItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 text-center">
               <CheckCircle2 className="h-10 w-10 text-[var(--ds-color-success)]" />
-              <p className="mt-2 text-sm text-[var(--ds-color-text-muted)] font-medium">Nenhuma ação pendente no momento.</p>
+              <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Nenhuma ação pendente no momento.</p>
             </div>
           ) : (
             <div className="space-y-3">
               {actionPlanItems.map((item) => (
-                <Link key={item.id} href={item.href} className="flex flex-col rounded-lg border border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)] p-2.5 hover:border-[color:var(--ds-color-warning-border)] hover:bg-[color:var(--ds-color-warning-subtle)]">
-                  <div className="flex items-center justify-between">
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className="flex flex-col rounded-xl border border-[color:var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-3 hover:border-[color:var(--ds-color-warning-border)] hover:bg-[color:var(--ds-color-warning-subtle)]"
+                >
+                  <div className="flex items-center justify-between gap-3">
                     <span className="text-xs font-semibold text-[var(--ds-color-text-primary)]">{item.source}</span>
                     <span className="text-xs text-[var(--ds-color-text-disabled)]">{item.prazo ? format(new Date(item.prazo), 'dd/MM/yyyy') : 'Sem prazo'}</span>
                   </div>
@@ -1396,166 +1355,177 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="ds-dashboard-panel p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Matriz de Risco</h2>
-            <Link href="/dashboard/risks" className="text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline">
-              Ver riscos
-            </Link>
+        <div className="space-y-4">
+          <div className="ds-dashboard-panel p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Risco e controle documental</h2>
+              <Link href="/dashboard/risks" className="text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline">
+                Abrir matriz
+              </Link>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between rounded-xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-3.5 py-2.5">
+                <span className="text-sm font-semibold text-[var(--ds-color-danger)]">Riscos altos</span>
+                <span className="text-lg font-bold text-[var(--ds-color-danger)]">{riskSummary.alto}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">Evidências</p>
+                  <p className="mt-1 text-xl font-bold text-[var(--ds-color-text-primary)]">{evidenceSummary.total}</p>
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    {evidenceSummary.inspections} inspeções • {evidenceSummary.audits} auditorias • {evidenceSummary.nonconformities} NCs
+                  </p>
+                </div>
+                <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">Modelos</p>
+                  <p className="mt-1 text-xl font-bold text-[var(--ds-color-text-primary)]">{documentControlTotal}</p>
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    {modelCounts.aprs} APR • {modelCounts.dds} DDS • {modelCounts.checklists} checklist
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="ds-inline-link-list mt-4">
+              <Link href="/dashboard/inspections" className="ds-inline-link-list__item">Evidências</Link>
+              <Link href="/dashboard/checklist-models" className="ds-inline-link-list__item">Modelos</Link>
+              <Link href="/dashboard/document-registry" className="ds-inline-link-list__item">Registry</Link>
+            </div>
           </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg bg-[var(--ds-color-danger-subtle)] border border-[var(--ds-color-danger-border)] px-3.5 py-2.5">
-              <span className="text-sm font-semibold text-[var(--ds-color-danger)]">Alto</span>
-              <span className="text-lg font-bold text-[var(--ds-color-danger)]">{riskSummary.alto}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-lg bg-[var(--ds-color-warning-subtle)] border border-[var(--ds-color-warning-border)] px-3.5 py-2.5">
-              <span className="text-sm font-semibold text-[var(--ds-color-warning)]">Médio</span>
-              <span className="text-lg font-bold text-[var(--ds-color-warning)]">{riskSummary.medio}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-lg bg-[var(--ds-color-success-subtle)] border border-[var(--ds-color-success-border)] px-3.5 py-2.5">
-              <span className="text-sm font-semibold text-[var(--ds-color-success)]">Baixo</span>
-              <span className="text-lg font-bold text-[var(--ds-color-success)]">{riskSummary.baixo}</span>
-            </div>
-          </div>
-        </div>
 
-        <div className="ds-dashboard-panel p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Evidências Registradas</h2>
-            <Link href="/dashboard/inspections" className="ds-section-link">
-              Ver evidências
-            </Link>
-          </div>
-          <div className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 px-3.5 py-3.5">
-            <div>
-              <p className="text-sm text-[var(--ds-color-text-muted)]">Total</p>
-              <p className="text-2xl font-bold text-[var(--ds-color-text-primary)]">{evidenceSummary.total}</p>
+          <div className="ds-dashboard-panel p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+              aprovações em aberto
+            </p>
+            <div className="mt-4 space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--ds-color-text-secondary)]">APRs</span>
+                <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.aprs}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--ds-color-text-secondary)]">PTs</span>
+                <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.pts}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--ds-color-text-secondary)]">Checklists</span>
+                <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.checklists}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--ds-color-text-secondary)]">NCs</span>
+                <span className="font-semibold text-[var(--ds-color-text-primary)]">{pendingApprovals.nonconformities}</span>
+              </div>
             </div>
-            <div className="space-y-1 text-right text-xs text-[var(--ds-color-text-muted)]">
-              <p>Inspeções: {evidenceSummary.inspections}</p>
-              <p>Auditorias: {evidenceSummary.audits}</p>
-              <p>NCs: {evidenceSummary.nonconformities}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="ds-dashboard-panel p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Biblioteca de Modelos</h2>
-            <Link href="/dashboard/checklist-models" className="ds-section-link">
-              Ver modelos
-            </Link>
-          </div>
-          <div className="space-y-3 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--ds-color-text-secondary)]">Modelos de APR</span>
-              <span className="font-semibold text-[var(--ds-color-text-primary)]">{modelCounts.aprs}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--ds-color-text-secondary)]">Modelos de DDS</span>
-              <span className="font-semibold text-[var(--ds-color-text-primary)]">{modelCounts.dds}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[var(--ds-color-text-secondary)]">Modelos de Checklist</span>
-              <span className="font-semibold text-[var(--ds-color-text-primary)]">{modelCounts.checklists}</span>
-            </div>
-          </div>
-          <div className="ds-inline-link-list mt-4">
-            <Link href="/dashboard/aprs" className="ds-inline-link-list__item">APRs</Link>
-            <Link href="/dashboard/dds" className="ds-inline-link-list__item">DDS</Link>
-            <Link href="/dashboard/checklist-models" className="ds-inline-link-list__item">Checklists</Link>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="ds-dashboard-panel p-5">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
-              <AlertCircle className="mr-2 h-5 w-5 text-[var(--ds-color-warning)]" />
-              EPIs Vencidos ou Próximos do Vencimento
-            </h2>
-            <Link href="/dashboard/epis" className="ds-section-link">
-              Ver todos
-            </Link>
+      <div className="ds-dashboard-panel p-5">
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+              vencimentos críticos
+            </p>
+            <h2 className="mt-1 text-lg font-bold text-[var(--ds-color-text-primary)]">EPIs e treinamentos que pedem ação</h2>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Um único recorte para acompanhar o que já venceu e o que está prestes a travar a operação.
+            </p>
           </div>
-          
-          {loading ? (
-            <div className="flex h-32 items-center justify-center">
-              <div className="h-7 w-7 animate-spin rounded-full border-4 border-[color:var(--ds-color-action-primary)] border-t-transparent"></div>
-            </div>
-          ) : expiringEpis.length > 0 ? (
-            <div className="space-y-4">
-              {expiringEpis.map((epi) => {
-                const isExpired = isBefore(new Date(epi.validade_ca || ''), new Date());
-                return (
-                <div key={epi.id} className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
-                  <div className="flex items-center space-x-3">
-                    <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-warning)]'}`}></div>
-                    <div>
-                      <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">{epi.nome}</p>
-                      <p className="text-xs text-[var(--ds-color-text-muted)]">CA: {epi.ca} | {epi.nome}</p>
-                    </div>
-                  </div>
-                    <StatusPill tone={isExpired ? 'danger' : 'warning'}>
-                      {isExpired ? 'Vencido' : `Vence em ${format(new Date(epi.validade_ca || ''), 'dd/MM/yyyy')}`}
-                    </StatusPill>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
-              <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Todos os EPIs estão com CA em dia.</p>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2">
+            <StatusPill tone={expiredEpisCount > 0 ? 'danger' : 'warning'}>
+              {expiredEpisCount} EPI{expiredEpisCount === 1 ? '' : 's'} vencido{expiredEpisCount === 1 ? '' : 's'}
+            </StatusPill>
+            <StatusPill tone={expiredTrainingsCount > 0 ? 'danger' : 'warning'}>
+              {expiredTrainingsCount} treinamento{expiredTrainingsCount === 1 ? '' : 's'} vencido{expiredTrainingsCount === 1 ? '' : 's'}
+            </StatusPill>
+          </div>
         </div>
 
-        <div className="ds-dashboard-panel p-5">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
-              <GraduationCap className="mr-2 h-5 w-5 text-[var(--ds-color-warning)]" />
-              Treinamentos Vencidos ou Próximos do Vencimento
-            </h2>
-            <Link href="/dashboard/trainings" className="ds-section-link">
-              Ver todos
-            </Link>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
+                <AlertCircle className="mr-2 h-5 w-5 text-[var(--ds-color-warning)]" />
+                EPIs
+              </h3>
+              <Link href="/dashboard/epis" className="ds-section-link">
+                Ver todos
+              </Link>
+            </div>
+
+            {loading ? (
+              <div className="flex h-32 items-center justify-center">
+                <div className="h-7 w-7 animate-spin rounded-full border-4 border-[color:var(--ds-color-action-primary)] border-t-transparent"></div>
+              </div>
+            ) : expiringEpis.length > 0 ? (
+              <div className="space-y-3">
+                {expiringEpis.slice(0, 4).map((epi) => {
+                  const isExpired = isBefore(new Date(epi.validade_ca || ''), new Date());
+                  return (
+                    <div key={epi.id} className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
+                      <div className="flex items-center space-x-3">
+                        <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-warning)]'}`}></div>
+                        <div>
+                          <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">{epi.nome}</p>
+                          <p className="text-xs text-[var(--ds-color-text-muted)]">CA: {epi.ca}</p>
+                        </div>
+                      </div>
+                      <StatusPill tone={isExpired ? 'danger' : 'warning'}>
+                        {isExpired ? 'Vencido' : `Vence em ${format(new Date(epi.validade_ca || ''), 'dd/MM/yyyy')}`}
+                      </StatusPill>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
+                <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Todos os EPIs estão com CA em dia.</p>
+              </div>
+            )}
           </div>
 
-          {loading ? (
-            <div className="flex h-32 items-center justify-center">
-              <div className="h-7 w-7 animate-spin rounded-full border-4 border-[color:var(--ds-color-action-primary)] border-t-transparent"></div>
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
+                <GraduationCap className="mr-2 h-5 w-5 text-[var(--ds-color-warning)]" />
+                Treinamentos
+              </h3>
+              <Link href="/dashboard/trainings" className="ds-section-link">
+                Ver todos
+              </Link>
             </div>
-          ) : expiringTrainings.length > 0 ? (
-            <div className="space-y-4">
-              {expiringTrainings.map((training) => {
-                const isExpired = isBefore(new Date(training.data_vencimento), new Date());
-                return (
-                <div key={training.id} className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
-                  <div className="flex items-center space-x-3">
-                    <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-warning)]'}`}></div>
-                    <div>
-                      <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">{training.nome}</p>
-                      <p className="text-xs text-[var(--ds-color-text-muted)]">{training.user?.nome || 'Colaborador'}</p>
+
+            {loading ? (
+              <div className="flex h-32 items-center justify-center">
+                <div className="h-7 w-7 animate-spin rounded-full border-4 border-[color:var(--ds-color-action-primary)] border-t-transparent"></div>
+              </div>
+            ) : expiringTrainings.length > 0 ? (
+              <div className="space-y-3">
+                {expiringTrainings.slice(0, 4).map((training) => {
+                  const isExpired = isBefore(new Date(training.data_vencimento), new Date());
+                  return (
+                    <div key={training.id} className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
+                      <div className="flex items-center space-x-3">
+                        <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-warning)]'}`}></div>
+                        <div>
+                          <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">{training.nome}</p>
+                          <p className="text-xs text-[var(--ds-color-text-muted)]">{training.user?.nome || 'Colaborador'}</p>
+                        </div>
+                      </div>
+                      <StatusPill tone={isExpired ? 'danger' : 'warning'}>
+                        {isExpired ? 'Vencido' : `Vence em ${format(new Date(training.data_vencimento), 'dd/MM/yyyy')}`}
+                      </StatusPill>
                     </div>
-                  </div>
-                    <StatusPill tone={isExpired ? 'danger' : 'warning'}>
-                      {isExpired ? 'Vencido' : `Vence em ${format(new Date(training.data_vencimento), 'dd/MM/yyyy')}`}
-                    </StatusPill>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
-              <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Todos os treinamentos estão em dia.</p>
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
+                <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Todos os treinamentos estão em dia.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1564,7 +1534,7 @@ export default function DashboardPage() {
           <div className="mb-5 flex items-center justify-between">
             <h2 className="flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
               <MapPin className="mr-2 h-5 w-5 text-[var(--ds-color-action-primary)]" />
-              Benchmark de Conformidade por Obra
+              Benchmark de conformidade por obra
             </h2>
             <Link href="/dashboard/checklists" className="ds-section-link">
               Ver todos
@@ -1602,92 +1572,80 @@ export default function DashboardPage() {
 
         <div className="ds-dashboard-panel p-5">
           <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Trilha de Auditoria</h2>
+            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Atividade e relatórios</h2>
             <Link href="/dashboard/reports" className="ds-section-link">
-              Ver relatórios
+              Ver central
             </Link>
           </div>
-          {mappedRecentActivities.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
-              <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Nenhuma atualização recente.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {mappedRecentActivities.map((activity) => (
-                <Link key={activity.id} href={activity.href} className="flex items-start space-x-3 rounded-lg border border-transparent px-2.5 py-2.5 hover:border-[var(--ds-color-border-subtle)] hover:bg-[color:var(--ds-color-surface-muted)]/14">
-                  <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[color:var(--ds-color-surface-muted)]/40 text-[var(--ds-color-action-primary)]">
-                    <activity.icon className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">{activity.title}</p>
-                    <p className="text-xs text-[var(--ds-color-text-secondary)]">
-                      {activity.moduleLabel} • {activity.description}
-                    </p>
-                    <p className="mt-1 text-[10px] font-medium text-[var(--ds-color-text-muted)]">{format(new Date(activity.date), 'dd/MM/yyyy HH:mm')}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="ds-dashboard-panel p-5">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Relatórios Recentes</h2>
-            <Link href="/dashboard/reports" className="ds-section-link">
-              Ver relatórios
-            </Link>
-          </div>
-          {recentReports.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
-              <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Nenhum relatório gerado.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {recentReports.map((report) => (
-                <Link key={report.id} href="/dashboard/reports" className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3.5 py-2.5 hover:border-[var(--ds-color-action-primary)]/25 hover:bg-[color:var(--ds-color-surface-muted)]/12">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{report.titulo}</p>
-                    <p className="text-xs text-[var(--ds-color-text-muted)]">{report.mes}/{report.ano}</p>
-                  </div>
-                  <span className="text-xs text-[var(--ds-color-text-muted)]">{format(new Date(report.created_at), 'dd/MM/yyyy')}</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="ds-dashboard-panel p-5">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Aprovação e Assinaturas</h2>
-            <Link href="/dashboard/settings" className="ds-section-link">
-              Configurar
-            </Link>
-          </div>
-          <div className="space-y-3 text-sm text-[var(--ds-color-text-secondary)]">
-            <p>Assinaturas digitais disponíveis nos módulos de APR, PT, Checklist, Treinamentos e Auditorias.</p>
-            <p>Use o status de pendências para priorizar validações e fechamento de ações críticas.</p>
-          </div>
-          <div className="ds-inline-link-list mt-4">
-            <Link href="/dashboard/aprs" className="ds-inline-link-list__item">APRs</Link>
-            <Link href="/dashboard/pts" className="ds-inline-link-list__item">PTs</Link>
-            <Link href="/dashboard/checklists" className="ds-inline-link-list__item">Checklists</Link>
-            <Link href="/dashboard/trainings" className="ds-inline-link-list__item">Treinamentos</Link>
+          <div className="space-y-4">
+            {mappedRecentActivities.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <CheckCircle2 className="h-12 w-12 text-[var(--ds-color-success)]" />
+                <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-muted)]">Nenhuma atualização recente.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {mappedRecentActivities.slice(0, 4).map((activity) => (
+                  <Link key={activity.id} href={activity.href} className="flex items-start space-x-3 rounded-lg border border-transparent px-2.5 py-2.5 hover:border-[var(--ds-color-border-subtle)] hover:bg-[color:var(--ds-color-surface-muted)]/14">
+                    <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[color:var(--ds-color-surface-muted)]/40 text-[var(--ds-color-action-primary)]">
+                      <activity.icon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">{activity.title}</p>
+                      <p className="text-xs text-[var(--ds-color-text-secondary)]">
+                        {activity.moduleLabel} • {activity.description}
+                      </p>
+                      <p className="mt-1 text-[10px] font-medium text-[var(--ds-color-text-muted)]">{format(new Date(activity.date), 'dd/MM/yyyy HH:mm')}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {recentReportHighlights.length > 0 ? (
+              <div className="border-t border-[var(--ds-color-border-subtle)] pt-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                  Relatórios recentes
+                </p>
+                <div className="mt-3 space-y-2">
+                  {recentReportHighlights.map((report) => (
+                    <Link
+                      key={report.id}
+                      href="/dashboard/reports"
+                      className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3.5 py-2.5 hover:border-[var(--ds-color-action-primary)]/25 hover:bg-[color:var(--ds-color-surface-muted)]/12"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{report.titulo}</p>
+                        <p className="text-xs text-[var(--ds-color-text-muted)]">{report.mes}/{report.ano}</p>
+                      </div>
+                      <span className="text-xs text-[var(--ds-color-text-muted)]">{format(new Date(report.created_at), 'dd/MM/yyyy')}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
 
       {/* SST Indicators Section */}
       <div className="ds-dashboard-panel p-5">
-        <h2 className="mb-5 flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
-          <TrendingUp className="mr-2 h-5 w-5 text-[var(--ds-color-action-primary)]" />
-          Indicadores SST
-        </h2>
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          {/* Chart 1: Conformidade por Obra */}
+        <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="flex items-center text-base font-bold text-[var(--ds-color-text-primary)]">
+              <TrendingUp className="mr-2 h-5 w-5 text-[var(--ds-color-action-primary)]" />
+              Indicadores SST
+            </h2>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Dois gráficos para tendência e um resumo executivo para leitura rápida.
+            </p>
+          </div>
+          <StatusPill tone={averageSiteCompliance >= 80 ? 'success' : averageSiteCompliance >= 60 ? 'warning' : 'danger'}>
+            Média das obras: {averageSiteCompliance}%
+          </StatusPill>
+        </div>
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1fr_0.8fr]">
           <div>
             <p className="mb-3 text-sm font-semibold text-[var(--ds-color-text-secondary)]">Conformidade por Obra (%)</p>
             <ResponsiveContainer width="100%" height={168}>
@@ -1701,7 +1659,6 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
 
-          {/* Chart 2: Evolução de NCs */}
           <div>
             <p className="mb-3 text-sm font-semibold text-[var(--ds-color-text-secondary)]">Não Conformidades (últimos 12 meses)</p>
             <ResponsiveContainer width="100%" height={168}>
@@ -1715,22 +1672,31 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
 
-          {/* Chart 3: Status de Treinamentos */}
-          <div>
-            <p className="mb-3 text-sm font-semibold text-[var(--ds-color-text-secondary)]">Status de Treinamentos</p>
-            <ResponsiveContainer width="100%" height={168}>
-              <BarChart data={trainingSummaryData} layout="vertical" margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke={CHART_TOKENS.grid} />
-                <XAxis type="number" tick={{ fontSize: 10, fill: CHART_TOKENS.axis }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: CHART_TOKENS.axis }} axisLine={false} tickLine={false} width={70} />
-                <Tooltip />
-                <Bar dataKey="value" radius={[0, 4, 4, 0]} name="Quantidade">
-                  {trainingSummaryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+              Síntese executiva
+            </p>
+            <div className="mt-4 space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--ds-color-text-secondary)]">Média de conformidade</span>
+                <span className="font-semibold text-[var(--ds-color-text-primary)]">{averageSiteCompliance}%</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--ds-color-text-secondary)]">NCs no mês atual</span>
+                <span className="font-semibold text-[var(--ds-color-text-primary)]">{ncMonthlyData.at(-1)?.total ?? 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--ds-color-text-secondary)]">Treinamentos críticos</span>
+                <span className="font-semibold text-[var(--ds-color-text-primary)]">{expiredTrainingsCount}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--ds-color-text-secondary)]">EPIs críticos</span>
+                <span className="font-semibold text-[var(--ds-color-text-primary)]">{expiredEpisCount}</span>
+              </div>
+            </div>
+            <div className="mt-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+              Use este bloco para leitura gerencial. As listas críticas já estão destacadas acima para atuação operacional.
+            </div>
           </div>
         </div>
       </div>

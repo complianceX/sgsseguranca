@@ -60,29 +60,36 @@ type MenuSection = {
 
 const menuSections: MenuSection[] = [
   {
-    id: 'principal',
-    label: 'Principal',
+    id: 'essenciais',
+    label: 'Acesso rápido',
     defaultOpen: true,
     items: [
       { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-      { icon: Radio, label: 'TST em Campo', href: '/dashboard/tst' },
+      { icon: Radio, label: 'Campo', href: '/dashboard/tst' },
+      { icon: PlusCircle, label: 'Novo documento', href: '/dashboard/documentos/novo' },
       { icon: BarChart3, label: 'Relatórios GST', href: '/dashboard/reports' },
-      { icon: Activity, label: 'KPIs SST', href: '/dashboard/kpis' },
-      { icon: LineChart, label: 'Cockpit Executivo', href: '/dashboard/executive' },
+    ],
+  },
+  {
+    id: 'principal',
+    label: 'Leitura e gestão',
+    items: [
+      { icon: Activity, label: 'Indicadores', href: '/dashboard/kpis' },
+      { icon: LineChart, label: 'Executivo', href: '/dashboard/executive' },
     ],
   },
   {
     id: 'operacao',
-    label: 'Operação',
+    label: 'Campo e operação',
     defaultOpen: true,
     items: [
-      { icon: CalendarDays, label: 'Calendário SST', href: '/dashboard/calendar', adminOnly: true },
+      { icon: CalendarDays, label: 'Calendário', href: '/dashboard/calendar', adminOnly: true },
       { icon: MapPin, label: 'Mapa de Risco', href: '/dashboard/risk-map' },
-      { icon: ClipboardCheck, label: 'Inspeções de SST', href: '/dashboard/inspections' },
-      { icon: ClipboardX, label: 'Auditoria HSE', href: '/dashboard/audits' },
-      { icon: AlertTriangle, label: 'Não Conformidades', href: '/dashboard/nonconformities' },
-      { icon: AlertCircle, label: 'CATs (Acidentes)', href: '/dashboard/cats' },
-      { icon: CheckSquare, label: 'Ações Corretivas', href: '/dashboard/corrective-actions' },
+      { icon: ClipboardCheck, label: 'Inspeções', href: '/dashboard/inspections' },
+      { icon: ClipboardX, label: 'Auditorias', href: '/dashboard/audits' },
+      { icon: AlertTriangle, label: 'Não conformidades', href: '/dashboard/nonconformities' },
+      { icon: AlertCircle, label: 'CATs', href: '/dashboard/cats' },
+      { icon: CheckSquare, label: 'Ações corretivas', href: '/dashboard/corrective-actions' },
     ],
   },
   {
@@ -91,26 +98,27 @@ const menuSections: MenuSection[] = [
     defaultOpen: true,
     items: [
       { icon: PlusCircle, label: 'Novo Documento', href: '/dashboard/documentos/novo' },
-      { icon: Upload, label: 'Importar Docs (IA)', href: '/dashboard/documentos/importar' },
+      { icon: Upload, label: 'Importar com IA', href: '/dashboard/documentos/importar' },
       { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
       { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
       { icon: MessageSquare, label: 'DDS', href: '/dashboard/dds' },
       { icon: ClipboardList, label: 'Checklists', href: '/dashboard/checklist-models' },
       { icon: BookOpen, label: 'RDO', href: '/dashboard/rdos' },
       { icon: Wrench, label: 'OS (NR-1)', href: '/dashboard/service-orders' },
-      { icon: Archive, label: 'Registry documental', href: '/dashboard/document-registry' },
+      { icon: Archive, label: 'Registry', href: '/dashboard/document-registry' },
     ],
   },
   {
     id: 'estrutura',
-    label: 'Pessoas e Estrutura',
+    label: 'Estrutura',
+    defaultOpen: false,
     items: [
       { icon: Building2, label: 'Empresas', href: '/dashboard/companies', adminOnly: true },
-      { icon: Map, label: 'Obras/Setores', href: '/dashboard/sites', adminOnly: true },
+      { icon: Map, label: 'Obras e setores', href: '/dashboard/sites', adminOnly: true },
       { icon: Users, label: 'Funcionários', href: '/dashboard/employees' },
-      { icon: Shield, label: 'Usuários/Acesso', href: '/dashboard/users', adminOnly: true },
+      { icon: Shield, label: 'Usuários e acesso', href: '/dashboard/users', adminOnly: true },
       { icon: GraduationCap, label: 'Treinamentos', href: '/dashboard/trainings' },
-      { icon: Stethoscope, label: 'Exames (PCMSO)', href: '/dashboard/medical-exams' },
+      { icon: Stethoscope, label: 'Exames médicos', href: '/dashboard/medical-exams' },
       { icon: HardHat, label: 'Atividades', href: '/dashboard/activities', adminOnly: true },
       { icon: AlertOctagon, label: 'Riscos', href: '/dashboard/risks', adminOnly: true },
       { icon: ShieldCheck, label: 'EPIs', href: '/dashboard/epis', adminOnly: true },
@@ -119,10 +127,11 @@ const menuSections: MenuSection[] = [
   },
   {
     id: 'plataforma',
-    label: 'Plataforma',
+    label: 'Sistema',
+    defaultOpen: false,
     items: [
       { icon: Settings, label: 'Configurações', href: '/dashboard/settings' },
-      { icon: Paintbrush, label: 'Tema do Sistema', href: '/dashboard/system/settings/theme', superAdminOnly: true },
+      { icon: Paintbrush, label: 'Tema', href: '/dashboard/system/settings/theme', superAdminOnly: true },
     ],
   },
 ];
@@ -232,7 +241,7 @@ export function Sidebar({
                     onClick={() => toggleSection(section.id)}
                     className="flex w-full items-center justify-between px-3 py-3 text-left"
                   >
-                    <span className="text-[0.72rem] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-sidebar-muted)]">
+                    <span className="text-[0.76rem] font-semibold text-[var(--ds-color-sidebar-muted)]">
                       {section.label}
                     </span>
                     <ChevronDown

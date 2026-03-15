@@ -172,6 +172,7 @@ export function Header({
 
   const tenantLabel = selectedTenant?.companyName || user?.company?.razao_social || 'Tenant não selecionado';
   const showOfflineChip = syncingOfflineQueue || offlineQueueCount > 0;
+  const connectionLabel = isOffline ? 'Operação offline' : 'API estável';
 
   return (
     <header className="ds-topbar">
@@ -204,28 +205,38 @@ export function Header({
           </button>
 
           <div className="hidden min-w-0 items-center gap-2 xl:flex">
-            <div className="ds-topbar-chip max-w-[24rem] truncate">
+            <div
+              className="ds-topbar-chip max-w-[26rem] truncate"
+              title={`${tenantLabel} • ${connectionLabel}`}
+            >
               <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
               <span className="truncate">{tenantLabel}</span>
-            </div>
-            <div
-              className={`ds-topbar-chip ${
-                isOffline
-                  ? 'border-[color:var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]'
-                  : 'border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
-              }`}
-              title={isOffline ? `API offline${apiBaseUrl ? ` (${apiBaseUrl})` : ''}` : 'API online'}
-            >
               <span className={`h-2 w-2 rounded-full ${isOffline ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-success)]'}`} />
-              {isOffline ? 'API offline' : 'API online'}
+              <span className={isOffline ? 'text-[var(--ds-color-danger)]' : 'text-[var(--ds-color-text-muted)]'}>
+                {connectionLabel}
+              </span>
             </div>
+            {isOffline ? (
+              <div
+                className="ds-topbar-chip border-[color:var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]"
+                title={apiBaseUrl ? `API offline (${apiBaseUrl})` : 'API offline'}
+              >
+                <span className="h-2 w-2 rounded-full bg-[var(--ds-color-danger)]" />
+                reconexão necessária
+              </div>
+            ) : null}
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <div className="ds-topbar-chip min-w-0 flex-1 justify-center xl:hidden">
-            <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
-            <span className="truncate">{tenantLabel}</span>
+          <div className="ds-topbar-mobile-context xl:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-semibold text-[var(--ds-color-text-primary)]">{tenantLabel}</p>
+                <p className="mt-0.5 text-xs text-[var(--ds-color-text-muted)]">{connectionLabel}</p>
+              </div>
+              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${isOffline ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-success)]'}`} />
+            </div>
           </div>
 
           <button
@@ -267,7 +278,9 @@ export function Header({
             </button>
           ) : null}
 
-          <ThemeToggle />
+          <div className="shrink-0">
+            <ThemeToggle />
+          </div>
 
           <div className="relative" ref={popoverRef}>
             <button
@@ -346,8 +359,8 @@ export function Header({
             ) : null}
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2">
-            <div className="text-right">
+          <div className="flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-2">
+            <div className="hidden text-right sm:block">
               <p className="text-[13px] font-semibold text-[var(--ds-color-text-primary)]">{user?.nome}</p>
               <p className="text-xs text-[var(--ds-color-text-muted)]">{user?.profile?.nome || 'Perfil não definido'}</p>
             </div>
