@@ -91,8 +91,12 @@ export class SystemThemeService {
   }
 
   streamTheme(): Observable<MessageEvent> {
-    const initialTheme$ = from(this.getTheme()).pipe(map((theme) => this.toThemeMessage(theme)));
-    const updates$ = this.themeUpdates$.pipe(map((theme) => this.toThemeMessage(theme)));
+    const initialTheme$ = from(this.getTheme()).pipe(
+      map((theme) => this.toThemeMessage(theme)),
+    );
+    const updates$ = this.themeUpdates$.pipe(
+      map((theme) => this.toThemeMessage(theme)),
+    );
     const heartbeat$ = interval(THEME_STREAM_HEARTBEAT_MS).pipe(
       map(
         () =>

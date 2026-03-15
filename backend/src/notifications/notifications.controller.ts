@@ -42,7 +42,10 @@ export class NotificationsController {
 
   @Patch(':id/read')
   @Authorize('can_manage_notifications')
-  markAsRead(@Param('id', new ParseUUIDPipe()) id: string, @Request() req: RequestWithUser) {
+  markAsRead(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Request() req: RequestWithUser,
+  ) {
     return this.notificationsService.markAsRead(id, req.user.userId);
   }
 

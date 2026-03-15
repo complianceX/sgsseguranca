@@ -45,7 +45,9 @@ export class CreateServiceOrders1709000000027 implements MigrationInterface {
     `);
 
     // RLS
-    await queryRunner.query(`ALTER TABLE "service_orders" ENABLE ROW LEVEL SECURITY`);
+    await queryRunner.query(
+      `ALTER TABLE "service_orders" ENABLE ROW LEVEL SECURITY`,
+    );
     await queryRunner.query(`
       DROP POLICY IF EXISTS "tenant_isolation_policy" ON "service_orders"
     `);

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddAiInteractionsHistoryIndex1709000000042
-  implements MigrationInterface
-{
+export class AddAiInteractionsHistoryIndex1709000000042 implements MigrationInterface {
   name = 'AddAiInteractionsHistoryIndex1709000000042';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

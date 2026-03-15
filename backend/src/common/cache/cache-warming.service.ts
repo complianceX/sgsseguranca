@@ -61,7 +61,7 @@ export class CacheWarmingService implements OnApplicationBootstrap {
     }
 
     const requiredTables = ['profiles', 'companies'];
-    const rows = (await this.dataSource.query(
+    const rows = await this.dataSource.query(
       `
         SELECT table_name
         FROM information_schema.tables
@@ -69,7 +69,7 @@ export class CacheWarmingService implements OnApplicationBootstrap {
           AND table_name = ANY($1)
       `,
       [requiredTables],
-    )) as Array<{ table_name: string }>;
+    );
 
     const existing = new Set(rows.map((row) => row.table_name));
     return requiredTables.every((table) => existing.has(table));

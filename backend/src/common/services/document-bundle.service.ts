@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { StorageService } from './storage.service';
 
@@ -54,11 +59,16 @@ export class DocumentBundleService {
           document.fileKey,
         );
         const sourcePdf = await PDFDocument.load(fileBuffer);
-        const pages = await mergedPdf.copyPages(sourcePdf, sourcePdf.getPageIndices());
+        const pages = await mergedPdf.copyPages(
+          sourcePdf,
+          sourcePdf.getPageIndices(),
+        );
         pages.forEach((page) => mergedPdf.addPage(page));
         importedDocuments += 1;
       } catch (error) {
-        skipped.push(document.originalName || document.title || document.fileKey);
+        skipped.push(
+          document.originalName || document.title || document.fileKey,
+        );
         this.logger.warn({
           event: 'weekly_bundle_document_skipped',
           moduleName,
@@ -177,7 +187,9 @@ export class DocumentBundleService {
   private getDateValue(date?: string | Date | null): number {
     if (!date) return Number.MAX_SAFE_INTEGER;
     const parsed = new Date(date);
-    return Number.isNaN(parsed.getTime()) ? Number.MAX_SAFE_INTEGER : parsed.getTime();
+    return Number.isNaN(parsed.getTime())
+      ? Number.MAX_SAFE_INTEGER
+      : parsed.getTime();
   }
 
   private formatDate(date?: string | Date | null): string {
@@ -189,7 +201,10 @@ export class DocumentBundleService {
     return parsed.toLocaleDateString('pt-BR');
   }
 
-  private buildFileName(moduleName: string, filters: WeeklyBundleFilters): string {
+  private buildFileName(
+    moduleName: string,
+    filters: WeeklyBundleFilters,
+  ): string {
     const safeModuleName = moduleName
       .toLowerCase()
       .normalize('NFD')

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class ExpandRbacOperationalModules1709000000037
-  implements MigrationInterface
-{
+export class ExpandRbacOperationalModules1709000000037 implements MigrationInterface {
   name = 'ExpandRbacOperationalModules1709000000037';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

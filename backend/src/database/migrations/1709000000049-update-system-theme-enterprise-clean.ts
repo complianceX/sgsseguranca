@@ -11,9 +11,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * (#16a34a). Esta migração atualiza para os novos valores que correspondem
  * aos tokens CSS já em produção no frontend.
  */
-export class UpdateSystemThemeEnterpriseClean1709000000049
-  implements MigrationInterface
-{
+export class UpdateSystemThemeEnterpriseClean1709000000049 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       UPDATE system_theme

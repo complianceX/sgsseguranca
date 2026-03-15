@@ -15,7 +15,10 @@ import type { Queue } from 'bullmq';
 import { TenantService } from '../common/tenant/tenant.service';
 import { AiInteraction } from './entities/ai-interaction.entity';
 import { SstRateLimitService } from './sst-agent/sst-rate-limit.service';
-import { AiInteractionStatus, ConfidenceLevel } from './sst-agent/sst-agent.types';
+import {
+  AiInteractionStatus,
+  ConfidenceLevel,
+} from './sst-agent/sst-agent.types';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import { RisksService } from '../risks/risks.service';
 import { EpisService } from '../epis/epis.service';
@@ -83,37 +86,72 @@ type SophieActivityProfile = {
 const SOPHIE_ACTIVITY_PROFILES: readonly SophieActivityProfile[] = [
   {
     key: 'altura',
-    keywords: ['altura', 'telhado', 'escada', 'andaime', 'plataforma', 'linha de vida'],
+    keywords: [
+      'altura',
+      'telhado',
+      'escada',
+      'andaime',
+      'plataforma',
+      'linha de vida',
+    ],
     ptChecklistId: 'trabalho_altura_checklist',
     ptChecklistLabel: 'Checklist de trabalho em altura',
-    ptChecklistReason: 'A atividade indica exposicao a queda e exige validacao de protecoes coletivas, ancoragem e resgate.',
+    ptChecklistReason:
+      'A atividade indica exposicao a queda e exige validacao de protecoes coletivas, ancoragem e resgate.',
     templateKeywords: ['altura'],
     riskHints: ['Queda de altura', 'Queda de objetos', 'Falha de ancoragem'],
   },
   {
     key: 'eletricidade',
-    keywords: ['eletric', 'painel', 'subestacao', 'energizado', 'cabine', 'arco eletrico'],
+    keywords: [
+      'eletric',
+      'painel',
+      'subestacao',
+      'energizado',
+      'cabine',
+      'arco eletrico',
+    ],
     ptChecklistId: 'trabalho_eletrico_checklist',
     ptChecklistLabel: 'Checklist de trabalho eletrico',
-    ptChecklistReason: 'O contexto aponta risco de choque, arco eletrico e necessidade de bloqueio/ausencia de tensao.',
+    ptChecklistReason:
+      'O contexto aponta risco de choque, arco eletrico e necessidade de bloqueio/ausencia de tensao.',
     templateKeywords: ['eletric'],
     riskHints: ['Choque eletrico', 'Arco eletrico', 'Reenergizacao indevida'],
   },
   {
     key: 'quente',
-    keywords: ['solda', 'oxicorte', 'esmerilh', 'corte', 'lixamento', 'quente', 'faisca'],
+    keywords: [
+      'solda',
+      'oxicorte',
+      'esmerilh',
+      'corte',
+      'lixamento',
+      'quente',
+      'faisca',
+    ],
     ptChecklistId: 'trabalho_quente_checklist',
     ptChecklistLabel: 'Checklist de trabalho a quente',
-    ptChecklistReason: 'Existe potencial de ignicao, fumos e projecao de particulas, exigindo liberacao controlada.',
+    ptChecklistReason:
+      'Existe potencial de ignicao, fumos e projecao de particulas, exigindo liberacao controlada.',
     templateKeywords: ['quente'],
     riskHints: ['Queimaduras', 'Incendio', 'Fumos metalicos'],
   },
   {
     key: 'confinado',
-    keywords: ['confinado', 'tanque', 'silo', 'poço', 'poco', 'galeria', 'vaso', 'reator'],
+    keywords: [
+      'confinado',
+      'tanque',
+      'silo',
+      'poço',
+      'poco',
+      'galeria',
+      'vaso',
+      'reator',
+    ],
     ptChecklistId: 'trabalho_espaco_confinado_checklist',
     ptChecklistLabel: 'Checklist de espaco confinado',
-    ptChecklistReason: 'O ambiente sugere entrada em area confinada com necessidade de vigia, monitoramento atmosferico e resgate.',
+    ptChecklistReason:
+      'O ambiente sugere entrada em area confinada com necessidade de vigia, monitoramento atmosferico e resgate.',
     templateKeywords: ['confinado'],
     riskHints: ['Atmosfera perigosa', 'Asfixia', 'Resgate complexo'],
   },
@@ -122,21 +160,45 @@ const SOPHIE_ACTIVITY_PROFILES: readonly SophieActivityProfile[] = [
     keywords: ['escav', 'vala', 'talude', 'retroescavadeira', 'trincheira'],
     ptChecklistId: 'trabalho_escavacao_checklist',
     ptChecklistLabel: 'Checklist de escavacao',
-    ptChecklistReason: 'A atividade envolve abertura de solo e pede controle de soterramento, interferencias e estabilidade.',
+    ptChecklistReason:
+      'A atividade envolve abertura de solo e pede controle de soterramento, interferencias e estabilidade.',
     templateKeywords: ['escava'],
-    riskHints: ['Soterramento', 'Colapso de talude', 'Interferencia subterranea'],
+    riskHints: [
+      'Soterramento',
+      'Colapso de talude',
+      'Interferencia subterranea',
+    ],
   },
   {
     key: 'icamento',
-    keywords: ['içamento', 'icamento', 'guindaste', 'ponte rolante', 'carga suspensa', 'munck'],
+    keywords: [
+      'içamento',
+      'icamento',
+      'guindaste',
+      'ponte rolante',
+      'carga suspensa',
+      'munck',
+    ],
     templateKeywords: ['icamento', 'içamento', 'movimentacao de carga'],
     riskHints: ['Queda de carga', 'Esmagamento', 'Colisao com carga suspensa'],
   },
   {
     key: 'maquinas',
-    keywords: ['maquina', 'equipamento', 'prensa', 'torno', 'serra', 'furadeira', 'esteira'],
+    keywords: [
+      'maquina',
+      'equipamento',
+      'prensa',
+      'torno',
+      'serra',
+      'furadeira',
+      'esteira',
+    ],
     templateKeywords: ['maquinas', 'equipamentos', 'equipamento'],
-    riskHints: ['Aprisionamento', 'Partes moveis expostas', 'Projecao de particulas'],
+    riskHints: [
+      'Aprisionamento',
+      'Partes moveis expostas',
+      'Projecao de particulas',
+    ],
   },
 ] as const;
 
@@ -169,9 +231,11 @@ export class AiService {
     @InjectQueue('pdf-generation')
     private readonly pdfQueue: Queue,
   ) {
-    this.openaiApiKey = this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
+    this.openaiApiKey =
+      this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
     this.openaiModel =
-      this.configService.get<string>('OPENAI_MODEL')?.trim() || DEFAULT_OPENAI_MODEL;
+      this.configService.get<string>('OPENAI_MODEL')?.trim() ||
+      DEFAULT_OPENAI_MODEL;
     const configuredFallbackModel =
       this.configService.get<string>('OPENAI_FALLBACK_MODEL')?.trim() || '';
     this.openaiFallbackModel =
@@ -180,12 +244,11 @@ export class AiService {
         ? DEFAULT_OPENAI_FALLBACK_MODEL
         : null);
     this.openaiReasoningEffort =
-      (this.configService.get<string>('OPENAI_REASONING_EFFORT')?.trim().toLowerCase() as
-        | 'minimal'
-        | 'low'
-        | 'medium'
-        | 'high'
-        | undefined) || DEFAULT_OPENAI_REASONING_EFFORT;
+      (this.configService
+        .get<string>('OPENAI_REASONING_EFFORT')
+        ?.trim()
+        .toLowerCase() as 'minimal' | 'low' | 'medium' | 'high' | undefined) ||
+      DEFAULT_OPENAI_REASONING_EFFORT;
 
     this.logger.log(
       `✅ SOPHIE AiService initialized (provider=openai model=${this.openaiModel} fallback=${this.openaiFallbackModel || 'none'} reasoning=${this.openaiReasoningEffort})`,
@@ -195,7 +258,9 @@ export class AiService {
   private getTenantIdOrThrow(): string {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      throw new UnauthorizedException('Tenant nao identificado. Verifique autenticacao.');
+      throw new UnauthorizedException(
+        'Tenant nao identificado. Verifique autenticacao.',
+      );
     }
     return tenantId;
   }
@@ -230,7 +295,9 @@ export class AiService {
   }
 
   private supportsReasoningEffort(model: string): boolean {
-    const normalized = String(model || '').trim().toLowerCase();
+    const normalized = String(model || '')
+      .trim()
+      .toLowerCase();
     return (
       normalized.startsWith('gpt-5') ||
       normalized.startsWith('o1') ||
@@ -241,7 +308,11 @@ export class AiService {
 
   private getOpenAiModelCandidates(primaryModel: string): string[] {
     return Array.from(
-      new Set([primaryModel, this.openaiFallbackModel].map((value) => String(value || '').trim()).filter(Boolean)),
+      new Set(
+        [primaryModel, this.openaiFallbackModel]
+          .map((value) => String(value || '').trim())
+          .filter(Boolean),
+      ),
     );
   }
 
@@ -255,7 +326,10 @@ export class AiService {
         error?: { message?: string; type?: string; code?: string };
       };
       return {
-        message: parsed?.error?.message?.trim() || body.trim() || 'Erro desconhecido da OpenAI.',
+        message:
+          parsed?.error?.message?.trim() ||
+          body.trim() ||
+          'Erro desconhecido da OpenAI.',
         type: parsed?.error?.type,
         code: parsed?.error?.code,
       };
@@ -336,14 +410,17 @@ export class AiService {
         delete body.reasoning_effort;
       }
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.openaiApiKey}`,
+      const response = await fetch(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.openaiApiKey}`,
+          },
+          body: JSON.stringify(body),
         },
-        body: JSON.stringify(body),
-      });
+      );
 
       if (response.ok) {
         if (index > 0) {
@@ -391,7 +468,9 @@ export class AiService {
       break;
     }
 
-    throw lastError || new Error(`Falha ao chamar OpenAI em ${params.context}.`);
+    throw (
+      lastError || new Error(`Falha ao chamar OpenAI em ${params.context}.`)
+    );
   }
 
   private async callOpenAiJson<T>(params: {
@@ -416,25 +495,26 @@ export class AiService {
     };
 
     const systemPrompt = getSophieSystemPrompt(params.task);
-    const { payload } = await this.requestOpenAiChatCompletion<OpenAiChatCompletion>({
-      context: `json:${params.task}`,
-      primaryModel: this.openaiModel,
-      buildBody: (modelName) => ({
-        model: modelName,
-        temperature: 0.2,
-        max_completion_tokens: params.maxTokens ?? MAX_JSON_TOKENS,
-        reasoning_effort: this.openaiReasoningEffort,
-        messages: [
-          {
-            role: 'developer',
-            content:
-              `${systemPrompt}\n\n` +
-              'Responda SOMENTE em JSON valido, sem markdown, sem comentarios e sem texto fora do objeto JSON.',
-          },
-          { role: 'user', content: params.user },
-        ],
-      }),
-    });
+    const { payload } =
+      await this.requestOpenAiChatCompletion<OpenAiChatCompletion>({
+        context: `json:${params.task}`,
+        primaryModel: this.openaiModel,
+        buildBody: (modelName) => ({
+          model: modelName,
+          temperature: 0.2,
+          max_completion_tokens: params.maxTokens ?? MAX_JSON_TOKENS,
+          reasoning_effort: this.openaiReasoningEffort,
+          messages: [
+            {
+              role: 'developer',
+              content:
+                `${systemPrompt}\n\n` +
+                'Responda SOMENTE em JSON valido, sem markdown, sem comentarios e sem texto fora do objeto JSON.',
+            },
+            { role: 'user', content: params.user },
+          ],
+        }),
+      });
     const text = (payload.choices?.[0]?.message?.content ?? '').trim();
     if (!text) {
       throw new Error('OpenAI nao retornou conteudo utilizavel.');
@@ -459,13 +539,20 @@ export class AiService {
     const normalized = String(value || '')
       .trim()
       .toLowerCase();
-    if (normalized === 'low' || normalized === 'medium' || normalized === 'high') {
+    if (
+      normalized === 'low' ||
+      normalized === 'medium' ||
+      normalized === 'high'
+    ) {
       return normalized;
     }
     return undefined;
   }
 
-  private normalizeStringArray(value: unknown, maxItems = 10): string[] | undefined {
+  private normalizeStringArray(
+    value: unknown,
+    maxItems = 10,
+  ): string[] | undefined {
     if (!Array.isArray(value)) return undefined;
     const result = value
       .map((item) => String(item || '').trim())
@@ -490,13 +577,21 @@ export class AiService {
   }
 
   private getPhase2ChecklistNcThreshold(): number {
-    const raw = this.configService.get<string>('SOPHIE_PHASE2_CHECKLIST_NC_THRESHOLD');
-    const parsed = Number.parseInt(String(raw ?? PHASE2_DEFAULT_NC_THRESHOLD), 10);
-    if (!Number.isFinite(parsed) || parsed <= 0) return PHASE2_DEFAULT_NC_THRESHOLD;
+    const raw = this.configService.get<string>(
+      'SOPHIE_PHASE2_CHECKLIST_NC_THRESHOLD',
+    );
+    const parsed = Number.parseInt(
+      String(raw ?? PHASE2_DEFAULT_NC_THRESHOLD),
+      10,
+    );
+    if (!Number.isFinite(parsed) || parsed <= 0)
+      return PHASE2_DEFAULT_NC_THRESHOLD;
     return parsed;
   }
 
-  private normalizeRiskLevel(value: unknown): 'Baixo' | 'Médio' | 'Alto' | 'Crítico' {
+  private normalizeRiskLevel(
+    value: unknown,
+  ): 'Baixo' | 'Médio' | 'Alto' | 'Crítico' {
     const normalized = String(value || '')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -505,7 +600,8 @@ export class AiService {
 
     if (normalized.includes('crit')) return 'Crítico';
     if (normalized.includes('alto')) return 'Alto';
-    if (normalized.includes('medio') || normalized.includes('moder')) return 'Médio';
+    if (normalized.includes('medio') || normalized.includes('moder'))
+      return 'Médio';
     return 'Baixo';
   }
 
@@ -519,7 +615,10 @@ export class AiService {
     },
   ): AnalyzePtResponse['automation'] {
     const criticalFlag = Boolean(
-      flags.trabalho_altura || flags.espaco_confinado || flags.trabalho_quente || flags.eletricidade,
+      flags.trabalho_altura ||
+      flags.espaco_confinado ||
+      flags.trabalho_quente ||
+      flags.eletricidade,
     );
 
     if (riskLevel === 'Crítico') {
@@ -528,7 +627,9 @@ export class AiService {
         riskBand: 'critical',
         requiresHumanApproval: true,
         recommendedFlow: 'review_required',
-        reasons: ['Risco crítico identificado. Liberação automática bloqueada.'],
+        reasons: [
+          'Risco crítico identificado. Liberação automática bloqueada.',
+        ],
       };
     }
 
@@ -568,8 +669,16 @@ export class AiService {
   private countChecklistNonConformities(items: unknown[]): number {
     if (!Array.isArray(items)) return 0;
     return items.filter((item: any) => {
-      const raw = String(item?.status ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-      return raw === 'false' || raw === 'nao' || raw === 'nok' || raw.includes('nao conform');
+      const raw = String(item?.status ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+      return (
+        raw === 'false' ||
+        raw === 'nao' ||
+        raw === 'nok' ||
+        raw.includes('nao conform')
+      );
     }).length;
   }
 
@@ -581,7 +690,10 @@ export class AiService {
     nonConformCount: number;
   }): Promise<AnalyzeChecklistResponse['automation']> {
     if (!this.isPhase2Enabled()) {
-      return { phase2Enabled: false, reasons: ['Fase 2 desativada por configuração.'] };
+      return {
+        phase2Enabled: false,
+        reasons: ['Fase 2 desativada por configuração.'],
+      };
     }
 
     const threshold = this.getPhase2ChecklistNcThreshold();
@@ -589,7 +701,9 @@ export class AiService {
       return {
         phase2Enabled: true,
         ncAutoOpened: false,
-        reasons: [`Não conformidades abaixo do limiar automático (${threshold}).`],
+        reasons: [
+          `Não conformidades abaixo do limiar automático (${threshold}).`,
+        ],
       };
     }
 
@@ -599,7 +713,10 @@ export class AiService {
     try {
       const existing = await this.nonConformitiesService.findAll();
       const alreadyExists = existing.some(
-        (nc: any) => String(nc?.codigo_nc || '').trim().toUpperCase() === code,
+        (nc: any) =>
+          String(nc?.codigo_nc || '')
+            .trim()
+            .toUpperCase() === code,
       );
       if (alreadyExists) {
         return {
@@ -618,8 +735,14 @@ export class AiService {
         tipo: 'CHECKLIST_AUTOMATIZADO',
         data_identificacao: isoDate,
         site_id: params.checklist?.site_id || undefined,
-        local_setor_area: String(params.checklist?.site?.nome || params.checklist?.maquina || 'Área operacional'),
-        atividade_envolvida: String(params.checklist?.titulo || 'Checklist SST'),
+        local_setor_area: String(
+          params.checklist?.site?.nome ||
+            params.checklist?.maquina ||
+            'Área operacional',
+        ),
+        atividade_envolvida: String(
+          params.checklist?.titulo || 'Checklist SST',
+        ),
         responsavel_area: 'Responsável operacional',
         auditor_responsavel: 'SOPHIE',
         classificacao: ['AUTOMATICA', 'CHECKLIST', 'FASE2'],
@@ -630,14 +753,22 @@ export class AiService {
         requisito_item: 'Gerenciamento de riscos ocupacionais',
         risco_perigo: 'Não conformidades operacionais',
         risco_associado: 'Persistência de condição insegura',
-        risco_nivel: params.nonConformCount >= threshold + 2 ? 'Alto' : 'Moderado',
+        risco_nivel:
+          params.nonConformCount >= threshold + 2 ? 'Alto' : 'Moderado',
         causa: ['FALHA_DE_VERIFICACAO_OPERACIONAL'],
-        acao_imediata_descricao: params.suggestions?.[0] || 'Executar plano de ação corretivo imediato.',
+        acao_imediata_descricao:
+          params.suggestions?.[0] ||
+          'Executar plano de ação corretivo imediato.',
         acao_imediata_data: isoDate,
         acao_imediata_responsavel: 'Responsável da área',
         acao_imediata_status: 'Pendente',
-        acao_definitiva_descricao: params.suggestions?.[1] || 'Revisar processo e reforçar controles.',
-        acao_definitiva_prazo: new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        acao_definitiva_descricao:
+          params.suggestions?.[1] || 'Revisar processo e reforçar controles.',
+        acao_definitiva_prazo: new Date(
+          today.getTime() + 7 * 24 * 60 * 60 * 1000,
+        )
+          .toISOString()
+          .slice(0, 10),
         acao_definitiva_responsavel: 'Gestão SST',
         status: 'ABERTA',
         observacoes_gerais: `Abertura automática via SOPHIE Fase 2. Confiança da análise: ${confidenceTag}.`,
@@ -649,10 +780,12 @@ export class AiService {
         ncAutoOpened: true,
         ncId: created?.id,
         ncCode: created?.codigo_nc || code,
-        reasons: ['NC automática aberta por criticidade de checklist na Fase 2.'],
+        reasons: [
+          'NC automática aberta por criticidade de checklist na Fase 2.',
+        ],
       };
     } catch (error) {
-      this.logger.error('Falha na abertura automática de NC (Fase 2).', error as any);
+      this.logger.error('Falha na abertura automática de NC (Fase 2).', error);
       return {
         phase2Enabled: true,
         ncAutoOpened: false,
@@ -737,7 +870,9 @@ export class AiService {
 
       const response: InsightsResponse = {
         safetyScore,
-        summary: String(data.summary || '').trim() || 'Resumo indisponivel no momento.',
+        summary:
+          String(data.summary || '').trim() ||
+          'Resumo indisponivel no momento.',
         timestamp: new Date().toISOString(),
         insights: Array.isArray(data.insights) ? data.insights.slice(0, 6) : [],
         confidence,
@@ -771,7 +906,9 @@ export class AiService {
           'SOPHIE indisponivel no momento para sintetizar insights. Confira os modulos de Treinamentos, Exames e Nao Conformidades.',
         timestamp: new Date().toISOString(),
         confidence: 'low',
-        notes: ['Fallback local aplicado por indisponibilidade temporaria da API de IA.'],
+        notes: [
+          'Fallback local aplicado por indisponibilidade temporaria da API de IA.',
+        ],
         insights: [
           {
             type: 'info',
@@ -788,7 +925,8 @@ export class AiService {
           {
             type: 'warning',
             title: 'Nao Conformidades',
-            message: 'Priorize NCs abertas e em andamento com maior criticidade.',
+            message:
+              'Priorize NCs abertas e em andamento com maior criticidade.',
             action: '/dashboard/nonconformities',
           },
         ],
@@ -806,7 +944,11 @@ export class AiService {
     ]);
 
     const riskOptions = risks
-      .map((risk: any) => ({ id: risk.id, nome: risk.nome, categoria: risk.categoria ?? null }))
+      .map((risk: any) => ({
+        id: risk.id,
+        nome: risk.nome,
+        categoria: risk.categoria ?? null,
+      }))
       .slice(0, 300);
     const epiOptions = epis
       .map((epi: any) => ({ id: epi.id, nome: epi.nome, ca: epi.ca ?? null }))
@@ -823,22 +965,29 @@ export class AiService {
     });
 
     try {
-      const { data, inputTokens, outputTokens } = await this.callOpenAiJson<AnalyzeAprResponse>({
-        task: 'apr',
-        user: `Contexto:\nDescricao da atividade/APR:\n${description}\n\nTarefa:\nSelecione riscos e EPIs existentes para esta atividade.\n\nLista de riscos disponiveis (escolha por id):\n${JSON.stringify(
-          riskOptions,
-        )}\n\nLista de EPIs disponiveis (escolha por id):\n${JSON.stringify(
-          epiOptions,
-        )}\n\nFormato JSON:\n{\n  \"risks\": [\"riskId\"],\n  \"epis\": [\"epiId\"],\n  \"explanation\": \"string curta explicando a escolha\",\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}\n\nRegras:\n- Retorne apenas IDs presentes nas listas.\n- Maximo: 8 risks e 8 epis.\n- Priorize riscos de acidentes, fisicos e quimicos mais provaveis pela descricao.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
-        maxTokens: 800,
-      });
+      const { data, inputTokens, outputTokens } =
+        await this.callOpenAiJson<AnalyzeAprResponse>({
+          task: 'apr',
+          user: `Contexto:\nDescricao da atividade/APR:\n${description}\n\nTarefa:\nSelecione riscos e EPIs existentes para esta atividade.\n\nLista de riscos disponiveis (escolha por id):\n${JSON.stringify(
+            riskOptions,
+          )}\n\nLista de EPIs disponiveis (escolha por id):\n${JSON.stringify(
+            epiOptions,
+          )}\n\nFormato JSON:\n{\n  \"risks\": [\"riskId\"],\n  \"epis\": [\"epiId\"],\n  \"explanation\": \"string curta explicando a escolha\",\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}\n\nRegras:\n- Retorne apenas IDs presentes nas listas.\n- Maximo: 8 risks e 8 epis.\n- Priorize riscos de acidentes, fisicos e quimicos mais provaveis pela descricao.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
+          maxTokens: 800,
+        });
       const confidence = this.normalizeConfidence(data.confidence);
       const notes = this.normalizeStringArray(data.notes, 8);
 
       const response: AnalyzeAprResponse = {
-        risks: Array.isArray(data.risks) ? data.risks.slice(0, 8).filter(Boolean) : [],
-        epis: Array.isArray(data.epis) ? data.epis.slice(0, 8).filter(Boolean) : [],
-        explanation: String(data.explanation || '').trim() || 'Sugestao gerada pela SOPHIE.',
+        risks: Array.isArray(data.risks)
+          ? data.risks.slice(0, 8).filter(Boolean)
+          : [],
+        epis: Array.isArray(data.epis)
+          ? data.epis.slice(0, 8).filter(Boolean)
+          : [],
+        explanation:
+          String(data.explanation || '').trim() ||
+          'Sugestao gerada pela SOPHIE.',
         confidence,
         notes,
       };
@@ -867,9 +1016,12 @@ export class AiService {
       return {
         risks: [],
         epis: [],
-        explanation: 'SOPHIE indisponivel no momento para sugerir riscos e EPIs.',
+        explanation:
+          'SOPHIE indisponivel no momento para sugerir riscos e EPIs.',
         confidence: 'low',
-        notes: ['Fallback local aplicado por indisponibilidade temporaria da API de IA.'],
+        notes: [
+          'Fallback local aplicado por indisponibilidade temporaria da API de IA.',
+        ],
       };
     }
   }
@@ -903,23 +1055,30 @@ export class AiService {
         eletricidade: Boolean(data.eletricidade),
       };
 
-      const { data: response, inputTokens, outputTokens } =
-        await this.callOpenAiJson<AnalyzePtResponse>({
-          task: 'pt',
-          user: `Analise de Permissao de Trabalho (PT).\n\nTitulo: ${data.titulo}\nDescricao: ${data.descricao}\nSinais/flags: ${JSON.stringify(
-            flags,
-          )}\n\nGere um resumo e sugestoes tecnicas de controle.\n\nFormato JSON:\n{\n  \"summary\": string,\n  \"riskLevel\": \"Baixo|Médio|Alto|Crítico\",\n  \"suggestions\": string[],\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}\n\nRegras:\n- suggestions: 4 a 10 itens curtos.\n- Priorize hierarquia de controle.\n- Cite NRs relevantes quando pertinente (NR-10/12/20/33/35/06/01).\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
-          maxTokens: 900,
-        });
+      const {
+        data: response,
+        inputTokens,
+        outputTokens,
+      } = await this.callOpenAiJson<AnalyzePtResponse>({
+        task: 'pt',
+        user: `Analise de Permissao de Trabalho (PT).\n\nTitulo: ${data.titulo}\nDescricao: ${data.descricao}\nSinais/flags: ${JSON.stringify(
+          flags,
+        )}\n\nGere um resumo e sugestoes tecnicas de controle.\n\nFormato JSON:\n{\n  \"summary\": string,\n  \"riskLevel\": \"Baixo|Médio|Alto|Crítico\",\n  \"suggestions\": string[],\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}\n\nRegras:\n- suggestions: 4 a 10 itens curtos.\n- Priorize hierarquia de controle.\n- Cite NRs relevantes quando pertinente (NR-10/12/20/33/35/06/01).\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
+        maxTokens: 900,
+      });
       const confidence = this.normalizeConfidence(response.confidence);
       const notes = this.normalizeStringArray(response.notes, 8);
       const normalizedRiskLevel = this.normalizeRiskLevel(response.riskLevel);
 
       const normalized: AnalyzePtResponse = {
-        summary: String(response.summary || '').trim() || 'Resumo indisponivel.',
+        summary:
+          String(response.summary || '').trim() || 'Resumo indisponivel.',
         riskLevel: normalizedRiskLevel,
         suggestions: Array.isArray(response.suggestions)
-          ? response.suggestions.map((s) => String(s).trim()).filter(Boolean).slice(0, 12)
+          ? response.suggestions
+              .map((s) => String(s).trim())
+              .filter(Boolean)
+              .slice(0, 12)
           : [],
         confidence,
         notes,
@@ -956,7 +1115,9 @@ export class AiService {
           'Validar requisitos NR aplicaveis (NR-01/06/10/12/33/35).',
         ],
         confidence: 'low',
-        notes: ['Fallback local aplicado por indisponibilidade temporaria da API de IA.'],
+        notes: [
+          'Fallback local aplicado por indisponibilidade temporaria da API de IA.',
+        ],
         automation: this.buildPtAutomationDecision('Médio', data),
       };
     }
@@ -1000,12 +1161,17 @@ export class AiService {
         });
       const confidence = this.normalizeConfidence(data.confidence);
       const notes = this.normalizeStringArray(data.notes, 8);
-      const nonConformCount = this.countChecklistNonConformities(checklistSnapshot.itens || []);
+      const nonConformCount = this.countChecklistNonConformities(
+        checklistSnapshot.itens || [],
+      );
       const automation = await this.tryAutoOpenNcFromChecklist({
         checklist: checklist,
         summary: String(data.summary || '').trim(),
         suggestions: Array.isArray(data.suggestions)
-          ? data.suggestions.map((s) => String(s).trim()).filter(Boolean).slice(0, 16)
+          ? data.suggestions
+              .map((s) => String(s).trim())
+              .filter(Boolean)
+              .slice(0, 16)
           : [],
         confidence,
         nonConformCount,
@@ -1014,7 +1180,10 @@ export class AiService {
       const response: AnalyzeChecklistResponse = {
         summary: String(data.summary || '').trim() || 'Resumo indisponivel.',
         suggestions: Array.isArray(data.suggestions)
-          ? data.suggestions.map((s) => String(s).trim()).filter(Boolean).slice(0, 16)
+          ? data.suggestions
+              .map((s) => String(s).trim())
+              .filter(Boolean)
+              .slice(0, 16)
           : [],
         confidence,
         notes,
@@ -1044,9 +1213,13 @@ export class AiService {
 
       return {
         summary: 'SOPHIE indisponivel no momento para analisar este checklist.',
-        suggestions: ['Revisar itens nao conformes e abrir plano de acao com prazos e responsaveis.'],
+        suggestions: [
+          'Revisar itens nao conformes e abrir plano de acao com prazos e responsaveis.',
+        ],
         confidence: 'low',
-        notes: ['Fallback local aplicado por indisponibilidade temporaria da API de IA.'],
+        notes: [
+          'Fallback local aplicado por indisponibilidade temporaria da API de IA.',
+        ],
         automation: {
           phase2Enabled: this.isPhase2Enabled(),
           ncAutoOpened: false,
@@ -1073,18 +1246,20 @@ export class AiService {
     });
 
     try {
-      const { data, inputTokens, outputTokens } = await this.callOpenAiJson<GenerateDdsResponse>({
-        task: 'dds',
-        user: `Gere um DDS (Diálogo Diario de Seguranca) pronto para uso.\n\nTema base: ${temaBase || 'definir automaticamente'}\nContexto operacional: ${contexto || 'nao informado'}\n\nFormato JSON:\n{\n  \"tema\": string,\n  \"conteudo\": string,\n  \"explanation\": string,\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}\n\nRegras:\n- conteudo em portugues, pratico, com 6 a 10 bullets.\n- incluir: objetivo, perigos, controles (hierarquia), EPIs, NRs relevantes.\n- evite jargoes e mantenha linguagem de campo.\n- Se houver tema base, respeite-o.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
-        maxTokens: 1200,
-      });
+      const { data, inputTokens, outputTokens } =
+        await this.callOpenAiJson<GenerateDdsResponse>({
+          task: 'dds',
+          user: `Gere um DDS (Diálogo Diario de Seguranca) pronto para uso.\n\nTema base: ${temaBase || 'definir automaticamente'}\nContexto operacional: ${contexto || 'nao informado'}\n\nFormato JSON:\n{\n  \"tema\": string,\n  \"conteudo\": string,\n  \"explanation\": string,\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}\n\nRegras:\n- conteudo em portugues, pratico, com 6 a 10 bullets.\n- incluir: objetivo, perigos, controles (hierarquia), EPIs, NRs relevantes.\n- evite jargoes e mantenha linguagem de campo.\n- Se houver tema base, respeite-o.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
+          maxTokens: 1200,
+        });
       const confidence = this.normalizeConfidence(data.confidence);
       const notes = this.normalizeStringArray(data.notes, 8);
 
       const response: GenerateDdsResponse = {
         tema: String(data.tema || '').trim() || 'DDS SST',
         conteudo: String(data.conteudo || '').trim() || '',
-        explanation: String(data.explanation || '').trim() || 'Gerado pela SOPHIE.',
+        explanation:
+          String(data.explanation || '').trim() || 'Gerado pela SOPHIE.',
         confidence,
         notes,
       };
@@ -1116,7 +1291,9 @@ export class AiService {
           '- Objetivo: reforcar comportamentos seguros.\n- Perigos comuns: quedas, impacto, eletricidade, maquinas.\n- Controles: isolamento, sinalizacao, protecoes, procedimentos.\n- EPIs: capacete, oculos, luvas, calcado, protetor auricular.\n- NRs: NR-01, NR-06, NR-12, NR-35 (quando aplicavel).',
         explanation: 'Fallback local: SOPHIE indisponivel no momento.',
         confidence: 'low',
-        notes: ['Fallback local aplicado por indisponibilidade temporaria da API de IA.'],
+        notes: [
+          'Fallback local aplicado por indisponibilidade temporaria da API de IA.',
+        ],
       };
     }
   }
@@ -1158,7 +1335,10 @@ export class AiService {
 
       const response: GenerateChecklistResponse = {
         id: 'sophie-generated',
-        titulo: String(data.titulo || '').trim() || baseTitle || `Checklist - ${subject}`,
+        titulo:
+          String(data.titulo || '').trim() ||
+          baseTitle ||
+          `Checklist - ${subject}`,
         itens: Array.isArray(data.itens)
           ? data.itens
               .map((i) => ({ item: String(i?.item || '').trim() }))
@@ -1196,11 +1376,15 @@ export class AiService {
         itens: [
           { item: 'Area isolada e sinalizada.' },
           { item: 'Protecoes e dispositivos de seguranca inspecionados.' },
-          { item: 'Procedimento e permissao de trabalho verificados (se aplicavel).' },
+          {
+            item: 'Procedimento e permissao de trabalho verificados (se aplicavel).',
+          },
           { item: 'EPIs adequados disponiveis e em bom estado (NR-06).' },
         ],
         confidence: 'low',
-        notes: ['Fallback local aplicado por indisponibilidade temporaria da API de IA.'],
+        notes: [
+          'Fallback local aplicado por indisponibilidade temporaria da API de IA.',
+        ],
       };
     }
   }
@@ -1262,15 +1446,15 @@ export class AiService {
 
   private normalizeBoolean(value: unknown): boolean | undefined {
     if (typeof value === 'boolean') return value;
-    const normalized = String(value || '').trim().toLowerCase();
+    const normalized = String(value || '')
+      .trim()
+      .toLowerCase();
     if (['true', '1', 'sim', 'yes'].includes(normalized)) return true;
     if (['false', '0', 'nao', 'não', 'no'].includes(normalized)) return false;
     return undefined;
   }
 
-  private normalizeAprRiskItems(
-    value: unknown,
-  ): Array<Record<string, string>> {
+  private normalizeAprRiskItems(value: unknown): Array<Record<string, string>> {
     if (!Array.isArray(value)) return [];
 
     return value
@@ -1280,7 +1464,9 @@ export class AiService {
           atividade_processo: String(item.atividade_processo || '').trim(),
           agente_ambiental: String(item.agente_ambiental || '').trim(),
           condicao_perigosa: String(item.condicao_perigosa || '').trim(),
-          fontes_circunstancias: String(item.fontes_circunstancias || '').trim(),
+          fontes_circunstancias: String(
+            item.fontes_circunstancias || '',
+          ).trim(),
           possiveis_lesoes: String(item.possiveis_lesoes || '').trim(),
           probabilidade: String(item.probabilidade || '').trim(),
           severidade: String(item.severidade || '').trim(),
@@ -1327,17 +1513,24 @@ export class AiService {
   }
 
   private async loadAssistedDraftContext(companyId: string, siteId: string) {
-    const [activitiesPage, toolsPage, machinesPage, usersPage, checklistTemplates] =
-      await Promise.all([
-        this.activitiesService.findPaginated({ page: 1, limit: 80, companyId }),
-        this.toolsService.findPaginated({ page: 1, limit: 80, companyId }),
-        this.machinesService.findPaginated({ page: 1, limit: 80, companyId }),
-        this.usersService.findPaginated({ page: 1, limit: 80, companyId }),
-        this.checklistsService.findAll({ onlyTemplates: true }).catch(() => []),
-      ]);
+    const [
+      activitiesPage,
+      toolsPage,
+      machinesPage,
+      usersPage,
+      checklistTemplates,
+    ] = await Promise.all([
+      this.activitiesService.findPaginated({ page: 1, limit: 80, companyId }),
+      this.toolsService.findPaginated({ page: 1, limit: 80, companyId }),
+      this.machinesService.findPaginated({ page: 1, limit: 80, companyId }),
+      this.usersService.findPaginated({ page: 1, limit: 80, companyId }),
+      this.checklistsService.findAll({ onlyTemplates: true }).catch(() => []),
+    ]);
 
     const participants = (usersPage.data || [])
-      .filter((user: any) => !siteId || !user.site_id || user.site_id === siteId)
+      .filter(
+        (user: any) => !siteId || !user.site_id || user.site_id === siteId,
+      )
       .slice(0, 40)
       .map((user: any) => ({
         id: user.id,
@@ -1371,16 +1564,18 @@ export class AiService {
         }),
       })),
       participants,
-      checklistTemplates: (checklistTemplates || []).slice(0, 40).map((template: any) => ({
-        id: template.id,
-        label: this.formatSelectionLabel({
-          nome: template.titulo,
-          descricao: template.descricao || template.categoria,
-        }),
-        descricao: String(template.descricao || '').trim(),
-        categoria: String(template.categoria || '').trim(),
-        periodicidade: String(template.periodicidade || '').trim(),
-      })),
+      checklistTemplates: (checklistTemplates || [])
+        .slice(0, 40)
+        .map((template: any) => ({
+          id: template.id,
+          label: this.formatSelectionLabel({
+            nome: template.titulo,
+            descricao: template.descricao || template.categoria,
+          }),
+          descricao: String(template.descricao || '').trim(),
+          categoria: String(template.categoria || '').trim(),
+          periodicidade: String(template.periodicidade || '').trim(),
+        })),
     };
   }
 
@@ -1391,7 +1586,9 @@ export class AiService {
       .toLowerCase();
   }
 
-  private buildAssistedContextText(values: Array<string | undefined | null>): string {
+  private buildAssistedContextText(
+    values: Array<string | undefined | null>,
+  ): string {
     return values
       .map((value) => String(value || '').trim())
       .filter(Boolean)
@@ -1402,7 +1599,9 @@ export class AiService {
   private resolveActiveActivityProfiles(contextText: string) {
     const normalized = this.normalizeSearchText(contextText);
     return SOPHIE_ACTIVITY_PROFILES.filter((profile) =>
-      profile.keywords.some((keyword) => normalized.includes(this.normalizeSearchText(keyword))),
+      profile.keywords.some((keyword) =>
+        normalized.includes(this.normalizeSearchText(keyword)),
+      ),
     );
   }
 
@@ -1432,11 +1631,14 @@ export class AiService {
             templateText.includes(this.normalizeSearchText(keyword)),
           ),
         );
-        const lexicalScore = matchedProfiles.length * 3 +
+        const lexicalScore =
+          matchedProfiles.length * 3 +
           (templateText && normalizedContext
             ? normalizedContext
                 .split(/\s+/)
-                .filter((token) => token.length > 4 && templateText.includes(token)).length
+                .filter(
+                  (token) => token.length > 4 && templateText.includes(token),
+                ).length
             : 0);
 
         if (lexicalScore <= 0) return null;
@@ -1479,7 +1681,9 @@ export class AiService {
         category: risk.categoria || undefined,
       }));
 
-    const normalizedSelected = new Set(selected.map((item) => this.normalizeSearchText(item.label)));
+    const normalizedSelected = new Set(
+      selected.map((item) => this.normalizeSearchText(item.label)),
+    );
     const profileHints = this.resolveActiveActivityProfiles(contextText)
       .flatMap((profile) => profile.riskHints || [])
       .filter(Boolean);
@@ -1487,7 +1691,9 @@ export class AiService {
     const fallback = profileHints
       .map((hint) => {
         const matchedRisk = riskOptions.find((risk) => {
-          const normalizedRisk = this.normalizeSearchText(`${risk.nome} ${risk.categoria || ''}`);
+          const normalizedRisk = this.normalizeSearchText(
+            `${risk.nome} ${risk.categoria || ''}`,
+          );
           return normalizedRisk.includes(this.normalizeSearchText(hint));
         });
 
@@ -1503,10 +1709,17 @@ export class AiService {
           label: hint,
         };
       })
-      .filter((item) => !normalizedSelected.has(this.normalizeSearchText(item.label)));
+      .filter(
+        (item) => !normalizedSelected.has(this.normalizeSearchText(item.label)),
+      );
 
     return Array.from(
-      new Map([...selected, ...fallback].map((item) => [this.normalizeSearchText(item.label), item])).values(),
+      new Map(
+        [...selected, ...fallback].map((item) => [
+          this.normalizeSearchText(item.label),
+          item,
+        ]),
+      ).values(),
     ).slice(0, maxItems);
   }
 
@@ -1519,24 +1732,43 @@ export class AiService {
       eletricidade: boolean;
       escavacao: boolean;
     };
-    templateSuggestions: Array<{ id: string; label: string; reason: string; source: 'template' }>;
-  }): Array<{ id: string; label: string; reason: string; source: 'template' | 'pt-group' }> {
-    const base: Array<{ id: string; label: string; reason: string; source: 'pt-group' }> = [
+    templateSuggestions: Array<{
+      id: string;
+      label: string;
+      reason: string;
+      source: 'template';
+    }>;
+  }): Array<{
+    id: string;
+    label: string;
+    reason: string;
+    source: 'template' | 'pt-group';
+  }> {
+    const base: Array<{
+      id: string;
+      label: string;
+      reason: string;
+      source: 'pt-group';
+    }> = [
       {
         id: 'analise_risco_rapida_checklist',
         label: 'Checklist de análise de risco rápida',
-        reason: 'Obrigatório para validar percepção de risco antes da liberação.',
+        reason:
+          'Obrigatório para validar percepção de risco antes da liberação.',
         source: 'pt-group',
       },
       {
         id: 'recomendacoes_gerais_checklist',
         label: 'Checklist de recomendações gerais',
-        reason: 'Mantém as confirmações mínimas de segurança e interrupção em caso de risco grave.',
+        reason:
+          'Mantém as confirmações mínimas de segurança e interrupção em caso de risco grave.',
         source: 'pt-group',
       },
     ];
 
-    const activeProfiles = this.resolveActiveActivityProfiles(params.contextText);
+    const activeProfiles = this.resolveActiveActivityProfiles(
+      params.contextText,
+    );
 
     for (const profile of SOPHIE_ACTIVITY_PROFILES) {
       if (!profile.ptChecklistId) continue;
@@ -1552,7 +1784,9 @@ export class AiService {
         base.push({
           id: profile.ptChecklistId,
           label: profile.ptChecklistLabel || profile.ptChecklistId,
-          reason: profile.ptChecklistReason || 'Checklist crítico para este tipo de atividade.',
+          reason:
+            profile.ptChecklistReason ||
+            'Checklist crítico para este tipo de atividade.',
           source: 'pt-group',
         });
       }
@@ -1565,10 +1799,15 @@ export class AiService {
     );
   }
 
-  private collectChecklistEvidenceAttachments(checklist: any): Array<{ url: string; label: string }> {
+  private collectChecklistEvidenceAttachments(
+    checklist: any,
+  ): Array<{ url: string; label: string }> {
     const evidence: Array<{ url: string; label: string }> = [];
 
-    if (typeof checklist?.foto_equipamento === 'string' && checklist.foto_equipamento.trim()) {
+    if (
+      typeof checklist?.foto_equipamento === 'string' &&
+      checklist.foto_equipamento.trim()
+    ) {
       evidence.push({
         url: checklist.foto_equipamento.trim(),
         label: 'Foto do equipamento do checklist',
@@ -1594,13 +1833,16 @@ export class AiService {
     return evidence.slice(0, MAX_IMPORTED_EVIDENCE_ATTACHMENTS);
   }
 
-  private collectInspectionEvidenceAttachments(inspection: any): Array<{ url: string; label: string }> {
+  private collectInspectionEvidenceAttachments(
+    inspection: any,
+  ): Array<{ url: string; label: string }> {
     return (Array.isArray(inspection?.evidencias) ? inspection.evidencias : [])
       .map((item: any) => ({
         url: String(item?.url || '').trim(),
         label:
-          String(item?.descricao || item?.original_name || 'Evidência da inspeção').trim() ||
-          'Evidência da inspeção',
+          String(
+            item?.descricao || item?.original_name || 'Evidência da inspeção',
+          ).trim() || 'Evidência da inspeção',
       }))
       .filter((item) => item.url)
       .slice(0, MAX_IMPORTED_EVIDENCE_ATTACHMENTS);
@@ -1629,7 +1871,9 @@ export class AiService {
             priority === 'critical' || priority === 'high' || priority === 'low'
               ? priority
               : 'medium',
-          timeline: String(item.timeline || fallback.timeline || 'Curto prazo').trim(),
+          timeline: String(
+            item.timeline || fallback.timeline || 'Curto prazo',
+          ).trim(),
           type:
             type === 'immediate' || type === 'preventive' ? type : 'corrective',
         } as SophieActionPlanItem;
@@ -1703,11 +1947,7 @@ export class AiService {
     promptSections: string[];
     notes: string[];
   }> {
-    const sourceType = (params.source_type || 'manual') as
-      | 'manual'
-      | 'image'
-      | 'checklist'
-      | 'inspection';
+    const sourceType = params.source_type || 'manual';
 
     const promptSections: string[] = [];
     const notes: string[] = [];
@@ -1718,27 +1958,39 @@ export class AiService {
     let evidenceAttachments: Array<{ url: string; label: string }> = [];
 
     if (params.source_context?.trim()) {
-      promptSections.push(`Contexto adicional da origem: ${params.source_context.trim()}`);
+      promptSections.push(
+        `Contexto adicional da origem: ${params.source_context.trim()}`,
+      );
     }
 
     if (sourceType === 'image') {
       if (params.image_analysis_summary?.trim()) {
-        promptSections.push(`Síntese da análise da imagem: ${params.image_analysis_summary.trim()}`);
+        promptSections.push(
+          `Síntese da análise da imagem: ${params.image_analysis_summary.trim()}`,
+        );
       }
       if (params.image_risks?.length) {
-        promptSections.push(`Riscos visíveis na imagem: ${params.image_risks.join('; ')}`);
+        promptSections.push(
+          `Riscos visíveis na imagem: ${params.image_risks.join('; ')}`,
+        );
       }
       if (params.image_actions?.length) {
-        promptSections.push(`Ações imediatas sugeridas para a imagem: ${params.image_actions.join('; ')}`);
+        promptSections.push(
+          `Ações imediatas sugeridas para a imagem: ${params.image_actions.join('; ')}`,
+        );
       }
       if (params.image_notes?.trim()) {
-        promptSections.push(`Notas da análise da imagem: ${params.image_notes.trim()}`);
+        promptSections.push(
+          `Notas da análise da imagem: ${params.image_notes.trim()}`,
+        );
       }
     }
 
     if (sourceType === 'checklist' && params.source_reference) {
       try {
-        const checklist = await this.checklistsService.findOneEntity(params.source_reference);
+        const checklist = await this.checklistsService.findOneEntity(
+          params.source_reference,
+        );
         siteId = siteId || checklist.site_id;
         title = title || checklist.titulo;
         description =
@@ -1765,7 +2017,8 @@ export class AiService {
               : [],
           })}`,
         );
-        evidenceAttachments = this.collectChecklistEvidenceAttachments(checklist);
+        evidenceAttachments =
+          this.collectChecklistEvidenceAttachments(checklist);
         if (evidenceAttachments.length) {
           promptSections.push(
             `Evidencias visuais disponiveis no checklist: ${evidenceAttachments
@@ -1815,7 +2068,8 @@ export class AiService {
             evidencias: inspection.evidencias?.slice(0, 6),
           })}`,
         );
-        evidenceAttachments = this.collectInspectionEvidenceAttachments(inspection);
+        evidenceAttachments =
+          this.collectInspectionEvidenceAttachments(inspection);
         if (evidenceAttachments.length) {
           promptSections.push(
             `Evidencias disponiveis na inspecao: ${evidenceAttachments
@@ -1862,7 +2116,11 @@ export class AiService {
     ]);
 
     const riskOptions = risks
-      .map((risk: any) => ({ id: risk.id, nome: risk.nome, categoria: risk.categoria ?? null }))
+      .map((risk: any) => ({
+        id: risk.id,
+        nome: risk.nome,
+        categoria: risk.categoria ?? null,
+      }))
       .slice(0, 300);
     const epiOptions = epis
       .map((epi: any) => ({ id: epi.id, nome: epi.nome, ca: epi.ca ?? null }))
@@ -1961,10 +2219,16 @@ export class AiService {
 
     const allowedRiskIds = new Set(riskOptions.map((item) => item.id));
     const allowedEpiIds = new Set(epiOptions.map((item) => item.id));
-    const allowedActivityIds = new Set(draftContext.activities.map((item) => item.id));
+    const allowedActivityIds = new Set(
+      draftContext.activities.map((item) => item.id),
+    );
     const allowedToolIds = new Set(draftContext.tools.map((item) => item.id));
-    const allowedMachineIds = new Set(draftContext.machines.map((item) => item.id));
-    const allowedParticipantIds = new Set(draftContext.participants.map((item) => item.id));
+    const allowedMachineIds = new Set(
+      draftContext.machines.map((item) => item.id),
+    );
+    const allowedParticipantIds = new Set(
+      draftContext.participants.map((item) => item.id),
+    );
     const riskItems = this.normalizeAprRiskItems(generated.risk_items);
     const suggestedActions =
       this.normalizeStringArray(generated.recommended_actions, 6) ||
@@ -1980,7 +2244,11 @@ export class AiService {
     const selectedParticipants = Array.from(
       new Set([
         params.elaborador_id,
-        ...this.normalizeIdSelections(generated.participants, allowedParticipantIds, 4),
+        ...this.normalizeIdSelections(
+          generated.participants,
+          allowedParticipantIds,
+          4,
+        ),
       ]),
     ).filter((id) => allowedParticipantIds.has(id));
     const selectedActivities = this.normalizeIdSelections(
@@ -1988,18 +2256,22 @@ export class AiService {
       allowedActivityIds,
       4,
     );
-    const selectedTools = this.normalizeIdSelections(generated.tools, allowedToolIds, 4);
+    const selectedTools = this.normalizeIdSelections(
+      generated.tools,
+      allowedToolIds,
+      4,
+    );
     const selectedMachines = this.normalizeIdSelections(
       generated.machines,
       allowedMachineIds,
       4,
     );
-    const selectedRiskIds = (this.normalizeStringArray(generated.risks, 12) || []).filter((id) =>
-      allowedRiskIds.has(id),
-    );
-    const selectedEpiIds = (this.normalizeStringArray(generated.epis, 12) || []).filter((id) =>
-      allowedEpiIds.has(id),
-    );
+    const selectedRiskIds = (
+      this.normalizeStringArray(generated.risks, 12) || []
+    ).filter((id) => allowedRiskIds.has(id));
+    const selectedEpiIds = (
+      this.normalizeStringArray(generated.epis, 12) || []
+    ).filter((id) => allowedEpiIds.has(id));
     const suggestedRisks = this.buildSuggestedRisksFromProfiles(
       riskOptions,
       selectedRiskIds,
@@ -2012,21 +2284,26 @@ export class AiService {
         step: 1,
         values: {
           numero: this.generateDocumentNumber('APR'),
-          titulo:
-            String(generated.title || params.title || params.activity || 'APR Assistida').trim(),
-          descricao:
-            String(
-              generated.description ||
-                params.description ||
-                params.process ||
-                params.activity ||
-                '',
-            ).trim(),
+          titulo: String(
+            generated.title ||
+              params.title ||
+              params.activity ||
+              'APR Assistida',
+          ).trim(),
+          descricao: String(
+            generated.description ||
+              params.description ||
+              params.process ||
+              params.activity ||
+              '',
+          ).trim(),
           status: 'Pendente',
           company_id: params.company_id || this.getTenantIdOrThrow(),
           site_id: params.site_id,
           elaborador_id: params.elaborador_id,
-          participants: selectedParticipants.length ? selectedParticipants : [params.elaborador_id],
+          participants: selectedParticipants.length
+            ? selectedParticipants
+            : [params.elaborador_id],
           risks: selectedRiskIds,
           epis: selectedEpiIds,
           activities: selectedActivities,
@@ -2041,12 +2318,21 @@ export class AiService {
         'APR inicial gerada pela SOPHIE com foco em riscos prioritários e controles.',
       suggestedActions,
       suggestedResources: {
-        activities: draftContext.activities.filter((item) => selectedActivities.includes(item.id)),
-        participants: draftContext.participants.filter((item) =>
-          (selectedParticipants.length ? selectedParticipants : [params.elaborador_id]).includes(item.id),
+        activities: draftContext.activities.filter((item) =>
+          selectedActivities.includes(item.id),
         ),
-        tools: draftContext.tools.filter((item) => selectedTools.includes(item.id)),
-        machines: draftContext.machines.filter((item) => selectedMachines.includes(item.id)),
+        participants: draftContext.participants.filter((item) =>
+          (selectedParticipants.length
+            ? selectedParticipants
+            : [params.elaborador_id]
+          ).includes(item.id),
+        ),
+        tools: draftContext.tools.filter((item) =>
+          selectedTools.includes(item.id),
+        ),
+        machines: draftContext.machines.filter((item) =>
+          selectedMachines.includes(item.id),
+        ),
       },
       suggestedRisks,
       mandatoryChecklists: templateChecklistSuggestions,
@@ -2067,7 +2353,10 @@ export class AiService {
     }
 
     const companyId = params.company_id || this.getTenantIdOrThrow();
-    const draftContext = await this.loadAssistedDraftContext(companyId, params.site_id);
+    const draftContext = await this.loadAssistedDraftContext(
+      companyId,
+      params.site_id,
+    );
     const contextText = this.buildAssistedContextText([
       params.title,
       params.description,
@@ -2163,31 +2452,52 @@ export class AiService {
 
     const resolvedFlags = {
       trabalho_altura:
-        params.trabalho_altura ?? this.normalizeBoolean(generated.flags?.trabalho_altura) ?? false,
+        params.trabalho_altura ??
+        this.normalizeBoolean(generated.flags?.trabalho_altura) ??
+        false,
       espaco_confinado:
         params.espaco_confinado ??
         this.normalizeBoolean(generated.flags?.espaco_confinado) ??
         false,
       trabalho_quente:
-        params.trabalho_quente ?? this.normalizeBoolean(generated.flags?.trabalho_quente) ?? false,
+        params.trabalho_quente ??
+        this.normalizeBoolean(generated.flags?.trabalho_quente) ??
+        false,
       eletricidade:
-        params.eletricidade ?? this.normalizeBoolean(generated.flags?.eletricidade) ?? false,
+        params.eletricidade ??
+        this.normalizeBoolean(generated.flags?.eletricidade) ??
+        false,
       escavacao:
-        params.escavacao ?? this.normalizeBoolean(generated.flags?.escavacao) ?? false,
+        params.escavacao ??
+        this.normalizeBoolean(generated.flags?.escavacao) ??
+        false,
     };
-    const suggestedActions = this.normalizeStringArray(generated.suggestions, 8) || [];
+    const suggestedActions =
+      this.normalizeStringArray(generated.suggestions, 8) || [];
     const mandatoryDocuments =
       this.normalizeStringArray(generated.mandatory_documents, 6) || [];
-    const allowedParticipantIds = new Set(draftContext.participants.map((item) => item.id));
+    const allowedParticipantIds = new Set(
+      draftContext.participants.map((item) => item.id),
+    );
     const allowedToolIds = new Set(draftContext.tools.map((item) => item.id));
-    const allowedMachineIds = new Set(draftContext.machines.map((item) => item.id));
+    const allowedMachineIds = new Set(
+      draftContext.machines.map((item) => item.id),
+    );
     const selectedParticipants = Array.from(
       new Set([
         params.responsavel_id,
-        ...this.normalizeIdSelections(generated.participants, allowedParticipantIds, 5),
+        ...this.normalizeIdSelections(
+          generated.participants,
+          allowedParticipantIds,
+          5,
+        ),
       ]),
     ).filter((id) => allowedParticipantIds.has(id));
-    const selectedTools = this.normalizeIdSelections(generated.tools, allowedToolIds, 4);
+    const selectedTools = this.normalizeIdSelections(
+      generated.tools,
+      allowedToolIds,
+      4,
+    );
     const selectedMachines = this.normalizeIdSelections(
       generated.machines,
       allowedMachineIds,
@@ -2207,7 +2517,9 @@ export class AiService {
           .flatMap((profile) => profile.riskHints || [])
           .filter(Boolean),
       ),
-    ).slice(0, 6).map((label) => ({ label }));
+    )
+      .slice(0, 6)
+      .map((label) => ({ label }));
     const resourceHints = [
       selectedTools.length
         ? `Ferramentas sugeridas: ${draftContext.tools
@@ -2235,10 +2547,12 @@ export class AiService {
         step: 1,
         values: {
           numero: this.generateDocumentNumber('PT'),
-          titulo:
-            String(generated.title || params.title || 'PT Assistida').trim(),
-          descricao:
-            String(generated.description || params.description || '').trim(),
+          titulo: String(
+            generated.title || params.title || 'PT Assistida',
+          ).trim(),
+          descricao: String(
+            generated.description || params.description || '',
+          ).trim(),
           status: 'Pendente',
           company_id: companyId,
           site_id: params.site_id,
@@ -2254,8 +2568,7 @@ export class AiService {
             riskLevel,
             suggestedActions,
             mandatoryDocuments,
-          })
-            .concat(resourceHints ? `\n${resourceHints}` : ''),
+          }).concat(resourceHints ? `\n${resourceHints}` : ''),
         },
         signatures: {},
       },
@@ -2266,10 +2579,17 @@ export class AiService {
       suggestedActions,
       suggestedResources: {
         participants: draftContext.participants.filter((item) =>
-          (selectedParticipants.length ? selectedParticipants : [params.responsavel_id]).includes(item.id),
+          (selectedParticipants.length
+            ? selectedParticipants
+            : [params.responsavel_id]
+          ).includes(item.id),
         ),
-        tools: draftContext.tools.filter((item) => selectedTools.includes(item.id)),
-        machines: draftContext.machines.filter((item) => selectedMachines.includes(item.id)),
+        tools: draftContext.tools.filter((item) =>
+          selectedTools.includes(item.id),
+        ),
+        machines: draftContext.machines.filter((item) =>
+          selectedMachines.includes(item.id),
+        ),
       },
       suggestedRisks,
       mandatoryChecklists,
@@ -2289,7 +2609,9 @@ export class AiService {
       );
     }
 
-    const generated = await this.generateChecklist(params as GenerateChecklistDto);
+    const generated = await this.generateChecklist(
+      params as GenerateChecklistDto,
+    );
     const subject =
       String(params.titulo || '').trim() ||
       String(params.maquina || '').trim() ||
@@ -2299,7 +2621,9 @@ export class AiService {
 
     const createDto: CreateChecklistDto = {
       titulo: generated.titulo || subject,
-      descricao: String(params.descricao || '').trim() || `Checklist assistido pela SOPHIE para ${subject}.`,
+      descricao:
+        String(params.descricao || '').trim() ||
+        `Checklist assistido pela SOPHIE para ${subject}.`,
       equipamento: params.equipamento,
       maquina: params.maquina,
       data: params.data || this.getTodayIsoDate(),
@@ -2380,12 +2704,12 @@ export class AiService {
       String(sourceSnapshot.description || params.description || '').trim() ||
       'Desvio operacional identificado e pendente de tratamento.';
     const localSetorArea =
-      String(sourceSnapshot.localSetorArea || params.local_setor_area || '').trim() ||
-      'Área operacional';
+      String(
+        sourceSnapshot.localSetorArea || params.local_setor_area || '',
+      ).trim() || 'Área operacional';
     const responsavelArea =
       String(params.responsavel_area || '').trim() || 'Responsável da área';
-    const tipo =
-      String(params.tipo || '').trim() || 'DESVIO_OPERACIONAL';
+    const tipo = String(params.tipo || '').trim() || 'DESVIO_OPERACIONAL';
 
     type GeneratedNonConformityDraft = {
       tipo?: string;
@@ -2407,55 +2731,56 @@ export class AiService {
       notes?: string[];
     };
 
-    const generated = await this.generateStructuredJson<GeneratedNonConformityDraft>({
-      task: 'generic',
-      maxTokens: 1400,
-      prompt:
-        `Crie um rascunho estruturado de Não Conformidade (NC) para SST em ambiente corporativo.\n\n` +
-        `Contexto:\n` +
-        `- Título: ${title}\n` +
-        `- Descrição: ${description}\n` +
-        `- Local/setor/área: ${localSetorArea}\n` +
-        `- Tipo sugerido: ${tipo}\n` +
-        `- Origem do desvio: ${sourceSnapshot.sourceType}\n` +
-        `${
-          sourceSnapshot.promptSections.length
-            ? `- Dados adicionais da origem:\n${sourceSnapshot.promptSections.map((entry) => `  • ${entry}`).join('\n')}\n`
-            : ''
-        }\n` +
-        `Objetivo:\n` +
-        `- gerar um cadastro inicial consistente para revisão humana\n` +
-        `- manter linguagem corporativa, técnica e objetiva\n` +
-        `- priorizar hierarquia de controle\n` +
-        `- considerar NR-01 e outras NRs aplicáveis quando pertinente\n\n` +
-        `Formato JSON:\n` +
-        `{\n` +
-        `  "tipo": string,\n` +
-        `  "classificacao": string[],\n` +
-        `  "descricao": string,\n` +
-        `  "evidencia_observada": string,\n` +
-        `  "condicao_insegura": string,\n` +
-        `  "requisito_nr": string,\n` +
-        `  "requisito_item": string,\n` +
-        `  "risco_perigo": string,\n` +
-        `  "risco_associado": string,\n` +
-        `  "risco_nivel": "Baixo|Médio|Alto|Crítico",\n` +
-        `  "causa": string[],\n` +
-        `  "acao_imediata_descricao": string,\n` +
-        `  "acao_definitiva_descricao": string,\n` +
-        `  "acao_preventiva_medidas": string,\n` +
-        `  "action_plan": [{"title": string, "owner": string, "priority": "low|medium|high|critical", "timeline": string, "type": "immediate|corrective|preventive"}],\n` +
-        `  "confidence": "low|medium|high",\n` +
-        `  "notes": string[]\n` +
-        `}\n\n` +
-        `Regras:\n` +
-        `- Não inventar medições numéricas.\n` +
-        `- Se o contexto for insuficiente, assumir um desvio operacional plausível e declarar isso em notes.\n` +
-        `- descricao, evidencia_observada e condicao_insegura devem ser úteis para cadastro real.\n` +
-        `- acao_imediata_descricao e acao_definitiva_descricao devem ser executáveis.\n` +
-        `- action_plan deve trazer de 2 a 4 ações, com responsável sugerido e horizonte de prazo.\n` +
-        `- Retorne somente JSON válido.`,
-    });
+    const generated =
+      await this.generateStructuredJson<GeneratedNonConformityDraft>({
+        task: 'generic',
+        maxTokens: 1400,
+        prompt:
+          `Crie um rascunho estruturado de Não Conformidade (NC) para SST em ambiente corporativo.\n\n` +
+          `Contexto:\n` +
+          `- Título: ${title}\n` +
+          `- Descrição: ${description}\n` +
+          `- Local/setor/área: ${localSetorArea}\n` +
+          `- Tipo sugerido: ${tipo}\n` +
+          `- Origem do desvio: ${sourceSnapshot.sourceType}\n` +
+          `${
+            sourceSnapshot.promptSections.length
+              ? `- Dados adicionais da origem:\n${sourceSnapshot.promptSections.map((entry) => `  • ${entry}`).join('\n')}\n`
+              : ''
+          }\n` +
+          `Objetivo:\n` +
+          `- gerar um cadastro inicial consistente para revisão humana\n` +
+          `- manter linguagem corporativa, técnica e objetiva\n` +
+          `- priorizar hierarquia de controle\n` +
+          `- considerar NR-01 e outras NRs aplicáveis quando pertinente\n\n` +
+          `Formato JSON:\n` +
+          `{\n` +
+          `  "tipo": string,\n` +
+          `  "classificacao": string[],\n` +
+          `  "descricao": string,\n` +
+          `  "evidencia_observada": string,\n` +
+          `  "condicao_insegura": string,\n` +
+          `  "requisito_nr": string,\n` +
+          `  "requisito_item": string,\n` +
+          `  "risco_perigo": string,\n` +
+          `  "risco_associado": string,\n` +
+          `  "risco_nivel": "Baixo|Médio|Alto|Crítico",\n` +
+          `  "causa": string[],\n` +
+          `  "acao_imediata_descricao": string,\n` +
+          `  "acao_definitiva_descricao": string,\n` +
+          `  "acao_preventiva_medidas": string,\n` +
+          `  "action_plan": [{"title": string, "owner": string, "priority": "low|medium|high|critical", "timeline": string, "type": "immediate|corrective|preventive"}],\n` +
+          `  "confidence": "low|medium|high",\n` +
+          `  "notes": string[]\n` +
+          `}\n\n` +
+          `Regras:\n` +
+          `- Não inventar medições numéricas.\n` +
+          `- Se o contexto for insuficiente, assumir um desvio operacional plausível e declarar isso em notes.\n` +
+          `- descricao, evidencia_observada e condicao_insegura devem ser úteis para cadastro real.\n` +
+          `- acao_imediata_descricao e acao_definitiva_descricao devem ser executáveis.\n` +
+          `- action_plan deve trazer de 2 a 4 ações, com responsável sugerido e horizonte de prazo.\n` +
+          `- Retorne somente JSON válido.`,
+      });
 
     const today = this.getTodayIsoDate();
     const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -2515,8 +2840,11 @@ export class AiService {
       atividade_envolvida: title,
       responsavel_area: responsavelArea,
       auditor_responsavel: 'SOPHIE',
-      classificacao:
-        this.normalizeStringArray(generated.classificacao) || ['SOPHIE', 'NC_ASSISTIDA', sourceSnapshot.sourceType.toUpperCase()],
+      classificacao: this.normalizeStringArray(generated.classificacao) || [
+        'SOPHIE',
+        'NC_ASSISTIDA',
+        sourceSnapshot.sourceType.toUpperCase(),
+      ],
       descricao:
         String(generated.descricao || '').trim() ||
         `${title}. ${description}`.trim(),
@@ -2527,16 +2855,20 @@ export class AiService {
         'Condição insegura identificada durante análise assistida.',
       requisito_nr: String(generated.requisito_nr || 'NR-01').trim() || 'NR-01',
       requisito_item:
-        String(generated.requisito_item || 'Gerenciamento de riscos ocupacionais').trim() ||
-        'Gerenciamento de riscos ocupacionais',
+        String(
+          generated.requisito_item || 'Gerenciamento de riscos ocupacionais',
+        ).trim() || 'Gerenciamento de riscos ocupacionais',
       risco_perigo:
-        String(generated.risco_perigo || 'Desvio operacional').trim() || 'Desvio operacional',
+        String(generated.risco_perigo || 'Desvio operacional').trim() ||
+        'Desvio operacional',
       risco_associado:
-        String(generated.risco_associado || 'Persistência de condição insegura').trim() ||
-        'Persistência de condição insegura',
+        String(
+          generated.risco_associado || 'Persistência de condição insegura',
+        ).trim() || 'Persistência de condição insegura',
       risco_nivel: normalizedRiskLevel,
-      causa:
-        this.normalizeStringArray(generated.causa) || ['FALHA_DE_CONTROLE_OPERACIONAL'],
+      causa: this.normalizeStringArray(generated.causa) || [
+        'FALHA_DE_CONTROLE_OPERACIONAL',
+      ],
       acao_imediata_descricao:
         String(generated.acao_imediata_descricao || '').trim() ||
         'Executar contenção imediata do desvio e reforçar bloqueio operacional.',
@@ -2656,7 +2988,7 @@ export class AiService {
         maxTokens,
       });
 
-      interaction.response = (data as unknown) as any;
+      interaction.response = data as unknown as any;
       interaction.latency_ms = Date.now() - startTime;
       interaction.token_usage_input = inputTokens;
       interaction.token_usage_output = outputTokens;
@@ -2686,7 +3018,10 @@ export class AiService {
   }
 
   // Compatibilidade com chamadas legadas.
-  async generateJson<T>(prompt: string, schemaOrMaxTokens: string | number): Promise<T> {
+  async generateJson<T>(
+    prompt: string,
+    schemaOrMaxTokens: string | number,
+  ): Promise<T> {
     const maxTokens =
       typeof schemaOrMaxTokens === 'number'
         ? Math.max(64, Math.min(2400, Math.trunc(schemaOrMaxTokens)))

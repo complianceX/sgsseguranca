@@ -52,7 +52,9 @@ export class RisksController extends BaseController<
 
   @Get(':id')
   @Authorize('can_view_risks')
-  override findOne(@Param('id', new ParseUUIDPipe()) id: string): Promise<Risk> {
+  override findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<Risk> {
     return this.risksService.findOne(id);
   }
 

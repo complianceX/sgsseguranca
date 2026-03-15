@@ -174,14 +174,17 @@ export class DocumentImportService {
 
     const existingMetadata = record?.metadata || {};
 
-    await this.documentImportRepository.update({ id: documentId, empresaId }, {
-      tipoDocumento: tipoDocumento,
-      status: DocumentImportStatus.PROCESSING,
-      metadata: {
-        ...existingMetadata,
-        scoreClassificacao,
-      } as Record<string, any>,
-    });
+    await this.documentImportRepository.update(
+      { id: documentId, empresaId },
+      {
+        tipoDocumento: tipoDocumento,
+        status: DocumentImportStatus.PROCESSING,
+        metadata: {
+          ...existingMetadata,
+          scoreClassificacao,
+        } as Record<string, any>,
+      },
+    );
   }
 
   private async updateRecordWithAnalysis(
@@ -197,16 +200,19 @@ export class DocumentImportService {
 
     const existingMetadata = record?.metadata || {};
 
-    await this.documentImportRepository.update({ id: documentId, empresaId }, {
-      jsonEstruturado: analysis as Record<string, any>, // jsonb column remains any for now
-      status: DocumentImportStatus.COMPLETED,
-      metadata: {
-        ...existingMetadata,
-        quantidadeTexto: textoExtraidoLength,
-        validacao: validation as Record<string, any>,
-        timestampFinalizacao: new Date().toISOString(),
-      } as Record<string, any>,
-    });
+    await this.documentImportRepository.update(
+      { id: documentId, empresaId },
+      {
+        jsonEstruturado: analysis as Record<string, any>, // jsonb column remains any for now
+        status: DocumentImportStatus.COMPLETED,
+        metadata: {
+          ...existingMetadata,
+          quantidadeTexto: textoExtraidoLength,
+          validacao: validation as Record<string, any>,
+          timestampFinalizacao: new Date().toISOString(),
+        } as Record<string, any>,
+      },
+    );
   }
 
   private async markAsFailed(
@@ -220,20 +226,25 @@ export class DocumentImportService {
 
     const existingMetadata = record?.metadata || {};
 
-    await this.documentImportRepository.update({ id: documentId, empresaId }, {
-      status: DocumentImportStatus.FAILED,
-      metadata: {
-        ...existingMetadata,
-        erro: errorMessage,
-        timestampFalha: new Date().toISOString(),
-      } as Record<string, any>,
-    });
+    await this.documentImportRepository.update(
+      { id: documentId, empresaId },
+      {
+        status: DocumentImportStatus.FAILED,
+        metadata: {
+          ...existingMetadata,
+          erro: errorMessage,
+          timestampFalha: new Date().toISOString(),
+        } as Record<string, any>,
+      },
+    );
   }
 
   async getDocumentStatus(documentId: string): Promise<DocumentImport | null> {
     const tenantId = this.tenantService.getTenantId();
     return await this.documentImportRepository.findOne({
-      where: tenantId ? { id: documentId, empresaId: tenantId } : { id: documentId },
+      where: tenantId
+        ? { id: documentId, empresaId: tenantId }
+        : { id: documentId },
     });
   }
 
@@ -254,7 +265,9 @@ export class DocumentImportService {
       throw new ForbiddenException('Contexto de empresa não definido.');
     }
     return await this.documentImportRepository.find({
-      where: tenantId ? ({ status: status, empresaId: tenantId } as any) : ({ status: status } as any),
+      where: tenantId
+        ? ({ status: status, empresaId: tenantId } as any)
+        : ({ status: status } as any),
       order: { createdAt: 'DESC' },
     });
   }

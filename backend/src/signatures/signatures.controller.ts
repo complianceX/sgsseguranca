@@ -52,7 +52,10 @@ export class SignaturesController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_signatures')
-  remove(@Param('id', new ParseUUIDPipe()) id: string, @Request() req: RequestWithUser) {
+  remove(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Request() req: RequestWithUser,
+  ) {
     return this.signaturesService.remove(
       id,
       req.user.userId,

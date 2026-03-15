@@ -69,11 +69,23 @@ export class CalendarService {
       }),
       this.medicalExamsRepo.find({
         where: where({ data_realizacao: Between(start, end) }),
-        select: ['id', 'tipo_exame', 'resultado', 'data_realizacao', 'data_vencimento'],
+        select: [
+          'id',
+          'tipo_exame',
+          'resultado',
+          'data_realizacao',
+          'data_vencimento',
+        ],
       }),
       this.medicalExamsRepo.find({
         where: where({ data_vencimento: Between(start, end) }),
-        select: ['id', 'tipo_exame', 'resultado', 'data_realizacao', 'data_vencimento'],
+        select: [
+          'id',
+          'tipo_exame',
+          'resultado',
+          'data_realizacao',
+          'data_vencimento',
+        ],
       }),
       this.ddsRepo.find({
         where: where({ data: Between(start, end) }),

@@ -133,8 +133,13 @@ export class UsersController {
 
   @Get('worker-status/cpf/:cpf')
   @Authorize('can_view_users')
-  @ApiOperation({ summary: 'Consultar status operacional do trabalhador por CPF' })
-  @ApiResponse({ status: 200, description: 'Status operacional retornado com sucesso' })
+  @ApiOperation({
+    summary: 'Consultar status operacional do trabalhador por CPF',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Status operacional retornado com sucesso',
+  })
   @ApiResponse({ status: 404, description: 'Trabalhador não encontrado' })
   getWorkerStatusByCpf(@Param('cpf') cpf: string) {
     return this.workerOperationalStatusService.getByCpf(cpf);
@@ -142,8 +147,13 @@ export class UsersController {
 
   @Get('worker-status/cpf/:cpf/timeline')
   @Authorize('can_view_users')
-  @ApiOperation({ summary: 'Consultar timeline operacional do trabalhador por CPF' })
-  @ApiResponse({ status: 200, description: 'Timeline operacional retornada com sucesso' })
+  @ApiOperation({
+    summary: 'Consultar timeline operacional do trabalhador por CPF',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Timeline operacional retornada com sucesso',
+  })
   @ApiResponse({ status: 404, description: 'Trabalhador não encontrado' })
   getWorkerTimelineByCpf(@Param('cpf') cpf: string) {
     return this.workerTimelineService.getByCpf(cpf);
@@ -162,15 +172,22 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Não autenticado' })
   @ApiResponse({ status: 403, description: 'Sem permissão' })
   @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
-  findOne(@Param('id', new ParseUUIDPipe()) id: string): Promise<UserResponseDto> {
+  findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<UserResponseDto> {
     return this.usersService.findOne(id);
   }
 
   @Get(':id/timeline')
   @Authorize('can_view_users')
-  @ApiOperation({ summary: 'Consultar timeline operacional do trabalhador por ID' })
+  @ApiOperation({
+    summary: 'Consultar timeline operacional do trabalhador por ID',
+  })
   @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
-  @ApiResponse({ status: 200, description: 'Timeline operacional retornada com sucesso' })
+  @ApiResponse({
+    status: 200,
+    description: 'Timeline operacional retornada com sucesso',
+  })
   @ApiResponse({ status: 404, description: 'Trabalhador não encontrado' })
   getWorkerTimeline(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.workerTimelineService.getByUserId(id);

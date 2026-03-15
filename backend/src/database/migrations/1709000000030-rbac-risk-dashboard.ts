@@ -212,7 +212,9 @@ export class RbacRiskDashboard1709000000030 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_monthly_snapshots_company_month"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_monthly_snapshots_company_month"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "monthly_snapshots"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "risk_history"`);
 

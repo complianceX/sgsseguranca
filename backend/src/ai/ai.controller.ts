@@ -24,10 +24,7 @@ import { CreateAssistedChecklistDto } from './dto/create-assisted-checklist.dto'
 import { CreateAssistedAprDto } from './dto/create-assisted-apr.dto';
 import { CreateAssistedNonConformityDto } from './dto/create-assisted-nonconformity.dto';
 import { CreateAssistedPtDto } from './dto/create-assisted-pt.dto';
-import {
-  CreateAssistedDdsDto,
-  GenerateDdsDto,
-} from './dto/generate-dds.dto';
+import { CreateAssistedDdsDto, GenerateDdsDto } from './dto/generate-dds.dto';
 import { GenerateSophieReportDto } from './dto/generate-sophie-report.dto';
 
 @Controller('ai')

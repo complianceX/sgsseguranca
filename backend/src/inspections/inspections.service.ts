@@ -118,14 +118,13 @@ export class InspectionsService {
       .map((item) => ({
         descricao: this.normalizeRequiredText(item.descricao),
         url: this.normalizeText(item.url) || undefined,
-        original_name: this.normalizeText((item as any).original_name) || undefined,
+        original_name:
+          this.normalizeText((item as any).original_name) || undefined,
       }))
       .filter((item) => item.descricao || item.url);
   }
 
-  private async signEvidenceUrls(
-    evidencias: Inspection['evidencias'],
-  ): Promise<
+  private async signEvidenceUrls(evidencias: Inspection['evidencias']): Promise<
     | {
         descricao: string;
         url?: string;
@@ -137,7 +136,8 @@ export class InspectionsService {
     const mapped = await Promise.all(
       evidencias.map(async (ev) => {
         if (!ev.url) return ev;
-        const isHttp = ev.url.startsWith('http://') || ev.url.startsWith('https://');
+        const isHttp =
+          ev.url.startsWith('http://') || ev.url.startsWith('https://');
         let signed = ev.url;
         if (!isHttp) {
           try {

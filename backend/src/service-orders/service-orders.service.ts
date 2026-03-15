@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
@@ -75,8 +79,10 @@ export class ServiceOrdersService {
       .take(limit);
 
     if (tenantId) qb.where('so.company_id = :tenantId', { tenantId });
-    if (opts?.status) qb.andWhere('so.status = :status', { status: opts.status });
-    if (opts?.site_id) qb.andWhere('so.site_id = :site_id', { site_id: opts.site_id });
+    if (opts?.status)
+      qb.andWhere('so.status = :status', { status: opts.status });
+    if (opts?.site_id)
+      qb.andWhere('so.site_id = :site_id', { site_id: opts.site_id });
 
     const [data, total] = await qb.getManyAndCount();
     return toOffsetPage(data, total, page, limit);
@@ -89,7 +95,9 @@ export class ServiceOrdersService {
       relations: ['responsavel', 'site'],
     });
     if (!order) {
-      throw new NotFoundException(`Ordem de Serviço com ID ${id} não encontrada`);
+      throw new NotFoundException(
+        `Ordem de Serviço com ID ${id} não encontrada`,
+      );
     }
     return order;
   }
@@ -134,8 +142,12 @@ export class ServiceOrdersService {
       Responsável: o.responsavel?.nome ?? '',
       Status: STATUS_LABEL[o.status] ?? o.status,
       'Data Emissão': new Date(o.data_emissao).toLocaleDateString('pt-BR'),
-      'Data Início': o.data_inicio ? new Date(o.data_inicio).toLocaleDateString('pt-BR') : '',
-      'Data Fim Previsto': o.data_fim_previsto ? new Date(o.data_fim_previsto).toLocaleDateString('pt-BR') : '',
+      'Data Início': o.data_inicio
+        ? new Date(o.data_inicio).toLocaleDateString('pt-BR')
+        : '',
+      'Data Fim Previsto': o.data_fim_previsto
+        ? new Date(o.data_fim_previsto).toLocaleDateString('pt-BR')
+        : '',
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);

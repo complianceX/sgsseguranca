@@ -54,4 +54,3 @@ export class RlsDocumentImports1709000000028 implements MigrationInterface {
     );
   }
 }
-

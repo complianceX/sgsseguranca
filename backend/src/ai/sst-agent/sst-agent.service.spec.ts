@@ -23,6 +23,7 @@ import { SstToolsExecutor } from './sst-agent.tools';
 import { SstRateLimitService } from './sst-rate-limit.service';
 import { TenantService } from '../../common/tenant/tenant.service';
 import { AiInteraction } from '../entities/ai-interaction.entity';
+import { SophieLocalChatService } from '../../sophie/sophie.local-chat.service';
 import {
   AiInteractionStatus,
   ConfidenceLevel,
@@ -53,6 +54,10 @@ const mockRateLimitService = () => ({
   recordTokenUsage: jest.fn(),
 });
 
+const mockSophieLocalChatService = () => ({
+  chat: jest.fn(),
+});
+
 const mockConfigService = (apiKey?: string) => ({
   get: jest.fn((key: string) => {
     if (key === 'ANTHROPIC_API_KEY') return apiKey;
@@ -81,13 +86,15 @@ const makeService = async (options?: {
   tenantService: jest.Mocked<TenantService>;
   rateLimitService: jest.Mocked<SstRateLimitService>;
 }> => {
-  const tenantId = options && 'tenantId' in options ? options.tenantId : TENANT_ID;
+  const tenantId =
+    options && 'tenantId' in options ? options.tenantId : TENANT_ID;
   const rateLimitAllowed = options?.rateLimitAllowed ?? true;
 
   const repoMock = mockRepo();
   const tenantMock = mockTenantService();
   const toolsMock = mockToolsExecutor();
   const rlMock = mockRateLimitService();
+  const sophieLocalChatMock = mockSophieLocalChatService();
 
   tenantMock.getTenantId.mockReturnValue(tenantId);
   rlMock.checkAndConsume.mockResolvedValue({
@@ -96,7 +103,10 @@ const makeService = async (options?: {
     remaining: { perMinute: rateLimitAllowed ? 9 : 0, perDay: 99 },
   });
   rlMock.recordTokenUsage.mockResolvedValue(undefined);
-  repoMock.create.mockImplementation((data: any) => ({ ...data, id: 'interaction-id-1' }));
+  repoMock.create.mockImplementation((data: any) => ({
+    ...data,
+    id: 'interaction-id-1',
+  }));
   repoMock.save.mockImplementation((entity: any) => Promise.resolve(entity));
 
   const module: TestingModule = await Test.createTestingModule({
@@ -107,6 +117,7 @@ const makeService = async (options?: {
       { provide: TenantService, useValue: tenantMock },
       { provide: SstToolsExecutor, useValue: toolsMock },
       { provide: SstRateLimitService, useValue: rlMock },
+      { provide: SophieLocalChatService, useValue: sophieLocalChatMock },
     ],
   }).compile();
 
@@ -123,7 +134,6 @@ const makeService = async (options?: {
 // ---------------------------------------------------------------------------
 
 describe('SstAgentService', () => {
-
   // -------------------------------------------------------------------------
   // 1. Tenant isolation
   // -------------------------------------------------------------------------
@@ -161,7 +171,9 @@ describe('SstAgentService', () => {
     it('getHistory() deve lancar UnauthorizedException sem tenant', async () => {
       const { service } = await makeService({ tenantId: null });
 
-      await expect(service.getHistory(USER_ID)).rejects.toThrow(UnauthorizedException);
+      await expect(service.getHistory(USER_ID)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('getInteraction() deve incluir tenant_id na clausula WHERE (anti cross-tenant)', async () => {
@@ -180,7 +192,9 @@ describe('SstAgentService', () => {
     it('getInteraction() nunca deve aceitar busca apenas por ID sem tenant', async () => {
       const { service } = await makeService({ tenantId: null });
 
-      await expect(service.getInteraction('any-id')).rejects.toThrow(UnauthorizedException);
+      await expect(service.getInteraction('any-id')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
@@ -192,7 +206,9 @@ describe('SstAgentService', () => {
     it('deve lancar TooManyRequestsException quando rate limit atingido', async () => {
       const { service } = await makeService({ rateLimitAllowed: false });
 
-      await expect(service.chat('pergunta', USER_ID)).rejects.toThrow(HttpException);
+      await expect(service.chat('pergunta', USER_ID)).rejects.toThrow(
+        HttpException,
+      );
     });
 
     it('deve permitir requisicao quando dentro do limite', async () => {
@@ -210,17 +226,20 @@ describe('SstAgentService', () => {
   // 3. Modo stub (sem API key)
   // -------------------------------------------------------------------------
 
-  describe('Modo stub (sem ANTHROPIC_API_KEY)', () => {
+  describe('Modo stub (sem OPENAI_API_KEY)', () => {
     it('deve retornar resposta stub com confidence LOW', async () => {
       const { service } = await makeService({ apiKey: undefined });
 
-      const result = await service.chat('Quais treinamentos estao vencidos?', USER_ID);
+      const result = await service.chat(
+        'Quais treinamentos estao vencidos?',
+        USER_ID,
+      );
 
       expect(result.confidence).toBe(ConfidenceLevel.LOW);
       expect(result.toolsUsed).toHaveLength(0);
-      expect(result.answer).toContain('modo demonstracao');
+      expect(result.answer).toContain('integração não está configurada');
       expect(result.warnings).toContainEqual(
-        expect.stringContaining('ANTHROPIC_API_KEY'),
+        expect.stringContaining('OPENAI_API_KEY'),
       );
     });
 
@@ -234,7 +253,7 @@ describe('SstAgentService', () => {
           tenant_id: TENANT_ID,
           user_id: USER_ID,
           provider: 'stub',
-          model: 'stub',
+          model: 'openai-unconfigured',
         }),
       );
     });
@@ -283,7 +302,10 @@ describe('SstAgentService', () => {
     it('nao deve ter needsHumanReview em stub response por design', async () => {
       const { service } = await makeService({ apiKey: undefined });
 
-      const result = await service.chat('Quero um laudo de insalubridade', USER_ID);
+      const result = await service.chat(
+        'Quero um laudo de insalubridade',
+        USER_ID,
+      );
 
       // Stub nao processa a pergunta — apenas registra
       // A deteccao hibrida roda apenas quando ha resposta real do modelo
@@ -297,7 +319,9 @@ describe('SstAgentService', () => {
 
   describe('Persistencia de erros', () => {
     it('deve salvar status ERROR quando a interacao falha', async () => {
-      const { service, repo, rateLimitService } = await makeService({ apiKey: 'fake-key' });
+      const { service, repo, rateLimitService } = await makeService({
+        apiKey: 'fake-key',
+      });
 
       // Simula erro apos rate limit check
       rateLimitService.checkAndConsume.mockResolvedValue({

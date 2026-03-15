@@ -58,9 +58,9 @@ export class TenantGuard implements CanActivate {
         url?: string;
         headers?: Record<string, unknown>;
       }>();
-      const headerCompanyId = (req?.headers?.['x-company-id'] as
+      const headerCompanyId = req?.headers?.['x-company-id'] as
         | string
-        | undefined);
+        | undefined;
       this.logger.warn({
         event: 'missing_tenant_context',
         isSuperAdmin,

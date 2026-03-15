@@ -1,4 +1,10 @@
-import { IsArray, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 class SophieConversationMessageDto {
@@ -21,4 +27,3 @@ export class SophieChatDto {
   @Type(() => SophieConversationMessageDto)
   history?: SophieConversationMessageDto[];
 }
-

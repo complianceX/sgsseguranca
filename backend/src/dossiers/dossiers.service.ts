@@ -261,7 +261,11 @@ export class DossiersService {
     doc: jsPDF,
     attachmentLines: DossierAttachmentLine[],
   ) {
-    drawBackendSectionTitle(doc, getBackendLastTableY(doc) + 8, 'Indice de anexos');
+    drawBackendSectionTitle(
+      doc,
+      getBackendLastTableY(doc) + 8,
+      'Indice de anexos',
+    );
     autoTable(doc, {
       startY: getBackendLastTableY(doc) + 16,
       head: [['Tipo', 'Referencia', 'Arquivo', 'URL/Chave']],

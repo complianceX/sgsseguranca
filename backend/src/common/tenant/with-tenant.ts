@@ -1,6 +1,8 @@
 import { UnauthorizedException } from '@nestjs/common';
 
-export type TenantWhereInput = Record<string, unknown> | Array<Record<string, unknown>>;
+export type TenantWhereInput =
+  | Record<string, unknown>
+  | Array<Record<string, unknown>>;
 
 export type WithTenantOptions = {
   /**

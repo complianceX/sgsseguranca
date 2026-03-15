@@ -61,4 +61,3 @@ export type SophieAnalyzeResult = {
   nivel_de_risco?: number;
   classificacao?: SophieRiskLevel;
 };
-

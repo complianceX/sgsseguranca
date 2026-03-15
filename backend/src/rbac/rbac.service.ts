@@ -285,7 +285,9 @@ export class RbacService {
     return rows.map((permission) => permission.name);
   }
 
-  private async getFallbackAccessFromProfile(userId: string): Promise<AccessBundle> {
+  private async getFallbackAccessFromProfile(
+    userId: string,
+  ): Promise<AccessBundle> {
     const user = await this.usersRepository.findOne({
       where: { id: userId },
       relations: ['profile'],
@@ -294,7 +296,8 @@ export class RbacService {
     const profileName = user?.profile?.nome;
     const profilePermissions = Array.isArray(user?.profile?.permissoes)
       ? user.profile.permissoes.filter(
-          (item): item is string => typeof item === 'string' && item.trim().length > 0,
+          (item): item is string =>
+            typeof item === 'string' && item.trim().length > 0,
         )
       : [];
 
@@ -304,7 +307,9 @@ export class RbacService {
 
     return {
       roles: profileName ? [profileName] : [],
-      permissions: [...new Set([...fallbackPermissions, ...profilePermissions])].sort(),
+      permissions: [
+        ...new Set([...fallbackPermissions, ...profilePermissions]),
+      ].sort(),
     };
   }
 }

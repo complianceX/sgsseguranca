@@ -148,9 +148,14 @@ export class StorageService {
       return Buffer.from(bytes);
     }
 
-    if (body instanceof Readable || typeof (body as any)[Symbol.asyncIterator] === 'function') {
+    if (
+      body instanceof Readable ||
+      typeof (body as any)[Symbol.asyncIterator] === 'function'
+    ) {
       const chunks: Buffer[] = [];
-      for await (const chunk of body as AsyncIterable<Buffer | Uint8Array | string>) {
+      for await (const chunk of body as AsyncIterable<
+        Buffer | Uint8Array | string
+      >) {
         chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
       }
       return Buffer.concat(chunks);

@@ -17,7 +17,9 @@ import { DocumentRegistryService } from './document-registry.service';
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class DocumentRegistryController {
-  constructor(private readonly documentRegistryService: DocumentRegistryService) {}
+  constructor(
+    private readonly documentRegistryService: DocumentRegistryService,
+  ) {}
 
   @Get()
   @Authorize('can_view_documents_registry')
@@ -48,17 +50,18 @@ export class DocumentRegistryController {
     @Query('week') week?: string,
     @Query('modules') modules?: string,
   ): Promise<StreamableFile> {
-    const { buffer, fileName } = await this.documentRegistryService.getWeeklyBundle({
-      companyId,
-      year: year ? Number(year) : undefined,
-      week: week ? Number(week) : undefined,
-      modules: modules
-        ? modules
-            .split(',')
-            .map((item) => item.trim().toLowerCase())
-            .filter(Boolean)
-        : undefined,
-    });
+    const { buffer, fileName } =
+      await this.documentRegistryService.getWeeklyBundle({
+        companyId,
+        year: year ? Number(year) : undefined,
+        week: week ? Number(week) : undefined,
+        modules: modules
+          ? modules
+              .split(',')
+              .map((item) => item.trim().toLowerCase())
+              .filter(Boolean)
+          : undefined,
+      });
 
     return new StreamableFile(buffer, {
       disposition: `attachment; filename="${fileName}"`,

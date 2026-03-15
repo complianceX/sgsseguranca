@@ -93,7 +93,11 @@ export class SstAgentController {
       throw new BadRequestException('Falha ao ler a imagem enviada.');
     }
 
-    await validateFileMagicBytes(buffer, ['image/jpeg', 'image/png', 'image/webp']);
+    await validateFileMagicBytes(buffer, [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ]);
 
     const userId: string = req.user?.sub ?? req.user?.id ?? 'unknown';
     return this.sstAgentService.analyzeImageRisk(

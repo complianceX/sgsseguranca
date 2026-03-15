@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { ConfidenceLevel, SstAgentResponse } from '../ai/sst-agent/sst-agent.types';
+import {
+  ConfidenceLevel,
+  SstAgentResponse,
+} from '../ai/sst-agent/sst-agent.types';
 import { SophieEngineService } from './sophie.engine.service';
 
 @Injectable()
@@ -12,12 +15,24 @@ export class SophieLocalChatService {
     const q = (question || '').trim();
     const lower = q.toLowerCase();
 
-    const activityGuess = this.extractAfter(lower, ['atividade:', 'atividade =', 'atividade ']) || '';
-    const setorGuess = this.extractAfter(lower, ['setor:', 'setor =', 'setor ']) || '';
-    const maquinaGuess = this.extractAfter(lower, ['maquina:', 'máquina:', 'maquina =', 'máquina =']) || '';
-    const processoGuess = this.extractAfter(lower, ['processo:', 'processo =']) || '';
-    const materialGuess = this.extractAfter(lower, ['material:', 'material =']) || '';
-    const ambienteGuess = this.extractAfter(lower, ['ambiente:', 'ambiente =']) || '';
+    const activityGuess =
+      this.extractAfter(lower, ['atividade:', 'atividade =', 'atividade ']) ||
+      '';
+    const setorGuess =
+      this.extractAfter(lower, ['setor:', 'setor =', 'setor ']) || '';
+    const maquinaGuess =
+      this.extractAfter(lower, [
+        'maquina:',
+        'máquina:',
+        'maquina =',
+        'máquina =',
+      ]) || '';
+    const processoGuess =
+      this.extractAfter(lower, ['processo:', 'processo =']) || '';
+    const materialGuess =
+      this.extractAfter(lower, ['material:', 'material =']) || '';
+    const ambienteGuess =
+      this.extractAfter(lower, ['ambiente:', 'ambiente =']) || '';
 
     const hasAny =
       Boolean(activityGuess) ||
@@ -38,7 +53,11 @@ export class SophieLocalChatService {
         sources: [],
         suggestedActions: [
           { label: 'Criar APR', href: '/dashboard/aprs/new', priority: 'high' },
-          { label: 'Criar PGR', href: '/dashboard/reports', priority: 'medium' },
+          {
+            label: 'Criar PGR',
+            href: '/dashboard/reports',
+            priority: 'medium',
+          },
         ],
         warnings: [],
         toolsUsed: ['sophie_kb_rules'],
@@ -59,13 +78,18 @@ export class SophieLocalChatService {
     const controles = analysis.controles;
 
     const answerLines: string[] = [];
-    if (activityGuess) answerLines.push(`Atividade analisada: ${activityGuess}`);
+    if (activityGuess)
+      answerLines.push(`Atividade analisada: ${activityGuess}`);
     if (setorGuess) answerLines.push(`Setor: ${setorGuess}`);
     if (maquinaGuess) answerLines.push(`Máquina/Equip.: ${maquinaGuess}`);
     if (ambienteGuess) answerLines.push(`Ambiente: ${ambienteGuess}`);
     answerLines.push('');
     answerLines.push('Perigos identificados:');
-    answerLines.push(...(perigos.length ? perigos.map((p) => `- ${p}`) : ['- (nenhum mapeamento encontrado na base)']));
+    answerLines.push(
+      ...(perigos.length
+        ? perigos.map((p) => `- ${p}`)
+        : ['- (nenhum mapeamento encontrado na base)']),
+    );
     answerLines.push('');
     answerLines.push('Medidas de controle (prioridade por hierarquia):');
     if (controles.eliminacao.length) {
@@ -90,7 +114,9 @@ export class SophieLocalChatService {
     }
 
     const confidence =
-      analysis.matchedRuleIds.length > 0 ? ConfidenceLevel.HIGH : ConfidenceLevel.LOW;
+      analysis.matchedRuleIds.length > 0
+        ? ConfidenceLevel.HIGH
+        : ConfidenceLevel.LOW;
 
     return {
       answer: answerLines.join('\n'),
@@ -103,7 +129,9 @@ export class SophieLocalChatService {
       ],
       warnings:
         confidence === ConfidenceLevel.LOW
-          ? ['Base SOPHIE não encontrou regras para esta descrição. Revise manualmente e complemente a base.']
+          ? [
+              'Base SOPHIE não encontrou regras para esta descrição. Revise manualmente e complemente a base.',
+            ]
           : [],
       toolsUsed: ['sophie_kb_rules'],
     };
@@ -122,4 +150,3 @@ export class SophieLocalChatService {
     return '';
   }
 }
-

@@ -80,11 +80,12 @@ export class NonConformitiesController {
     @Query('year') year?: string,
     @Query('week') week?: string,
   ): Promise<StreamableFile> {
-    const { buffer, fileName } = await this.nonConformitiesService.getWeeklyBundle({
-      companyId,
-      year: year ? Number(year) : undefined,
-      week: week ? Number(week) : undefined,
-    });
+    const { buffer, fileName } =
+      await this.nonConformitiesService.getWeeklyBundle({
+        companyId,
+        year: year ? Number(year) : undefined,
+        week: week ? Number(week) : undefined,
+      });
 
     return new StreamableFile(buffer, {
       disposition: `attachment; filename="${fileName}"`,
@@ -100,8 +101,14 @@ export class NonConformitiesController {
 
   @Get('export/excel')
   @Authorize('can_manage_nc')
-  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-  @Header('Content-Disposition', 'attachment; filename="nao-conformidades.xlsx"')
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="nao-conformidades.xlsx"',
+  )
   async exportExcel(): Promise<StreamableFile> {
     const buffer = await this.nonConformitiesService.exportExcel();
     return new StreamableFile(buffer);

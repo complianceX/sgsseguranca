@@ -224,8 +224,12 @@ export class TrainingsService {
       .createQueryBuilder('training')
       .leftJoinAndSelect('training.user', 'user')
       .select([
-        'training.nr_codigo', 'training.nome', 'training.data_vencimento',
-        'training.data_conclusao', 'training.carga_horaria', 'training.created_at',
+        'training.nr_codigo',
+        'training.nome',
+        'training.data_vencimento',
+        'training.data_conclusao',
+        'training.carga_horaria',
+        'training.created_at',
         'user.nome',
       ])
       .orderBy('training.data_vencimento', 'ASC');
@@ -244,12 +248,16 @@ export class TrainingsService {
             : 'Em dia';
       return {
         'Código NR': t.nr_codigo ?? '',
-        'Nome': t.nome,
-        'Status': status,
-        'Data de Vencimento': vencimento ? vencimento.toLocaleDateString('pt-BR') : '',
-        'Data de Conclusão': t.data_conclusao ? new Date(t.data_conclusao).toLocaleDateString('pt-BR') : '',
+        Nome: t.nome,
+        Status: status,
+        'Data de Vencimento': vencimento
+          ? vencimento.toLocaleDateString('pt-BR')
+          : '',
+        'Data de Conclusão': t.data_conclusao
+          ? new Date(t.data_conclusao).toLocaleDateString('pt-BR')
+          : '',
         'Carga Horária (h)': t.carga_horaria ?? '',
-        'Funcionário': t.user?.nome ?? '',
+        Funcionário: t.user?.nome ?? '',
       };
     });
 

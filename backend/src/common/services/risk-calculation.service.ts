@@ -54,38 +54,47 @@ export class RiskCalculationService {
       {
         hierarchy: 'ELIMINATION',
         title: 'Eliminar a exposição',
-        description: 'Avaliar se a tarefa pode ser reprogramada, isolada ou executada sem exposição ao perigo.',
+        description:
+          'Avaliar se a tarefa pode ser reprogramada, isolada ou executada sem exposição ao perigo.',
       },
       {
         hierarchy: 'SUBSTITUTION',
         title: 'Substituir processo ou insumo',
-        description: 'Substituir ferramenta, produto ou método por alternativa de menor risco.',
+        description:
+          'Substituir ferramenta, produto ou método por alternativa de menor risco.',
       },
       {
         hierarchy: 'ENGINEERING',
         title: 'Aplicar barreiras e dispositivos',
-        description: 'Usar EPC, enclausuramento, travamento, sensores e segregação física da área.',
+        description:
+          'Usar EPC, enclausuramento, travamento, sensores e segregação física da área.',
       },
       {
         hierarchy: 'ADMINISTRATIVE',
         title: 'Formalizar controles operacionais',
-        description: 'Garantir PT, APR, isolamento, supervisão e treinamento válido para a equipe.',
+        description:
+          'Garantir PT, APR, isolamento, supervisão e treinamento válido para a equipe.',
       },
       {
         hierarchy: 'PPE',
         title: 'Confirmar EPI compatível',
-        description: 'Selecionar e inspecionar EPI adequado antes do início da tarefa.',
+        description:
+          'Selecionar e inspecionar EPI adequado antes do início da tarefa.',
       },
     ];
 
     if (activity.includes('altura')) {
-      controls[2].description = 'Instalar linha de vida, guarda-corpo e pontos de ancoragem certificados.';
-      controls[4].description = 'Validar cinto paraquedista, talabarte duplo e capacete com jugular.';
+      controls[2].description =
+        'Instalar linha de vida, guarda-corpo e pontos de ancoragem certificados.';
+      controls[4].description =
+        'Validar cinto paraquedista, talabarte duplo e capacete com jugular.';
     }
 
     if (activity.includes('elétr') || condition.includes('energia')) {
-      controls[1].description = 'Avaliar execução com energia desenergizada ou uso de tecnologia de menor tensão.';
-      controls[2].description = 'Aplicar bloqueio, etiquetagem, barreiras dielétricas e aterramento temporário.';
+      controls[1].description =
+        'Avaliar execução com energia desenergizada ou uso de tecnologia de menor tensão.';
+      controls[2].description =
+        'Aplicar bloqueio, etiquetagem, barreiras dielétricas e aterramento temporário.';
     }
 
     if (riskLevel === 'CRITICAL' || riskLevel === 'HIGH') {

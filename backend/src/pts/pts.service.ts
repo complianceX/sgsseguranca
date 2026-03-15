@@ -77,7 +77,9 @@ export class PtsService {
     }
   }
 
-  private resolveStatusForGenericCreate(requestedStatus?: string | null): PtStatus {
+  private resolveStatusForGenericCreate(
+    requestedStatus?: string | null,
+  ): PtStatus {
     if (!requestedStatus || requestedStatus === PtStatus.PENDENTE) {
       return PtStatus.PENDENTE;
     }
@@ -154,10 +156,19 @@ export class PtsService {
     const qb = this.ptsRepository
       .createQueryBuilder('pt')
       .select([
-        'pt.id', 'pt.numero', 'pt.titulo', 'pt.descricao',
-        'pt.data_hora_inicio', 'pt.data_hora_fim', 'pt.status',
-        'pt.company_id', 'pt.site_id', 'pt.apr_id',
-        'pt.responsavel_id', 'pt.created_at', 'pt.updated_at',
+        'pt.id',
+        'pt.numero',
+        'pt.titulo',
+        'pt.descricao',
+        'pt.data_hora_inicio',
+        'pt.data_hora_fim',
+        'pt.status',
+        'pt.company_id',
+        'pt.site_id',
+        'pt.apr_id',
+        'pt.responsavel_id',
+        'pt.created_at',
+        'pt.updated_at',
       ])
       .orderBy('pt.created_at', 'DESC')
       .skip(skip)
@@ -272,9 +283,18 @@ export class PtsService {
         });
       },
     });
-    this.logger.log({ event: 'pt_pdf_anexado', ptId: id, userId, fileKey: key });
+    this.logger.log({
+      event: 'pt_pdf_anexado',
+      ptId: id,
+      userId,
+      fileKey: key,
+    });
 
-    return { fileKey: key, folderPath: folder, originalName: file.originalname };
+    return {
+      fileKey: key,
+      folderPath: folder,
+      originalName: file.originalname,
+    };
   }
 
   async getPdfAccess(id: string): Promise<{
@@ -305,7 +325,11 @@ export class PtsService {
     };
   }
 
-  async approve(id: string, approvedByUserId: string, reason?: string): Promise<Pt> {
+  async approve(
+    id: string,
+    approvedByUserId: string,
+    reason?: string,
+  ): Promise<Pt> {
     const pt = await this.findOne(id);
     this.assertPtDocumentMutable(pt);
     const allowed = PT_ALLOWED_TRANSITIONS[pt.status as PtStatus];
@@ -334,7 +358,11 @@ export class PtsService {
     return saved;
   }
 
-  async reject(id: string, rejectedByUserId: string, reason: string): Promise<Pt> {
+  async reject(
+    id: string,
+    rejectedByUserId: string,
+    reason: string,
+  ): Promise<Pt> {
     const pt = await this.findOne(id);
     this.assertPtDocumentMutable(pt);
     const allowed = PT_ALLOWED_TRANSITIONS[pt.status as PtStatus];
@@ -539,19 +567,27 @@ export class PtsService {
     const qb = this.ptsRepository
       .createQueryBuilder('pt')
       .select([
-        'pt.numero', 'pt.titulo', 'pt.status',
-        'pt.data_hora_inicio', 'pt.data_hora_fim', 'pt.created_at',
+        'pt.numero',
+        'pt.titulo',
+        'pt.status',
+        'pt.data_hora_inicio',
+        'pt.data_hora_fim',
+        'pt.created_at',
       ])
       .orderBy('pt.created_at', 'DESC');
     if (tenantId) qb.where('pt.company_id = :tenantId', { tenantId });
     const pts = await qb.getMany();
 
     const rows = pts.map((p) => ({
-      'Número': p.numero,
-      'Título': p.titulo,
-      'Status': p.status,
-      'Data/Hora Início': p.data_hora_inicio ? new Date(p.data_hora_inicio).toLocaleString('pt-BR') : '',
-      'Data/Hora Fim': p.data_hora_fim ? new Date(p.data_hora_fim).toLocaleString('pt-BR') : '',
+      Número: p.numero,
+      Título: p.titulo,
+      Status: p.status,
+      'Data/Hora Início': p.data_hora_inicio
+        ? new Date(p.data_hora_inicio).toLocaleString('pt-BR')
+        : '',
+      'Data/Hora Fim': p.data_hora_fim
+        ? new Date(p.data_hora_fim).toLocaleString('pt-BR')
+        : '',
       'Criado em': new Date(p.created_at).toLocaleDateString('pt-BR'),
     }));
 
@@ -589,7 +625,10 @@ export class PtsService {
       reasons.push('risco residual crítico sem evidência de controle');
     }
 
-    if (rules.requireAtLeastOneExecutante && (!pt.executantes || pt.executantes.length === 0)) {
+    if (
+      rules.requireAtLeastOneExecutante &&
+      (!pt.executantes || pt.executantes.length === 0)
+    ) {
       reasons.push('PT exige ao menos um executante vinculado');
     }
 
@@ -674,7 +713,9 @@ export class PtsService {
       where: { id: companyId },
     });
     if (!company) {
-      throw new NotFoundException('Empresa não encontrada para configurar regras.');
+      throw new NotFoundException(
+        'Empresa não encontrada para configurar regras.',
+      );
     }
     return company;
   }
@@ -694,7 +735,8 @@ export class PtsService {
     after?: unknown;
     fallbackUserId?: string;
   }) {
-    const userId = RequestContext.getUserId() || params.fallbackUserId || 'system';
+    const userId =
+      RequestContext.getUserId() || params.fallbackUserId || 'system';
     const companyId = this.tenantService.getTenantId() || '';
     await this.auditService.log({
       userId,

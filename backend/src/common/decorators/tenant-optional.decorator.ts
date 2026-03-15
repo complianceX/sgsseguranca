@@ -10,4 +10,3 @@ export const TENANT_OPTIONAL_KEY = 'tenant_optional';
  * REQUIRE_EXPLICIT_TENANT_FOR_SUPER_ADMIN=true.
  */
 export const TenantOptional = () => SetMetadata(TENANT_OPTIONAL_KEY, true);
-

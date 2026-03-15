@@ -23,7 +23,15 @@ import { DocumentRegistryEntry } from '../document-registry/entities/document-re
     ]),
   ],
   controllers: [UsersController],
-  providers: [UsersService, WorkerOperationalStatusService, WorkerTimelineService],
-  exports: [UsersService, WorkerOperationalStatusService, WorkerTimelineService],
+  providers: [
+    UsersService,
+    WorkerOperationalStatusService,
+    WorkerTimelineService,
+  ],
+  exports: [
+    UsersService,
+    WorkerOperationalStatusService,
+    WorkerTimelineService,
+  ],
 })
 export class UsersModule {}

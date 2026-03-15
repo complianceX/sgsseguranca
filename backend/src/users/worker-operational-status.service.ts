@@ -82,7 +82,9 @@ export class WorkerOperationalStatusService {
     return this.buildStatus(user);
   }
 
-  async getByUserIds(userIds: string[]): Promise<Map<string, WorkerOperationalStatus>> {
+  async getByUserIds(
+    userIds: string[],
+  ): Promise<Map<string, WorkerOperationalStatus>> {
     if (userIds.length === 0) {
       return new Map();
     }
@@ -92,33 +94,42 @@ export class WorkerOperationalStatusService {
     });
 
     const statuses = await Promise.all(
-      users.filter((user) => user.status !== false).map((user) => this.buildStatus(user)),
+      users
+        .filter((user) => user.status !== false)
+        .map((user) => this.buildStatus(user)),
     );
 
     return new Map(statuses.map((status) => [status.user.id, status]));
   }
 
   private async buildStatus(user: User): Promise<WorkerOperationalStatus> {
-    const [latestMedicalExam, trainings, activeAssignments] = await Promise.all([
-      this.medicalExamsRepository.findOne({
-        where: { user_id: user.id, company_id: user.company_id },
-        order: { data_realizacao: 'DESC', created_at: 'DESC' },
-      }),
-      this.trainingsRepository.find({
-        where: { user_id: user.id, company_id: user.company_id },
-        order: { data_vencimento: 'ASC' },
-      }),
-      this.epiAssignmentsRepository.find({
-        where: { user_id: user.id, company_id: user.company_id, status: 'entregue' },
-        relations: ['epi'],
-        order: { created_at: 'DESC' },
-      }),
-    ]);
+    const [latestMedicalExam, trainings, activeAssignments] = await Promise.all(
+      [
+        this.medicalExamsRepository.findOne({
+          where: { user_id: user.id, company_id: user.company_id },
+          order: { data_realizacao: 'DESC', created_at: 'DESC' },
+        }),
+        this.trainingsRepository.find({
+          where: { user_id: user.id, company_id: user.company_id },
+          order: { data_vencimento: 'ASC' },
+        }),
+        this.epiAssignmentsRepository.find({
+          where: {
+            user_id: user.id,
+            company_id: user.company_id,
+            status: 'entregue',
+          },
+          relations: ['epi'],
+          order: { created_at: 'DESC' },
+        }),
+      ],
+    );
 
     const now = new Date();
     const reasons: string[] = [];
 
-    let medicalStatus: WorkerOperationalStatus['medicalExam']['status'] = 'AUSENTE';
+    let medicalStatus: WorkerOperationalStatus['medicalExam']['status'] =
+      'AUSENTE';
     if (!latestMedicalExam) {
       reasons.push('ASO ausente.');
     } else if (latestMedicalExam.resultado === 'inapto') {

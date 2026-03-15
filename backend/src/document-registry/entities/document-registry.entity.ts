@@ -11,7 +11,11 @@ import {
 import { Company } from '../../companies/entities/company.entity';
 
 @Entity('document_registry')
-@Index('IDX_document_registry_company_week', ['company_id', 'iso_year', 'iso_week'])
+@Index('IDX_document_registry_company_week', [
+  'company_id',
+  'iso_year',
+  'iso_week',
+])
 @Index('IDX_document_registry_module_entity', ['module', 'entity_id'])
 export class DocumentRegistryEntry {
   @PrimaryGeneratedColumn('uuid')

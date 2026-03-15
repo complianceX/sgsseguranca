@@ -293,7 +293,9 @@ export class DashboardService {
     ]);
 
     const filteredExpiringEpis = expiringEpis
-      .filter((epi) => epi.validade_ca && new Date(epi.validade_ca) <= warningLimit)
+      .filter(
+        (epi) => epi.validade_ca && new Date(epi.validade_ca) <= warningLimit,
+      )
       .slice(0, 5);
 
     const filteredExpiringTrainings = expiringTrainings
@@ -308,16 +310,18 @@ export class DashboardService {
 
     const actionPlanItems = [
       ...inspectionActionSources.flatMap((inspection) =>
-        (inspection.plano_acao || []).map((item: InspectionActionItem, index) => ({
-          id: `inspection-${inspection.id}-${index}`,
-          source: 'Inspeção',
-          title: inspection.setor_area,
-          action: item.acao || '',
-          responsavel: item.responsavel || null,
-          prazo: item.prazo || null,
-          status: item.status || null,
-          href: `/dashboard/inspections/edit/${inspection.id}`,
-        })),
+        (inspection.plano_acao || []).map(
+          (item: InspectionActionItem, index) => ({
+            id: `inspection-${inspection.id}-${index}`,
+            source: 'Inspeção',
+            title: inspection.setor_area,
+            action: item.acao || '',
+            responsavel: item.responsavel || null,
+            prazo: item.prazo || null,
+            status: item.status || null,
+            href: `/dashboard/inspections/edit/${inspection.id}`,
+          }),
+        ),
       ),
       ...auditActionSources.flatMap((audit) =>
         (audit.plano_acao || []).map((item: AuditActionItem, index) => ({
@@ -412,7 +416,8 @@ export class DashboardService {
       0,
     );
     const auditEvidence = auditEvidenceSources.reduce(
-      (total, audit) => total + (audit.resultados_nao_conformidades?.length || 0),
+      (total, audit) =>
+        total + (audit.resultados_nao_conformidades?.length || 0),
       0,
     );
 
@@ -589,7 +594,10 @@ export class DashboardService {
       }
       return new Date(item.created_at) <= new Date(item.data_inicio);
     }).length;
-    const aprBeforeTaskPercent = this.toPercent(aprBeforeTaskCount, aprs.length);
+    const aprBeforeTaskPercent = this.toPercent(
+      aprBeforeTaskCount,
+      aprs.length,
+    );
 
     const completedInspections = inspections.filter((inspection) => {
       const actionPlan = Array.isArray(inspection.plano_acao)
@@ -786,9 +794,12 @@ export class DashboardService {
     const criticalNonConformities = nonConformities.filter((item) => {
       const status = (item.status || '').toLowerCase();
       const risk = (item.risco_nivel || '').toLowerCase();
-      const isClosed = ['encerrada', 'concluída', 'concluida', 'fechada'].includes(
-        status,
-      );
+      const isClosed = [
+        'encerrada',
+        'concluída',
+        'concluida',
+        'fechada',
+      ].includes(status);
       const isCritical =
         risk.includes('alto') || risk.includes('crít') || risk.includes('crit');
       return !isClosed && isCritical;
@@ -817,7 +828,8 @@ export class DashboardService {
         pendingPtApprovals: pendingPts.length,
         criticalNonConformities: criticalNonConformities.length,
         overdueInspections: overdueInspections.length,
-        expiringDocuments: expiringMedicalExams.length + expiringTrainings.length,
+        expiringDocuments:
+          expiringMedicalExams.length + expiringTrainings.length,
       },
       pendingPtApprovals: pendingPts.map((pt) => ({
         id: pt.id,
@@ -828,14 +840,16 @@ export class DashboardService {
         responsavel: pt.responsavel?.nome || null,
         residual_risk: pt.residual_risk || null,
       })),
-      criticalNonConformities: criticalNonConformities.slice(0, 10).map((item) => ({
-        id: item.id,
-        codigo_nc: item.codigo_nc,
-        status: item.status,
-        risco_nivel: item.risco_nivel,
-        local_setor_area: item.local_setor_area,
-        site: item.site?.nome || null,
-      })),
+      criticalNonConformities: criticalNonConformities
+        .slice(0, 10)
+        .map((item) => ({
+          id: item.id,
+          codigo_nc: item.codigo_nc,
+          status: item.status,
+          risco_nivel: item.risco_nivel,
+          local_setor_area: item.local_setor_area,
+          site: item.site?.nome || null,
+        })),
       overdueInspections: overdueInspections.slice(0, 10).map((inspection) => ({
         id: inspection.id,
         setor_area: inspection.setor_area,
@@ -958,7 +972,11 @@ export class DashboardService {
         category: 'documents' as const,
         title: item.titulo,
         description: `APR aguardando fechamento ou aprovação${item.site?.nome ? ` em ${item.site.nome}` : ''}.`,
-        priority: this.resolveDocumentPriority(item.residual_risk, item.data_inicio, now),
+        priority: this.resolveDocumentPriority(
+          item.residual_risk,
+          item.data_inicio,
+          now,
+        ),
         status: item.status,
         responsible: item.elaborador?.nome || null,
         siteId: item.site?.id || null,
@@ -973,7 +991,12 @@ export class DashboardService {
         category: 'documents' as const,
         title: item.titulo,
         description: `Permissão de trabalho aguardando liberação${item.site?.nome ? ` em ${item.site.nome}` : ''}.`,
-        priority: this.resolvePtPriority(item.status, item.residual_risk, item.data_hora_fim, now),
+        priority: this.resolvePtPriority(
+          item.status,
+          item.residual_risk,
+          item.data_hora_fim,
+          now,
+        ),
         status: item.status,
         responsible: item.responsavel?.nome || null,
         siteId: item.site?.id || null,
@@ -1082,7 +1105,8 @@ export class DashboardService {
             description: action.acao || 'Ação corretiva pendente de inspeção.',
             priority: this.resolveActionPriority(action.prazo, now),
             status: action.status || 'Pendente',
-            responsible: action.responsavel || inspection.responsavel?.nome || null,
+            responsible:
+              action.responsavel || inspection.responsavel?.nome || null,
             siteId: inspection.site?.id || null,
             site: inspection.site?.nome || null,
             dueDate: action.prazo || null,
@@ -1110,19 +1134,29 @@ export class DashboardService {
             href: `/dashboard/audits/edit/${audit.id}`,
           })),
       ),
-    ].sort((first, second) => this.comparePendingQueueItems(first, second, now));
+    ].sort((first, second) =>
+      this.comparePendingQueueItems(first, second, now),
+    );
 
     const queueItems = sortedQueueItems.slice(0, 40);
 
     return {
       summary: {
         total: sortedQueueItems.length,
-        critical: sortedQueueItems.filter((item) => item.priority === 'critical').length,
-        high: sortedQueueItems.filter((item) => item.priority === 'high').length,
-        medium: sortedQueueItems.filter((item) => item.priority === 'medium').length,
-        documents: sortedQueueItems.filter((item) => item.category === 'documents').length,
-        health: sortedQueueItems.filter((item) => item.category === 'health').length,
-        actions: sortedQueueItems.filter((item) => item.category === 'actions').length,
+        critical: sortedQueueItems.filter(
+          (item) => item.priority === 'critical',
+        ).length,
+        high: sortedQueueItems.filter((item) => item.priority === 'high')
+          .length,
+        medium: sortedQueueItems.filter((item) => item.priority === 'medium')
+          .length,
+        documents: sortedQueueItems.filter(
+          (item) => item.category === 'documents',
+        ).length,
+        health: sortedQueueItems.filter((item) => item.category === 'health')
+          .length,
+        actions: sortedQueueItems.filter((item) => item.category === 'actions')
+          .length,
       },
       items: queueItems,
     };
@@ -1273,7 +1307,9 @@ export class DashboardService {
       return true;
     }
 
-    return !['concluída', 'concluida', 'encerrada', 'fechada'].includes(normalized);
+    return !['concluída', 'concluida', 'encerrada', 'fechada'].includes(
+      normalized,
+    );
   }
 
   private comparePendingQueueItems(
@@ -1290,7 +1326,9 @@ export class DashboardService {
     }
 
     const firstOverdue = first.dueDate ? new Date(first.dueDate) < now : false;
-    const secondOverdue = second.dueDate ? new Date(second.dueDate) < now : false;
+    const secondOverdue = second.dueDate
+      ? new Date(second.dueDate) < now
+      : false;
 
     if (firstOverdue !== secondOverdue) {
       return firstOverdue ? -1 : 1;

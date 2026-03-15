@@ -89,8 +89,14 @@ export class DocumentImportController {
       );
     }
 
-    if (!isSuperAdmin && uploadDto.empresaId && uploadDto.empresaId !== effectiveEmpresaId) {
-      throw new ForbiddenException('empresaId divergente do tenant autenticado.');
+    if (
+      !isSuperAdmin &&
+      uploadDto.empresaId &&
+      uploadDto.empresaId !== effectiveEmpresaId
+    ) {
+      throw new ForbiddenException(
+        'empresaId divergente do tenant autenticado.',
+      );
     }
 
     this.logger.log(
@@ -115,7 +121,8 @@ export class DocumentImportController {
       // Observação: file-type não detecta com precisão arquivos text/plain; para textos, aceitamos apenas se o mimetype indicar text/* ou .txt.
       const lowerName = (file.originalname || '').toLowerCase();
       const isTextUpload =
-        String(file.mimetype || '').startsWith('text/') || lowerName.endsWith('.txt');
+        String(file.mimetype || '').startsWith('text/') ||
+        lowerName.endsWith('.txt');
       if (!isTextUpload) {
         await validateFileMagicBytes(buffer, [
           'application/pdf',

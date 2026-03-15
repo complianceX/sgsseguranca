@@ -24,14 +24,24 @@ export class SophieEngineService {
   private readonly logger = new Logger(SophieEngineService.name);
   private kb: SophieKnowledgeBase = { rules: [] };
   private synonyms: SynonymsMap = {};
-  private kbVersion: { name: string; version: string; updated_at: string } | null = null;
+  private kbVersion: {
+    name: string;
+    version: string;
+    updated_at: string;
+  } | null = null;
 
   constructor() {
     this.loadKbFromDisk();
   }
 
   getVersion() {
-    return this.kbVersion ?? { name: 'sophie-kb', version: 'unknown', updated_at: 'unknown' };
+    return (
+      this.kbVersion ?? {
+        name: 'sophie-kb',
+        version: 'unknown',
+        updated_at: 'unknown',
+      }
+    );
   }
 
   analyze(input: SophieAnalyzeInput): SophieAnalyzeResult {
@@ -45,8 +55,12 @@ export class SophieEngineService {
     }
 
     const matchedRuleIds = matched.map((r) => r.id);
-    const perigos = this.unique(matched.flatMap((r) => r.outputs.perigos || []));
-    const agentes = this.unique(matched.flatMap((r) => r.outputs.agentes || []));
+    const perigos = this.unique(
+      matched.flatMap((r) => r.outputs.perigos || []),
+    );
+    const agentes = this.unique(
+      matched.flatMap((r) => r.outputs.agentes || []),
+    );
     const normas = this.unique(matched.flatMap((r) => r.outputs.normas || []));
 
     const controles: SophieControls = {
@@ -80,7 +94,10 @@ export class SophieEngineService {
       },
     };
 
-    if (typeof input.probabilidade === 'number' && typeof input.severidade === 'number') {
+    if (
+      typeof input.probabilidade === 'number' &&
+      typeof input.severidade === 'number'
+    ) {
       const nivel = input.probabilidade * input.severidade;
       result.probabilidade = input.probabilidade;
       result.severidade = input.severidade;
@@ -108,9 +125,15 @@ export class SophieEngineService {
 
       const rulesJson = JSON.parse(rulesRaw) as SophieKnowledgeBase;
       const synonymsJson = JSON.parse(synonymsRaw) as SynonymsMap;
-      const versionJson = JSON.parse(versionRaw) as { name: string; version: string; updated_at: string };
+      const versionJson = JSON.parse(versionRaw) as {
+        name: string;
+        version: string;
+        updated_at: string;
+      };
 
-      this.kb = { rules: Array.isArray(rulesJson.rules) ? rulesJson.rules : [] };
+      this.kb = {
+        rules: Array.isArray(rulesJson.rules) ? rulesJson.rules : [],
+      };
       this.synonyms = synonymsJson ?? {};
       this.kbVersion = versionJson ?? null;
 
@@ -139,8 +162,14 @@ export class SophieEngineService {
     };
   }
 
-  private ruleMatches(rule: SophieRule, input: ReturnType<SophieEngineService['normalizeInput']>) {
-    const matchesContains = (haystack: string | undefined, needles?: string[]) => {
+  private ruleMatches(
+    rule: SophieRule,
+    input: ReturnType<SophieEngineService['normalizeInput']>,
+  ) {
+    const matchesContains = (
+      haystack: string | undefined,
+      needles?: string[],
+    ) => {
       if (!needles || needles.length === 0) return true;
       if (!haystack) return false;
       return needles.some((needle) => {
@@ -192,4 +221,3 @@ export class SophieEngineService {
     return 'critico' as const;
   }
 }
-

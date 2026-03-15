@@ -166,7 +166,9 @@ export class WorkerTimelineService {
         type: 'medical_exam' as const,
         title: `ASO ${exam.tipo_exame}`,
         description: `${exam.resultado} · vencimento ${
-          exam.data_vencimento ? new Date(exam.data_vencimento).toLocaleDateString('pt-BR') : 'não informado'
+          exam.data_vencimento
+            ? new Date(exam.data_vencimento).toLocaleDateString('pt-BR')
+            : 'não informado'
         }`,
         status:
           exam.resultado === 'inapto'
@@ -208,7 +210,10 @@ export class WorkerTimelineService {
         id: `document-${document.id}`,
         type: 'document' as const,
         title: `${document.module.toUpperCase()} · ${document.title}`,
-        description: document.document_code || document.original_name || 'Documento consolidado no registry',
+        description:
+          document.document_code ||
+          document.original_name ||
+          'Documento consolidado no registry',
         status: 'info' as const,
         date: document.document_date || document.created_at,
       })),
@@ -236,9 +241,12 @@ export class WorkerTimelineService {
         expiredTrainings: trainings.filter(
           (training) => new Date(training.data_vencimento) < now,
         ).length,
-        activeEpis: assignments.filter((assignment) => assignment.status === 'entregue').length,
+        activeEpis: assignments.filter(
+          (assignment) => assignment.status === 'entregue',
+        ).length,
         expiringEpis: assignments.filter(
-          (assignment) => assignment.validade_ca && new Date(assignment.validade_ca) < now,
+          (assignment) =>
+            assignment.validade_ca && new Date(assignment.validade_ca) < now,
         ).length,
         medicalExamStatus: status.medicalExam.status,
         relatedDocuments: documents.length,

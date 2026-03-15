@@ -118,7 +118,10 @@ export class ChecklistsController {
   @Post(':id/send-email')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_checklists')
-  sendEmail(@Param('id', new ParseUUIDPipe()) id: string, @Body() body: { to: string }) {
+  sendEmail(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: { to: string },
+  ) {
     return this.checklistsService.sendEmail(id, body.to);
   }
 

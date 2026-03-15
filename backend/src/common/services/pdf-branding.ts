@@ -109,9 +109,14 @@ export function applyBackendPdfFooter(
       marginX,
       pageHeight - 8,
     );
-    doc.text(`Página ${page} de ${pages}`, pageWidth - marginX, pageHeight - 8, {
-      align: 'right',
-    });
+    doc.text(
+      `Página ${page} de ${pages}`,
+      pageWidth - marginX,
+      pageHeight - 8,
+      {
+        align: 'right',
+      },
+    );
   }
 }
 

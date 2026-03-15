@@ -40,7 +40,9 @@ export class CreateMedicalExams1709000000026 implements MigrationInterface {
     `);
 
     // RLS
-    await queryRunner.query(`ALTER TABLE "medical_exams" ENABLE ROW LEVEL SECURITY`);
+    await queryRunner.query(
+      `ALTER TABLE "medical_exams" ENABLE ROW LEVEL SECURITY`,
+    );
     await queryRunner.query(`
       DROP POLICY IF EXISTS "tenant_isolation_policy" ON "medical_exams"
     `);

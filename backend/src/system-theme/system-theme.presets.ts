@@ -13,11 +13,15 @@ export interface SystemThemePreset {
   tokens: Required<UpdateSystemThemeDto>;
 }
 
-export const SYSTEM_THEME_PRESETS: Record<SystemThemePresetId, SystemThemePreset> = {
+export const SYSTEM_THEME_PRESETS: Record<
+  SystemThemePresetId,
+  SystemThemePreset
+> = {
   default: {
     id: 'default',
     label: 'Safety Green',
-    description: 'Tema SST profissional — Safety Green enterprise clean. Paleta normalizada ANSI Z535 / ISO 3864.',
+    description:
+      'Tema SST profissional — Safety Green enterprise clean. Paleta normalizada ANSI Z535 / ISO 3864.',
     tokens: {
       backgroundColor: '#f7f8fa',
       sidebarColor: '#183a2c',
@@ -35,7 +39,8 @@ export const SYSTEM_THEME_PRESETS: Record<SystemThemePresetId, SystemThemePreset
   dark: {
     id: 'dark',
     label: 'Escuro',
-    description: 'Tema noturno premium com superficies profundas e contraste controlado.',
+    description:
+      'Tema noturno premium com superficies profundas e contraste controlado.',
     tokens: {
       backgroundColor: '#0f1720',
       sidebarColor: '#091018',
@@ -53,7 +58,8 @@ export const SYSTEM_THEME_PRESETS: Record<SystemThemePresetId, SystemThemePreset
   industrial: {
     id: 'industrial',
     label: 'Industrial',
-    description: 'Mais robusto para operacao em campo, com contraste forte e acentos de seguranca.',
+    description:
+      'Mais robusto para operacao em campo, com contraste forte e acentos de seguranca.',
     tokens: {
       backgroundColor: '#122318',
       sidebarColor: '#0b1710',
@@ -71,7 +77,8 @@ export const SYSTEM_THEME_PRESETS: Record<SystemThemePresetId, SystemThemePreset
   'high-contrast': {
     id: 'high-contrast',
     label: 'Alto Contraste',
-    description: 'Leitura maxima para sol forte, tablets e operacao critica em campo.',
+    description:
+      'Leitura maxima para sol forte, tablets e operacao critica em campo.',
     tokens: {
       backgroundColor: '#ffffff',
       sidebarColor: '#0a0a0a',

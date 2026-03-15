@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreatePdfIntegrityRecords1709000000048
-  implements MigrationInterface
-{
+export class CreatePdfIntegrityRecords1709000000048 implements MigrationInterface {
   name = 'CreatePdfIntegrityRecords1709000000048';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

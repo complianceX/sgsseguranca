@@ -201,7 +201,11 @@ export class TenantMiddleware implements NestMiddleware {
     if (cached === true) return;
 
     // Segurança: valida formato UUID (fail-closed)
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(companyId)) {
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        companyId,
+      )
+    ) {
       throw new UnauthorizedException(
         'Contexto de empresa inválido. Faça login novamente.',
       );

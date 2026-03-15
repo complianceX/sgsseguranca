@@ -6,9 +6,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * - Suporta colunas legado `empresa_id` (quando não existe `company_id` na tabela)
  * - Mantém variáveis de sessão via current_setting('app.current_company_id'|'app.current_company')
  */
-export class RlsTenantPolicyWithCheck1709000000029
-  implements MigrationInterface
-{
+export class RlsTenantPolicyWithCheck1709000000029 implements MigrationInterface {
   name = 'RlsTenantPolicyWithCheck1709000000029';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -160,4 +158,3 @@ export class RlsTenantPolicyWithCheck1709000000029
     }
   }
 }
-

@@ -12,7 +12,14 @@ import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Training, MedicalExam, Dds, Rdo, Cat, ServiceOrder]),
+    TypeOrmModule.forFeature([
+      Training,
+      MedicalExam,
+      Dds,
+      Rdo,
+      Cat,
+      ServiceOrder,
+    ]),
     CommonModule,
   ],
   controllers: [CalendarController],

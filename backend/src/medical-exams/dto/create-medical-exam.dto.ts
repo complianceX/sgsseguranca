@@ -7,7 +7,13 @@ import {
   IsIn,
 } from 'class-validator';
 
-const TIPOS_EXAME = ['admissional', 'periodico', 'retorno', 'demissional', 'mudanca_funcao'];
+const TIPOS_EXAME = [
+  'admissional',
+  'periodico',
+  'retorno',
+  'demissional',
+  'mudanca_funcao',
+];
 const RESULTADOS = ['apto', 'inapto', 'apto_com_restricoes'];
 
 export class CreateMedicalExamDto {

@@ -46,7 +46,12 @@ export class UsersService {
     const isSuperAdmin = this.tenantService.isSuperAdmin();
 
     // Defesa em profundidade: não confiar em company_id vindo do body.
-    if (!isSuperAdmin && rest.company_id && tenantId && rest.company_id !== tenantId) {
+    if (
+      !isSuperAdmin &&
+      rest.company_id &&
+      tenantId &&
+      rest.company_id !== tenantId
+    ) {
       this.logger.warn({
         event: 'cross_tenant_attempt',
         action: 'users.create',
@@ -54,7 +59,9 @@ export class UsersService {
         tenantId,
         requestedCompanyId: rest.company_id,
       });
-      throw new ForbiddenException('Não é permitido criar usuário em outra empresa.');
+      throw new ForbiddenException(
+        'Não é permitido criar usuário em outra empresa.',
+      );
     }
 
     const companyId = isSuperAdmin ? rest.company_id || tenantId : tenantId;
@@ -67,7 +74,7 @@ export class UsersService {
     // apenas ADMIN_GERAL pode atribuir perfil "Administrador Geral".
     if (rest.profile_id) {
       const profile = await this.profilesRepository.findOne({
-        where: { id: rest.profile_id as string },
+        where: { id: rest.profile_id },
         select: { id: true, nome: true },
       });
       if (profile?.nome === Role.ADMIN_GERAL && !isSuperAdmin) {
@@ -231,7 +238,7 @@ export class UsersService {
     // Privilege Escalation: bloquear promoção para ADMIN_GERAL por não-superadmin.
     if (rest.profile_id) {
       const profile = await this.profilesRepository.findOne({
-        where: { id: rest.profile_id as string },
+        where: { id: rest.profile_id },
         select: { id: true, nome: true },
       });
       if (profile?.nome === Role.ADMIN_GERAL && !isSuperAdmin) {

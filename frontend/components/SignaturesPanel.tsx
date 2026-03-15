@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Loader2, ShieldCheck, PenTool, Upload, Camera, Smartphone } from 'lucide-react';
+import { Loader2, ShieldCheck, PenTool, Upload, Camera } from 'lucide-react';
 import { signaturesService, Signature } from '@/services/signaturesService';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
@@ -18,14 +18,12 @@ const TYPE_LABEL: Record<string, string> = {
   digital: 'Digital (Desenho)',
   upload: 'Imagem Enviada',
   facial: 'Facial',
-  cpf_pin: 'CPF + PIN',
 };
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
   digital: <PenTool className="h-3.5 w-3.5" />,
   upload: <Upload className="h-3.5 w-3.5" />,
   facial: <Camera className="h-3.5 w-3.5" />,
-  cpf_pin: <Smartphone className="h-3.5 w-3.5" />,
 };
 
 interface SignaturesPanelProps {
@@ -101,19 +99,6 @@ export function SignaturesPanel({ isOpen, onClose, documentId, documentType }: S
                         </StatusPill>
                       )}
                     </div>
-
-                    {sig.type === 'cpf_pin' && (() => {
-                      try {
-                        const parsed = JSON.parse(sig.signature_data);
-                        return (
-                          <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
-                            CPF: {parsed.cpf} — {new Date(parsed.confirmed_at).toLocaleString('pt-BR')}
-                          </p>
-                        );
-                      } catch {
-                        return null;
-                      }
-                    })()}
 
                     <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
                       {sig.signed_at

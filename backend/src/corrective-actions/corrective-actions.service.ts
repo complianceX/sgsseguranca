@@ -146,7 +146,9 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
     }
 
     if (filters?.due === 'overdue') {
-      query.andWhere('ca.status = :overdueStatus', { overdueStatus: 'overdue' });
+      query.andWhere('ca.status = :overdueStatus', {
+        overdueStatus: 'overdue',
+      });
     }
 
     if (filters?.due === 'soon') {
@@ -266,7 +268,8 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
     const overdue = actions.filter((a) => a.status === 'overdue').length;
     const done = actions.filter((a) => a.status === 'done').length;
     const dueSoon = actions.filter((action) => {
-      if (action.status === 'done' || action.status === 'cancelled') return false;
+      if (action.status === 'done' || action.status === 'cancelled')
+        return false;
       const dueDate = new Date(action.due_date);
       return dueDate >= now && dueDate <= next48Hours;
     }).length;
@@ -277,7 +280,8 @@ export class CorrectiveActionsService extends BaseService<CorrectiveAction> {
     ).length;
     const highOpen = actions.filter(
       (action) =>
-        action.priority === 'high' && !['done', 'cancelled'].includes(action.status),
+        action.priority === 'high' &&
+        !['done', 'cancelled'].includes(action.status),
     ).length;
     const resolutionActions = actions.filter((action) => action.closed_at);
     const avgResolutionDays =

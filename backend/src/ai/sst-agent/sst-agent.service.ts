@@ -24,7 +24,10 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import { TenantService } from '../../common/tenant/tenant.service';
 import { AiInteraction } from '../entities/ai-interaction.entity';
-import { SOPHIE_IMAGE_ANALYSIS_PROMPT, SOPHIE_SYSTEM_PROMPT } from '../sophie.prompts';
+import {
+  SOPHIE_IMAGE_ANALYSIS_PROMPT,
+  SOPHIE_SYSTEM_PROMPT,
+} from '../sophie.prompts';
 import { SophieLocalChatService } from '../../sophie/sophie.local-chat.service';
 import {
   GEMINI_TOOL_DECLARATIONS,
@@ -72,7 +75,11 @@ const DEFAULT_AI_HISTORY_MAX_LIMIT = 100;
 /** Custo estimado por token — atualizar conforme pricing da Anthropic */
 const COST_PER_INPUT_TOKEN = 3 / 1_000_000;
 const COST_PER_OUTPUT_TOKEN = 15 / 1_000_000;
-const ALLOWED_IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+const ALLOWED_IMAGE_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+] as const;
 
 type SupportedAiProvider =
   | typeof OPENAI_PROVIDER
@@ -157,14 +164,17 @@ export class SstAgentService {
     private readonly rateLimitService: SstRateLimitService,
     private readonly sophieLocalChatService: SophieLocalChatService,
   ) {
-    const openaiApiKey = this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
+    const openaiApiKey =
+      this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
     const anthropicModel =
       this.configService.get<string>('ANTHROPIC_MODEL')?.trim() ||
       DEFAULT_ANTHROPIC_MODEL;
     const geminiModel =
-      this.configService.get<string>('GEMINI_MODEL')?.trim() || DEFAULT_GEMINI_MODEL;
+      this.configService.get<string>('GEMINI_MODEL')?.trim() ||
+      DEFAULT_GEMINI_MODEL;
     const openaiModel =
-      this.configService.get<string>('OPENAI_MODEL')?.trim() || DEFAULT_OPENAI_MODEL;
+      this.configService.get<string>('OPENAI_MODEL')?.trim() ||
+      DEFAULT_OPENAI_MODEL;
     const openaiVisionModel =
       this.configService.get<string>('OPENAI_VISION_MODEL')?.trim() ||
       openaiModel ||
@@ -172,12 +182,11 @@ export class SstAgentService {
     const configuredFallbackModel =
       this.configService.get<string>('OPENAI_FALLBACK_MODEL')?.trim() || '';
     const openaiReasoningEffort =
-      (this.configService.get<string>('OPENAI_REASONING_EFFORT')?.trim().toLowerCase() as
-        | 'minimal'
-        | 'low'
-        | 'medium'
-        | 'high'
-        | undefined) || DEFAULT_OPENAI_REASONING_EFFORT;
+      (this.configService
+        .get<string>('OPENAI_REASONING_EFFORT')
+        ?.trim()
+        .toLowerCase() as 'minimal' | 'low' | 'medium' | 'high' | undefined) ||
+      DEFAULT_OPENAI_REASONING_EFFORT;
 
     this.geminiApiKey = null;
     this.openaiApiKey = openaiApiKey;
@@ -185,7 +194,9 @@ export class SstAgentService {
     this.openaiVisionModel = openaiVisionModel;
     this.openaiFallbackModel =
       configuredFallbackModel ||
-      (openaiModel !== DEFAULT_OPENAI_FALLBACK_MODEL ? DEFAULT_OPENAI_FALLBACK_MODEL : null);
+      (openaiModel !== DEFAULT_OPENAI_FALLBACK_MODEL
+        ? DEFAULT_OPENAI_FALLBACK_MODEL
+        : null);
     this.openaiReasoningEffort = openaiReasoningEffort;
     this.provider = 'stub';
     this.model = 'stub';
@@ -210,7 +221,11 @@ export class SstAgentService {
       ?.trim()
       .toLowerCase();
 
-    if (configuredProvider && configuredProvider !== OPENAI_PROVIDER && configuredProvider !== 'stub') {
+    if (
+      configuredProvider &&
+      configuredProvider !== OPENAI_PROVIDER &&
+      configuredProvider !== 'stub'
+    ) {
       this.logger.warn(
         `AI_PROVIDER=${configuredProvider} ignorado. A SOPHIE usa OpenAI como provedora oficial unica.`,
       );
@@ -253,7 +268,9 @@ export class SstAgentService {
   }
 
   private supportsReasoningEffort(model: string): boolean {
-    const normalized = String(model || '').trim().toLowerCase();
+    const normalized = String(model || '')
+      .trim()
+      .toLowerCase();
     return (
       normalized.startsWith('gpt-5') ||
       normalized.startsWith('o1') ||
@@ -264,7 +281,11 @@ export class SstAgentService {
 
   private getOpenAiModelCandidates(primaryModel: string): string[] {
     return Array.from(
-      new Set([primaryModel, this.openaiFallbackModel].map((value) => String(value || '').trim()).filter(Boolean)),
+      new Set(
+        [primaryModel, this.openaiFallbackModel]
+          .map((value) => String(value || '').trim())
+          .filter(Boolean),
+      ),
     );
   }
 
@@ -278,7 +299,10 @@ export class SstAgentService {
         error?: { message?: string; type?: string; code?: string };
       };
       return {
-        message: parsed?.error?.message?.trim() || body.trim() || 'Erro desconhecido da OpenAI.',
+        message:
+          parsed?.error?.message?.trim() ||
+          body.trim() ||
+          'Erro desconhecido da OpenAI.',
         type: parsed?.error?.type,
         code: parsed?.error?.code,
       };
@@ -358,14 +382,17 @@ export class SstAgentService {
         delete body.reasoning_effort;
       }
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.openaiApiKey}`,
+      const response = await fetch(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.openaiApiKey}`,
+          },
+          body: JSON.stringify(body),
         },
-        body: JSON.stringify(body),
-      });
+      );
 
       if (response.ok) {
         if (index > 0) {
@@ -412,7 +439,9 @@ export class SstAgentService {
       break;
     }
 
-    throw lastError || new Error(`Falha ao chamar OpenAI em ${params.context}.`);
+    throw (
+      lastError || new Error(`Falha ao chamar OpenAI em ${params.context}.`)
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -426,7 +455,9 @@ export class SstAgentService {
   ): Promise<SstChatResponse> {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      throw new UnauthorizedException('Tenant nao identificado. Verifique autenticacao.');
+      throw new UnauthorizedException(
+        'Tenant nao identificado. Verifique autenticacao.',
+      );
     }
 
     // Rate limit por tenant
@@ -465,7 +496,11 @@ export class SstAgentService {
           `[SstAgent] Falha ao persistir interação stub (non-fatal): ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`,
         );
       }
-      return this.toSstChatResponse(stubResp, interaction.id, AiInteractionStatus.SUCCESS);
+      return this.toSstChatResponse(
+        stubResp,
+        interaction.id,
+        AiInteractionStatus.SUCCESS,
+      );
     }
 
     try {
@@ -473,8 +508,16 @@ export class SstAgentService {
         await this.runOpenAiAgentLoop(question, history);
 
       const latency = Date.now() - startTime;
-      const estimatedCost = this.estimateCost(inputTokens, outputTokens, this.provider);
-      const reviewReasons = this.detectHumanReviewReasons(result, question, toolsUsed);
+      const estimatedCost = this.estimateCost(
+        inputTokens,
+        outputTokens,
+        this.provider,
+      );
+      const reviewReasons = this.detectHumanReviewReasons(
+        result,
+        question,
+        toolsUsed,
+      );
       const finalStatus =
         reviewReasons.length > 0
           ? AiInteractionStatus.NEEDS_REVIEW
@@ -490,17 +533,30 @@ export class SstAgentService {
       interaction.estimated_cost_usd = estimatedCost;
       interaction.confidence = result.confidence;
       interaction.needs_human_review = result.needsHumanReview;
-      interaction.human_review_reasons = reviewReasons.length > 0 ? reviewReasons : null;
+      interaction.human_review_reasons =
+        reviewReasons.length > 0 ? reviewReasons : null;
       interaction.human_review_reason = result.humanReviewReason ?? null;
 
       await this.interactionRepo.save(interaction);
 
-      void this.rateLimitService.recordTokenUsage(tenantId, inputTokens + outputTokens);
+      void this.rateLimitService.recordTokenUsage(
+        tenantId,
+        inputTokens + outputTokens,
+      );
 
       this.logInteraction({
-        tenantId, userId, latency, inputTokens, outputTokens,
-        estimatedCost, toolsUsed, confidence: result.confidence,
-        needsHumanReview: result.needsHumanReview, status: finalStatus, provider: this.provider, model: this.model,
+        tenantId,
+        userId,
+        latency,
+        inputTokens,
+        outputTokens,
+        estimatedCost,
+        toolsUsed,
+        confidence: result.confidence,
+        needsHumanReview: result.needsHumanReview,
+        status: finalStatus,
+        provider: this.provider,
+        model: this.model,
       });
 
       return this.toSstChatResponse(result, interaction.id, finalStatus);
@@ -555,7 +611,16 @@ export class SstAgentService {
       },
       order: { created_at: 'DESC' },
       take: safeLimit,
-      select: ['id', 'question', 'status', 'confidence', 'needs_human_review', 'latency_ms', 'tokens_used', 'created_at'],
+      select: [
+        'id',
+        'question',
+        'status',
+        'confidence',
+        'needs_human_review',
+        'latency_ms',
+        'tokens_used',
+        'created_at',
+      ],
     });
   }
 
@@ -575,11 +640,20 @@ export class SstAgentService {
   ): Promise<ImageRiskAnalysis> {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      throw new UnauthorizedException('Tenant nao identificado. Verifique autenticacao.');
+      throw new UnauthorizedException(
+        'Tenant nao identificado. Verifique autenticacao.',
+      );
     }
 
-    if (!ALLOWED_IMAGE_MIME_TYPES.includes(mimeType as (typeof ALLOWED_IMAGE_MIME_TYPES)[number])) {
-      throw new HttpException('Formato de imagem nao suportado.', HttpStatus.BAD_REQUEST);
+    if (
+      !ALLOWED_IMAGE_MIME_TYPES.includes(
+        mimeType as (typeof ALLOWED_IMAGE_MIME_TYPES)[number],
+      )
+    ) {
+      throw new HttpException(
+        'Formato de imagem nao suportado.',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const rlCheck = await this.rateLimitService.checkAndConsume(tenantId);
@@ -628,7 +702,11 @@ export class SstAgentService {
       interaction.token_usage_input = inputTokens;
       interaction.token_usage_output = outputTokens;
       interaction.tokens_used = inputTokens + outputTokens;
-      interaction.estimated_cost_usd = this.estimateCost(inputTokens, outputTokens, this.provider);
+      interaction.estimated_cost_usd = this.estimateCost(
+        inputTokens,
+        outputTokens,
+        this.provider,
+      );
       interaction.confidence =
         analysis.riskLevel === 'Crítico' || analysis.riskLevel === 'Alto'
           ? ConfidenceLevel.HIGH
@@ -705,19 +783,20 @@ export class SstAgentService {
     ];
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
-      const { payload } = await this.requestOpenAiChatCompletion<OpenAiChatCompletion>({
-        context: 'agent-loop',
-        primaryModel: this.openaiModel,
-        buildBody: (model) => ({
-          model,
-          temperature: 0.2,
-          max_completion_tokens: MAX_TOKENS,
-          reasoning_effort: this.openaiReasoningEffort,
-          messages,
-          tools: OPENAI_TOOL_DEFINITIONS,
-          tool_choice: 'auto',
-        }),
-      });
+      const { payload } =
+        await this.requestOpenAiChatCompletion<OpenAiChatCompletion>({
+          context: 'agent-loop',
+          primaryModel: this.openaiModel,
+          buildBody: (model) => ({
+            model,
+            temperature: 0.2,
+            max_completion_tokens: MAX_TOKENS,
+            reasoning_effort: this.openaiReasoningEffort,
+            messages,
+            tools: OPENAI_TOOL_DEFINITIONS,
+            tool_choice: 'auto',
+          }),
+        });
       totalInputTokens += payload.usage?.prompt_tokens ?? 0;
       totalOutputTokens += payload.usage?.completion_tokens ?? 0;
 
@@ -769,14 +848,25 @@ export class SstAgentService {
           tool_call_id: toolCall.id,
           content: JSON.stringify(
             toolResult.success
-              ? { success: true, data: toolResult.data ?? null, is_stub: toolResult.is_stub ?? false }
-              : { success: false, error: toolResult.error ?? 'Erro desconhecido ao executar ferramenta.' },
+              ? {
+                  success: true,
+                  data: toolResult.data ?? null,
+                  is_stub: toolResult.is_stub ?? false,
+                }
+              : {
+                  success: false,
+                  error:
+                    toolResult.error ??
+                    'Erro desconhecido ao executar ferramenta.',
+                },
           ),
         });
       }
     }
 
-    this.logger.warn(`[SstAgent] OpenAI atingiu o limite de ${MAX_TOOL_ITERATIONS} iteracoes`);
+    this.logger.warn(
+      `[SstAgent] OpenAI atingiu o limite de ${MAX_TOOL_ITERATIONS} iteracoes`,
+    );
     const fallbackAnswer =
       'Nao consegui completar a analise com os dados disponiveis. Reformule a pergunta ou acesse os modulos diretamente para confirmar as informacoes.';
 
@@ -856,7 +946,9 @@ export class SstAgentService {
           toolResults.push({
             type: 'tool_result',
             tool_use_id: toolUse.id,
-            content: JSON.stringify(tr.success ? tr.data : { erro: tr.error, disponivel: false }),
+            content: JSON.stringify(
+              tr.success ? tr.data : { erro: tr.error, disponivel: false },
+            ),
           });
         }
 
@@ -867,7 +959,9 @@ export class SstAgentService {
       break;
     }
 
-    this.logger.warn(`[SstAgent] Limite de ${MAX_TOOL_ITERATIONS} iteracoes atingido`);
+    this.logger.warn(
+      `[SstAgent] Limite de ${MAX_TOOL_ITERATIONS} iteracoes atingido`,
+    );
     return {
       result: this.buildStructuredResponse(
         'Nao consegui completar a analise. Reformule a pergunta ou acesse os modulos diretamente.',
@@ -901,7 +995,10 @@ export class SstAgentService {
               type: 'image',
               source: {
                 type: 'base64',
-                media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/webp',
+                media_type: mimeType as
+                  | 'image/jpeg'
+                  | 'image/png'
+                  | 'image/webp',
                 data: imageBuffer.toString('base64'),
               },
             },
@@ -959,26 +1056,27 @@ export class SstAgentService {
       ? `Contexto adicional do usuario: ${context.trim()}`
       : 'Sem contexto adicional fornecido.';
 
-    const { payload } = await this.requestOpenAiChatCompletion<OpenAiVisionResponse>({
-      context: 'image-analysis',
-      primaryModel: this.openaiVisionModel,
-      buildBody: (model) => ({
-        model,
-        temperature: 0.2,
-        max_completion_tokens: 1200,
-        reasoning_effort: this.openaiReasoningEffort,
-        messages: [
-          { role: 'developer', content: SST_IMAGE_ANALYSIS_PROMPT },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: userContext },
-              { type: 'image_url', image_url: { url: dataUrl } },
-            ],
-          },
-        ],
-      }),
-    });
+    const { payload } =
+      await this.requestOpenAiChatCompletion<OpenAiVisionResponse>({
+        context: 'image-analysis',
+        primaryModel: this.openaiVisionModel,
+        buildBody: (model) => ({
+          model,
+          temperature: 0.2,
+          max_completion_tokens: 1200,
+          reasoning_effort: this.openaiReasoningEffort,
+          messages: [
+            { role: 'developer', content: SST_IMAGE_ANALYSIS_PROMPT },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: userContext },
+                { type: 'image_url', image_url: { url: dataUrl } },
+              ],
+            },
+          ],
+        }),
+      });
     const answer = (payload.choices?.[0]?.message?.content ?? '').trim();
     if (!answer) {
       throw new Error('OpenAI nao retornou analise de imagem.');
@@ -1008,7 +1106,7 @@ export class SstAgentService {
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
     const historyContents: GeminiContent[] = history.map((message) => ({
-      role: (message.role === 'assistant' ? 'model' : 'user') as GeminiContent['role'],
+      role: message.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: message.content }],
     }));
     const contents: GeminiContent[] = [
@@ -1025,7 +1123,10 @@ export class SstAgentService {
         {
           method: 'POST',
           // Credencial via header — nunca expor em query string (logs, proxies, traces)
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.geminiApiKey },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': this.geminiApiKey,
+          },
           body: JSON.stringify({
             systemInstruction: {
               parts: [{ text: SST_SYSTEM_PROMPT }],
@@ -1051,7 +1152,9 @@ export class SstAgentService {
 
       const payload = (await response.json()) as GeminiGenerateContentResponse;
       if (payload.promptFeedback?.blockReason) {
-        throw new Error(`Gemini bloqueou a resposta: ${payload.promptFeedback.blockReason}`);
+        throw new Error(
+          `Gemini bloqueou a resposta: ${payload.promptFeedback.blockReason}`,
+        );
       }
 
       totalInputTokens += payload.usageMetadata?.promptTokenCount ?? 0;
@@ -1112,7 +1215,9 @@ export class SstAgentService {
                 }
               : {
                   success: false,
-                  error: toolResult.error ?? 'Erro desconhecido ao executar ferramenta.',
+                  error:
+                    toolResult.error ??
+                    'Erro desconhecido ao executar ferramenta.',
                 },
           },
         });
@@ -1124,7 +1229,9 @@ export class SstAgentService {
       });
     }
 
-    this.logger.warn(`[SstAgent] Gemini atingiu o limite de ${MAX_TOOL_ITERATIONS} iteracoes`);
+    this.logger.warn(
+      `[SstAgent] Gemini atingiu o limite de ${MAX_TOOL_ITERATIONS} iteracoes`,
+    );
     const fallbackAnswer =
       'Nao consegui completar a analise com os dados disponiveis. Reformule a pergunta ou acesse os modulos diretamente para confirmar as informacoes.';
 
@@ -1154,7 +1261,10 @@ export class SstAgentService {
       {
         method: 'POST',
         // Credencial via header — nunca expor em query string (logs, proxies, traces)
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.geminiApiKey },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': this.geminiApiKey,
+        },
         body: JSON.stringify({
           systemInstruction: {
             parts: [{ text: SST_IMAGE_ANALYSIS_PROMPT }],
@@ -1232,11 +1342,15 @@ export class SstAgentService {
     const answerLower = response.answer.toLowerCase();
 
     // 1. Keywords sensiveis na resposta
-    if (HUMAN_REVIEW_TRIGGERS.some((t) => answerLower.includes(t.toLowerCase()))) {
+    if (
+      HUMAN_REVIEW_TRIGGERS.some((t) => answerLower.includes(t.toLowerCase()))
+    ) {
       reasons.push(HumanReviewReason.SENSITIVE_KEYWORD);
     }
 
-    const isNormativeQ = NORMATIVE_QUESTION_PATTERNS.some((p) => p.test(question));
+    const isNormativeQ = NORMATIVE_QUESTION_PATTERNS.some((p) =>
+      p.test(question),
+    );
 
     // 2. Pergunta normativa com confianca baixa
     if (isNormativeQ && response.confidence === ConfidenceLevel.LOW) {
@@ -1277,8 +1391,12 @@ export class SstAgentService {
       text.toLowerCase().includes(t.toLowerCase()),
     );
     const stubToolUsed = toolsUsed.some((t) => STUB_TOOL_NAMES.has(t));
-    const isNormativeQ = NORMATIVE_QUESTION_PATTERNS.some((p) => p.test(question));
-    const isConclusive = CONCLUSIVE_QUESTION_PATTERNS.some((p) => p.test(question));
+    const isNormativeQ = NORMATIVE_QUESTION_PATTERNS.some((p) =>
+      p.test(question),
+    );
+    const isConclusive = CONCLUSIVE_QUESTION_PATTERNS.some((p) =>
+      p.test(question),
+    );
 
     const needsHumanReview =
       hasSensitiveKeyword ||
@@ -1315,7 +1433,9 @@ export class SstAgentService {
     const allStubs = toolsUsed.every((t) => STUB_TOOL_NAMES.has(t));
     if (allStubs) return ConfidenceLevel.MEDIUM;
 
-    return toolsUsed.length >= 2 ? ConfidenceLevel.HIGH : ConfidenceLevel.MEDIUM;
+    return toolsUsed.length >= 2
+      ? ConfidenceLevel.HIGH
+      : ConfidenceLevel.MEDIUM;
   }
 
   private extractNormativeSources(text: string): string[] {
@@ -1340,10 +1460,14 @@ export class SstAgentService {
     const warnings: string[] = [];
 
     if (needsHumanReview) {
-      warnings.push('Esta resposta requer validacao de profissional habilitado em SST.');
+      warnings.push(
+        'Esta resposta requer validacao de profissional habilitado em SST.',
+      );
     }
     if (toolsUsed.length === 0) {
-      warnings.push('Resposta baseada em conhecimento geral. Nenhum dado do sistema consultado.');
+      warnings.push(
+        'Resposta baseada em conhecimento geral. Nenhum dado do sistema consultado.',
+      );
     } else if (toolsUsed.some((t) => STUB_TOOL_NAMES.has(t))) {
       warnings.push(
         'Dados parciais: alguns modulos ainda nao possuem integracao em tempo real. ' +
@@ -1351,43 +1475,92 @@ export class SstAgentService {
       );
     }
     if (confidence === ConfidenceLevel.LOW) {
-      warnings.push('Confianca baixa: dados insuficientes ou parcialmente disponiveis.');
+      warnings.push(
+        'Confianca baixa: dados insuficientes ou parcialmente disponiveis.',
+      );
     }
 
     return warnings;
   }
 
-  private buildSuggestedActions(text: string, toolsUsed: string[]): SuggestedAction[] {
+  private buildSuggestedActions(
+    text: string,
+    toolsUsed: string[],
+  ): SuggestedAction[] {
     const actions: SuggestedAction[] = [];
     const lower = text.toLowerCase();
 
-    if (toolsUsed.includes('buscar_treinamentos_pendentes') || lower.includes('treinamento')) {
-      actions.push({ label: 'Ver Treinamentos', href: '/dashboard/trainings', priority: 'high' });
+    if (
+      toolsUsed.includes('buscar_treinamentos_pendentes') ||
+      lower.includes('treinamento')
+    ) {
+      actions.push({
+        label: 'Ver Treinamentos',
+        href: '/dashboard/trainings',
+        priority: 'high',
+      });
     }
     if (
       toolsUsed.includes('buscar_exames_medicos_pendentes') ||
       lower.includes('pcmso') ||
       lower.includes('aso')
     ) {
-      actions.push({ label: 'Ver Exames (PCMSO)', href: '/dashboard/medical-exams', priority: 'high' });
+      actions.push({
+        label: 'Ver Exames (PCMSO)',
+        href: '/dashboard/medical-exams',
+        priority: 'high',
+      });
     }
-    if (toolsUsed.includes('buscar_nao_conformidades') || lower.includes('nao conformidade')) {
-      actions.push({ label: 'Ver Nao Conformidades', href: '/dashboard/nonconformities', priority: 'medium' });
+    if (
+      toolsUsed.includes('buscar_nao_conformidades') ||
+      lower.includes('nao conformidade')
+    ) {
+      actions.push({
+        label: 'Ver Nao Conformidades',
+        href: '/dashboard/nonconformities',
+        priority: 'medium',
+      });
     }
-    if (toolsUsed.includes('buscar_estatisticas_cats') || lower.includes('acidente de trabalho')) {
-      actions.push({ label: 'Ver CATs e KPIs', href: '/dashboard/kpis', priority: 'medium' });
+    if (
+      toolsUsed.includes('buscar_estatisticas_cats') ||
+      lower.includes('acidente de trabalho')
+    ) {
+      actions.push({
+        label: 'Ver CATs e KPIs',
+        href: '/dashboard/kpis',
+        priority: 'medium',
+      });
     }
     if (toolsUsed.includes('buscar_epis') || lower.includes('epi')) {
-      actions.push({ label: 'Ver EPIs', href: '/dashboard/epis', priority: 'medium' });
+      actions.push({
+        label: 'Ver EPIs',
+        href: '/dashboard/epis',
+        priority: 'medium',
+      });
     }
     if (toolsUsed.includes('buscar_riscos') || lower.includes('risco')) {
-      actions.push({ label: 'Ver Mapa de Risco', href: '/dashboard/risk-map', priority: 'medium' });
+      actions.push({
+        label: 'Ver Mapa de Risco',
+        href: '/dashboard/risk-map',
+        priority: 'medium',
+      });
     }
-    if (toolsUsed.includes('buscar_ordens_de_servico') || lower.includes('ordem de servico')) {
-      actions.push({ label: 'Ver Ordens de Servico', href: '/dashboard/service-orders', priority: 'medium' });
+    if (
+      toolsUsed.includes('buscar_ordens_de_servico') ||
+      lower.includes('ordem de servico')
+    ) {
+      actions.push({
+        label: 'Ver Ordens de Servico',
+        href: '/dashboard/service-orders',
+        priority: 'medium',
+      });
     }
     if (toolsUsed.includes('gerar_resumo_sst')) {
-      actions.push({ label: 'Ver Dashboard', href: '/dashboard', priority: 'low' });
+      actions.push({
+        label: 'Ver Dashboard',
+        href: '/dashboard',
+        priority: 'low',
+      });
     }
 
     return actions;
@@ -1402,7 +1575,12 @@ export class SstAgentService {
     interactionId: string,
     status: AiInteractionStatus,
   ): SstChatResponse {
-    return { ...response, interactionId, status, timestamp: new Date().toISOString() };
+    return {
+      ...response,
+      interactionId,
+      status,
+      timestamp: new Date().toISOString(),
+    };
   }
 
   private parseImageRiskAnalysis(rawText: string): ImageRiskAnalysis {
@@ -1419,15 +1597,21 @@ export class SstAgentService {
         riskLevel: this.normalizeRiskLevel(parsed.riskLevel),
         imminentRisks: this.normalizeStringArray(parsed.imminentRisks),
         immediateActions: this.normalizeStringArray(parsed.immediateActions),
-        ppeRecommendations: this.normalizeStringArray(parsed.ppeRecommendations),
+        ppeRecommendations: this.normalizeStringArray(
+          parsed.ppeRecommendations,
+        ),
         notes: parsed.notes?.trim() || 'Sem observacoes adicionais.',
       };
     } catch {
       return {
-        summary: candidate.slice(0, 280) || 'Nao foi possivel estruturar a analise automaticamente.',
+        summary:
+          candidate.slice(0, 280) ||
+          'Nao foi possivel estruturar a analise automaticamente.',
         riskLevel: 'Médio',
         imminentRisks: [],
-        immediateActions: ['Revisar manualmente a imagem e confirmar os riscos em campo.'],
+        immediateActions: [
+          'Revisar manualmente a imagem e confirmar os riscos em campo.',
+        ],
         ppeRecommendations: [],
         notes: candidate,
       };
@@ -1471,7 +1655,9 @@ export class SstAgentService {
       return 0;
     }
 
-    return inputTokens * COST_PER_INPUT_TOKEN + outputTokens * COST_PER_OUTPUT_TOKEN;
+    return (
+      inputTokens * COST_PER_INPUT_TOKEN + outputTokens * COST_PER_OUTPUT_TOKEN
+    );
   }
 
   private logInteraction(fields: {
@@ -1505,7 +1691,9 @@ export class SstAgentService {
       confidence: ConfidenceLevel.LOW,
       needsHumanReview: false,
       sources: [],
-      suggestedActions: [{ label: 'Ver Dashboard', href: '/dashboard', priority: 'low' }],
+      suggestedActions: [
+        { label: 'Ver Dashboard', href: '/dashboard', priority: 'low' },
+      ],
       warnings: [
         'Configure OPENAI_API_KEY para habilitar a SOPHIE com OpenAI.',
       ],
@@ -1524,7 +1712,9 @@ export class SstAgentService {
       confidence: ConfidenceLevel.LOW,
       needsHumanReview: false,
       sources: [],
-      suggestedActions: [{ label: 'Ver Dashboard', href: '/dashboard', priority: 'low' }],
+      suggestedActions: [
+        { label: 'Ver Dashboard', href: '/dashboard', priority: 'low' },
+      ],
       warnings: [
         'A SOPHIE entrou em modo degradado porque a OpenAI nao respondeu corretamente.',
       ],
@@ -1534,18 +1724,23 @@ export class SstAgentService {
 
   private buildStubImageAnalysis(): ImageRiskAnalysis {
     return {
-      summary: 'Analise de imagem indisponivel porque a integração OpenAI não está configurada.',
+      summary:
+        'Analise de imagem indisponivel porque a integração OpenAI não está configurada.',
       riskLevel: 'Médio',
       imminentRisks: [],
-      immediateActions: ['Configure OPENAI_API_KEY para habilitar a analise de imagem da SOPHIE.'],
+      immediateActions: [
+        'Configure OPENAI_API_KEY para habilitar a analise de imagem da SOPHIE.',
+      ],
       ppeRecommendations: [],
-      notes: 'A SOPHIE usa OpenAI como motor oficial para análise de fotos neste ambiente.',
+      notes:
+        'A SOPHIE usa OpenAI como motor oficial para análise de fotos neste ambiente.',
     };
   }
 
   private buildProviderFallbackImageAnalysis(): ImageRiskAnalysis {
     return {
-      summary: 'A SOPHIE nao conseguiu concluir a analise automatica da imagem neste momento.',
+      summary:
+        'A SOPHIE nao conseguiu concluir a analise automatica da imagem neste momento.',
       riskLevel: 'Médio',
       imminentRisks: [],
       immediateActions: [

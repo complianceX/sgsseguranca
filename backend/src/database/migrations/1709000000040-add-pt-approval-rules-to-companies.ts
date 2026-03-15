@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddPtApprovalRulesToCompanies1709000000040
-  implements MigrationInterface
-{
+export class AddPtApprovalRulesToCompanies1709000000040 implements MigrationInterface {
   name = 'AddPtApprovalRulesToCompanies1709000000040';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

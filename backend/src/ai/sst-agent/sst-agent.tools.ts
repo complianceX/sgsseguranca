@@ -74,7 +74,10 @@ export const SST_TOOL_DEFINITIONS: Anthropic.Tool[] = [
     input_schema: {
       type: 'object' as const,
       properties: {
-        status: { type: 'string', description: 'aberta, em_andamento, concluida, cancelada.' },
+        status: {
+          type: 'string',
+          description: 'aberta, em_andamento, concluida, cancelada.',
+        },
       },
     },
   },
@@ -85,7 +88,11 @@ export const SST_TOOL_DEFINITIONS: Anthropic.Tool[] = [
     input_schema: {
       type: 'object' as const,
       properties: {
-        dias: { type: 'number', description: 'Janela de dias para CA proximo do vencimento. Padrao: 30.' },
+        dias: {
+          type: 'number',
+          description:
+            'Janela de dias para CA proximo do vencimento. Padrao: 30.',
+        },
       },
     },
   },
@@ -97,7 +104,10 @@ export const SST_TOOL_DEFINITIONS: Anthropic.Tool[] = [
     input_schema: {
       type: 'object' as const,
       properties: {
-        setor_id: { type: 'string', description: 'ID do setor/obra (opcional).' },
+        setor_id: {
+          type: 'string',
+          description: 'ID do setor/obra (opcional).',
+        },
       },
     },
   },
@@ -126,7 +136,9 @@ export const GEMINI_TOOL_DECLARATIONS: GeminiFunctionDeclaration[] =
     parameters: {
       type: 'object',
       properties:
-        'input_schema' in tool && tool.input_schema && 'properties' in tool.input_schema
+        'input_schema' in tool &&
+        tool.input_schema &&
+        'properties' in tool.input_schema
           ? (tool.input_schema.properties as Record<string, unknown>)
           : {},
     },
@@ -153,7 +165,9 @@ export const OPENAI_TOOL_DEFINITIONS: OpenAiToolDefinition[] =
       parameters: {
         type: 'object',
         properties:
-          'input_schema' in tool && tool.input_schema && 'properties' in tool.input_schema
+          'input_schema' in tool &&
+          tool.input_schema &&
+          'properties' in tool.input_schema
             ? (tool.input_schema.properties as Record<string, unknown>)
             : {},
       },
@@ -186,15 +200,21 @@ export class SstToolsExecutor {
     toolName: string,
     input: Record<string, unknown>,
   ): Promise<SstToolResult> {
-    this.logger.debug(`[SstTool] ${toolName} | input: ${JSON.stringify(input)}`);
+    this.logger.debug(
+      `[SstTool] ${toolName} | input: ${JSON.stringify(input)}`,
+    );
 
     try {
       switch (toolName) {
         case 'buscar_treinamentos_pendentes':
-          return await this.buscarTreinamentosPendentes(Number(input.dias ?? 30));
+          return await this.buscarTreinamentosPendentes(
+            Number(input.dias ?? 30),
+          );
 
         case 'buscar_exames_medicos_pendentes':
-          return await this.buscarExamesMedicosPendentes(Number(input.dias ?? 30));
+          return await this.buscarExamesMedicosPendentes(
+            Number(input.dias ?? 30),
+          );
 
         case 'buscar_estatisticas_cats':
           return await this.buscarEstatisticasCats();
@@ -203,7 +223,9 @@ export class SstToolsExecutor {
           return await this.gerarResumoSst();
 
         case 'buscar_nao_conformidades':
-          return await this.buscarNaoConformidades(input.status as string | undefined);
+          return await this.buscarNaoConformidades(
+            input.status as string | undefined,
+          );
 
         case 'buscar_epis':
           return await this.buscarEpis(Number(input.dias ?? 30));
@@ -216,7 +238,10 @@ export class SstToolsExecutor {
 
         default:
           this.logger.warn(`[SstTool] Ferramenta desconhecida: ${toolName}`);
-          return { success: false, error: `Ferramenta nao reconhecida: ${toolName}` };
+          return {
+            success: false,
+            error: `Ferramenta nao reconhecida: ${toolName}`,
+          };
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -229,7 +254,9 @@ export class SstToolsExecutor {
   // Implementacoes reais (dados do sistema)
   // -------------------------------------------------------------------------
 
-  private async buscarTreinamentosPendentes(dias: number): Promise<SstToolResult> {
+  private async buscarTreinamentosPendentes(
+    dias: number,
+  ): Promise<SstToolResult> {
     const summary = await this.trainingsService.findExpirySummary();
     return {
       success: true,
@@ -243,7 +270,9 @@ export class SstToolsExecutor {
     };
   }
 
-  private async buscarExamesMedicosPendentes(dias: number): Promise<SstToolResult> {
+  private async buscarExamesMedicosPendentes(
+    dias: number,
+  ): Promise<SstToolResult> {
     const summary = await this.medicalExamsService.findExpirySummary();
     return {
       success: true,
@@ -308,7 +337,9 @@ export class SstToolsExecutor {
   // Implementacoes reais — conectadas (antes stubs)
   // -------------------------------------------------------------------------
 
-  private async buscarNaoConformidades(status?: string): Promise<SstToolResult> {
+  private async buscarNaoConformidades(
+    status?: string,
+  ): Promise<SstToolResult> {
     const summary = await this.nonConformitiesService.summarizeByStatus(status);
     return {
       success: true,
@@ -319,7 +350,8 @@ export class SstToolsExecutor {
         filtro_status: summary.filterStatus,
         por_status: summary.byStatus,
         link: '/dashboard/nonconformities',
-        referencia: 'NR-1: nao conformidades devem ser registradas e tratadas no SGS.',
+        referencia:
+          'NR-1: nao conformidades devem ser registradas e tratadas no SGS.',
       },
     };
   }
@@ -332,14 +364,18 @@ export class SstToolsExecutor {
       data: {
         ...summary,
         link: '/dashboard/epis',
-        referencia: 'NR-6, item 6.3: empregador deve exigir EPI com CA valido emitido pelo MTE.',
+        referencia:
+          'NR-6, item 6.3: empregador deve exigir EPI com CA valido emitido pelo MTE.',
       },
     };
   }
 
   private async buscarRiscos(setorId?: string): Promise<SstToolResult> {
     const { matrix } = await this.aprsService.getRiskMatrix(setorId);
-    const total = matrix.reduce((acc: number, r: any) => acc + Number(r.count), 0);
+    const total = matrix.reduce(
+      (acc: number, r: any) => acc + Number(r.count),
+      0,
+    );
     const alto = matrix.filter((r: any) => r.prob * r.sev >= 10);
     return {
       success: true,
@@ -350,13 +386,17 @@ export class SstToolsExecutor {
         matrix,
         setor_id: setorId ?? null,
         link: '/dashboard/risk-map',
-        referencia: 'NR-1: GRO — PGR exige identificacao e avaliacao de riscos ocupacionais.',
+        referencia:
+          'NR-1: GRO — PGR exige identificacao e avaliacao de riscos ocupacionais.',
       },
     };
   }
 
   private async buscarOrdensDeServico(): Promise<SstToolResult> {
-    const page = await this.serviceOrdersService.findPaginated({ status: 'ativo', limit: 50 });
+    const page = await this.serviceOrdersService.findPaginated({
+      status: 'ativo',
+      limit: 50,
+    });
     return {
       success: true,
       is_stub: false,
@@ -370,7 +410,8 @@ export class SstToolsExecutor {
           responsavel: os.responsavel?.nome ?? null,
         })),
         link: '/dashboard/service-orders',
-        referencia: 'NR-1, item 1.5.4: OS obrigatoria para orientar trabalhadores sobre riscos.',
+        referencia:
+          'NR-1, item 1.5.4: OS obrigatoria para orientar trabalhadores sobre riscos.',
       },
     };
   }

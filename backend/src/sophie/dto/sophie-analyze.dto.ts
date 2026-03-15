@@ -38,4 +38,3 @@ export class SophieAnalyzeDto {
   @IsOptional()
   severidade?: number;
 }
-

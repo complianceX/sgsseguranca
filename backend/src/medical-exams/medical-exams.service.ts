@@ -72,9 +72,14 @@ export class MedicalExamsService {
       .take(limit);
 
     if (tenantId) qb.where('exam.company_id = :tenantId', { tenantId });
-    if (opts?.tipo_exame) qb.andWhere('exam.tipo_exame = :tipo_exame', { tipo_exame: opts.tipo_exame });
-    if (opts?.resultado) qb.andWhere('exam.resultado = :resultado', { resultado: opts.resultado });
-    if (opts?.user_id) qb.andWhere('exam.user_id = :user_id', { user_id: opts.user_id });
+    if (opts?.tipo_exame)
+      qb.andWhere('exam.tipo_exame = :tipo_exame', {
+        tipo_exame: opts.tipo_exame,
+      });
+    if (opts?.resultado)
+      qb.andWhere('exam.resultado = :resultado', { resultado: opts.resultado });
+    if (opts?.user_id)
+      qb.andWhere('exam.user_id = :user_id', { user_id: opts.user_id });
 
     const [data, total] = await qb.getManyAndCount();
     return toOffsetPage(data, total, page, limit);
@@ -175,10 +180,12 @@ export class MedicalExamsService {
         Funcionário: e.user?.nome ?? '',
         Tipo: TIPO_EXAME_LABEL[e.tipo_exame] ?? e.tipo_exame,
         Resultado: RESULTADO_LABEL[e.resultado] ?? e.resultado,
-        'Data Realização': new Date(e.data_realizacao).toLocaleDateString('pt-BR'),
+        'Data Realização': new Date(e.data_realizacao).toLocaleDateString(
+          'pt-BR',
+        ),
         Vencimento: venc ? venc.toLocaleDateString('pt-BR') : '',
         'Status Vencimento': statusVenc,
-        'Médico': e.medico_responsavel ?? '',
+        Médico: e.medico_responsavel ?? '',
         CRM: e.crm_medico ?? '',
       };
     });

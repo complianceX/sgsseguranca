@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class FixAiInteractionsRlsPolicy1709000000033
-  implements MigrationInterface
-{
+export class FixAiInteractionsRlsPolicy1709000000033 implements MigrationInterface {
   name = 'FixAiInteractionsRlsPolicy1709000000033';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

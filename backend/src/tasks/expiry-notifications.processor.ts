@@ -17,28 +17,38 @@ export class ExpiryNotificationsProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<{ tenantId: string; type: 'training-check' | 'epi-check' | 'medical-exam-check' }>): Promise<void> {
+  async process(
+    job: Job<{
+      tenantId: string;
+      type: 'training-check' | 'epi-check' | 'medical-exam-check';
+    }>,
+  ): Promise<void> {
     const { tenantId, type } = job.data;
 
-    await this.tenantService.run({ companyId: tenantId, isSuperAdmin: false }, async () => {
-      if (type === 'training-check') {
-        const result = await this.trainingsService.dispatchExpiryNotifications(30);
-        this.logger.log(
-          `[tenant=${tenantId}] training-check: ${result.dispatched} notificações despachadas`,
-        );
-      } else if (type === 'epi-check') {
-        // EPI CA expiry check — busca EPIs com validade_ca <= hoje + 30 dias
-        // Notificação via log; pode ser expandido para enfileirar e-mails
-        this.logger.log(
-          `[tenant=${tenantId}] epi-check: verificação de validade de CA de EPIs executada`,
-        );
-      } else if (type === 'medical-exam-check') {
-        const result = await this.medicalExamsService.dispatchExpiryNotifications(30);
-        this.logger.log(
-          `[tenant=${tenantId}] medical-exam-check: ${result.dispatched} notificações despachadas`,
-        );
-      }
-    });
+    await this.tenantService.run(
+      { companyId: tenantId, isSuperAdmin: false },
+      async () => {
+        if (type === 'training-check') {
+          const result =
+            await this.trainingsService.dispatchExpiryNotifications(30);
+          this.logger.log(
+            `[tenant=${tenantId}] training-check: ${result.dispatched} notificações despachadas`,
+          );
+        } else if (type === 'epi-check') {
+          // EPI CA expiry check — busca EPIs com validade_ca <= hoje + 30 dias
+          // Notificação via log; pode ser expandido para enfileirar e-mails
+          this.logger.log(
+            `[tenant=${tenantId}] epi-check: verificação de validade de CA de EPIs executada`,
+          );
+        } else if (type === 'medical-exam-check') {
+          const result =
+            await this.medicalExamsService.dispatchExpiryNotifications(30);
+          this.logger.log(
+            `[tenant=${tenantId}] medical-exam-check: ${result.dispatched} notificações despachadas`,
+          );
+        }
+      },
+    );
   }
 
   @OnWorkerEvent('failed')

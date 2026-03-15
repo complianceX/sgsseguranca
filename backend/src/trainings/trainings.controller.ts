@@ -90,7 +90,10 @@ export class TrainingsController {
 
   @Get('export/excel')
   @Authorize('can_view_trainings')
-  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
   @Header('Content-Disposition', 'attachment; filename="treinamentos.xlsx"')
   async exportExcel(): Promise<StreamableFile> {
     const buffer = await this.trainingsService.exportExcel();

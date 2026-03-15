@@ -76,7 +76,7 @@ export class TenantRepository<TEntity extends Record<string, any>> {
       where: withTenant(where as any, companyId, {
         tenantColumn: this.tenantColumn(),
         allowMissingTenant: this.options.allowMissingTenant,
-      }) as any,
+      }),
     });
   }
 
@@ -97,7 +97,7 @@ export class TenantRepository<TEntity extends Record<string, any>> {
       where: withTenant((where || {}) as any, companyId, {
         tenantColumn: this.tenantColumn(),
         allowMissingTenant: this.options.allowMissingTenant,
-      }) as any,
+      }),
     });
   }
 
@@ -129,10 +129,7 @@ export class TenantRepository<TEntity extends Record<string, any>> {
    * Save garantindo tenant no payload (quando aplicável).
    * Evita criação acidental de registros "sem tenant".
    */
-  save(
-    entity: DeepPartial<TEntity>,
-    tenantId?: string,
-  ): Promise<TEntity> {
+  save(entity: DeepPartial<TEntity>, tenantId?: string): Promise<TEntity> {
     const companyId = this.effectiveTenantId(tenantId);
     const tenantColumn = this.tenantColumn();
     const next = { ...(entity as any) };
@@ -149,7 +146,7 @@ export class TenantRepository<TEntity extends Record<string, any>> {
       });
     }
 
-    return this.repo.save(next as any);
+    return this.repo.save(next);
   }
 
   /**
@@ -182,4 +179,3 @@ export class TenantRepositoryFactory {
     return new TenantRepository(repo, this.tenantService, options);
   }
 }
-

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { PenTool, Upload, Camera, Check, RefreshCw, Smartphone } from 'lucide-react';
+import { PenTool, Upload, Camera, Check, RefreshCw } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -21,19 +21,14 @@ interface SignatureModalProps {
 }
 
 export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureModalProps) {
-  const [activeTab, setActiveTab] = useState<'digital' | 'upload' | 'facial' | 'cpf_pin'>('digital');
+  const [activeTab, setActiveTab] = useState<'digital' | 'upload' | 'facial'>('digital');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [cpf, setCpf] = useState('');
-  const [pin, setPin] = useState('');
 
   const sigCanvas = useRef<SignatureCanvas>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tabButtonClassName =
     'flex flex-1 items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] py-2 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
-  const fieldClassName =
-    'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
-  const labelClassName = 'mb-1 block text-sm font-medium text-[var(--ds-color-text-secondary)]';
 
   const startCamera = async () => {
     try {
@@ -105,15 +100,6 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
   const handleSave = () => {
     let signatureData = '';
 
-    if (activeTab === 'cpf_pin') {
-      if (!cpf.trim()) { toast.error('Informe o CPF.'); return; }
-      if (!/^\d{4,6}$/.test(pin)) { toast.error('PIN deve ter entre 4 e 6 dígitos numéricos.'); return; }
-      signatureData = JSON.stringify({ cpf: cpf.trim(), confirmed_at: new Date().toISOString() });
-      onSave(signatureData, 'cpf_pin');
-      onClose();
-      return;
-    }
-
     if (activeTab === 'digital') {
       if (sigCanvas.current?.isEmpty()) {
         toast.error('Por favor, faça a assinatura.');
@@ -179,22 +165,10 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
               <Camera className="h-4 w-4" />
               <span>Facial</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('cpf_pin')}
-              className={`${tabButtonClassName} ${
-                activeTab === 'cpf_pin'
-                  ? 'border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]'
-                  : 'text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]'
-              }`}
-            >
-              <Smartphone className="h-4 w-4" />
-              <span>CPF+PIN</span>
-            </button>
           </div>
 
           <div
-            className={`relative mb-6 flex ${activeTab === 'cpf_pin' ? 'h-auto' : 'h-64'} w-full items-center justify-center overflow-hidden rounded-[var(--ds-radius-xl)] border-2 border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/26`}
+            className="relative mb-6 flex h-64 w-full items-center justify-center overflow-hidden rounded-[var(--ds-radius-xl)] border-2 border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/26"
           >
             {activeTab === 'digital' && (
               <SignatureCanvas
@@ -262,32 +236,6 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
               </div>
             )}
 
-            {activeTab === 'cpf_pin' && (
-              <div className="flex w-full flex-col gap-4 p-6">
-                <div>
-                  <label className={labelClassName}>CPF</label>
-                  <input
-                    type="text"
-                    placeholder="000.000.000-00"
-                    value={cpf}
-                    onChange={(e) => setCpf(e.target.value)}
-                    className={fieldClassName}
-                  />
-                </div>
-                <div>
-                  <label className={labelClassName}>PIN (4–6 dígitos)</label>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    placeholder="••••"
-                    maxLength={6}
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                    className={fieldClassName}
-                  />
-                </div>
-              </div>
-            )}
           </div>
         </ModalBody>
 

@@ -141,7 +141,10 @@ export class SstRateLimitService {
         allowed: false,
         retryAfterSeconds: this.secondsUntilMidnight(),
         remaining: {
-          perMinute: Math.max(0, LIMITS.REQUESTS_PER_MINUTE - (minuteCount - 1)),
+          perMinute: Math.max(
+            0,
+            LIMITS.REQUESTS_PER_MINUTE - (minuteCount - 1),
+          ),
           perDay: 0,
         },
       };

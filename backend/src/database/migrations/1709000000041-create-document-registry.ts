@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateDocumentRegistry1709000000041
-  implements MigrationInterface
-{
+export class CreateDocumentRegistry1709000000041 implements MigrationInterface {
   name = 'CreateDocumentRegistry1709000000041';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
