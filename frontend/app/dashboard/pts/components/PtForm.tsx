@@ -208,6 +208,21 @@ function applySophieCriticalPtDefaults(
 
 type PtMutationPayload = Parameters<typeof ptsService.create>[0];
 
+function normalizePtGenericStatus(
+  value?: string | null,
+): PtFormData['status'] {
+  return value === 'Pendente' ? value : 'Pendente';
+}
+
+function normalizeDraftValuesForGenericPt(
+  values: Partial<PtFormData>,
+): Partial<PtFormData> {
+  return {
+    ...values,
+    status: normalizePtGenericStatus(values.status),
+  };
+}
+
 function normalizeOptionalUuid(value?: string | null) {
   const normalized = String(value || '').trim();
   return normalized || undefined;
@@ -879,7 +894,10 @@ export function PtForm({ id }: PtFormProps) {
     async (data: PtFormData) => {
       let ptId = id;
       let queuedOffline = false;
-      const payload = buildPtMutationPayload(data);
+      const payload = buildPtMutationPayload({
+        ...data,
+        status: id ? data.status : normalizePtGenericStatus(data.status),
+      });
 
       if (id) {
         const updatedPt = await ptsService.update(id, payload);
@@ -1096,7 +1114,7 @@ export function PtForm({ id }: PtFormProps) {
 
             if (parsedDraft.values) {
               const preparedValues = applySophieCriticalPtDefaults(
-                parsedDraft.values,
+                normalizeDraftValuesForGenericPt(parsedDraft.values),
                 parsedDraft.metadata,
               );
               reset({

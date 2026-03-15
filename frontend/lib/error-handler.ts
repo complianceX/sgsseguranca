@@ -9,6 +9,36 @@ export interface FormErrorMessages {
   fallback?: string;
 }
 
+function normalizeValidationDetails(value: unknown): string | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  for (const item of value) {
+    if (!item || typeof item !== 'object') {
+      continue;
+    }
+
+    const entry = item as Record<string, unknown>;
+    const field =
+      typeof entry.field === 'string' && entry.field.trim().length > 0
+        ? entry.field.trim()
+        : undefined;
+    const errors = Array.isArray(entry.errors)
+      ? entry.errors.filter(
+          (error): error is string =>
+            typeof error === 'string' && error.trim().length > 0,
+        )
+      : [];
+
+    if (errors.length > 0) {
+      return field ? `${field}: ${errors[0]}` : errors[0];
+    }
+  }
+
+  return undefined;
+}
+
 function normalizeUnknownMessage(value: unknown): string | undefined {
   if (typeof value === 'string') {
     return value;
@@ -26,6 +56,25 @@ function normalizeUnknownMessage(value: unknown): string | undefined {
 
   if (value && typeof value === 'object') {
     const obj = value as Record<string, unknown>;
+
+    if ('details' in obj) {
+      const normalizedDetails = normalizeValidationDetails(obj.details);
+      if (normalizedDetails) {
+        return normalizedDetails;
+      }
+
+      const normalized = normalizeUnknownMessage(obj.details);
+      if (normalized) {
+        return normalized;
+      }
+    }
+
+    if ('errors' in obj) {
+      const normalizedErrors = normalizeValidationDetails(obj.errors);
+      if (normalizedErrors) {
+        return normalizedErrors;
+      }
+    }
 
     if ('message' in obj) {
       const normalized = normalizeUnknownMessage(obj.message);
@@ -81,11 +130,15 @@ export function handleApiError(error: unknown, context: string) {
     const data = error.response?.data;
     const message = normalizeUnknownMessage(data);
 
-    console.error(`[API Error] ${context}:`, {
-      status,
-      message,
-      url: error.config?.url,
-    });
+    console.error(
+      `[API Error] ${context}: status=${status ?? 'unknown'} message=${message || 'sem mensagem legível'}`,
+      {
+        status,
+        message,
+        data,
+        url: error.config?.url,
+      },
+    );
 
     switch (status) {
       case 401:

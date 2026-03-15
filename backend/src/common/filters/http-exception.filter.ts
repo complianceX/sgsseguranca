@@ -14,6 +14,7 @@ interface ExceptionResponse {
   message?: string | string[];
   error?: string;
   details?: unknown;
+  errors?: unknown;
 }
 
 interface AuthenticatedRequest extends Request {
@@ -47,7 +48,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (typeof exceptionResponse === 'object') {
         message = exceptionResponse.message || exception.message;
         code = exceptionResponse.error || exception.name;
-        details = exceptionResponse.details;
+        details = exceptionResponse.details ?? exceptionResponse.errors;
       } else {
         message = exceptionResponse as string;
       }

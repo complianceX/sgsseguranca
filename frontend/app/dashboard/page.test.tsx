@@ -169,8 +169,9 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByText(/vencimentos críticos/i)).toBeInTheDocument();
     expect(screen.getByText(/síntese executiva/i)).toBeInTheDocument();
-    expect(screen.getByText(/atividade e relatórios/i)).toBeInTheDocument();
-    expect(screen.getByText(/governança prioritária/i)).toBeInTheDocument();
+    expect(screen.getByText(/indicadores sst/i)).toBeInTheDocument();
+    expect(screen.getByText(/plano de ação/i)).toBeInTheDocument();
+    expect(screen.getByText(/gandra insights mock/i)).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.queryByText('Aprovação e Assinaturas')).not.toBeInTheDocument();

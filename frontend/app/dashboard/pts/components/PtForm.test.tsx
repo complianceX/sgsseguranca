@@ -43,7 +43,11 @@ jest.mock('@/components/layout', () => ({
 }));
 
 jest.mock('./BasicInfoSection', () => ({
-  BasicInfoSection: () => <div>Basic Info Section</div>,
+  BasicInfoSection: () => {
+    const { useFormContext } = jest.requireActual('react-hook-form');
+    const { watch } = useFormContext();
+    return <div>Status atual: {watch('status')}</div>;
+  },
 }));
 
 jest.mock('./RiskTypesSection', () => ({
@@ -202,6 +206,30 @@ describe('PtForm', () => {
     expect(screen.queryByText('APR vinculada')).not.toBeInTheDocument();
     expect(screen.queryByText('Readiness OK')).not.toBeInTheDocument();
     expect(screen.queryByText('Readiness Blocked')).not.toBeInTheDocument();
+  });
+
+  it('normalizes legacy draft status before the PT generic flow is restored', async () => {
+    localStorage.setItem(
+      'gst.pt.wizard.draft.company-1',
+      JSON.stringify({
+        step: 1,
+        values: {
+          company_id: 'company-1',
+          site_id: 'site-1',
+          responsavel_id: 'user-1',
+          titulo: 'PT herdada',
+          numero: 'PT-900',
+          status: 'Aprovada',
+          executantes: ['user-1'],
+        },
+        metadata: {},
+      }),
+    );
+
+    render(<PtForm />);
+
+    expect(await screen.findByText('Etapa 1 de 3')).toBeInTheDocument();
+    expect(screen.getByText('Status atual: Pendente')).toBeInTheDocument();
   });
 
   it('hides the SOPHIE helper block when the restored draft opens in the final step', async () => {
