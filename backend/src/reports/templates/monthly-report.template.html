@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Relatório Mensal de Conformidade</title>
   <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
     *, *::before, *::after { box-sizing: border-box; }
     body {
       font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
@@ -19,9 +24,8 @@
 
     .page {
       width: 210mm;
-      height: 297mm;
+      min-height: 297mm;
       padding: 14mm;
-      position: relative;
       display: flex;
       flex-direction: column;
     }
@@ -83,6 +87,8 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
       margin-bottom: 12px;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .metadata-item {
       background-color: #f8fafc;
@@ -116,6 +122,8 @@
       border-radius: 8px;
       margin-bottom: 12px;
       overflow: hidden;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .executive-summary {
       border-left: 4px solid #0f766e;
@@ -169,6 +177,8 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
       margin-bottom: 12px;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .stat-card {
       background-color: #f8fafc;
@@ -200,9 +210,10 @@
       border: 1px solid #cbd5e1;
       border-radius: 6px;
       padding: 14px;
-      min-height: 60mm;
       font-size: 9.6pt;
       line-height: 1.65;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
     .analysis-block .title {
       font-size: 10.5pt;
@@ -213,6 +224,8 @@
     .analysis-block p {
       margin: 0;
       white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .governance {
@@ -221,6 +234,8 @@
       border: 1px solid #cbd5e1;
       border-radius: 6px;
       padding: 10px 12px;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
     .governance .label {
       font-size: 7.2pt;
@@ -237,17 +252,16 @@
     }
 
     .report-footer {
-      position: absolute;
-      bottom: 8mm;
-      left: 14mm;
-      right: 14mm;
+      margin-top: auto;
+      padding-top: 10mm;
       display: flex;
       justify-content: space-between;
       align-items: center;
       font-size: 8pt;
       color: #64748b;
       border-top: 1px solid #cbd5e1;
-      padding-top: 4mm;
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
   </style>
 </head>
@@ -321,7 +335,7 @@
 
     <footer class="report-footer">
       <span>Sistema &lt;GST&gt; Gestão de Segurança do Trabalho</span>
-      <span>Documento confidencial | Página 1 de 1</span>
+      <span>Documento confidencial | Emissão digital</span>
     </footer>
   </div>
 </body>

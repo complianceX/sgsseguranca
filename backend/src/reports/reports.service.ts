@@ -87,9 +87,10 @@ export class ReportsService {
   <meta charset="UTF-8" />
   <title>Relatório Mensal SST</title>
   <style>
+    @page { size: A4; margin: 0; }
     *, *::before, *::after { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; color: #0f172a; margin: 0; padding: 0; background: #fff; }
-    .page { width: 210mm; height: 297mm; padding: 14mm; position: relative; display: flex; flex-direction: column; }
+    .page { width: 210mm; min-height: 297mm; padding: 14mm; display: flex; flex-direction: column; }
     .header { margin: -14mm -14mm 0; padding: 14mm 14mm 10mm; background: #102033; color: #fff; border-bottom: 2.6mm solid #1f4e79; position: relative; min-height: 36mm; }
     .title { font-size: 16pt; font-weight: 700; margin: 0; }
     .subtitle { color: #dbe5ee; font-size: 9.5pt; margin: 4px 0 0; }
@@ -98,11 +99,11 @@ export class ReportsService {
     .document-chip .v { margin-top: 6px; font-size: 11pt; font-weight: 700; }
     .document-chip .m { margin-top: 4px; font-size: 7.5pt; color: #475569; }
     .body { flex-grow: 1; padding-top: 8mm; }
-    .meta-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .meta-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; break-inside: avoid; page-break-inside: avoid; }
     .meta { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; }
     .meta .k { color: #64748b; font-size: 7.3pt; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; margin-bottom: 5px; display: block; }
     .meta .v { font-weight: 700; font-size: 10pt; color: #0f172a; display: block; line-height: 1.35; }
-    .strip { display: grid; grid-template-columns: 1.3fr repeat(3, minmax(0, 1fr)); gap: 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+    .strip { display: grid; grid-template-columns: 1.3fr repeat(3, minmax(0, 1fr)); gap: 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 12px; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
     .strip-summary { border-left: 4px solid #0f766e; padding: 12px 14px; }
     .strip-summary .t { font-size: 10.5pt; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
     .strip-summary .b { font-size: 8.6pt; line-height: 1.45; color: #334155; }
@@ -113,7 +114,7 @@ export class ReportsService {
     .pill .k { font-size: 7pt; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: #64748b; margin-bottom: 5px; }
     .pill .v { font-size: 13pt; font-weight: 700; color: #0f172a; }
     h2 { margin: 14px 0 8px; font-size: 11pt; color: #0f172a; }
-    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; break-inside: avoid; page-break-inside: avoid; }
     .stat-card { background: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #1f4e79; border-radius: 6px; padding: 12px 14px; min-height: 72px; }
     .stat-card.primary { border-left-color: #1f4e79; }
     .stat-card.success { border-left-color: #166534; }
@@ -121,13 +122,13 @@ export class ReportsService {
     .stat-card.danger { border-left-color: #b91c1c; }
     .stat-card .value { font-size: 19pt; font-weight: 700; color: #102033; margin-bottom: 4px; }
     .stat-card .label { font-size: 8.3pt; color: #475569; font-weight: 600; line-height: 1.35; }
-    .analysis { margin-top: 0; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; padding: 14px; min-height: 60mm; }
+    .analysis { margin-top: 0; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; padding: 14px; overflow-wrap: anywhere; word-break: break-word; }
     .analysis .t { font-size: 10.5pt; font-weight: 700; margin-bottom: 8px; color: #0f172a; }
-    .analysis pre { white-space: pre-wrap; font-family: inherit; margin: 0; line-height: 1.65; font-size: 9.6pt; }
-    .governance { margin-top: 12px; background: #eef2f7; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; }
+    .analysis pre { white-space: pre-wrap; font-family: inherit; margin: 0; line-height: 1.65; font-size: 9.6pt; overflow-wrap: anywhere; word-break: break-word; }
+    .governance { margin-top: 12px; background: #eef2f7; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 12px; break-inside: avoid; page-break-inside: avoid; }
     .governance .k { font-size: 7.2pt; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: #64748b; margin-bottom: 4px; }
     .governance .v { font-size: 8.5pt; color: #334155; line-height: 1.45; }
-    .footer { position: absolute; left: 14mm; right: 14mm; bottom: 8mm; display: flex; justify-content: space-between; border-top: 1px solid #cbd5e1; padding-top: 4mm; font-size: 8pt; color: #64748b; }
+    .footer { margin-top: auto; display: flex; justify-content: space-between; border-top: 1px solid #cbd5e1; padding-top: 10mm; font-size: 8pt; color: #64748b; break-inside: avoid; page-break-inside: avoid; }
   </style>
 </head>
 <body>
@@ -187,7 +188,7 @@ export class ReportsService {
 
     <div class="footer">
       <span>Sistema &lt;GST&gt; Gestão de Segurança do Trabalho</span>
-      <span>Documento confidencial | Página 1 de 1</span>
+      <span>Documento confidencial | Emissão digital</span>
     </div>
   </div>
 </body>

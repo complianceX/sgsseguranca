@@ -6,6 +6,27 @@ import { buildApiUrl } from '@/lib/api';
 
 type VerifyMode = 'evidence' | 'signature' | 'code';
 
+function normalizeVerifyMode(value: string | null): VerifyMode | null {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'evidence' || normalized === 'signature' || normalized === 'code') {
+    return normalized;
+  }
+
+  if (normalized === 'assinatura') {
+    return 'signature';
+  }
+
+  if (normalized === 'codigo' || normalized === 'document-code') {
+    return 'code';
+  }
+
+  return null;
+}
+
 interface EvidenceVerifyResponse {
   verified: boolean;
   matchedIn?: 'original' | 'watermarked';
@@ -157,6 +178,9 @@ export default function PublicHashVerifyPage() {
     const params = new URLSearchParams(window.location.search);
     const hashParam = params.get('hash');
     const codeParam = params.get('code');
+    const requestedMode =
+      normalizeVerifyMode(params.get('type')) ??
+      normalizeVerifyMode(params.get('mode'));
     if (codeParam) {
       setHash(codeParam);
       setMode('code');
@@ -164,9 +188,13 @@ export default function PublicHashVerifyPage() {
       return;
     }
     if (hashParam) {
+      const targetMode =
+        requestedMode === 'signature' || requestedMode === 'evidence'
+          ? requestedMode
+          : 'evidence';
       setHash(hashParam);
-      setMode('evidence');
-      void runVerify(hashParam, 'evidence');
+      setMode(targetMode);
+      void runVerify(hashParam, targetMode);
     }
   }, [runVerify]);
 

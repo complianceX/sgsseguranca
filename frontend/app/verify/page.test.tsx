@@ -89,4 +89,47 @@ describe('PublicHashVerifyPage', () => {
 
     expect(await screen.findByText('Registro validado com sucesso.')).toBeInTheDocument();
   });
+
+  it('auto-runs the public signature route for signature deep links', async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        valid: true,
+        signature: { hash: 'c'.repeat(64), document_type: 'APR' },
+      }),
+    });
+    window.history.pushState({}, '', `/verify?type=signature&hash=${'c'.repeat(64)}`);
+
+    render(<PublicHashVerifyPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.example.test/public/signature/verify?hash='.concat('c'.repeat(64)),
+        expect.objectContaining({ method: 'GET', cache: 'no-store' }),
+      );
+    });
+
+    expect(await screen.findByText('Registro validado com sucesso.')).toBeInTheDocument();
+  });
+
+  it('keeps evidence as the default deep-link mode for bare hashes', async () => {
+    fetchMock.mockResolvedValue({
+      json: async () => ({
+        verified: true,
+        matchedIn: 'watermarked',
+        evidence: { apr_numero: 'APR-2' },
+      }),
+    });
+    window.history.pushState({}, '', `/verify?hash=${'d'.repeat(64)}`);
+
+    render(<PublicHashVerifyPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.example.test/public/evidence/verify?hash='.concat('d'.repeat(64)),
+        expect.objectContaining({ method: 'GET', cache: 'no-store' }),
+      );
+    });
+
+    expect(await screen.findByText('Registro validado com sucesso.')).toBeInTheDocument();
+  });
 });

@@ -2,19 +2,20 @@ import { ReportsService } from './reports.service';
 
 describe('ReportsService monthly report rendering', () => {
   let service: ReportsService;
+  type ReportsServiceArgs = ConstructorParameters<typeof ReportsService>;
 
   beforeEach(() => {
     service = new ReportsService(
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      { getTenantId: jest.fn() } as any,
-      { findOne: jest.fn() } as any,
+      {} as ReportsServiceArgs[0],
+      {} as ReportsServiceArgs[1],
+      {} as ReportsServiceArgs[2],
+      {} as ReportsServiceArgs[3],
+      {} as ReportsServiceArgs[4],
+      {} as ReportsServiceArgs[5],
+      {} as ReportsServiceArgs[6],
+      {} as ReportsServiceArgs[7],
+      { getTenantId: jest.fn() } as ReportsServiceArgs[8],
+      { findOne: jest.fn() } as ReportsServiceArgs[9],
     );
   });
 
@@ -54,5 +55,8 @@ describe('ReportsService monthly report rendering', () => {
     expect(html).toContain('Empresa Teste LTDA');
     expect(html).toContain('Fechamento mensal de conformidade');
     expect(html).toContain(longAnalysis);
+    expect(html).toContain('overflow-wrap: anywhere');
+    expect(html).toContain('Documento confidencial | Emissão digital');
+    expect(html).not.toContain('Página 1 de 1');
   });
 });
