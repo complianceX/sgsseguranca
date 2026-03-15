@@ -2,9 +2,16 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { X, PenTool, Upload, Camera, Check, RefreshCw, Smartphone } from 'lucide-react';
+import { PenTool, Upload, Camera, Check, RefreshCw, Smartphone } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import {
+  ModalBody,
+  ModalFooter,
+  ModalFrame,
+  ModalHeader,
+} from '@/components/ui/modal-frame';
 
 interface SignatureModalProps {
   isOpen: boolean;
@@ -125,29 +132,16 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="ds-modal-overlay z-[60]">
-      <div className="ds-modal-shell max-w-lg">
-        <div className="ds-modal-header">
-          <div>
-            <h3 className="text-lg font-bold text-[var(--ds-color-text-primary)]">Assinatura de Participante</h3>
-            <p className="text-xs text-[var(--ds-color-text-muted)]">
-              Participante: <span className="font-bold text-[var(--ds-color-text-primary)]">{userName}</span>
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ds-modal-close"
-            title="Fechar"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <ModalFrame isOpen={isOpen} onClose={onClose} shellClassName="max-w-lg" overlayClassName="z-[60]">
+        <ModalHeader
+          title="Assinatura de participante"
+          description={`Participante: ${userName}`}
+          icon={<PenTool className="h-5 w-5" />}
+          onClose={onClose}
+        />
 
-        <div className="ds-modal-body">
+        <ModalBody>
           <div className="mb-6 flex space-x-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/35 p-1">
             <button
               type="button"
@@ -295,36 +289,30 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
               </div>
             )}
           </div>
+        </ModalBody>
 
-          <div className="flex justify-between space-x-4">
-            <button
+        <ModalFooter className="items-center justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={clearSignature}
+            leftIcon={<RefreshCw className="h-4 w-4" />}
+          >
+            Limpar
+          </Button>
+          <div className="flex space-x-3">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button
               type="button"
-              onClick={clearSignature}
-              className="flex items-center space-x-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/24 hover:text-[var(--ds-color-text-primary)]"
+              onClick={handleSave}
+              leftIcon={<Check className="h-4 w-4" />}
             >
-              <RefreshCw className="h-4 w-4" />
-              <span>Limpar</span>
-            </button>
-            <div className="flex space-x-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-6 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/24 hover:text-[var(--ds-color-text-primary)]"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                className="flex items-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-8 py-2 text-sm font-bold text-[var(--ds-color-action-primary-foreground)] shadow-[var(--ds-shadow-sm)] transition-all hover:bg-[var(--ds-color-action-primary-hover)] active:scale-[0.99]"
-              >
-                <Check className="h-4 w-4" />
-                <span>Confirmar Assinatura</span>
-              </button>
-            </div>
+              Confirmar assinatura
+            </Button>
           </div>
-        </div>
-      </div>
-    </div>
+        </ModalFooter>
+    </ModalFrame>
   );
 }

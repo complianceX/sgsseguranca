@@ -5,8 +5,7 @@ import { Sparkles, ArrowRight, AlertTriangle, CheckCircle, Info, Loader2 } from 
 import { aiService } from '@/services/aiService';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { Badge } from './ui/badge';
-import { Card, CardContent, CardTitle, CardDescription } from './ui/card';
+import { StatusPill } from './ui/status-pill';
 import { isAiEnabled } from '@/lib/featureFlags';
 
 export interface Insight {
@@ -23,12 +22,17 @@ interface InsightsData {
 }
 
 export function GandraInsights() {
-  if (!isAiEnabled()) return null;
+  const aiEnabled = isAiEnabled();
 
   const [data, setData] = useState<InsightsData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(aiEnabled);
 
   useEffect(() => {
+    if (!aiEnabled) {
+      setLoading(false);
+      return;
+    }
+
     async function loadInsights() {
       try {
         const result = await aiService.getInsights();
@@ -41,35 +45,37 @@ export function GandraInsights() {
     }
 
     loadInsights();
-  }, []);
+  }, [aiEnabled]);
+
+  if (!aiEnabled) return null;
 
   if (loading) {
     return (
-      <Card tone="elevated" padding="lg" className="flex h-48 items-center justify-center">
+      <div className="ds-dashboard-panel flex h-48 items-center justify-center p-6">
         <div className="flex flex-col items-center space-y-2">
           <Loader2 className="h-8 w-8 animate-spin text-[var(--ds-color-action-primary)]" />
           <p className="text-sm font-medium text-[var(--ds-color-text-muted)]">SOPHIE analisando dados...</p>
         </div>
-      </Card>
+      </div>
     );
   }
 
   if (!data) {
     return (
-      <Card tone="elevated" padding="lg" className="overflow-hidden">
+      <div className="ds-dashboard-panel overflow-hidden p-5">
         <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] pb-3">
           <div>
-            <CardTitle className="text-base">SOPHIE</CardTitle>
-            <CardDescription>
+            <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">SOPHIE</h2>
+            <p className="text-sm text-[var(--ds-color-text-secondary)]">
               A assistente ainda nao conseguiu consolidar os insights deste ambiente.
-            </CardDescription>
+            </p>
           </div>
-          <Badge variant="warning" className="text-[10px] uppercase tracking-[0.12em]">
+          <StatusPill tone="warning">
             sincronizacao pendente
-          </Badge>
+          </StatusPill>
         </div>
 
-        <CardContent className="px-0 pb-0 pt-4">
+        <div className="px-0 pb-0 pt-4">
           <div className="rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-4">
             <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
               A SOPHIE esta visivel, mas os insights nao retornaram neste carregamento.
@@ -84,40 +90,40 @@ export function GandraInsights() {
               Abrir SOPHIE <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card tone="elevated" padding="none" interactive className="overflow-hidden">
-      <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-5 py-3.5">
+    <div className="ds-dashboard-panel overflow-hidden">
+      <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-5 py-4">
         <div className="flex items-center space-x-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[image:var(--ds-gradient-brand)] text-white shadow-sm">
-            <span className="text-base font-black italic">G</span>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]">
+            <Sparkles className="h-4.5 w-4.5" />
           </div>
           <div>
-            <CardTitle className="text-base">SOPHIE</CardTitle>
-            <CardDescription>Sintetiza tendências, riscos e pendências operacionais.</CardDescription>
+            <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">SOPHIE</h2>
+            <p className="text-sm text-[var(--ds-color-text-secondary)]">Sintetiza tendências, riscos e pendências operacionais.</p>
           </div>
         </div>
-        <Badge variant="accent" className="text-[10px] uppercase tracking-[0.12em]">
+        <StatusPill tone="info">
           <Sparkles className="h-3 w-3" />
-          <span>SOPHIE ativa</span>
-        </Badge>
+          SOPHIE ativa
+        </StatusPill>
       </div>
 
-      <CardContent className="p-5">
+      <div className="p-5">
         <p className="mb-5 text-sm leading-relaxed text-[var(--ds-color-text-secondary)]">
           {data.summary}
         </p>
 
-        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           {data.insights.map((insight, index) => (
             <div
               key={index}
               className={cn(
-                'group relative flex flex-col justify-between rounded-xl border p-3.5 transition-all hover:-translate-y-px',
+                'group relative flex flex-col justify-between rounded-xl border p-4 transition-all hover:border-[var(--ds-color-action-primary)]/22',
                 insight.type === 'warning' &&
                 'border-[color:var(--ds-color-warning)]/18 bg-[var(--ds-color-warning-subtle)]',
                 insight.type === 'success' &&
@@ -148,7 +154,7 @@ export function GandraInsights() {
               <Link
                 href={insight.action}
                 className={cn(
-                  'flex items-center text-[11px] font-bold uppercase transition-all group-hover:translate-x-1',
+                  'flex items-center text-xs font-semibold transition-all group-hover:translate-x-0.5',
                   insight.type === 'warning' && 'text-[var(--ds-color-warning)]',
                   insight.type === 'success' && 'text-[var(--ds-color-success)]',
                   insight.type === 'info' && 'text-[var(--ds-color-info)]',
@@ -159,7 +165,7 @@ export function GandraInsights() {
             </div>
           ))}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

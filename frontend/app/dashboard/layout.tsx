@@ -152,6 +152,7 @@ export default function DashboardLayout({
         onSelect={handleCompanySelect}
         onLogout={logout}
         currentCompanyId={selectedTenant?.companyId}
+        onClose={() => setSelectorOpen(false)}
       />
       <OnboardingModal userId={user?.id} />
     </div>

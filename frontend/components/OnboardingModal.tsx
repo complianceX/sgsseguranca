@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import {
-  X,
   ShieldCheck,
   ClipboardList,
   Bell,
@@ -12,7 +11,13 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StatusPill } from '@/components/ui/status-pill';
+import {
+  ModalBody,
+  ModalFooter,
+  ModalFrame,
+  ModalHeader,
+} from '@/components/ui/modal-frame';
 
 const STORAGE_KEY = 'cx_onboarding_done_v1';
 
@@ -84,44 +89,35 @@ export function OnboardingModal({ userId }: Props) {
   const isLast = step === STEPS.length - 1;
 
   return (
-    <div className="ds-modal-overlay z-[200] px-4">
-      <div className="ds-modal-shell relative w-full max-w-md overflow-hidden p-0">
-        {/* Fechar */}
-        <button
-          type="button"
-          onClick={dismiss}
-          className="ds-modal-close absolute right-4 top-4"
-          aria-label="Fechar"
-        >
-          <X className="h-5 w-5" />
-        </button>
+    <ModalFrame isOpen={open} onClose={dismiss} shellClassName="w-full max-w-md overflow-hidden p-0" overlayClassName="z-[200] px-4">
+      <ModalHeader
+        title="Primeiros passos"
+        description={`Passo ${step + 1} de ${STEPS.length}`}
+        icon={<Icon className={`h-5 w-5 ${current.iconColor}`} />}
+        onClose={dismiss}
+        className="border-b-0 pb-0"
+      />
 
-        {/* Conteúdo */}
-        <div className="p-8 pt-10">
-          {/* Ícone */}
-          <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl ${current.iconBg}`}>
+      <ModalBody className="px-8 pb-8 pt-4">
+        <div className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl ${current.iconBg}`}>
             <Icon className={`h-8 w-8 ${current.iconColor}`} />
-          </div>
-
-          {/* Título e descrição */}
-          <h2 className="text-center text-xl font-bold text-[var(--ds-color-text-primary)]">{current.title}</h2>
-          <p className="mt-3 text-center text-sm leading-relaxed text-[var(--ds-color-text-muted)]">{current.description}</p>
-
-          {/* Dica */}
-          {current.highlight && (
-            <div className="mt-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/26 px-4 py-3">
-              <Badge variant="success" className="mb-2">
-                <CheckCircle2 className="h-4 w-4" />
-                Dica rápida
-              </Badge>
-              <p className="text-xs text-[var(--ds-color-text-secondary)]">{current.highlight}</p>
-            </div>
-          )}
         </div>
 
-        {/* Footer com indicadores e navegação */}
-        <div className="flex items-center justify-between border-t border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-6 py-4">
-          {/* Dots */}
+        <h2 className="text-center text-xl font-bold text-[var(--ds-color-text-primary)]">{current.title}</h2>
+        <p className="mt-3 text-center text-sm leading-relaxed text-[var(--ds-color-text-muted)]">{current.description}</p>
+
+        {current.highlight && (
+          <div className="mt-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/26 px-4 py-3">
+            <StatusPill tone="success" className="mb-2">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Dica rápida
+            </StatusPill>
+            <p className="text-xs text-[var(--ds-color-text-secondary)]">{current.highlight}</p>
+          </div>
+        )}
+      </ModalBody>
+
+      <ModalFooter className="items-center justify-between bg-[color:var(--ds-color-surface-muted)]/18">
           <div className="flex gap-1.5">
             {STEPS.map((_, i) => (
               <button
@@ -136,7 +132,6 @@ export function OnboardingModal({ userId }: Props) {
             ))}
           </div>
 
-          {/* Botões */}
           <div className="flex items-center gap-2">
             {step > 0 && (
               <Button
@@ -169,8 +164,7 @@ export function OnboardingModal({ userId }: Props) {
               </Button>
             )}
           </div>
-        </div>
-      </div>
-    </div>
+      </ModalFooter>
+    </ModalFrame>
   );
 }

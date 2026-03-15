@@ -1475,7 +1475,7 @@ export default function DashboardPage() {
               {expiringEpis.map((epi) => {
                 const isExpired = isBefore(new Date(epi.validade_ca || ''), new Date());
                 return (
-                <div key={epi.id} className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 p-2.5">
+                <div key={epi.id} className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
                   <div className="flex items-center space-x-3">
                     <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-warning)]'}`}></div>
                     <div>
@@ -1483,11 +1483,9 @@ export default function DashboardPage() {
                       <p className="text-xs text-[var(--ds-color-text-muted)]">CA: {epi.ca} | {epi.nome}</p>
                     </div>
                   </div>
-                    <div className="text-right">
-                      <p className={`text-xs font-bold ${isExpired ? 'text-[var(--ds-color-danger)]' : 'text-[var(--ds-color-warning)]'}`}>
-                        {isExpired ? 'VENCIDO' : `Vence em ${format(new Date(epi.validade_ca || ''), 'dd/MM/yyyy')}`}
-                      </p>
-                    </div>
+                    <StatusPill tone={isExpired ? 'danger' : 'warning'}>
+                      {isExpired ? 'Vencido' : `Vence em ${format(new Date(epi.validade_ca || ''), 'dd/MM/yyyy')}`}
+                    </StatusPill>
                   </div>
                 );
               })}
@@ -1520,7 +1518,7 @@ export default function DashboardPage() {
               {expiringTrainings.map((training) => {
                 const isExpired = isBefore(new Date(training.data_vencimento), new Date());
                 return (
-                <div key={training.id} className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 p-2.5">
+                <div key={training.id} className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
                   <div className="flex items-center space-x-3">
                     <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-warning)]'}`}></div>
                     <div>
@@ -1528,11 +1526,9 @@ export default function DashboardPage() {
                       <p className="text-xs text-[var(--ds-color-text-muted)]">{training.user?.nome || 'Colaborador'}</p>
                     </div>
                   </div>
-                    <div className="text-right">
-                      <p className={`text-xs font-bold ${isExpired ? 'text-[var(--ds-color-danger)]' : 'text-[var(--ds-color-warning)]'}`}>
-                        {isExpired ? 'VENCIDO' : `Vence em ${format(new Date(training.data_vencimento), 'dd/MM/yyyy')}`}
-                      </p>
-                    </div>
+                    <StatusPill tone={isExpired ? 'danger' : 'warning'}>
+                      {isExpired ? 'Vencido' : `Vence em ${format(new Date(training.data_vencimento), 'dd/MM/yyyy')}`}
+                    </StatusPill>
                   </div>
                 );
               })}
@@ -1565,7 +1561,7 @@ export default function DashboardPage() {
           ) : siteCompliance.length > 0 ? (
             <div className="space-y-4">
               {siteCompliance.map((site) => (
-                <div key={site.id} className="flex items-center justify-between rounded-lg bg-[color:var(--ds-color-surface-muted)]/18 p-2.5">
+                <div key={site.id} className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
                   <div className="flex items-center space-x-3">
                     <div className="h-2 w-2 rounded-full bg-[var(--ds-color-action-primary)]"></div>
                     <div>
@@ -1602,7 +1598,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-4">
               {mappedRecentActivities.map((activity) => (
-                <Link key={activity.id} href={activity.href} className="flex items-start space-x-3 rounded-lg p-2.5 hover:bg-[color:var(--ds-color-surface-muted)]/18">
+                <Link key={activity.id} href={activity.href} className="flex items-start space-x-3 rounded-lg border border-transparent px-2.5 py-2.5 hover:border-[var(--ds-color-border-subtle)] hover:bg-[color:var(--ds-color-surface-muted)]/14">
                   <div className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[color:var(--ds-color-surface-muted)]/40 text-[var(--ds-color-action-primary)]">
                     <activity.icon className="h-4 w-4" />
                   </div>
@@ -1636,7 +1632,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {recentReports.map((report) => (
-                <Link key={report.id} href="/dashboard/reports" className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-3.5 py-2.5 hover:border-[var(--ds-color-action-primary)]/35">
+                <Link key={report.id} href="/dashboard/reports" className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3.5 py-2.5 hover:border-[var(--ds-color-action-primary)]/25 hover:bg-[color:var(--ds-color-surface-muted)]/12">
                   <div>
                     <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{report.titulo}</p>
                     <p className="text-xs text-[var(--ds-color-text-muted)]">{report.mes}/{report.ano}</p>

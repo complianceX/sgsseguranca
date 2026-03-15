@@ -2,11 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { X, ShieldCheck, PenTool, Upload, Camera, Smartphone } from 'lucide-react';
+import { Loader2, ShieldCheck, PenTool, Upload, Camera, Smartphone } from 'lucide-react';
 import { signaturesService, Signature } from '@/services/signaturesService';
 import { toast } from 'sonner';
-import { Badge } from './ui/badge';
 import { Button } from './ui/button';
+import { StatusPill } from './ui/status-pill';
+import {
+  ModalBody,
+  ModalFooter,
+  ModalFrame,
+  ModalHeader,
+} from './ui/modal-frame';
 
 const TYPE_LABEL: Record<string, string> = {
   digital: 'Digital (Desenho)',
@@ -48,33 +54,22 @@ export function SignaturesPanel({ isOpen, onClose, documentId, documentType }: S
   const isImageType = (type: string) => ['digital', 'upload', 'facial'].includes(type);
 
   return (
-    <div className="ds-modal-overlay z-[60]">
-      <div className="ds-modal-shell max-w-lg">
-        <div className="ds-modal-header">
-          <div>
-            <h3 className="text-lg font-bold text-[var(--ds-color-text-primary)]">Assinaturas do Documento</h3>
-            <p className="text-xs text-[var(--ds-color-text-muted)]">
-              {documentType} — {signatures.length} assinatura(s)
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="ds-modal-close"
-            title="Fechar"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <ModalFrame isOpen={isOpen} onClose={onClose} shellClassName="max-w-lg" overlayClassName="z-[60]">
+      <ModalHeader
+        title="Assinaturas do documento"
+        description={`${documentType} — ${signatures.length} assinatura(s)`}
+        icon={<PenTool className="h-5 w-5" />}
+        onClose={onClose}
+      />
 
-        <div className="ds-modal-body max-h-[60vh] overflow-y-auto">
+      <ModalBody className="max-h-[60vh] overflow-y-auto">
           {loading ? (
-            <div className="flex justify-center py-10">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent" />
+            <div className="flex justify-center py-10 text-[var(--ds-color-text-muted)]">
+              <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           ) : signatures.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-10 text-center text-[var(--ds-color-text-muted)]">
-              <PenTool className="h-12 w-12 mb-3 opacity-30" />
+              <PenTool className="mb-3 h-12 w-12 opacity-30" />
               <p className="text-sm font-medium">Nenhuma assinatura registrada.</p>
             </div>
           ) : (
@@ -95,15 +90,15 @@ export function SignaturesPanel({ isOpen, onClose, documentId, documentType }: S
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="primary">
+                      <StatusPill tone="primary">
                         {TYPE_ICON[sig.type] ?? <PenTool className="h-3.5 w-3.5" />}
                         {TYPE_LABEL[sig.type] ?? sig.type}
-                      </Badge>
+                      </StatusPill>
                       {sig.signature_hash && (
-                        <Badge variant="success">
+                        <StatusPill tone="success">
                           <ShieldCheck className="h-3.5 w-3.5" />
                           Verificado
-                        </Badge>
+                        </StatusPill>
                       )}
                     </div>
 
@@ -132,18 +127,17 @@ export function SignaturesPanel({ isOpen, onClose, documentId, documentType }: S
               ))}
             </div>
           )}
-        </div>
+      </ModalBody>
 
-        <div className="ds-modal-footer">
-          <Button
-            type="button"
-            onClick={onClose}
-            variant="outline"
-          >
-            Fechar
-          </Button>
-        </div>
-      </div>
-    </div>
+      <ModalFooter>
+        <Button
+          type="button"
+          onClick={onClose}
+          variant="outline"
+        >
+          Fechar
+        </Button>
+      </ModalFooter>
+    </ModalFrame>
   );
 }

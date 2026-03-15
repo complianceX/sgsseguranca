@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, ClipboardCheck, PenLine, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { StatusPill } from '@/components/ui/status-pill';
 
 type PtReadinessPanelProps = {
   readyForRelease: boolean;
@@ -28,30 +29,25 @@ export function PtReadinessPanel({
       className={cn(
         'rounded-[var(--ds-radius-xl)] border px-5 py-4',
         readyForRelease
-          ? 'border-emerald-400/25 bg-emerald-500/8'
-          : 'border-amber-400/25 bg-amber-500/10',
+          ? 'border-[color:var(--ds-color-success)]/18 bg-[color:var(--ds-color-success-subtle)]/78'
+          : 'border-[color:var(--ds-color-warning)]/18 bg-[color:var(--ds-color-warning-subtle)]/72',
         className,
       )}
     >
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <p
-            className={cn(
-              'text-xs font-semibold uppercase tracking-[0.18em]',
-              readyForRelease ? 'text-emerald-200' : 'text-amber-100',
-            )}
-          >
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
             Prontidão operacional
           </p>
-          <h3 className="mt-2 flex items-center gap-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
+          <h3 className="mt-2 flex items-center gap-2 text-lg font-semibold text-[var(--ds-color-text-primary)]">
             {readyForRelease ? (
               <>
-                <CheckCircle2 className="h-5 w-5 text-emerald-300" />
+                <CheckCircle2 className="h-5 w-5 text-[var(--ds-color-success)]" />
                 PT pronta para revisão final
               </>
             ) : (
               <>
-                <ShieldAlert className="h-5 w-5 text-amber-300" />
+                <ShieldAlert className="h-5 w-5 text-[var(--ds-color-warning)]" />
                 Pendências antes da liberação
               </>
             )}
@@ -92,14 +88,14 @@ export function PtReadinessPanel({
           {blockers.map((blocker) => (
             <li
               key={blocker}
-              className="rounded-[var(--ds-radius-md)] border border-white/10 bg-black/10 px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+              className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/78 px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
             >
               {blocker}
             </li>
           ))}
         </ul>
       ) : (
-        <div className="mt-4 rounded-[var(--ds-radius-lg)] border border-emerald-400/20 bg-black/10 px-3 py-2 text-sm text-emerald-100">
+        <div className="mt-4 rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-success)]/18 bg-[var(--ds-color-surface-base)]/78 px-3 py-2 text-sm text-[var(--ds-color-success)]">
           Nenhuma pendência crítica detectada neste momento. Revise a PT e salve a emissão.
         </div>
       )}
@@ -117,12 +113,16 @@ function ReadinessMetric({
   value: string;
 }) {
   return (
-    <div className="rounded-[var(--ds-radius-md)] border border-white/10 bg-black/10 px-3 py-2 text-[var(--ds-color-text-primary)]">
+    <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/76 px-3 py-2 text-[var(--ds-color-text-primary)]">
       <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
         {icon}
         <span>{label}</span>
       </div>
-      <p className="mt-2 text-base font-semibold">{value}</p>
+      <div className="mt-2">
+        <StatusPill tone={value === 'OK' ? 'success' : value === 'Ação' ? 'warning' : 'neutral'}>
+          {value}
+        </StatusPill>
+      </div>
     </div>
   );
 }
