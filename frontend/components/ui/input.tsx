@@ -8,7 +8,7 @@ const inputVariants = cva(
     variants: {
       tone: {
         default:
-          'border-[var(--component-field-border)] bg-[var(--ds-color-surface-base)] text-[var(--component-field-text)] focus:border-[var(--component-field-border-focus)] focus:shadow-[var(--component-field-shadow-focus)]',
+          'border-[var(--component-field-border)] bg-[color:var(--ds-color-surface-muted)] text-[var(--component-field-text)] focus:border-[var(--component-field-border-focus)] focus:shadow-[var(--component-field-shadow-focus)]',
         subtle:
           'border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] text-[var(--component-field-text)] focus:border-[var(--component-field-border-focus)] focus:shadow-[var(--component-field-shadow-focus)]',
       },

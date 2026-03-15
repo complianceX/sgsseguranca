@@ -145,24 +145,16 @@
   --component-navbar-chip-text: var(--ds-color-text-secondary);
   --component-navbar-chip-hover-bg: var(--ds-color-surface-muted);
 
-  --component-card-bg: var(--ds-gradient-surface);
-  --component-card-bg-elevated: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--ds-color-surface-elevated) 88%, white 12%),
-    color-mix(in srgb, var(--ds-color-surface-base) 98%, transparent)
-  );
+  --component-card-bg: var(--ds-color-surface-base);
+  --component-card-bg-elevated: var(--ds-color-surface-elevated);
   --component-card-bg-muted: color-mix(in srgb, var(--ds-color-surface-muted) 42%, transparent);
   --component-card-border: var(--ds-color-border-subtle);
   --component-card-border-strong: var(--ds-color-border-strong);
   --component-card-shadow: var(--ds-shadow-sm);
   --component-card-shadow-elevated: var(--ds-shadow-md);
 
-  --component-field-bg: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--ds-color-surface-elevated) 84%, white 16%),
-    color-mix(in srgb, var(--ds-color-surface-base) 96%, transparent)
-  );
-  --component-field-bg-subtle: color-mix(in srgb, var(--ds-color-surface-base) 96%, transparent);
+  --component-field-bg: var(--ds-color-surface-muted);
+  --component-field-bg-subtle: var(--ds-color-surface-muted);
   --component-field-border: var(--ds-color-border-default);
   --component-field-border-subtle: var(--ds-color-border-subtle);
   --component-field-border-focus: var(--ds-color-focus);
@@ -171,41 +163,25 @@
   --component-field-text: var(--ds-color-text-primary);
   --component-field-placeholder: var(--ds-color-text-muted);
 
-  --component-button-primary-bg: var(--ds-gradient-brand);
+  --component-button-primary-bg: var(--ds-color-action-primary);
   --component-button-primary-text: var(--ds-color-action-primary-foreground);
-  --component-button-secondary-bg: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--ds-color-surface-elevated) 84%, white 16%),
-    color-mix(in srgb, var(--ds-color-surface-base) 95%, transparent)
-  );
+  --component-button-secondary-bg: var(--ds-color-surface-elevated);
   --component-button-secondary-bg-hover: var(--ds-color-action-secondary-hover);
   --component-button-secondary-border: var(--ds-color-border-default);
   --component-button-secondary-text: var(--ds-color-text-primary);
   --component-button-ghost-bg-hover: var(--ds-color-primary-subtle);
   --component-button-ghost-text: var(--ds-color-text-secondary);
-  --component-button-danger-bg: linear-gradient(
-    135deg,
-    var(--ds-color-danger) 0%,
-    color-mix(in srgb, var(--ds-color-danger-hover) 78%, var(--risk-critical) 22%) 100%
-  );
+  --component-button-danger-bg: var(--ds-color-danger);
   --component-button-danger-text: var(--ds-color-text-inverse);
-  --component-button-success-bg: linear-gradient(
-    135deg,
-    var(--ds-color-success) 0%,
-    color-mix(in srgb, var(--ds-color-success-hover) 78%, var(--ds-color-accent) 22%) 100%
-  );
+  --component-button-success-bg: var(--ds-color-success);
   --component-button-success-text: var(--ds-color-text-inverse);
-  --component-button-warning-bg: linear-gradient(
-    135deg,
-    var(--ds-color-warning) 0%,
-    color-mix(in srgb, var(--ds-color-warning-hover) 78%, var(--risk-substantial) 22%) 100%
-  );
+  --component-button-warning-bg: var(--ds-color-warning);
   --component-button-warning-text: var(--ds-color-text-inverse);
 
   --component-badge-neutral-bg: color-mix(in srgb, var(--ds-color-surface-muted) 42%, transparent);
   --component-badge-neutral-text: var(--ds-color-text-secondary);
 
-  --component-table-bg: var(--ds-gradient-surface);
+  --component-table-bg: var(--ds-color-surface-base);
   --component-table-header-bg: var(--ds-color-surface-elevated);
   --component-table-header-text: var(--ds-color-text-muted);
   --component-table-footer-bg: color-mix(in srgb, var(--ds-color-surface-muted) 28%, transparent);

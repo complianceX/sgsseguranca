@@ -154,20 +154,10 @@ export default function InspectionsPage() {
     }
   };
 
-  const summary = useMemo(() => {
-    const typeCount = new Set(inspections.map((item) => item.tipo_inspecao).filter(Boolean)).size;
-    const siteCount = new Set(inspections.map((item) => item.site?.id).filter(Boolean)).size;
-    const withActionPlan = inspections.filter((item) => (item.plano_acao?.length || 0) > 0).length;
-    const withRisks = inspections.filter((item) => (item.perigos_riscos?.length || 0) > 0).length;
-
-    return {
-      total,
-      tipos: typeCount,
-      sites: siteCount,
-      comPlano: withActionPlan,
-      comRiscos: withRisks,
-    };
-  }, [inspections, total]);
+  const comRiscos = useMemo(
+    () => inspections.filter((item) => (item.perigos_riscos?.length || 0) > 0).length,
+    [inspections],
+  );
 
   if (loading) {
     return (
@@ -207,33 +197,6 @@ export default function InspectionsPage() {
             Novo relatório
           </Link>
         }
-        metrics={[
-          {
-            label: 'Total de inspeções',
-            value: summary.total,
-            note: 'Volume total carregado no recorte atual.',
-          },
-          {
-            label: 'Tipos na página',
-            value: summary.tipos,
-            note: 'Cobertura de modalidades no recorte exibido.',
-            tone: 'primary',
-          },
-          {
-            label: 'Com plano na página',
-            value: summary.comPlano,
-            note: 'Inspeções com tratativa já registrada.',
-            tone: 'warning',
-          },
-          {
-            label: 'Sites na página',
-            value: summary.sites,
-            note: 'Frentes de trabalho cobertas nesta amostra.',
-            tone: 'success',
-          },
-        ]}
-        toolbarTitle="Base de inspeções"
-        toolbarDescription={`${total} relatório(s) encontrados com busca por setor, tipo, site e responsável.`}
         toolbarContent={
           <div className="ds-list-search ds-list-search--wide">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
@@ -262,15 +225,15 @@ export default function InspectionsPage() {
           ) : null
         }
       >
-        <div className="space-y-4 p-0">
-          {summary.comRiscos > 0 ? (
+        <>
+          {comRiscos > 0 ? (
             <div className="mx-4 mt-4 rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-warning)]/20 bg-[color:var(--ds-color-warning-subtle)]/70 px-4 py-3">
               <div className="flex items-start gap-3">
                 <ShieldAlert className="mt-0.5 h-4 w-4 text-[var(--ds-color-warning)]" />
                 <div>
                   <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Foco operacional</p>
                   <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                    Nesta página, {summary.comRiscos} inspeção(ões) possuem perigos/riscos registrados. Revise planos de ação e responsáveis para acelerar tratativas.
+                    Nesta página, {comRiscos} inspeção(ões) possuem perigos/riscos registrados. Revise planos de ação e responsáveis para acelerar tratativas.
                   </p>
                 </div>
               </div>
@@ -367,7 +330,7 @@ export default function InspectionsPage() {
               </TableBody>
             </Table>
           )}
-        </div>
+        </>
       </ListPageLayout>
 
       {selectedDoc ? (

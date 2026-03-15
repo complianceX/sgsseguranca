@@ -314,20 +314,18 @@ export function Sidebar({
       />
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-full w-72 flex-col border-r border-[color:var(--ds-color-sidebar-border)] bg-[var(--ds-color-sidebar-bg)] text-[var(--ds-color-sidebar-text)] shadow-[var(--ds-shadow-lg)] transition-transform duration-[var(--ds-motion-base)] xl:static xl:z-auto xl:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col border-r border-[color:var(--ds-color-sidebar-border)] bg-[var(--ds-color-sidebar-bg)] text-[var(--ds-color-sidebar-text)] transition-transform duration-[var(--ds-motion-base)] xl:static xl:z-auto xl:translate-x-0',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
+        {/* Logo */}
         <div className="border-b border-[color:var(--ds-color-sidebar-border)] px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-surface)]">
-              <Image src="/logo-gst-mark.svg" alt="Logo GST" width={28} height={28} priority />
-            </div>
+            <Image src="/logo-gst-mark.svg" alt="Logo GST" width={26} height={26} priority />
             <div className="min-w-0">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-sidebar-muted)]">
-                Sistema SST
-              </p>
-              <h1 className="truncate text-[0.98rem] font-semibold tracking-[-0.02em] text-[var(--ds-color-sidebar-text)]">&lt;GST&gt;</h1>
+              <h1 className="truncate text-[0.95rem] font-semibold tracking-[-0.02em] text-[var(--ds-color-sidebar-text)]">
+                GST
+              </h1>
               <p className="truncate text-[0.72rem] text-[var(--ds-color-sidebar-muted)]">
                 Gestão de Segurança do Trabalho
               </p>
@@ -335,32 +333,33 @@ export function Sidebar({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 py-4">
-          <nav className="space-y-2">
+        {/* Nav */}
+        <div className="flex-1 overflow-y-auto py-3">
+          <nav>
             {visibleSections.map((section) => {
               const isSectionActive = section.items.some((item) => pathname === item.href);
               const isOpenSection = openSections[section.id] || isSectionActive;
 
               return (
-                <section key={section.id} className="rounded-xl border border-[color:var(--ds-color-sidebar-border)]/70 bg-[color:var(--ds-color-sidebar-surface)]/58">
+                <section key={section.id} className="pt-5 first:pt-2">
                   <button
                     type="button"
                     onClick={() => toggleSection(section.id)}
-                    className="flex w-full items-center justify-between px-3 py-3 text-left"
+                    className="flex w-full items-center justify-between px-4 pb-1.5 text-left"
                   >
-                    <span className="text-[0.76rem] font-semibold text-[var(--ds-color-sidebar-muted)]">
+                    <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--ds-color-sidebar-muted)]/70">
                       {section.label}
                     </span>
                     <ChevronDown
                       className={cn(
-                        'h-4 w-4 text-[var(--ds-color-sidebar-muted)] transition-transform',
+                        'h-3.5 w-3.5 text-[var(--ds-color-sidebar-muted)]/50 transition-transform',
                         isOpenSection ? 'rotate-180' : '',
                       )}
                     />
                   </button>
 
                   {isOpenSection ? (
-                    <div className="space-y-1 px-2 pb-2">
+                    <div className="space-y-0.5">
                       {section.items.map((item) => {
                         const Icon = item.icon!;
                         const active = pathname === item.href;
@@ -371,22 +370,20 @@ export function Sidebar({
                             href={item.href!}
                             onClick={onClose}
                             className={cn(
-                              'group flex items-center gap-3 rounded-lg border px-3 py-2.5 text-[13px] font-medium transition-colors',
+                              'flex items-center gap-2.5 border-l-2 px-4 py-2 text-[13px] font-medium transition-colors',
                               active
-                                ? 'border-[color:var(--ds-color-action-primary)]/30 bg-[color:var(--ds-color-primary-subtle)] text-[color:var(--ds-color-action-primary)]'
-                                : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:border-[color:var(--ds-color-sidebar-border)] hover:bg-[color:var(--ds-color-sidebar-surface)] hover:text-[var(--ds-color-sidebar-text)]',
+                                ? 'border-[color:var(--ds-color-action-primary)] bg-[color:var(--ds-color-action-primary)]/10 text-[color:var(--ds-color-action-primary)]'
+                                : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:bg-[color:var(--ds-color-sidebar-surface)] hover:text-[var(--ds-color-sidebar-text)]',
                             )}
                           >
-                            <span
+                            <Icon
                               className={cn(
-                                'flex h-8 w-8 items-center justify-center rounded-lg border transition-colors',
+                                'h-4 w-4 shrink-0',
                                 active
-                                  ? 'border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/10 text-[color:var(--ds-color-action-primary)]'
-                                  : 'border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-surface)]/60 text-[var(--ds-color-sidebar-muted)] group-hover:text-[var(--ds-color-sidebar-text)]',
+                                  ? 'text-[color:var(--ds-color-action-primary)]'
+                                  : 'text-[var(--ds-color-sidebar-muted)]',
                               )}
-                            >
-                              <Icon className="h-4.5 w-4.5" />
-                            </span>
+                            />
                             <span className="flex-1 truncate">{item.label}</span>
                           </Link>
                         );
@@ -399,20 +396,18 @@ export function Sidebar({
           </nav>
         </div>
 
-        <div className="border-t border-[color:var(--ds-color-sidebar-border)] p-3.5">
-          <div className="mb-3 rounded-xl border border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-surface)]/70 px-3.5 py-3">
+        {/* Footer */}
+        <div className="border-t border-[color:var(--ds-color-sidebar-border)] px-4 py-3.5">
+          <div className="mb-2.5 px-1">
             <p className="truncate text-[13px] font-semibold text-[var(--ds-color-sidebar-text)]">{user?.nome}</p>
             <p className="truncate text-xs text-[var(--ds-color-sidebar-muted)]">{user?.profile?.nome}</p>
-            <p className="mt-2 text-[11px] font-medium text-[var(--ds-color-sidebar-muted)]">Ambiente multiempresa protegido</p>
           </div>
           <button
             type="button"
             onClick={logout}
-            className="flex w-full items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-colors hover:border-[color:var(--ds-color-danger-border)] hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
+            className="flex w-full items-center gap-2.5 border-l-2 border-transparent px-4 py-2 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-colors hover:border-[color:var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-surface)]/70">
-              <LogOut className="h-4.5 w-4.5" />
-            </span>
+            <LogOut className="h-4 w-4 shrink-0" />
             Sair
           </button>
         </div>

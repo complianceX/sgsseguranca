@@ -1229,12 +1229,12 @@ html[data-theme='light'] {
     border-bottom: 1px solid var(--component-navbar-border);
     background: color-mix(in srgb, var(--ds-color-surface-base) 94%, transparent);
     backdrop-filter: blur(10px);
-    padding: 0.85rem 1.25rem;
+    padding: 0.625rem 1.25rem;
     box-shadow: var(--ds-shadow-xs);
   }
 
   .ds-topbar-search {
-    min-height: 3rem;
+    min-height: 2.375rem;
     width: min(100%, 40rem);
     display: inline-flex;
     align-items: center;
@@ -1570,7 +1570,7 @@ html[data-theme='light'] {
     gap: 1rem;
   }
 
-  .ds-page-header,
+  /* Legacy card-style hero — mantido para compatibilidade com páginas antigas */
   .ds-crud-hero {
     display: flex;
     flex-direction: column;
@@ -1579,7 +1579,14 @@ html[data-theme='light'] {
     border-radius: var(--ds-radius-xl);
     background: var(--ds-color-surface-base);
     padding: 1.25rem;
-    box-shadow: var(--ds-shadow-xs);
+  }
+
+  /* Novo header plano — padrão oficial Phase 3+ */
+  .ds-page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.25rem 0.25rem 0.5rem;
   }
 
   .ds-page-header__main,
@@ -1761,7 +1768,6 @@ html[data-theme='light'] {
     border-radius: var(--ds-radius-xl);
     background: var(--ds-color-surface-base);
     padding: 1.25rem;
-    box-shadow: var(--ds-shadow-xs);
   }
 
   .ds-form-section__header {
@@ -1796,6 +1802,69 @@ html[data-theme='light'] {
     padding: 1rem 1.1rem;
     box-shadow: var(--ds-shadow-md);
     backdrop-filter: blur(12px);
+  }
+
+  /* ── Form Grid ─────────────────────────────────────────────────────────── */
+  /* Layout de campos em grid. Uso: <FormGrid cols={2}> */
+  .ds-form-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+  }
+
+  .ds-form-grid--2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .ds-form-grid--3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @media (max-width: 639px) {
+    .ds-form-grid--2,
+    .ds-form-grid--3 {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (min-width: 640px) and (max-width: 767px) {
+    .ds-form-grid--3 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  /* ── Form Field Group ───────────────────────────────────────────────────── */
+  /* Subgrupo semântico com borda lateral. Uso: <FormFieldGroup title="..."> */
+  .ds-form-field-group {
+    display: grid;
+    gap: 0.85rem;
+    border-left: 2px solid var(--ds-color-border-default);
+    padding-left: 1rem;
+  }
+
+  .ds-form-field-group--primary {
+    border-left-color: var(--ds-color-action-primary);
+  }
+
+  .ds-form-field-group--warning {
+    border-left-color: var(--ds-color-warning);
+  }
+
+  .ds-form-field-group--danger {
+    border-left-color: var(--ds-color-danger);
+  }
+
+  .ds-form-field-group__label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--ds-color-text-secondary);
+  }
+
+  .ds-form-field-group__desc {
+    margin-top: -0.4rem;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--ds-color-text-muted);
   }
 
   .ds-crud-callout {

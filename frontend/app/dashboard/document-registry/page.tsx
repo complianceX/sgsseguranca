@@ -15,7 +15,6 @@ import { companiesService, Company } from '@/services/companiesService';
 import { documentRegistryService, DocumentRegistryEntry } from '@/services/documentRegistryService';
 import { openPdfForPrint } from '@/lib/print-utils';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState, ErrorState, InlineLoadingState, PageLoadingState } from '@/components/ui/state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ListPageLayout } from '@/components/layout';
@@ -140,7 +139,6 @@ export default function DocumentRegistryPage() {
 
     return {
       total: entries.length,
-      weeks: new Set(entries.map((entry) => `${entry.iso_year}-${entry.iso_week}`)).size,
       modules: new Set(entries.map((entry) => entry.module)).size,
       ...byModule,
     };
@@ -306,20 +304,7 @@ export default function DocumentRegistryPage() {
           note: 'Cobertura efetiva no índice semanal.',
           tone: 'primary',
         },
-        {
-          label: 'Semanas no recorte',
-          value: summary.weeks,
-          note: 'Histórico disponível com os filtros atuais.',
-        },
-        {
-          label: 'Empresas no seletor',
-          value: companyId ? 1 : companies.length,
-          note: 'Escopo filtrado para a empresa ativa.',
-          tone: 'success',
-        },
       ]}
-      toolbarTitle="Filtros do pacote semanal"
-      toolbarDescription="Selecione empresa, semana e módulos para consolidar os documentos operacionais."
       toolbarContent={
         <div className="grid w-full grid-cols-1 gap-3 xl:grid-cols-[1.2fr_repeat(2,minmax(0,0.55fr))_1fr]">
           <div className="space-y-2">
@@ -397,7 +382,7 @@ export default function DocumentRegistryPage() {
                   className={cn(
                     'rounded-lg border px-3 py-1.5 text-sm transition-colors',
                     active
-                      ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-white'
+                      ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)] text-[var(--ds-color-text-inverse)]'
                       : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)]',
                   )}
                 >
@@ -413,31 +398,29 @@ export default function DocumentRegistryPage() {
       }
     >
       <div className="space-y-4">
-        <Card tone="muted" padding="md">
-          <CardContent className="mt-0 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Pacote operacional ativo</p>
-              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                Empresa: {activeCompanyName} · Semana {String(week || '—').padStart(2, '0')}/{year || '—'}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="ds-badge ds-badge--info">
-                <Sparkles className="h-3.5 w-3.5" />
-                {selectedModules.length > 0 ? `${selectedModules.length} módulo(s) filtrado(s)` : 'Todos os módulos'}
-              </span>
-              {weeklyHighlights.length > 0 ? (
-                weeklyHighlights.map((item) => (
-                  <span key={item.value} className="ds-badge">
-                    {item.label}: {item.count}
-                  </span>
-                ))
-              ) : (
-                <span className="ds-badge">Sem documentos no recorte atual</span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="mx-4 mt-1 flex flex-col gap-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 px-4 py-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Pacote operacional ativo</p>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Empresa: {activeCompanyName} · Semana {String(week || '—').padStart(2, '0')}/{year || '—'}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="ds-badge ds-badge--info">
+              <Sparkles className="h-3.5 w-3.5" />
+              {selectedModules.length > 0 ? `${selectedModules.length} módulo(s) filtrado(s)` : 'Todos os módulos'}
+            </span>
+            {weeklyHighlights.length > 0 ? (
+              weeklyHighlights.map((item) => (
+                <span key={item.value} className="ds-badge">
+                  {item.label}: {item.count}
+                </span>
+              ))
+            ) : (
+              <span className="ds-badge">Sem documentos no recorte atual</span>
+            )}
+          </div>
+        </div>
 
         {loadingBundle ? (
           <div className="px-4 pb-4">

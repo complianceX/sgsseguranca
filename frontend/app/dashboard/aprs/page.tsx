@@ -1,6 +1,6 @@
 'use client';
 
-import { FileSpreadsheet, Plus } from 'lucide-react';
+import { FileSpreadsheet, FileText, Plus } from 'lucide-react';
 import { downloadExcel } from '@/lib/download-excel';
 import Link from 'next/link';
 import { SendMailModal } from '@/components/SendMailModal';
@@ -12,18 +12,8 @@ import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { aprsService } from '@/services/aprsService';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from '@/components/ui/card';
-import {
-  EmptyState,
-  ErrorState,
-  PageLoadingState,
-} from '@/components/ui/state';
+import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
+import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
 
 export default function AprsPage() {
@@ -89,16 +79,14 @@ export default function AprsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card tone="elevated" padding="lg">
-        <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-2">
-            <CardTitle className="text-2xl">Análise Preliminar de Risco (APR)</CardTitle>
-            <CardDescription>
-              Gerencie APRs emitidas por obra, acompanhe riscos críticos e controle versões aprovadas.
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+    <>
+      <ListPageLayout
+        eyebrow="Documentos operacionais"
+        title="Análise Preliminar de Risco (APR)"
+        description="Gerencie APRs emitidas por obra, acompanhe riscos críticos e controle versões aprovadas."
+        icon={<FileText className="h-5 w-5" />}
+        actions={
+          <>
             <Button
               type="button"
               variant="outline"
@@ -112,90 +100,82 @@ export default function AprsPage() {
               <Plus className="mr-2 h-4 w-4" />
               Nova APR
             </Link>
+          </>
+        }
+        metrics={
+          overviewMetrics
+            ? [
+                { label: 'Total APRs', value: overviewMetrics.totalAprs },
+                { label: 'Aprovadas', value: overviewMetrics.aprovadas, tone: 'success' },
+                { label: 'Pendentes', value: overviewMetrics.pendentes, tone: 'primary' },
+                { label: 'Riscos críticos', value: overviewMetrics.riscosCriticos, tone: 'danger' },
+                {
+                  label: 'Média score',
+                  value: overviewMetrics.mediaScoreRisco.toFixed(2),
+                  tone: 'warning',
+                },
+              ]
+            : undefined
+        }
+        toolbarContent={
+          <AprFilters
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            statusFilter={statusFilter}
+            onStatusChange={setStatusFilter}
+          />
+        }
+        footer={
+          filteredAprs.length > 0 ? (
+            <PaginationControls
+              page={page}
+              lastPage={lastPage}
+              total={total}
+              onPrev={() => setPage((current) => Math.max(1, current - 1))}
+              onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+            />
+          ) : null
+        }
+      >
+        <AprInsights insights={insights} />
+
+        {filteredAprs.length === 0 ? (
+          <div className="p-5">
+            <EmptyState
+              title="Nenhuma APR encontrada"
+              description={
+                searchTerm || statusFilter
+                  ? 'Nenhum resultado corresponde aos filtros aplicados.'
+                  : 'Ainda não existem APRs registradas para este tenant.'
+              }
+              action={
+                !searchTerm && !statusFilter ? (
+                  <Link href="/dashboard/aprs/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Nova APR
+                  </Link>
+                ) : undefined
+              }
+            />
           </div>
-        </CardHeader>
-      </Card>
-
-      <AprInsights insights={insights} />
-
-      {overviewMetrics ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <MetricCard label="Total APRs" value={overviewMetrics.totalAprs} />
-          <MetricCard label="Aprovadas (pág.)" value={overviewMetrics.aprovadas} tone="success" />
-          <MetricCard label="Pendentes (pág.)" value={overviewMetrics.pendentes} tone="primary" />
-          <MetricCard
-            label="Riscos críticos (pág.)"
-            value={overviewMetrics.riscosCriticos}
-            tone="danger"
-          />
-          <MetricCard
-            label="Média score"
-            value={overviewMetrics.mediaScoreRisco.toFixed(2)}
-            tone="warning"
-          />
-        </div>
-      ) : null}
-
-      <Card tone="default" padding="none">
-        <AprFilters
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          statusFilter={statusFilter}
-          onStatusChange={setStatusFilter}
-        />
-
-        <CardContent className="mt-0">
-          {filteredAprs.length === 0 ? (
-            <div className="p-5">
-              <EmptyState
-                title="Nenhuma APR encontrada"
-                description={
-                  searchTerm || statusFilter
-                    ? 'Nenhum resultado corresponde aos filtros aplicados.'
-                    : 'Ainda não existem APRs registradas para este tenant.'
-                }
-                action={
-                  !searchTerm && !statusFilter ? (
-                    <Link
-                      href="/dashboard/aprs/new"
-                      className={cn(buttonVariants(), 'inline-flex items-center')}
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Nova APR
-                    </Link>
-                  ) : undefined
-                }
+        ) : (
+          <div className="grid grid-cols-1 gap-6 p-5 md:grid-cols-2 lg:grid-cols-3">
+            {filteredAprs.map((apr) => (
+              <AprCard
+                key={apr.id}
+                apr={apr}
+                onDelete={handleDelete}
+                onPrint={handlePrint}
+                onSendEmail={handleSendEmail}
+                onDownloadPdf={handleDownloadPdf}
+                onFinalize={handleFinalize}
+                onReject={handleReject}
+                onCreateNewVersion={handleCreateNewVersion}
               />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-6 p-5 md:grid-cols-2 lg:grid-cols-3">
-              {filteredAprs.map((apr) => (
-                <AprCard
-                  key={apr.id}
-                  apr={apr}
-                  onDelete={handleDelete}
-                  onPrint={handlePrint}
-                  onSendEmail={handleSendEmail}
-                  onDownloadPdf={handleDownloadPdf}
-                  onFinalize={handleFinalize}
-                  onReject={handleReject}
-                  onCreateNewVersion={handleCreateNewVersion}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-
-        {filteredAprs.length > 0 ? (
-          <PaginationControls
-            page={page}
-            lastPage={lastPage}
-            total={total}
-            onPrev={() => setPage((current) => Math.max(1, current - 1))}
-            onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
-          />
-        ) : null}
-      </Card>
+            ))}
+          </div>
+        )}
+      </ListPageLayout>
 
       <StoredFilesPanel
         title="Arquivos APR (Storage)"
@@ -218,36 +198,6 @@ export default function AprsPage() {
           base64={selectedDoc.base64}
         />
       ) : null}
-    </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  tone = 'default',
-}: {
-  label: string;
-  value: string | number;
-  tone?: 'default' | 'primary' | 'success' | 'warning' | 'danger';
-}) {
-  const toneClass =
-    tone === 'success'
-      ? 'text-[var(--ds-color-success)]'
-      : tone === 'warning'
-        ? 'text-[var(--ds-color-warning)]'
-        : tone === 'danger'
-          ? 'text-[var(--ds-color-danger)]'
-          : tone === 'primary'
-            ? 'text-[var(--ds-color-action-primary)]'
-            : 'text-[var(--ds-color-text-primary)]';
-
-  return (
-    <Card interactive padding="md">
-      <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className={cn('text-3xl', toneClass)}>{value}</CardTitle>
-      </CardHeader>
-    </Card>
+    </>
   );
 }

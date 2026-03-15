@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ClipboardList, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -69,15 +69,6 @@ export default function ActivitiesPage() {
     }
   }
 
-  const summary = useMemo(
-    () => ({
-      total,
-      visiveis: activities.length,
-      comDescricao: activities.filter((activity) => Boolean(activity.descricao)).length,
-    }),
-    [activities, total],
-  );
-
   if (loading) {
     return (
       <PageLoadingState
@@ -115,27 +106,6 @@ export default function ActivitiesPage() {
           Nova atividade
         </Link>
       }
-      metrics={[
-        {
-          label: 'Total cadastrado',
-          value: summary.total,
-          note: 'Base total disponível no tenant.',
-        },
-        {
-          label: 'Resultados visíveis',
-          value: summary.visiveis,
-          note: 'Retorno do filtro aplicado na listagem.',
-          tone: 'primary',
-        },
-        {
-          label: 'Com descrição',
-          value: summary.comDescricao,
-          note: 'Registros mais completos para uso operacional.',
-          tone: 'success',
-        },
-      ]}
-      toolbarTitle="Base de atividades"
-      toolbarDescription={`${total} atividade(s) encontrada(s) com busca por nome e descrição.`}
       toolbarContent={
         <div className="ds-list-search">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />

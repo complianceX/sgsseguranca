@@ -86,7 +86,7 @@
   --ds-color-command-surface: #ffffff;
   --ds-color-command-border: color-mix(in srgb, var(--brand-primary) 10%, white 90%);
 
-  --ds-gradient-brand: linear-gradient(180deg, var(--ds-color-action-primary), var(--ds-color-action-primary-hover));
+  --ds-gradient-brand: var(--ds-color-action-primary);
   --ds-gradient-surface: var(--ds-color-surface-base);
 
   --ds-kpi-blue: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 88%, white 12%), color-mix(in srgb, var(--brand-primary) 66%, var(--brand-secondary) 34%));

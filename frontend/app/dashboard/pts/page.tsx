@@ -82,9 +82,8 @@ export default function PtsPage() {
   const metrics = useMemo(() => {
     const approved = filteredPts.filter((pt) => pt.status === 'Aprovada').length;
     const pending = filteredPts.filter((pt) => pt.status === 'Pendente').length;
-    const finalized = filteredPts.filter((pt) => Boolean(pt.pdf_file_key)).length;
 
-    return { approved, pending, finalized };
+    return { approved, pending };
   }, [filteredPts]);
 
   if (loading) {
@@ -149,11 +148,6 @@ export default function PtsPage() {
         }
         metrics={[
           {
-            label: 'PTs visíveis',
-            value: filteredPts.length,
-            note: `${total} registro(s) no recorte atual.`,
-          },
-          {
             label: 'Pendentes',
             value: metrics.pending,
             note: 'Aguardando avanço ou aprovação.',
@@ -165,15 +159,7 @@ export default function PtsPage() {
             note: 'PTs prontas para governança final.',
             tone: 'success',
           },
-          {
-            label: 'Com PDF final',
-            value: metrics.finalized,
-            note: 'Documentos já governados e congelados.',
-            tone: 'primary',
-          },
         ]}
-        toolbarTitle="Base de PTs"
-        toolbarDescription="Pesquise permissões, filtre por status e acompanhe os bloqueios sem se perder em contêineres redundantes."
         toolbarContent={
           <PtsFilters
             searchTerm={searchTerm}

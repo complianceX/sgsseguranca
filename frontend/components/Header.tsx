@@ -7,7 +7,6 @@ import {
   Menu,
   RefreshCw,
   Search,
-  ShieldCheck,
   User,
   WifiOff,
   X,
@@ -16,12 +15,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useApiStatus } from '@/hooks/useApiStatus';
-import { useApiReconnect } from '@/hooks/useApiReconnect';
 import { notificationsService, AppNotification } from '@/services/notificationsService';
 import { flushOfflineQueue, getOfflineQueueCount } from '@/lib/offline-sync';
-import { selectedTenantStore } from '@/lib/selectedTenantStore';
-import { ThemeToggle } from './ThemeToggle';
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -31,15 +26,12 @@ export function Header({
   onOpenMobileNav?: () => void;
 }) {
   const { user } = useAuth();
-  const { isOffline, apiBaseUrl } = useApiStatus();
-  const { isReconnecting, reconnect } = useApiReconnect(apiBaseUrl);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [markingAll, setMarkingAll] = useState(false);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [syncingOfflineQueue, setSyncingOfflineQueue] = useState(false);
-  const [selectedTenant, setSelectedTenant] = useState(() => selectedTenantStore.get());
 
   const handleOpen = () => setShowNotifications((v) => !v);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -74,13 +66,6 @@ export function Header({
     const interval = setInterval(loadUnreadCount, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [loadUnreadCount]);
-
-  useEffect(() => {
-    const unsub = selectedTenantStore.subscribe((tenant) => setSelectedTenant(tenant));
-    return () => {
-      unsub();
-    };
-  }, []);
 
   useEffect(() => {
     const updateCount = () => setOfflineQueueCount(getOfflineQueueCount());
@@ -170,20 +155,17 @@ export function Header({
     window.dispatchEvent(new CustomEvent('app:command-palette-open'));
   };
 
-  const tenantLabel = selectedTenant?.companyName || user?.company?.razao_social || 'Tenant não selecionado';
   const showOfflineChip = syncingOfflineQueue || offlineQueueCount > 0;
-  const connectionLabel = isOffline ? 'Operação offline' : 'API estável';
 
   return (
     <header className="ds-topbar">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+      <div className="flex items-center justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onOpenMobileNav}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)] xl:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)] xl:hidden"
             aria-label="Abrir navegação"
-            title="Abrir navegação"
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -203,42 +185,9 @@ export function Header({
               Ctrl K
             </span>
           </button>
-
-          <div className="hidden min-w-0 items-center gap-2 xl:flex">
-            <div
-              className="ds-topbar-chip max-w-[26rem] truncate"
-              title={`${tenantLabel} • ${connectionLabel}`}
-            >
-              <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
-              <span className="truncate">{tenantLabel}</span>
-              <span className={`h-2 w-2 rounded-full ${isOffline ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-success)]'}`} />
-              <span className={isOffline ? 'text-[var(--ds-color-danger)]' : 'text-[var(--ds-color-text-muted)]'}>
-                {connectionLabel}
-              </span>
-            </div>
-            {isOffline ? (
-              <div
-                className="ds-topbar-chip border-[color:var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]"
-                title={apiBaseUrl ? `API offline (${apiBaseUrl})` : 'API offline'}
-              >
-                <span className="h-2 w-2 rounded-full bg-[var(--ds-color-danger)]" />
-                reconexão necessária
-              </div>
-            ) : null}
-          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <div className="ds-topbar-mobile-context xl:hidden">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-semibold text-[var(--ds-color-text-primary)]">{tenantLabel}</p>
-                <p className="mt-0.5 text-xs text-[var(--ds-color-text-muted)]">{connectionLabel}</p>
-              </div>
-              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${isOffline ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-success)]'}`} />
-            </div>
-          </div>
-
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={openCommandPalette}
@@ -266,28 +215,12 @@ export function Header({
             </button>
           ) : null}
 
-          {isOffline ? (
-            <button
-              type="button"
-              onClick={reconnect}
-              disabled={isReconnecting}
-              className="ds-topbar-chip disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <RefreshCw className={`h-4 w-4 ${isReconnecting ? 'animate-spin' : ''}`} />
-              {isReconnecting ? 'Reconectando' : 'Reconectar'}
-            </button>
-          ) : null}
-
-          <div className="shrink-0">
-            <ThemeToggle />
-          </div>
-
           <div className="relative" ref={popoverRef}>
             <button
               type="button"
               title="Notificações"
               onClick={handleOpen}
-              className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
+              className="relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
             >
               <Bell className="h-5 w-5" />
               {unreadCount > 0 ? (
@@ -359,15 +292,13 @@ export function Header({
             ) : null}
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-2">
-            <div className="hidden text-right sm:block">
-              <p className="text-[13px] font-semibold text-[var(--ds-color-text-primary)]">{user?.nome}</p>
-              <p className="text-xs text-[var(--ds-color-text-muted)]">{user?.profile?.nome || 'Perfil não definido'}</p>
-            </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--ds-color-action-primary)] text-[13px] font-bold text-white">
-              {userInitials || <User className="h-5 w-5" />}
-            </div>
-          </div>
+          <button
+            type="button"
+            title={user?.nome}
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--ds-color-action-primary)] text-[13px] font-bold text-white"
+          >
+            {userInitials || <User className="h-5 w-5" />}
+          </button>
         </div>
       </div>
     </header>

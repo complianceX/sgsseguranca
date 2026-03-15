@@ -8,7 +8,7 @@ const cardVariants = cva(
     variants: {
       tone: {
         default:
-          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] shadow-[var(--ds-shadow-xs)]',
+          'border-[var(--component-card-border)] bg-[color:var(--component-card-bg)]',
         elevated:
           'border-[var(--component-card-border)] bg-[color:var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]',
         muted:
@@ -24,7 +24,6 @@ const cardVariants = cva(
         true: [
           'cursor-pointer select-none',
           'hover:border-[var(--color-primary)]/35',
-          'hover:shadow-[var(--ds-shadow-sm)]',
         ],
         false: '',
       },
@@ -78,7 +77,7 @@ const CardEyebrow = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<
     <p
       ref={ref}
       className={cn(
-        'text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-[var(--color-primary)]',
+        'text-[0.6875rem] font-semibold uppercase tracking-[0.04em] text-[var(--color-primary)]',
         className,
       )}
       {...props}
