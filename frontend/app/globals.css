@@ -200,6 +200,132 @@ html[data-theme='light'] {
 }
 
 @layer components {
+  /* ═══════════════════════════════════════════════════════════
+     UTILITY CLASSES DE BOTÃO — padrão único para toda a aplicação
+     Use estas classes em vez de hardcodes tailwind para botões.
+     ═══════════════════════════════════════════════════════════ */
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    background-color: var(--ds-color-action-primary);
+    color: var(--ds-color-text-inverse);
+    border: none;
+    border-radius: var(--ds-radius-md);
+    padding: 0.5rem 1rem;
+    font-size: var(--ds-text-sm);
+    font-weight: 600;
+    line-height: 1.35;
+    transition: background-color var(--ds-motion-fast), opacity var(--ds-motion-fast);
+    cursor: pointer;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--ds-color-action-primary-hover);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    background-color: var(--ds-color-surface-base);
+    color: var(--ds-color-text-primary);
+    border: 1px solid var(--ds-color-border-subtle);
+    border-radius: var(--ds-radius-md);
+    padding: 0.5rem 1rem;
+    font-size: var(--ds-text-sm);
+    font-weight: 600;
+    line-height: 1.35;
+    transition: background-color var(--ds-motion-fast), border-color var(--ds-motion-fast);
+    cursor: pointer;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--ds-color-surface-muted);
+    border-color: var(--ds-color-border-default);
+  }
+
+  .btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    background-color: transparent;
+    color: var(--ds-color-text-secondary);
+    border: none;
+    border-radius: var(--ds-radius-md);
+    padding: 0.5rem 0.875rem;
+    font-size: var(--ds-text-sm);
+    font-weight: 500;
+    line-height: 1.35;
+    transition: background-color var(--ds-motion-fast), color var(--ds-motion-fast);
+    cursor: pointer;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--ds-color-surface-muted);
+    color: var(--ds-color-text-primary);
+  }
+
+  .btn-ghost:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .btn-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    background-color: var(--ds-color-danger);
+    color: var(--ds-color-text-inverse);
+    border: none;
+    border-radius: var(--ds-radius-md);
+    padding: 0.5rem 1rem;
+    font-size: var(--ds-text-sm);
+    font-weight: 600;
+    line-height: 1.35;
+    transition: background-color var(--ds-motion-fast), opacity var(--ds-motion-fast);
+    cursor: pointer;
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background-color: var(--ds-color-danger-hover);
+  }
+
+  .btn-danger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     UTILITY CLASSES DE CARD — dois níveis apenas
+     ═══════════════════════════════════════════════════════════ */
+
+  /* card-base: nível 0 — apenas borda, sem sombra (listas, painéis inline) */
+  .card-base {
+    background-color: var(--ds-color-surface-base);
+    border: 1px solid var(--ds-color-border-subtle);
+    border-radius: var(--ds-radius-lg);
+  }
+
+  /* card-raised: nível 1 — borda + sombra sutil (formulários, destaque de seção) */
+  .card-raised {
+    background-color: var(--ds-color-surface-base);
+    border: 1px solid var(--ds-color-border-subtle);
+    border-radius: var(--ds-radius-lg);
+    box-shadow: var(--ds-shadow-sm);
+  }
+
   .sst-card {
     background: var(--ds-gradient-surface);
     border: 1px solid var(--ds-color-border-subtle);
@@ -936,12 +1062,36 @@ html[data-theme='light'] {
     background-color: var(--ds-color-accent-hover);
   }
 
+  /* ── slate-900 = primary action (botões principais fora de ds-form-page) ── */
+  .ds-system-scope .bg-slate-900 {
+    background-color: var(--ds-color-action-primary);
+  }
+
+  .ds-system-scope .hover\:bg-slate-800:hover {
+    background-color: var(--ds-color-action-primary-hover);
+  }
+
+  /* disabled:bg-blue-300 é um hardcode legado — redireciona para action muted */
+  .ds-system-scope .disabled\:bg-blue-300:disabled {
+    background-color: var(--ds-color-action-primary) !important;
+    opacity: 0.45 !important;
+  }
+
   .ds-system-scope .bg-slate-800 {
     background-color: var(--ds-color-action-secondary);
   }
 
   .ds-system-scope .hover\:bg-slate-900:hover {
     background-color: var(--ds-color-action-secondary-hover);
+  }
+
+  /* hover:border-slate-800 / hover:text-slate-800 (links de gestão) */
+  .ds-system-scope .hover\:border-slate-800:hover {
+    border-color: var(--ds-color-border-strong);
+  }
+
+  .ds-system-scope .hover\:text-slate-800:hover {
+    color: var(--ds-color-text-primary);
   }
 
   .ds-system-scope .focus\:border-blue-500:focus,

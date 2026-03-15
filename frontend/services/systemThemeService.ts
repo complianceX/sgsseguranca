@@ -26,33 +26,34 @@ export interface SystemThemePreset {
   tokens: Omit<SystemThemeTokens, 'id' | 'updatedAt'>;
 }
 
-// SST Professional "Safety Green" — ANSI Z535 · ISO 3864 · ABNT NBR ISO 3864
+// SST Enterprise "Safety Green" — clean, sober, professional
+// Referências: ANSI Z535 · ISO 3864 · ABNT NBR ISO 3864 · ISO 45001
 export const DEFAULT_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#f4f7fa',
-  sidebarColor: '#0d3d1f',
+  backgroundColor: '#f7f8fa',
+  sidebarColor: '#183a2c',
   cardColor: '#ffffff',
-  primaryColor: '#16a34a',
-  secondaryColor: '#0052b4',
-  textPrimary: '#101828',
-  textSecondary: '#344054',
-  successColor: '#15803d',
-  warningColor: '#d97706',
-  dangerColor: '#d92d20',
-  infoColor: '#0369a1',
+  primaryColor: '#1e6b43',
+  secondaryColor: '#274c77',
+  textPrimary: '#111827',
+  textSecondary: '#5f6b79',
+  successColor: '#2e7d32',
+  warningColor: '#b7791f',
+  dangerColor: '#c0392b',
+  infoColor: '#3b6b93',
 };
 
-// SST Dark — deep forest green, high contrast for field/low-light use
+// SST Dark — high contrast for field/low-light/tablet use
 export const DARK_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#091a0f',
-  sidebarColor: '#061209',
-  cardColor: '#112218',
+  backgroundColor: '#0e1a13',
+  sidebarColor: '#091209',
+  cardColor: '#132018',
   primaryColor: '#4ade80',
   secondaryColor: '#60a5fa',
   textPrimary: '#f0f4f8',
-  textSecondary: '#c8d6e4',
+  textSecondary: '#b8c8be',
   successColor: '#22c55e',
-  warningColor: '#f59e0b',
-  dangerColor: '#ef4444',
+  warningColor: '#fbbf24',
+  dangerColor: '#f87171',
   infoColor: '#38bdf8',
 };
 
