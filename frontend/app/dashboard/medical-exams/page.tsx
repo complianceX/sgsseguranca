@@ -19,7 +19,6 @@ import {
   Stethoscope,
   Trash2,
   User,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -32,10 +31,16 @@ import {
 } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+import {
+  ModalBody,
+  ModalFooter,
+  ModalFrame,
+  ModalHeader,
+} from '@/components/ui/modal-frame';
+import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 
 type UserOption = { id: string; nome: string };
 
@@ -71,8 +76,7 @@ function getExpiryTone(dataVencimento: string | null) {
   if (!dataVencimento) {
     return {
       label: 'Sem vencimento',
-      className:
-        'bg-[color:var(--ds-color-surface-muted)]/45 text-[var(--ds-color-text-muted)]',
+      tone: 'neutral' as StatusTone,
     };
   }
 
@@ -83,31 +87,31 @@ function getExpiryTone(dataVencimento: string | null) {
   if (diff < 0) {
     return {
       label: 'Vencido',
-      className: 'bg-[color:var(--ds-color-danger)]/12 text-[var(--ds-color-danger)]',
+      tone: 'danger' as StatusTone,
     };
   }
 
   if (diff <= 30) {
     return {
       label: 'Vence em breve',
-      className: 'bg-[color:var(--ds-color-warning)]/14 text-[var(--ds-color-warning)]',
+      tone: 'warning' as StatusTone,
     };
   }
 
   return {
     label: 'Em dia',
-    className: 'bg-[color:var(--ds-color-success)]/12 text-[var(--ds-color-success)]',
+    tone: 'success' as StatusTone,
   };
 }
 
-function getResultTone(resultado: string) {
+function getResultTone(resultado: string): StatusTone {
   switch (resultado) {
     case 'inapto':
-      return 'bg-[color:var(--ds-color-danger)]/12 text-[var(--ds-color-danger)]';
+      return 'danger';
     case 'apto_com_restricoes':
-      return 'bg-[color:var(--ds-color-warning)]/14 text-[var(--ds-color-warning)]';
+      return 'warning';
     default:
-      return 'bg-[color:var(--ds-color-success)]/12 text-[var(--ds-color-success)]';
+      return 'success';
   }
 }
 
@@ -457,14 +461,9 @@ export default function MedicalExamsPage() {
                         {TIPO_EXAME_LABEL[exam.tipo_exame] ?? exam.tipo_exame}
                       </TableCell>
                       <TableCell>
-                        <span
-                          className={cn(
-                            'inline-flex rounded-full px-2.5 py-1 text-xs font-semibold',
-                            getResultTone(exam.resultado),
-                          )}
-                        >
+                        <StatusPill tone={getResultTone(exam.resultado)}>
                           {RESULTADO_LABEL[exam.resultado] ?? exam.resultado}
-                        </span>
+                        </StatusPill>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
@@ -477,14 +476,9 @@ export default function MedicalExamsPage() {
                       <TableCell>
                         {exam.data_vencimento ? (
                           <div className="flex flex-col gap-1">
-                            <span
-                              className={cn(
-                                'inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold',
-                                expiryTone.className,
-                              )}
-                            >
+                            <StatusPill tone={expiryTone.tone}>
                               {new Date(exam.data_vencimento).toLocaleDateString('pt-BR')}
-                            </span>
+                            </StatusPill>
                             <span className="text-xs text-[var(--ds-color-text-muted)]">
                               {expiryTone.label}
                             </span>
@@ -530,22 +524,20 @@ export default function MedicalExamsPage() {
         </div>
       </ListPageLayout>
 
-      {showModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <Card tone="elevated" padding="none" className="w-full max-w-3xl shadow-[var(--ds-shadow-lg)]">
-            <CardHeader className="border-b border-[var(--ds-color-border-subtle)] px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-1">
-                <CardTitle>{editId ? 'Editar exame medico' : 'Registrar exame medico'}</CardTitle>
-                <CardDescription>
-                  Preencha os dados clinicos e de validade do ASO ocupacional.
-                </CardDescription>
-              </div>
-              <Button type="button" variant="ghost" size="icon" onClick={closeModal} title="Fechar">
-                <X className="h-4 w-4" />
-              </Button>
-            </CardHeader>
+      <ModalFrame isOpen={showModal} onClose={closeModal} shellClassName="max-w-3xl">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleSave();
+          }}
+        >
+          <ModalHeader
+            title={editId ? 'Editar exame médico' : 'Registrar exame médico'}
+            description="Preencha os dados clínicos e de validade do ASO ocupacional."
+            onClose={closeModal}
+          />
 
-            <CardContent className="grid gap-4 px-6 py-6 md:grid-cols-2">
+          <ModalBody className="grid gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
                 <label htmlFor="medical-exam-user-id" className={labelClassName}>Funcionario *</label>
                 <select
@@ -666,19 +658,18 @@ export default function MedicalExamsPage() {
                   disabled={saving}
                 />
               </div>
-            </CardContent>
+          </ModalBody>
 
-            <CardFooter className="justify-end gap-3 px-6 py-4">
-              <Button type="button" variant="outline" onClick={closeModal} disabled={saving}>
-                Cancelar
-              </Button>
-              <Button type="button" onClick={handleSave} loading={saving}>
-                {editId ? 'Salvar alteracoes' : 'Registrar exame'}
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-      ) : null}
+          <ModalFooter>
+            <Button type="button" variant="outline" onClick={closeModal} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" loading={saving}>
+              {editId ? 'Salvar alterações' : 'Registrar exame'}
+            </Button>
+          </ModalFooter>
+        </form>
+      </ModalFrame>
     </>
   );
 }

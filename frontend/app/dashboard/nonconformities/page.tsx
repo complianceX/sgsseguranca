@@ -21,7 +21,6 @@ import {
   NonConformity,
   NcStatus,
   NC_ALLOWED_TRANSITIONS,
-  NC_STATUS_COLORS,
   NC_STATUS_LABEL,
 } from '@/services/nonConformitiesService';
 import { correctiveActionsService } from '@/services/correctiveActionsService';
@@ -41,9 +40,29 @@ import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state'
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+import {
+  StatusPill,
+  StatusSelect,
+  type StatusTone,
+} from '@/components/ui/status-pill';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+
+function getNcStatusTone(status: NcStatus): StatusTone {
+  switch (status) {
+    case NcStatus.ABERTA:
+      return 'danger';
+    case NcStatus.EM_ANDAMENTO:
+      return 'warning';
+    case NcStatus.AGUARDANDO_VALIDACAO:
+      return 'info';
+    case NcStatus.ENCERRADA:
+      return 'success';
+    default:
+      return 'neutral';
+  }
+}
 
 export default function NonConformitiesPage() {
   const [items, setItems] = useState<NonConformity[]>([]);
@@ -345,19 +364,13 @@ export default function NonConformitiesPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <span
-                          className={cn(
-                            'inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-semibold',
-                            NC_STATUS_COLORS[item.status as NcStatus] ??
-                              'bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] border-[var(--ds-color-border-subtle)]',
-                          )}
-                        >
+                        <StatusPill tone={getNcStatusTone(item.status as NcStatus)}>
                           {NC_STATUS_LABEL[item.status as NcStatus] ?? item.status}
-                        </span>
+                        </StatusPill>
                         {NC_ALLOWED_TRANSITIONS[item.status as NcStatus]?.length > 0 ? (
-                          <select
+                          <StatusSelect
                             title="Alterar status"
-                            className={cn(inputClassName, 'h-8 px-2 py-1 text-xs')}
+                            className="h-8 min-w-[10rem]"
                             value=""
                             onChange={(event) => {
                               if (event.target.value) {
@@ -371,7 +384,7 @@ export default function NonConformitiesPage() {
                                 {NC_STATUS_LABEL[status]}
                               </option>
                             ))}
-                          </select>
+                          </StatusSelect>
                         ) : null}
                       </div>
                     </TableCell>

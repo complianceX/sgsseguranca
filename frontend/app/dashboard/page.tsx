@@ -39,7 +39,9 @@ import { format, isBefore } from 'date-fns';
 import { GandraInsights } from '@/components/GandraInsights';
 import { SophieStatusMiniCard } from '@/components/SophieStatusMiniCard';
 import { SophieSupportHub } from '@/components/SophieSupportHub';
+import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import { isAiEnabled } from '@/lib/featureFlags';
+import { cn } from '@/lib/utils';
 import {
   BarChart,
   Bar,
@@ -283,6 +285,25 @@ const RESUME_ACCENT_BY_KIND: Record<ResumeItem['kind'], string> = {
   recent: 'bg-[color:var(--ds-color-info-subtle)] text-[var(--ds-color-info)]',
   report: 'bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]',
 };
+
+function resolveDashboardToneClasses(tone: string) {
+  switch (tone) {
+    case 'ds-kpi-card--success':
+      return 'bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]';
+    case 'ds-kpi-card--warning':
+      return 'bg-[color:var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]';
+    case 'ds-kpi-card--accent':
+      return 'bg-[color:var(--ds-color-accent-subtle)] text-[var(--ds-color-accent)]';
+    default:
+      return 'bg-[color:var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]';
+  }
+}
+
+function resolveHeroChipTone(toneClass: string): StatusTone {
+  if (toneClass.includes('warning')) return 'warning';
+  if (toneClass.includes('success')) return 'success';
+  return 'info';
+}
 
 function resolveDashboardPersona(user: User | null, roles: string[]): DashboardPersona {
   const parts = [user?.profile?.nome, user?.role, user?.funcao, ...roles]
@@ -883,27 +904,33 @@ export default function DashboardPage() {
             <p className="mt-2.5 max-w-2xl text-[13px] text-[var(--ds-color-text-secondary)]">
               {personaGuide.description}
             </p>
-            <div className="mt-4 flex flex-wrap gap-2.5">
+            <div className="mt-4 flex flex-wrap gap-2">
               {heroChips.map((chip) => (
-                <div key={chip.label} className="ds-badge ds-badge--info">
+                <StatusPill key={chip.label} tone={resolveHeroChipTone(chip.tone)}>
                   <chip.icon className={`h-4 w-4 ${chip.tone}`} />
                   {chip.label}
-                </div>
+                </StatusPill>
               ))}
             </div>
           </div>
           <div className="grid gap-2.5 sm:grid-cols-3 xl:min-w-[25rem]">
             {operationalHighlights.map((item) => (
-              <div key={item.label} className="ds-stat-tile">
-                <div className="flex items-center justify-between">
-                  <item.icon className={`h-4 w-4 ${item.tone}`} />
-                  <ArrowUpRight className="h-4 w-4 text-[var(--ds-color-text-disabled)]" />
+              <div
+                key={item.label}
+                className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)] px-4 py-3"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[color:var(--ds-color-surface-muted)]/32">
+                    <item.icon className={`h-4 w-4 ${item.tone}`} />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                      {item.label}
+                    </p>
+                    <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">{item.value}</p>
+                  </div>
                 </div>
-                <p className="mt-5 text-[1.45rem] font-bold text-[var(--ds-color-text-primary)]">{item.value}</p>
-                <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
-                  {item.label}
-                </p>
-                <p className="mt-1.5 text-[11px] text-[var(--ds-color-text-muted)]">{item.hint}</p>
+                <p className="mt-3 text-[11px] text-[var(--ds-color-text-muted)]">{item.hint}</p>
               </div>
             ))}
           </div>
@@ -1100,15 +1127,24 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {stats.map((stat, index) => (
-          <div key={index} className="ds-dashboard-panel ds-dashboard-stat p-4 transition-all hover:-translate-y-0.5 hover:shadow-[var(--ds-shadow-lg)]">
-            <div className="flex items-center justify-between">
-              <div className={`ds-kpi-card ${stat.tone} rounded-xl p-2.5`}>
-                <stat.icon className="h-5 w-5 text-current" />
+          <div key={index} className="ds-dashboard-panel px-4 py-4 transition-all hover:-translate-y-0.5 hover:shadow-[var(--ds-shadow-sm)]">
+            <div className="flex items-start gap-3">
+              <div
+                className={cn(
+                  'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                  resolveDashboardToneClasses(stat.tone),
+                )}
+              >
+                <stat.icon className="h-4.5 w-4.5" />
               </div>
-            </div>
-            <div className="mt-3">
-              <p className="text-xl font-bold text-[var(--ds-color-text-primary)]">{stat.value}</p>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--ds-color-text-muted)]">{stat.label}</p>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                  {stat.label}
+                </p>
+                <p className="mt-1 text-xl font-semibold text-[var(--ds-color-text-primary)]">
+                  {stat.value}
+                </p>
+              </div>
             </div>
           </div>
         ))}
@@ -1410,10 +1446,10 @@ export default function DashboardPage() {
               <span className="font-semibold text-[var(--ds-color-text-primary)]">{modelCounts.checklists}</span>
             </div>
           </div>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-            <Link href="/dashboard/aprs" className="ds-badge ds-badge--primary">APRs</Link>
-            <Link href="/dashboard/dds" className="ds-badge ds-badge--accent">DDS</Link>
-            <Link href="/dashboard/checklist-models" className="ds-badge ds-badge--info">Checklists</Link>
+          <div className="ds-inline-link-list mt-4">
+            <Link href="/dashboard/aprs" className="ds-inline-link-list__item">APRs</Link>
+            <Link href="/dashboard/dds" className="ds-inline-link-list__item">DDS</Link>
+            <Link href="/dashboard/checklist-models" className="ds-inline-link-list__item">Checklists</Link>
           </div>
         </div>
       </div>
@@ -1622,11 +1658,11 @@ export default function DashboardPage() {
             <p>Assinaturas digitais disponíveis nos módulos de APR, PT, Checklist, Treinamentos e Auditorias.</p>
             <p>Use o status de pendências para priorizar validações e fechamento de ações críticas.</p>
           </div>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-            <Link href="/dashboard/aprs" className="ds-badge ds-badge--primary">APRs</Link>
-            <Link href="/dashboard/pts" className="ds-badge ds-badge--accent">PTs</Link>
-            <Link href="/dashboard/checklists" className="ds-badge ds-badge--info">Checklists</Link>
-            <Link href="/dashboard/trainings" className="ds-badge ds-badge--success">Treinamentos</Link>
+          <div className="ds-inline-link-list mt-4">
+            <Link href="/dashboard/aprs" className="ds-inline-link-list__item">APRs</Link>
+            <Link href="/dashboard/pts" className="ds-inline-link-list__item">PTs</Link>
+            <Link href="/dashboard/checklists" className="ds-inline-link-list__item">Checklists</Link>
+            <Link href="/dashboard/trainings" className="ds-inline-link-list__item">Treinamentos</Link>
           </div>
         </div>
       </div>

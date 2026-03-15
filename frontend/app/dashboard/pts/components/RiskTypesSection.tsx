@@ -14,8 +14,8 @@ export const RiskTypesSection = () => {
   ] as const;
 
   return (
-    <div className="sst-card p-6 transition-shadow hover:shadow-md">
-      <h2 className="mb-6 flex items-center gap-2 text-lg font-bold text-[var(--color-text)]">
+    <div className="ds-form-section">
+      <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-[var(--ds-color-text-primary)]">
         Riscos Adicionais / Tipos de Trabalho
         <span className="h-2 w-2 rounded-full bg-[var(--ds-color-warning)]"></span>
       </h2>
@@ -26,7 +26,7 @@ export const RiskTypesSection = () => {
             className={cn(
               "flex cursor-pointer select-none items-center space-x-3 rounded-xl border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-4 transition-all hover:border-[var(--color-border)] hover:bg-[color:var(--color-card-muted)]/24",
               watch(item.id)
-                ? "border-[color:var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] shadow-[var(--ds-shadow-sm)]"
+                ? "border-[color:var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)]"
                 : ""
             )}
           >

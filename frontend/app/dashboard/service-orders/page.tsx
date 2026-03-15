@@ -5,7 +5,6 @@ import {
   serviceOrdersService,
   ServiceOrder,
   OS_STATUS_LABEL,
-  OS_STATUS_COLORS,
   OS_ALLOWED_TRANSITIONS,
 } from '@/services/serviceOrdersService';
 import { usersService } from '@/services/usersService';
@@ -17,7 +16,6 @@ import {
   Pencil,
   Plus,
   Trash2,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -30,10 +28,20 @@ import {
 } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+import {
+  ModalBody,
+  ModalFooter,
+  ModalFrame,
+  ModalHeader,
+} from '@/components/ui/modal-frame';
+import {
+  StatusPill,
+  StatusSelect,
+  type StatusTone,
+} from '@/components/ui/status-pill';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
@@ -69,6 +77,19 @@ const INITIAL_FORM: FormState = {
   riscos_json: '[]',
   epis_json: '[]',
 };
+
+function getOrderStatusTone(status: string): StatusTone {
+  switch (status) {
+    case 'ativo':
+      return 'primary';
+    case 'concluido':
+      return 'success';
+    case 'cancelado':
+      return 'neutral';
+    default:
+      return 'neutral';
+  }
+}
 
 export default function ServiceOrdersPage() {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
@@ -424,21 +445,30 @@ export default function ServiceOrdersPage() {
                     <TableCell className="text-[var(--ds-color-text-secondary)]">{order.responsavel?.nome ?? '-'}</TableCell>
                     <TableCell>
                       {allowed.length > 0 ? (
-                        <select
-                          value={order.status}
-                          disabled={updatingStatus === order.id}
-                          onChange={(e) => handleStatusChange(order, e.target.value)}
-                          className={`rounded-full px-2 py-0.5 text-xs font-semibold cursor-pointer border-0 ${OS_STATUS_COLORS[order.status] ?? ''}`}
-                        >
-                          <option value={order.status}>{OS_STATUS_LABEL[order.status]}</option>
-                          {allowed.map((s) => (
-                            <option key={s} value={s}>{OS_STATUS_LABEL[s]}</option>
-                          ))}
-                        </select>
+                        <div className="flex flex-col gap-1.5">
+                          <StatusPill tone={getOrderStatusTone(order.status)}>
+                            {OS_STATUS_LABEL[order.status] ?? order.status}
+                          </StatusPill>
+                          <StatusSelect
+                            value=""
+                            disabled={updatingStatus === order.id}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                void handleStatusChange(order, e.target.value);
+                              }
+                            }}
+                            className="h-8 min-w-[9rem]"
+                          >
+                            <option value="">Mover para...</option>
+                            {allowed.map((s) => (
+                              <option key={s} value={s}>{OS_STATUS_LABEL[s]}</option>
+                            ))}
+                          </StatusSelect>
+                        </div>
                       ) : (
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${OS_STATUS_COLORS[order.status] ?? ''}`}>
+                        <StatusPill tone={getOrderStatusTone(order.status)}>
                           {OS_STATUS_LABEL[order.status] ?? order.status}
-                        </span>
+                        </StatusPill>
                       )}
                     </TableCell>
                     <TableCell>{new Date(order.data_emissao).toLocaleDateString('pt-BR')}</TableCell>
@@ -473,22 +503,20 @@ export default function ServiceOrdersPage() {
         )}
       </ListPageLayout>
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm">
-          <Card tone="elevated" padding="none" className="w-full max-w-2xl shadow-[var(--ds-shadow-lg)]">
-            <CardHeader className="border-b border-[var(--ds-color-border-subtle)] px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-1">
-                <CardTitle>{editId ? 'Editar OS' : 'Nova Ordem de Servico'}</CardTitle>
-                <CardDescription>
-                  Registre a atividade, os responsaveis e os controles planejados da ordem.
-                </CardDescription>
-              </div>
-              <Button type="button" variant="ghost" size="icon" onClick={closeModal}>
-                <X className="h-4 w-4" />
-              </Button>
-            </CardHeader>
+      <ModalFrame isOpen={showModal} onClose={closeModal} shellClassName="max-w-2xl">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleSave();
+          }}
+        >
+          <ModalHeader
+            title={editId ? 'Editar ordem de serviço' : 'Nova ordem de serviço'}
+            description="Registre a atividade, os responsáveis e os controles planejados da ordem."
+            onClose={closeModal}
+          />
 
-            <CardContent className="max-h-[70vh] space-y-4 overflow-y-auto px-6 py-6">
+          <ModalBody className="max-h-[70vh] space-y-4 overflow-y-auto">
               <div>
                 <label htmlFor="service-order-titulo" className={labelClassName}>Titulo *</label>
                 <input
@@ -619,19 +647,18 @@ export default function ServiceOrdersPage() {
                   className={cn(inputClassName, 'font-mono text-xs')}
                 />
               </div>
-            </CardContent>
+          </ModalBody>
 
-            <CardFooter className="justify-end gap-3 px-6 py-4">
-              <Button type="button" variant="outline" onClick={closeModal}>
-                Cancelar
-              </Button>
-              <Button type="button" onClick={handleSave} loading={saving}>
-                {editId ? 'Salvar' : 'Criar OS'}
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-      )}
+          <ModalFooter>
+            <Button type="button" variant="outline" onClick={closeModal}>
+              Cancelar
+            </Button>
+            <Button type="submit" loading={saving}>
+              {editId ? 'Salvar' : 'Criar OS'}
+            </Button>
+          </ModalFooter>
+        </form>
+      </ModalFrame>
     </>
   );
 }

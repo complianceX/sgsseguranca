@@ -15,13 +15,6 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { EmptyState, InlineLoadingState } from '@/components/ui/state';
 import {
   Table,
@@ -247,13 +240,58 @@ export function StoredFilesPanel({
   };
 
   return (
-    <Card tone="default" padding="none">
-      <CardHeader className="gap-4 border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-5 py-4">
-        <div className="space-y-1">
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
+    <section className="ds-list-shell mt-6">
+      <div className="ds-list-toolbar md:flex-row md:items-start md:justify-between">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">{title}</h2>
+            <span className="ds-badge">Storage</span>
+            <span className="ds-badge ds-badge--info">{files.length} arquivo(s)</span>
+            {year && week ? (
+              <span className="ds-badge ds-badge--warning">
+                Semana {String(week).padStart(2, '0')} / {year}
+              </span>
+            ) : null}
+          </div>
+          <p className="max-w-3xl text-sm text-[var(--ds-color-text-secondary)]">{description}</p>
         </div>
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5">
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
+            onClick={handleExportCsv}
+          >
+            Exportar CSV
+          </Button>
+          {downloadWeeklyBundle ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                leftIcon={<Download className="h-4 w-4" />}
+                onClick={handleDownloadWeeklyBundle}
+                disabled={!canBuildWeeklyBundle}
+              >
+                Baixar semana
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                leftIcon={<Printer className="h-4 w-4" />}
+                onClick={handlePrintWeeklyBundle}
+                disabled={!canBuildWeeklyBundle}
+              >
+                Imprimir semana
+              </Button>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="border-t border-[var(--ds-color-border-subtle)] px-4 py-4 sm:px-5">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr),0.7fr,0.7fr,0.7fr]">
           <select
             aria-label="Filtrar arquivos por empresa"
             value={companyId}
@@ -297,50 +335,22 @@ export function StoredFilesPanel({
             <option value={25}>25 / página</option>
             <option value={50}>50 / página</option>
           </select>
-          <div className="flex flex-wrap gap-2 xl:col-span-2">
-            <Button
-              type="button"
-              variant="outline"
-              leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
-              onClick={handleExportCsv}
-            >
-              Exportar CSV
-            </Button>
-            {downloadWeeklyBundle ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  leftIcon={<Download className="h-4 w-4" />}
-                  onClick={handleDownloadWeeklyBundle}
-                  disabled={!canBuildWeeklyBundle}
-                >
-                  Baixar semana
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  leftIcon={<Printer className="h-4 w-4" />}
-                  onClick={handlePrintWeeklyBundle}
-                  disabled={!canBuildWeeklyBundle}
-                >
-                  Imprimir semana
-                </Button>
-              </>
-            ) : null}
-          </div>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="mt-0">
+      <div className="ds-list-body">
         {loading ? (
-          <InlineLoadingState label="Carregando arquivos salvos" />
+          <div className="p-6">
+            <InlineLoadingState label="Carregando arquivos salvos" />
+          </div>
         ) : paged.length === 0 ? (
-          <EmptyState
-            title="Nenhum arquivo encontrado"
-            description="Não há arquivos armazenados para o filtro aplicado."
-            compact
-          />
+          <div className="p-6">
+            <EmptyState
+              title="Nenhum arquivo encontrado"
+              description="Não há arquivos armazenados para o filtro aplicado."
+              compact
+            />
+          </div>
         ) : (
           <>
             <Table>
@@ -363,9 +373,9 @@ export function StoredFilesPanel({
                       {file.title}
                     </TableCell>
                     <TableCell>
-                      <div className="inline-flex items-center gap-2 rounded-[var(--ds-radius-sm)] bg-[color:var(--ds-color-surface-muted)]/45 px-2 py-1 text-xs text-[var(--ds-color-text-secondary)]">
+                      <div className="flex items-center gap-2 text-xs text-[var(--ds-color-text-secondary)]">
                         <Folder className="h-3 w-3" />
-                        <span>{file.folderPath}</span>
+                        <span className="max-w-[18rem] truncate">{file.folderPath}</span>
                         <Button
                           type="button"
                           size="icon"
@@ -407,40 +417,44 @@ export function StoredFilesPanel({
                 ))}
               </TableBody>
             </Table>
-
-            <div className="mt-4 flex items-center justify-between text-sm text-[var(--ds-color-text-muted)]">
-              <span>
-                Página <span className="font-semibold text-[var(--ds-color-text-primary)]">{page}</span>{' '}
-                de <span className="font-semibold text-[var(--ds-color-text-primary)]">{totalPages}</span>{' '}
-                • {files.length} arquivo(s)
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  leftIcon={<ChevronLeft className="h-4 w-4" />}
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
-                  disabled={page <= 1}
-                >
-                  Anterior
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  rightIcon={<ChevronRight className="h-4 w-4" />}
-                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                  disabled={page >= totalPages}
-                >
-                  Próxima
-                </Button>
-              </div>
-            </div>
           </>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {paged.length > 0 ? (
+        <div className="ds-list-footer">
+          <div className="flex flex-col gap-3 text-sm text-[var(--ds-color-text-muted)] md:flex-row md:items-center md:justify-between">
+            <span>
+              Página <span className="font-semibold text-[var(--ds-color-text-primary)]">{page}</span>{' '}
+              de <span className="font-semibold text-[var(--ds-color-text-primary)]">{totalPages}</span>{' '}
+              • {files.length} arquivo(s)
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                leftIcon={<ChevronLeft className="h-4 w-4" />}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={page <= 1}
+              >
+                Anterior
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                rightIcon={<ChevronRight className="h-4 w-4" />}
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                disabled={page >= totalPages}
+              >
+                Próxima
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

@@ -9,6 +9,7 @@ import type { Site } from '@/services/sitesService';
 import type { Apr } from '@/services/aprsService';
 import type { User } from '@/services/usersService';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import type { PtFormData } from './pt-schema-and-data';
 import { isAiEnabled } from '@/lib/featureFlags';
 
@@ -64,34 +65,28 @@ export function BasicInfoSection({
   };
 
   return (
-    <div className="sst-card p-6 transition-shadow hover:shadow-md">
+    <div className="ds-form-section">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-[var(--ds-color-text-primary)]">
             Dados Básicos da PT
             <span className="h-2 w-2 rounded-full bg-[var(--ds-color-action-primary)]"></span>
           </h2>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
             Preencha os dados principais para emissão da Permissão de Trabalho.
           </p>
         </div>
 
         {isAiEnabled() && (
-          <button
+          <Button
             type="button"
             onClick={onAiAnalysis}
             disabled={analyzing}
-            className={cn(
-              'inline-flex items-center gap-2 rounded-xl bg-[image:var(--ds-gradient-brand)] px-4 py-2.5 text-sm font-bold text-white shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:brightness-105 disabled:opacity-60',
-            )}
+            variant="outline"
+            leftIcon={analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           >
-            {analyzing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
             GST
-          </button>
+          </Button>
         )}
       </div>
 

@@ -5,6 +5,7 @@ import { useFormContext } from 'react-hook-form';
 import { CheckCircle2, PenLine } from 'lucide-react';
 import type { User } from '@/services/usersService';
 import { cn } from '@/lib/utils';
+import { StatusPill } from '@/components/ui/status-pill';
 
 type ResponsibleExecutorsSectionProps = {
   filteredUsers: User[];
@@ -25,21 +26,21 @@ export function ResponsibleExecutorsSection({
   const usersList = useMemo(() => filteredUsers || [], [filteredUsers]);
 
   return (
-    <div className="sst-card p-6 transition-shadow hover:shadow-md">
-      <h2 className="mb-2 text-lg font-bold text-gray-900 flex items-center gap-2">
+    <div className="ds-form-section">
+      <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-[var(--ds-color-text-primary)]">
         Executantes e Assinaturas
         <span className="h-2 w-2 rounded-full bg-[var(--ds-color-success)]"></span>
       </h2>
-      <p className="mb-6 text-sm text-gray-600">
+      <p className="mb-6 text-sm text-[var(--ds-color-text-secondary)]">
         Selecione os executantes e colete as assinaturas necessárias.
       </p>
 
       {!selectedCompanyId ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="rounded-lg border border-[color:var(--ds-color-warning)]/18 bg-[color:var(--ds-color-warning-subtle)] p-4 text-sm text-[var(--ds-color-warning)]">
           Selecione uma empresa na etapa anterior para listar os colaboradores.
         </div>
       ) : usersList.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+        <div className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/24 p-4 text-sm text-[var(--ds-color-text-secondary)]">
           Nenhum colaborador encontrado para esta empresa.
         </div>
       ) : (
@@ -54,26 +55,28 @@ export function ResponsibleExecutorsSection({
                 type="button"
                 onClick={() => onToggleExecutante(u.id)}
                 className={cn(
-                  'flex w-full items-center justify-between rounded-xl border p-4 text-left transition-all hover:bg-gray-50',
-                  isSelected ? 'border-amber-200 bg-amber-50/40 ring-2 ring-amber-500/10 shadow-[var(--ds-shadow-sm)]' : 'border-gray-200',
+                  'flex w-full items-center justify-between rounded-xl border p-4 text-left transition-all hover:bg-[color:var(--ds-color-surface-muted)]/24',
+                  isSelected
+                    ? 'border-[color:var(--ds-color-warning)]/24 bg-[color:var(--ds-color-warning-subtle)]'
+                    : 'border-[var(--ds-color-border-subtle)]',
                 )}
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-gray-900">{u.nome}</p>
-                  <p className="truncate text-xs text-gray-600">{u.email || '—'}</p>
+                  <p className="truncate text-sm font-semibold text-[var(--ds-color-text-primary)]">{u.nome}</p>
+                  <p className="truncate text-xs text-[var(--ds-color-text-secondary)]">{u.email || '—'}</p>
                 </div>
 
                 <div className="ml-3 flex items-center gap-2">
                   {hasSignature ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                    <StatusPill tone="success">
                       <CheckCircle2 className="h-4 w-4" />
                       Assinado
-                    </span>
+                    </StatusPill>
                   ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700">
+                    <StatusPill>
                       <PenLine className="h-4 w-4" />
                       Assinar
-                    </span>
+                    </StatusPill>
                   )}
                 </div>
               </button>

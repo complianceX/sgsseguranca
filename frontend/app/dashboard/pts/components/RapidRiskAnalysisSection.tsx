@@ -43,22 +43,22 @@ export const RapidRiskAnalysisSection = () => {
       : undefined;
 
   return (
-    <div className="sst-card p-6 transition-shadow hover:shadow-md">
-      <h2 className="mb-2 text-lg font-bold text-gray-900 flex items-center gap-2">
+    <div className="ds-form-section">
+      <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-[var(--ds-color-text-primary)]">
         Análise de Risco Rápida
         <span className="h-2 w-2 rounded-full bg-[var(--ds-color-info)]"></span>
       </h2>
-      <p className="mb-4 text-sm text-gray-600">
+      <p className="mb-4 text-sm text-[var(--ds-color-text-secondary)]">
         Se respondeu &quot;Não&quot; em alguma verificação básica, o trabalho não deve
         começar sem medidas corretivas implementadas.
       </p>
-      <p className="mb-6 text-sm text-gray-600">
+      <p className="mb-6 text-sm text-[var(--ds-color-text-secondary)]">
         Documente e comprove as medidas no campo de observações deste
         formulário (ou formalize por e-mail).
       </p>
 
       {hasRapidRiskBasicNo && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="mb-4 rounded-lg border border-[color:var(--ds-color-danger)]/18 bg-[color:var(--ds-color-danger-subtle)] p-4 text-sm text-[var(--ds-color-danger)]">
           Foi identificado pelo menos um &quot;Não&quot; nas verificações básicas.
           Registre as ações corretivas em observações antes de continuar.
         </div>
@@ -87,9 +87,9 @@ export const RapidRiskAnalysisSection = () => {
                 return (
                   <div
                     key={item.id}
-                    className="rounded-lg border border-gray-200 p-4"
+                    className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/14 p-4"
                   >
-                    <p className="text-sm font-semibold text-gray-800">
+                    <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                       {item.pergunta} <span className="text-red-500">*</span>
                     </p>
 
@@ -98,7 +98,7 @@ export const RapidRiskAnalysisSection = () => {
                         (option) => (
                           <label
                             key={`${item.id}-${option}`}
-                            className="flex items-center gap-2 text-sm text-gray-700"
+                            className="flex items-center gap-2 text-sm text-[var(--ds-color-text-secondary)]"
                           >
                             <input
                               type="radio"
@@ -107,7 +107,7 @@ export const RapidRiskAnalysisSection = () => {
                               onChange={() =>
                                 setRapidRiskChecklistAnswer(index, option)
                               }
-                              className="h-4 w-4 text-[var(--ds-color-text-primary)] focus:ring-blue-500"
+                              className="h-4 w-4 text-[var(--ds-color-text-primary)] focus:ring-[var(--ds-color-focus)]"
                             />
                             <span>{option}</span>
                           </label>
@@ -129,7 +129,7 @@ export const RapidRiskAnalysisSection = () => {
       </div>
 
       <div className="mt-6">
-        <label className="block text-sm font-semibold text-gray-700 mb-1">
+        <label className="mb-1 block text-sm font-semibold text-[var(--ds-color-text-secondary)]">
           Observações e evidências
           {hasRapidRiskBasicNo && <span className="text-red-500"> *</span>}
         </label>

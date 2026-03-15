@@ -40,6 +40,19 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
+
+function getTrainingStatusTone(dataVencimento: string): StatusTone {
+  const now = new Date();
+  const expiry = new Date(dataVencimento);
+
+  if (expiry.getTime() < now.getTime()) {
+    return 'danger';
+  }
+
+  const daysRemaining = (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+  return daysRemaining <= 30 ? 'warning' : 'success';
+}
 
 type PrintablePdfResult = { base64: string; filename: string };
 
@@ -196,17 +209,6 @@ export default function TrainingsPage() {
       (training.user?.nome?.toLowerCase() || '').includes(term)
     );
   });
-
-  const getStatusTone = (vencimento: string) => {
-    const date = new Date(vencimento);
-    const now = new Date();
-    const diff = date.getTime() - now.getTime();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-
-    if (days < 0) return 'bg-[color:var(--ds-color-danger)]/12 text-[var(--ds-color-danger)]';
-    if (days <= 30) return 'bg-[color:var(--ds-color-warning)]/14 text-[var(--ds-color-warning)]';
-    return 'bg-[color:var(--ds-color-success)]/12 text-[var(--ds-color-success)]';
-  };
 
   const getStatusLabel = (vencimento: string) => {
     const date = new Date(vencimento);
@@ -434,13 +436,9 @@ export default function TrainingsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusTone(
-                          training.data_vencimento,
-                        )}`}
-                      >
+                      <StatusPill tone={getTrainingStatusTone(training.data_vencimento)}>
                         {getStatusLabel(training.data_vencimento)}
-                      </span>
+                      </StatusPill>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
