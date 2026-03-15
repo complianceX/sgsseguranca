@@ -4,10 +4,16 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../../common/redis/redis.service';
 import * as crypto from 'crypto';
+import { getRefreshTokenSecret } from '../auth-security.config';
 
-function cookieExtractor(req: any): string | null {
-  if (req && req.cookies && req.cookies['refresh_token']) {
-    return req.cookies['refresh_token'];
+type RefreshCookieRequest = {
+  cookies?: Record<string, string | undefined>;
+};
+
+function cookieExtractor(req?: RefreshCookieRequest): string | null {
+  const refreshToken = req?.cookies?.refresh_token;
+  if (typeof refreshToken === 'string' && refreshToken.length > 0) {
+    return refreshToken;
   }
   return null;
 }
@@ -21,10 +27,7 @@ export class JwtRefreshStrategy extends PassportStrategy(
     private configService: ConfigService,
     private redisService: RedisService,
   ) {
-    const jwtSecret = configService.get<string>('JWT_SECRET');
-    if (!jwtSecret) {
-      throw new Error('JWT_SECRET is required');
-    }
+    const jwtSecret = getRefreshTokenSecret(configService);
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([cookieExtractor]),
       ignoreExpiration: false,

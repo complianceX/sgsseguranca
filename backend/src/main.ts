@@ -18,7 +18,10 @@ import { NestFactory } from '@nestjs/core';
 import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { json, urlencoded } from 'express';
-import type { RequestHandler } from 'express';
+import type {
+  Application as ExpressApplication,
+  RequestHandler,
+} from 'express';
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter as BullBoardExpressAdapter } from '@bull-board/express';
@@ -31,10 +34,12 @@ import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { assertNoPendingMigrationsInProd } from './common/database/migration-startup.guard';
 // import { initializeTelemetry } from './common/observability/opentelemetry.config';
 
 async function bootstrap() {
   const bootstrapLogger = new Logger('Bootstrap');
+  await assertNoPendingMigrationsInProd();
 
   if (process.env.NEW_RELIC_ENABLED === 'true') {
     await import('newrelic');
@@ -123,11 +128,16 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: WinstonModule.createLogger({ transports: logTransports }),
   });
+  const httpAdapterInstance = app
+    .getHttpAdapter()
+    .getInstance() as Partial<ExpressApplication>;
 
   // BullBoard — montado diretamente via Express (sem NestJS BullBoardModule).
   // app.use(path, router) usa prefix matching nativo do Express, sem wildcards.
   if (process.env.REDIS_DISABLED === 'true') {
-    bootstrapLogger.warn('⚠️ Redis desabilitado — Bull Board não será inicializado');
+    bootstrapLogger.warn(
+      '⚠️ Redis desabilitado — Bull Board não será inicializado',
+    );
   } else {
     const bullBoardAdapter = new BullBoardExpressAdapter();
     bullBoardAdapter.setBasePath('/admin/queues');
@@ -156,9 +166,9 @@ async function bootstrap() {
       //   X-Forwarded-For: 127.0.0.1, abrindo acesso indevido ao painel.
       const password = process.env.BULL_BOARD_PASS;
       if (!password) {
-        res
-          .status(503)
-          .json({ error: 'Bull Board desabilitado: configure BULL_BOARD_PASS' });
+        res.status(503).json({
+          error: 'Bull Board desabilitado: configure BULL_BOARD_PASS',
+        });
         return;
       }
 
@@ -199,11 +209,7 @@ async function bootstrap() {
 
   const isProduction = isProductionEnv;
   if (isProduction) {
-    (
-      app.getHttpAdapter().getInstance() as {
-        set: (key: string, value: unknown) => void;
-      }
-    ).set('trust proxy', 1);
+    httpAdapterInstance.set?.('trust proxy', 1);
   }
 
   // Compressão gzip/brotli — reduz ~70% o payload JSON enviado ao cliente
@@ -211,7 +217,7 @@ async function bootstrap() {
   app.use(compression());
 
   // Hardening: remove header X-Powered-By (express)
-  (app.getHttpAdapter().getInstance() as any).disable?.('x-powered-by');
+  httpAdapterInstance.disable?.('x-powered-by');
 
   app.use(
     helmet({
@@ -239,14 +245,18 @@ async function bootstrap() {
   );
 
   // Headers adicionais (compatível com versões do helmet que não expõem permissionsPolicy em type defs)
-  app.use((_req, res, next) => {
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+  const securityHeadersMiddleware: RequestHandler = (_req, res, next) => {
+    res.setHeader(
+      'Permissions-Policy',
+      'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+    );
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     next();
-  });
-  const cookieParserMw = cookieParser() as unknown as RequestHandler;
-  app.use(cookieParserMw);
+  };
+  app.use(securityHeadersMiddleware);
+  const cookieParserFactory = cookieParser as unknown as () => RequestHandler;
+  app.use(cookieParserFactory());
 
   // RISCO: O limite de 20MB para o corpo da requisição é muito grande e deve ser aplicado apenas em rotas específicas (ex: upload de arquivos).
   // CORREÇÃO: Reduzido para 2MB globalmente para mitigar ataques de DoS. Rotas que precisam de mais devem usar um middleware específico.
@@ -284,7 +294,11 @@ async function bootstrap() {
         .split(',')
         .map((origin) => origin.trim())
         .filter(Boolean)
-    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002'];
+    : [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3002',
+      ];
 
   app.enableCors({
     origin: (
@@ -295,20 +309,17 @@ async function bootstrap() {
       // retornamos false para não habilitar CORS, sem bloquear a request.
       if (!origin || origin === 'null') return callback(null, false);
       const isExplicitAllowed = allowedOrigins.includes(origin);
-      const isRailwayPublicDomain =
-        isProduction &&
-        /^https:\/\/[a-z0-9-]+\.up\.railway\.app$/i.test(origin);
       const isDevNetworkAllowed =
         !isProduction &&
         (/^http:\/\/(?:localhost|127\.0\.0\.1):\d{2,5}$/i.test(origin) ||
           /^http:\/\/(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}):\d{2,5}$/i.test(
             origin,
           ));
-        if (isExplicitAllowed || isDevNetworkAllowed || isRailwayPublicDomain) {
-          return callback(null, true);
-        }
+      if (isExplicitAllowed || isDevNetworkAllowed) {
+        return callback(null, true);
+      }
       bootstrapLogger.warn(
-        `[CORS] Origem bloqueada: ${origin}. Permitidas: ${allowedOrigins.join(', ') || '(nenhuma)'}${isProduction ? ' + *.up.railway.app' : ''}`,
+        `[CORS] Origem bloqueada: ${origin}. Permitidas: ${allowedOrigins.join(', ') || '(nenhuma)'}`,
       );
       callback(new Error('Not allowed by CORS'));
     },

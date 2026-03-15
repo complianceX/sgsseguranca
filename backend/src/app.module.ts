@@ -74,6 +74,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { DocumentRegistryModule } from './document-registry/document-registry.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { SystemThemeModule } from './system-theme/system-theme.module';
+import { resolveRedisConnection } from './common/redis/redis-connection.util';
 // QueueServicesModule removido do AppModule — registra as mesmas filas que
 // MailModule/ReportsModule/TasksModule, causando conflito de DI no NestJS.
 // Fica apenas no WorkerModule onde tem acesso completo a todas as filas.
@@ -97,44 +98,16 @@ const queueInfraModules = isRedisDisabled
   : [
       BullModule.forRoot(
         (() => {
-          const redisUrl =
-            process.env.REDIS_URL ||
-            process.env.URL_REDIS ||
-            process.env.REDIS_PUBLIC_URL;
-
-          if (redisUrl) {
-            const parsed = new URL(redisUrl);
-            return {
-              connection: {
-                host: parsed.hostname,
-                port: Number(parsed.port || 6379),
-                username: parsed.username
-                  ? decodeURIComponent(parsed.username)
-                  : undefined,
-                password: parsed.password
-                  ? decodeURIComponent(parsed.password)
-                  : undefined,
-                tls:
-                  parsed.protocol === 'rediss:'
-                    ? { rejectUnauthorized: false }
-                    : undefined,
-                connectTimeout: 10_000,
-                enableReadyCheck: false,
-                maxRetriesPerRequest: 1,
-                retryStrategy: () => undefined,
-              },
-            };
-          }
-
+          const redisConnection = resolveRedisConnection(process.env);
           return {
             connection: {
-              host: process.env.REDIS_HOST,
-              port: Number(process.env.REDIS_PORT),
-              password: process.env.REDIS_PASSWORD,
-              tls:
-                process.env.REDIS_TLS === 'true'
-                  ? { rejectUnauthorized: false }
-                  : undefined,
+              host:
+                redisConnection?.host || process.env.REDIS_HOST || '127.0.0.1',
+              port:
+                redisConnection?.port || Number(process.env.REDIS_PORT || 6379),
+              username: redisConnection?.username,
+              password: redisConnection?.password || process.env.REDIS_PASSWORD,
+              tls: redisConnection?.tls,
               connectTimeout: 10_000,
               enableReadyCheck: false,
               maxRetriesPerRequest: 1,
@@ -497,28 +470,33 @@ const validationSchema = Joi.object({
         const redisDisabled = /^true$/i.test(
           config.get<string>('REDIS_DISABLED', 'false'),
         );
-        const hasRedisUrl = !!(
-          config.get<string>('REDIS_URL') ||
-          config.get<string>('URL_REDIS') ||
-          config.get<string>('REDIS_PUBLIC_URL')
-        );
+        const redisConnection = resolveRedisConnection(config);
 
-        if (isProduction && !redisDisabled && hasRedisUrl) {
-          logger.log('🔴 Configurando Redis Cache para PRODUÇÃO');
+        if (isProduction && !redisDisabled && !redisConnection) {
+          throw new Error(
+            'Redis é obrigatório em produção. Configure REDIS_URL/URL_REDIS/REDIS_PUBLIC_URL ou REDIS_HOST.',
+          );
+        }
+
+        if (redisConnection && !redisDisabled) {
+          logger.log(
+            `🔴 Configurando Redis Cache (${redisConnection.source}) para ${
+              isProduction ? 'PRODUÇÃO' : 'desenvolvimento'
+            }`,
+          );
 
           const redisConfig: RedisCacheConfig = {
             store: redisStore as unknown,
-            host: config.get<string>('REDIS_HOST')!,
-            port: config.get<number>('REDIS_PORT')!,
-            password: config.get<string>('REDIS_PASSWORD'),
+            host: redisConnection.host,
+            port: redisConnection.port,
+            password: redisConnection.password,
             ttl: 300, // 5 minutos default
             max: 1000, // Máximo de itens no cache
           };
 
-          // TLS para Redis em produção (se configurado)
-          if (config.get<boolean>('REDIS_TLS')) {
+          if (redisConnection.tls) {
             logger.log('🔒 Redis TLS habilitado');
-            redisConfig.tls = {};
+            redisConfig.tls = redisConnection.tls;
           }
 
           return redisConfig as unknown as RedisClientOptions;
@@ -528,8 +506,8 @@ const validationSchema = Joi.object({
           logger.warn(
             '⚠️ REDIS_DISABLED=true: usando Memory Cache em produção',
           );
-        } else if (isProduction && !hasRedisUrl) {
-          logger.warn('⚠️ Redis URL ausente: usando Memory Cache em produção');
+        } else if (isProduction && !redisConnection) {
+          logger.warn('⚠️ Redis ausente: usando Memory Cache em produção');
         } else {
           logger.log('💾 Configurando Memory Cache para DESENVOLVIMENTO');
         }
@@ -629,14 +607,10 @@ const validationSchema = Joi.object({
         };
       },
 
-      /**
-       * Lazy DataSource: HTTP sobe imediatamente mesmo se DB estiver indisponível.
-       * A conexão é estabelecida em background com retry exponencial.
-       * Requests que precisam do DB recebem erro até a conexão estar pronta.
-       */
       dataSourceFactory: (options) => {
         const dsLogger = new Logger('LazyDataSource');
         const dataSource = new DataSource(options!);
+        const isProduction = process.env.NODE_ENV === 'production';
 
         const connectWithRetry = async () => {
           // Para SQLite, inicializa uma única vez sem retry
@@ -655,6 +629,7 @@ const validationSchema = Joi.object({
             }
           }
           let attempt = 0;
+          const maxAttempts = isProduction ? 5 : Number.POSITIVE_INFINITY;
           while (true) {
             try {
               await dataSource.initialize();
@@ -671,10 +646,20 @@ const validationSchema = Joi.object({
                   err instanceof Error ? err.message : String(err)
                 }) — retrying in ${delay}ms`,
               );
+              if (attempt >= maxAttempts) {
+                dsLogger.error(
+                  `❌ Banco indisponível após ${attempt} tentativas em produção. Abortando bootstrap.`,
+                );
+                throw err;
+              }
               await new Promise<void>((resolve) => setTimeout(resolve, delay));
             }
           }
         };
+
+        if (isProduction) {
+          return connectWithRetry().then(() => dataSource);
+        }
 
         void connectWithRetry();
         return Promise.resolve(dataSource);
@@ -811,6 +796,9 @@ export class AppModule implements OnModuleInit {
       this.configService.get<string>('REDIS_URL') ||
       this.configService.get<string>('URL_REDIS') ||
       this.configService.get<string>('REDIS_PUBLIC_URL');
+    const corsAllowedOrigins = this.configService.get<string>(
+      'CORS_ALLOWED_ORIGINS',
+    );
     //
 
     const checks = [
@@ -831,6 +819,12 @@ export class AppModule implements OnModuleInit {
         valid: redisDisabled || !!redisUrl || !!redisHost,
         message:
           'Configure REDIS_URL (recomendado) ou REDIS_HOST em produção, ou defina REDIS_DISABLED=true',
+      },
+      {
+        name: 'CORS_ALLOWED_ORIGINS',
+        valid: !!corsAllowedOrigins,
+        message:
+          'Configure CORS_ALLOWED_ORIGINS em produção com as origens explícitas do frontend',
       },
     ];
 

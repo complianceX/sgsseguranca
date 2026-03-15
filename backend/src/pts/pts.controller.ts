@@ -17,8 +17,8 @@ import {
   BadRequestException,
   UploadedFile,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { PtsService } from './pts.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -32,11 +32,35 @@ import { LogPreApprovalReviewDto } from './dto/log-pre-approval-review.dto';
 import { UpdatePtApprovalRulesDto } from './dto/update-pt-approval-rules.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Authorize } from '../auth/authorize.decorator';
+import {
+  assertUploadedPdf,
+  createGovernedPdfUploadOptions,
+} from '../common/interceptors/file-upload.interceptor';
 
 @Controller('pts')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class PtsController {
+  private getRequestUserId(
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): string | undefined {
+    return req.user?.userId ?? req.user?.id ?? req.user?.sub;
+  }
+
+  private getRequestErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : 'Usuário não autorizado';
+  }
+
+  private getRequestIp(
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): string {
+    return req.ip || req.socket.remoteAddress || 'unknown';
+  }
+
   constructor(
     private readonly ptsService: PtsService,
     private readonly pdfRateLimitService: PdfRateLimitService,
@@ -157,7 +181,10 @@ export class PtsController {
 
   @Get('export/excel')
   @Authorize('can_view_pt')
-  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
   @Header('Content-Disposition', 'attachment; filename="pts.xlsx"')
   async exportExcel(): Promise<StreamableFile> {
     const buffer = await this.ptsService.exportExcel();
@@ -185,30 +212,47 @@ export class PtsController {
 
   /** Anexa PDF a uma PT existente */
   @Post(':id/file')
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR, Role.COLABORADOR)
-  @Authorize('can_manage_pt')
-  @UseInterceptors(
-    FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }),
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
   )
+  @Authorize('can_manage_pt')
+  @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
   async attachFile(
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file: Express.Multer.File,
-    @Req() req: any,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
   ) {
-    if (!file) throw new BadRequestException('Nenhum arquivo enviado');
-    return this.ptsService.attachPdf(id, file, req.user?.userId ?? req.user?.id);
+    const pdfFile = assertUploadedPdf(file);
+    return this.ptsService.attachPdf(id, pdfFile, this.getRequestUserId(req));
   }
 
   @Get(':id')
   @Authorize('can_view_pt')
-  async findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: any) {
+  async findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
     // Check rate limit for mass data access/PDF generation
     try {
-      if (req.user && req.user.id) {
-        await this.pdfRateLimitService.checkDownloadLimit(req.user.id, req.ip);
+      const userId = this.getRequestUserId(req);
+      if (userId) {
+        await this.pdfRateLimitService.checkDownloadLimit(
+          userId,
+          this.getRequestIp(req),
+        );
       }
     } catch (error) {
-      throw new UnauthorizedException(error.message);
+      throw new UnauthorizedException(this.getRequestErrorMessage(error));
     }
     return this.ptsService.findOne(id);
   }
@@ -222,7 +266,10 @@ export class PtsController {
     Role.COLABORADOR,
   )
   @Authorize('can_manage_pt')
-  update(@Param('id', new ParseUUIDPipe()) id: string, @Body() updatePtDto: UpdatePtDto) {
+  update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() updatePtDto: UpdatePtDto,
+  ) {
     return this.ptsService.update(id, updatePtDto);
   }
 

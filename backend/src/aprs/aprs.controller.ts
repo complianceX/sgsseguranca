@@ -17,8 +17,8 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { AprsService } from './aprs.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -31,11 +31,35 @@ import { UpdateAprDto } from './dto/update-apr.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { AprListItemDto } from './dto/apr-list-item.dto';
 import { Authorize } from '../auth/authorize.decorator';
+import {
+  assertUploadedPdf,
+  createGovernedPdfUploadOptions,
+} from '../common/interceptors/file-upload.interceptor';
 
 @Controller('aprs')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class AprsController {
+  private getRequestUserId(
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): string | undefined {
+    return req.user?.userId ?? req.user?.id ?? req.user?.sub;
+  }
+
+  private getRequestErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : 'Usuário não autorizado';
+  }
+
+  private getRequestIp(
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): string {
+    return req.ip || req.socket.remoteAddress || 'unknown';
+  }
+
   constructor(
     private readonly aprsService: AprsService,
     private readonly pdfRateLimitService: PdfRateLimitService,
@@ -108,7 +132,10 @@ export class AprsController {
 
   @Get('export/excel')
   @Authorize('can_view_apr')
-  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
   @Header('Content-Disposition', 'attachment; filename="aprs.xlsx"')
   async exportExcel(): Promise<StreamableFile> {
     const buffer = await this.aprsService.exportExcel();
@@ -145,13 +172,23 @@ export class AprsController {
 
   @Get(':id')
   @Authorize('can_view_apr')
-  async findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: any) {
+  async findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
     try {
-      if (req.user?.id) {
-        await this.pdfRateLimitService.checkDownloadLimit(req.user.id, req.ip);
+      const userId = this.getRequestUserId(req);
+      if (userId) {
+        await this.pdfRateLimitService.checkDownloadLimit(
+          userId,
+          this.getRequestIp(req),
+        );
       }
     } catch (error) {
-      throw new UnauthorizedException(error.message);
+      throw new UnauthorizedException(this.getRequestErrorMessage(error));
     }
     return this.aprsService.findOne(id);
   }
@@ -179,19 +216,26 @@ export class AprsController {
 
   /** Anexa PDF a uma APR existente */
   @Post(':id/file')
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR, Role.COLABORADOR)
-  @Authorize('can_create_apr')
-  @UseInterceptors(
-    FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }),
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
   )
+  @Authorize('can_create_apr')
+  @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
   async attachFile(
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file: Express.Multer.File,
-    @Req() req: any,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
   ) {
-    if (!file) throw new BadRequestException('Nenhum arquivo enviado');
-    const userId = req.user?.id || req.user?.sub;
-    return this.aprsService.attachPdf(id, file, userId);
+    const pdfFile = assertUploadedPdf(file);
+    const userId = this.getRequestUserId(req);
+    return this.aprsService.attachPdf(id, pdfFile, userId);
   }
 
   /** Aprova a APR — Pendente → Aprovada */
@@ -201,9 +245,12 @@ export class AprsController {
   async approve(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body('reason') reason: string | undefined,
-    @Req() req: any,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
   ) {
-    const userId = req.user?.id || req.user?.sub;
+    const userId = this.getRequestUserId(req);
     if (!userId) throw new UnauthorizedException('Usuário não identificado');
     return this.aprsService.approve(id, userId, reason);
   }
@@ -215,11 +262,15 @@ export class AprsController {
   async reject(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body('reason') reason: string,
-    @Req() req: any,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
   ) {
-    const userId = req.user?.id || req.user?.sub;
+    const userId = this.getRequestUserId(req);
     if (!userId) throw new UnauthorizedException('Usuário não identificado');
-    if (!reason) throw new BadRequestException('Motivo de reprovação obrigatório');
+    if (!reason)
+      throw new BadRequestException('Motivo de reprovação obrigatório');
     return this.aprsService.reject(id, userId, reason);
   }
 
@@ -229,22 +280,34 @@ export class AprsController {
   @Authorize('can_create_apr')
   async finalize(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Req() req: any,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
   ) {
-    const userId = req.user?.id || req.user?.sub;
+    const userId = this.getRequestUserId(req);
     if (!userId) throw new UnauthorizedException('Usuário não identificado');
     return this.aprsService.finalize(id, userId);
   }
 
   /** Cria nova versão a partir de APR Aprovada */
   @Post(':id/new-version')
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR, Role.COLABORADOR)
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+  )
   @Authorize('can_create_apr')
   async createNewVersion(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Req() req: any,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
   ) {
-    const userId = req.user?.id || req.user?.sub;
+    const userId = this.getRequestUserId(req);
     if (!userId) throw new UnauthorizedException('Usuário não identificado');
     return this.aprsService.createNewVersion(id, userId);
   }
@@ -268,7 +331,13 @@ export class AprsController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_create_apr')
-  remove(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: any) {
-    return this.aprsService.remove(id, req.user?.id);
+  remove(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    return this.aprsService.remove(id, this.getRequestUserId(req));
   }
 }

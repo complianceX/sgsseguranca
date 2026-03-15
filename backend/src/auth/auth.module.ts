@@ -52,6 +52,11 @@ import type { SignOptions } from 'jsonwebtoken';
     TokenRevocationService,
   ],
   controllers: [AuthController, PdfSecurityController],
-  exports: [AuthService, JwtModule, PdfRateLimitService, TokenRevocationService],
+  exports: [
+    AuthService,
+    JwtModule,
+    PdfRateLimitService,
+    TokenRevocationService,
+  ],
 })
 export class AuthModule {}

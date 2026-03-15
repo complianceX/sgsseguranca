@@ -32,6 +32,7 @@ jest.mock('resend', () => {
 });
 
 describe('MailService', () => {
+  const originalApiCronsDisabled = process.env.API_CRONS_DISABLED;
   let service: MailService;
   let storageService: StorageService;
   let ptsService: PtsService;
@@ -60,6 +61,7 @@ describe('MailService', () => {
   const mockDomainService = {
     findOne: jest.fn(),
     findAll: jest.fn().mockResolvedValue([]),
+    findAllActive: jest.fn().mockResolvedValue([]),
   };
 
   const mockTenantService = {
@@ -105,6 +107,7 @@ describe('MailService', () => {
   });
 
   afterEach(() => {
+    process.env.API_CRONS_DISABLED = originalApiCronsDisabled;
     jest.clearAllMocks();
   });
 
@@ -262,6 +265,21 @@ describe('MailService', () => {
           error_message: 'Erro string pura',
         }),
       );
+    });
+  });
+
+  describe('runScheduledAlerts', () => {
+    it('nao executa alertas agendados quando API_CRONS_DISABLED=true', async () => {
+      process.env.API_CRONS_DISABLED = 'true';
+
+      await (
+        service as unknown as {
+          runScheduledAlerts: () => Promise<void>;
+        }
+      ).runScheduledAlerts();
+
+      expect(mockDomainService.findAllActive).not.toHaveBeenCalled();
+      expect(mockResendSend).not.toHaveBeenCalled();
     });
   });
 });

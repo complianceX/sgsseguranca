@@ -14,10 +14,9 @@ import {
   StreamableFile,
   UseInterceptors,
   UploadedFile,
-  BadRequestException,
 } from '@nestjs/common';
+import type { Request as ExpressRequest } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { AuditsService } from './audits.service';
 import { CreateAuditDto, UpdateAuditDto } from './dto/create-audit.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -27,10 +26,22 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
+import {
+  assertUploadedPdf,
+  createGovernedPdfUploadOptions,
+} from '../common/interceptors/file-upload.interceptor';
 
 @Controller('audits')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 export class AuditsController {
+  private getRequestUserId(
+    req: ExpressRequest & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): string | undefined {
+    return req.user?.userId ?? req.user?.id ?? req.user?.sub;
+  }
+
   constructor(
     private readonly auditsService: AuditsService,
     private readonly tenantService: TenantService,
@@ -72,10 +83,7 @@ export class AuditsController {
 
   @Get('files/list')
   @Authorize('can_view_audits')
-  listStoredFiles(
-    @Query('year') year?: string,
-    @Query('week') week?: string,
-  ) {
+  listStoredFiles(@Query('year') year?: string, @Query('week') week?: string) {
     return this.auditsService.listStoredFiles({
       companyId: this.getTenantIdOrThrow(),
       year: year ? Number(year) : undefined,
@@ -116,26 +124,22 @@ export class AuditsController {
   @Post(':id/file')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_audits')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: memoryStorage(),
-      limits: { fileSize: 20 * 1024 * 1024 },
-    }),
-  )
-  attachFile(
+  @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
+  async attachFile(
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file: Express.Multer.File | undefined,
-    @Request() req: any,
+    @Request()
+    req: ExpressRequest & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
   ) {
-    if (!file) {
-      throw new BadRequestException('Nenhum arquivo enviado');
-    }
+    const pdfFile = assertUploadedPdf(file);
 
     return this.auditsService.attachPdf(
       id,
       this.getTenantIdOrThrow(),
-      file,
-      req.user?.id,
+      pdfFile,
+      this.getRequestUserId(req),
     );
   }
 

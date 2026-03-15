@@ -8,10 +8,10 @@ import { User } from '../users/entities/user.entity';
 import { RedisService } from '../common/redis/redis.service';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { TokenRevocationService } from './token-revocation.service';
 
 describe('AuthService', () => {
   let service: AuthService;
-  let usersService: jest.Mocked<UsersService>;
   let jwtService: jest.Mocked<JwtService>;
   let passwordService: jest.Mocked<PasswordService>;
   let redisService: jest.Mocked<RedisService>;
@@ -29,9 +29,8 @@ describe('AuthService', () => {
       update: jest.fn(),
     };
     dataSource = {
-      transaction: jest.fn(
-        async (callback: (txManager: typeof manager) => unknown) =>
-          callback(manager),
+      transaction: jest.fn((callback: (txManager: typeof manager) => unknown) =>
+        Promise.resolve(callback(manager)),
       ),
     };
 
@@ -80,14 +79,26 @@ describe('AuthService', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockReturnValue(null),
+            get: jest.fn((key: string) => {
+              if (key === 'JWT_SECRET') return 'test-access-secret-1234567890';
+              if (key === 'JWT_REFRESH_SECRET') {
+                return 'test-refresh-secret-1234567890';
+              }
+              return null;
+            }),
+          },
+        },
+        {
+          provide: TokenRevocationService,
+          useValue: {
+            isRevoked: jest.fn().mockResolvedValue(false),
+            revoke: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    usersService = module.get(UsersService);
     jwtService = module.get(JwtService);
     passwordService = module.get(PasswordService);
     redisService = module.get(RedisService);
@@ -159,7 +170,17 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
       expect(result.user).toEqual(expect.objectContaining({ id: user.id }));
-      expect(redisService.storeRefreshToken).toHaveBeenCalled();
+      const refreshTokenCall = jwtService.sign.mock.calls[1];
+      expect(refreshTokenCall?.[0]).toEqual(
+        expect.objectContaining({ sub: user.id }),
+      );
+      expect(refreshTokenCall?.[1]).toEqual(
+        expect.objectContaining({
+          expiresIn: '30d',
+          secret: 'test-refresh-secret-1234567890',
+        }),
+      );
+      expect(redisService.storeRefreshToken.mock.calls).toHaveLength(1);
     });
   });
 
@@ -168,19 +189,26 @@ describe('AuthService', () => {
       jwtService.sign
         .mockReturnValueOnce('new-access-token')
         .mockReturnValueOnce('new-refresh-token');
-      jwtService.verifyAsync.mockResolvedValue({
+      const verifiedPayload = {
         sub: '123',
         cpf: '123',
         company_id: '123',
-      });
+      };
+      jwtService.verifyAsync.mockResolvedValue(verifiedPayload);
       redisService.atomicConsumeRefreshToken.mockResolvedValue('1');
 
       const result = await service.refresh('valid-refresh-token');
 
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
-      expect(redisService.atomicConsumeRefreshToken).toHaveBeenCalled();
-      expect(redisService.storeRefreshToken).toHaveBeenCalled();
+      expect(jwtService.verifyAsync.mock.calls[0]).toEqual([
+        'valid-refresh-token',
+        expect.objectContaining({
+          secret: 'test-refresh-secret-1234567890',
+        }),
+      ]);
+      expect(redisService.atomicConsumeRefreshToken.mock.calls).toHaveLength(1);
+      expect(redisService.storeRefreshToken.mock.calls).toHaveLength(1);
     });
 
     it('should throw UnauthorizedException if refresh token is invalid', async () => {

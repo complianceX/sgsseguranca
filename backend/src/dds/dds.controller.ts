@@ -16,6 +16,7 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { DdsService } from './dds.service';
@@ -30,11 +31,35 @@ import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import { DdsStatus } from './entities/dds.entity';
+import {
+  assertUploadedPdf,
+  createGovernedPdfUploadOptions,
+} from '../common/interceptors/file-upload.interceptor';
 
 @Controller('dds')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class DdsController {
+  private getRequestUserId(
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): string | undefined {
+    return req.user?.userId ?? req.user?.id ?? req.user?.sub;
+  }
+
+  private getRequestErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : 'Usuário não autorizado';
+  }
+
+  private getRequestIp(
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): string {
+    return req.ip || req.socket.remoteAddress || 'unknown';
+  }
+
   constructor(
     private readonly ddsService: DdsService,
     private readonly pdfRateLimitService: PdfRateLimitService,
@@ -64,7 +89,10 @@ export class DdsController {
   )
   @Authorize('can_manage_dds')
   @UseInterceptors(
-    FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }),
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 20 * 1024 * 1024 },
+    }),
   )
   async createWithFile(
     @Body() body: Record<string, string>,
@@ -86,7 +114,8 @@ export class DdsController {
     const dds = await this.ddsService.create(dto);
 
     if (file) {
-      await this.ddsService.attachPdf(dds.id, file);
+      const pdfFile = assertUploadedPdf(file);
+      await this.ddsService.attachPdf(dds.id, pdfFile);
       return this.ddsService.findOne(dds.id);
     }
 
@@ -113,7 +142,9 @@ export class DdsController {
   @Get('historical-photo-hashes')
   @Authorize('can_view_dds')
   getHistoricalPhotoHashes(@Query('limit') limit?: string) {
-    return this.ddsService.getHistoricalPhotoHashes(limit ? Number(limit) : 100);
+    return this.ddsService.getHistoricalPhotoHashes(
+      limit ? Number(limit) : 100,
+    );
   }
 
   @Get('files/list')
@@ -151,13 +182,23 @@ export class DdsController {
 
   @Get(':id')
   @Authorize('can_view_dds')
-  async findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: any) {
+  async findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
     try {
-      if (req.user?.id) {
-        await this.pdfRateLimitService.checkDownloadLimit(req.user.id, req.ip);
+      const userId = this.getRequestUserId(req);
+      if (userId) {
+        await this.pdfRateLimitService.checkDownloadLimit(
+          userId,
+          this.getRequestIp(req),
+        );
       }
     } catch (error) {
-      throw new UnauthorizedException(error.message);
+      throw new UnauthorizedException(this.getRequestErrorMessage(error));
     }
     return this.ddsService.findOne(id);
   }
@@ -179,15 +220,13 @@ export class DdsController {
     Role.COLABORADOR,
   )
   @Authorize('can_manage_dds')
-  @UseInterceptors(
-    FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }),
-  )
+  @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
   async attachFile(
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    if (!file) throw new BadRequestException('Nenhum arquivo enviado');
-    return this.ddsService.attachPdf(id, file);
+    const pdfFile = assertUploadedPdf(file);
+    return this.ddsService.attachPdf(id, pdfFile);
   }
 
   /** Avança o status do DDS no workflow (rascunho → publicado → auditado → arquivado) */
@@ -213,7 +252,10 @@ export class DdsController {
     Role.COLABORADOR,
   )
   @Authorize('can_manage_dds')
-  update(@Param('id', new ParseUUIDPipe()) id: string, @Body() updateDdsDto: UpdateDdsDto) {
+  update(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() updateDdsDto: UpdateDdsDto,
+  ) {
     return this.ddsService.update(id, updateDdsDto);
   }
 

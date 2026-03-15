@@ -27,6 +27,7 @@ import { CompaniesService } from '../companies/companies.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { StorageService } from '../common/services/storage.service';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
+import { isApiCronDisabled } from '../common/utils/scheduler.util';
 import { ReportsService } from '../reports/reports.service';
 import { CompanyResponseDto } from '../companies/dto/company-response.dto';
 
@@ -80,7 +81,9 @@ export class MailService {
     const smtpHost = this.configService.get<string>('MAIL_HOST')?.trim();
     const smtpUser = this.configService.get<string>('MAIL_USER')?.trim();
     const smtpPass = this.configService.get<string>('MAIL_PASS')?.trim();
-    const smtpPort = Number(this.configService.get<string>('MAIL_PORT') || '587');
+    const smtpPort = Number(
+      this.configService.get<string>('MAIL_PORT') || '587',
+    );
     const smtpSecureRaw = this.configService.get<string>('MAIL_SECURE');
     const smtpSecure =
       smtpSecureRaw === 'true' ||
@@ -100,7 +103,9 @@ export class MailService {
       return;
     }
 
-    const resendApiKey = this.configService.get<string>('RESEND_API_KEY')?.trim();
+    const resendApiKey = this.configService
+      .get<string>('RESEND_API_KEY')
+      ?.trim();
     if (resendApiKey) {
       this.resend = new Resend(resendApiKey);
       this.logger.log('MailService configurado com Resend.');
@@ -234,8 +239,7 @@ export class MailService {
     }
 
     const docName = options?.docName?.trim() || 'Documento';
-    const subject =
-      options?.subject?.trim() || 'Documento Compartilhado - GST';
+    const subject = options?.subject?.trim() || 'Documento Compartilhado - GST';
     const pdfBuffer = await this.storageService.downloadFileBuffer(fileKey);
     const attachmentFilename = this.buildAttachmentFilename(docName, fileKey);
 
@@ -280,14 +284,10 @@ export class MailService {
     html?: string,
     context?: MailContext & { filename?: string },
   ): Promise<void> {
-    await this.sendMailSimple(
-      to,
-      subject,
-      text,
-      context,
-      undefined,
-      { html, filename: context?.filename },
-    );
+    await this.sendMailSimple(to, subject, text, context, undefined, {
+      html,
+      filename: context?.filename,
+    });
   }
 
   async sendMailSimple(
@@ -306,11 +306,11 @@ export class MailService {
     const html = metadata?.html
       ? metadata.html
       : text
-      ? `<div style="font-family: Arial, sans-serif; font-size: 14px; color: #1f2937;">${text.replace(
-          /\n/g,
-          '<br/>',
-        )}</div>`
-      : undefined;
+        ? `<div style="font-family: Arial, sans-serif; font-size: 14px; color: #1f2937;">${text.replace(
+            /\n/g,
+            '<br/>',
+          )}</div>`
+        : undefined;
 
     try {
       const delivery = await this.sendWithConfiguredProvider({
@@ -458,7 +458,9 @@ export class MailService {
             subject: options.subject,
             text: options.text,
             html: options.html || options.text,
-            attachments: this.normalizeAttachmentsForResend(options.attachments),
+            attachments: this.normalizeAttachmentsForResend(
+              options.attachments,
+            ),
           }),
         {
           timeoutMs: 10_000,
@@ -792,6 +794,14 @@ export class MailService {
   // SECURITY: uso de @Cron evita saturar o event loop com setInterval
   @Cron(CronExpression.EVERY_MINUTE)
   private async runScheduledAlerts() {
+    if (isApiCronDisabled()) {
+      this.logger.warn({
+        event: 'mail_scheduled_alerts_skipped',
+        reason: 'API_CRONS_DISABLED',
+      });
+      return;
+    }
+
     if (this.alertsRunning) {
       return;
     }
@@ -821,7 +831,10 @@ export class MailService {
       }
 
       const batchSize = this.getEnvNumber('MAIL_ALERT_COMPANY_BATCH_SIZE', 10);
-      const maxParallel = this.getEnvNumber('MAIL_ALERT_COMPANY_MAX_PARALLEL', 2);
+      const maxParallel = this.getEnvNumber(
+        'MAIL_ALERT_COMPANY_MAX_PARALLEL',
+        2,
+      );
       const companyBatch = this.selectCompanyBatch(companies, batchSize);
 
       for (let i = 0; i < companyBatch.length; i += maxParallel) {

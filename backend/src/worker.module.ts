@@ -1,7 +1,7 @@
 import { Module, Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import * as Joi from 'joi';
 import { DatabaseLogger } from './common/logging/database.logger';
@@ -11,8 +11,11 @@ import { QueueServicesModule } from './queue/queue-services.module';
 import { ObservabilityModule } from './common/observability/observability.module';
 import { SlaEscalationWorkerModule } from './sla-escalation-worker.module';
 import { ExpiryNotificationsWorkerModule } from './tasks/expiry-notifications-worker.module';
+import { resolveRedisConnection } from './common/redis/redis-connection.util';
 
-function firstNonEmpty(values: Array<string | undefined | null>): string | undefined {
+function firstNonEmpty(
+  values: Array<string | undefined | null>,
+): string | undefined {
   for (const value of values) {
     if (typeof value === 'string' && value.trim().length > 0) {
       return value;
@@ -90,6 +93,10 @@ const validationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'production', 'test', 'staging')
     .default('development'),
+  REDIS_URL: Joi.string().optional().allow(''),
+  URL_REDIS: Joi.string().optional().allow(''),
+  REDIS_PUBLIC_URL: Joi.string().optional().allow(''),
+  REDIS_DISABLED: Joi.string().valid('true', 'false').optional().allow(''),
   REDIS_HOST: Joi.string().optional(),
   REDIS_PORT: Joi.number().default(6379),
   REDIS_PASSWORD: Joi.string().optional().allow(''),
@@ -159,24 +166,33 @@ const validationSchema = Joi.object({
       },
     }),
     ScheduleModule.forRoot(),
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST,
-        port: Number(process.env.REDIS_PORT),
-        password: process.env.REDIS_PASSWORD,
-        tls:
-          process.env.REDIS_TLS === 'true'
-            ? { rejectUnauthorized: false }
-            : undefined,
-      },
-    }),
+    BullModule.forRoot(
+      (() => {
+        const redisConnection = resolveRedisConnection(process.env);
+        if (!redisConnection) {
+          throw new Error(
+            'Redis é obrigatório para o worker. Configure REDIS_URL/URL_REDIS/REDIS_PUBLIC_URL ou REDIS_HOST.',
+          );
+        }
+
+        return {
+          connection: {
+            host: redisConnection.host,
+            port: redisConnection.port,
+            username: redisConnection.username,
+            password: redisConnection.password,
+            tls: redisConnection.tls,
+          },
+        };
+      })(),
+    ),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
+      useFactory: (config: ConfigService): TypeOrmModuleOptions => {
         const logger = new Logger('WorkerTypeORM');
         const isProduction = config.get('NODE_ENV') === 'production';
         const url = resolveDatabaseUrl(config);
-        const baseConfig = {
+        const baseConfig: TypeOrmModuleOptions = {
           type: 'postgres' as const,
           autoLoadEntities: true,
           synchronize: false,
@@ -205,7 +221,7 @@ const validationSchema = Joi.object({
             ...baseConfig,
             url,
             ssl: WorkerModule.getSSLConfig(config, isProduction, logger),
-          } as any;
+          };
         }
         return {
           ...baseConfig,
@@ -215,7 +231,7 @@ const validationSchema = Joi.object({
           password: resolveDatabasePassword(config),
           database: resolveDatabaseName(config),
           ssl: WorkerModule.getSSLConfig(config, isProduction, logger),
-        } as any;
+        };
       },
     }),
     // Apenas módulos relacionados a filas/processamento

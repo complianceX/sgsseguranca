@@ -381,9 +381,12 @@ export class AuthService {
     // 1. Revogar o refresh token no Redis.
     const refreshSecret = getRefreshTokenSecret(this.configService);
     try {
-      const payload = await this.jwtService.verifyAsync<JwtPayload>(refreshToken, {
-        secret: refreshSecret,
-      });
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(
+        refreshToken,
+        {
+          secret: refreshSecret,
+        },
+      );
       const tokenHash = this.hashToken(refreshToken);
       await this.redisService.revokeRefreshToken(payload.sub, tokenHash);
     } catch {
@@ -394,7 +397,7 @@ export class AuthService {
     // TTL = tempo restante do token, para não acumular entradas expiradas no Redis.
     if (accessToken) {
       try {
-        const decoded = this.jwtService.decode(accessToken) as JwtPayload | null;
+        const decoded = this.jwtService.decode<JwtPayload>(accessToken);
         if (decoded?.jti) {
           const remainingTtl = decoded.exp
             ? Math.max(0, decoded.exp - Math.floor(Date.now() / 1000))

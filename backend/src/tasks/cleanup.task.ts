@@ -6,6 +6,7 @@ import { Repository, LessThan } from 'typeorm';
 import type { Queue } from 'bullmq';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { CompaniesService } from '../companies/companies.service';
+import { isApiCronDisabled } from '../common/utils/scheduler.util';
 
 @Injectable()
 export class CleanupTask {
@@ -24,6 +25,13 @@ export class CleanupTask {
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async cleanupOldLogs() {
+    if (isApiCronDisabled()) {
+      this.logger.warn(
+        'API_CRONS_DISABLED=true: limpeza agendada de logs foi pulada neste runtime.',
+      );
+      return;
+    }
+
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -36,12 +44,26 @@ export class CleanupTask {
 
   @Cron(CronExpression.EVERY_WEEK)
   generateWeeklyReports() {
+    if (isApiCronDisabled()) {
+      this.logger.warn(
+        'API_CRONS_DISABLED=true: geração semanal agendada foi pulada neste runtime.',
+      );
+      return;
+    }
+
     this.logger.log('Starting weekly reports generation...');
     // Lógica de geração de relatórios semanais
   }
 
   @Cron('0 8 * * *') // Daily at 08:00
   async runExpiryNotifications() {
+    if (isApiCronDisabled()) {
+      this.logger.warn(
+        'API_CRONS_DISABLED=true: notificações agendadas de vencimento foram puladas neste runtime.',
+      );
+      return;
+    }
+
     if (this.redisDisabled) {
       this.logger.warn(
         'REDIS_DISABLED=true: notificações assíncronas de vencimento foram puladas neste runtime.',
@@ -86,6 +108,13 @@ export class CleanupTask {
 
   @Cron(CronExpression.EVERY_HOUR)
   async runCorrectiveActionsSlaEscalation() {
+    if (isApiCronDisabled()) {
+      this.logger.warn(
+        'API_CRONS_DISABLED=true: varredura agendada de SLA foi pulada neste runtime.',
+      );
+      return;
+    }
+
     if (this.redisDisabled) {
       this.logger.warn(
         'REDIS_DISABLED=true: varredura assíncrona de SLA foi pulada neste runtime.',
