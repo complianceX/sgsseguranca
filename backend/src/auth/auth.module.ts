@@ -11,7 +11,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { PdfRateLimitService } from './services/pdf-rate-limit.service';
 import { BruteForceService } from './brute-force.service';
-import { getAccessTokenTtl, isInfiniteTtl } from './auth-security.config';
+import { TokenRevocationService } from './token-revocation.service';
+import {
+  getAccessTokenSecret,
+  getAccessTokenTtl,
+  isInfiniteTtl,
+} from './auth-security.config';
 import type { SignOptions } from 'jsonwebtoken';
 
 @Module({
@@ -21,10 +26,7 @@ import type { SignOptions } from 'jsonwebtoken';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
-        const jwtSecret = configService.get<string>('JWT_SECRET');
-        if (!jwtSecret) {
-          throw new Error('JWT_SECRET is required');
-        }
+        const jwtSecret = getAccessTokenSecret(configService);
         const configuredAccessTokenTtl =
           configService.get<string>('ACCESS_TOKEN_TTL');
         const accessTokenTtl = (configuredAccessTokenTtl?.trim() ||
@@ -47,8 +49,9 @@ import type { SignOptions } from 'jsonwebtoken';
     JwtRefreshStrategy,
     PdfRateLimitService,
     BruteForceService,
+    TokenRevocationService,
   ],
   controllers: [AuthController, PdfSecurityController],
-  exports: [AuthService, JwtModule, PdfRateLimitService],
+  exports: [AuthService, JwtModule, PdfRateLimitService, TokenRevocationService],
 })
 export class AuthModule {}

@@ -2,10 +2,14 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { TokenRevocationService } from '../token-revocation.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly tokenRevocationService: TokenRevocationService,
+  ) {
     const jwtSecret = configService.get<string>('JWT_SECRET');
     if (!jwtSecret) {
       throw new Error('JWT_SECRET is required');
@@ -17,11 +21,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: {
+  async validate(payload: {
     sub: string;
     cpf: string;
     company_id: string;
     profile: unknown;
+    jti?: string;
   }) {
     // Validação defensiva: campos essenciais devem existir e ser strings não-vazias.
     // Um token válido gerado por este sistema sempre terá sub e cpf.
@@ -32,6 +37,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
     if (typeof payload.cpf !== 'string' || !payload.cpf) {
       throw new UnauthorizedException('Token inválido');
+    }
+
+    // Checar blacklist: tokens revogados via logout são rejeitados imediatamente,
+    // sem esperar o TTL natural expirar.
+    if (payload.jti && (await this.tokenRevocationService.isRevoked(payload.jti))) {
+      throw new UnauthorizedException('Token revogado');
     }
 
     return {

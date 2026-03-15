@@ -86,9 +86,21 @@ function LoginPageContent() {
   const { login } = useAuth();
 
   useEffect(() => {
+    // CPF armazenado em sessionStorage (não persiste após fechar a aba).
+    // Nunca usar localStorage para PII — violação de LGPD.
     const savedCpf =
-      localStorage.getItem(REMEMBER_CPF_KEY) ??
-      localStorage.getItem(LEGACY_REMEMBER_CPF_KEY) ??
+      sessionStorage.getItem(REMEMBER_CPF_KEY) ??
+      // Migração: limpar chaves legadas do localStorage se existirem.
+      (() => {
+        const legacy =
+          localStorage.getItem(REMEMBER_CPF_KEY) ??
+          localStorage.getItem(LEGACY_REMEMBER_CPF_KEY);
+        if (legacy) {
+          localStorage.removeItem(REMEMBER_CPF_KEY);
+          localStorage.removeItem(LEGACY_REMEMBER_CPF_KEY);
+        }
+        return legacy;
+      })() ??
       '';
     if (savedCpf) {
       setCpf(savedCpf);
@@ -122,11 +134,9 @@ function LoginPageContent() {
     try {
       await login(cleanCpf, password);
       if (rememberCpf) {
-        localStorage.setItem(REMEMBER_CPF_KEY, cpf);
-        localStorage.removeItem(LEGACY_REMEMBER_CPF_KEY);
+        sessionStorage.setItem(REMEMBER_CPF_KEY, cpf);
       } else {
-        localStorage.removeItem(REMEMBER_CPF_KEY);
-        localStorage.removeItem(LEGACY_REMEMBER_CPF_KEY);
+        sessionStorage.removeItem(REMEMBER_CPF_KEY);
       }
     } catch (err: unknown) {
       setError(getLoginErrorMessage(err));

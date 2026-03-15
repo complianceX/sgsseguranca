@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { PtForm } from './PtForm';
+import { initialChecklists } from './pt-schema-and-data';
 
 const searchParamsGet = jest.fn();
 const push = jest.fn();
@@ -259,5 +260,41 @@ describe('PtForm', () => {
     expect(screen.queryByText('Sugestões da SOPHIE')).not.toBeInTheDocument();
     expect(screen.getByText('Situação')).toBeInTheDocument();
     expect(screen.getByText('Readiness Blocked')).toBeInTheDocument();
+  });
+
+  it('does not count unanswered optional excavation items as pending blockers', async () => {
+    localStorage.setItem(
+      'gst.pt.wizard.draft.company-1',
+      JSON.stringify({
+        step: 2,
+        values: {
+          company_id: 'company-1',
+          site_id: 'site-1',
+          responsavel_id: 'user-1',
+          titulo: 'Escavação segura',
+          escavacao: true,
+          executantes: ['user-1'],
+          analise_risco_rapida_checklist: initialChecklists.analise_risco_rapida_checklist.map((item) => ({
+            ...item,
+            resposta: 'Sim',
+          })),
+          recomendacoes_gerais_checklist: initialChecklists.recomendacoes_gerais_checklist.map((item) => ({
+            ...item,
+            resposta: 'Ciente',
+          })),
+          trabalho_escavacao_checklist: initialChecklists.trabalho_escavacao_checklist.map((item) =>
+            item.id === 'estruturas_reforcadas_engenheiro'
+              ? item
+              : { ...item, resposta: 'Sim' },
+          ),
+        },
+        metadata: {},
+      }),
+    );
+
+    render(<PtForm />);
+
+    expect(await screen.findByText('Etapa 2 de 3')).toBeInTheDocument();
+    expect(screen.getAllByText(/0 resposta/i).length).toBeGreaterThan(0);
   });
 });

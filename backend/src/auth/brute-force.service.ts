@@ -14,12 +14,16 @@ export class BruteForceService {
 
   private getWindowSeconds(): number {
     const v = Number(process.env.LOGIN_FAIL_WINDOW_SECONDS || 900);
-    return Number.isFinite(v) ? Math.min(Math.max(Math.floor(v), 60), 3600) : 900;
+    return Number.isFinite(v)
+      ? Math.min(Math.max(Math.floor(v), 60), 3600)
+      : 900;
   }
 
   private getBlockSeconds(): number {
     const v = Number(process.env.LOGIN_FAIL_BLOCK_SECONDS || 900);
-    return Number.isFinite(v) ? Math.min(Math.max(Math.floor(v), 60), 86400) : 900;
+    return Number.isFinite(v)
+      ? Math.min(Math.max(Math.floor(v), 60), 86400)
+      : 900;
   }
 
   private keyCounter(ip: string) {
@@ -43,16 +47,33 @@ export class BruteForceService {
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
-    const client = this.redisService.getClient();
-    const blocked = await client.get(this.keyBlock(tracker));
-    if (blocked) {
+    // Fail-closed: se o Redis estiver indisponível, bloquear o login.
+    // Nunca permitir autenticação sem proteção ativa contra brute force.
+    try {
+      const client = this.redisService.getClient();
+      const blocked = await client.get(this.keyBlock(tracker));
+      if (blocked) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            message:
+              'Muitas tentativas de login. IP temporariamente bloqueado. Tente novamente em alguns minutos.',
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    } catch (err) {
+      if (err instanceof HttpException) throw err;
+      this.logger.error(
+        'BruteForce: Redis indisponível — bloqueando login por segurança (fail-closed)',
+        err instanceof Error ? err.message : String(err),
+      );
       throw new HttpException(
         {
-          statusCode: HttpStatus.TOO_MANY_REQUESTS,
-          message:
-            'Muitas tentativas de login. IP temporariamente bloqueado. Tente novamente em alguns minutos.',
+          statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+          message: 'Serviço temporariamente indisponível. Tente novamente em instantes.',
         },
-        HttpStatus.TOO_MANY_REQUESTS,
+        HttpStatus.SERVICE_UNAVAILABLE,
       );
     }
   }
@@ -64,7 +85,16 @@ export class BruteForceService {
       );
       return;
     }
-    const client = this.redisService.getClient();
+    let client: ReturnType<typeof this.redisService.getClient>;
+    try {
+      client = this.redisService.getClient();
+    } catch (err) {
+      this.logger.error(
+        'BruteForce: Redis indisponível — falha de login não registrada',
+        err instanceof Error ? err.message : String(err),
+      );
+      return;
+    }
     const key = this.keyCounter(tracker);
     const max = this.getMaxAttempts();
     const windowSeconds = this.getWindowSeconds();

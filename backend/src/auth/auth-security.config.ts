@@ -1,17 +1,19 @@
 import type { SignOptions } from 'jsonwebtoken';
 import type { CookieOptions } from 'express';
+import type { ConfigService } from '@nestjs/config';
 
-// Ajustamos os padrões para "praticamente ilimitado": 10 anos.
-const DEFAULT_ACCESS_TOKEN_TTL = '3650d';
-const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 3650; // 10 anos
+const DEFAULT_ACCESS_TOKEN_TTL = '15m';
+const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
 const DEFAULT_MAX_ACTIVE_SESSIONS_PER_USER = 5;
 const REFRESH_COOKIE_PATH = '/auth/refresh';
 type TokenExpiresIn = NonNullable<SignOptions['expiresIn']>;
 type RefreshCookieSameSite = 'strict' | 'lax' | 'none';
 
-export function isInfiniteTtl(ttl: TokenExpiresIn | string): boolean {
+export function isInfiniteTtl(ttl: TokenExpiresIn): boolean {
   const normalized = String(ttl).toLowerCase();
-  return normalized === '0' || normalized === 'never' || normalized === 'infinite';
+  return (
+    normalized === '0' || normalized === 'never' || normalized === 'infinite'
+  );
 }
 
 function parsePositiveInt(
@@ -50,6 +52,37 @@ export function getAccessTokenTtl(): TokenExpiresIn {
   return (ttl || DEFAULT_ACCESS_TOKEN_TTL) as TokenExpiresIn;
 }
 
+function readConfigValue(
+  configService: Pick<ConfigService, 'get'> | undefined,
+  key: string,
+): string | undefined {
+  return configService?.get<string>(key)?.trim() || process.env[key]?.trim();
+}
+
+export function getAccessTokenSecret(
+  configService?: Pick<ConfigService, 'get'>,
+): string {
+  const secret = readConfigValue(configService, 'JWT_SECRET');
+  if (!secret) {
+    throw new Error('JWT_SECRET is required');
+  }
+  return secret;
+}
+
+export function getRefreshTokenSecret(
+  configService?: Pick<ConfigService, 'get'>,
+): string {
+  const refreshSecret =
+    readConfigValue(configService, 'JWT_REFRESH_SECRET') ||
+    readConfigValue(configService, 'JWT_SECRET');
+
+  if (!refreshSecret) {
+    throw new Error('JWT_REFRESH_SECRET is required');
+  }
+
+  return refreshSecret;
+}
+
 export function getAccessTokenCookieMaxAgeMs(): number {
   const ttl = getAccessTokenTtl();
   if (isInfiniteTtl(ttl)) {
@@ -80,9 +113,11 @@ export function getRefreshTokenCookieMaxAgeMs(): number {
 }
 
 export function getRefreshTokenCookieSameSite(): RefreshCookieSameSite {
-  const raw = (process.env.AUTH_COOKIE_SAMESITE ||
+  const raw = (
+    process.env.AUTH_COOKIE_SAMESITE ||
     process.env.REFRESH_TOKEN_COOKIE_SAMESITE ||
-    '')
+    ''
+  )
     .trim()
     .toLowerCase();
 
@@ -94,9 +129,11 @@ export function getRefreshTokenCookieSameSite(): RefreshCookieSameSite {
 }
 
 export function getRefreshTokenCookieSecure(): boolean {
-  const raw = (process.env.AUTH_COOKIE_SECURE ||
+  const raw = (
+    process.env.AUTH_COOKIE_SECURE ||
     process.env.REFRESH_TOKEN_COOKIE_SECURE ||
-    '')
+    ''
+  )
     .trim()
     .toLowerCase();
 
@@ -112,10 +149,11 @@ export function getRefreshTokenCookieSecure(): boolean {
 }
 
 export function getRefreshTokenCookieDomain(): string | undefined {
-  const value = (process.env.AUTH_COOKIE_DOMAIN ||
+  const value = (
+    process.env.AUTH_COOKIE_DOMAIN ||
     process.env.REFRESH_TOKEN_COOKIE_DOMAIN ||
-    '')
-    .trim();
+    ''
+  ).trim();
   return value || undefined;
 }
 

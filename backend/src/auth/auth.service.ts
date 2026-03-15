@@ -14,9 +14,11 @@ import { USER_WITH_PASSWORD_FIELDS } from '../users/constants/user-fields.consta
 import { CpfUtil } from '../common/utils/cpf.util';
 import { PasswordService } from '../common/services/password.service';
 import { RedisService } from '../common/redis/redis.service';
+import { TokenRevocationService } from './token-revocation.service';
 import { Resend } from 'resend';
 import * as crypto from 'crypto';
 import {
+  getRefreshTokenSecret,
   getAccessTokenTtl,
   isInfiniteTtl,
   getRefreshTokenTtl,
@@ -30,6 +32,8 @@ interface JwtPayload {
   cpf: string;
   company_id: string;
   profile: unknown;
+  jti?: string;
+  exp?: number;
 }
 
 @Injectable()
@@ -44,6 +48,7 @@ export class AuthService {
     private passwordService: PasswordService,
     private redisService: RedisService,
     private configService: ConfigService,
+    private tokenRevocationService: TokenRevocationService,
   ) {}
 
   private getResend(): Resend | null {
@@ -139,7 +144,11 @@ export class AuthService {
         const upgradedHash = await this.passwordService.hash(pass);
         await this.dataSource.transaction(async (manager) => {
           await manager.query("SET LOCAL app.is_super_admin = 'true'");
-          await manager.update(User, { id: user.id }, { password: upgradedHash });
+          await manager.update(
+            User,
+            { id: user.id },
+            { password: upgradedHash },
+          );
         });
         user.password = upgradedHash;
         this.logger.warn({
@@ -179,20 +188,24 @@ export class AuthService {
     // Apenas o campo `nome` é necessário; emitir a entidade inteira era excessivo.
     const profileNome =
       typeof user.profile === 'object' && user.profile !== null
-        ? (user.profile as { nome?: string }).nome ?? ''
+        ? ((user.profile as { nome?: string }).nome ?? '')
         : '';
+    const jti = crypto.randomUUID();
     const payload = {
       sub: user.id,
       cpf: user.cpf,
       company_id: user.company_id,
       profile: { nome: profileNome },
+      jti,
     };
     const accessTtl = getAccessTokenTtl();
+    const refreshSecret = getRefreshTokenSecret(this.configService);
     const accessToken = isInfiniteTtl(accessTtl)
       ? this.jwtService.sign(payload)
       : this.jwtService.sign(payload, { expiresIn: accessTtl });
     const refreshToken = this.jwtService.sign(payload, {
       expiresIn: getRefreshTokenTtl(),
+      secret: refreshSecret,
     });
     const tokenHash = this.hashToken(refreshToken);
     const ttlSeconds = getRefreshTokenTtlDays() * 24 * 3600;
@@ -253,8 +266,11 @@ export class AuthService {
 
   async refresh(refreshToken: string, ctx?: { userAgent?: string }) {
     let payload: JwtPayload;
+    const refreshSecret = getRefreshTokenSecret(this.configService);
     try {
-      payload = await this.jwtService.verifyAsync(refreshToken);
+      payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: refreshSecret,
+      });
     } catch {
       throw new UnauthorizedException('Refresh token inválido');
     }
@@ -303,6 +319,7 @@ export class AuthService {
       : this.jwtService.sign(newPayload, { expiresIn: accessTtl });
     const newRefreshToken = this.jwtService.sign(newPayload, {
       expiresIn: getRefreshTokenTtl(),
+      secret: refreshSecret,
     });
     const newHash = this.hashToken(newRefreshToken);
     const ttlSeconds = getRefreshTokenTtlDays() * 24 * 3600;
@@ -360,15 +377,37 @@ export class AuthService {
     return { message: 'Senha atualizada com sucesso' };
   }
 
-  async logout(refreshToken: string) {
-    let payload: JwtPayload;
+  async logout(refreshToken: string, accessToken?: string) {
+    // 1. Revogar o refresh token no Redis.
+    const refreshSecret = getRefreshTokenSecret(this.configService);
     try {
-      payload = await this.jwtService.verifyAsync(refreshToken);
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(refreshToken, {
+        secret: refreshSecret,
+      });
+      const tokenHash = this.hashToken(refreshToken);
+      await this.redisService.revokeRefreshToken(payload.sub, tokenHash);
     } catch {
-      return { success: true };
+      // Refresh token inválido ou expirado — continuar para revogar o access token.
     }
-    const tokenHash = this.hashToken(refreshToken);
-    await this.redisService.revokeRefreshToken(payload.sub, tokenHash);
+
+    // 2. Adicionar o access token à blacklist pelo seu jti.
+    // TTL = tempo restante do token, para não acumular entradas expiradas no Redis.
+    if (accessToken) {
+      try {
+        const decoded = this.jwtService.decode(accessToken) as JwtPayload | null;
+        if (decoded?.jti) {
+          const remainingTtl = decoded.exp
+            ? Math.max(0, decoded.exp - Math.floor(Date.now() / 1000))
+            : 900; // fallback: 15min em segundos
+          if (remainingTtl > 0) {
+            await this.tokenRevocationService.revoke(decoded.jti, remainingTtl);
+          }
+        }
+      } catch {
+        // Token malformado — ignorar silenciosamente.
+      }
+    }
+
     return { success: true };
   }
 
@@ -380,24 +419,37 @@ export class AuthService {
       await manager.query("SET LOCAL app.is_super_admin = 'true'");
       return manager.findOne(User, {
         where: { cpf: normalizedCpf },
-        select: ['id', 'email', 'nome', 'status'] as any,
+        select: ['id', 'email', 'nome', 'status'] as (keyof User)[],
       });
     });
 
     // Sempre retornar sucesso para não revelar se o CPF existe
-    const successMsg = 'Se o CPF estiver cadastrado, você receberá um e-mail com instruções para redefinir sua senha.';
+    const successMsg =
+      'Se o CPF estiver cadastrado, você receberá um e-mail com instruções para redefinir sua senha.';
 
     if (!user || user.status === false || !user.email) {
-      this.logger.warn({ event: 'forgot_password_cpf_not_found', cpf: normalizedCpf.replace(/\d(?=\d{2})/g, '*') });
+      this.logger.warn({
+        event: 'forgot_password_cpf_not_found',
+        cpf: normalizedCpf.replace(/\d(?=\d{2})/g, '*'),
+      });
       return { message: successMsg };
     }
 
     const token = crypto.randomBytes(32).toString('hex');
     const redisKey = `reset_password:${token}`;
-    await this.redisService.getClient().setex(redisKey, RESET_TOKEN_TTL_SECONDS, user.id);
+    await this.redisService
+      .getClient()
+      .setex(redisKey, RESET_TOKEN_TTL_SECONDS, user.id);
 
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3002';
-    const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    if (!frontendUrl && process.env.NODE_ENV === 'production') {
+      this.logger.error(
+        'FRONTEND_URL não configurada em produção — links de e-mail serão inválidos',
+      );
+      throw new Error('FRONTEND_URL is required in production');
+    }
+    const resolvedFrontendUrl = frontendUrl || 'http://localhost:3002';
+    const resetUrl = `${resolvedFrontendUrl}/reset-password?token=${token}`;
 
     const html = `
       <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
@@ -422,10 +474,18 @@ export class AuthService {
     try {
       const resend = this.getResend();
       if (!resend) {
-        this.logger.warn({ event: 'forgot_password_email_skipped', reason: 'RESEND_API_KEY not configured', userId: user.id });
+        this.logger.warn({
+          event: 'forgot_password_email_skipped',
+          reason: 'RESEND_API_KEY not configured',
+          userId: user.id,
+        });
       } else {
-        const fromName = this.configService.get<string>('MAIL_FROM_NAME')?.trim() || 'GST - Gestão de Segurança do Trabalho';
-        const fromEmail = this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() || 'onboarding@resend.dev';
+        const fromName =
+          this.configService.get<string>('MAIL_FROM_NAME')?.trim() ||
+          'GST - Gestão de Segurança do Trabalho';
+        const fromEmail =
+          this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() ||
+          'onboarding@resend.dev';
         await resend.emails.send({
           from: `${fromName} <${fromEmail}>`,
           to: user.email,
@@ -436,18 +496,25 @@ export class AuthService {
       }
       this.logger.log({ event: 'forgot_password_sent', userId: user.id });
     } catch (err) {
-      this.logger.error(`Falha ao enviar e-mail de reset: ${err instanceof Error ? err.message : String(err)}`);
+      this.logger.error(
+        `Falha ao enviar e-mail de reset: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     return { message: successMsg };
   }
 
-  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
     const redisKey = `reset_password:${token}`;
     const userId = await this.redisService.getClient().get(redisKey);
 
     if (!userId) {
-      throw new BadRequestException('Token inválido ou expirado. Solicite um novo link de redefinição.');
+      throw new BadRequestException(
+        'Token inválido ou expirado. Solicite um novo link de redefinição.',
+      );
     }
 
     const validation = this.passwordService.validate(newPassword);
@@ -470,6 +537,8 @@ export class AuthService {
     await this.redisService.clearAllRefreshTokens(userId);
 
     this.logger.log({ event: 'password_reset', userId });
-    return { message: 'Senha redefinida com sucesso. Faça login com a nova senha.' };
+    return {
+      message: 'Senha redefinida com sucesso. Faça login com a nova senha.',
+    };
   }
 }

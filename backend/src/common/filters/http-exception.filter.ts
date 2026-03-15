@@ -60,17 +60,23 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     } else if (exception instanceof QueryFailedError) {
       status = HttpStatus.BAD_REQUEST;
-      message = 'Erro ao processar consulta no banco de dados';
       code = 'DATABASE_ERROR';
 
-      // Erros comuns do PostgreSQL
-      const dbError = exception as Error & { code?: string };
-      if (dbError.code === '23505') {
-        message = 'Registro duplicado';
-        code = 'DUPLICATE_ENTRY';
-      } else if (dbError.code === '23503') {
-        message = 'Violação de chave estrangeira';
-        code = 'FOREIGN_KEY_VIOLATION';
+      // Em produção: mensagem genérica para não revelar estrutura do banco.
+      // Em desenvolvimento: mensagem específica para facilitar depuração.
+      if (isProduction) {
+        message = 'Erro ao processar dados. Tente novamente.';
+      } else {
+        const dbError = exception as Error & { code?: string };
+        if (dbError.code === '23505') {
+          message = 'Registro duplicado';
+          code = 'DUPLICATE_ENTRY';
+        } else if (dbError.code === '23503') {
+          message = 'Violação de chave estrangeira';
+          code = 'FOREIGN_KEY_VIOLATION';
+        } else {
+          message = 'Erro ao processar consulta no banco de dados';
+        }
       }
     } else if (exception instanceof Error) {
       // Em produção, evitar vazar mensagens internas (stack traces, libs, infra, SQL, etc.).

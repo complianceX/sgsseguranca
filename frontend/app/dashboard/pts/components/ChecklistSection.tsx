@@ -80,8 +80,15 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
           const field = item as ChecklistItem;
           const responseError = getError(index, 'resposta');
           const justificationError = getError(index, 'justificativa');
-
-          const responses = questionInfo?.allowNA ? baseResponses : baseResponses.filter(r => r !== 'Não aplicável');
+          const prompt = questionInfo?.pergunta ?? field.pergunta;
+          const allowsNA =
+            questionInfo?.allowNA ??
+            field.allowNA ??
+            field.resposta === 'Não aplicável';
+          const isOptional = questionInfo?.optional ?? field.optional ?? false;
+          const responses = allowsNA
+            ? baseResponses
+            : baseResponses.filter(r => r !== 'Não aplicável');
 
           return (
             <div
@@ -89,8 +96,8 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
               className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/14 p-4"
             >
               <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                {questionInfo?.pergunta}
-                {!questionInfo?.optional && <span className="text-[var(--color-danger)]"> *</span>}
+                {prompt}
+                {!isOptional && <span className="text-[var(--color-danger)]"> *</span>}
               </p>
 
               {/* Respostas (Radio) */}
@@ -143,17 +150,26 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
                     </label>
                     <input
                       type="file"
-                      onChange={(e) =>
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const MAX_SIZE_MB = 5;
+                        if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+                          e.target.value = '';
+                          alert(`O arquivo deve ter no máximo ${MAX_SIZE_MB}MB.`);
+                          return;
+                        }
                         setValue(
                           `${name}.${index}.anexo_nome` as Path<PtFormData>,
-                          e.target.files?.[0]?.name,
-                          { shouldValidate: false },
-                        )
-                      }
+                          file.name,
+                          { shouldValidate: true },
+                        );
+                      }}
                       className="block w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs text-[var(--ds-color-text-primary)]"
                     />
                     <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
-                      {field.anexo_nome ? `Arquivo selecionado: ${field.anexo_nome}` : "Nenhum ficheiro selecionado"}
+                      {field.anexo_nome ? `Arquivo selecionado: ${field.anexo_nome}` : 'Nenhum ficheiro selecionado — PDF, JPG ou PNG até 5 MB'}
                     </p>
                   </div>
               )}

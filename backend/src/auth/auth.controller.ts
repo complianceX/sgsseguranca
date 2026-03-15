@@ -84,7 +84,11 @@ export class AuthController {
     const access = await this.rbacService.getUserAccess(user.id);
 
     // Refresh token - longa duração
-    response.cookie('refresh_token', result.refreshToken, getRefreshTokenCookieOptions());
+    response.cookie(
+      'refresh_token',
+      result.refreshToken,
+      getRefreshTokenCookieOptions(),
+    );
 
     // Modelo oficial: access token em Authorization Bearer (não em cookie).
     return {
@@ -112,7 +116,11 @@ export class AuthController {
     });
 
     if (result.refreshToken) {
-      res.cookie('refresh_token', result.refreshToken, getRefreshTokenCookieOptions());
+      res.cookie(
+        'refresh_token',
+        result.refreshToken,
+        getRefreshTokenCookieOptions(),
+      );
     }
 
     return { accessToken: result.accessToken };
@@ -127,8 +135,14 @@ export class AuthController {
     const refreshToken = (req.cookies as Record<string, string>)[
       'refresh_token'
     ];
-    if (refreshToken) {
-      await this.authService.logout(refreshToken);
+    // Extrair o access token do header Authorization para adicioná-lo à blacklist.
+    const authHeader = req.headers['authorization'] ?? '';
+    const accessToken = authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : undefined;
+
+    if (refreshToken || accessToken) {
+      await this.authService.logout(refreshToken ?? '', accessToken);
     }
     response.clearCookie('refresh_token', getRefreshTokenClearCookieOptions());
     return { success: true };

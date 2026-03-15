@@ -35,36 +35,37 @@ interface RapidRiskChecklistQuestion {
 
 export const alturaQuestions: ChecklistQuestion[] = [
   { id: 'parte_solo', pergunta: 'Parte do trabalho pode ser realizada ao nível do solo?' },
-  { id: 'colaboradores_aptos', pergunta: 'Todos os colaboradores envolvidos na tarefa são aptos para a tarefa e treinados em Trabalhos em Altura?' },
+  { id: 'colaboradores_aptos', pergunta: 'Todos os envolvidos são aptos, autorizados e treinados para trabalho em altura?' },
   { id: 'checklist_telhado', pergunta: 'Para atividade em telhados e coberturas, foi executado o CHECKLIST (HSE-FORM-006)? Caso sim, coloque em anexo devidamente preenchido.', allowNA: true },
   { id: 'checklist_escadas', pergunta: 'Foi preenchido checklist de segurança para uso de escadas fixas/portáteis ou plataforma elevatória conforme HSE-PRO-007?', allowNA: true },
-  { id: 'protecao_area', pergunta: 'A proteção da área (guarda-corpo conforme norma e rodapés) foi instalada e funcionou visualmente?' },
+  { id: 'protecao_area', pergunta: 'As proteções coletivas da área (guarda-corpo, rodapé e proteção inferior, quando aplicável) estão instaladas, íntegras e eficazes?' },
   { id: 'distancia_borda', pergunta: 'As pessoas na atividade serão mantidas a mais de 2m de borda não protegida?' },
-  { id: 'linha_vida', pergunta: 'A linha de vida está instalada, com laudo e funcionando? A capacidade e instruções estão disponíveis aos colaboradores?' },
+  { id: 'linha_vida', pergunta: 'A linha de vida ou sistema equivalente está instalado, identificado e com laudo/inspeção vigente disponível?' },
   { id: 'rotas_sinalizadas', pergunta: 'As passarelas e rotas de saída/emergência estão devidamente sinalizadas?' },
   { id: 'retirada_risco', pergunta: 'As pessoas podem ser retiradas da área de risco de queda?' },
   { id: 'isolamento_sinalizacao', pergunta: 'É obrigatório o uso de área de isolamento/barreiras e sinalização?' },
   { id: 'controle_acesso', pergunta: 'Todos os riscos de queda e áreas restritas foram identificados e controlados para evitar circulação não autorizada?' },
-  { id: 'equipamentos_secundarios', pergunta: 'Os equipamentos secundários para atividade em altura (cintos, talabartes, linhas de vida, mosquetão etc.) são adequados?' },
+  { id: 'equipamentos_secundarios', pergunta: 'Os elementos do sistema de proteção contra quedas (cinto, talabarte, trava-quedas, mosquetões etc.) são adequados à tarefa?' },
   { id: 'risco_queda_objetos', pergunta: 'Existe risco de queda de materiais/objetos de altura?' },
   { id: 'proximidade_energia', pergunta: 'Atividade em altura está próxima a linhas/equipamentos energizados e foi realizado desligamento conforme NR-10 por profissionais autorizados?' },
   { id: 'ferramentas_presilhas', pergunta: 'As ferramentas estão presas com cordas/bolsa de segurança para evitar queda?' },
   { id: 'restricao_prevencao_parada', pergunta: 'As diferenças entre restrição/prevenção de queda e parada de queda foram identificadas e os equipamentos adequados selecionados?' },
-  { id: 'requisitos_equipamentos', pergunta: 'Os requisitos dos equipamentos para trabalho em altura foram identificados e certificados para uso?' },
+  { id: 'requisitos_equipamentos', pergunta: 'Os equipamentos para trabalho em altura foram inspecionados antes do uso, estão sem avarias e com certificação aplicável?' },
   { id: 'cabos_retrateis', pergunta: 'Se necessários cabos retráteis, os pontos de fixação estão corretamente localizados e seguros?' },
   { id: 'ancoragem', pergunta: 'Os pontos de ancoragem são adequados, funcionais, em bom estado e com laudos vigentes?' },
-  { id: 'plano_resgate', pergunta: 'Existe um plano de resgate em altura?' },
-  { id: 'condicoes_climaticas', pergunta: 'As condições climáticas para a atividade estão adequadas (sem chuva, neblina, ventos fortes, raios etc.)?' },
+  { id: 'plano_resgate', pergunta: 'Existe plano de resgate compatível com a atividade, equipe e tempo de resposta?' },
+  { id: 'condicoes_climaticas', pergunta: 'Não há condições impeditivas para a atividade em altura (chuva, ventos fortes, baixa visibilidade, superfícies escorregadias, descargas atmosféricas etc.)?' },
 ];
 
 export const eletricoQuestions: ChecklistQuestion[] = [
   { id: 'planejamento_eletricista', pergunta: 'A tarefa foi planejada por um eletricista qualificado?' },
-  { id: 'diagrama_desconexao', pergunta: 'Está disponível um diagrama com os pontos de desconexão no pedido de trabalho?' },
-  { id: 'nr10_verificacoes', pergunta: 'Foram feitas as verificações necessárias para garantir que não haja voltagem/tensão/energia, conforme NR10?' },
+  { id: 'profissionais_autorizados_nr10', pergunta: 'Somente trabalhadores autorizados, capacitados e, quando aplicável, habilitados participarão da intervenção elétrica?' },
+  { id: 'diagrama_desconexao', pergunta: 'Está disponível diagrama elétrico/unifilar com os pontos de desconexão aplicáveis à tarefa?' },
+  { id: 'nr10_verificacoes', pergunta: 'Foram executadas as etapas aplicáveis de desenergização previstas na NR-10 (seccionamento, impedimento de reenergização, constatação de ausência de tensão e demais verificações)?' },
   { id: 'instrucoes_especiais', pergunta: 'Existem instruções elétricas especiais anexadas ao pedido de trabalho?' },
   { id: 'loto', pergunta: 'Todas as fontes elétricas estão bloqueadas, sinalizadas e etiquetadas? Existe procedimento LOTO vigente?' },
   { id: 'controles_remotos', pergunta: 'Os controles remotos foram isolados?' },
-  { id: 'aterramento_isolamento', pergunta: 'O aterramento e isolamento foram aplicados corretamente?' },
+  { id: 'aterramento_isolamento', pergunta: 'O aterramento temporário, a equipotencialização e os isolamentos/proteções dos elementos energizados foram aplicados quando exigidos?' },
   { id: 'energizado_notificacao', pergunta: 'No trabalho em sistemas energizados, todas as áreas e responsáveis foram notificados?' },
   { id: 'ferramentas_condicao', pergunta: 'Equipamentos e ferramentas elétricas estão em boas condições/funcionais/calibrados?' },
   { id: 'epi_uniforme', pergunta: 'Todos os trabalhadores estão usando proteção elétrica adequada e em conformidade com RAMs?' },
@@ -86,6 +87,7 @@ export const quenteQuestions: ChecklistQuestion[] = [
   { id: 'cilindros_posicao_vertical', pergunta: 'Os cilindros de gás estão em posição vertical e distantes da luz solar?' },
   { id: 'cilindros_dispositivos_retrocesso', pergunta: 'Os cilindros são adequados à pressão e com proteção contra retrocesso de chama? Mangueiras sem defeitos?' },
   { id: 'supervisao_treinada_incendio', pergunta: 'A atividade é supervisionada por pessoal treinado no combate a incêndios?' },
+  { id: 'vigia_incendio_pos_servico', pergunta: 'Quando definido na análise de risco, há trabalhador designado para observação/vigia de incêndio durante o serviço e na inspeção final da área?', allowNA: true },
   { id: 'extintores_adequados', pergunta: 'Existem extintores/equipamentos de combate a incêndio suficientes e adequados próximos ao local?' },
   { id: 'equipamento_incendio_funciona', pergunta: 'O equipamento de combate a incêndios está funcionando?' },
   { id: 'pessoal_plano_emergencia', pergunta: 'O pessoal envolvido está familiarizado com meios de fuga e plano de emergência?' },
@@ -96,6 +98,7 @@ export const quenteQuestions: ChecklistQuestion[] = [
 
 export const confinadoQuestions: ConfinedSpaceChecklistQuestion[] = [
   { id: 'entrada', section: 'Entrada', pergunta: 'A entrada é permitida?' },
+  { id: 'entrada_sinalizada_controlada', section: 'Entrada', pergunta: 'A entrada do espaço confinado está identificada, isolada e com sinalização visível sobre a condição de acesso?' },
   { id: 'meios_acesso', section: 'Entrada', pergunta: 'Foram fornecidos meios de acesso (por exemplo, escadas)?', allowNA: true },
   { id: 'pt_quente_emitida', section: 'Entrada', pergunta: 'Se trabalhos a quente foram realizados no espaço confinado, foi emitida Permissão para Trabalhos a Quente?' },
   { id: 'instrumentos_calibrados', section: 'Teste de atmosfera', pergunta: 'Os instrumentos usados nos testes atmosféricos estão corretamente calibrados?' },
@@ -124,7 +127,7 @@ export const confinadoQuestions: ConfinedSpaceChecklistQuestion[] = [
   { id: 'treinamento_entrada', section: 'Capacitação', pergunta: 'Colaboradores designados para entrar no espaço confinado foram treinados adequadamente?' },
   { id: 'treinamento_respiratoria', section: 'Capacitação', pergunta: 'Colaboradores foram treinados no uso da proteção respiratória necessária?' },
   { id: 'primeiros_socorros_rcp', section: 'Capacitação', pergunta: 'A quantidade de pessoas treinadas em primeiros socorros/RCP é adequada?' },
-  { id: 'pessoal_reserva_suficiente', section: 'Stand-by / Resgate', pergunta: 'A atribuição de pessoal foi suficiente para stand-by na atividade?' },
+  { id: 'pessoal_reserva_suficiente', section: 'Stand-by / Resgate', pergunta: 'Há vigia/stand-by designado em número suficiente e sem atividade concorrente durante a entrada?' },
   { id: 'reserva_treinada', section: 'Stand-by / Resgate', pergunta: 'Os colaboradores de reserva foram treinados adequadamente?' },
   { id: 'registro_entrada_saida', section: 'Stand-by / Resgate', pergunta: 'A folha de registro de entrada/saída está disponível e atualizada?' },
   { id: 'comunicacao_constante', section: 'Stand-by / Resgate', pergunta: 'Colaboradores de reserva manterão comunicação visual/auditiva constante com quem está dentro?' },
@@ -140,10 +143,11 @@ export const escavacaoQuestions: ExcavationChecklistQuestion[] = [
   { id: 'instalacoes_subterraneas_protegidas', section: 'Local de trabalho', pergunta: 'As instalações subterrâneas (se houver) foram desconectadas ou devidamente protegidas?' },
   { id: 'linhas_aereas_observadas', section: 'Local de trabalho', pergunta: 'As linhas de transmissão aéreas foram observadas e medidas foram tomadas para evitar contato?' },
   { id: 'sinalizacao_barricadas', section: 'Local de trabalho', pergunta: 'Foram aplicadas sinalizações adequadas e fornecidas barricadas/isolamento?' },
-  { id: 'equipamento_aterros_posicionados', section: 'Local de trabalho', pergunta: 'Equipamentos e aterros estão corretamente posicionados para tráfego seguro e progresso da construção?' },
+  { id: 'equipamento_aterros_posicionados', section: 'Local de trabalho', pergunta: 'Equipamentos, cargas e material escavado estão posicionados de forma segura, sem sobrecarga próxima à borda?' },
   { id: 'orgaos_notificados_interrupcao', section: 'Local de trabalho', pergunta: 'Se houver interrupção de estrada, os órgãos responsáveis foram notificados?' },
   { id: 'planejamento_escavacao', section: 'Atividade', pergunta: 'Foi feito planejamento para garantir escavação conforme requisitos?' },
-  { id: 'escoramento_nr18', section: 'Atividade', pergunta: 'Foi feito acompanhamento adequado da escavação (NR18: acima de 1,20m com barreiras laterais/escoras)?' },
+  { id: 'responsavel_tecnico_escavacao', section: 'Atividade', pergunta: 'A escavação possui responsável técnico legalmente habilitado e orientação definida para a execução segura?' },
+  { id: 'escoramento_nr18', section: 'Atividade', pergunta: 'Para escavações com profundidade superior a 1,25m, foram adotados escoramento, taludamento ou projeto/medida equivalente conforme NR-18?' },
   { id: 'rampas_equipamentos', section: 'Atividade', pergunta: 'Foram fornecidas rampas adequadas para acesso de equipamentos?' },
   { id: 'riscos_espaco_confinado_considerados', section: 'Atividade', pergunta: 'Riscos de espaço confinado/perigos atmosféricos foram considerados?' },
   { id: 'medidas_confinado_vigor', section: 'Atividade', pergunta: 'Se trincheira/escavação for espaço confinado, medidas preventivas estão em vigor?' },
@@ -159,14 +163,24 @@ export const escavacaoQuestions: ExcavationChecklistQuestion[] = [
 
 export const recomendacoesQuestions: ChecklistQuestion[] = [
   {
-    id: 'interrupcao_risco_grave',
+    id: 'direito_recusa_risco_grave',
     pergunta:
-      'O trabalho deve ser interrompido imediatamente caso seja detectado risco grave e iminente. Considera-se grave e iminente risco toda condição ou situação de trabalho que possa causar acidente ou doença relacionada ao trabalho com lesão à integridade física do trabalhador.',
+      'Estou ciente de que qualquer trabalhador deve interromper a atividade e comunicar a liderança diante de risco grave e iminente.',
   },
   {
-    id: 'nova_pte_apos_interrupcao',
+    id: 'alteracao_invalida_pt',
     pergunta:
-      'Qualquer interrupção da atividade da equipe por qualquer motivo implicará na emissão de novo PTE. Esta permissão deverá ser exposta no local de trabalho até o seu término. Após o trabalho, esta permissão deverá ser arquivada.',
+      'Mudança de escopo, equipe, condição do local, energia bloqueada ou medida de controle exige reavaliação da atividade e, quando aplicável, nova PT antes do reinício.',
+  },
+  {
+    id: 'pt_documentos_disponiveis',
+    pergunta:
+      'A PT, a APR e as permissões complementares aplicáveis devem permanecer disponíveis no local de trabalho durante toda a execução.',
+  },
+  {
+    id: 'somente_pessoas_autorizadas',
+    pergunta:
+      'Somente pessoas autorizadas, treinadas e incluídas na liberação podem executar ou permanecer na frente de serviço.',
   },
 ];
 
@@ -199,7 +213,7 @@ export const riscoRapidoQuestions: RapidRiskChecklistQuestion[] = [
     id: 'apr_metodo_atualizados',
     secao: 'basica',
     pergunta:
-      'Existe uma verificação de riscos/declaração de método atualizada, onde diz sobre todos os riscos potenciais de segurança e descreve medidas protetivas adequadas?',
+      'A APR, a PT e o método de execução estão atualizados e contemplam os riscos e controles desta atividade?',
   },
   {
     id: 'repasse_com_equipes',
@@ -229,19 +243,19 @@ export const riscoRapidoQuestions: RapidRiskChecklistQuestion[] = [
     id: 'controle_prevencao_incendio',
     secao: 'basica',
     pergunta:
-      'Tenho equipamento/medidas para prevenir e controlar um incêndio? Tenho treinamento adequado para utilizar o equipamento?',
+      'Quando houver potencial de incêndio, existem equipamentos e medidas para prevenção/combate e pessoas aptas para utilizá-los?',
   },
   {
     id: 'controle_prevencao_derramamento',
     secao: 'basica',
     pergunta:
-      'Tenho equipamento/medidas para prevenir e controlar um derramamento/contaminação? Tenho treinamento adequado para utilizar o equipamento?',
+      'Quando houver potencial de derramamento ou contaminação, existem medidas e recursos para prevenção e resposta?',
   },
   {
     id: 'condicoes_ambientais_seguras',
     secao: 'basica',
     pergunta:
-      'As condições ambientais são seguras para executar a atividade?',
+      'As condições do local e do entorno continuam seguras para executar a atividade neste momento?',
   },
   {
     id: 'requer_permissao_especifica',
@@ -253,13 +267,13 @@ export const riscoRapidoQuestions: RapidRiskChecklistQuestion[] = [
     id: 'condicao_incomum_detectada',
     secao: 'adicional',
     pergunta:
-      'Há alguma outra condição incomum detectada que precisa ser controlada?',
+      'Houve mudança de cenário, interferência ou condição incomum desde o planejamento que precisa ser controlada?',
   },
   {
     id: 'outra_autorizacao_especifica',
     secao: 'adicional',
     pergunta:
-      'Há alguma outra autorização específica?',
+      'Existe interface com outra operação, sistema ou energia que exija autorização, bloqueio ou alinhamento adicional?',
   },
 ];
 

@@ -107,11 +107,15 @@ const PT_FOCUS_STEP_MAP: Record<PtFocusTarget, number> = {
 
 const SOPHIE_PT_CRITICAL_CHECKPOINTS = {
   trabalho_altura_checklist: ['protecao_area', 'linha_vida', 'ancoragem', 'plano_resgate'],
-  trabalho_eletrico_checklist: ['nr10_verificacoes', 'loto', 'aterramento_isolamento', 'plano_emergencia'],
+  trabalho_eletrico_checklist: ['profissionais_autorizados_nr10', 'nr10_verificacoes', 'loto', 'plano_emergencia'],
   trabalho_quente_checklist: ['area_livre_combustiveis', 'riscos_incendio_15m', 'extintores_adequados', 'plano_resgate'],
   trabalho_espaco_confinado_checklist: ['atmosfera_testada_antes', 'monitoramento_durante', 'isolamento_sistemas', 'procedimentos_resgate_disponiveis'],
-  trabalho_escavacao_checklist: ['servicos_publicos_notificados', 'escoramento_nr18', 'riscos_espaco_confinado_considerados', 'checklist_equipamento_pesado'],
+  trabalho_escavacao_checklist: ['servicos_publicos_notificados', 'responsavel_tecnico_escavacao', 'escoramento_nr18', 'riscos_espaco_confinado_considerados'],
 } as const;
+
+const OPTIONAL_EXCAVATION_QUESTION_IDS = new Set(
+  escavacaoQuestions.filter((question) => question.optional).map((question) => question.id),
+);
 
 function buildCriticalChecklistJustification(
   _label: string,
@@ -271,10 +275,17 @@ function extractPtKeywordsFromApr(apr?: Apr | null) {
   return parts.filter(Boolean).join(' ');
 }
 
-function summarizeChecklistAnswers<T extends { resposta?: string }>(items: T[]) {
+function summarizeChecklistAnswers<T extends { id?: string; resposta?: string }>(
+  items: T[],
+  optionalIds: ReadonlySet<string> = new Set<string>(),
+) {
   return items.reduce(
     (acc, item) => {
+      const isOptional = item.id ? optionalIds.has(item.id) : false;
       if (!item.resposta) {
+        if (isOptional) {
+          return acc;
+        }
         acc.unanswered += 1;
       } else if (item.resposta === 'Não' || item.resposta === 'Não aplicável') {
         acc.adverse += 1;
@@ -478,7 +489,7 @@ export function PtForm({ id }: PtFormProps) {
     [workConfinedChecklist],
   );
   const workExcavationSummary = useMemo(
-    () => summarizeChecklistAnswers(workExcavationChecklist),
+    () => summarizeChecklistAnswers(workExcavationChecklist, OPTIONAL_EXCAVATION_QUESTION_IDS),
     [workExcavationChecklist],
   );
   const unansweredChecklistItems =

@@ -50,19 +50,18 @@ export class TenantRateLimitService {
     const minuteKey = `ratelimit:${companyId}:minute:${Math.floor(now / 60000)}`;
     const hourKey = `ratelimit:${companyId}:hour:${Math.floor(now / 3600000)}`;
 
-    // Incrementar contadores
+    // Incrementar contadores de forma atômica via Lua script.
+    // Garante que a chave NUNCA fique sem TTL mesmo em caso de crash
+    // entre INCR e EXPIRE — elimina memory leak no Redis.
+    const incrScript = `
+      local c = redis.call('INCR', KEYS[1])
+      if c == 1 then redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1])) end
+      return c
+    `;
     const [minuteCount, hourCount] = await Promise.all([
-      this.redis.incr(minuteKey),
-      this.redis.incr(hourKey),
+      this.redis.eval(incrScript, 1, minuteKey, '60') as Promise<number>,
+      this.redis.eval(incrScript, 1, hourKey, '3600') as Promise<number>,
     ]);
-
-    // Setar expiração (primeira vez)
-    if (minuteCount === 1) {
-      await this.redis.expire(minuteKey, 60);
-    }
-    if (hourCount === 1) {
-      await this.redis.expire(hourKey, 3600);
-    }
 
     // Verificar limites
     const minuteExceeded = minuteCount > config.requestsPerMinute;
