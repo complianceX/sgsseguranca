@@ -11,16 +11,14 @@ import {
   ListChecks,
   MessageSquareText,
   Sparkles,
-  Loader2,
   Wand2,
   ArrowRight,
   CalendarDays,
   CheckCircle2,
 } from 'lucide-react';
-import { isAiEnabled, isSophieAutomationPhase1Enabled } from '@/lib/featureFlags';
+import { isAiEnabled } from '@/lib/featureFlags';
 import {
   sophieService,
-  SophieHistoryItem,
   SophieResponse,
   SophieDraftResponse,
   CreateChecklistAutomationResponse,
@@ -38,33 +36,6 @@ import {
   storeSophieNcPreview,
   storeSophiePtDraft,
 } from '@/lib/sophie-draft-storage';
-
-const quickActions = [
-  {
-    title: 'APR Assistida',
-    description: 'SOPHIE sugere riscos e EPIs para acelerar emissão da APR.',
-    href: '/dashboard/aprs/new',
-    icon: FileText,
-  },
-  {
-    title: 'PT Assistida',
-    description: 'SOPHIE analisa criticidade e recomenda controles de liberação.',
-    href: '/dashboard/pts/new',
-    icon: ClipboardCheck,
-  },
-  {
-    title: 'Checklist Assistido',
-    description: 'SOPHIE gera checklist técnico baseado no contexto da atividade.',
-    href: '/dashboard/checklists/new',
-    icon: ListChecks,
-  },
-  {
-    title: 'DDS Assistido',
-    description: 'SOPHIE cria conteúdo prático de DDS para uso em campo.',
-    href: '/dashboard/dds/new',
-    icon: MessageSquareText,
-  },
-] as const;
 
 type PendingContext = {
   active: boolean;
@@ -196,10 +167,7 @@ export default function SstAgentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const aiEnabled = isAiEnabled();
-  const phase1Enabled = isSophieAutomationPhase1Enabled();
   const { user, loading: authLoading, hasPermission } = useAuth();
-  const [history, setHistory] = useState<SophieHistoryItem[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
   const [sites, setSites] = useState<Site[]>([]);
   const [loadingSites, setLoadingSites] = useState(false);
   const [aprSiteId, setAprSiteId] = useState('');
@@ -317,29 +285,6 @@ export default function SstAgentPage() {
   }, [aiEnabled, authLoading, canUseAi, user?.site_id]);
 
   useEffect(() => {
-    let active = true;
-
-    async function loadHistory() {
-      if (!aiEnabled || !phase1Enabled || authLoading || !canUseAi) return;
-      try {
-        setLoadingHistory(true);
-        const data = await sophieService.getHistory(12);
-        if (!active) return;
-        setHistory(Array.isArray(data) ? data : []);
-      } catch {
-        if (active) setHistory([]);
-      } finally {
-        if (active) setLoadingHistory(false);
-      }
-    }
-
-    void loadHistory();
-    return () => {
-      active = false;
-    };
-  }, [aiEnabled, phase1Enabled, authLoading, canUseAi]);
-
-  useEffect(() => {
     if (!prefilledSiteId && !prefilledTitle && !prefilledDescription) {
       if (prefilledSourceType) {
         setNcSourceType(prefilledSourceType);
@@ -417,14 +362,6 @@ export default function SstAgentPage() {
     pendingContext.status,
     pendingContext.siteName,
   ]);
-
-  const sortedHistory = useMemo(
-    () =>
-      [...history].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      ),
-    [history],
-  );
 
   const currentUserId = user?.id || '';
   const automationResponsibleId = prefilledResponsibleId || currentUserId;
@@ -728,8 +665,16 @@ export default function SstAgentPage() {
           <div>
             <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">Workspace assistido da SOPHIE</h1>
             <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Use este workspace quando precisar montar documentos assistidos, revisar contexto operacional e disparar automações com apoio da SOPHIE.
+              Use este workspace quando precisar montar documentos assistidos, revisar contexto operacional e disparar automações com apoio da SOPHIE. Para ajuda rápida e ideias do dia a dia, prefira o chat flutuante.
             </p>
+            <div className="ds-inline-link-list mt-4">
+              <Link href="/dashboard/documentos/novo" className="ds-inline-link-list__item">
+                Abrir novo documento assistido
+              </Link>
+              <Link href="/dashboard" className="ds-inline-link-list__item">
+                Voltar ao dashboard
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -739,10 +684,10 @@ export default function SstAgentPage() {
           <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
             Fluxo iniciado pelo hub documental para {automationPrefillLabel}.
           </p>
-          <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-            O contexto foi pré-carregado. Revise os campos abaixo e execute a ação da SOPHIE quando estiver pronto.
-          </p>
-        </section>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                O contexto foi pré-carregado. Revise os campos abaixo e execute a ação assistida quando estiver pronto.
+              </p>
+            </section>
       ) : null}
 
       {pendingContext.active ? (
@@ -753,7 +698,7 @@ export default function SstAgentPage() {
                 {resolvePendingContextTitle(pendingContext)}
               </p>
               <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                A SOPHIE recebeu o contexto da fila central para acelerar a análise e orientar a próxima ação.
+                O workspace recebeu o contexto da fila central para acelerar a análise e orientar a próxima ação.
               </p>
             </div>
             <div className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-white/50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-warning)]">
@@ -800,7 +745,7 @@ export default function SstAgentPage() {
               variant="warning"
               leftIcon={<Wand2 className="h-4 w-4" />}
             >
-              Analisar pendência com a SOPHIE
+              Analisar contexto da pendência
             </Button>
             {pendingContext.href ? (
               <Link
@@ -875,46 +820,15 @@ export default function SstAgentPage() {
         </section>
       ) : null}
 
-      {phase1Enabled ? (
-        <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-5 shadow-[var(--ds-shadow-sm)]">
-          <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Automação Assistida Fase 1</h2>
-          <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-            Rascunhos automáticos com validação humana antes da decisão final.
-          </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {quickActions.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 transition-all hover:-translate-y-px hover:border-[var(--ds-color-action-primary)]/40 hover:shadow-[var(--ds-shadow-sm)]"
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]">
-                      <Icon className="h-4.5 w-4.5" />
-                    </span>
-                    <div>
-                      <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{item.title}</p>
-                      <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">{item.description}</p>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
       {aiEnabled ? (
         <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-5 shadow-[var(--ds-shadow-sm)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
                 <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">
-                  Fluxos assistidos e automações
+                  Documentos assistidos e análises
                 </h2>
               <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                A SOPHIE agora consegue criar documentos assistidos e enfileirar relatório mensal usando o usuário atual como responsável.
+                Use os formulários abaixo para pedir rascunhos, abrir fluxos assistidos e analisar contextos mais complexos com a SOPHIE.
               </p>
             </div>
             <div className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-primary-subtle)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-action-primary)]">
@@ -925,7 +839,7 @@ export default function SstAgentPage() {
 
           {authLoading ? (
             <div className="mt-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 text-sm text-[var(--ds-color-text-secondary)]">
-              Validando permissões e contexto operacional para liberar as ações da SOPHIE...
+              Validando permissões e contexto operacional para liberar os fluxos assistidos...
             </div>
           ) : !canUseAi ? (
             <div className="mt-4 rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-4">
@@ -933,7 +847,7 @@ export default function SstAgentPage() {
                 Seu perfil ainda não possui a permissão <code>can_use_ai</code>.
               </p>
               <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                A SOPHIE fica visivel, mas a criacao assistida de documentos e os relatorios automaticos exigem liberacao no backend.
+                Os fluxos assistidos de documentos e análises mais profundas exigem liberação no backend.
               </p>
             </div>
           ) : (
@@ -1504,48 +1418,6 @@ export default function SstAgentPage() {
               </p>
             </div>
           </div>
-        </section>
-      ) : null}
-
-      {aiEnabled && phase1Enabled && canUseAi ? (
-        <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-5 shadow-[var(--ds-shadow-sm)]">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Histórico do workspace assistido</h2>
-            {loadingHistory ? (
-              <span className="inline-flex items-center gap-1 text-xs text-[var(--ds-color-text-muted)]">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Atualizando
-              </span>
-            ) : null}
-          </div>
-          {sortedHistory.length === 0 ? (
-            <p className="mt-3 text-sm text-[var(--ds-color-text-secondary)]">
-              Ainda não há interações registradas para este usuário/tenant.
-            </p>
-          ) : (
-            <div className="mt-3 space-y-2">
-              {sortedHistory.slice(0, 10).map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-semibold text-[var(--ds-color-text-primary)]">
-                      {item.question || 'Interação SOPHIE'}
-                    </p>
-                    <span className="text-[11px] text-[var(--ds-color-text-muted)]">
-                      {new Date(item.created_at).toLocaleString('pt-BR')}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-[var(--ds-color-text-secondary)]">
-                    <span>Status: {item.status}</span>
-                    <span>Confiança: {item.confidence || 'n/a'}</span>
-                    <span>Latência: {item.latency_ms ?? 0}ms</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </section>
       ) : null}
     </div>
