@@ -11,7 +11,6 @@ import {
   AlertTriangle,
   BarChart3,
   BookOpen,
-  Bot,
   Building2,
   CalendarDays,
   CheckSquare,
@@ -122,7 +121,6 @@ const menuSections: MenuSection[] = [
     id: 'plataforma',
     label: 'Plataforma',
     items: [
-      { icon: Bot, label: 'SOPHIE', href: '/dashboard/sst-agent' },
       { icon: Settings, label: 'Configurações', href: '/dashboard/settings' },
       { icon: Paintbrush, label: 'Tema do Sistema', href: '/dashboard/system/settings/theme', superAdminOnly: true },
     ],

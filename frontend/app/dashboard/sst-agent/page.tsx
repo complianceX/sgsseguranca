@@ -17,7 +17,6 @@ import {
   CalendarDays,
   CheckCircle2,
 } from 'lucide-react';
-import { SophieStatusCard } from '@/components/SophieStatusCard';
 import { isAiEnabled, isSophieAutomationPhase1Enabled } from '@/lib/featureFlags';
 import {
   sophieService,
@@ -727,9 +726,9 @@ export default function SstAgentPage() {
             <Bot className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">SOPHIE</h1>
+            <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">Workspace assistido da SOPHIE</h1>
             <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-              Apoio operacional de SST para conformidade, analise tecnica e decisoes com prudencia.
+              Use este workspace quando precisar montar documentos assistidos, revisar contexto operacional e disparar automações com apoio da SOPHIE.
             </p>
           </div>
         </div>
@@ -911,9 +910,9 @@ export default function SstAgentPage() {
         <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-5 shadow-[var(--ds-shadow-sm)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">
-                Ações Operacionais da SOPHIE
-              </h2>
+                <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">
+                  Fluxos assistidos e automações
+                </h2>
               <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
                 A SOPHIE agora consegue criar documentos assistidos e enfileirar relatório mensal usando o usuário atual como responsável.
               </p>
@@ -1511,7 +1510,7 @@ export default function SstAgentPage() {
       {aiEnabled && phase1Enabled && canUseAi ? (
         <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-5 shadow-[var(--ds-shadow-sm)]">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Trilha de Auditoria da SOPHIE</h2>
+            <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">Histórico do workspace assistido</h2>
             {loadingHistory ? (
               <span className="inline-flex items-center gap-1 text-xs text-[var(--ds-color-text-muted)]">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1549,8 +1548,6 @@ export default function SstAgentPage() {
           )}
         </section>
       ) : null}
-
-      <SophieStatusCard />
     </div>
   );
 }

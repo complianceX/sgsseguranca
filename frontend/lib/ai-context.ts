@@ -10,18 +10,19 @@ export type AiRouteContext = {
 };
 
 const defaultContext: AiRouteContext = {
-  title: 'SOPHIE',
-  subtitle: 'Suporte operacional para o TST com analise de imagem, riscos e orientacao tecnica.',
+  title: 'Chat da SOPHIE',
+  subtitle: 'Chat assistente para ideias, documentos, analise de imagem, riscos e orientacao tecnica.',
   icon: ShieldCheck,
   assistantIntro:
-    'Sou a SOPHIE da GST. Posso apoiar o TST com análise de imagem, liberação operacional, conformidade, APR, PT, NC e documentos.',
+    'Sou a SOPHIE da GST. Posso ajudar com ideias, montar APR, PT, NC e outros documentos, além de analisar imagens e orientar decisões operacionais.',
   promptPrefix:
-    'Contexto atual: SOPHIE prestando apoio geral de SST no SaaS <GST> Gestão de Segurança do Trabalho. Atue como suporte técnico para o TST, responda com objetividade, segurança e foco operacional.',
+    'Contexto atual: chat da SOPHIE prestando apoio geral de SST no SaaS <GST> Gestão de Segurança do Trabalho. Atue como suporte técnico para o TST, com foco em ideias práticas, construção de documentos e decisões operacionais objetivas.',
   suggestions: [
     'Analise os riscos desta foto e diga as acoes imediatas.',
+    'Me ajude a montar um documento com base neste contexto.',
+    'Me dê ideias objetivas para melhorar esta operação.',
     'Quais bloqueios impedem liberar esta atividade com segurança?',
     'Monte uma orientação rápida de campo para hoje.',
-    'Quais documentos preciso revisar antes da operação?',
   ],
 };
 
@@ -29,8 +30,8 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/tst'),
     context: {
-      title: 'SOPHIE',
-      subtitle: 'Suporte ao TST em campo com bloqueios, pendencias do dia e analise visual de risco.',
+      title: 'Chat da SOPHIE',
+      subtitle: 'Suporte ao TST em campo com bloqueios, pendencias do dia, ideias rápidas e analise visual de risco.',
       icon: Radio,
       assistantIntro:
         'Estou no modo TST em campo. Posso priorizar pendências do dia, analisar imagens, validar bloqueios e orientar a liberação operacional.',
@@ -47,8 +48,8 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/aprs'),
     context: {
-      title: 'SOPHIE',
-      subtitle: 'Risco residual, controles e análise operacional da atividade.',
+      title: 'Chat da SOPHIE',
+      subtitle: 'Risco residual, controles e ajuda para estruturar a APR.',
       icon: FileText,
       assistantIntro:
         'Estou no modo APR. Posso ajudar a revisar perigos, hierarquia de controles e consistência da análise preliminar de risco.',
@@ -64,8 +65,8 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/pts'),
     context: {
-      title: 'SOPHIE',
-      subtitle: 'Liberação segura, bloqueios e evidências antes da aprovação.',
+      title: 'Chat da SOPHIE',
+      subtitle: 'Liberação segura, bloqueios, ideias e evidências antes da aprovação.',
       icon: ClipboardCheck,
       assistantIntro:
         'Estou no modo Permissão de Trabalho. Posso orientar bloqueios, checagens críticas e condições para aprovação segura.',
@@ -81,7 +82,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/nonconformities'),
     context: {
-      title: 'SOPHIE',
+      title: 'Chat da SOPHIE',
       subtitle: 'Classificação, criticidade, contenção e plano de ação.',
       icon: AlertTriangle,
       assistantIntro:
@@ -98,8 +99,8 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/document-registry'),
     context: {
-      title: 'SOPHIE',
-      subtitle: 'Pacote semanal, rastreabilidade e conformidade documental.',
+      title: 'Chat da SOPHIE',
+      subtitle: 'Pacote semanal, rastreabilidade e apoio documental.',
       icon: Archive,
       assistantIntro:
         'Estou no modo documental. Posso orientar pacotes semanais, rastreabilidade, validação e organização dos documentos.',
@@ -115,7 +116,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/medical-exams'),
     context: {
-      title: 'SOPHIE',
+      title: 'Chat da SOPHIE',
       subtitle: 'Aptidão, vencimentos e bloqueios médicos operacionais.',
       icon: Stethoscope,
       assistantIntro:
@@ -132,7 +133,7 @@ const contexts: Array<{ matcher: (pathname: string) => boolean; context: AiRoute
   {
     matcher: (pathname) => pathname.startsWith('/dashboard/employees'),
     context: {
-      title: 'SOPHIE',
+      title: 'Chat da SOPHIE',
       subtitle: 'Status operacional do trabalhador e prontidão documental.',
       icon: Users,
       assistantIntro:

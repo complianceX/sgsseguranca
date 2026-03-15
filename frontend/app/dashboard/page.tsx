@@ -37,8 +37,6 @@ import { useAuth } from '@/context/AuthContext';
 import type { User } from '@/services/usersService';
 import { format, isBefore } from 'date-fns';
 import { GandraInsights } from '@/components/GandraInsights';
-import { SophieStatusMiniCard } from '@/components/SophieStatusMiniCard';
-import { SophieSupportHub } from '@/components/SophieSupportHub';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import { isAiEnabled } from '@/lib/featureFlags';
 import { cn } from '@/lib/utils';
@@ -152,7 +150,7 @@ const PERSONA_GUIDES: Record<DashboardPersona, PersonaGuide> = {
       { label: 'Empresas', href: '/dashboard/companies', icon: Building2, color: 'bg-[var(--ds-color-action-primary)] hover:bg-[var(--ds-color-action-primary-hover)]' },
       { label: 'Usuários', href: '/dashboard/users', icon: Users, color: 'bg-[var(--ds-color-info)] hover:bg-[var(--ds-color-info-hover)]' },
       { label: 'Relatórios GST', href: '/dashboard/reports', icon: FileStack, color: 'bg-[var(--ds-color-accent)] hover:bg-[var(--ds-color-accent-hover)]' },
-      { label: 'SOPHIE', href: '/dashboard/sst-agent', icon: MessageSquare, color: 'bg-[var(--ds-color-warning)] hover:bg-[var(--ds-color-warning-hover)]', requiresAi: true },
+      { label: 'Documentos assistidos', href: '/dashboard/documentos/novo', icon: MessageSquare, color: 'bg-[var(--ds-color-warning)] hover:bg-[var(--ds-color-warning-hover)]', requiresAi: true },
     ],
   },
   'admin-empresa': {
@@ -164,7 +162,7 @@ const PERSONA_GUIDES: Record<DashboardPersona, PersonaGuide> = {
     focusPoints: [
       'Atuar nas pendências que travam operação e conformidade.',
       'Manter equipe, treinamentos e documentos críticos sempre em dia.',
-      'Usar a SOPHIE e os relatórios para acelerar decisões operacionais.',
+      'Usar o chat da SOPHIE e os relatórios para acelerar decisões operacionais.',
     ],
     heroChips: [
       { label: 'Equipe e treinamentos', icon: Users, tone: 'text-[var(--ds-color-success)]' },
@@ -177,33 +175,33 @@ const PERSONA_GUIDES: Record<DashboardPersona, PersonaGuide> = {
       { label: 'Nova APR', href: '/dashboard/aprs/new', icon: PlusCircle, color: 'bg-[var(--ds-color-action-primary)] hover:bg-[var(--ds-color-action-primary-hover)]' },
       { label: 'Nova PT', href: '/dashboard/pts/new', icon: FileText, color: 'bg-[var(--ds-color-action-primary)] hover:bg-[var(--ds-color-action-primary-hover)]' },
       { label: 'Novo Checklist', href: '/dashboard/checklists/new', icon: ClipboardCheck, color: 'bg-[var(--ds-color-accent)] hover:bg-[var(--ds-color-accent-hover)]' },
-      { label: 'SOPHIE', href: '/dashboard/sst-agent', icon: MessageSquare, color: 'bg-[var(--ds-color-warning)] hover:bg-[var(--ds-color-warning-hover)]', requiresAi: true },
+      { label: 'Documentos assistidos', href: '/dashboard/documentos/novo', icon: MessageSquare, color: 'bg-[var(--ds-color-warning)] hover:bg-[var(--ds-color-warning-hover)]', requiresAi: true },
     ],
   },
   tst: {
     badge: 'rotina de campo',
     title: 'Campo, bloqueios e liberações com resposta rápida para o TST.',
     description:
-      'Você entra já no contexto operacional: consulta rápida, pendências do dia, documentos críticos e apoio direto da SOPHIE para análise técnica.',
+      'Você entra já no contexto operacional: consulta rápida, pendências do dia, documentos críticos e apoio do chat da SOPHIE para análise técnica.',
     focusTitle: 'Entrada recomendada',
     focusPoints: [
       'Usar o modo TST em Campo para bloqueios, documentos vencidos e fila do dia.',
       'Retomar APR, PT e checklist sem reconstruir o contexto manualmente.',
-      'Acionar a SOPHIE para orientar risco, imagem e documentação técnica.',
+      'Acionar o chat da SOPHIE para orientar risco, imagem e documentação técnica.',
     ],
     heroChips: [
       { label: 'Pendências do dia', icon: Clock3, tone: 'text-[var(--ds-color-warning)]' },
       { label: 'Consulta rápida em campo', icon: Route, tone: 'text-[var(--ds-color-info)]' },
-      { label: 'Suporte da SOPHIE', icon: MessageSquare, tone: 'text-[var(--ds-color-success)]' },
+      { label: 'Chat da SOPHIE', icon: MessageSquare, tone: 'text-[var(--ds-color-success)]' },
     ],
     primaryAction: { label: 'Abrir TST em campo', href: '/dashboard/tst' },
-    secondaryAction: { label: 'Abrir SOPHIE', href: '/dashboard/sst-agent' },
+    secondaryAction: { label: 'Montar documento assistido', href: '/dashboard/documentos/novo' },
     quickActions: [
       { label: 'TST em Campo', href: '/dashboard/tst', icon: Shield, color: 'bg-[var(--ds-color-success)] hover:bg-[var(--ds-color-success-hover)]' },
       { label: 'Nova APR', href: '/dashboard/aprs/new', icon: PlusCircle, color: 'bg-[var(--ds-color-action-primary)] hover:bg-[var(--ds-color-action-primary-hover)]' },
       { label: 'Nova PT', href: '/dashboard/pts/new', icon: FileText, color: 'bg-[var(--ds-color-action-primary)] hover:bg-[var(--ds-color-action-primary-hover)]' },
       { label: 'Novo Checklist', href: '/dashboard/checklists/new', icon: ClipboardCheck, color: 'bg-[var(--ds-color-accent)] hover:bg-[var(--ds-color-accent-hover)]' },
-      { label: 'SOPHIE', href: '/dashboard/sst-agent', icon: MessageSquare, color: 'bg-[var(--ds-color-warning)] hover:bg-[var(--ds-color-warning-hover)]', requiresAi: true },
+      { label: 'Documentos assistidos', href: '/dashboard/documentos/novo', icon: MessageSquare, color: 'bg-[var(--ds-color-warning)] hover:bg-[var(--ds-color-warning-hover)]', requiresAi: true },
     ],
   },
   supervisor: {
@@ -1117,13 +1115,32 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {isAiEnabled() ? (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-          <SophieSupportHub />
+        {canUseAi ? (
+          <div className="ds-dashboard-panel p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                  assistente sst
+                </p>
+                <h2 className="mt-1 text-base font-semibold text-[var(--ds-color-text-primary)]">
+                  Chat da SOPHIE e documentos assistidos
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm text-[var(--ds-color-text-secondary)]">
+                  Use o chat flutuante para pedir ideias, revisar riscos e tirar dúvidas rápidas. Quando precisar montar um documento com apoio da SOPHIE, entre pelo fluxo de novo documento assistido.
+                </p>
+              </div>
 
-          <SophieStatusMiniCard />
-        </div>
-      ) : null}
+              <div className="ds-inline-link-list md:justify-end">
+                <Link href="/dashboard/documentos/novo" className="ds-inline-link-list__item">
+                  Novo documento assistido
+                </Link>
+                <Link href="/dashboard/sst-agent" className="ds-inline-link-list__item">
+                  Abrir workspace assistido
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {stats.map((stat, index) => (

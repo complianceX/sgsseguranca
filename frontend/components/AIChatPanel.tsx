@@ -231,10 +231,10 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
       <div className="flex-1 space-y-4 overflow-y-auto bg-[color:var(--ds-color-surface-muted)]/22 p-4">
         <div className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/95 p-3 text-xs text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-sm)]">
           <p className="font-semibold text-[var(--ds-color-text-primary)]">
-            SOPHIE
+            Chat da SOPHIE
           </p>
           <p className="mt-1 leading-relaxed">
-            Envie uma foto do ambiente, equipamento ou frente de servico para a SOPHIE analisar riscos, EPIs e acoes imediatas.
+            Use este chat para pedir ideias, montar documentos assistidos e analisar fotos do ambiente, equipamento ou frente de serviço.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -340,7 +340,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Pergunte para a SOPHIE..."
+            placeholder="Peça ideias ou ajuda para montar um documento..."
             className="rounded-full bg-[color:var(--ds-color-surface-muted)]/26 py-2 pl-11 pr-10"
           />
           <Button
@@ -357,7 +357,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
         <div className="mt-2 flex items-center justify-center space-x-1">
           <Sparkles className="h-3 w-3 text-[var(--ds-color-accent)]" />
           <span className="text-[10px] text-[var(--ds-color-text-muted)]">
-            SOPHIE com suporte ao TST, contexto da tela e analise de fotos
+            Chat da SOPHIE com contexto da tela, apoio a documentos e análise de fotos
           </span>
         </div>
       </div>

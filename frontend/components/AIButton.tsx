@@ -8,12 +8,14 @@ import { getAiRouteContext } from '@/lib/ai-context';
 import { isAiEnabled } from '@/lib/featureFlags';
 
 export function AIButton() {
-  if (!isAiEnabled()) return null;
+  const aiEnabled = isAiEnabled();
 
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const context = getAiRouteContext(pathname);
   const ContextIcon = context.icon;
+
+  if (!aiEnabled) return null;
 
   return (
     <>
@@ -21,7 +23,7 @@ export function AIButton() {
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="group relative flex h-14 items-center justify-center gap-2 rounded-full bg-[image:var(--ds-gradient-brand)] px-3.5 text-white shadow-[var(--ds-shadow-lg)] transition-all hover:-translate-y-px hover:brightness-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[color:var(--ds-color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--ds-color-bg-canvas)]"
-          title={isOpen ? 'Fechar suporte da SOPHIE' : `Abrir ${context.title}`}
+          title={isOpen ? 'Fechar chat da SOPHIE' : `Abrir ${context.title}`}
         >
           {isOpen ? (
             <X className="h-6 w-6 transition-transform" />
@@ -32,7 +34,7 @@ export function AIButton() {
               </span>
               <span className="hidden text-left sm:block">
                 <span className="block text-[11px] font-medium uppercase tracking-[0.12em] text-white/74">
-                  Suporte SST
+                  Chat SST
                 </span>
                 <span className="block max-w-[11rem] truncate text-[13px] font-semibold leading-tight">
                   {context.title}
@@ -49,7 +51,7 @@ export function AIButton() {
             <span className="absolute bottom-full right-0 mb-3 hidden w-[18rem] rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] px-3.5 py-3 text-[11px] font-medium text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-md)] group-hover:block">
               <span className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
                 <LifeBuoy className="h-3.5 w-3.5 text-[var(--ds-color-action-primary)]" />
-                SOPHIE
+                Chat da SOPHIE
               </span>
               <span className="flex items-start gap-1.5 leading-relaxed">
                 <Sparkles className="mt-0.5 h-3.5 w-3.5 text-[var(--ds-color-accent)]" />
