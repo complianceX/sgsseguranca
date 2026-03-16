@@ -28,6 +28,12 @@ interface ChecklistFormProps {
   mode?: 'checklist' | 'template';
 }
 
+interface ChecklistSignatureState {
+  signatureData: string;
+  type: string;
+  signedAt: string;
+}
+
 const panelClassName =
   'rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[image:var(--component-card-bg)] shadow-[var(--component-card-shadow)]';
 const fieldClassName =
@@ -83,7 +89,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   // Estados para assinaturas
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [currentSigningUser, setCurrentSigningUser] = useState<User | null>(null);
-  const [signatures, setSignatures] = useState<Record<string, { data: string, type: string }>>({});
+  const [signatures, setSignatures] = useState<Record<string, ChecklistSignatureState>>({});
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const [templateLocalVersion, setTemplateLocalVersion] = useState(1);
   const draftBootstrappedRef = useRef(false);
@@ -220,6 +226,9 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
               setValue('descricao', template.descricao || '');
               setValue('equipamento', template.equipamento || '');
               setValue('maquina', template.maquina || '');
+              setValue('company_id', template.company_id || user?.company_id || '');
+              setValue('site_id', '');
+              setValue('inspetor_id', prefillInspectorId || user?.id || '');
               setValue('categoria', template.categoria || 'SST');
               setValue('periodicidade', template.periodicidade || 'Diário');
               setValue('nivel_risco_padrao', template.nivel_risco_padrao || 'Médio');
@@ -228,7 +237,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 replace(template.itens.map((item: any) => ({
                   item: item.item || '',
-                  status: item.tipo_resposta === 'sim_nao' ? 'nao' : 'ok',
+                  status: item.tipo_resposta === 'conforme' ? 'ok' : 'sim',
                   tipo_resposta: item.tipo_resposta || 'conforme',
                   obrigatorio: item.obrigatorio ?? true,
                   peso: item.peso ?? 1,
@@ -288,10 +297,14 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
           });
 
           // Carregar assinaturas
-          const sigsMap: Record<string, { data: string, type: string }> = {};
+          const sigsMap: Record<string, ChecklistSignatureState> = {};
           sigs.forEach(sig => {
             if (!sig.user_id) return;
-            sigsMap[sig.user_id] = { data: sig.signature_data, type: sig.type || 'digital' };
+            sigsMap[sig.user_id] = {
+              signatureData: sig.signature_data,
+              type: sig.type || 'digital',
+              signedAt: sig.signed_at || sig.created_at || new Date().toISOString(),
+            };
           });
           setSignatures(sigsMap);
 
@@ -310,7 +323,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
     }
 
     loadData();
-  }, [id, isAdminGeneral, replace, reset, router, searchParams, setValue, user?.company_id]);
+  }, [id, isAdminGeneral, prefillInspectorId, replace, reset, router, searchParams, setValue, user?.company_id, user?.id]);
 
   useEffect(() => {
     async function loadTenantOptions() {
@@ -821,6 +834,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                             </option>
                         ))}
                     </select>
+                    {errors.site_id && <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.site_id.message}</p>}
                 </div>
                 {/* Inspetor */}
                 <div>
@@ -839,6 +853,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                             </option>
                         ))}
                     </select>
+                    {errors.inspetor_id && <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.inspetor_id.message}</p>}
                 </div>
 
                 <div className="md:col-span-2">
@@ -950,7 +965,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                 {fields.map((field, index) => 
                     isTemplateMode 
                     ? <TemplateItem key={field.id} item={field as ChecklistItemForm} index={index} register={register} remove={remove} />
-                    : <ExecutionItem key={field.id} item={field as ChecklistItemForm} index={index} register={register} watch={watch} />
+                    : <ExecutionItem key={field.id} item={field as ChecklistItemForm} index={index} register={register} watch={watch} setValue={setValue} />
                 )}
             </div>
 
@@ -1004,7 +1019,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                                 <CheckCircle className="h-5 w-5 text-[var(--ds-color-success)]" />
                                 <div>
                                     <p className="text-sm font-medium text-[var(--ds-color-success-fg)]">Assinado Digitalmente</p>
-                                    <p className="text-xs text-[var(--ds-color-success)]">{new Date(sig.data).toLocaleString()}</p>
+                                    <p className="text-xs text-[var(--ds-color-success)]">{new Date(sig.signedAt).toLocaleString()}</p>
                                 </div>
                             </div>
                         ))}
@@ -1079,7 +1094,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
             const activeId = currentChecklistId || id;
             if (activeId && currentSigningUser) {
                 try {
-                    await signaturesService.create({
+                    const createdSignature = await signaturesService.create({
                         document_id: activeId,
                         document_type: 'CHECKLIST',
                         user_id: currentSigningUser.id,
@@ -1088,7 +1103,15 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                     });
                     setSignatures(prev => ({
                         ...prev,
-                        [currentSigningUser.id]: { data: new Date().toISOString(), type }
+                        [currentSigningUser.id]: {
+                          signatureData:
+                            createdSignature.signature_data || signatureData,
+                          type: createdSignature.type || type,
+                          signedAt:
+                            createdSignature.signed_at ||
+                            createdSignature.created_at ||
+                            new Date().toISOString(),
+                        }
                     }));
                     toast.success('Assinatura salva com sucesso!');
                     setIsSignatureModalOpen(false);

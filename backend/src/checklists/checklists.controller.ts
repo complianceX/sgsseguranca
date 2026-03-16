@@ -30,17 +30,31 @@ import { Authorize } from '../auth/authorize.decorator';
 const wordUploadOptions = {
   storage: memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
-  fileFilter: (_req: unknown, file: Express.Multer.File, cb: (err: Error | null, accept: boolean) => void) => {
+  fileFilter: (
+    _req: unknown,
+    file: Express.Multer.File,
+    cb: (err: Error | null, accept: boolean) => void,
+  ) => {
     const allowed = [
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'application/msword',
       'application/pdf',
     ];
     const lowerName = file.originalname.toLowerCase();
-    if (allowed.includes(file.mimetype) || lowerName.endsWith('.docx') || lowerName.endsWith('.doc') || lowerName.endsWith('.pdf')) {
+    if (
+      allowed.includes(file.mimetype) ||
+      lowerName.endsWith('.docx') ||
+      lowerName.endsWith('.doc') ||
+      lowerName.endsWith('.pdf')
+    ) {
       cb(null, true);
     } else {
-      cb(new BadRequestException('Apenas arquivos Word (.docx, .doc) ou PDF são aceitos.'), false);
+      cb(
+        new BadRequestException(
+          'Apenas arquivos Word (.docx, .doc) ou PDF são aceitos.',
+        ),
+        false,
+      );
     }
   },
 };
@@ -140,6 +154,12 @@ export class ChecklistsController {
   @Authorize('can_view_checklists')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.checklistsService.findOne(id);
+  }
+
+  @Get(':id/pdf')
+  @Authorize('can_view_checklists')
+  getPdfAccess(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.checklistsService.getPdfAccess(id);
   }
 
   @Patch(':id')

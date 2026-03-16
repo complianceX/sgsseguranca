@@ -20,19 +20,19 @@ export const ChecklistInsights = React.memo(({ insights }: ChecklistInsightsProp
       tone: 'text-[var(--ds-color-action-primary)]',
     },
     {
-      label: 'Conformes',
+      label: 'Conformes na página',
       value: insights.conforme,
       icon: CheckCircle2,
       tone: 'text-[var(--ds-color-success)]',
     },
     {
-      label: 'Pendentes',
+      label: 'Pendentes na página',
       value: insights.pendente,
       icon: Clock,
       tone: 'text-[var(--ds-color-warning)]',
     },
     {
-      label: 'Não Conformes',
+      label: 'Não conformes na página',
       value: insights.naoConforme,
       icon: AlertTriangle,
       tone: 'text-[var(--ds-color-danger)]',

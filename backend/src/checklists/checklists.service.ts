@@ -8,7 +8,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, FindOptionsSelect } from 'typeorm';
+import { Repository, DataSource, FindOptionsSelect, DeepPartial } from 'typeorm';
 import { plainToClass } from 'class-transformer';
 import { ConfigService } from '@nestjs/config';
 import { Checklist } from './entities/checklist.entity';
@@ -46,6 +46,7 @@ import {
 } from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { RequestContext } from '../common/middleware/request-context.middleware';
+import { Company } from '../companies/entities/company.entity';
 
 @Injectable({ scope: Scope.REQUEST })
 export class ChecklistsService {
@@ -260,7 +261,171 @@ export class ChecklistsService {
     is_modelo: true,
     created_at: true,
     updated_at: true,
+    company: {
+      id: true,
+      razao_social: true,
+    } as FindOptionsSelect<Company>,
+    site: {
+      id: true,
+      nome: true,
+    },
+    inspetor: {
+      id: true,
+      nome: true,
+    },
   };
+
+  private assertChecklistExecutionRequirements(
+    checklist: Pick<Checklist, 'is_modelo' | 'site_id' | 'inspetor_id'>,
+  ) {
+    if (checklist.is_modelo) {
+      return;
+    }
+
+    if (!checklist.site_id) {
+      throw new BadRequestException(
+        'Checklist operacional exige obra/setor vinculado.',
+      );
+    }
+
+    if (!checklist.inspetor_id) {
+      throw new BadRequestException(
+        'Checklist operacional exige inspetor responsável.',
+      );
+    }
+  }
+
+  private cloneChecklistItems(
+    items: Checklist['itens'],
+    options?: { resetExecutionState?: boolean },
+  ) {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    return items.map((item: Record<string, unknown>) => {
+      const baseItem = {
+        id: typeof item.id === 'string' && item.id.trim() ? item.id : undefined,
+        item: typeof item.item === 'string' ? item.item : '',
+        tipo_resposta:
+          typeof item.tipo_resposta === 'string'
+            ? item.tipo_resposta
+            : 'sim_nao_na',
+        obrigatorio: Boolean(item.obrigatorio ?? true),
+        peso:
+          typeof item.peso === 'number' && Number.isFinite(item.peso)
+            ? item.peso
+            : 1,
+      };
+
+      if (!options?.resetExecutionState) {
+        return {
+          ...baseItem,
+          status:
+            typeof item.status === 'string' || typeof item.status === 'boolean'
+              ? item.status
+              : 'ok',
+          resposta: item.resposta ?? '',
+          observacao:
+            typeof item.observacao === 'string' ? item.observacao : '',
+          fotos: Array.isArray(item.fotos)
+            ? item.fotos.filter(
+                (value): value is string => typeof value === 'string',
+              )
+            : [],
+        };
+      }
+
+      return {
+        ...baseItem,
+        status: baseItem.tipo_resposta === 'conforme' ? 'ok' : 'sim',
+        resposta: '',
+        observacao: '',
+        fotos: [],
+      };
+    });
+  }
+
+  private buildChecklistFromTemplate(
+    template: Checklist,
+    fillData: UpdateChecklistDto,
+  ): Checklist {
+    const checklistData: DeepPartial<Checklist> = {
+      titulo: fillData.titulo ?? template.titulo,
+      descricao: fillData.descricao ?? template.descricao,
+      equipamento: fillData.equipamento ?? template.equipamento,
+      maquina: fillData.maquina ?? template.maquina,
+      foto_equipamento:
+        fillData.foto_equipamento ?? template.foto_equipamento ?? null,
+      data: fillData.data ?? template.data,
+      status: fillData.status ?? 'Pendente',
+      company_id: template.company_id,
+      site_id: fillData.site_id ?? null,
+      inspetor_id: fillData.inspetor_id ?? null,
+      itens:
+        fillData.itens !== undefined
+          ? this.cloneChecklistItems(fillData.itens)
+          : this.cloneChecklistItems(template.itens, {
+              resetExecutionState: true,
+            }),
+      is_modelo: false,
+      template_id: template.id,
+      ativo: fillData.ativo ?? true,
+      categoria: fillData.categoria ?? template.categoria,
+      periodicidade: fillData.periodicidade ?? template.periodicidade,
+      nivel_risco_padrao:
+        fillData.nivel_risco_padrao ?? template.nivel_risco_padrao,
+      auditado_por_id: fillData.auditado_por_id ?? null,
+      data_auditoria: fillData.data_auditoria ?? null,
+      resultado_auditoria: template.resultado_auditoria ?? null,
+      notas_auditoria: template.notas_auditoria ?? null,
+    };
+
+    return this.checklistsRepository.create(checklistData);
+  }
+
+  private getChecklistDocumentDate(
+    checklist: Pick<Checklist, 'data' | 'created_at'>,
+  ): Date {
+    const candidate = checklist.data
+      ? new Date(checklist.data)
+      : checklist.created_at
+        ? new Date(checklist.created_at)
+        : new Date();
+
+    return Number.isNaN(candidate.getTime()) ? new Date() : candidate;
+  }
+
+  private buildChecklistDocumentCode(
+    checklist: Pick<Checklist, 'id' | 'data' | 'created_at'>,
+  ) {
+    const year = this.getChecklistDocumentDate(checklist).getFullYear();
+    const reference = String(checklist.id || '')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .slice(-8)
+      .toUpperCase();
+    return `CHK-${year}-${reference}`;
+  }
+
+  private resolvePdfImage(imageData: string): {
+    data: string;
+    format: 'PNG' | 'JPEG';
+  } {
+    const normalized = imageData.trim();
+    const dataUriMatch = normalized.match(
+      /^data:image\/(png|jpeg|jpg);base64,(.+)$/i,
+    );
+
+    if (dataUriMatch) {
+      const format = dataUriMatch[1].toLowerCase() === 'png' ? 'PNG' : 'JPEG';
+      return { data: dataUriMatch[2], format };
+    }
+
+    return {
+      data: normalized.split(',')[1] || normalized,
+      format: 'PNG',
+    };
+  }
 
   async create(
     createChecklistDto: CreateChecklistDto,
@@ -271,7 +436,9 @@ export class ChecklistsService {
     const checklist = this.checklistsRepository.create({
       ...createChecklistDto,
       company_id: tenantId || createChecklistDto.company_id,
+      itens: this.cloneChecklistItems(createChecklistDto.itens),
     });
+    this.assertChecklistExecutionRequirements(checklist);
     const saved = await this.checklistsRepository.save(checklist);
     this.logger.log(`Checklist salvo: ${saved.id}`);
     return plainToClass(ChecklistResponseDto, saved);
@@ -296,7 +463,7 @@ export class ChecklistsService {
 
     const results = await this.checklistsRepository.find({
       where: filter,
-      relations: ['site', 'inspetor'],
+      relations: ['company', 'site', 'inspetor'],
       order: { created_at: 'DESC' },
     });
     return results.map((c) => plainToClass(ChecklistResponseDto, c));
@@ -332,6 +499,7 @@ export class ChecklistsService {
       where: filter,
       // LISTING: evitar relations pesadas no endpoint de listagem.
       select: this.checklistListSelect,
+      relations: ['company', 'site', 'inspetor'],
       order: { created_at: 'DESC' },
       skip,
       take: limit,
@@ -350,7 +518,7 @@ export class ChecklistsService {
     const tenantId = this.tenantService.getTenantId();
     const checklist = await this.checklistsRepository.findOne({
       where: tenantId ? { id, company_id: tenantId } : { id },
-      relations: ['site', 'inspetor'],
+      relations: ['company', 'site', 'inspetor'],
     });
     if (!checklist) {
       throw new NotFoundException(`Checklist com ID ${id} não encontrado`);
@@ -363,7 +531,14 @@ export class ChecklistsService {
     updateChecklistDto: UpdateChecklistDto,
   ): Promise<ChecklistResponseDto> {
     const checklist = await this.findOneEntity(id);
-    Object.assign(checklist, updateChecklistDto);
+    Object.assign(checklist, {
+      ...updateChecklistDto,
+      itens:
+        updateChecklistDto.itens !== undefined
+          ? this.cloneChecklistItems(updateChecklistDto.itens)
+          : checklist.itens,
+    });
+    this.assertChecklistExecutionRequirements(checklist);
     const saved = await this.checklistsRepository.save(checklist);
 
     try {
@@ -397,7 +572,23 @@ export class ChecklistsService {
   async sendEmail(id: string, to: string) {
     // CORREÇÃO: `sendMailWithAttachment` não existe. Usando `sendMailSimple` que aceita anexos.
     const checklist = await this.findOneEntity(id);
-    const pdfBuffer = await this.generatePdf(checklist);
+    let pdfBuffer: Buffer;
+
+    if (checklist.pdf_file_key) {
+      try {
+        pdfBuffer = await this.storageService.downloadFileBuffer(
+          checklist.pdf_file_key,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Falha ao reutilizar PDF armazenado do checklist ${checklist.id}. Gerando novamente.`,
+          error instanceof Error ? error.stack : undefined,
+        );
+        pdfBuffer = await this.generatePdf(checklist);
+      }
+    } else {
+      pdfBuffer = await this.generatePdf(checklist);
+    }
 
     await this.mailService.sendMailSimple(
       to,
@@ -465,14 +656,14 @@ export class ChecklistsService {
     let currentY = 74;
     if (checklist.foto_equipamento) {
       try {
-        const imgData =
-          checklist.foto_equipamento.split(',')[1] ||
-          checklist.foto_equipamento;
+        const { data: imgData, format } = this.resolvePdfImage(
+          checklist.foto_equipamento,
+        );
         drawBackendSectionTitle(doc, currentY - 10, 'Evidência do equipamento');
         doc.setFillColor(...backendPdfTheme.surface);
         doc.setDrawColor(...backendPdfTheme.border);
         doc.roundedRect(16, currentY - 4, 64, 64, 2, 2, 'FD');
-        doc.addImage(imgData, 'PNG', 18, currentY - 2, 60, 60);
+        doc.addImage(imgData, format, 18, currentY - 2, 60, 60);
         currentY += 70;
       } catch (e) {
         this.logger.error('Erro ao adicionar imagem do equipamento:', e);
@@ -523,9 +714,10 @@ export class ChecklistsService {
         currentSigY += 5;
         if (sig.signature_data) {
           try {
-            const imgData =
-              sig.signature_data.split(',')[1] || sig.signature_data;
-            doc.addImage(imgData, 'PNG', 16, currentSigY, 50, 20);
+            const { data: imgData, format } = this.resolvePdfImage(
+              sig.signature_data,
+            );
+            doc.addImage(imgData, format, 16, currentSigY, 50, 20);
             currentSigY += 25;
           } catch (e) {
             this.logger.error('Erro ao adicionar imagem de assinatura:', e);
@@ -680,15 +872,8 @@ export class ChecklistsService {
       );
     }
 
-    const newChecklist = this.checklistsRepository.create({
-      ...template,
-      id: undefined,
-      template_id: templateId,
-      is_modelo: false,
-      ...fillData,
-      created_at: undefined,
-      updated_at: undefined,
-    });
+    const newChecklist = this.buildChecklistFromTemplate(template, fillData);
+    this.assertChecklistExecutionRequirements(newChecklist);
     const saved = await this.checklistsRepository.save(newChecklist);
 
     try {
@@ -765,6 +950,36 @@ export class ChecklistsService {
     }
   }
 
+  async getPdfAccess(id: string): Promise<{
+    entityId: string;
+    fileKey: string;
+    folderPath: string;
+    originalName: string;
+    url: string | null;
+  }> {
+    const checklist = await this.findOneEntity(id);
+    if (!checklist.pdf_file_key) {
+      throw new NotFoundException(`Checklist ${id} não possui PDF armazenado`);
+    }
+
+    let url: string | null = null;
+    try {
+      url = await this.storageService.getPresignedDownloadUrl(
+        checklist.pdf_file_key,
+      );
+    } catch {
+      url = null;
+    }
+
+    return {
+      entityId: checklist.id,
+      fileKey: checklist.pdf_file_key,
+      folderPath: checklist.pdf_folder_path,
+      originalName: checklist.pdf_original_name,
+      url,
+    };
+  }
+
   async count(options?: { where?: Record<string, unknown> }): Promise<number> {
     const tenantId = this.tenantService.getTenantId();
     const where = options?.where || {};
@@ -792,8 +1007,9 @@ export class ChecklistsService {
 
     return results
       .filter((c) => {
-        if (!c.created_at) return false;
-        const date = new Date(c.created_at);
+        const rawDate = c.data || c.created_at;
+        if (!rawDate) return false;
+        const date = new Date(rawDate);
         if (filters.year && date.getFullYear() !== filters.year) return false;
         if (filters.week) {
           const d = new Date(
@@ -875,10 +1091,15 @@ export class ChecklistsService {
     };
 
     if (!apiKey) {
-      this.logger.warn('OPENAI_API_KEY não configurada — usando stub de importação');
+      this.logger.warn(
+        'OPENAI_API_KEY não configurada — usando stub de importação',
+      );
       structured = {
-        titulo: originalname.replace(/\.(docx?|pdf)$/i, '').trim() || 'Checklist Importado',
-        descricao: 'Modelo importado de arquivo. Edite os itens conforme necessário.',
+        titulo:
+          originalname.replace(/\.(docx?|pdf)$/i, '').trim() ||
+          'Checklist Importado',
+        descricao:
+          'Modelo importado de arquivo. Edite os itens conforme necessário.',
         categoria: 'SST',
         periodicidade: 'Por tarefa',
         nivel_risco_padrao: 'Médio',
@@ -920,22 +1141,25 @@ Regras:
 
       const userPrompt = `Texto extraído do documento "${originalname}":\n\n${rawText.slice(0, 6000)}`;
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
+      const response = await fetch(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            temperature: 0.2,
+            max_tokens: 4000,
+          }),
         },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.2,
-          max_tokens: 4000,
-        }),
-      });
+      );
 
       if (!response.ok) {
         throw new BadRequestException(
@@ -988,7 +1212,9 @@ Regras:
     });
 
     const saved = await this.checklistsRepository.save(checklist);
-    this.logger.log(`Checklist importado do Word salvo como modelo: ${saved.id}`);
+    this.logger.log(
+      `Checklist importado do Word salvo como modelo: ${saved.id}`,
+    );
     return plainToClass(ChecklistResponseDto, saved);
   }
 
@@ -1011,7 +1237,10 @@ Regras:
     const normalized = code.trim().toUpperCase();
 
     if (!normalized.startsWith('CHK-')) {
-      return { valid: false, message: 'Código inválido para checklist (esperado CHK-YYYY-XXXXXXXX).' };
+      return {
+        valid: false,
+        message: 'Código inválido para checklist (esperado CHK-YYYY-XXXXXXXX).',
+      };
     }
 
     const suffix = normalized.split('-').pop();
@@ -1023,22 +1252,22 @@ Regras:
       .createQueryBuilder('c')
       .leftJoinAndSelect('c.site', 'site')
       .leftJoinAndSelect('c.inspetor', 'inspetor')
-      .where("REPLACE(c.id::text, '-', '') ILIKE :suffix", { suffix: `%${suffix.toLowerCase()}` })
+      .where("REPLACE(c.id::text, '-', '') ILIKE :suffix", {
+        suffix: `%${suffix.toLowerCase()}`,
+      })
       .orderBy('c.created_at', 'DESC')
       .limit(5)
       .getMany();
 
-    // Reproduce the same code generation as the frontend buildDocumentCode
-    const buildCode = (cl: Checklist): string => {
-      const year = new Date().getFullYear();
-      const ref = (cl.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase();
-      return `CHK-${year}-${ref}`;
-    };
-
-    const match = matches.find((cl) => buildCode(cl) === normalized);
+    const match = matches.find(
+      (cl) => this.buildChecklistDocumentCode(cl) === normalized,
+    );
 
     if (!match) {
-      return { valid: false, message: 'Checklist não encontrado para este código.' };
+      return {
+        valid: false,
+        message: 'Checklist não encontrado para este código.',
+      };
     }
 
     return {
@@ -1048,7 +1277,10 @@ Regras:
         id: match.id,
         titulo: match.titulo,
         status: match.status,
-        data: match.data instanceof Date ? match.data.toISOString().split('T')[0] : String(match.data),
+        data:
+          match.data instanceof Date
+            ? match.data.toISOString().split('T')[0]
+            : String(match.data),
         is_modelo: Boolean(match.is_modelo),
         site: match.site?.nome,
         inspetor: match.inspetor?.nome,

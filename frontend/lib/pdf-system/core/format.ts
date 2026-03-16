@@ -26,8 +26,15 @@ export function slugify(value: string): string {
     .toUpperCase();
 }
 
-export function buildDocumentCode(prefix: string, reference?: string | number | null): string {
-  const year = new Date().getFullYear();
+export function buildDocumentCode(
+  prefix: string,
+  reference?: string | number | null,
+  dateValue?: string | Date | null,
+): string {
+  const candidateDate = dateValue ? new Date(dateValue) : new Date();
+  const year = Number.isNaN(candidateDate.getTime())
+    ? new Date().getFullYear()
+    : candidateDate.getFullYear();
   const ref = sanitize(reference).replace(/[^a-zA-Z0-9]/g, "").slice(-8).toUpperCase();
   return `${prefix}-${year}-${ref || `${Date.now()}`.slice(-6)}`;
 }
@@ -43,4 +50,3 @@ export function buildPdfFilename(prefix: string, title: string, date?: string | 
   const safeDate = formatDate(date).replace(/\//g, "-");
   return `${prefix}_${safeTitle}_${safeDate}.pdf`;
 }
-

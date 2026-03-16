@@ -48,7 +48,7 @@ export default function ChecklistTemplatesPage() {
   };
 
   const handleFill = (templateId: string) => {
-    router.push(`/dashboard/checklists/fill/${templateId}`);
+    router.push(`/dashboard/checklists/new?templateId=${templateId}`);
   };
 
   const filteredTemplates = useMemo(

@@ -1,3 +1,4 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { ChecklistsService } from './checklists.service';
 import { Checklist } from './entities/checklist.entity';
@@ -10,6 +11,8 @@ import type { SitesService } from '../sites/sites.service';
 import type { NotificationsGateway } from '../notifications/notifications.gateway';
 import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import type { FileParserService } from '../document-import/services/file-parser.service';
+import type { ConfigService } from '@nestjs/config';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -21,20 +24,41 @@ type RemoveFinalDocumentReferenceInput = Parameters<
 describe('ChecklistsService', () => {
   let service: ChecklistsService;
   let repository: {
+    create: jest.Mock;
+    save: jest.Mock;
     update: jest.Mock;
+    createQueryBuilder: jest.Mock;
+    findOne: jest.Mock;
+    findAndCount: jest.Mock;
+    count: jest.Mock;
   };
   let storageService: Pick<
     StorageService,
-    'uploadFile' | 'getPresignedDownloadUrl' | 'deleteFile'
+    | 'uploadFile'
+    | 'getPresignedDownloadUrl'
+    | 'deleteFile'
+    | 'downloadFileBuffer'
   >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     'registerFinalDocument' | 'removeFinalDocumentReference'
   >;
+  let notificationsGateway: Pick<NotificationsGateway, 'sendToCompany'>;
 
   beforeEach(() => {
     repository = {
+      create: jest.fn((payload) => payload),
+      save: jest.fn(async (payload) => ({
+        id: payload.id || 'checklist-1',
+        created_at: payload.created_at || new Date('2026-03-14T12:00:00.000Z'),
+        updated_at: new Date('2026-03-14T12:00:00.000Z'),
+        ...payload,
+      })),
       update: jest.fn(),
+      createQueryBuilder: jest.fn(),
+      findOne: jest.fn(),
+      findAndCount: jest.fn(),
+      count: jest.fn(),
     };
     storageService = {
       uploadFile: jest.fn(),
@@ -42,24 +66,38 @@ describe('ChecklistsService', () => {
         Promise.resolve('https://example.com/checklist.pdf'),
       ),
       deleteFile: jest.fn(() => Promise.resolve()),
+      downloadFileBuffer: jest.fn(() =>
+        Promise.resolve(Buffer.from('%PDF-checklist-stored')),
+      ),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
       removeFinalDocumentReference: jest.fn(),
+    };
+    notificationsGateway = {
+      sendToCompany: jest.fn(),
     };
 
     service = new ChecklistsService(
       repository as unknown as Repository<Checklist>,
       { getTenantId: jest.fn(() => 'company-1') } as TenantService,
       {} as DataSource,
-      {} as MailService,
-      {} as SignaturesService,
-      {} as NotificationsGateway,
+      { sendMailSimple: jest.fn() } as unknown as MailService,
+      {
+        findByDocument: jest.fn(() => Promise.resolve([])),
+      } as unknown as SignaturesService,
+      notificationsGateway as NotificationsGateway,
       storageService as StorageService,
       {} as UsersService,
       {} as SitesService,
-      {} as DocumentBundleService,
+      {
+        buildWeeklyPdfBundle: jest.fn(),
+      } as unknown as DocumentBundleService,
       documentGovernanceService as DocumentGovernanceService,
+      {} as FileParserService,
+      {
+        get: jest.fn(),
+      } as unknown as ConfigService,
     );
   });
 
@@ -85,7 +123,7 @@ describe('ChecklistsService', () => {
     (
       documentGovernanceService.registerFinalDocument as jest.Mock
     ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
-      await input.persistEntityMetadata(manager, 'hash-1');
+      await input.persistEntityMetadata(manager);
       return { hash: 'hash-1', registryEntry: { id: 'registry-1' } };
     });
 
@@ -172,6 +210,207 @@ describe('ChecklistsService', () => {
 
     expect(storageService.deleteFile).toHaveBeenCalledWith(
       expect.stringContaining('checklist-checklist-1.pdf'),
+    );
+  });
+
+  it('rejeita checklist operacional sem obra ou inspetor', async () => {
+    await expect(
+      service.create({
+        titulo: 'Checklist operacional',
+        data: '2026-03-14',
+        company_id: 'company-1',
+        itens: [],
+        is_modelo: false,
+      } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('preenche checklist a partir do template por allowlist segura', async () => {
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'template-1',
+      titulo: 'Modelo',
+      descricao: 'Template',
+      equipamento: 'Detector',
+      maquina: null,
+      foto_equipamento: null,
+      data: new Date('2026-03-10'),
+      status: 'Pendente',
+      company_id: 'company-1',
+      site_id: null,
+      inspetor_id: null,
+      itens: [
+        {
+          id: 'item-1',
+          item: 'Verificar trava',
+          tipo_resposta: 'conforme',
+          obrigatorio: true,
+          peso: 1,
+          status: 'nok',
+          observacao: 'template',
+          fotos: ['template-photo'],
+        },
+      ],
+      is_modelo: true,
+      ativo: true,
+      categoria: 'SST',
+      periodicidade: 'Diário',
+      nivel_risco_padrao: 'Médio',
+      pdf_file_key: 'documents/template.pdf',
+      pdf_folder_path: 'documents/company-1/checklists',
+      pdf_original_name: 'template.pdf',
+      created_at: new Date('2026-03-01'),
+      updated_at: new Date('2026-03-01'),
+    } as unknown as Checklist);
+
+    const result = await service.fillFromTemplate('template-1', {
+      data: '2026-03-15',
+      site_id: 'site-1',
+      inspetor_id: 'user-1',
+    });
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        titulo: 'Modelo',
+        company_id: 'company-1',
+        template_id: 'template-1',
+        site_id: 'site-1',
+        inspetor_id: 'user-1',
+        is_modelo: false,
+      }),
+    );
+    expect(result.is_modelo).toBe(false);
+    expect(result.itens[0]).toEqual(
+      expect.objectContaining({
+        item: 'Verificar trava',
+        status: 'ok',
+        observacao: '',
+        fotos: [],
+      }),
+    );
+  });
+
+  it('usa a data do checklist para validar codigo publico', async () => {
+    repository.createQueryBuilder.mockReturnValue({
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([
+        {
+          id: '12345678-1234-1234-1234-abcdef123456',
+          titulo: 'Checklist 2025',
+          status: 'Conforme',
+          data: new Date('2025-12-30T00:00:00.000Z'),
+          is_modelo: false,
+          updated_at: new Date('2025-12-30T18:00:00.000Z'),
+          site: { nome: 'Obra A' },
+          inspetor: { nome: 'Maria' },
+        },
+      ]),
+    });
+
+    const valid = await service.validateByCode('CHK-2025-EF123456');
+    const invalid = await service.validateByCode('CHK-2026-EF123456');
+
+    expect(valid.valid).toBe(true);
+    expect(valid.checklist?.titulo).toBe('Checklist 2025');
+    expect(invalid.valid).toBe(false);
+  });
+
+  it('filtra arquivos semanais pela data documental e nao pela criacao', async () => {
+    repository.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([
+        {
+          id: 'checklist-1',
+          titulo: 'Checklist datado',
+          company_id: 'company-1',
+          data: new Date('2025-12-31T00:00:00.000Z'),
+          created_at: new Date('2026-01-05T00:00:00.000Z'),
+          pdf_file_key:
+            'documents/company-1/checklists/2025/12/semana-01/checklist-1.pdf',
+          pdf_folder_path: 'documents/company-1/checklists/2025/12/semana-01',
+          pdf_original_name: 'checklist-1.pdf',
+        },
+      ]),
+    });
+
+    const files = await service.listStoredFiles({ year: 2025 });
+
+    expect(files).toHaveLength(1);
+    expect(files[0].entityId).toBe('checklist-1');
+  });
+
+  it('retorna acesso ao PDF salvo do checklist', async () => {
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'checklist-1',
+      pdf_file_key: 'documents/company-1/checklists/checklist-1.pdf',
+      pdf_folder_path: 'documents/company-1/checklists',
+      pdf_original_name: 'checklist-1.pdf',
+    } as Checklist);
+
+    await expect(service.getPdfAccess('checklist-1')).resolves.toEqual({
+      entityId: 'checklist-1',
+      fileKey: 'documents/company-1/checklists/checklist-1.pdf',
+      folderPath: 'documents/company-1/checklists',
+      originalName: 'checklist-1.pdf',
+      url: 'https://example.com/checklist.pdf',
+    });
+  });
+
+  it('reaproveita PDF armazenado ao enviar email', async () => {
+    const sendMailSimple = jest.fn();
+    service = new ChecklistsService(
+      repository as unknown as Repository<Checklist>,
+      { getTenantId: jest.fn(() => 'company-1') } as TenantService,
+      {} as DataSource,
+      { sendMailSimple } as unknown as MailService,
+      {
+        findByDocument: jest.fn(() => Promise.resolve([])),
+      } as unknown as SignaturesService,
+      notificationsGateway as NotificationsGateway,
+      storageService as StorageService,
+      {} as UsersService,
+      {} as SitesService,
+      {
+        buildWeeklyPdfBundle: jest.fn(),
+      } as unknown as DocumentBundleService,
+      documentGovernanceService as DocumentGovernanceService,
+      {} as FileParserService,
+      {
+        get: jest.fn(),
+      } as unknown as ConfigService,
+    );
+
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'checklist-1',
+      titulo: 'Checklist de campo',
+      company_id: 'company-1',
+      data: new Date('2026-03-14T12:00:00.000Z'),
+      pdf_file_key: 'documents/company-1/checklists/checklist-1.pdf',
+    } as Checklist);
+    const generatePdfSpy = jest.spyOn(service, 'generatePdf');
+
+    await service.sendEmail('checklist-1', 'cliente@empresa.com');
+
+    expect(storageService.downloadFileBuffer).toHaveBeenCalledWith(
+      'documents/company-1/checklists/checklist-1.pdf',
+    );
+    expect(generatePdfSpy).not.toHaveBeenCalled();
+    expect(sendMailSimple).toHaveBeenCalled();
+  });
+
+  it('lança erro quando checklist não tem PDF salvo para acesso', async () => {
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'checklist-1',
+      pdf_file_key: null,
+    } as unknown as Checklist);
+
+    await expect(service.getPdfAccess('checklist-1')).rejects.toBeInstanceOf(
+      NotFoundException,
     );
   });
 });

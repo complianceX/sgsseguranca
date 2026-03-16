@@ -26,7 +26,11 @@ export async function generateChecklistPdf(
   const ctx = createPdfContext(doc, "operational");
   drawPageBackground(ctx);
 
-  const code = buildDocumentCode("CHK", checklist.id || checklist.titulo);
+  const code = buildDocumentCode(
+    "CHK",
+    checklist.id || checklist.titulo,
+    checklist.data,
+  );
   await drawChecklistBlueprint(ctx, autoTable, checklist, signatures, code, buildValidationUrl(code));
 
   applyFooterGovernance(ctx, {
@@ -41,4 +45,3 @@ export async function generateChecklistPdf(
   }
   doc.save(filename);
 }
-

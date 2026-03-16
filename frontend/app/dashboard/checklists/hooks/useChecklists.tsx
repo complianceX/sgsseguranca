@@ -74,6 +74,14 @@ export function useChecklists() {
   const handleDownloadPdf = useCallback(async (checklist: Checklist) => {
     try {
       setPrintingId(checklist.id);
+      if (checklist.pdf_file_key) {
+        const access = await checklistsService.getPdfAccess(checklist.id);
+        if (access.url) {
+          window.open(access.url, '_blank', 'noopener,noreferrer');
+          toast.success('PDF aberto com sucesso!');
+          return;
+        }
+      }
       const signatures = await signaturesService.findByChecklist(checklist.id);
       await generateChecklistPdf(checklist, signatures);
       toast.success('PDF gerado com sucesso!');
@@ -108,6 +116,15 @@ export function useChecklists() {
   const handlePrint = useCallback(async (checklist: Checklist) => {
     try {
       setPrintingId(checklist.id);
+      if (checklist.pdf_file_key) {
+        const access = await checklistsService.getPdfAccess(checklist.id);
+        if (access.url) {
+          openPdfForPrint(access.url, () => {
+            toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+          });
+          return;
+        }
+      }
       const signatures = await signaturesService.findByChecklist(checklist.id);
       const result = await generateChecklistPdf(checklist, signatures, { save: false, output: 'base64' }) as { base64: string };
       if (result?.base64) {

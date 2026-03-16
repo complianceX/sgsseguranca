@@ -1,6 +1,7 @@
 import { Exclude, Expose, Type } from 'class-transformer';
 import { UserResponseDto } from '../../users/dto/user-response.dto';
 import { SiteResponseDto } from '../../sites/dto/site-response.dto';
+import { CompanyResponseDto } from '../../companies/dto/company-response.dto';
 
 @Exclude()
 export class ChecklistResponseDto {
@@ -89,4 +90,8 @@ export class ChecklistResponseDto {
   @Expose()
   @Type(() => SiteResponseDto)
   site: SiteResponseDto;
+
+  @Expose()
+  @Type(() => CompanyResponseDto)
+  company: CompanyResponseDto;
 }

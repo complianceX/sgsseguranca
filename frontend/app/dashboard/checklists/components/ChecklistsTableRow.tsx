@@ -150,7 +150,7 @@ export const ChecklistsTableRow = React.memo(({
         <div className="flex items-center justify-end gap-1">
           {checklist.is_modelo && (
             <Link
-              href={`/dashboard/checklists/fill/${checklist.id}`}
+              href={`/dashboard/checklists/new?templateId=${checklist.id}`}
               className={cn(
                 buttonVariants({ size: 'sm', variant: 'outline' }),
                 'gap-1 text-[var(--ds-color-action-primary)] border-[var(--ds-color-action-primary)]/40 hover:bg-[color:var(--ds-color-action-primary)]/8',

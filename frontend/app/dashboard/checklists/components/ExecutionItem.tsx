@@ -11,11 +11,57 @@ interface ExecutionItemProps {
   setValue?: UseFormSetValue<ChecklistFormData>;
 }
 
-export const ExecutionItem = React.memo(({ item, index, register, watch }: ExecutionItemProps) => {
+export const ExecutionItem = React.memo(({ item, index, register, watch, setValue }: ExecutionItemProps) => {
   const statusValue = watch(`itens.${index}.status`);
   const observacaoValue = watch(`itens.${index}.observacao`);
+  const photoValues = watch(`itens.${index}.fotos`) || [];
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const choiceBaseClassName =
     'flex cursor-pointer items-center gap-1 rounded-[var(--ds-radius-sm)] border px-3 py-1.5 text-sm font-semibold transition-colors';
+
+  const handleAddPhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!setValue) {
+      return;
+    }
+
+    const files = Array.from(event.target.files || []);
+    if (!files.length) {
+      return;
+    }
+
+    const encodedPhotos = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ''));
+            reader.onerror = () => reject(new Error('Falha ao ler a imagem.'));
+            reader.readAsDataURL(file);
+          }),
+      ),
+    );
+
+    setValue(`itens.${index}.fotos`, [...photoValues, ...encodedPhotos], {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+    event.target.value = '';
+  };
+
+  const handleRemovePhoto = (photoIndex: number) => {
+    if (!setValue) {
+      return;
+    }
+
+    setValue(
+      `itens.${index}.fotos`,
+      photoValues.filter((_, currentIndex) => currentIndex !== photoIndex),
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+      },
+    );
+  };
 
   const choiceBtn = (value: string, label: string, activeClass: string) => (
     <label
@@ -103,14 +149,50 @@ export const ExecutionItem = React.memo(({ item, index, register, watch }: Execu
       </div>
 
       <div className="mt-2 flex items-center gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          multiple
+          className="hidden"
+          onChange={(event) => void handleAddPhotos(event)}
+        />
         <button
           type="button"
+          onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-1 text-xs text-[var(--ds-color-action-primary)] transition-colors hover:text-[var(--ds-color-action-primary-hover)]"
         >
           <Camera className="h-3 w-3" />
-          Adicionar Foto
+          {photoValues.length ? `Adicionar Foto (${photoValues.length})` : 'Adicionar Foto'}
         </button>
       </div>
+
+      {photoValues.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {photoValues.map((photo, photoIndex) => (
+            <div
+              key={`${index}-${photoIndex}`}
+              className="relative h-16 w-16 overflow-hidden rounded-[var(--ds-radius-sm)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photo}
+                alt={`Foto ${photoIndex + 1} do item ${index + 1}`}
+                className="h-full w-full object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => handleRemovePhoto(photoIndex)}
+                className="absolute right-1 top-1 rounded-full bg-black/70 px-1 text-[10px] font-semibold text-white"
+                aria-label={`Remover foto ${photoIndex + 1}`}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 });

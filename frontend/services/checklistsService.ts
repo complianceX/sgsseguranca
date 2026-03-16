@@ -194,15 +194,6 @@ export const checklistsService = {
     await api.post(`/checklists/${id}/send-email`, { to });
   },
 
-  attachFile: async (id: string, file: File) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await api.post(`/checklists/${id}/file`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data;
-  },
-
   getPdfAccess: async (id: string) => {
     const response = await api.get<{
       entityId: string;

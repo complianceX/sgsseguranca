@@ -312,7 +312,7 @@ export default function ChecklistsPage() {
               <CardTitle className="text-base">Atenção operacional</CardTitle>
             </div>
             <CardDescription>
-              Existem {insights.naoConforme} checklist(s) não conforme(s) nesta base. Priorize análise, impressão e tratativas.
+              Existem {insights.naoConforme} checklist(s) não conforme(s) na página atual. Priorize análise, impressão e tratativas.
             </CardDescription>
           </CardHeader>
         </Card>
