@@ -50,26 +50,73 @@ function assertValidRedisUrl(redisUrl: string): void {
 class InMemoryRedis {
   private store = new Map<string, string>();
   private sets = new Map<string, Set<string>>();
+  private expiresAt = new Map<string, number>();
+
+  private purgeIfExpired(key: string): void {
+    const expiry = this.expiresAt.get(key);
+    if (expiry && expiry <= Date.now()) {
+      this.store.delete(key);
+      this.expiresAt.delete(key);
+    }
+  }
+
   get(key: string): Promise<string | null> {
+    this.purgeIfExpired(key);
     return Promise.resolve(this.store.has(key) ? this.store.get(key)! : null);
   }
-  set(key: string, value: string): Promise<'OK'> {
+
+  set(
+    key: string,
+    value: string,
+    ...args: Array<string | number>
+  ): Promise<'OK' | null> {
+    this.purgeIfExpired(key);
+    const normalizedArgs = args.map((item) =>
+      typeof item === 'string' ? item.toUpperCase() : item,
+    );
+    const useNx = normalizedArgs.includes('NX');
+    const exIndex = normalizedArgs.findIndex((item) => item === 'EX');
+    const pxIndex = normalizedArgs.findIndex((item) => item === 'PX');
+
+    if (useNx && this.store.has(key)) {
+      return Promise.resolve(null);
+    }
+
     this.store.set(key, value);
+
+    if (exIndex >= 0 && typeof args[exIndex + 1] === 'number') {
+      this.expiresAt.set(key, Date.now() + Number(args[exIndex + 1]) * 1000);
+    } else if (pxIndex >= 0 && typeof args[pxIndex + 1] === 'number') {
+      this.expiresAt.set(key, Date.now() + Number(args[pxIndex + 1]));
+    } else {
+      this.expiresAt.delete(key);
+    }
+
     return Promise.resolve('OK');
   }
-  setex(key: string, _ttl: number, value: string): Promise<'OK'> {
+  setex(key: string, ttl: number, value: string): Promise<'OK'> {
     this.store.set(key, value);
+    this.expiresAt.set(key, Date.now() + ttl * 1000);
     return Promise.resolve('OK');
   }
   incr(key: string): Promise<number> {
+    this.purgeIfExpired(key);
     const v = Number(this.store.get(key) || '0') + 1;
     this.store.set(key, String(v));
     return Promise.resolve(v);
   }
-  expire(_key: string, _seconds: number): Promise<number> {
+
+  expire(key: string, seconds: number): Promise<number> {
+    this.purgeIfExpired(key);
+    if (!this.store.has(key) && !this.sets.has(key)) {
+      return Promise.resolve(0);
+    }
+
+    this.expiresAt.set(key, Date.now() + seconds * 1000);
     return Promise.resolve(1);
   }
   exists(key: string): Promise<number> {
+    this.purgeIfExpired(key);
     return Promise.resolve(this.store.has(key) || this.sets.has(key) ? 1 : 0);
   }
   sscan(
@@ -85,6 +132,7 @@ class InMemoryRedis {
   unlink(...keys: string[]): Promise<number> {
     let n = 0;
     for (const k of keys) {
+      this.expiresAt.delete(k);
       if (this.store.delete(k)) n++;
     }
     return Promise.resolve(n);
@@ -92,6 +140,7 @@ class InMemoryRedis {
   del(...keys: string[]): Promise<number> {
     let n = 0;
     for (const k of keys) {
+      this.expiresAt.delete(k);
       if (this.store.delete(k)) n++;
       const s = this.sets.get(k);
       if (s) {
@@ -124,6 +173,8 @@ class InMemoryRedis {
     _count?: number,
   ): Promise<[string, string[]]> {
     const keys = Array.from(this.store.keys()).filter((k) => {
+      this.purgeIfExpired(k);
+      if (!this.store.has(k)) return false;
       if (!match) return true;
       const regex = new RegExp('^' + match.replace(/\*/g, '.*') + '$');
       return regex.test(k);
@@ -131,11 +182,23 @@ class InMemoryRedis {
     return Promise.resolve(['0', keys]);
   }
   eval(
-    _script: string,
-    _numKeys: number,
-    _key: string,
-    ..._args: string[]
-  ): Promise<number> {
+    script: string,
+    numKeys: number,
+    key: string,
+    ...args: string[]
+  ): Promise<number | string | null> {
+    this.purgeIfExpired(key);
+
+    if (numKeys === 1 && args.length >= 1 && script.includes('DEL')) {
+      if (this.store.get(key) === args[0]) {
+        this.store.delete(key);
+        this.expiresAt.delete(key);
+        return Promise.resolve(1);
+      }
+
+      return Promise.resolve(0);
+    }
+
     return Promise.resolve(1);
   }
   multi() {

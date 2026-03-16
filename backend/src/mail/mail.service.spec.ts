@@ -18,6 +18,7 @@ import { StorageService } from '../common/services/storage.service';
 import { ServiceUnavailableException, NotFoundException } from '@nestjs/common';
 import { ReportsService } from '../reports/reports.service';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
+import { DistributedLockService } from '../common/redis/distributed-lock.service';
 
 // Mock do Resend
 const mockResendSend = jest.fn();
@@ -70,6 +71,13 @@ describe('MailService', () => {
   const mockIntegrationResilienceService = {
     execute: jest.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
   };
+  const mockDistributedLockService = {
+    tryAcquire: jest.fn(async () => ({
+      key: 'lock:mail:scheduled-alerts',
+      token: 'token-1',
+    })),
+    release: jest.fn(async () => true),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -96,6 +104,10 @@ describe('MailService', () => {
         {
           provide: IntegrationResilienceService,
           useValue: mockIntegrationResilienceService,
+        },
+        {
+          provide: DistributedLockService,
+          useValue: mockDistributedLockService,
         },
       ],
     }).compile();
@@ -278,6 +290,24 @@ describe('MailService', () => {
         }
       ).runScheduledAlerts();
 
+      expect(mockDomainService.findAllActive).not.toHaveBeenCalled();
+      expect(mockResendSend).not.toHaveBeenCalled();
+    });
+
+    it('nao executa alertas agendados quando outro processo detem o lock', async () => {
+      process.env.API_CRONS_DISABLED = 'false';
+      mockDistributedLockService.tryAcquire.mockResolvedValueOnce(null);
+
+      await (
+        service as unknown as {
+          runScheduledAlerts: () => Promise<void>;
+        }
+      ).runScheduledAlerts();
+
+      expect(mockDistributedLockService.tryAcquire).toHaveBeenCalledWith(
+        'mail:scheduled-alerts',
+        600000,
+      );
       expect(mockDomainService.findAllActive).not.toHaveBeenCalled();
       expect(mockResendSend).not.toHaveBeenCalled();
     });

@@ -30,6 +30,10 @@ import { IntegrationResilienceService } from '../common/resilience/integration-r
 import { isApiCronDisabled } from '../common/utils/scheduler.util';
 import { ReportsService } from '../reports/reports.service';
 import { CompanyResponseDto } from '../companies/dto/company-response.dto';
+import {
+  DistributedLockHandle,
+  DistributedLockService,
+} from '../common/redis/distributed-lock.service';
 
 type MailContext = { companyId?: string; userId?: string };
 
@@ -77,6 +81,7 @@ export class MailService {
     private storageService: StorageService,
     private reportsService: ReportsService,
     private readonly integration: IntegrationResilienceService,
+    private readonly distributedLock: DistributedLockService,
   ) {
     const smtpHost = this.configService.get<string>('MAIL_HOST')?.trim();
     const smtpUser = this.configService.get<string>('MAIL_USER')?.trim();
@@ -810,8 +815,34 @@ export class MailService {
       'MAIL_ALERT_SCHEDULE_MIN_INTERVAL_MS',
       5 * 60_000,
     );
+    const lockTtlMs = Math.max(
+      minIntervalMs,
+      this.getEnvNumber('MAIL_ALERT_SCHEDULE_LOCK_TTL_MS', 10 * 60_000),
+    );
     const now = Date.now();
     if (now - this.lastScheduledAlertsAt < minIntervalMs) {
+      return;
+    }
+
+    let lock: DistributedLockHandle | null = null;
+    try {
+      lock = await this.distributedLock.tryAcquire(
+        'mail:scheduled-alerts',
+        lockTtlMs,
+      );
+    } catch (error) {
+      this.logger.error({
+        event: 'mail_scheduled_alerts_lock_error',
+        error: this.extractErrorMessage(error),
+      });
+      return;
+    }
+
+    if (!lock) {
+      this.logger.debug({
+        event: 'mail_scheduled_alerts_skipped',
+        reason: 'LOCK_NOT_ACQUIRED',
+      });
       return;
     }
 
@@ -853,6 +884,14 @@ export class MailService {
       }
     } finally {
       this.alertsRunning = false;
+      try {
+        await this.distributedLock.release(lock);
+      } catch (error) {
+        this.logger.warn({
+          event: 'mail_scheduled_alerts_lock_release_failed',
+          error: this.extractErrorMessage(error),
+        });
+      }
     }
   }
 

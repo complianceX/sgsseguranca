@@ -265,6 +265,10 @@ const validationSchema = Joi.object({
   MAIL_PASS: Joi.string().optional().allow(''),
   MAIL_FROM_EMAIL: Joi.string().email().optional().allow(''),
   MAIL_FROM_NAME: Joi.string().default('Sistema'),
+  MAIL_ALERT_SCHEDULE_MIN_INTERVAL_MS: Joi.number().default(300000),
+  MAIL_ALERT_SCHEDULE_LOCK_TTL_MS: Joi.number().default(600000),
+  MAIL_ALERT_COMPANY_BATCH_SIZE: Joi.number().default(10),
+  MAIL_ALERT_COMPANY_MAX_PARALLEL: Joi.number().default(2),
   AWS_ACCESS_KEY_ID: REDACTED
   AWS_SECRET_ACCESS_KEY: REDACTED
   AWS_REGION: Joi.string().default('us-east-1'),
