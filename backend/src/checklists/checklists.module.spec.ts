@@ -9,5 +9,6 @@ describe('ChecklistsModule wiring', () => {
       .filter(Boolean);
 
     expect(importNames).not.toContain('DocumentImportModule');
+    expect(importNames).toContain('FileParserModule');
   });
 });

@@ -11,6 +11,7 @@ import { StorageModule } from '../storage/storage.module';
 import { UsersModule } from '../users/users.module';
 import { SitesModule } from '../sites/sites.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
+import { FileParserModule } from '../document-import/file-parser.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { DocumentRegistryModule } from '../document-registry/document-registry.m
     UsersModule,
     SitesModule,
     DocumentRegistryModule,
+    FileParserModule,
   ],
   controllers: [ChecklistsController],
   providers: [ChecklistsService],
