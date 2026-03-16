@@ -345,8 +345,13 @@ export class UsersService {
     });
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
-    // Se já tem PIN configurado, exige a senha atual como confirmação de identidade
-    if (user.signature_pin_hash && currentPassword !== undefined) {
+    // Ao alterar PIN existente, exige senha atual obrigatoriamente
+    if (user.signature_pin_hash) {
+      if (!currentPassword) {
+        throw new UnauthorizedException(
+          'Senha atual obrigatória para alterar o PIN de assinatura.',
+        );
+      }
       const passwordOk = await this.passwordService.compare(
         currentPassword,
         user.password ?? '',

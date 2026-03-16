@@ -234,6 +234,7 @@ export class SignaturesService {
       timestamp_authority?: string;
       document_id?: string;
       document_type?: string;
+      type?: string;
     };
   }> {
     const normalizedHash = String(signatureHash || '')

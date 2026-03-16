@@ -21,7 +21,17 @@ export interface Signature {
 
 export const signaturesService = {
   create: async (data: Signature) => {
-    const response = await api.post<Signature>('/signatures', data, {
+    // Para type='hmac', o SignatureModal passa o PIN como signature_data.
+    // Remapeia para o campo correto antes de enviar ao backend.
+    let payload = { ...data };
+    if (data.type === 'hmac') {
+      payload = {
+        ...data,
+        pin: data.pin ?? data.signature_data, // PIN vindo como signature_data
+        signature_data: 'HMAC_PENDING',        // backend substitui pelo HMAC real
+      };
+    }
+    const response = await api.post<Signature>('/signatures', payload, {
       timeout: 45000,
     });
     return response.data;
