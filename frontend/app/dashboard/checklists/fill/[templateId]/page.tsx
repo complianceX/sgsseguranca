@@ -334,107 +334,55 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
 
   if (!template) return null;
 
-  // ── POST-SAVE / SIGNED STATE ─────────────────────────────────────────────────
+  // ── POST-SAVE STATE ──────────────────────────────────────────────────────────
   if (savedChecklist) {
-    // Locked state after signing
-    if (signed) {
-      return (
-        <div className="mx-auto max-w-2xl space-y-6 py-10">
-          <div className={`${panelClassName} p-8 text-center`}>
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[color:var(--ds-color-success)]/15">
-              <Lock className="h-7 w-7 text-[var(--ds-color-success)]" />
-            </div>
-            <h2 className="mb-1 text-xl font-bold text-[var(--ds-color-text-primary)]">
-              Checklist finalizado e assinado
-            </h2>
-            <p className="mb-6 text-sm text-[var(--ds-color-text-muted)]">
-              O documento foi assinado e o PDF salvo. Este checklist não pode mais ser editado.
-            </p>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <button
-                type="button"
-                onClick={() => void handlePrint()}
-                disabled={printingOrSending}
-                className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
-              >
-                <Printer className="h-4 w-4" />
-                Imprimir PDF
-              </button>
-
-              <button
-                type="button"
-                onClick={() => void handleSendEmail()}
-                disabled={printingOrSending}
-                className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-5 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/40 disabled:opacity-50"
-              >
-                <Mail className="h-4 w-4" />
-                Enviar por E-mail
-              </button>
-            </div>
-
-            <div className="mt-6 border-t border-[var(--ds-color-border-subtle)] pt-4">
-              <Link
-                href="/dashboard/checklists"
-                className="text-sm text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-secondary)]"
-              >
-                ← Voltar para checklists
-              </Link>
-            </div>
-          </div>
-
-          {isMailModalOpen && pdfBase64 && (
-            <SendMailModal
-              isOpen={isMailModalOpen}
-              onClose={() => setIsMailModalOpen(false)}
-              documentName={titulo}
-              filename={pdfFilename}
-              base64={pdfBase64}
-            />
-          )}
-        </div>
-      );
-    }
-
-    // Saved but not yet signed
     return (
       <div className="mx-auto max-w-2xl space-y-6 py-10">
         <div className={`${panelClassName} p-8 text-center`}>
+          {/* Icon: lock after signing, checkmark otherwise */}
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[color:var(--ds-color-success)]/15">
-            <CheckCircle2 className="h-7 w-7 text-[var(--ds-color-success)]" />
+            {signed
+              ? <Lock className="h-7 w-7 text-[var(--ds-color-success)]" />
+              : <CheckCircle2 className="h-7 w-7 text-[var(--ds-color-success)]" />}
           </div>
+
           <h2 className="mb-1 text-xl font-bold text-[var(--ds-color-text-primary)]">
-            Checklist salvo com sucesso!
+            {signed ? 'Checklist finalizado e assinado' : 'Checklist salvo!'}
           </h2>
           <p className="mb-6 text-sm text-[var(--ds-color-text-muted)]">
-            Assine para finalizar e bloquear o documento.
+            {signed
+              ? 'O documento foi assinado e o PDF salvo. Não pode mais ser editado.'
+              : 'Imprima, assine ou envie por e-mail.'}
           </p>
 
+          {/* Primary: Imprimir */}
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <button
-              type="button"
-              onClick={() => setIsSignatureModalOpen(true)}
-              className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)]"
-            >
-              <ClipboardCheck className="h-4 w-4" />
-              Assinar
-            </button>
-
             <button
               type="button"
               onClick={() => void handlePrint()}
               disabled={printingOrSending}
-              className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-5 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/40 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-6 py-3 text-sm font-semibold text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
             >
               <Printer className="h-4 w-4" />
-              Imprimir
+              {printingOrSending ? 'Gerando PDF...' : 'Imprimir PDF'}
             </button>
+
+            {!signed && (
+              <button
+                type="button"
+                onClick={() => setIsSignatureModalOpen(true)}
+                className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-5 py-3 text-sm font-semibold text-[var(--ds-color-text-primary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/40"
+              >
+                <ClipboardCheck className="h-4 w-4" />
+                Assinar
+              </button>
+            )}
 
             <button
               type="button"
               onClick={() => void handleSendEmail()}
               disabled={printingOrSending}
-              className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-5 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/40 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-5 py-3 text-sm font-semibold text-[var(--ds-color-text-primary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/40 disabled:opacity-50"
             >
               <Mail className="h-4 w-4" />
               Enviar por E-mail
@@ -696,7 +644,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
             className="flex flex-1 items-center justify-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-6 py-3 font-semibold text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Save className="h-5 w-5" />
-            {saving ? 'Salvando...' : 'Salvar Checklist'}
+            {saving ? 'Salvando...' : 'Salvar e Finalizar'}
           </button>
           <Link
             href="/dashboard/checklists"
