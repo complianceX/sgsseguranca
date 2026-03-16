@@ -168,7 +168,7 @@ describe('ChecklistsService', () => {
       expect.stringContaining('checklist-checklist-1.pdf'),
     );
     expect(result.folderPath).toEqual(
-      expect.stringContaining('documents/company-1/checklists/'),
+      expect.stringContaining('checklists/company-1/2026/week-'),
     );
     expect(result.fileUrl).toBe('https://example.com/checklist.pdf');
 
@@ -395,6 +395,7 @@ describe('ChecklistsService', () => {
     repository.createQueryBuilder.mockReturnValue({
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([

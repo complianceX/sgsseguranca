@@ -1982,14 +1982,17 @@ export function AprForm({ id }: AprFormProps) {
               <label className={aprLabelClass}>Status</label>
               <select
                 {...register('status')}
-                disabled={hasFinalPdf}
-                className={cn(aprFieldClass, hasFinalPdf && aprFieldDisabledClass)}
+                disabled
+                className={cn(aprFieldClass, aprFieldDisabledClass)}
               >
                 <option value="Pendente">Pendente</option>
                 <option value="Aprovada">Aprovada</option>
                 <option value="Cancelada">Cancelada</option>
                 <option value="Encerrada">Encerrada</option>
               </select>
+              <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                O status da APR é controlado pelos fluxos formais de aprovação, reprovação e encerramento.
+              </p>
             </div>
 
             <div>

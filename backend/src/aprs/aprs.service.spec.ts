@@ -191,6 +191,7 @@ describe('AprsService', () => {
       numero: 'APR-001',
       data_inicio: new Date('2026-03-14T10:00:00.000Z'),
       created_at: new Date('2026-03-14T09:00:00.000Z'),
+      status: AprStatus.APROVADA,
       pdf_file_key: null,
     } as unknown as Apr;
     aprRepository.findOne.mockResolvedValue(apr);
