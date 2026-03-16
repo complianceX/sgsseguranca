@@ -23,8 +23,8 @@ import { generateInspectionPdf } from '@/lib/pdf/inspectionGenerator';
 import {
   base64ToPdfBlob,
   base64ToPdfFile,
-  blobToBase64,
 } from '@/lib/pdf/pdfFile';
+import { buildPdfFilename } from '@/lib/pdf-system/core/format';
 import { SendMailModal } from '@/components/SendMailModal';
 import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -51,7 +51,11 @@ export default function InspectionsPage() {
   const [selectedDoc, setSelectedDoc] = useState<{
     name: string;
     filename: string;
-    base64: string;
+    base64?: string;
+    storedDocument?: {
+      documentId: string;
+      documentType: string;
+    };
   } | null>(null);
 
   const fetchInspections = useCallback(async () => {
@@ -103,7 +107,11 @@ export default function InspectionsPage() {
     ) || null;
 
   const buildInspectionFilename = (inspection: Inspection) =>
-    `INSPECAO_${inspection.tipo_inspecao}_${inspection.setor_area}.pdf`;
+    buildPdfFilename(
+      'INSPECAO',
+      `${inspection.tipo_inspecao}_${inspection.setor_area}`,
+      inspection.data_inspecao,
+    );
 
   const getGovernedPdfAccess = async (inspectionId: string) => {
     try {
@@ -114,26 +122,6 @@ export default function InspectionsPage() {
       }
       throw error;
     }
-  };
-
-  const getStoredPdfAttachment = async (
-    inspection: Inspection,
-  ): Promise<{ base64: string; filename: string } | null> => {
-    const access = await getGovernedPdfAccess(inspection.id);
-    if (!access?.url) {
-      return null;
-    }
-
-    const response = await fetch(access.url);
-    if (!response.ok) {
-      throw new Error('Falha ao baixar o PDF final armazenado.');
-    }
-
-    const blob = await response.blob();
-    return {
-      base64: await blobToBase64(blob),
-      filename: access.originalName || buildInspectionFilename(inspection),
-    };
   };
 
   const ensureGovernedPdf = async (inspection: Inspection) => {
@@ -165,7 +153,10 @@ export default function InspectionsPage() {
   const handleDownloadPdf = async (inspection: Inspection) => {
     try {
       const access = await getGovernedPdfAccess(inspection.id);
-      if (access?.url) {
+      if (access) {
+        if (!access.url) {
+          throw new Error('PDF final emitido, mas indisponível no armazenamento.');
+        }
         openUrlInNewTab(access.url);
         return;
       }
@@ -184,7 +175,10 @@ export default function InspectionsPage() {
     try {
       toast.info('Preparando impressão...');
       const access = await getGovernedPdfAccess(inspection.id);
-      if (access?.url) {
+      if (access) {
+        if (!access.url) {
+          throw new Error('PDF final emitido, mas indisponível no armazenamento.');
+        }
         openPdfForPrint(access.url, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressão.');
         });
@@ -212,22 +206,18 @@ export default function InspectionsPage() {
   const handleSendEmail = async (inspection: Inspection) => {
     try {
       toast.info('Preparando documento...');
-      try {
-        const storedAttachment = await getStoredPdfAttachment(inspection);
-        if (storedAttachment) {
-          setSelectedDoc({
-            name: `${inspection.tipo_inspecao} - ${inspection.setor_area}`,
-            filename: storedAttachment.filename,
-            base64: storedAttachment.base64,
-          });
-          setIsMailModalOpen(true);
-          return;
-        }
-      } catch (error) {
-        console.warn(
-          'Falha ao reutilizar PDF final armazenado, gerando fallback local:',
-          error,
-        );
+      const access = await getGovernedPdfAccess(inspection.id);
+      if (access) {
+        setSelectedDoc({
+          name: `${inspection.tipo_inspecao} - ${inspection.setor_area}`,
+          filename: access.originalName || buildInspectionFilename(inspection),
+          storedDocument: {
+            documentId: inspection.id,
+            documentType: 'INSPECTION',
+          },
+        });
+        setIsMailModalOpen(true);
+        return;
       }
 
       const fullInspection = await inspectionsService.findOne(inspection.id);
@@ -473,6 +463,7 @@ export default function InspectionsPage() {
           documentName={selectedDoc.name}
           filename={selectedDoc.filename}
           base64={selectedDoc.base64}
+          storedDocument={selectedDoc.storedDocument}
         />
       ) : null}
     </>

@@ -128,6 +128,8 @@ export class MailService {
     email: string,
     companyId?: string,
   ) {
+    const resolvedCompanyId =
+      companyId?.trim() || this.tenantService.getTenantId() || undefined;
     let fileKey: string | undefined;
     let subject = 'Documento Compartilhado - GST';
     let docName = 'Documento';
@@ -171,6 +173,44 @@ export class MailService {
             docName = `DDS: ${dds.tema || 'Documento'}`;
             subject = `${docName}`;
           }
+          break;
+        }
+        case 'INSPECTION': {
+          if (!resolvedCompanyId) {
+            throw new BadRequestException(
+              'companyId é obrigatório para enviar relatórios de inspeção.',
+            );
+          }
+          const inspection = await this.inspectionsService.findOne(
+            documentId,
+            resolvedCompanyId,
+          );
+          const access = await this.inspectionsService.getPdfAccess(
+            documentId,
+            resolvedCompanyId,
+          );
+          fileKey = access.fileKey;
+          docName = `Inspeção: ${inspection.tipo_inspecao} - ${inspection.setor_area}`;
+          subject = `${docName}`;
+          break;
+        }
+        case 'AUDIT': {
+          if (!resolvedCompanyId) {
+            throw new BadRequestException(
+              'companyId é obrigatório para enviar auditorias.',
+            );
+          }
+          const audit = await this.auditsService.findOne(
+            documentId,
+            resolvedCompanyId,
+          );
+          const access = await this.auditsService.getPdfAccess(
+            documentId,
+            resolvedCompanyId,
+          );
+          fileKey = access.fileKey;
+          docName = `Auditoria: ${audit.titulo}`;
+          subject = `${docName}`;
           break;
         }
         default:

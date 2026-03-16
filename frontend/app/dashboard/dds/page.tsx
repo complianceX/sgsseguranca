@@ -40,8 +40,8 @@ import { generateDdsPdf } from "@/lib/pdf/ddsGenerator";
 import {
   base64ToPdfBlob,
   base64ToPdfFile,
-  blobToBase64,
 } from "@/lib/pdf/pdfFile";
+import { buildPdfFilename } from "@/lib/pdf-system/core/format";
 import { signaturesService } from "@/services/signaturesService";
 import { SendMailModal } from "@/components/SendMailModal";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
@@ -108,7 +108,11 @@ export default function DdsPage() {
   const [selectedDoc, setSelectedDoc] = useState<{
     name: string;
     filename: string;
-    base64: string;
+    base64?: string;
+    storedDocument?: {
+      documentId: string;
+      documentType: string;
+    };
   } | null>(null);
 
   const loadDds = useCallback(async () => {
@@ -194,31 +198,7 @@ export default function DdsPage() {
     ) || null;
 
   const buildDdsFilename = (dds: Dds) =>
-    `DDS_${dds.tema.replace(/\s+/g, "_")}.pdf`;
-
-  const getStoredPdfAttachment = async (
-    dds: Dds,
-  ): Promise<{ base64: string; filename: string } | null> => {
-    if (!dds.pdf_file_key) {
-      return null;
-    }
-
-    const access = await ddsService.getPdfAccess(dds.id);
-    if (!access.url) {
-      return null;
-    }
-
-    const response = await fetch(access.url);
-    if (!response.ok) {
-      throw new Error("Falha ao baixar o PDF final armazenado.");
-    }
-
-    const blob = await response.blob();
-    return {
-      base64: await blobToBase64(blob),
-      filename: access.originalName || buildDdsFilename(dds),
-    };
-  };
+    buildPdfFilename("DDS", dds.tema || "dds", dds.data);
 
   const ensureGovernedPdf = async (dds: Dds) => {
     try {
@@ -250,20 +230,14 @@ export default function DdsPage() {
     try {
       toast.info("Preparando impressão...");
       if (dds.pdf_file_key) {
-        try {
-          const access = await ddsService.getPdfAccess(dds.id);
-          if (access.url) {
-            openPdfForPrint(access.url, () => {
-              toast.info("Pop-up bloqueado. Abrimos o PDF final na mesma aba.");
-            });
-            return;
-          }
-        } catch (error) {
-          console.warn(
-            "Falha ao abrir PDF final armazenado, gerando fallback local:",
-            error,
-          );
+        const access = await ddsService.getPdfAccess(dds.id);
+        if (!access.url) {
+          throw new Error("PDF final emitido, mas indisponível no armazenamento.");
         }
+        openPdfForPrint(access.url, () => {
+          toast.info("Pop-up bloqueado. Abrimos o PDF final na mesma aba.");
+        });
+        return;
       }
 
       const signatures = await signaturesService.findByDocument(dds.id, "DDS");
@@ -289,20 +263,15 @@ export default function DdsPage() {
 
   const handleEmail = async (dds: Dds) => {
     try {
-      let storedAttachment: { base64: string; filename: string } | null = null;
-      try {
-        storedAttachment = await getStoredPdfAttachment(dds);
-      } catch (error) {
-        console.warn(
-          "Falha ao reutilizar PDF final armazenado, gerando fallback local:",
-          error,
-        );
-      }
-      if (storedAttachment) {
+      if (dds.pdf_file_key) {
+        const access = await ddsService.getPdfAccess(dds.id);
         setSelectedDoc({
           name: `DDS - ${dds.tema}`,
-          filename: storedAttachment.filename,
-          base64: storedAttachment.base64,
+          filename: access.originalName || buildDdsFilename(dds),
+          storedDocument: {
+            documentId: dds.id,
+            documentType: "DDS",
+          },
         });
         setIsMailModalOpen(true);
         return;
@@ -320,7 +289,7 @@ export default function DdsPage() {
 
       setSelectedDoc({
         name: `DDS - ${dds.tema}`,
-        filename: `DDS_${dds.tema.replace(/\s+/g, "_")}.pdf`,
+        filename: buildDdsFilename(dds),
         base64: base64 as string,
       });
       setIsMailModalOpen(true);
@@ -1060,6 +1029,7 @@ export default function DdsPage() {
           documentName={selectedDoc.name}
           filename={selectedDoc.filename}
           base64={selectedDoc.base64}
+          storedDocument={selectedDoc.storedDocument}
         />
       ) : null}
     </div>

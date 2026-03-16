@@ -20,10 +20,12 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { generateAuditPdf } from '@/lib/pdf/auditGenerator';
+import { base64ToPdfBlob, base64ToPdfFile } from '@/lib/pdf/pdfFile';
+import { buildPdfFilename } from '@/lib/pdf-system/core/format';
 import { SendMailModal } from '@/components/SendMailModal';
 import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { correctiveActionsService } from '@/services/correctiveActionsService';
-import { openPdfForPrint } from '@/lib/print-utils';
+import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Card,
@@ -63,8 +65,58 @@ export default function AuditsPage() {
   const [selectedDoc, setSelectedDoc] = useState<{
     name: string;
     filename: string;
-    base64: string;
+    base64?: string;
+    storedDocument?: {
+      documentId: string;
+      documentType: string;
+    };
   } | null>(null);
+
+  const getErrorStatus = (error: unknown) =>
+    Number(
+      (error as { response?: { status?: number } } | undefined)?.response
+        ?.status ?? 0,
+    ) || null;
+
+  const buildAuditFilename = (audit: Audit) =>
+    buildPdfFilename('AUDITORIA', audit.titulo || 'auditoria', audit.data_auditoria);
+
+  const getGovernedPdfAccess = async (auditId: string) => {
+    try {
+      return await auditsService.getPdfAccess(auditId);
+    } catch (error) {
+      if (getErrorStatus(error) === 404) {
+        return null;
+      }
+      throw error;
+    }
+  };
+
+  const ensureGovernedPdf = async (audit: Audit) => {
+    const existingAccess = await getGovernedPdfAccess(audit.id);
+    if (existingAccess) {
+      return existingAccess;
+    }
+
+    const fullAudit = await auditsService.findOne(audit.id);
+    const result = (await generateAuditPdf(fullAudit, {
+      save: false,
+      output: 'base64',
+    })) as { filename: string; base64: string } | undefined;
+
+    if (!result?.base64) {
+      throw new Error('Falha ao gerar o PDF oficial da auditoria.');
+    }
+
+    const file = base64ToPdfFile(
+      result.base64,
+      result.filename || buildAuditFilename(fullAudit),
+    );
+    await auditsService.attachFile(audit.id, file);
+    await fetchAudits();
+    toast.success('PDF final da auditoria emitido e registrado com sucesso.');
+    return auditsService.getPdfAccess(audit.id);
+  };
 
   const fetchAudits = useCallback(async () => {
     try {
@@ -111,6 +163,15 @@ export default function AuditsPage() {
 
   const handleDownloadPdf = async (audit: Audit) => {
     try {
+      const access = await getGovernedPdfAccess(audit.id);
+      if (access) {
+        if (!access.url) {
+          throw new Error('PDF final emitido, mas indisponível no armazenamento.');
+        }
+        openUrlInNewTab(access.url);
+        return;
+      }
+
       toast.info('Gerando PDF...');
       const fullAudit = await auditsService.findOne(audit.id);
       await generateAuditPdf(fullAudit);
@@ -124,6 +185,17 @@ export default function AuditsPage() {
   const handlePrint = async (audit: Audit) => {
     try {
       toast.info('Preparando impressao...');
+      const access = await getGovernedPdfAccess(audit.id);
+      if (access) {
+        if (!access.url) {
+          throw new Error('PDF final emitido, mas indisponível no armazenamento.');
+        }
+        openPdfForPrint(access.url, () => {
+          toast.info('Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressao.');
+        });
+        return;
+      }
+
       const fullAudit = await auditsService.findOne(audit.id);
       const result = (await generateAuditPdf(fullAudit, {
         save: false,
@@ -131,16 +203,7 @@ export default function AuditsPage() {
       })) as { base64: string } | undefined;
 
       if (result?.base64) {
-        const byteCharacters = atob(result.base64);
-        const byteNumbers = new Array(byteCharacters.length);
-
-        for (let index = 0; index < byteCharacters.length; index += 1) {
-          byteNumbers[index] = byteCharacters.charCodeAt(index);
-        }
-
-        const byteArray = new Uint8Array(byteNumbers);
-        const file = new Blob([byteArray], { type: 'application/pdf' });
-        const fileURL = URL.createObjectURL(file);
+        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
         openPdfForPrint(fileURL, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressao.');
         });
@@ -154,6 +217,20 @@ export default function AuditsPage() {
   const handleSendEmail = async (audit: Audit) => {
     try {
       toast.info('Preparando documento...');
+      const access = await getGovernedPdfAccess(audit.id);
+      if (access) {
+        setSelectedDoc({
+          name: audit.titulo,
+          filename: access.originalName || buildAuditFilename(audit),
+          storedDocument: {
+            documentId: audit.id,
+            documentType: 'AUDIT',
+          },
+        });
+        setIsMailModalOpen(true);
+        return;
+      }
+
       const fullAudit = await auditsService.findOne(audit.id);
       const result = (await generateAuditPdf(fullAudit, {
         save: false,
@@ -171,6 +248,27 @@ export default function AuditsPage() {
     } catch (error) {
       console.error('Erro ao preparar e-mail:', error);
       toast.error('Erro ao preparar o documento para envio.');
+    }
+  };
+
+  const handleOpenGovernedPdf = async (audit: Audit) => {
+    try {
+      toast.info(
+        audit.pdf_file_key
+          ? 'Abrindo PDF final governado...'
+          : 'Emitindo PDF final governado...',
+      );
+      const access = await ensureGovernedPdf(audit);
+      if (!access.url) {
+        toast.success(
+          'PDF final emitido, mas a URL segura não está disponível no momento.',
+        );
+        return;
+      }
+      openUrlInNewTab(access.url);
+    } catch (error) {
+      console.error('Erro ao emitir/abrir PDF final da auditoria:', error);
+      toast.error('Nao foi possivel emitir ou abrir o PDF final da auditoria.');
     }
   };
 
@@ -423,6 +521,19 @@ export default function AuditsPage() {
                             type="button"
                             size="icon"
                             variant="ghost"
+                            onClick={() => handleOpenGovernedPdf(audit)}
+                            title={
+                              audit.pdf_file_key
+                                ? 'Abrir PDF final governado'
+                                : 'Emitir PDF final governado'
+                            }
+                          >
+                            <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
                             onClick={() => handlePrint(audit)}
                             title="Imprimir"
                           >
@@ -501,6 +612,7 @@ export default function AuditsPage() {
           documentName={selectedDoc.name}
           filename={selectedDoc.filename}
           base64={selectedDoc.base64}
+          storedDocument={selectedDoc.storedDocument}
         />
       ) : null}
     </div>

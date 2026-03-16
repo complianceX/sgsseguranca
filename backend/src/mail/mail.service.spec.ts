@@ -37,6 +37,8 @@ describe('MailService', () => {
   let service: MailService;
   let documentStorageService: DocumentStorageService;
   let ptsService: PtsService;
+  let inspectionsService: InspectionsService;
+  let auditsService: AuditsService;
   let mailLogRepository: any;
 
   const mockMailLogRepository = {
@@ -61,12 +63,14 @@ describe('MailService', () => {
   // Mock dos serviços de domínio
   const mockDomainService = {
     findOne: jest.fn(),
+    getPdfAccess: jest.fn(),
     findAll: jest.fn().mockResolvedValue([]),
     findAllActive: jest.fn().mockResolvedValue([]),
   };
 
   const mockTenantService = {
     run: jest.fn((id, cb) => cb()),
+    getTenantId: jest.fn(() => 'company-1'),
   };
   const mockIntegrationResilienceService = {
     execute: jest.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
@@ -120,6 +124,8 @@ describe('MailService', () => {
       DocumentStorageService,
     );
     ptsService = module.get<PtsService>(PtsService);
+    inspectionsService = module.get<InspectionsService>(InspectionsService);
+    auditsService = module.get<AuditsService>(AuditsService);
     mailLogRepository = module.get(getRepositoryToken(MailLog));
   });
 
@@ -264,6 +270,78 @@ describe('MailService', () => {
       await expect(
         service.sendStoredDocument('id', 'TIPO_INVALIDO', 'email@test.com'),
       ).rejects.toThrow('Tipo de documento não suportado');
+    });
+
+    it('deve enviar um relatório de inspeção governado corretamente', async () => {
+      jest.spyOn(inspectionsService, 'findOne').mockResolvedValue({
+        id: 'inspection-1',
+        tipo_inspecao: 'Rotina',
+        setor_area: 'Subestação',
+      } as any);
+      jest.spyOn(inspectionsService, 'getPdfAccess').mockResolvedValue({
+        entityId: 'inspection-1',
+        fileKey: 'inspections/final.pdf',
+        folderPath: 'inspections/company-1/2026/week-11',
+        originalName: 'inspection-final.pdf',
+        url: 'https://signed.example.com/inspection-final.pdf',
+      });
+      jest
+        .spyOn(documentStorageService, 'downloadFileBuffer')
+        .mockResolvedValue(Buffer.from('inspection-pdf'));
+      mockResendSend.mockResolvedValue({ data: { id: 'msg-2' }, error: null });
+
+      await service.sendStoredDocument(
+        'inspection-1',
+        'INSPECTION',
+        'destinatario@example.com',
+        'company-1',
+      );
+
+      expect(inspectionsService.findOne).toHaveBeenCalledWith(
+        'inspection-1',
+        'company-1',
+      );
+      expect(inspectionsService.getPdfAccess).toHaveBeenCalledWith(
+        'inspection-1',
+        'company-1',
+      );
+      expect(documentStorageService.downloadFileBuffer).toHaveBeenCalledWith(
+        'inspections/final.pdf',
+      );
+    });
+
+    it('deve enviar uma auditoria governada corretamente', async () => {
+      jest.spyOn(auditsService, 'findOne').mockResolvedValue({
+        id: 'audit-1',
+        titulo: 'Auditoria HSE',
+      } as any);
+      jest.spyOn(auditsService, 'getPdfAccess').mockResolvedValue({
+        entityId: 'audit-1',
+        fileKey: 'audits/final.pdf',
+        folderPath: 'audits/company-1',
+        originalName: 'audit-final.pdf',
+        url: 'https://signed.example.com/audit-final.pdf',
+      });
+      jest
+        .spyOn(documentStorageService, 'downloadFileBuffer')
+        .mockResolvedValue(Buffer.from('audit-pdf'));
+      mockResendSend.mockResolvedValue({ data: { id: 'msg-3' }, error: null });
+
+      await service.sendStoredDocument(
+        'audit-1',
+        'AUDIT',
+        'destinatario@example.com',
+        'company-1',
+      );
+
+      expect(auditsService.findOne).toHaveBeenCalledWith('audit-1', 'company-1');
+      expect(auditsService.getPdfAccess).toHaveBeenCalledWith(
+        'audit-1',
+        'company-1',
+      );
+      expect(documentStorageService.downloadFileBuffer).toHaveBeenCalledWith(
+        'audits/final.pdf',
+      );
     });
   });
 
