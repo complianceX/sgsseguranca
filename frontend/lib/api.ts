@@ -99,7 +99,7 @@ async function refreshAccessToken(): Promise<string> {
 
 const api = axios.create({
   baseURL: API_BASE_URL || undefined,
-  timeout: 8000,
+  timeout: 30000,
   withCredentials: true,
 });
 
