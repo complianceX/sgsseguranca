@@ -38,16 +38,23 @@ export const signaturesService = {
   },
 
   getSignaturePinStatus: async (): Promise<{ has_pin: boolean }> => {
-    const response = await api.get<{ has_pin: boolean }>('/auth/signature-pin/status');
+    const response = await api.get<{ has_pin: boolean }>(
+      '/auth/signature-pin/status',
+    );
     return response.data;
   },
 
-  setSignaturePin: async (pin: string, current_password?: string): Promise<void> => {
+  setSignaturePin: async (
+    pin: string,
+    current_password?: string,
+  ): Promise<void> => {
     await api.post('/auth/signature-pin', { pin, current_password });
   },
 
   findByDocument: async (document_id: string, document_type: string) => {
-    const response = await api.get<Signature[]>(`/signatures?document_id=${document_id}&document_type=${document_type}`);
+    const response = await api.get<Signature[]>('/signatures', {
+      params: { document_id, document_type },
+    });
     return response.data;
   },
 
@@ -60,9 +67,9 @@ export const signaturesService = {
   },
 
   deleteByDocument: async (document_id: string, document_type: string) => {
-    await api.delete(
-      `/signatures/document/${document_id}?document_type=${document_type}`,
-    );
+    await api.delete(`/signatures/document/${encodeURIComponent(document_id)}`, {
+      params: { document_type },
+    });
   },
 
   deleteById: async (id: string) => {
