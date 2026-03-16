@@ -10,6 +10,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, FindOptionsSelect } from 'typeorm';
 import { plainToClass } from 'class-transformer';
+import { ConfigService } from '@nestjs/config';
 import { Checklist } from './entities/checklist.entity';
 import { ChecklistResponseDto } from './dto/checklist-response.dto';
 import { TenantService } from '../common/tenant/tenant.service';
@@ -18,6 +19,7 @@ import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { MailService } from '../mail/mail.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { StorageService } from '../common/services/storage.service';
+import { FileParserService } from '../document-import/services/file-parser.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -240,6 +242,8 @@ export class ChecklistsService {
     private sitesService: SitesService,
     private readonly documentBundleService: DocumentBundleService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly fileParserService: FileParserService,
+    private readonly configService: ConfigService,
   ) {}
 
   private readonly checklistListSelect: FindOptionsSelect<Checklist> = {
@@ -829,5 +833,162 @@ export class ChecklistsService {
         date: file.date,
       })),
     );
+  }
+
+  async importFromWord(
+    fileBuffer: Buffer,
+    mimetype: string,
+    originalname: string,
+  ): Promise<ChecklistResponseDto> {
+    const tenantId = this.tenantService.getTenantId();
+    this.logger.log(`Importando checklist do Word para empresa: ${tenantId}`);
+
+    // 1. Extrair texto do arquivo Word/PDF
+    const rawText = await this.fileParserService.extractText(
+      fileBuffer,
+      mimetype,
+      originalname,
+    );
+
+    if (!rawText || rawText.trim().length < 10) {
+      throw new BadRequestException(
+        'O arquivo não contém texto suficiente para extrair um checklist.',
+      );
+    }
+
+    // 2. Enviar para GPT e estruturar como checklist
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    const model =
+      this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
+
+    let structured: {
+      titulo: string;
+      descricao: string;
+      categoria: string;
+      periodicidade: string;
+      nivel_risco_padrao: string;
+      itens: Array<{
+        item: string;
+        tipo_resposta: string;
+        obrigatorio: boolean;
+      }>;
+    };
+
+    if (!apiKey) {
+      this.logger.warn('OPENAI_API_KEY não configurada — usando stub de importação');
+      structured = {
+        titulo: originalname.replace(/\.(docx?|pdf)$/i, '').trim() || 'Checklist Importado',
+        descricao: 'Modelo importado de arquivo. Edite os itens conforme necessário.',
+        categoria: 'SST',
+        periodicidade: 'Por tarefa',
+        nivel_risco_padrao: 'Médio',
+        itens: rawText
+          .split('\n')
+          .map((line) => line.trim())
+          .filter((line) => line.length > 3)
+          .slice(0, 30)
+          .map((line) => ({
+            item: line,
+            tipo_resposta: 'sim_nao_na',
+            obrigatorio: true,
+          })),
+      };
+    } else {
+      const systemPrompt = `Você é um especialista em segurança do trabalho (SST/NR).
+Analise o texto extraído de um documento Word e estruture-o como um checklist de inspeção SST.
+Retorne SOMENTE um JSON válido, sem markdown, sem explicações adicionais.
+Formato obrigatório:
+{
+  "titulo": "título do checklist (curto, descritivo)",
+  "descricao": "descrição do propósito do checklist",
+  "categoria": "SST|Qualidade|Equipamento|Atividade Crítica|Manutenção",
+  "periodicidade": "Diário|Semanal|Mensal|Por tarefa|Por turno|Por entrada",
+  "nivel_risco_padrao": "Baixo|Médio|Alto|Crítico",
+  "itens": [
+    {
+      "item": "descrição do item a verificar",
+      "tipo_resposta": "sim_nao_na|conforme|texto|sim_nao",
+      "obrigatorio": true
+    }
+  ]
+}
+Regras:
+- Extraia apenas itens que são verificações concretas (não cabeçalhos ou rodapés)
+- Prefira tipo_resposta "sim_nao_na" para verificações binárias
+- Use "texto" para itens que pedem descrição ou observação
+- Limite a no máximo 50 itens`;
+
+      const userPrompt = `Texto extraído do documento "${originalname}":\n\n${rawText.slice(0, 6000)}`;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.2,
+          max_tokens: 4000,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new BadRequestException(
+          `Erro ao processar com IA: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      const json = (await response.json()) as {
+        choices: Array<{ message: { content: string } }>;
+      };
+      const content = json.choices?.[0]?.message?.content || '';
+
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('JSON não encontrado na resposta');
+        structured = JSON.parse(jsonMatch[0]);
+      } catch {
+        throw new BadRequestException(
+          'Não foi possível interpretar a resposta da IA. Tente novamente ou ajuste o arquivo.',
+        );
+      }
+    }
+
+    if (!structured.itens?.length) {
+      throw new BadRequestException(
+        'Nenhum item de checklist foi identificado no documento.',
+      );
+    }
+
+    // 3. Criar checklist como modelo (is_modelo = true)
+    const checklist = this.checklistsRepository.create({
+      titulo: structured.titulo || 'Checklist Importado',
+      descricao: structured.descricao,
+      categoria: structured.categoria || 'SST',
+      periodicidade: structured.periodicidade || 'Por tarefa',
+      nivel_risco_padrao: structured.nivel_risco_padrao || 'Médio',
+      itens: structured.itens.map((item, idx) => ({
+        id: `item-${idx + 1}`,
+        item: item.item,
+        tipo_resposta: item.tipo_resposta || 'sim_nao_na',
+        obrigatorio: item.obrigatorio !== false,
+        status: 'ok',
+        peso: 1,
+        observacao: '',
+      })),
+      is_modelo: true,
+      status: 'Pendente',
+      data: new Date().toISOString().split('T')[0],
+      company_id: tenantId || '',
+    });
+
+    const saved = await this.checklistsRepository.save(checklist);
+    this.logger.log(`Checklist importado do Word salvo como modelo: ${saved.id}`);
+    return plainToClass(ChecklistResponseDto, saved);
   }
 }

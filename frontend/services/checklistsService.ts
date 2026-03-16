@@ -262,4 +262,13 @@ export const checklistsService = {
     }>('/checklists/templates/bootstrap');
     return response.data;
   },
+
+  importFromWord: async (file: File): Promise<Checklist> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post<Checklist>('/checklists/import-word', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
 };

@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
 import { ChecklistsService } from './checklists.service';
 import { ChecklistsController } from './checklists.controller';
 import { Checklist } from './entities/checklist.entity';
@@ -10,9 +11,11 @@ import { StorageModule } from '../storage/storage.module';
 import { UsersModule } from '../users/users.module';
 import { SitesModule } from '../sites/sites.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
+import { DocumentImportModule } from '../document-import/document-import.module';
 
 @Module({
   imports: [
+    ConfigModule,
     TypeOrmModule.forFeature([Checklist]),
     forwardRef(() => MailModule),
     SignaturesModule,
@@ -21,6 +24,7 @@ import { DocumentRegistryModule } from '../document-registry/document-registry.m
     UsersModule,
     SitesModule,
     DocumentRegistryModule,
+    DocumentImportModule,
   ],
   controllers: [ChecklistsController],
   providers: [ChecklistsService],

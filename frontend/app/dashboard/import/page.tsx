@@ -11,6 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 interface ExtractedData {
   type: 'APR' | 'PT' | 'CHECKLIST' | 'DDS' | 'UNKNOWN';
@@ -482,28 +483,64 @@ export default function ImportPage() {
                     </div>
 
                     {(result.type === 'DDS' || result.type === 'CHECKLIST') && (
-                      <div className="flex items-center gap-2">
+                      <div
+                        className={cn(
+                          'flex items-start gap-3 rounded-xl border p-3 transition-colors cursor-pointer',
+                          isModel
+                            ? 'border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-primary-subtle)]'
+                            : 'border-[var(--ds-color-border-subtle)] hover:border-[var(--ds-color-action-primary)]/40',
+                        )}
+                        onClick={() => setIsModel((v) => !v)}
+                      >
                         <input
                           id="is-model"
                           type="checkbox"
                           checked={isModel}
                           onChange={(e) => setIsModel(e.target.checked)}
-                          className="h-4 w-4 rounded border-[var(--ds-color-border-default)] text-[var(--ds-color-action-primary)] focus:ring-[var(--ds-color-focus-ring)]"
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-0.5 h-4 w-4 rounded border-[var(--ds-color-border-default)] text-[var(--ds-color-action-primary)] focus:ring-[var(--ds-color-focus-ring)]"
                         />
-                        <label htmlFor="is-model" className="text-sm text-[var(--ds-color-text-secondary)]">
-                          Salvar como modelo
-                        </label>
+                        <div>
+                          <label htmlFor="is-model" className="cursor-pointer text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                            Salvar como modelo
+                          </label>
+                          {result.type === 'CHECKLIST' && (
+                            <p className="text-xs text-[var(--ds-color-text-muted)]">
+                              O modelo ficará disponível para preenchimento em campo. Desmarque para criar um checklist de execução direta.
+                            </p>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div>
-                  <h3 className="text-sm font-medium text-[var(--ds-color-text-secondary)]">Campos Específicos</h3>
-                  <div className="mt-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-3">
-                    <pre className="overflow-x-auto text-xs text-[var(--ds-color-text-secondary)]">{JSON.stringify(result.fields, null, 2)}</pre>
+                {result.type === 'CHECKLIST' && Array.isArray((result.fields as { itens?: unknown[] })?.itens) && (result.fields as { itens: unknown[] }).itens.length > 0 ? (
+                  <div>
+                    <h3 className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                      Itens Identificados ({(result.fields as { itens: unknown[] }).itens.length})
+                    </h3>
+                    <div className="mt-2 max-h-48 overflow-y-auto rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 divide-y divide-[var(--ds-color-border-subtle)]">
+                      {(result.fields as { itens: Array<{ item?: string; descricao?: string }> }).itens.map((item, idx) => (
+                        <div key={idx} className="flex items-start gap-2 px-3 py-2">
+                          <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[var(--ds-color-action-primary)]/15 text-[9px] font-bold text-[var(--ds-color-action-primary)]">
+                            {idx + 1}
+                          </span>
+                          <span className="text-xs text-[var(--ds-color-text-primary)]">
+                            {item.item || item.descricao || JSON.stringify(item)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div>
+                    <h3 className="text-sm font-medium text-[var(--ds-color-text-secondary)]">Campos Específicos</h3>
+                    <div className="mt-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-3">
+                      <pre className="overflow-x-auto text-xs text-[var(--ds-color-text-secondary)]">{JSON.stringify(result.fields, null, 2)}</pre>
+                    </div>
+                  </div>
+                )}
 
                 <div className="pt-4">
                   <Button
