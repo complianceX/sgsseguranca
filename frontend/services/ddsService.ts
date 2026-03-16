@@ -120,32 +120,6 @@ export const ddsService = {
     return response.data;
   },
 
-  createWithFile: async (
-    data: Omit<Partial<Dds>, "participants"> & { participants?: string[] },
-    file: File,
-  ) => {
-    const formData = new FormData();
-    Object.entries(data).forEach(([key, value]) => {
-      if (value === undefined || value === null) {
-        return;
-      }
-
-      if (Array.isArray(value)) {
-        formData.append(key, JSON.stringify(value));
-      } else {
-        formData.append(key, String(value));
-      }
-    });
-    formData.append("file", file);
-
-    const response = await api.post("/dds/with-file", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    return response.data;
-  },
-
   attachFile: async (id: string, file: File) => {
     const formData = new FormData();
     formData.append("file", file);

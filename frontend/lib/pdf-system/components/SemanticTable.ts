@@ -1,5 +1,5 @@
 import type { AutoTableFn, PdfContext } from "../core/types";
-import { ensureSpace } from "../core/grid";
+import { decorateCurrentPage, ensureSpace } from "../core/grid";
 import type { CellHookData } from "jspdf-autotable";
 
 export type SemanticTableTone = "default" | "risk" | "action" | "attendance";
@@ -314,7 +314,11 @@ export function drawSemanticTable(ctx: PdfContext, options: SemanticTableOptions
 
   options.autoTable(doc, {
     startY: ctx.y + 11.5,
-    margin: { left: margin, right: margin },
+    margin: {
+      left: margin,
+      right: margin,
+      top: ctx.pageTop ?? margin,
+    },
     head: options.head,
     body: options.body,
     theme: "grid",
@@ -336,6 +340,10 @@ export function drawSemanticTable(ctx: PdfContext, options: SemanticTableOptions
     },
     alternateRowStyles: {
       fillColor: theme.tone.surfaceMuted,
+    },
+    willDrawPage: (data: { pageNumber?: number }) => {
+      if ((data.pageNumber || 1) <= 1) return;
+      decorateCurrentPage(ctx);
     },
     didParseCell: (data: CellHookData) => {
       if (data.section !== "body") return;

@@ -106,6 +106,30 @@ describe("drawEvidenceGallery", () => {
     );
   });
 
+  it("usa a imagem inline quando a evidencia ja traz data url", async () => {
+    const { ctx, doc } = createMockContext();
+
+    await drawEvidenceGallery(ctx, {
+      title: "Galeria",
+      items: [
+        {
+          title: "Registro com foto",
+          description: "Descricao da evidencia",
+          meta: "Meta da evidencia",
+          source: "data:image/jpeg;base64,AAA",
+        },
+      ],
+    });
+
+    expect(doc.addImage).toHaveBeenCalled();
+    expect(doc.text).not.toHaveBeenCalledWith(
+      "SEM FOTO",
+      expect.any(Number),
+      expect.any(Number),
+      expect.anything(),
+    );
+  });
+
   it("recalcula a posicao da descricao quando o titulo da evidencia quebra em varias linhas", async () => {
     const { ctx, doc } = createMockContext();
     doc.splitTextToSize.mockImplementation((value: string) => {

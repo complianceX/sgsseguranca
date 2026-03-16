@@ -1,16 +1,41 @@
 import type { Dds } from "@/services/ddsService";
 import type { Signature } from "@/services/signaturesService";
 import type { AutoTableFn, PdfContext } from "../core/types";
-import { formatDate, sanitize } from "../core/format";
+import { formatDate, formatDateTime, sanitize } from "../core/format";
 import {
-  drawDocumentHeader,
   drawDocumentIdentityRail,
+  drawEvidenceGallery,
   drawExecutiveSummaryStrip,
   drawGovernanceClosingBlock,
   drawMetadataGrid,
   drawNarrativeSection,
 } from "../components";
 import { drawParticipantTable } from "../tables";
+
+const TEAM_PHOTO_SIGNATURE_PREFIX = "team_photo";
+const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = "team_photo_reuse_justification";
+
+type TeamPhotoEvidence = {
+  imageData?: string;
+  capturedAt?: string;
+  hash?: string;
+};
+
+function isTeamPhotoSignature(type?: string): boolean {
+  return Boolean(type && new RegExp(`^${TEAM_PHOTO_SIGNATURE_PREFIX}_\\d+$`, "i").test(type));
+}
+
+function parseTeamPhoto(signature: Signature): TeamPhotoEvidence | null {
+  try {
+    const parsed = JSON.parse(signature.signature_data) as TeamPhotoEvidence;
+    if (!parsed?.imageData) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 export async function drawDdsBlueprint(
   ctx: PdfContext,
@@ -21,23 +46,19 @@ export async function drawDdsBlueprint(
   validationUrl: string,
 ) {
   const participantCount = dds.participants?.length ?? 0;
-  const audited = Boolean(dds.auditado_por_id || dds.auditado_por?.nome || dds.data_auditoria);
-
-  drawDocumentHeader(ctx, {
-    title: "RELATORIO DDS",
-    subtitle: "Dialogo Diario de Seguranca com rastreabilidade operacional",
-    code,
-    date: formatDate(dds.data),
-    status: sanitize(dds.status),
-    version: "1",
-    company: sanitize(dds.company?.razao_social || dds.company_id),
-    site: sanitize(dds.site?.nome || dds.site_id),
-  });
+  const teamPhotos = signatures
+    .filter((signature) => isTeamPhotoSignature(signature.type))
+    .map((signature) => parseTeamPhoto(signature))
+    .filter((photo): photo is TeamPhotoEvidence => Boolean(photo));
+  const participantSignatures = signatures.filter(
+    (signature) =>
+      !isTeamPhotoSignature(signature.type) &&
+      signature.type !== TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE,
+  );
 
   drawDocumentIdentityRail(ctx, {
     documentType: "DDS",
-    criticality: audited ? "low" : "moderate",
-    validity: formatDate(dds.data),
+    criticality: "moderate",
     documentClass: "operational",
   });
 
@@ -47,11 +68,11 @@ export async function drawDdsBlueprint(
       "Registro de alinhamento de seguranca antes da operacao, com foco em tema, facilitacao, participacao e evidencia de governanca.",
     metrics: [
       { label: "Tema", value: sanitize(dds.tema), tone: "info" },
-      { label: "Status", value: sanitize(dds.status), tone: audited ? "success" : "warning" },
+      { label: "Status", value: sanitize(dds.status), tone: "warning" },
       { label: "Participantes", value: participantCount, tone: participantCount > 0 ? "success" : "warning" },
       { label: "Facilitador", value: sanitize(dds.facilitador?.nome), tone: "default" },
       { label: "Site", value: sanitize(dds.site?.nome), tone: "default" },
-      { label: "Auditoria", value: audited ? "Registrada" : "Nao auditado", tone: audited ? "success" : "default" },
+      { label: "Fotos", value: teamPhotos.length, tone: teamPhotos.length > 0 ? "success" : "warning" },
     ],
   });
 
@@ -66,8 +87,6 @@ export async function drawDdsBlueprint(
       { label: "Facilitador", value: dds.facilitador?.nome },
       { label: "Participantes", value: participantCount },
       { label: "Status", value: dds.status },
-      { label: "Auditor", value: dds.auditado_por?.nome || "-" },
-      { label: "Data auditoria", value: formatDate(dds.data_auditoria) },
       { label: "Modelo", value: dds.is_modelo ? "Sim" : "Nao" },
     ],
   });
@@ -77,13 +96,6 @@ export async function drawDdsBlueprint(
     content: dds.conteudo,
   });
 
-  if (dds.notas_auditoria) {
-    drawNarrativeSection(ctx, {
-      title: "Notas de auditoria",
-      content: dds.notas_auditoria,
-    });
-  }
-
   drawParticipantTable(
     ctx,
     autoTable,
@@ -91,8 +103,26 @@ export async function drawDdsBlueprint(
     (dds.participants || []).map((participant) => ({ name: participant.nome })),
   );
 
+  await drawEvidenceGallery(ctx, {
+    title: "Registro fotografico da equipe",
+    items: teamPhotos.map((photo, index) => ({
+      title: `Foto da equipe ${index + 1}`,
+      description:
+        "Evidencia fotografica registrada no DDS para comprovar participacao da equipe e contexto de campo.",
+      meta: [
+        photo.capturedAt
+          ? `Capturada em: ${formatDateTime(photo.capturedAt)}`
+          : undefined,
+        photo.hash ? `Hash: ${String(photo.hash).slice(0, 16)}...` : undefined,
+      ]
+        .filter(Boolean)
+        .join(" | "),
+      source: photo.imageData,
+    })),
+  });
+
   await drawGovernanceClosingBlock(ctx, {
-    signatures: signatures.map((signature) => ({
+    signatures: participantSignatures.map((signature) => ({
       label: sanitize(signature.type),
       name: sanitize(signature.user?.nome || signature.type),
       role: sanitize(signature.type),

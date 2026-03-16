@@ -25,9 +25,7 @@ import { aiService } from "@/services/aiService";
 import { isAiEnabled } from "@/lib/featureFlags";
 import { SignatureModal } from "../app/dashboard/checklists/components/SignatureModal";
 import { signaturesService } from "@/services/signaturesService";
-import { AuditSection } from "./AuditSection";
 import { getFormErrorMessage } from "@/lib/error-handler";
-import { attachPdfIfProvided } from "@/lib/document-upload";
 
 const ddsSchema = z.object({
   tema: z.string().min(5, "O tema deve ter pelo menos 5 caracteres"),
@@ -39,10 +37,6 @@ const ddsSchema = z.object({
   participants: z
     .array(z.string())
     .min(1, "Selecione pelo menos um participante"),
-  auditado_por_id: z.string().optional(),
-  data_auditoria: z.string().optional(),
-  resultado_auditoria: z.string().optional(),
-  notas_auditoria: z.string().optional(),
 });
 
 type DdsFormData = z.infer<typeof ddsSchema>;
@@ -73,14 +67,6 @@ type HistoricalPhotoReference = {
 
 const TEAM_PHOTO_SIGNATURE_PREFIX = "team_photo";
 const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = "team_photo_reuse_justification";
-const DDS_AUDITOR_ROLES = new Set([
-  "admin",
-  "manager",
-  "administrador geral",
-  "administrador da empresa",
-  "supervisor / encarregado",
-  "tst",
-]);
 
 export function DdsForm({ id }: DdsFormProps) {
   const router = useRouter();
@@ -116,7 +102,6 @@ export function DdsForm({ id }: DdsFormProps) {
   >({});
   const [photoReuseJustification, setPhotoReuseJustification] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [ddsPdfFile, setDdsPdfFile] = useState<File | null>(null);
 
   const {
     register,
@@ -138,10 +123,6 @@ export function DdsForm({ id }: DdsFormProps) {
       site_id: prefillSiteId,
       facilitador_id: prefillFacilitatorId,
       participants: prefillFacilitatorId ? [prefillFacilitatorId] : [],
-      auditado_por_id: "",
-      data_auditoria: "",
-      resultado_auditoria: "",
-      notas_auditoria: "",
     },
   });
 
@@ -245,12 +226,6 @@ export function DdsForm({ id }: DdsFormProps) {
             site_id: dds.site_id,
             facilitador_id: dds.facilitador_id,
             participants: dds.participants.map((p) => p.id),
-            auditado_por_id: dds.auditado_por_id || "",
-            data_auditoria: dds.data_auditoria
-              ? new Date(dds.data_auditoria).toISOString().split("T")[0]
-              : "",
-            resultado_auditoria: dds.resultado_auditoria || "",
-            notas_auditoria: dds.notas_auditoria || "",
           });
         }
       } catch (error) {
@@ -465,11 +440,6 @@ export function DdsForm({ id }: DdsFormProps) {
       let ddsId = id;
       const payload = { ...data };
       if (payload.conteudo === "") delete payload.conteudo;
-      if (payload.auditado_por_id === "") delete payload.auditado_por_id;
-      if (payload.data_auditoria === "") delete payload.data_auditoria;
-      if (payload.resultado_auditoria === "")
-        delete payload.resultado_auditoria;
-      if (payload.notas_auditoria === "") delete payload.notas_auditoria;
 
       if (id) {
         await ddsService.update(id, payload);
@@ -496,7 +466,6 @@ export function DdsForm({ id }: DdsFormProps) {
               ? photoReuseJustification.trim()
               : undefined,
         });
-        await attachPdfIfProvided(ddsId, ddsPdfFile, ddsService.attachFile);
       }
 
       toast.success(
@@ -677,30 +646,6 @@ export function DdsForm({ id }: DdsFormProps) {
                 aria-label="Data do DDS"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               />
-            </div>
-
-            <div>
-              <label
-                htmlFor="dds-pdf-file"
-                className="block text-sm font-medium text-gray-700"
-              >
-                PDF do DDS (opcional)
-              </label>
-              <input
-                id="dds-pdf-file"
-                type="file"
-                accept="application/pdf"
-                aria-label="Selecionar PDF do DDS"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  setDdsPdfFile(file || null);
-                }}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-blue-100"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Se anexado no cadastro, o backend salva automaticamente em pasta
-                por empresa/ano/semana.
-              </p>
             </div>
 
             <div>
@@ -954,23 +899,6 @@ export function DdsForm({ id }: DdsFormProps) {
               </div>
             </div>
           )}
-        </div>
-
-        <div className="sst-card p-6">
-          <h2 className="mb-4 text-lg font-bold text-gray-900">
-            Seção de Auditoria
-          </h2>
-          <AuditSection
-            register={register}
-            auditors={filteredUsers.filter((user) =>
-              DDS_AUDITOR_ROLES.has(
-                String(user.role || "")
-                  .trim()
-                  .toLowerCase(),
-              ),
-            )}
-            disabled={!selectedCompanyId}
-          />
         </div>
 
         <div className="flex justify-end space-x-4">

@@ -32,6 +32,9 @@ async function drawOneEvidence(
     } catch {
       imageState = "error";
     }
+  } else if (item.source?.startsWith("data:")) {
+    dataUrl = item.source;
+    imageState = "loaded";
   }
 
   const hasImage = imageState === "loaded" && Boolean(dataUrl);

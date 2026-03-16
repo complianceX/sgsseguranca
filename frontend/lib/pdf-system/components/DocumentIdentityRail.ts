@@ -12,23 +12,32 @@ type DocumentIdentityRailOptions = {
 export function drawDocumentIdentityRail(ctx: PdfContext, options: DocumentIdentityRailOptions) {
   const { doc, margin, contentWidth, theme } = ctx;
   const fields = [
-    { label: "Tipo documental", value: sanitize(options.documentType) },
-    { label: "Criticidade", value: sanitize(options.criticality) },
-    { label: "Validade", value: sanitize(options.validity) },
-    { label: "Classe", value: sanitize(options.documentClass) },
-  ];
-  const colWidth = contentWidth / 2;
-  const rowHeights = [0, 0].map((_, rowIndex) =>
-    Math.max(
-      ...fields
-        .slice(rowIndex * 2, rowIndex * 2 + 2)
-        .map((field) => {
-          const valueLines = doc.splitTextToSize(field.value, colWidth - 10);
-          return 8 + valueLines.length * 3.6;
-        }),
-      14,
-    ),
+    { label: "Tipo documental", value: options.documentType },
+    { label: "Criticidade", value: options.criticality },
+    { label: "Validade", value: options.validity },
+    { label: "Classe", value: options.documentClass },
+  ].filter(
+    (field) =>
+      field.value !== undefined &&
+      field.value !== null &&
+      String(field.value).trim() !== "",
   );
+  const rowCount = Math.ceil(fields.length / 2);
+  const rowHeights = Array.from({ length: rowCount }, (_, rowIndex) => {
+    const fieldsInRow = fields.slice(rowIndex * 2, rowIndex * 2 + 2);
+    const rowColumns = fieldsInRow.length === 1 ? 1 : 2;
+    const colWidth = contentWidth / rowColumns;
+    return Math.max(
+      ...fieldsInRow.map((field) => {
+        const valueLines = doc.splitTextToSize(
+          sanitize(field.value),
+          colWidth - 10,
+        );
+        return 8 + valueLines.length * 3.6;
+      }),
+      14,
+    );
+  });
   const totalHeight = rowHeights.reduce((sum, value) => sum + value, 0);
   ensureSpace(ctx, totalHeight + 5);
 
@@ -42,9 +51,13 @@ export function drawDocumentIdentityRail(ctx: PdfContext, options: DocumentIdent
   doc.rect(margin, ctx.y, 2.2, totalHeight, "F");
 
   let cursorY = ctx.y;
-  for (let rowIndex = 0; rowIndex < 2; rowIndex += 1) {
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
     const rowHeight = rowHeights[rowIndex];
-    fields.slice(rowIndex * 2, rowIndex * 2 + 2).forEach((field, columnIndex) => {
+    const fieldsInRow = fields.slice(rowIndex * 2, rowIndex * 2 + 2);
+    const rowColumns = fieldsInRow.length === 1 ? 1 : 2;
+    const colWidth = contentWidth / rowColumns;
+
+    fieldsInRow.forEach((field, columnIndex) => {
       const x = margin + columnIndex * colWidth;
       if (columnIndex > 0) {
         doc.setDrawColor(...theme.tone.border);
@@ -61,12 +74,15 @@ export function drawDocumentIdentityRail(ctx: PdfContext, options: DocumentIdent
       doc.setFont("helvetica", "bold");
       doc.setFontSize(theme.typography.bodySm);
       doc.setTextColor(...theme.tone.textSecondary);
-      const valueLines = doc.splitTextToSize(field.value, colWidth - 10);
+      const valueLines = doc.splitTextToSize(
+        sanitize(field.value),
+        colWidth - 10,
+      );
       doc.text(valueLines, baseX, cursorY + 9.2);
     });
 
     cursorY += rowHeight;
-    if (rowIndex === 0) {
+    if (rowIndex < rowCount - 1) {
       doc.setDrawColor(...theme.tone.border);
       doc.setLineWidth(0.18);
       doc.line(margin, cursorY, margin + contentWidth, cursorY);

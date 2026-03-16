@@ -7,8 +7,9 @@ import {
   buildPdfFilename,
   buildValidationUrl,
   createPdfContext,
+  decorateCurrentPage,
   drawDdsBlueprint,
-  drawPageBackground,
+  drawDocumentHeader,
   formatDateTime,
   sanitize,
 } from '@/lib/pdf-system';
@@ -25,8 +26,24 @@ export async function generateDdsPdf(
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const ctx = createPdfContext(doc, 'operational');
-  drawPageBackground(ctx);
   const code = buildDocumentCode('DDS', dds.id || dds.tema, dds.data);
+  const renderHeader = () => {
+    drawDocumentHeader(ctx, {
+      title: "RELATORIO DDS",
+      subtitle: "Dialogo Diario de Seguranca com rastreabilidade operacional",
+      code,
+      date: dds.data,
+      status: sanitize(dds.status),
+      version: "1",
+      company: sanitize(dds.company?.razao_social || dds.company_id),
+      site: sanitize(dds.site?.nome || dds.site_id),
+    });
+    return ctx.y;
+  };
+
+  ctx.decoratePage = renderHeader;
+  ctx.y = decorateCurrentPage(ctx);
+
   await drawDdsBlueprint(ctx, autoTable, dds, signatures, code, buildValidationUrl(code));
 
   applyFooterGovernance(ctx, {

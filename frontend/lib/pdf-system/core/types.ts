@@ -20,5 +20,6 @@ export type PdfContext = {
   contentWidth: number;
   y: number;
   theme: PdfTheme;
+  pageTop?: number;
+  decoratePage?: (ctx: PdfContext) => number | void;
 };
-
