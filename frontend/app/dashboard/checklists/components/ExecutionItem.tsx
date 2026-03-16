@@ -1,6 +1,6 @@
 import React from 'react';
 import { Camera } from 'lucide-react';
-import { UseFormRegister, UseFormWatch } from 'react-hook-form';
+import { UseFormRegister, UseFormWatch, UseFormSetValue } from 'react-hook-form';
 import { ChecklistFormData, ChecklistItemForm } from '../types';
 
 interface ExecutionItemProps {
@@ -8,17 +8,32 @@ interface ExecutionItemProps {
   index: number;
   register: UseFormRegister<ChecklistFormData>;
   watch: UseFormWatch<ChecklistFormData>;
+  setValue?: UseFormSetValue<ChecklistFormData>;
 }
 
 export const ExecutionItem = React.memo(({ item, index, register, watch }: ExecutionItemProps) => {
   const statusValue = watch(`itens.${index}.status`);
   const observacaoValue = watch(`itens.${index}.observacao`);
   const choiceBaseClassName =
-    'flex cursor-pointer items-center gap-1 rounded-[var(--ds-radius-sm)] border px-3 py-1 text-sm transition-colors';
+    'flex cursor-pointer items-center gap-1 rounded-[var(--ds-radius-sm)] border px-3 py-1.5 text-sm font-semibold transition-colors';
+
+  const choiceBtn = (value: string, label: string, activeClass: string) => (
+    <label
+      key={value}
+      className={`${choiceBaseClassName} ${
+        statusValue === value
+          ? activeClass
+          : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]/40'
+      }`}
+    >
+      <input type="radio" value={value} {...register(`itens.${index}.status`)} className="hidden" />
+      {label}
+    </label>
+  );
 
   return (
     <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22 p-4 transition-colors hover:border-[var(--ds-color-warning-border)]">
-      <div className="mb-3 flex items-start justify-between">
+      <div className="mb-3 flex items-start justify-between gap-3">
         <div className="flex-1">
           <p className="font-medium text-[var(--ds-color-text-primary)]">
             {index + 1}. {item.item}
@@ -32,111 +47,52 @@ export const ExecutionItem = React.memo(({ item, index, register, watch }: Execu
         </div>
 
         {/* Controles de Resposta */}
-        <div className="ml-4">
-          {item.tipo_resposta === 'sim_nao' && (
+        <div className="ml-2">
+          {(item.tipo_resposta === 'sim_nao_na' || !item.tipo_resposta) && (
             <div className="flex gap-2">
-              <label
-                className={`${choiceBaseClassName} ${
-                  statusValue === 'sim'
-                    ? 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35'
-                    : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]'
-                }`}
-              >
-                <input type="radio" value="sim" {...register(`itens.${index}.status`)} className="hidden" />
-                Sim
-              </label>
-              <label
-                className={`${choiceBaseClassName} ${
-                  statusValue === 'nao'
-                    ? 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35'
-                    : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]'
-                }`}
-              >
-                <input type="radio" value="nao" {...register(`itens.${index}.status`)} className="hidden" />
-                Não
-              </label>
+              {choiceBtn('sim', 'Sim', 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35')}
+              {choiceBtn('nao', 'Não', 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35')}
+              {choiceBtn('na', 'N/A', 'border-transparent bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] ring-2 ring-[var(--ds-color-border-default)]')}
             </div>
           )}
 
-          {item.tipo_resposta === 'sim_nao_na' && (
+          {item.tipo_resposta === 'sim_nao' && (
             <div className="flex gap-2">
-              <label
-                className={`${choiceBaseClassName} ${
-                  statusValue === 'sim'
-                    ? 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35'
-                    : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]'
-                }`}
-              >
-                <input type="radio" value="sim" {...register(`itens.${index}.status`)} className="hidden" />
-                Sim
-              </label>
-              <label
-                className={`${choiceBaseClassName} ${
-                  statusValue === 'nao'
-                    ? 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35'
-                    : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]'
-                }`}
-              >
-                <input type="radio" value="nao" {...register(`itens.${index}.status`)} className="hidden" />
-                Não
-              </label>
-              <label
-                className={`${choiceBaseClassName} ${
-                  statusValue === 'na'
-                    ? 'border-transparent bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] ring-2 ring-[var(--ds-color-border-default)]'
-                    : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]'
-                }`}
-              >
-                <input type="radio" value="na" {...register(`itens.${index}.status`)} className="hidden" />
-                N/A
-              </label>
+              {choiceBtn('sim', 'Sim', 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35')}
+              {choiceBtn('nao', 'Não', 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35')}
             </div>
           )}
 
           {item.tipo_resposta === 'conforme' && (
             <div className="flex gap-2">
-              <label
-                className={`${choiceBaseClassName} ${
-                  statusValue === 'ok'
-                    ? 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35'
-                    : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]'
-                }`}
-              >
-                <input type="radio" value="ok" {...register(`itens.${index}.status`)} className="hidden" />
-                C
-              </label>
-              <label
-                className={`${choiceBaseClassName} ${
-                  statusValue === 'nok'
-                    ? 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35'
-                    : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]'
-                }`}
-              >
-                <input type="radio" value="nok" {...register(`itens.${index}.status`)} className="hidden" />
-                NC
-              </label>
-              <label
-                className={`${choiceBaseClassName} ${
-                  statusValue === 'na'
-                    ? 'border-transparent bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] ring-2 ring-[var(--ds-color-border-default)]'
-                    : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]'
-                }`}
-              >
-                <input type="radio" value="na" {...register(`itens.${index}.status`)} className="hidden" />
-                N/A
-              </label>
+              {choiceBtn('ok', 'Conforme', 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35')}
+              {choiceBtn('nok', 'NC', 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35')}
+              {choiceBtn('na', 'N/A', 'border-transparent bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] ring-2 ring-[var(--ds-color-border-default)]')}
             </div>
           )}
+
+          {/* texto e foto não usam botões de status */}
         </div>
       </div>
 
+      {/* Texto livre */}
+      {item.tipo_resposta === 'texto' && (
+        <textarea
+          {...register(`itens.${index}.resposta` as Parameters<typeof register>[0])}
+          rows={3}
+          placeholder="Resposta em texto livre..."
+          className="mb-2 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
+        />
+      )}
+
+      {/* Observação */}
       <div className="mt-2">
         <input
           {...register(`itens.${index}.observacao`)}
           placeholder={
             (statusValue === 'nok' || statusValue === 'nao')
-              ? "Observação obrigatória para Não Conformidade..."
-              : "Observações..."
+              ? 'Observação obrigatória para Não Conformidade...'
+              : 'Observações...'
           }
           className={`w-full rounded-[var(--ds-radius-md)] border px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:outline-none ${
             (statusValue === 'nok' || statusValue === 'nao') && !observacaoValue

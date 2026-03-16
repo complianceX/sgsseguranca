@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { isAiEnabled } from '@/lib/featureFlags';
-import { BrainCircuit, Bot, Printer, Download, Mail, Pencil, Trash2, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { BrainCircuit, Bot, Printer, Download, Mail, Pencil, Trash2, CheckCircle, Clock, AlertTriangle, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
@@ -148,6 +148,20 @@ export const ChecklistsTableRow = React.memo(({
       {visibleColumns.map(renderCell)}
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
+          {checklist.is_modelo && (
+            <Link
+              href={`/dashboard/checklists/fill/${checklist.id}`}
+              className={cn(
+                buttonVariants({ size: 'sm', variant: 'outline' }),
+                'gap-1 text-[var(--ds-color-action-primary)] border-[var(--ds-color-action-primary)]/40 hover:bg-[color:var(--ds-color-action-primary)]/8',
+              )}
+              title="Preencher checklist"
+              aria-label={`Preencher checklist ${checklist.titulo}`}
+            >
+              <ClipboardList className="h-3.5 w-3.5" />
+              Preencher
+            </Link>
+          )}
           {isAiEnabled() && (
             <Button
               type="button"

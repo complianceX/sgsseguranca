@@ -125,13 +125,13 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       periodicidade: 'Diário',
       nivel_risco_padrao: 'Médio',
       ativo: true,
-      itens: [{ 
-        item: '', 
-        status: 'ok', 
-        tipo_resposta: 'conforme',
+      itens: [{
+        item: '',
+        status: 'sim',
+        tipo_resposta: 'sim_nao_na',
         obrigatorio: true,
         peso: 1,
-        observacao: '' 
+        observacao: ''
       }],
       is_modelo: isTemplateMode,
       auditado_por_id: '',
@@ -505,8 +505,8 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       if (generated && generated.itens) {
         replace(generated.itens.map((item: { item: string }) => ({
              item: item.item,
-             status: 'ok',
-             tipo_resposta: 'conforme',
+             status: 'sim',
+             tipo_resposta: 'sim_nao_na',
              obrigatorio: true,
              peso: 1,
              observacao: ''
@@ -956,7 +956,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
 
             <button
                 type="button"
-                onClick={() => append({ item: '', status: 'ok', tipo_resposta: 'conforme', obrigatorio: true, peso: 1, observacao: '' })}
+                onClick={() => append({ item: '', status: 'sim', tipo_resposta: 'sim_nao_na', obrigatorio: true, peso: 1, observacao: '' })}
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-dashed border-[var(--ds-color-border-default)] py-3 text-sm font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/26 hover:text-[var(--ds-color-text-primary)]"
             >
                 <Plus className="h-4 w-4" />

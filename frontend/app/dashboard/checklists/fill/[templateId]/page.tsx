@@ -6,13 +6,15 @@ import { checklistsService, Checklist, ChecklistItem } from '@/services/checklis
 import { sitesService, Site } from '@/services/sitesService';
 import { usersService, User } from '@/services/usersService';
 import { signaturesService } from '@/services/signaturesService';
-import { ArrowLeft, Save } from 'lucide-react';
+import { generateChecklistPdf } from '@/lib/pdf/checklistGenerator';
+import { ArrowLeft, Save, Printer, Mail, CheckCircle2, ClipboardCheck } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { SendMailModal } from '@/components/SendMailModal';
 import { SignatureModal } from '../../components/SignatureModal';
+import { cn } from '@/lib/utils';
 
 const panelClassName =
   'rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]';
@@ -20,17 +22,78 @@ const fieldClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-2 text-sm text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 const labelClassName = 'mb-2 block text-sm font-medium text-[var(--ds-color-text-secondary)]';
 
+/** Renders styled Sim/Não/N/A or Conforme/NC/NA buttons for each item */
+function ItemStatusButtons({
+  item,
+  index,
+  onChange,
+}: {
+  item: ChecklistItem;
+  index: number;
+  onChange: (index: number, value: string) => void;
+}) {
+  const current = String(item.status);
+
+  const choiceBtn = (value: string, label: string, activeClass: string) => (
+    <button
+      key={value}
+      type="button"
+      onClick={() => onChange(index, value)}
+      className={cn(
+        'flex cursor-pointer items-center justify-center rounded-[var(--ds-radius-sm)] border px-4 py-1.5 text-sm font-semibold transition-all',
+        current === value
+          ? activeClass
+          : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]/40',
+      )}
+    >
+      {label}
+    </button>
+  );
+
+  if (item.tipo_resposta === 'sim_nao') {
+    return (
+      <div className="flex gap-2">
+        {choiceBtn('sim', 'Sim', 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35')}
+        {choiceBtn('nao', 'Não', 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35')}
+      </div>
+    );
+  }
+
+  if (item.tipo_resposta === 'sim_nao_na') {
+    return (
+      <div className="flex gap-2">
+        {choiceBtn('sim', 'Sim', 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35')}
+        {choiceBtn('nao', 'Não', 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35')}
+        {choiceBtn('na', 'N/A', 'border-transparent bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] ring-2 ring-[var(--ds-color-border-default)]')}
+      </div>
+    );
+  }
+
+  if (item.tipo_resposta === 'texto') {
+    return null; // observação field is enough
+  }
+
+  // default: conforme
+  return (
+    <div className="flex gap-2">
+      {choiceBtn('ok', 'Conforme', 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35')}
+      {choiceBtn('nok', 'NC', 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35')}
+      {choiceBtn('na', 'N/A', 'border-transparent bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] ring-2 ring-[var(--ds-color-border-default)]')}
+    </div>
+  );
+}
+
 export default function FillChecklistPage({ params }: { params: Promise<{ templateId: string }> }) {
   const { templateId } = use(params);
   const router = useRouter();
   const { user } = useAuth();
-  
+
   const [template, setTemplate] = useState<Checklist | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  
+
   // Form data
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -41,34 +104,45 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
   const [inspetorId, setInspetorId] = useState(user?.id || '');
   const [itens, setItens] = useState<ChecklistItem[]>([]);
   const [fotoEquipamento, setFotoEquipamento] = useState('');
-  
-  // Estados para assinatura e envio
-  const [checklistId, setChecklistId] = useState<string | null>(null);
+
+  // Post-save states
+  const [savedChecklist, setSavedChecklist] = useState<Checklist | null>(null);
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
-  const [pdfData, setPdfData] = useState<{ base64: string; filename: string } | null>(null);
+  const [pdfBase64, setPdfBase64] = useState<string>('');
+  const [pdfFilename, setPdfFilename] = useState<string>('');
+  const [printingOrSending, setPrintingOrSending] = useState(false);
 
   const loadTemplate = useCallback(async () => {
     try {
       setLoading(true);
       const data = await checklistsService.findOne(templateId);
-      
+
       if (!data.is_modelo) {
         toast.error('Este checklist não é um template');
-        router.push('/dashboard/checklist-templates');
+        router.push('/dashboard/checklists');
         return;
       }
-      
+
       setTemplate(data);
       setTitulo(data.titulo);
       setDescricao(data.descricao || '');
       setEquipamento(data.equipamento || '');
       setMaquina(data.maquina || '');
-      setItens(data.itens || []);
+      // Initialize items with default status per tipo_resposta
+      setItens(
+        (data.itens || []).map((item) => ({
+          ...item,
+          status: item.tipo_resposta === 'sim_nao' || item.tipo_resposta === 'sim_nao_na'
+            ? 'sim'
+            : 'ok',
+          observacao: '',
+        })),
+      );
     } catch (error) {
       console.error('Erro ao carregar template:', error);
       toast.error('Erro ao carregar template');
-      router.push('/dashboard/checklist-templates');
+      router.push('/dashboard/checklists');
     } finally {
       setLoading(false);
     }
@@ -88,7 +162,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
       const page = await usersService.findPaginated({ page: 1, limit: 100 });
       let nextUsers = page.data;
 
-      if (user?.id && !nextUsers.some((currentUser) => currentUser.id === user.id)) {
+      if (user?.id && !nextUsers.some((u) => u.id === user.id)) {
         try {
           const currentUser = await usersService.findOne(user.id);
           nextUsers = [currentUser, ...nextUsers];
@@ -96,7 +170,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
       }
 
       setUsers(
-        Array.from(new Map(nextUsers.map((currentUser) => [currentUser.id, currentUser])).values()),
+        Array.from(new Map(nextUsers.map((u) => [u.id, u])).values()),
       );
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
@@ -109,46 +183,44 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
     void loadUsers();
   }, [loadSites, loadTemplate, loadUsers]);
 
-  const handleItemChange = <K extends keyof ChecklistItem>(
-    index: number,
-    field: K,
-    value: ChecklistItem[K],
-  ) => {
-    const newItens = [...itens];
-    newItens[index] = { ...newItens[index], [field]: value };
-    setItens(newItens);
+  // Auto-set inspetor when user loads
+  useEffect(() => {
+    if (user?.id && !inspetorId) setInspetorId(user.id);
+  }, [user?.id, inspetorId]);
+
+  const handleItemStatusChange = (index: number, value: string) => {
+    setItens((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], status: value as ChecklistItem['status'] };
+      return next;
+    });
+  };
+
+  const handleItemObsChange = (index: number, value: string) => {
+    setItens((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], observacao: value };
+      return next;
+    });
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setFotoEquipamento(reader.result as string);
-      };
+      reader.onloadend = () => setFotoEquipamento(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
 
   const handleSave = async () => {
+    if (!titulo.trim()) { toast.error('Título é obrigatório'); return; }
+    if (!siteId) { toast.error('Obra/Setor é obrigatório'); return; }
+    if (!inspetorId) { toast.error('Inspetor é obrigatório'); return; }
+
     try {
       setSaving(true);
-      
-      // Validações básicas
-      if (!titulo.trim()) {
-        toast.error('Título é obrigatório');
-        return;
-      }
-      if (!siteId) {
-        toast.error('Obra/Setor é obrigatório');
-        return;
-      }
-      if (!inspetorId) {
-        toast.error('Inspetor é obrigatório');
-        return;
-      }
 
-      // Criar checklist baseado no template
       const checklistData: Partial<Checklist> = {
         titulo,
         descricao,
@@ -163,16 +235,8 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
       };
 
       const created = await checklistsService.fillFromTemplate(templateId, checklistData);
-      setChecklistId(created.id);
-      
-      toast.success('Checklist preenchido com sucesso!');
-      
-      // Perguntar se quer assinar
-      if (confirm('Deseja assinar o checklist agora?')) {
-        setIsSignatureModalOpen(true);
-      } else {
-        router.push('/dashboard/checklists');
-      }
+      setSavedChecklist(created);
+      toast.success('Checklist salvo com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar checklist:', error);
       toast.error('Erro ao salvar checklist');
@@ -181,45 +245,87 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
     }
   };
 
+  const buildPdf = async (): Promise<{ base64: string; filename: string } | null> => {
+    if (!savedChecklist) return null;
+    try {
+      const signatures = await signaturesService.findByChecklist(savedChecklist.id).catch(() => []);
+      const result = await generateChecklistPdf(savedChecklist, signatures, { output: 'base64' });
+      if (result && typeof result === 'object' && 'base64' in result) {
+        return result as { base64: string; filename: string };
+      }
+      return null;
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      return null;
+    }
+  };
+
+  const handlePrint = async () => {
+    if (!savedChecklist) return;
+    setPrintingOrSending(true);
+    try {
+      const pdf = await buildPdf();
+      if (!pdf) { toast.error('Erro ao gerar PDF'); return; }
+      const byteString = atob(pdf.base64);
+      const bytes = new Uint8Array(byteString.length);
+      for (let i = 0; i < byteString.length; i++) bytes[i] = byteString.charCodeAt(i);
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, '_blank');
+      if (win) { win.onload = () => { win.print(); }; }
+    } catch {
+      toast.error('Erro ao abrir impressão');
+    } finally {
+      setPrintingOrSending(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!savedChecklist) return;
+    setPrintingOrSending(true);
+    try {
+      const pdf = await buildPdf();
+      if (!pdf) { toast.error('Erro ao gerar PDF'); return; }
+      setPdfBase64(pdf.base64);
+      setPdfFilename(pdf.filename);
+      setIsMailModalOpen(true);
+    } catch {
+      toast.error('Erro ao preparar envio de e-mail');
+    } finally {
+      setPrintingOrSending(false);
+    }
+  };
+
   const handleSign = async (signatureData: string, type: string) => {
-    if (!checklistId) return;
-    
+    if (!savedChecklist) return;
     try {
       await signaturesService.create({
-        document_id: checklistId,
+        document_id: savedChecklist.id,
         document_type: 'CHECKLIST',
         signature_data: signatureData,
         type,
         user_id: user?.id || '',
       });
-      
       toast.success('Assinatura registrada!');
       setIsSignatureModalOpen(false);
-      
-      // Salvar PDF automaticamente no R2
-      toast.info('Salvando PDF no storage...');
-      await checklistsService.savePdf(checklistId);
-      toast.success('PDF salvo com sucesso!');
-      
-      // Perguntar se quer enviar por email
-      if (confirm('Deseja enviar o checklist por email?')) {
-        setPdfData({
-          base64: '', // O backend vai gerar
-          filename: `checklist-${checklistId}.pdf`,
-        });
-        setIsMailModalOpen(true);
-      } else {
-        router.push('/dashboard/checklists');
+
+      // Auto-save PDF to R2 after signing
+      try {
+        toast.info('Salvando PDF no storage...');
+        await checklistsService.savePdf(savedChecklist.id);
+        toast.success('PDF salvo no storage!');
+      } catch {
+        toast.warning('Checklist salvo, mas PDF não pôde ser armazenado automaticamente.');
       }
     } catch (error) {
       console.error('Erro ao assinar:', error);
-      toast.error('Erro ao assinar checklist');
+      toast.error('Erro ao registrar assinatura');
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <div className="text-center">
           <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent" />
           <p className="text-[var(--ds-color-text-secondary)]">Carregando template...</p>
@@ -228,114 +334,170 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
     );
   }
 
-  if (!template) {
-    return null;
+  if (!template) return null;
+
+  // ── POST-SAVE STATE ──────────────────────────────────────────────────────────
+  if (savedChecklist) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6 py-10">
+        <div className={`${panelClassName} p-8 text-center`}>
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[color:var(--ds-color-success)]/15">
+            <CheckCircle2 className="h-7 w-7 text-[var(--ds-color-success)]" />
+          </div>
+          <h2 className="mb-1 text-xl font-bold text-[var(--ds-color-text-primary)]">
+            Checklist salvo com sucesso!
+          </h2>
+          <p className="mb-6 text-sm text-[var(--ds-color-text-muted)]">
+            O que você deseja fazer agora?
+          </p>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <button
+              type="button"
+              onClick={() => setIsSignatureModalOpen(true)}
+              className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)]"
+            >
+              <ClipboardCheck className="h-4 w-4" />
+              Assinar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handlePrint()}
+              disabled={printingOrSending}
+              className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-5 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/40 disabled:opacity-50"
+            >
+              <Printer className="h-4 w-4" />
+              Imprimir
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleSendEmail()}
+              disabled={printingOrSending}
+              className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-5 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/40 disabled:opacity-50"
+            >
+              <Mail className="h-4 w-4" />
+              Enviar por E-mail
+            </button>
+          </div>
+
+          <div className="mt-6 border-t border-[var(--ds-color-border-subtle)] pt-4">
+            <Link
+              href="/dashboard/checklists"
+              className="text-sm text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-secondary)]"
+            >
+              ← Voltar para checklists
+            </Link>
+          </div>
+        </div>
+
+        {/* Modais */}
+        <SignatureModal
+          isOpen={isSignatureModalOpen}
+          onClose={() => setIsSignatureModalOpen(false)}
+          onSave={(signatureData, type) => { void handleSign(signatureData, type); }}
+          userName={users.find((u) => u.id === inspetorId)?.nome || user?.nome || 'Inspetor'}
+        />
+
+        {isMailModalOpen && pdfBase64 && (
+          <SendMailModal
+            isOpen={isMailModalOpen}
+            onClose={() => setIsMailModalOpen(false)}
+            documentName={titulo}
+            filename={pdfFilename}
+            base64={pdfBase64}
+          />
+        )}
+      </div>
+    );
   }
 
+  // ── FILL FORM ────────────────────────────────────────────────────────────────
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard/checklist-templates"
-            className="flex items-center text-[var(--ds-color-text-secondary)] transition-colors hover:text-[var(--ds-color-text-primary)]"
-          >
-            <ArrowLeft className="h-5 w-5 mr-2" />
-            Voltar
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Preencher Checklist</h1>
-            <p className="text-sm text-[var(--ds-color-text-muted)]">Template: {template.titulo}</p>
-          </div>
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Link
+          href="/dashboard/checklists"
+          className="flex items-center text-[var(--ds-color-text-secondary)] transition-colors hover:text-[var(--ds-color-text-primary)]"
+        >
+          <ArrowLeft className="mr-2 h-5 w-5" />
+          Voltar
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Preencher Checklist</h1>
+          <p className="text-sm text-[var(--ds-color-text-muted)]">Modelo: {template.titulo}</p>
         </div>
       </div>
 
       <div className={`${panelClassName} p-6 space-y-6`}>
         {/* Informações Básicas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label htmlFor="checklist-titulo" className={labelClassName}>
-              Título *
-            </label>
+            <label htmlFor="checklist-titulo" className={labelClassName}>Título *</label>
             <input
               id="checklist-titulo"
               type="text"
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
-              aria-label="Título do checklist"
               className={fieldClassName}
               required
             />
           </div>
 
           <div>
-            <label htmlFor="checklist-data" className={labelClassName}>
-              Data *
-            </label>
+            <label htmlFor="checklist-data" className={labelClassName}>Data *</label>
             <input
               id="checklist-data"
               type="date"
               value={data}
               onChange={(e) => setData(e.target.value)}
-              aria-label="Data do checklist"
               className={fieldClassName}
               required
             />
           </div>
 
           <div>
-            <label htmlFor="checklist-site" className={labelClassName}>
-              Obra/Setor *
-            </label>
+            <label htmlFor="checklist-site" className={labelClassName}>Obra/Setor *</label>
             <select
               id="checklist-site"
               value={siteId}
               onChange={(e) => setSiteId(e.target.value)}
-              aria-label="Obra ou setor do checklist"
               className={fieldClassName}
               required
             >
               <option value="">Selecione...</option>
               {sites.map((site) => (
-                <option key={site.id} value={site.id}>
-                  {site.nome}
-                </option>
+                <option key={site.id} value={site.id}>{site.nome}</option>
               ))}
             </select>
           </div>
 
           <div>
-            <label htmlFor="checklist-inspetor" className={labelClassName}>
-              Inspetor *
-            </label>
+            <label htmlFor="checklist-inspetor" className={labelClassName}>Inspetor *</label>
             <select
               id="checklist-inspetor"
               value={inspetorId}
               onChange={(e) => setInspetorId(e.target.value)}
-              aria-label="Inspetor responsável"
               className={fieldClassName}
               required
             >
               <option value="">Selecione...</option>
               {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.nome}
-                </option>
+                <option key={u.id} value={u.id}>{u.nome}</option>
               ))}
             </select>
           </div>
 
           {equipamento && (
             <div>
-              <label htmlFor="checklist-equipamento" className={labelClassName}>
-                Equipamento
-              </label>
+              <label htmlFor="checklist-equipamento" className={labelClassName}>Equipamento</label>
               <input
                 id="checklist-equipamento"
                 type="text"
                 value={equipamento}
                 onChange={(e) => setEquipamento(e.target.value)}
-                aria-label="Equipamento do checklist"
                 className={fieldClassName}
               />
             </div>
@@ -343,15 +505,12 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
 
           {maquina && (
             <div>
-              <label htmlFor="checklist-maquina" className={labelClassName}>
-                Máquina
-              </label>
+              <label htmlFor="checklist-maquina" className={labelClassName}>Máquina</label>
               <input
                 id="checklist-maquina"
                 type="text"
                 value={maquina}
                 onChange={(e) => setMaquina(e.target.value)}
-                aria-label="Máquina do checklist"
                 className={fieldClassName}
               />
             </div>
@@ -359,30 +518,24 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
         </div>
 
         <div>
-          <label htmlFor="checklist-descricao" className={labelClassName}>
-            Descrição
-          </label>
+          <label htmlFor="checklist-descricao" className={labelClassName}>Descrição</label>
           <textarea
             id="checklist-descricao"
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
-            aria-label="Descrição do checklist"
-            rows={3}
+            rows={2}
             className={fieldClassName}
           />
         </div>
 
         {/* Foto do Equipamento */}
         <div>
-          <label htmlFor="checklist-foto-equipamento" className={labelClassName}>
-            Foto do Equipamento
-          </label>
+          <label htmlFor="checklist-foto" className={labelClassName}>Foto do Equipamento</label>
           <input
-            id="checklist-foto-equipamento"
+            id="checklist-foto"
             type="file"
             accept="image/*"
             onChange={handlePhotoChange}
-            aria-label="Foto do equipamento"
             className={fieldClassName}
           />
           {fotoEquipamento && (
@@ -391,7 +544,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
               alt="Equipamento"
               width={320}
               height={240}
-              className="mt-4 max-w-xs rounded-lg border"
+              className="mt-3 max-w-xs rounded-lg border"
               unoptimized
             />
           )}
@@ -399,102 +552,102 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
 
         {/* Itens do Checklist */}
         <div>
-          <h3 className="mb-4 text-lg font-semibold text-[var(--ds-color-text-primary)]">Itens de Verificação</h3>
-          <div className="space-y-4">
-            {itens.map((item, index) => (
-              <div
-                key={index}
-                className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22 p-4"
-              >
-                <div className="mb-3 font-medium text-[var(--ds-color-text-primary)]">{item.item}</div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor={`checklist-item-status-${index}`} className={labelClassName}>
-                      Status
-                    </label>
-                    <select
-                      id={`checklist-item-status-${index}`}
-                      value={String(item.status)}
-                      onChange={(e) =>
-                        handleItemChange(index, 'status', e.target.value as ChecklistItem['status'])
-                      }
-                      aria-label={`Status do item ${item.item}`}
-                      className={fieldClassName}
-                    >
-                      {item.tipo_resposta === 'sim_nao_na' ? (
-                        <>
-                          <option value="sim">Sim</option>
-                          <option value="nao">Não</option>
-                          <option value="na">N/A</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="ok">Conforme</option>
-                          <option value="nok">Não Conforme</option>
-                          <option value="na">N/A</option>
-                        </>
+          <h3 className="mb-4 text-lg font-semibold text-[var(--ds-color-text-primary)]">
+            Itens de Verificação
+          </h3>
+          <div className="space-y-3">
+            {itens.map((item, index) => {
+              const isNonConforming = item.status === 'nok' || item.status === 'nao';
+              return (
+                <div
+                  key={index}
+                  className={cn(
+                    'rounded-[var(--ds-radius-lg)] border p-4 transition-colors',
+                    isNonConforming
+                      ? 'border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger)]/4'
+                      : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22',
+                  )}
+                >
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <p className="font-medium text-[var(--ds-color-text-primary)]">
+                        {index + 1}. {item.item}
+                        {item.obrigatorio && (
+                          <span className="ml-1 text-[var(--ds-color-danger)]">*</span>
+                        )}
+                      </p>
+                      {item.peso && item.peso > 1 && (
+                        <span className="mt-1 inline-block rounded-[var(--ds-radius-sm)] bg-[var(--ds-color-warning-subtle)] px-2 py-0.5 text-xs font-semibold text-[var(--ds-color-warning)]">
+                          Peso: {item.peso}
+                        </span>
                       )}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label htmlFor={`checklist-item-observacao-${index}`} className={labelClassName}>
-                      Observação
-                    </label>
-                    <input
-                      id={`checklist-item-observacao-${index}`}
-                      type="text"
-                      value={item.observacao || ''}
-                      onChange={(e) => handleItemChange(index, 'observacao', e.target.value)}
-                      aria-label={`Observação do item ${item.item}`}
-                      className={fieldClassName}
-                      placeholder="Observações adicionais..."
+                    </div>
+                    <ItemStatusButtons
+                      item={item}
+                      index={index}
+                      onChange={handleItemStatusChange}
                     />
                   </div>
+
+                  {/* Observação — obrigatória se NC/Não */}
+                  <input
+                    type="text"
+                    value={item.observacao || ''}
+                    onChange={(e) => handleItemObsChange(index, e.target.value)}
+                    placeholder={
+                      isNonConforming
+                        ? 'Observação obrigatória para não conformidade...'
+                        : 'Observações...'
+                    }
+                    className={cn(
+                      'w-full rounded-[var(--ds-radius-md)] border px-3 py-2 text-sm focus:outline-none',
+                      isNonConforming && !item.observacao
+                        ? 'border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] placeholder:text-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)] focus:ring-2 focus:ring-[color:var(--ds-color-danger)]/25'
+                        : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] focus:border-[var(--ds-color-focus)] focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]',
+                    )}
+                  />
+
+                  {/* Textarea para tipo texto */}
+                  {item.tipo_resposta === 'texto' && (
+                    <textarea
+                      value={String(item.resposta || '')}
+                      onChange={(e) =>
+                        setItens((prev) => {
+                          const next = [...prev];
+                          next[index] = { ...next[index], resposta: e.target.value };
+                          return next;
+                        })
+                      }
+                      rows={3}
+                      placeholder="Resposta em texto livre..."
+                      className="mt-2 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
+                    />
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        {/* Botões de Ação */}
-        <div className="flex gap-4 border-t border-[var(--ds-color-border-subtle)] pt-6">
+        {/* Ações */}
+        <div className="flex gap-3 border-t border-[var(--ds-color-border-subtle)] pt-6">
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={saving}
             className="flex flex-1 items-center justify-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-6 py-3 font-semibold text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Save className="h-5 w-5" />
-            {saving ? 'Salvando...' : 'Salvar e Assinar'}
+            {saving ? 'Salvando...' : 'Salvar Checklist'}
           </button>
+          <Link
+            href="/dashboard/checklists"
+            className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-5 py-3 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/40"
+          >
+            Cancelar
+          </Link>
         </div>
       </div>
-
-      {/* Modal de Assinatura */}
-      <SignatureModal
-        isOpen={isSignatureModalOpen && Boolean(checklistId)}
-        onClose={() => setIsSignatureModalOpen(false)}
-        onSave={(signatureData, type) => {
-          void handleSign(signatureData, type);
-        }}
-        userName={users.find((item) => item.id === inspetorId)?.nome || user?.nome || 'Inspetor'}
-      />
-
-      {/* Modal de Email */}
-      {isMailModalOpen && pdfData && checklistId && (
-        <SendMailModal
-          isOpen={isMailModalOpen}
-          onClose={() => {
-            setIsMailModalOpen(false);
-            router.push('/dashboard/checklists');
-          }}
-          documentName={titulo}
-          filename={pdfData.filename}
-          base64={pdfData.base64}
-        />
-      )}
     </div>
   );
 }
