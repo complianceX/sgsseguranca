@@ -1048,11 +1048,11 @@ Regras:
         id: match.id,
         titulo: match.titulo,
         status: match.status,
-        data: match.data,
+        data: match.data instanceof Date ? match.data.toISOString().split('T')[0] : String(match.data),
         is_modelo: Boolean(match.is_modelo),
-        site: (match as any).site?.nome,
-        inspetor: (match as any).inspetor?.nome,
-        updated_at: match.updated_at,
+        site: match.site?.nome,
+        inspetor: match.inspetor?.nome,
+        updated_at: match.updated_at?.toISOString() ?? '',
       },
     };
   }
