@@ -24,7 +24,7 @@ import type { PuppeteerPoolService } from '../common/services/puppeteer-pool.ser
 import type { RiskCalculationService } from '../common/services/risk-calculation.service';
 import type { TenantRepositoryFactory } from '../common/tenant/tenant-repository';
 import type { TenantService } from '../common/tenant/tenant.service';
-import { Dds } from '../dds/entities/dds.entity';
+import { Dds, DdsStatus } from '../dds/entities/dds.entity';
 import { DdsService } from '../dds/dds.service';
 import { DocumentRegistryEntry } from './entities/document-registry.entity';
 import { DocumentRegistryService } from './document-registry.service';
@@ -36,6 +36,7 @@ import { Pt, PtStatus } from '../pts/entities/pt.entity';
 import { PtsService } from '../pts/pts.service';
 import { Risk } from '../risks/entities/risk.entity';
 import { Site } from '../sites/entities/site.entity';
+import type { SignaturesService } from '../signatures/signatures.service';
 import { Tool } from '../tools/entities/tool.entity';
 import { User } from '../users/entities/user.entity';
 import type { WorkerOperationalStatusService } from '../users/worker-operational-status.service';
@@ -90,6 +91,14 @@ function buildAuditService(): AuditService {
 
 function buildWorkerOperationalStatusService(): WorkerOperationalStatusService {
   return {} as unknown as WorkerOperationalStatusService;
+}
+
+function buildSignaturesService(
+  signatures: Array<{ user_id?: string; type?: string }> = [],
+): SignaturesService {
+  return {
+    findByDocument: jest.fn().mockResolvedValue(signatures),
+  } as unknown as SignaturesService;
 }
 
 function buildPuppeteerPoolStub(): PuppeteerPoolService {
@@ -247,6 +256,7 @@ describe('Document governance integration', () => {
       buildTenantService(companyId),
       documentStorageService as unknown as DocumentStorageService,
       governanceService,
+      buildSignaturesService([{ user_id: userId, type: 'pin' }]),
     );
     auditsService = new AuditsService(
       dataSource.getRepository(Audit),
@@ -264,6 +274,7 @@ describe('Document governance integration', () => {
       buildWorkerOperationalStatusService(),
       documentStorageService as unknown as DocumentStorageService,
       governanceService,
+      buildSignaturesService(),
     );
 
     registryRepository = dataSource.getRepository(DocumentRegistryEntry);
@@ -332,7 +343,7 @@ describe('Document governance integration', () => {
       descricao: 'Teste de integracao',
       data_inicio: new Date('2026-03-14'),
       data_fim: new Date('2026-03-15'),
-      status: AprStatus.PENDENTE,
+      status: AprStatus.APROVADA,
       company_id: companyId,
       site_id: siteId,
       elaborador_id: userId,
@@ -389,9 +400,11 @@ describe('Document governance integration', () => {
       tema: 'DDS Integracao',
       conteudo: 'Conteudo',
       data: new Date('2026-03-14'),
+      status: DdsStatus.PUBLICADO,
       company_id: companyId,
       site_id: siteId,
       facilitador_id: userId,
+      participants: [{ id: userId }],
     });
 
     await ddsService.attachPdf(dds.id, {

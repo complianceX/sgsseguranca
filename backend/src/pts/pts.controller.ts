@@ -206,7 +206,25 @@ export class PtsController {
   /** Retorna URL assinada (S3) ou null do PDF armazenado */
   @Get(':id/pdf')
   @Authorize('can_view_pt')
-  getPdfAccess(@Param('id', new ParseUUIDPipe()) id: string) {
+  async getPdfAccess(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    try {
+      const userId = this.getRequestUserId(req);
+      if (userId) {
+        await this.pdfRateLimitService.checkDownloadLimit(
+          userId,
+          this.getRequestIp(req),
+        );
+      }
+    } catch (error) {
+      throw new UnauthorizedException(this.getRequestErrorMessage(error));
+    }
+
     return this.ptsService.getPdfAccess(id);
   }
 
@@ -237,23 +255,7 @@ export class PtsController {
   @Authorize('can_view_pt')
   async findOne(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Req()
-    req: Request & {
-      user?: { id?: string; userId?: string; sub?: string };
-    },
   ) {
-    // Check rate limit for mass data access/PDF generation
-    try {
-      const userId = this.getRequestUserId(req);
-      if (userId) {
-        await this.pdfRateLimitService.checkDownloadLimit(
-          userId,
-          this.getRequestIp(req),
-        );
-      }
-    } catch (error) {
-      throw new UnauthorizedException(this.getRequestErrorMessage(error));
-    }
     return this.ptsService.findOne(id);
   }
 

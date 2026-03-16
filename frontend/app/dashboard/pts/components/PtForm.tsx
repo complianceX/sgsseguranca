@@ -311,7 +311,6 @@ export function PtForm({ id }: PtFormProps) {
   const focusTarget = searchParams.get('focus') as PtFocusTarget | null;
   const [fetching, setFetching] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
   
   const [aprs, setAprs] = useState<Apr[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
@@ -325,6 +324,9 @@ export function PtForm({ id }: PtFormProps) {
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [currentSigningUser, setCurrentSigningUser] = useState<User | null>(null);
   const [signatures, setSignatures] = useState<Record<string, { data: string; type: string }>>({});
+  const [persistedSignatures, setPersistedSignatures] = useState<
+    Record<string, { id?: string; data: string; type: string }>
+  >({});
   const [currentStep, setCurrentStep] = useState(1);
   const [draftRestored, setDraftRestored] = useState(false);
   const [sophieSuggestedRisks, setSophieSuggestedRisks] = useState<SophieDraftRiskSuggestion[]>([]);
@@ -791,6 +793,7 @@ export function PtForm({ id }: PtFormProps) {
       setValue('auditado_por_id', '', { shouldDirty: true, shouldValidate: false });
       setValue('executantes', [], { shouldDirty: true, shouldValidate: true });
       setSignatures({});
+      setPersistedSignatures({});
       lastHandledAprIdRef.current = '';
 
       if (companyId) {
@@ -923,24 +926,53 @@ export function PtForm({ id }: PtFormProps) {
         return { offlineQueued: true, ptId };
       }
 
-        // Attach final PDF and save signatures if we have a ptId
-        if (ptId) {
-          if (pdfFile) {
-            await ptsService.attachFile(ptId, pdfFile);
-          }
-
-          const signaturePromises = Object.entries(signatures).map(([userId, sig]) => 
-          signaturesService.create({
-            user_id: userId,
-            document_id: ptId as string,
-            document_type: 'PT',
-            signature_data: sig.data,
-            type: sig.type
-          })
+      // Persist signatures only after the PT entity exists.
+      if (ptId) {
+        const signaturesToDelete = Object.entries(persistedSignatures).filter(
+          ([userId, persisted]) => {
+            const current = signatures[userId];
+            return (
+              !current ||
+              current.data !== persisted.data ||
+              current.type !== persisted.type
+            );
+          },
         );
-        
-        if (signaturePromises.length > 0) {
-          await Promise.all(signaturePromises);
+        const signaturesToCreate = Object.entries(signatures).filter(
+          ([userId, current]) => {
+            const persisted = persistedSignatures[userId];
+            return (
+              !persisted ||
+              current.data !== persisted.data ||
+              current.type !== persisted.type
+            );
+          },
+        );
+
+        const signatureIdsToDelete = signaturesToDelete
+          .map(([, persisted]) => persisted.id)
+          .filter((signatureId): signatureId is string => Boolean(signatureId));
+
+        if (signatureIdsToDelete.length > 0) {
+          await Promise.all(
+            signatureIdsToDelete.map((signatureId) =>
+              signaturesService.deleteById(signatureId),
+            ),
+          );
+        }
+
+        if (signaturesToCreate.length > 0) {
+          await Promise.all(
+            signaturesToCreate.map(([userId, sig]) =>
+              signaturesService.create({
+                user_id: userId,
+                document_id: ptId as string,
+                document_type: 'PT',
+                signature_data: sig.data,
+                type: sig.type,
+              }),
+            ),
+          );
         }
       }
 
@@ -1043,11 +1075,21 @@ export function PtForm({ id }: PtFormProps) {
 
           // Pre-populate signatures state from backend
           const sigMap: Record<string, { data: string; type: string }> = {};
+          const persistedSigMap: Record<
+            string,
+            { id?: string; data: string; type: string }
+          > = {};
           sigs.forEach(s => {
             if (!s.user_id) return;
             sigMap[s.user_id] = { data: s.signature_data, type: s.type };
+            persistedSigMap[s.user_id] = {
+              id: s.id,
+              data: s.signature_data,
+              type: s.type,
+            };
           });
           setSignatures(sigMap);
+          setPersistedSignatures(persistedSigMap);
           companySeedId = pt.company_id;
           setAprs(
             dedupeById(
@@ -1106,6 +1148,7 @@ export function PtForm({ id }: PtFormProps) {
           setSophieRiskLevel('');
         } else if (draftStorageKey && typeof window !== 'undefined') {
           setPreApprovalHistory([]);
+          setPersistedSignatures({});
           const rawDraft =
             window.localStorage.getItem(draftStorageKey) ||
             (legacyDraftStorageKey
@@ -1875,7 +1918,6 @@ export function PtForm({ id }: PtFormProps) {
                     filteredUsers={filteredUsers}
                     analyzing={analyzing}
                     onAiAnalysis={handleAiAnalysis}
-                    onPdfSelected={setPdfFile}
                     onCompanyChange={handleCompanyChange}
                     onAprChange={handleAprLinked}
                   />

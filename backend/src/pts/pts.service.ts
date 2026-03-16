@@ -33,6 +33,7 @@ import {
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
+import { SignaturesService } from '../signatures/signatures.service';
 
 @Injectable()
 export class PtsService {
@@ -57,6 +58,7 @@ export class PtsService {
     private readonly workerOperationalStatusService: WorkerOperationalStatusService,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly signaturesService: SignaturesService,
   ) {}
 
   private assertPtDocumentMutable(pt: Pick<Pt, 'pdf_file_key'>) {
@@ -75,6 +77,25 @@ export class PtsService {
         'A PT precisa estar aprovada antes do anexo do PDF final.',
       );
     }
+  }
+
+  private buildPtDocumentCode(
+    pt: Pick<Pt, 'id' | 'numero' | 'titulo' | 'data_hora_inicio' | 'created_at'>,
+  ): string {
+    const candidateDate = pt.data_hora_inicio
+      ? new Date(pt.data_hora_inicio)
+      : pt.created_at
+        ? new Date(pt.created_at)
+        : new Date();
+    const year = Number.isNaN(candidateDate.getTime())
+      ? new Date().getFullYear()
+      : candidateDate.getFullYear();
+    const reference = String(pt.id || pt.numero || pt.titulo || 'PT')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .slice(-8)
+      .toUpperCase();
+
+    return `PT-${year}-${reference || String(Date.now()).slice(-6)}`;
   }
 
   private resolveStatusForGenericCreate(
@@ -279,6 +300,7 @@ export class PtsService {
         entityId: pt.id,
         title: pt.titulo || pt.numero || 'PT',
         documentDate: pt.data_hora_inicio || pt.created_at,
+        documentCode: this.buildPtDocumentCode(pt),
         fileKey: key,
         folderPath: folder,
         originalName: file.originalname,
@@ -605,6 +627,31 @@ export class PtsService {
       (!pt.executantes || pt.executantes.length === 0)
     ) {
       reasons.push('PT exige ao menos um executante vinculado');
+    }
+
+    const executantes = Array.isArray(pt.executantes) ? pt.executantes : [];
+    if (executantes.length > 0) {
+      const signatures = await this.signaturesService.findByDocument(pt.id, 'PT');
+      const signedExecutanteIds = new Set(
+        signatures
+          .map((signature) => signature.user_id)
+          .filter(
+            (userId): userId is string =>
+              Boolean(userId) &&
+              executantes.some((executante) => executante.id === userId),
+          ),
+      );
+      const pendingExecutantes = executantes.filter(
+        (executante) => !signedExecutanteIds.has(executante.id),
+      );
+
+      if (pendingExecutantes.length > 0) {
+        reasons.push(
+          `assinaturas pendentes dos executantes (${pendingExecutantes
+            .map((executante) => executante.nome || executante.id.slice(0, 8))
+            .join(', ')})`,
+        );
+      }
     }
 
     const workerIds = [

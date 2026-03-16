@@ -14,8 +14,16 @@ import { usersService } from '@/services/usersService';
 import { generatePtPdf } from '@/lib/pdf/ptGenerator';
 import { toast } from 'sonner';
 import { handleApiError } from '@/lib/error-handler';
-import { openPdfForPrint } from '@/lib/print-utils';
+import {
+  openPdfForPrint,
+  openUrlInNewTab,
+} from '@/lib/print-utils';
 import { isAiEnabled } from '@/lib/featureFlags';
+import {
+  base64ToPdfBlob,
+  base64ToPdfFile,
+  blobToBase64,
+} from '@/lib/pdf/pdfFile';
 import type {
   PtApprovalChecklistState,
   PtApprovalReview,
@@ -105,6 +113,20 @@ export function usePts() {
   // Estados para o modal de e-mail
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
+
+  const getErrorStatus = useCallback((error: unknown) => {
+    return (
+      Number(
+        (error as { response?: { status?: number } } | undefined)?.response
+          ?.status ?? 0,
+      ) || null
+    );
+  }, []);
+
+  const buildPtFilename = useCallback(
+    (pt: Pt) => `PT_${String(pt.numero || pt.titulo || pt.id).replace(/\s+/g, '_')}.pdf`,
+    [],
+  );
 
   const loadPts = useCallback(async () => {
     try {
@@ -318,11 +340,19 @@ export function usePts() {
         pt.escavacao && 'Escavação',
       ].filter(Boolean) as string[];
       const selectedExecutanteIds = Array.isArray(pt.executantes)
-        ? pt.executantes.map((executante) => executante.id).filter(Boolean)
+        ? pt.executantes
+            .map((executante) => executante.id)
+            .filter((userId): userId is string => Boolean(userId))
         : [];
+      const signedExecutanteIds = new Set(
+        signatures
+          .map((signature) => signature.user_id)
+          .filter((userId): userId is string => Boolean(userId))
+          .filter((userId) => selectedExecutanteIds.includes(userId)),
+      );
       const pendingSignatures = Math.max(
         0,
-        selectedExecutanteIds.length - signatures.length,
+        selectedExecutanteIds.length - signedExecutanteIds.size,
       );
 
       const generalChecklistSummary = summarizeChecklistAnswers(generalChecklist);
@@ -443,30 +473,136 @@ export function usePts() {
     [buildApprovalReview, dismissApprovalIssue],
   );
 
+  const getStoredPdfAttachment = useCallback(
+    async (pt: Pt): Promise<{ base64: string; filename: string } | null> => {
+      if (!pt.pdf_file_key) {
+        return null;
+      }
+
+      const access = await ptsService.getPdfAccess(pt.id);
+      if (!access.url) {
+        return null;
+      }
+
+      const response = await fetch(access.url);
+      if (!response.ok) {
+        throw new Error('Falha ao baixar o PDF final armazenado da PT.');
+      }
+
+      const blob = await response.blob();
+      return {
+        base64: await blobToBase64(blob),
+        filename: access.originalName || buildPtFilename(pt),
+      };
+    },
+    [buildPtFilename],
+  );
+
+  const ensureGovernedPdf = useCallback(
+    async (pt: Pt) => {
+      try {
+        return await ptsService.getPdfAccess(pt.id);
+      } catch (error) {
+        if (getErrorStatus(error) !== 404) {
+          throw error;
+        }
+      }
+
+      if (pt.status !== 'Aprovada') {
+        return null;
+      }
+
+      const [fullPt, signatures] = await Promise.all([
+        ptsService.findOne(pt.id),
+        signaturesService.findByDocument(pt.id, 'PT'),
+      ]);
+      const result = (await generatePtPdf(fullPt, signatures, {
+        save: false,
+        output: 'base64',
+      })) as { base64: string; filename: string } | undefined;
+
+      if (!result?.base64) {
+        throw new Error('Falha ao gerar o PDF oficial da PT.');
+      }
+
+      const pdfFile = base64ToPdfFile(
+        result.base64,
+        result.filename || buildPtFilename(fullPt),
+      );
+      await ptsService.attachFile(pt.id, pdfFile);
+      await loadPts();
+      toast.success('PDF final da PT emitido e registrado com sucesso.');
+      return ptsService.getPdfAccess(pt.id);
+    },
+    [buildPtFilename, getErrorStatus, loadPts],
+  );
+
   const handleDownloadPdf = useCallback(async (id: string) => {
     try {
+      const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
+      const shouldUseGovernedPdf = Boolean(pt.pdf_file_key) || pt.status === 'Aprovada';
+
+      if (shouldUseGovernedPdf) {
+        const access = await ensureGovernedPdf(pt);
+        if (access?.url) {
+          openUrlInNewTab(access.url);
+          return;
+        }
+
+        toast.warning(
+          'O PDF final da PT existe, mas a URL segura não está disponível no momento.',
+        );
+        return;
+      }
+
       toast.info('Gerando PDF...');
-      const [pt, signatures] = await Promise.all([
-        ptsService.findOne(id),
-        signaturesService.findByDocument(id, 'PT')
-      ]);
+      const signatures = await signaturesService.findByDocument(id, 'PT');
       await generatePtPdf(pt, signatures);
       toast.success('PDF gerado com sucesso!');
     } catch (error) {
       handleApiError(error, 'PDF');
     }
-  }, []);
+  }, [ensureGovernedPdf, pts]);
 
   const handleSendEmail = useCallback(async (id: string) => {
     try {
       toast.info('Preparando documento...');
-      const [pt, signatures] = await Promise.all([
-        ptsService.findOne(id),
-        signaturesService.findByDocument(id, 'PT')
-      ]);
-      const result = await generatePtPdf(pt, signatures, { save: false, output: 'base64' }) as { filename: string; base64: string };
-      
-      if (result) {
+      const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
+      const shouldUseGovernedPdf = Boolean(pt.pdf_file_key) || pt.status === 'Aprovada';
+
+      if (shouldUseGovernedPdf) {
+        const access = await ensureGovernedPdf(pt);
+        if (!access?.url) {
+          toast.warning(
+            'O PDF final da PT foi emitido, mas a URL segura não está disponível agora.',
+          );
+          return;
+        }
+
+        const storedAttachment = await getStoredPdfAttachment({
+          ...pt,
+          pdf_file_key: access.fileKey,
+          pdf_folder_path: access.folderPath,
+          pdf_original_name: access.originalName,
+        });
+        if (storedAttachment) {
+          setSelectedDoc({
+            name: pt.titulo,
+            filename: storedAttachment.filename,
+            base64: storedAttachment.base64,
+          });
+          setIsMailModalOpen(true);
+          return;
+        }
+      }
+
+      const signatures = await signaturesService.findByDocument(id, 'PT');
+      const result = (await generatePtPdf(pt, signatures, {
+        save: false,
+        output: 'base64',
+      })) as { filename: string; base64: string } | undefined;
+
+      if (result?.base64) {
         setSelectedDoc({
           name: pt.titulo,
           filename: result.filename,
@@ -477,25 +613,36 @@ export function usePts() {
     } catch (error) {
       handleApiError(error, 'Email');
     }
-  }, []);
+  }, [ensureGovernedPdf, getStoredPdfAttachment, pts]);
 
   const handlePrint = useCallback(async (id: string) => {
     try {
       toast.info('Preparando impressão...');
-      const [pt, signatures] = await Promise.all([
-        ptsService.findOne(id),
-        signaturesService.findByDocument(id, 'PT')
-      ]);
-      const result = await generatePtPdf(pt, signatures, { save: false, output: 'base64' }) as { base64: string };
-      if (result?.base64) {
-        const byteCharacters = atob(result.base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+      const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
+      const shouldUseGovernedPdf = Boolean(pt.pdf_file_key) || pt.status === 'Aprovada';
+
+      if (shouldUseGovernedPdf) {
+        const access = await ensureGovernedPdf(pt);
+        if (access?.url) {
+          openPdfForPrint(access.url, () => {
+            toast.info('Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressão.');
+          });
+          return;
         }
-        const byteArray = new Uint8Array(byteNumbers);
-        const file = new Blob([byteArray], { type: 'application/pdf' });
-        const fileURL = URL.createObjectURL(file);
+
+        toast.warning(
+          'O PDF final da PT foi emitido, mas a URL segura não está disponível agora.',
+        );
+        return;
+      }
+
+      const signatures = await signaturesService.findByDocument(id, 'PT');
+      const result = (await generatePtPdf(pt, signatures, {
+        save: false,
+        output: 'base64',
+      })) as { base64: string } | undefined;
+      if (result?.base64) {
+        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
         openPdfForPrint(fileURL, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
         });
@@ -503,7 +650,7 @@ export function usePts() {
     } catch (error) {
       handleApiError(error, 'Impressão');
     }
-  }, []);
+  }, [ensureGovernedPdf, pts]);
 
   const handleApprove = useCallback(async (id: string) => {
     const review = approvalReviewById[id];

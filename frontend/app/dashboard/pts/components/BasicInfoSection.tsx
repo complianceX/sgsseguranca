@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { Sparkles, Loader2, Upload } from 'lucide-react';
-import { toast } from 'sonner';
+import { Sparkles, Loader2, FileLock2 } from 'lucide-react';
 import type { Company } from '@/services/companiesService';
 import type { Site } from '@/services/sitesService';
 import type { Apr } from '@/services/aprsService';
@@ -20,7 +19,6 @@ type BasicInfoSectionProps = {
   filteredUsers: User[];
   analyzing: boolean;
   onAiAnalysis: () => void;
-  onPdfSelected: (file: File | null) => void;
   onCompanyChange?: (companyId: string) => void;
   onAprChange?: (aprId: string) => void;
 };
@@ -32,7 +30,6 @@ export function BasicInfoSection({
   filteredUsers,
   analyzing,
   onAiAnalysis,
-  onPdfSelected,
   onCompanyChange,
   onAprChange,
 }: BasicInfoSectionProps) {
@@ -42,8 +39,6 @@ export function BasicInfoSection({
     setValue,
     formState: { errors },
   } = useFormContext<PtFormData>();
-
-  const [selectedPdfName, setSelectedPdfName] = useState<string>('');
 
   const companyId = watch('company_id');
   const siteId = watch('site_id');
@@ -309,41 +304,24 @@ export function BasicInfoSection({
       </div>
 
       <div className="mt-6 rounded-xl border border-gray-200 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-bold text-gray-900">Anexar PDF (opcional)</p>
-            <p className="mt-1 text-xs text-gray-600">
-              Selecione um PDF para ser associado à PT quando o documento estiver salvo.
-            </p>
+        <div className="flex items-start gap-3">
+          <div className="rounded-lg bg-blue-50 p-2 text-blue-700">
+            <FileLock2 className="h-4 w-4" />
           </div>
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50">
-            <Upload className="h-4 w-4" />
-            Selecionar
-            <input
-              type="file"
-              accept="application/pdf"
-              aria-label="Selecionar PDF da PT"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                setSelectedPdfName(file.name);
-                toast.message('PDF selecionado', { description: file.name });
-                onPdfSelected(file);
-              }}
-            />
-          </label>
+          <div>
+            <p className="text-sm font-bold text-gray-900">PDF final governado</p>
+            <p className="mt-1 text-xs text-gray-600">
+              O formulário salva os dados operacionais da PT. O PDF final oficial
+              é emitido somente depois da aprovação, pelo fluxo documental da lista
+              de PTs e do storage semanal.
+            </p>
+            {siteId ? (
+              <p className="mt-2 text-[11px] text-gray-500">
+                Site selecionado: {String(siteId).slice(0, 8)}…
+              </p>
+            ) : null}
+          </div>
         </div>
-        {selectedPdfName && (
-          <p className="mt-3 text-xs text-gray-700">
-            Selecionado: <span className="font-semibold">{selectedPdfName}</span>
-          </p>
-        )}
-        {siteId && (
-          <p className="mt-1 text-[11px] text-gray-500">
-            Site selecionado: {String(siteId).slice(0, 8)}…
-          </p>
-        )}
       </div>
     </div>
   );

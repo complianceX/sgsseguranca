@@ -27,7 +27,11 @@ export async function generatePtPdf(
   const ctx = createPdfContext(doc, "critical");
   drawPageBackground(ctx);
 
-  const code = buildDocumentCode("PT", pt.id || pt.numero || pt.titulo);
+  const code = buildDocumentCode(
+    "PT",
+    pt.id || pt.numero || pt.titulo,
+    pt.data_hora_inicio,
+  );
   await drawPtBlueprint(ctx, autoTable, pt, signatures, code, buildValidationUrl(code));
 
   applyFooterGovernance(ctx, {
@@ -42,4 +46,3 @@ export async function generatePtPdf(
   }
   doc.save(filename);
 }
-

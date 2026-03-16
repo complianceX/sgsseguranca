@@ -11,6 +11,7 @@ import { WorkerOperationalStatusService } from '../users/worker-operational-stat
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
+import { SignaturesService } from '../signatures/signatures.service';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -32,6 +33,7 @@ describe('PtsService', () => {
   let workerOperationalStatusService: Partial<WorkerOperationalStatusService>;
   let documentStorageService: Partial<DocumentStorageService>;
   let documentGovernanceService: Partial<DocumentGovernanceService>;
+  let signaturesService: Partial<SignaturesService>;
 
   beforeEach(() => {
     ptsSaveMock = jest.fn((input: Pt) => Promise.resolve(input));
@@ -40,7 +42,9 @@ describe('PtsService', () => {
       findOne: jest.fn(),
       save: ptsSaveMock,
     } as unknown as jest.Mocked<Repository<Pt>>;
-    companiesRepository = {} as jest.Mocked<Repository<Company>>;
+    companiesRepository = {
+      findOne: jest.fn(),
+    } as unknown as jest.Mocked<Repository<Company>>;
     auditLogsRepository = {
       find: auditLogsFindMock,
     } as unknown as jest.Mocked<Repository<AuditLog>>;
@@ -54,7 +58,9 @@ describe('PtsService', () => {
     auditService = {
       log: jest.fn(),
     };
-    workerOperationalStatusService = {};
+    workerOperationalStatusService = {
+      getByUserIds: jest.fn().mockResolvedValue([]),
+    };
     documentStorageService = {
       generateDocumentKey: jest.fn(
         () => 'documents/company-1/pts/pt-1/pt-final.pdf',
@@ -65,6 +71,9 @@ describe('PtsService', () => {
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
       removeFinalDocumentReference: jest.fn(),
+    };
+    signaturesService = {
+      findByDocument: jest.fn().mockResolvedValue([]),
     };
 
     service = new PtsService(
@@ -77,6 +86,7 @@ describe('PtsService', () => {
       workerOperationalStatusService as WorkerOperationalStatusService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
+      signaturesService as SignaturesService,
     );
   });
 
@@ -236,6 +246,7 @@ describe('PtsService', () => {
         companyId: 'company-1',
         module: 'pt',
         entityId: 'pt-1',
+        documentCode: 'PT-2026-PT1',
         fileBuffer: file.buffer,
         createdBy: 'user-1',
       }),
@@ -456,5 +467,55 @@ describe('PtsService', () => {
     );
 
     expect(ptsSaveMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('bloqueia aprovacao quando ainda existem executantes sem assinatura unica valida', async () => {
+    ptsRepository.findOne.mockResolvedValue({
+      id: 'pt-1',
+      company_id: 'company-1',
+      status: PtStatus.PENDENTE,
+      pdf_file_key: null,
+      residual_risk: 'LOW',
+      control_evidence: true,
+      responsavel_id: 'resp-1',
+      executantes: [
+        { id: 'user-1', nome: 'Executor 1' },
+        { id: 'user-2', nome: 'Executor 2' },
+      ],
+    } as unknown as Pt);
+    (companiesRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'company-1',
+      pt_approval_rules: {
+        blockCriticalRiskWithoutEvidence: true,
+        blockWorkerWithoutValidMedicalExam: true,
+        blockWorkerWithExpiredBlockingTraining: true,
+        requireAtLeastOneExecutante: true,
+      },
+    });
+    (workerOperationalStatusService.getByUserIds as jest.Mock).mockResolvedValue([
+      {
+        user: { nome: 'Responsável' },
+        medicalExam: { status: 'VALIDO' },
+        trainings: { expiredBlocking: [] },
+      },
+      {
+        user: { nome: 'Executor 1' },
+        medicalExam: { status: 'VALIDO' },
+        trainings: { expiredBlocking: [] },
+      },
+      {
+        user: { nome: 'Executor 2' },
+        medicalExam: { status: 'VALIDO' },
+        trainings: { expiredBlocking: [] },
+      },
+    ]);
+    (signaturesService.findByDocument as jest.Mock).mockResolvedValue([
+      { user_id: 'user-1' },
+      { user_id: 'user-1' },
+    ]);
+
+    await expect(service.approve('pt-1', 'approver-1')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });

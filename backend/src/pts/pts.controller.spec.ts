@@ -16,13 +16,15 @@ import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { PtsController } from './pts.controller';
 import { PtsService } from './pts.service';
 
-describe('PtsController attachFile (http)', () => {
+describe('PtsController (http)', () => {
   const ptId = '11111111-1111-4111-8111-111111111111';
   let currentUser: { userId?: string; id?: string } = { userId: 'user-1' };
   let app: INestApplication;
 
   const ptsService = {
     attachPdf: jest.fn(),
+    findOne: jest.fn(),
+    getPdfAccess: jest.fn(),
   };
   const pdfRateLimitService = {
     checkDownloadLimit: jest.fn(),
@@ -31,6 +33,8 @@ describe('PtsController attachFile (http)', () => {
   beforeEach(() => {
     currentUser = { userId: 'user-1' };
     ptsService.attachPdf.mockReset();
+    ptsService.findOne.mockReset();
+    ptsService.getPdfAccess.mockReset();
     pdfRateLimitService.checkDownloadLimit.mockReset();
   });
 
@@ -167,5 +171,42 @@ describe('PtsController attachFile (http)', () => {
       expect.any(Object),
       'user-1',
     );
+  });
+
+  it('nao consome o rate limit ao abrir os dados da PT', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    ptsService.findOne.mockResolvedValue({
+      id: ptId,
+      numero: 'PT-001',
+    });
+
+    await request(httpServer).get(`/pts/${ptId}`).expect(200);
+
+    expect(pdfRateLimitService.checkDownloadLimit).not.toHaveBeenCalled();
+    expect(ptsService.findOne).toHaveBeenCalledWith(ptId);
+  });
+
+  it('consome o rate limit ao solicitar o acesso ao PDF final', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    ptsService.getPdfAccess.mockResolvedValue({
+      entityId: ptId,
+      fileKey: 'documents/company-1/pts/pt-1/pt-final.pdf',
+      folderPath: 'pts/company-1',
+      originalName: 'pt-final.pdf',
+      url: 'https://storage.example/pt-final.pdf',
+    });
+
+    await request(httpServer)
+      .get(`/pts/${ptId}/pdf`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.url).toBe('https://storage.example/pt-final.pdf');
+      });
+
+    expect(pdfRateLimitService.checkDownloadLimit).toHaveBeenCalledWith(
+      'user-1',
+      expect.any(String),
+    );
+    expect(ptsService.getPdfAccess).toHaveBeenCalledWith(ptId);
   });
 });

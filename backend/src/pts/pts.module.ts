@@ -12,6 +12,7 @@ import { AuditModule } from '../audit/audit.module';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { UsersModule } from '../users/users.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
+import { SignaturesModule } from '../signatures/signatures.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { DocumentRegistryModule } from '../document-registry/document-registry.m
     AuditModule,
     UsersModule,
     DocumentRegistryModule,
+    SignaturesModule,
   ],
   controllers: [PtsController],
   providers: [PtsService],

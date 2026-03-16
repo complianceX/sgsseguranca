@@ -199,7 +199,11 @@ export const PtsTableRow = React.memo(
                 size="icon"
                 variant="ghost"
                 onClick={() => onPrint(pt.id)}
-                title="Imprimir"
+                title={
+                  pt.pdf_file_key || isApproved
+                    ? 'Imprimir PDF final governado'
+                    : 'Imprimir pré-visualização'
+                }
               >
                 <Printer className="h-4 w-4" />
               </Button>
@@ -208,7 +212,11 @@ export const PtsTableRow = React.memo(
                 size="icon"
                 variant="ghost"
                 onClick={() => onSendEmail(pt.id)}
-                title="Enviar por e-mail"
+                title={
+                  pt.pdf_file_key || isApproved
+                    ? 'Enviar PDF final governado por e-mail'
+                    : 'Enviar pré-visualização por e-mail'
+                }
               >
                 <Mail className="h-4 w-4" />
               </Button>
@@ -217,7 +225,11 @@ export const PtsTableRow = React.memo(
                 size="icon"
                 variant="ghost"
                 onClick={() => onDownloadPdf(pt.id)}
-                title="Baixar PDF"
+                title={
+                  pt.pdf_file_key || isApproved
+                    ? 'Abrir PDF final governado'
+                    : 'Baixar PDF'
+                }
               >
                 <Download className="h-4 w-4" />
               </Button>

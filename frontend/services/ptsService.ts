@@ -353,7 +353,7 @@ export const ptsService = {
       fileKey: string;
       folderPath: string;
       originalName: string;
-      url: string;
+      url: string | null;
     }>(`/pts/${id}/pdf`);
     return response.data;
   },
