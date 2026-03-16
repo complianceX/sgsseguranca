@@ -5,6 +5,10 @@ import { DataSource } from 'typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { RedisService } from './common/redis/redis.service';
+import {
+  WorkerHeartbeatService,
+  WorkerHeartbeatStatus,
+} from './common/redis/worker-heartbeat.service';
 
 type RedisClientMock = {
   ping: jest.Mock<Promise<string>, []>;
@@ -20,6 +24,10 @@ describe('AppController', () => {
   let dataSource: DataSourceMock;
   let redisClient: RedisClientMock;
   let configService: { get: jest.Mock<string, [string, string?]> };
+  let workerHeartbeatStatusMock: jest.Mock<Promise<WorkerHeartbeatStatus>, []>;
+  let workerHeartbeatService: {
+    getStatus: typeof workerHeartbeatStatusMock;
+  };
 
   beforeEach(async () => {
     dataSource = {
@@ -40,6 +48,17 @@ describe('AppController', () => {
       }),
     };
 
+    workerHeartbeatStatusMock = jest
+      .fn<Promise<WorkerHeartbeatStatus>, []>()
+      .mockResolvedValue({
+        status: 'disabled',
+        required: false,
+        message: 'Worker heartbeat disabled by configuration or REDIS_DISABLED',
+      });
+    workerHeartbeatService = {
+      getStatus: workerHeartbeatStatusMock,
+    };
+
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
       providers: [
@@ -51,6 +70,10 @@ describe('AppController', () => {
           useValue: {
             getClient: () => redisClient,
           } satisfies Pick<RedisService, 'getClient'>,
+        },
+        {
+          provide: WorkerHeartbeatService,
+          useValue: workerHeartbeatService,
         },
       ],
     }).compile();
@@ -77,10 +100,31 @@ describe('AppController', () => {
     expect(result.checks.database.status).toBe('up');
     expect(result.checks.redis.status).toBe('disabled');
     expect(result.checks.migrations.status).toBe('skipped');
+    expect(result.checks.worker.status).toBe('disabled');
   });
 
   it('deve retornar degraded quando o banco não estiver inicializado', async () => {
     dataSource.isInitialized = false;
+
+    await expect(appController.healthCheck()).rejects.toThrow(
+      ServiceUnavailableException,
+    );
+  });
+
+  it('deve retornar degraded quando worker obrigatorio estiver sem heartbeat', async () => {
+    configService.get.mockImplementation(
+      (key: string, defaultValue?: string) => {
+        if (key === 'REDIS_DISABLED') return 'false';
+        if (key === 'REQUIRE_NO_PENDING_MIGRATIONS') return 'false';
+        return defaultValue ?? '';
+      },
+    );
+    workerHeartbeatService.getStatus.mockResolvedValue({
+      status: 'down',
+      required: true,
+      message: 'No active worker heartbeat found',
+    });
+    redisClient.ping.mockResolvedValue('PONG');
 
     await expect(appController.healthCheck()).rejects.toThrow(
       ServiceUnavailableException,

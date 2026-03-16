@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { AppService } from './app.service';
 import { Public } from './common/decorators/public.decorator';
 import { RedisService } from './common/redis/redis.service';
+import { WorkerHeartbeatService } from './common/redis/worker-heartbeat.service';
 
 @Controller()
 export class AppController {
@@ -12,6 +13,7 @@ export class AppController {
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
     private readonly redisService: RedisService,
+    private readonly workerHeartbeatService: WorkerHeartbeatService,
   ) {}
 
   @Public()
@@ -36,11 +38,13 @@ export class AppController {
     const database = await this.checkDatabase();
     const redis = await this.checkRedis();
     const migrations = await this.checkMigrations();
+    const worker = await this.workerHeartbeatService.getStatus();
 
     const ready =
       database.status === 'up' &&
       redis.status !== 'down' &&
-      migrations.status !== 'down';
+      migrations.status !== 'down' &&
+      (!worker.required || worker.status !== 'down');
 
     const payload = {
       status: ready ? 'ok' : 'degraded',
@@ -50,6 +54,7 @@ export class AppController {
         database,
         redis,
         migrations,
+        worker,
       },
     };
 

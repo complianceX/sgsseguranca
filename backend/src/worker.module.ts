@@ -5,12 +5,14 @@ import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import * as Joi from 'joi';
 import { DatabaseLogger } from './common/logging/database.logger';
+import { RedisModule } from './common/redis/redis.module';
 import { MailWorkerModule } from './mail/mail.worker.module';
 import { ReportsWorkerModule } from './reports/reports.worker.module';
 import { QueueServicesModule } from './queue/queue-services.module';
 import { ObservabilityModule } from './common/observability/observability.module';
 import { SlaEscalationWorkerModule } from './sla-escalation-worker.module';
 import { ExpiryNotificationsWorkerModule } from './tasks/expiry-notifications-worker.module';
+import { WorkerHeartbeatReporterService } from './common/redis/worker-heartbeat-reporter.service';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
   parseBooleanFlag,
@@ -158,6 +160,10 @@ const validationSchema = Joi.object({
   WORKER_TENANT_QUOTA_JITTER_MS: Joi.number().default(2000),
   WORKER_TENANT_QUOTA_PDF_JITTER_MS: Joi.number().default(2000),
   WORKER_TENANT_QUOTA_MAIL_JITTER_MS: Joi.number().default(2000),
+  WORKER_HEARTBEAT_ENABLED: Joi.boolean().default(true),
+  WORKER_HEARTBEAT_REQUIRED: Joi.boolean().default(true),
+  WORKER_HEARTBEAT_KEY: Joi.string().default('worker:heartbeat:queue-runtime'),
+  WORKER_HEARTBEAT_TTL_SECONDS: Joi.number().default(90),
 });
 
 @Module({
@@ -171,6 +177,7 @@ const validationSchema = Joi.object({
       },
     }),
     ScheduleModule.forRoot(),
+    RedisModule,
     BullModule.forRoot(
       (() => {
         const redisConnection = resolveRedisConnection(process.env);
@@ -247,6 +254,7 @@ const validationSchema = Joi.object({
     SlaEscalationWorkerModule,
     ExpiryNotificationsWorkerModule,
   ],
+  providers: [WorkerHeartbeatReporterService],
 })
 export class WorkerModule {
   private static getSSLConfig(
