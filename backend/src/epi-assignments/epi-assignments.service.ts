@@ -155,7 +155,7 @@ export class EpiAssignmentsService {
     const companyId = this.getTenantIdOrThrow();
     const assignment = await this.assignmentsRepository.findOne({
       where: { id, company_id: companyId },
-      relations: ['epi', 'user', 'site', 'contract'],
+      relations: ['epi', 'user', 'site'],
     });
     if (!assignment) {
       throw new NotFoundException(`Ficha EPI com ID ${id} não encontrada.`);
