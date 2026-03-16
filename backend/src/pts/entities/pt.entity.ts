@@ -83,7 +83,11 @@ export class Pt {
   responsavel_id: string;
 
   @ManyToMany(() => User)
-  @JoinTable({ name: 'pt_executantes' })
+  @JoinTable({
+    name: 'pt_executantes',
+    joinColumn: { name: 'pt_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
+  })
   executantes: User[];
 
   @Column({ default: false })

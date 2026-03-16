@@ -117,27 +117,51 @@ export class Apr {
   elaborador_id: string;
 
   @ManyToMany(() => Activity)
-  @JoinTable({ name: 'apr_activities' })
+  @JoinTable({
+    name: 'apr_activities',
+    joinColumn: { name: 'apr_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'activity_id', referencedColumnName: 'id' },
+  })
   activities: Activity[];
 
   @ManyToMany(() => Risk)
-  @JoinTable({ name: 'apr_risks' })
+  @JoinTable({
+    name: 'apr_risks',
+    joinColumn: { name: 'apr_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'risk_id', referencedColumnName: 'id' },
+  })
   risks: Risk[];
 
   @ManyToMany(() => Epi)
-  @JoinTable({ name: 'apr_epis' })
+  @JoinTable({
+    name: 'apr_epis',
+    joinColumn: { name: 'apr_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'epi_id', referencedColumnName: 'id' },
+  })
   epis: Epi[];
 
   @ManyToMany(() => Tool)
-  @JoinTable({ name: 'apr_tools' })
+  @JoinTable({
+    name: 'apr_tools',
+    joinColumn: { name: 'apr_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tool_id', referencedColumnName: 'id' },
+  })
   tools: Tool[];
 
   @ManyToMany(() => Machine)
-  @JoinTable({ name: 'apr_machines' })
+  @JoinTable({
+    name: 'apr_machines',
+    joinColumn: { name: 'apr_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'machine_id', referencedColumnName: 'id' },
+  })
   machines: Machine[];
 
   @ManyToMany(() => User)
-  @JoinTable({ name: 'apr_participants' })
+  @JoinTable({
+    name: 'apr_participants',
+    joinColumn: { name: 'apr_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'user_id', referencedColumnName: 'id' },
+  })
   participants: User[];
 
   @ManyToOne(() => User, { nullable: true })
