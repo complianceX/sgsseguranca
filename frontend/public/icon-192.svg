@@ -4,24 +4,50 @@
       <stop offset="0" stop-color="#1e6b43"/>
       <stop offset="1" stop-color="#0c2e1a"/>
     </linearGradient>
-    <linearGradient id="sf" x1="96" y1="32" x2="96" y2="158" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="rgba(255,255,255,0.20)"/>
-      <stop offset="1" stop-color="rgba(255,255,255,0.06)"/>
-    </linearGradient>
+    <mask id="hub">
+      <rect width="192" height="192" fill="white"/>
+      <circle cx="96" cy="88" r="41" fill="black"/>
+    </mask>
+    <clipPath id="front">
+      <rect x="80" y="0" width="112" height="92"/>
+    </clipPath>
   </defs>
+
+  <!-- Fundo verde -->
   <rect width="192" height="192" rx="40" fill="url(#bg)"/>
-  <rect x="2" y="2" width="188" height="188" rx="38.5" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="2"/>
-  <path d="M96 34 L142 55 L142 99 Q142 137 96 158 Q50 137 50 99 L50 55 Z"
-    fill="url(#sf)"
-    stroke="rgba(255,255,255,0.28)"
-    stroke-width="3"
-    stroke-linejoin="round"
+
+  <!-- Swoosh atrás -->
+  <path d="M 20,158 C 45,126 72,108 96,103 C 120,98 143,79 176,47"
+    stroke="#22c55e" stroke-width="18" fill="none" stroke-linecap="round" opacity="0.75"/>
+
+  <!-- Engrenagem preta -->
+  <polygon
+    points="
+      87.5,38 90.8,27 101.2,27 104.5,38
+      112.7,40.3 120.9,32.5 130.1,37.7 127.3,48.8
+      133.6,55 144.7,52.5 149.8,61.4 142.3,69.5
+      144.3,77.8 155.4,81.4 155.4,92.6 144.3,96.2
+      142.3,104.5 149.8,113.4 144.7,122.3 133.6,119.8
+      127.3,128 130.1,139.1 120.9,144.3 112.7,136.5
+      104.5,138.8 101.2,149.8 90.8,149.8 87.5,138.8
+      79.3,136.5 71.1,144.3 61.9,139.1 64.7,128
+      58.4,119.8 47.3,122.3 42.2,113.4 49.7,104.5
+      47.7,96.2 36.6,92.6 36.6,81.4 47.7,77.8
+      49.7,69.5 42.2,61.4 47.3,52.5 58.4,55
+      64.7,48.8 61.9,37.7 71.1,32.5 79.3,40.3"
+    fill="#111827"
+    mask="url(#hub)"
   />
-  <path d="M68 98 L86 116 L126 76"
-    stroke="white"
-    stroke-width="10"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    fill="none"
-  />
+
+  <!-- Capacete âmbar -->
+  <path d="M 73.5,92 Q 71,58.5 96,55 Q 121,58.5 118.5,92 Z" fill="#F59E0B"/>
+  <path d="M 84.5,64 Q 84,77 84,92" stroke="rgba(255,255,255,0.28)" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Aba -->
+  <path d="M 60,92 L 132,92 L 130,100 Q 96,104 62,100 Z" fill="#F59E0B"/>
+  <line x1="60" y1="92" x2="132" y2="92" stroke="rgba(0,0,0,0.18)" stroke-width="1.5"/>
+
+  <!-- Swoosh na frente -->
+  <path d="M 20,158 C 45,126 72,108 96,103 C 120,98 143,79 176,47"
+    stroke="#22c55e" stroke-width="18" fill="none" stroke-linecap="round" opacity="0.75"
+    clip-path="url(#front)"/>
 </svg>

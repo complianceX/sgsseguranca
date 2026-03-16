@@ -1,29 +1,55 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
-  <!-- Maskable: full bleed background, safe zone = central 80% -->
+  <!-- Maskable: fundo full-bleed, conteúdo dentro do safe zone (80% central) -->
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#1e6b43"/>
       <stop offset="1" stop-color="#0c2e1a"/>
     </linearGradient>
-    <linearGradient id="sf" x1="256" y1="130" x2="256" y2="390" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="rgba(255,255,255,0.20)"/>
-      <stop offset="1" stop-color="rgba(255,255,255,0.06)"/>
-    </linearGradient>
+    <mask id="hub">
+      <rect width="512" height="512" fill="white"/>
+      <circle cx="256" cy="244" r="100" fill="black"/>
+    </mask>
+    <clipPath id="front">
+      <rect x="220" y="0" width="292" height="256"/>
+    </clipPath>
   </defs>
-  <!-- Full bleed — no border radius for maskable -->
+
+  <!-- Fundo full-bleed sem border-radius -->
   <rect width="512" height="512" fill="url(#bg)"/>
-  <!-- Shield inset within safe zone (>10% padding each side) -->
-  <path d="M256 130 L360 178 L360 278 Q360 362 256 400 Q152 362 152 278 L152 178 Z"
-    fill="url(#sf)"
-    stroke="rgba(255,255,255,0.28)"
-    stroke-width="7"
-    stroke-linejoin="round"
+
+  <!-- Swoosh atrás -->
+  <path d="M 70,430 C 135,355 200,308 256,294 C 312,280 370,232 460,148"
+    stroke="#22c55e" stroke-width="44" fill="none" stroke-linecap="round" opacity="0.72"/>
+
+  <!-- Engrenagem preta — safe zone -->
+  <polygon
+    points="
+      237.9,116 246.5,88 265.5,88 274.1,116
+      295.2,121.6 317,101.5 340.2,115 333.3,143.8
+      349.3,160 378,153.3 390.1,176.2 370,196.3
+      375.4,217.2 403.6,226.3 403.6,253.7 375.4,262.8
+      370,283.7 390.1,303.8 378,326.7 349.3,320
+      333.3,340.2 340.2,369 317,382.5 295.2,362.4
+      274.1,368 265.5,396 246.5,396 237.9,368
+      216.8,362.4 194,382.5 170.8,369 177.7,340.2
+      161.7,320 133,326.7 120.9,303.8 141,283.7
+      135.6,262.8 107.4,253.7 107.4,226.3 135.6,217.2
+      141,196.3 120.9,176.2 133,153.3 161.7,160
+      177.7,143.8 170.8,115 194,101.5 216.8,121.6"
+    fill="#111827"
+    mask="url(#hub)"
   />
-  <path d="M196 276 L238 318 L328 228"
-    stroke="white"
-    stroke-width="26"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    fill="none"
-  />
+
+  <!-- Capacete âmbar -->
+  <path d="M 200,256 Q 193,168 256,158 Q 319,168 312,256 Z" fill="#F59E0B"/>
+  <path d="M 228,183 Q 226,218 226,256" stroke="rgba(255,255,255,0.28)" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M 281,172 Q 279,215 279,256" stroke="rgba(255,255,255,0.16)" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- Aba -->
+  <path d="M 166,256 L 346,256 L 341,276 Q 256,285 171,276 Z" fill="#F59E0B"/>
+  <line x1="166" y1="256" x2="346" y2="256" stroke="rgba(0,0,0,0.18)" stroke-width="3"/>
+
+  <!-- Swoosh na frente -->
+  <path d="M 70,430 C 135,355 200,308 256,294 C 312,280 370,232 460,148"
+    stroke="#22c55e" stroke-width="44" fill="none" stroke-linecap="round" opacity="0.72"
+    clip-path="url(#front)"/>
 </svg>

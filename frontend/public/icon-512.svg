@@ -4,24 +4,51 @@
       <stop offset="0" stop-color="#1e6b43"/>
       <stop offset="1" stop-color="#0c2e1a"/>
     </linearGradient>
-    <linearGradient id="sf" x1="256" y1="88" x2="256" y2="422" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="rgba(255,255,255,0.20)"/>
-      <stop offset="1" stop-color="rgba(255,255,255,0.06)"/>
-    </linearGradient>
+    <mask id="hub">
+      <rect width="512" height="512" fill="white"/>
+      <circle cx="256" cy="234" r="109" fill="black"/>
+    </mask>
+    <clipPath id="front">
+      <rect x="214" y="0" width="298" height="246"/>
+    </clipPath>
   </defs>
+
+  <!-- Fundo verde -->
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <rect x="4" y="4" width="504" height="504" rx="109" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="4"/>
-  <path d="M256 90 L378 146 L378 264 Q378 366 256 422 Q134 366 134 264 L134 146 Z"
-    fill="url(#sf)"
-    stroke="rgba(255,255,255,0.28)"
-    stroke-width="8"
-    stroke-linejoin="round"
+
+  <!-- Swoosh atrás -->
+  <path d="M 53,420 C 120,338 194,290 256,275 C 318,260 382,208 470,124"
+    stroke="#22c55e" stroke-width="48" fill="none" stroke-linecap="round" opacity="0.75"/>
+
+  <!-- Engrenagem preta -->
+  <polygon
+    points="
+      232.9,101.5 242,72 270,72 279.1,101.5
+      301.4,107.4 324.2,86.5 348.6,100.5 341.4,130.4
+      358.1,147.2 388,140.2 400.6,163.8 379.7,184.7
+      385.3,206.4 414.8,215.8 414.8,244.2 385.3,253.6
+      379.7,275.3 400.6,296.2 388,319.8 358.1,312.8
+      341.4,332.6 348.6,362.5 324.2,376.5 301.4,355.6
+      279.1,361.5 270,391 242,391 232.9,361.5
+      210.6,355.6 187.8,376.5 163.4,362.5 170.6,332.6
+      153.9,312.8 124,319.8 111.4,296.2 132.3,275.3
+      126.7,253.6 97.2,244.2 97.2,215.8 126.7,206.4
+      132.3,184.7 111.4,163.8 124,140.2 153.9,147.2
+      170.6,130.4 163.4,100.5 187.8,86.5 210.6,107.4"
+    fill="#111827"
+    mask="url(#hub)"
   />
-  <path d="M182 262 L230 310 L336 204"
-    stroke="white"
-    stroke-width="28"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    fill="none"
-  />
+
+  <!-- Capacete âmbar -->
+  <path d="M 196,246 Q 189,156 256,146 Q 323,156 316,246 Z" fill="#F59E0B"/>
+  <path d="M 226,172 Q 224,208 224,246" stroke="rgba(255,255,255,0.28)" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M 280,161 Q 278,204 278,246" stroke="rgba(255,255,255,0.16)" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- Aba -->
+  <path d="M 160,246 L 352,246 L 347,267 Q 256,276 165,267 Z" fill="#F59E0B"/>
+  <line x1="160" y1="246" x2="352" y2="246" stroke="rgba(0,0,0,0.18)" stroke-width="3"/>
+
+  <!-- Swoosh na frente -->
+  <path d="M 53,420 C 120,338 194,290 256,275 C 318,260 382,208 470,124"
+    stroke="#22c55e" stroke-width="48" fill="none" stroke-linecap="round" opacity="0.75"
+    clip-path="url(#front)"/>
 </svg>
