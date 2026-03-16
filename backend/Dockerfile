@@ -32,7 +32,7 @@ COPY --from=builder /app/scripts ./scripts
 
 # Entrypoint (sem migrations no boot)
 COPY entrypoint.sh ./entrypoint.sh
-RUN chmod +x ./entrypoint.sh
+RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
 # Porta dinâmica Railway (process.env.PORT em runtime)
 EXPOSE 8080
