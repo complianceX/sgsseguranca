@@ -1,4 +1,5 @@
-import api from '@/lib/api';
+import api from "@/lib/api";
+import { AxiosError } from "axios";
 
 export interface DashboardSummaryResponse {
   counts: {
@@ -80,8 +81,16 @@ export interface DashboardSummaryResponse {
 export interface DashboardKpisResponse {
   leading: {
     apr_before_task: { total: number; compliant: number; percentage: number };
-    completed_inspections: { total: number; completed: number; percentage: number };
-    training_compliance: { total: number; compliant: number; percentage: number };
+    completed_inspections: {
+      total: number;
+      completed: number;
+      percentage: number;
+    };
+    training_compliance: {
+      total: number;
+      compliant: number;
+      percentage: number;
+    };
   };
   lagging: {
     recurring_nc: number;
@@ -160,6 +169,8 @@ export interface TstDayDashboard {
 }
 
 export interface DashboardPendingQueueResponse {
+  degraded?: boolean;
+  failedSources?: string[];
   summary: {
     total: number;
     critical: number;
@@ -173,10 +184,10 @@ export interface DashboardPendingQueueResponse {
     id: string;
     sourceId: string;
     module: string;
-    category: 'documents' | 'health' | 'actions';
+    category: "documents" | "health" | "actions";
     title: string;
     description: string;
-    priority: 'critical' | 'high' | 'medium';
+    priority: "critical" | "high" | "medium";
     status: string;
     responsible: string | null;
     siteId: string | null;
@@ -188,29 +199,52 @@ export interface DashboardPendingQueueResponse {
 
 export const dashboardService = {
   getSummary: async () => {
-    const response = await api.get<DashboardSummaryResponse>('/dashboard/summary');
+    const response =
+      await api.get<DashboardSummaryResponse>("/dashboard/summary");
     return response.data;
   },
 
   getKpis: async () => {
-    const response = await api.get<DashboardKpisResponse>('/dashboard/kpis');
+    const response = await api.get<DashboardKpisResponse>("/dashboard/kpis");
     return response.data;
   },
 
   getHeatmap: async () => {
-    const response = await api.get<DashboardHeatmapResponse>('/dashboard/heatmap');
+    const response =
+      await api.get<DashboardHeatmapResponse>("/dashboard/heatmap");
     return response.data;
   },
 
   getTstDay: async () => {
-    const response = await api.get<TstDayDashboard>('/dashboard/tst-day');
+    const response = await api.get<TstDayDashboard>("/dashboard/tst-day");
     return response.data;
   },
 
   getPendingQueue: async () => {
-    const response = await api.get<DashboardPendingQueueResponse>(
-      '/dashboard/pending-queue',
-    );
-    return response.data;
+    try {
+      const response = await api.get<DashboardPendingQueueResponse>(
+        "/dashboard/pending-queue",
+      );
+      return response.data;
+    } catch (error) {
+      const status = (error as AxiosError).response?.status;
+      if (status && [429, 500, 502, 503, 504].includes(status)) {
+        return {
+          degraded: true,
+          failedSources: ["pending-queue"],
+          summary: {
+            total: 0,
+            critical: 0,
+            high: 0,
+            medium: 0,
+            documents: 0,
+            health: 0,
+            actions: 0,
+          },
+          items: [],
+        } satisfies DashboardPendingQueueResponse;
+      }
+      throw error;
+    }
   },
 };

@@ -24,7 +24,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { openPdfForPrint } from '@/lib/print-utils';
+import {
+  openPdfForPrint,
+  openUrlInNewTab,
+  resolveSafeBrowserUrl,
+} from '@/lib/print-utils';
 
 export interface StoredFileItem {
   entityId: string;
@@ -123,7 +127,7 @@ export function StoredFilesPanel({
       if (!access.url) {
         throw new Error('PDF indisponível para download.');
       }
-      window.open(access.url, '_blank', 'noopener,noreferrer');
+      openUrlInNewTab(access.url);
     } catch (error) {
       console.error('Erro ao abrir PDF:', error);
       toast.error('Não foi possível abrir o PDF.');
@@ -146,7 +150,7 @@ export function StoredFilesPanel({
       if (!access.url) {
         throw new Error('Link indisponível para este PDF.');
       }
-      await navigator.clipboard.writeText(access.url);
+      await navigator.clipboard.writeText(resolveSafeBrowserUrl(access.url));
       toast.success('Link do PDF copiado.');
     } catch (error) {
       console.error('Erro ao copiar link:', error);

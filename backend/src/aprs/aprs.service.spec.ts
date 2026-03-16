@@ -25,7 +25,7 @@ describe('AprsService', () => {
   };
   let documentStorageService: Pick<
     DocumentStorageService,
-    'generateDocumentKey' | 'uploadFile' | 'deleteFile'
+    'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
   >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
@@ -46,6 +46,9 @@ describe('AprsService', () => {
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
       deleteFile: jest.fn(() => Promise.resolve()),
+      getSignedUrl: jest.fn((key: string) =>
+        Promise.resolve(`https://signed.example/${encodeURIComponent(key)}`),
+      ),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
@@ -212,5 +215,63 @@ describe('AprsService', () => {
     expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
       'documents/company-1/aprs/apr-1/apr-final.pdf',
     );
+  });
+
+  it('lista evidencias da APR com URLs assinadas quando disponiveis', async () => {
+    const find = jest.fn().mockResolvedValue([
+      {
+        id: 'evidence-1',
+        apr_id: 'apr-1',
+        apr_risk_item_id: 'risk-1',
+        uploaded_by_id: 'user-1',
+        uploaded_by: { nome: 'Carlos' },
+        file_key: 'documents/company-1/aprs/apr-1/evidence-1.jpg',
+        original_name: 'evidence-1.jpg',
+        mime_type: 'image/jpeg',
+        file_size_bytes: 1024,
+        hash_sha256: 'hash-1',
+        watermarked_file_key:
+          'documents/company-1/aprs/apr-1/evidence-1-watermarked.jpg',
+        watermarked_hash_sha256: 'hash-watermarked-1',
+        watermark_text: 'APR-001',
+        captured_at: new Date('2026-03-16T10:00:00.000Z'),
+        uploaded_at: new Date('2026-03-16T10:05:00.000Z'),
+        latitude: '-23.5505',
+        longitude: '-46.6333',
+        accuracy_m: '5.4',
+        device_id: 'device-1',
+        ip_address: '127.0.0.1',
+        exif_datetime: new Date('2026-03-16T09:59:00.000Z'),
+        integrity_flags: { gps: true },
+        apr_risk_item: { ordem: 3 },
+      },
+    ]);
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+    } as Apr);
+    (aprRepository as unknown as { manager: unknown }).manager = {
+      getRepository: jest.fn(() => ({ find })),
+    };
+
+    const result = await service.listAprEvidences('apr-1');
+
+    expect(find).toHaveBeenCalledWith({
+      where: { apr_id: 'apr-1' },
+      relations: ['apr_risk_item', 'uploaded_by'],
+      order: { uploaded_at: 'DESC' },
+    });
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 'evidence-1',
+        uploaded_by_name: 'Carlos',
+        risk_item_ordem: 3,
+        latitude: -23.5505,
+        longitude: -46.6333,
+        accuracy_m: 5.4,
+        url: expect.stringContaining('documents%2Fcompany-1%2Faprs'),
+        watermarked_url: expect.stringContaining('watermarked'),
+      }),
+    ]);
   });
 });

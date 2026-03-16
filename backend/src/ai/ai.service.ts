@@ -815,15 +815,74 @@ export class AiService {
     };
   }
 
+  private buildInsightsFallback(
+    safetyScore: number,
+    note: string,
+  ): InsightsResponse {
+    return {
+      safetyScore,
+      summary:
+        'SOPHIE indisponivel no momento para sintetizar insights. Confira os modulos de Treinamentos, Exames e Nao Conformidades.',
+      timestamp: new Date().toISOString(),
+      confidence: 'low',
+      notes: [note],
+      insights: [
+        {
+          type: 'info',
+          title: 'Treinamentos',
+          message: 'Revise vencimentos e bloqueios por treinamento.',
+          action: '/dashboard/trainings',
+        },
+        {
+          type: 'info',
+          title: 'Exames (PCMSO)',
+          message: 'Verifique ASOs e pendencias do PCMSO.',
+          action: '/dashboard/medical-exams',
+        },
+        {
+          type: 'warning',
+          title: 'Nao Conformidades',
+          message:
+            'Priorize NCs abertas e em andamento com maior criticidade.',
+          action: '/dashboard/nonconformities',
+        },
+      ],
+    };
+  }
+
   async getInsights(): Promise<InsightsResponse> {
-    const tenantId = this.getTenantIdOrThrow();
+    const tenantId = this.tenantService.getTenantId();
+    if (!tenantId) {
+      this.logger.error(
+        '[SOPHIE] Contexto de tenant ausente ao solicitar insights.',
+      );
+      throw new BadRequestException(
+        'Contexto da empresa indisponivel para gerar insights.',
+      );
+    }
+
     await this.enforceRateLimit(tenantId);
 
-    const [trainings, exams, ncs] = await Promise.all([
-      this.trainingsService.findExpirySummary(),
-      this.medicalExamsService.findExpirySummary(),
-      this.nonConformitiesService.summarizeByStatus(),
-    ]);
+    let trainings: Awaited<ReturnType<TrainingsService['findExpirySummary']>>;
+    let exams: Awaited<ReturnType<MedicalExamsService['findExpirySummary']>>;
+    let ncs: Awaited<ReturnType<NonConformitiesService['summarizeByStatus']>>;
+
+    try {
+      [trainings, exams, ncs] = await Promise.all([
+        this.trainingsService.findExpirySummary(),
+        this.medicalExamsService.findExpirySummary(),
+        this.nonConformitiesService.summarizeByStatus(),
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `[SOPHIE] Falha ao compor insights do tenant ${tenantId}: ${message}`,
+      );
+      return this.buildInsightsFallback(
+        0,
+        'Fallback local aplicado por indisponibilidade temporaria dos dados base de SST.',
+      );
+    }
 
     const openish =
       (ncs.byStatus?.['ABERTA'] ?? 0) +
@@ -898,37 +957,10 @@ export class AiService {
         // ignore logging failure
       }
 
-      return {
+      return this.buildInsightsFallback(
         safetyScore,
-        summary:
-          'SOPHIE indisponivel no momento para sintetizar insights. Confira os modulos de Treinamentos, Exames e Nao Conformidades.',
-        timestamp: new Date().toISOString(),
-        confidence: 'low',
-        notes: [
-          'Fallback local aplicado por indisponibilidade temporaria da API de IA.',
-        ],
-        insights: [
-          {
-            type: 'info',
-            title: 'Treinamentos',
-            message: 'Revise vencimentos e bloqueios por treinamento.',
-            action: '/dashboard/trainings',
-          },
-          {
-            type: 'info',
-            title: 'Exames (PCMSO)',
-            message: 'Verifique ASOs e pendencias do PCMSO.',
-            action: '/dashboard/medical-exams',
-          },
-          {
-            type: 'warning',
-            title: 'Nao Conformidades',
-            message:
-              'Priorize NCs abertas e em andamento com maior criticidade.',
-            action: '/dashboard/nonconformities',
-          },
-        ],
-      };
+        'Fallback local aplicado por indisponibilidade temporaria da API de IA.',
+      );
     }
   }
 

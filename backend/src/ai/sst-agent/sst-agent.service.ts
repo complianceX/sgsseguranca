@@ -31,7 +31,6 @@ import {
 } from '../sophie.prompts';
 import { SophieLocalChatService } from '../../sophie/sophie.local-chat.service';
 import {
-  GEMINI_TOOL_DECLARATIONS,
   OPENAI_TOOL_DEFINITIONS,
   SstToolsExecutor,
   SST_TOOL_DEFINITIONS,
@@ -60,8 +59,6 @@ import {
 
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 const ANTHROPIC_PROVIDER = 'anthropic';
-const GEMINI_PROVIDER = 'gemini';
-const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 const OPENAI_PROVIDER = 'openai';
 const LOCAL_PROVIDER = 'local';
 const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
@@ -86,48 +83,8 @@ const ALLOWED_IMAGE_MIME_TYPES = [
 type SupportedAiProvider =
   | typeof OPENAI_PROVIDER
   | typeof ANTHROPIC_PROVIDER
-  | typeof GEMINI_PROVIDER
   | typeof LOCAL_PROVIDER
   | 'stub';
-
-type GeminiGenerateContentResponse = {
-  candidates?: Array<{
-    content?: GeminiContent;
-    finishReason?: string;
-  }>;
-  usageMetadata?: {
-    promptTokenCount?: number;
-    candidatesTokenCount?: number;
-    totalTokenCount?: number;
-  };
-  promptFeedback?: {
-    blockReason?: string;
-  };
-};
-
-type GeminiFunctionCall = {
-  name: string;
-  args?: Record<string, unknown>;
-};
-
-type GeminiPart = {
-  text?: string;
-  inlineData?: {
-    mimeType: string;
-    data: string;
-  };
-  functionCall?: GeminiFunctionCall;
-  functionResponse?: {
-    name: string;
-    response: Record<string, unknown>;
-  };
-  thoughtSignature?: string;
-};
-
-type GeminiContent = {
-  role: 'user' | 'model';
-  parts: GeminiPart[];
-};
 
 // ---------------------------------------------------------------------------
 // Prompt de sistema
@@ -144,7 +101,6 @@ const SST_IMAGE_ANALYSIS_PROMPT = SOPHIE_IMAGE_ANALYSIS_PROMPT;
 export class SstAgentService {
   private readonly logger = new Logger(SstAgentService.name);
   private readonly anthropic: Anthropic | null;
-  private readonly geminiApiKey: string | null;
   private readonly openaiApiKey: string | null;
   private readonly openaiModel: string;
   private readonly openaiVisionModel: string;
@@ -172,9 +128,6 @@ export class SstAgentService {
     const anthropicModel =
       this.configService.get<string>('ANTHROPIC_MODEL')?.trim() ||
       DEFAULT_ANTHROPIC_MODEL;
-    const geminiModel =
-      this.configService.get<string>('GEMINI_MODEL')?.trim() ||
-      DEFAULT_GEMINI_MODEL;
     const openaiModel =
       this.configService.get<string>('OPENAI_MODEL')?.trim() ||
       DEFAULT_OPENAI_MODEL;
@@ -190,8 +143,6 @@ export class SstAgentService {
         ?.trim()
         .toLowerCase() as 'minimal' | 'low' | 'medium' | 'high' | undefined) ||
       DEFAULT_OPENAI_REASONING_EFFORT;
-
-    this.geminiApiKey = null;
     this.openaiApiKey = openaiApiKey;
     this.openaiModel = openaiModel;
     this.openaiVisionModel = openaiVisionModel;
@@ -217,7 +168,6 @@ export class SstAgentService {
       DEFAULT_AI_HISTORY_MAX_LIMIT,
     );
     this.anthropic = null;
-    this.geminiApiKey = null;
 
     const configuredProvider = this.configService
       .get<string>('AI_PROVIDER')
@@ -1084,236 +1034,6 @@ export class SstAgentService {
       analysis: this.parseImageRiskAnalysis(answer),
       inputTokens: payload.usage?.prompt_tokens ?? 0,
       outputTokens: payload.usage?.completion_tokens ?? 0,
-    };
-  }
-
-  private async runGeminiAgentLoop(
-    question: string,
-    history: ConversationMessage[],
-  ): Promise<{
-    result: SstAgentResponse;
-    inputTokens: number;
-    outputTokens: number;
-    toolsUsed: string[];
-  }> {
-    if (!this.geminiApiKey) {
-      throw new Error('GEMINI_API_KEY nao configurada.');
-    }
-
-    const toolsUsed: string[] = [];
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-    const historyContents: GeminiContent[] = history.map((message) => ({
-      role: message.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: message.content }],
-    }));
-    const contents: GeminiContent[] = [
-      ...historyContents,
-      {
-        role: 'user' as const,
-        parts: [{ text: question }],
-      },
-    ];
-
-    for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`,
-        {
-          method: 'POST',
-          // Credencial via header — nunca expor em query string (logs, proxies, traces)
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': this.geminiApiKey,
-          },
-          body: JSON.stringify({
-            systemInstruction: {
-              parts: [{ text: SST_SYSTEM_PROMPT }],
-            },
-            contents,
-            tools: [
-              {
-                functionDeclarations: GEMINI_TOOL_DECLARATIONS,
-              },
-            ],
-            generationConfig: {
-              temperature: 0.2,
-              maxOutputTokens: MAX_TOKENS,
-            },
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        const body = await response.text();
-        throw new Error(`Gemini API error ${response.status}: ${body}`);
-      }
-
-      const payload = (await response.json()) as GeminiGenerateContentResponse;
-      if (payload.promptFeedback?.blockReason) {
-        throw new Error(
-          `Gemini bloqueou a resposta: ${payload.promptFeedback.blockReason}`,
-        );
-      }
-
-      totalInputTokens += payload.usageMetadata?.promptTokenCount ?? 0;
-      totalOutputTokens += payload.usageMetadata?.candidatesTokenCount ?? 0;
-
-      const candidate = payload.candidates?.[0];
-      const modelContent = candidate?.content;
-      if (!modelContent?.parts?.length) {
-        throw new Error('Gemini nao retornou conteudo utilizavel.');
-      }
-
-      const functionCalls = modelContent.parts
-        .map((part) => part.functionCall)
-        .filter((value): value is GeminiFunctionCall => Boolean(value?.name));
-      const text = modelContent.parts
-        .map((part) => part.text?.trim())
-        .filter((value): value is string => Boolean(value))
-        .join('\n')
-        .trim();
-
-      if (functionCalls.length === 0) {
-        if (!text) {
-          throw new Error('Gemini nao retornou texto utilizavel.');
-        }
-
-        return {
-          result: this.buildStructuredResponse(text, question, toolsUsed),
-          inputTokens: totalInputTokens,
-          outputTokens: totalOutputTokens,
-          toolsUsed,
-        };
-      }
-
-      contents.push({
-        role: 'model',
-        parts: modelContent.parts,
-      });
-
-      const functionResponses: GeminiPart[] = [];
-      for (const functionCall of functionCalls) {
-        if (!toolsUsed.includes(functionCall.name)) {
-          toolsUsed.push(functionCall.name);
-        }
-
-        const toolResult = await this.toolsExecutor.execute(
-          functionCall.name,
-          functionCall.args ?? {},
-        );
-
-        functionResponses.push({
-          functionResponse: {
-            name: functionCall.name,
-            response: toolResult.success
-              ? {
-                  success: true,
-                  data: toolResult.data ?? null,
-                  is_stub: toolResult.is_stub ?? false,
-                }
-              : {
-                  success: false,
-                  error:
-                    toolResult.error ??
-                    'Erro desconhecido ao executar ferramenta.',
-                },
-          },
-        });
-      }
-
-      contents.push({
-        role: 'user',
-        parts: functionResponses,
-      });
-    }
-
-    this.logger.warn(
-      `[SstAgent] Gemini atingiu o limite de ${MAX_TOOL_ITERATIONS} iteracoes`,
-    );
-    const fallbackAnswer =
-      'Nao consegui completar a analise com os dados disponiveis. Reformule a pergunta ou acesse os modulos diretamente para confirmar as informacoes.';
-
-    return {
-      result: this.buildStructuredResponse(fallbackAnswer, question, toolsUsed),
-      inputTokens: totalInputTokens,
-      outputTokens: totalOutputTokens,
-      toolsUsed,
-    };
-  }
-
-  private async analyzeImageWithGemini(
-    imageBuffer: Buffer,
-    mimeType: string,
-    context?: string,
-  ): Promise<{
-    analysis: ImageRiskAnalysis;
-    inputTokens: number;
-    outputTokens: number;
-  }> {
-    if (!this.geminiApiKey) {
-      throw new Error('GEMINI_API_KEY nao configurada.');
-    }
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent`,
-      {
-        method: 'POST',
-        // Credencial via header — nunca expor em query string (logs, proxies, traces)
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': this.geminiApiKey,
-        },
-        body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: SST_IMAGE_ANALYSIS_PROMPT }],
-          },
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  inlineData: {
-                    mimeType,
-                    data: imageBuffer.toString('base64'),
-                  },
-                },
-                {
-                  text: context?.trim()
-                    ? `Contexto adicional do usuario: ${context.trim()}`
-                    : 'Sem contexto adicional fornecido.',
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: MAX_TOKENS,
-          },
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`Gemini API error ${response.status}: ${body}`);
-    }
-
-    const payload = (await response.json()) as GeminiGenerateContentResponse;
-    const answer = payload.candidates
-      ?.flatMap((candidate) => candidate.content?.parts ?? [])
-      .map((part) => part.text?.trim())
-      .filter((value): value is string => Boolean(value))
-      .join('\n')
-      .trim();
-
-    if (!answer) {
-      throw new Error('Gemini nao retornou analise de imagem.');
-    }
-
-    return {
-      analysis: this.parseImageRiskAnalysis(answer),
-      inputTokens: payload.usageMetadata?.promptTokenCount ?? 0,
-      outputTokens: payload.usageMetadata?.candidatesTokenCount ?? 0,
     };
   }
 

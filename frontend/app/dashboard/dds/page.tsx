@@ -33,7 +33,7 @@ import { toast } from 'sonner';
 import { generateDdsPdf } from '@/lib/pdf/ddsGenerator';
 import { signaturesService } from '@/services/signaturesService';
 import { SendMailModal } from '@/components/SendMailModal';
-import { openPdfForPrint } from '@/lib/print-utils';
+import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Card,
@@ -226,7 +226,7 @@ export default function DdsPage() {
         toast.info('PDF armazenado localmente — use o botão Imprimir para gerar.');
         return;
       }
-      window.open(access.url, '_blank', 'noopener,noreferrer');
+      openUrlInNewTab(access.url);
     } catch (error) {
       console.error('Erro ao obter link do PDF:', error);
       toast.error('Não foi possível abrir o PDF armazenado.');

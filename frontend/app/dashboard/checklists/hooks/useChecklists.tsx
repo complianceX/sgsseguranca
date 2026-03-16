@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import React from 'react';
-import { openPdfForPrint } from '@/lib/print-utils';
+import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { isAiEnabled } from '@/lib/featureFlags';
 import {
   ChecklistColumnKey,
@@ -77,7 +77,7 @@ export function useChecklists() {
       if (checklist.pdf_file_key) {
         const access = await checklistsService.getPdfAccess(checklist.id);
         if (access.url) {
-          window.open(access.url, '_blank', 'noopener,noreferrer');
+          openUrlInNewTab(access.url);
           toast.success('PDF aberto com sucesso!');
           return;
         }

@@ -1,6 +1,7 @@
-import api from '@/lib/api';
-import type { Checklist } from './checklistsService';
-import { isAiEnabled } from '@/lib/featureFlags';
+import api from "@/lib/api";
+import { AxiosError } from "axios";
+import type { Checklist } from "./checklistsService";
+import { isAiEnabled } from "@/lib/featureFlags";
 
 const AI_STATUS_TIMEOUT_MS = 20000;
 const AI_DEFAULT_TIMEOUT_MS = 45000;
@@ -9,13 +10,13 @@ const AI_IMAGE_TIMEOUT_MS = 120000;
 
 function assertAiEnabled() {
   if (!isAiEnabled()) {
-    throw new Error('IA desativada neste ambiente (FEATURE_AI_ENABLED=false).');
+    throw new Error("IA desativada neste ambiente (FEATURE_AI_ENABLED=false).");
   }
 }
 
 export interface SophieResponse {
   answer: string;
-  confidence: 'high' | 'medium' | 'low';
+  confidence: "high" | "medium" | "low";
   needsHumanReview: boolean;
   humanReviewReason?: string;
   humanReviewReasons?: string[];
@@ -25,24 +26,27 @@ export interface SophieResponse {
   suggestedActions?: Array<{
     label: string;
     href?: string;
-    priority: 'high' | 'medium' | 'low';
+    priority: "high" | "medium" | "low";
   }>;
   interactionId?: string;
-  status?: 'success' | 'error' | 'needs_review' | 'rate_limited';
+  status?: "success" | "error" | "needs_review" | "rate_limited";
   timestamp: string;
 }
 
 export interface SophieConversationMessage {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
 }
 
 export interface SophieHistoryItem {
   id: string;
   question: string;
-  response: Omit<SophieResponse, 'interactionId' | 'status' | 'timestamp'> | null;
-  status: 'success' | 'error' | 'needs_review' | 'rate_limited';
-  confidence: 'high' | 'medium' | 'low' | null;
+  response: Omit<
+    SophieResponse,
+    "interactionId" | "status" | "timestamp"
+  > | null;
+  status: "success" | "error" | "needs_review" | "rate_limited";
+  confidence: "high" | "medium" | "low" | null;
   needs_human_review: boolean | null;
   model: string | null;
   latency_ms: number | null;
@@ -70,8 +74,7 @@ export interface GenerateChecklistPayload {
   is_modelo?: boolean;
 }
 
-export interface CreateAssistedChecklistPayload
-  extends GenerateChecklistPayload {
+export interface CreateAssistedChecklistPayload extends GenerateChecklistPayload {
   categoria?: string;
   periodicidade?: string;
   nivel_risco_padrao?: string;
@@ -131,7 +134,7 @@ export interface CreateChecklistAutomationResponse {
   };
   generation: {
     titulo: string;
-    confidence?: 'high' | 'medium' | 'low';
+    confidence?: "high" | "medium" | "low";
   };
   persisted: true;
   message: string;
@@ -144,7 +147,7 @@ export interface CreateDdsAutomationResponse {
   };
   generation: {
     tema: string;
-    confidence?: 'high' | 'medium' | 'low';
+    confidence?: "high" | "medium" | "low";
   };
   persisted: true;
   message: string;
@@ -157,7 +160,7 @@ export interface CreateNonConformityPayload {
   local_setor_area?: string;
   responsavel_area?: string;
   tipo?: string;
-  source_type?: 'manual' | 'image' | 'checklist' | 'inspection';
+  source_type?: "manual" | "image" | "checklist" | "inspection";
   source_reference?: string;
   source_context?: string;
   image_analysis_summary?: string;
@@ -185,15 +188,15 @@ export interface SophieDraftResponse {
     id: string;
     label: string;
     reason: string;
-    source: 'template' | 'pt-group';
+    source: "template" | "pt-group";
   }>;
-  confidence?: 'high' | 'medium' | 'low';
+  confidence?: "high" | "medium" | "low";
   notes?: string[];
   message: string;
 }
 
 export interface GeneratePtDraftAutomationResponse extends SophieDraftResponse {
-  riskLevel: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+  riskLevel: "Baixo" | "Médio" | "Alto" | "Crítico";
   suggestedResources?: {
     participants: Array<{ id: string; label: string }>;
     tools: Array<{ id: string; label: string }>;
@@ -204,9 +207,9 @@ export interface GeneratePtDraftAutomationResponse extends SophieDraftResponse {
 export interface SophieActionPlanItem {
   title: string;
   owner: string;
-  priority: 'low' | 'medium' | 'high' | 'critical';
+  priority: "low" | "medium" | "high" | "critical";
   timeline: string;
-  type: 'immediate' | 'corrective' | 'preventive';
+  type: "immediate" | "corrective" | "preventive";
 }
 
 export interface CreateNonConformityAutomationResponse {
@@ -217,12 +220,12 @@ export interface CreateNonConformityAutomationResponse {
   };
   generation: {
     title: string;
-    riskLevel: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
-    sourceType: 'manual' | 'image' | 'checklist' | 'inspection';
+    riskLevel: "Baixo" | "Médio" | "Alto" | "Crítico";
+    sourceType: "manual" | "image" | "checklist" | "inspection";
     actionPlan: SophieActionPlanItem[];
     evidenceCount?: number;
     evidenceAttachments?: Array<{ url: string; label: string }>;
-    confidence?: 'high' | 'medium' | 'low';
+    confidence?: "high" | "medium" | "low";
     notes?: string[];
   };
   persisted: true;
@@ -230,7 +233,7 @@ export interface CreateNonConformityAutomationResponse {
 }
 
 export interface QueueMonthlyReportAutomationResponse {
-  reportType: 'monthly';
+  reportType: "monthly";
   year: number;
   month: number;
   jobId: string | number | undefined;
@@ -241,7 +244,7 @@ export interface QueueMonthlyReportAutomationResponse {
 
 export interface ImageRiskAnalysis {
   summary: string;
-  riskLevel: 'Baixo' | 'Medio' | 'Alto' | 'Critico' | 'Médio' | 'Crítico';
+  riskLevel: "Baixo" | "Medio" | "Alto" | "Critico" | "Médio" | "Crítico";
   imminentRisks: string[];
   immediateActions: string[];
   ppeRecommendations: string[];
@@ -251,7 +254,7 @@ export interface ImageRiskAnalysis {
 export const sophieService = {
   async getStatus() {
     assertAiEnabled();
-    const { data } = await api.get('/ai/status', {
+    const { data } = await api.get("/ai/status", {
       timeout: AI_STATUS_TIMEOUT_MS,
     });
     return data;
@@ -262,42 +265,71 @@ export const sophieService = {
     history: SophieConversationMessage[] = [],
   ): Promise<SophieResponse> {
     assertAiEnabled();
-    const { data } = await api.post<SophieResponse>('/ai/sst/chat', {
-      question,
-      history,
-    }, {
-      timeout: AI_CHAT_TIMEOUT_MS,
-    });
+    const { data } = await api.post<SophieResponse>(
+      "/ai/sst/chat",
+      {
+        question,
+        history,
+      },
+      {
+        timeout: AI_CHAT_TIMEOUT_MS,
+      },
+    );
     return data;
   },
 
   async getHistory(limit = 20): Promise<SophieHistoryItem[]> {
     assertAiEnabled();
-    const { data } = await api.get<SophieHistoryItem[]>(`/ai/sst/history?limit=${limit}`, {
-      timeout: AI_DEFAULT_TIMEOUT_MS,
-    });
+    const { data } = await api.get<SophieHistoryItem[]>(
+      `/ai/sst/history?limit=${limit}`,
+      {
+        timeout: AI_DEFAULT_TIMEOUT_MS,
+      },
+    );
     return data;
   },
 
   async getInsights() {
     assertAiEnabled();
-    const { data } = await api.post('/ai/insights', undefined, {
-      timeout: AI_DEFAULT_TIMEOUT_MS,
-    });
-    return data;
+    try {
+      const { data } = await api.post("/ai/insights", undefined, {
+        timeout: AI_DEFAULT_TIMEOUT_MS,
+      });
+      return data;
+    } catch (error) {
+      const status = (error as AxiosError).response?.status;
+      if (!status || [429, 500, 502, 503, 504].includes(status)) {
+        return {
+          safetyScore: 0,
+          summary:
+            "Insights temporariamente indisponíveis. Revise treinamentos, exames e não conformidades diretamente nos módulos.",
+          timestamp: new Date().toISOString(),
+          confidence: "low",
+          notes: [
+            "Fallback local aplicado enquanto a camada de IA ou o contexto do tenant está indisponível.",
+          ],
+          insights: [],
+        };
+      }
+      throw error;
+    }
   },
 
   async analyzeApr(description: string) {
     assertAiEnabled();
-    const { data } = await api.post('/ai/analyze-apr', { description }, {
-      timeout: AI_DEFAULT_TIMEOUT_MS,
-    });
+    const { data } = await api.post(
+      "/ai/analyze-apr",
+      { description },
+      {
+        timeout: AI_DEFAULT_TIMEOUT_MS,
+      },
+    );
     return data;
   },
 
   async analyzePt(payload: AnalyzePtData) {
     assertAiEnabled();
-    const { data } = await api.post('/ai/analyze-pt', payload, {
+    const { data } = await api.post("/ai/analyze-pt", payload, {
       timeout: AI_DEFAULT_TIMEOUT_MS,
     });
     return data;
@@ -311,18 +343,25 @@ export const sophieService = {
     return data;
   },
 
-  async generateChecklist(payload: GenerateChecklistPayload, companyId?: string) {
+  async generateChecklist(
+    payload: GenerateChecklistPayload,
+    companyId?: string,
+  ) {
     assertAiEnabled();
-    const { data } = await api.post<Checklist>('/ai/generate-checklist', payload, {
-      timeout: AI_DEFAULT_TIMEOUT_MS,
-      headers: companyId ? { 'x-company-id': companyId } : undefined,
-    });
+    const { data } = await api.post<Checklist>(
+      "/ai/generate-checklist",
+      payload,
+      {
+        timeout: AI_DEFAULT_TIMEOUT_MS,
+        headers: companyId ? { "x-company-id": companyId } : undefined,
+      },
+    );
     return data;
   },
 
   async generateDds() {
     assertAiEnabled();
-    const { data } = await api.post('/ai/generate-dds', undefined, {
+    const { data } = await api.post("/ai/generate-dds", undefined, {
       timeout: AI_DEFAULT_TIMEOUT_MS,
     });
     return data;
@@ -333,10 +372,14 @@ export const sophieService = {
     companyId?: string,
   ) {
     assertAiEnabled();
-    const { data } = await api.post<CreateChecklistAutomationResponse>('/ai/create-checklist', payload, {
-      timeout: AI_DEFAULT_TIMEOUT_MS,
-      headers: companyId ? { 'x-company-id': companyId } : undefined,
-    });
+    const { data } = await api.post<CreateChecklistAutomationResponse>(
+      "/ai/create-checklist",
+      payload,
+      {
+        timeout: AI_DEFAULT_TIMEOUT_MS,
+        headers: companyId ? { "x-company-id": companyId } : undefined,
+      },
+    );
     return data;
   },
 
@@ -345,34 +388,40 @@ export const sophieService = {
     companyId?: string,
   ) {
     assertAiEnabled();
-    const { data } = await api.post<SophieDraftResponse>('/ai/generate-apr-draft', payload, {
-      timeout: AI_DEFAULT_TIMEOUT_MS,
-      headers: companyId ? { 'x-company-id': companyId } : undefined,
-    });
+    const { data } = await api.post<SophieDraftResponse>(
+      "/ai/generate-apr-draft",
+      payload,
+      {
+        timeout: AI_DEFAULT_TIMEOUT_MS,
+        headers: companyId ? { "x-company-id": companyId } : undefined,
+      },
+    );
     return data;
   },
 
-  async generatePtDraft(
-    payload: CreateAssistedPtPayload,
-    companyId?: string,
-  ) {
+  async generatePtDraft(payload: CreateAssistedPtPayload, companyId?: string) {
     assertAiEnabled();
-    const { data } = await api.post<GeneratePtDraftAutomationResponse>('/ai/generate-pt-draft', payload, {
-      timeout: AI_DEFAULT_TIMEOUT_MS,
-      headers: companyId ? { 'x-company-id': companyId } : undefined,
-    });
+    const { data } = await api.post<GeneratePtDraftAutomationResponse>(
+      "/ai/generate-pt-draft",
+      payload,
+      {
+        timeout: AI_DEFAULT_TIMEOUT_MS,
+        headers: companyId ? { "x-company-id": companyId } : undefined,
+      },
+    );
     return data;
   },
 
-  async createDds(
-    payload: CreateAssistedDdsPayload,
-    companyId?: string,
-  ) {
+  async createDds(payload: CreateAssistedDdsPayload, companyId?: string) {
     assertAiEnabled();
-    const { data } = await api.post<CreateDdsAutomationResponse>('/ai/create-dds', payload, {
-      timeout: AI_DEFAULT_TIMEOUT_MS,
-      headers: companyId ? { 'x-company-id': companyId } : undefined,
-    });
+    const { data } = await api.post<CreateDdsAutomationResponse>(
+      "/ai/create-dds",
+      payload,
+      {
+        timeout: AI_DEFAULT_TIMEOUT_MS,
+        headers: companyId ? { "x-company-id": companyId } : undefined,
+      },
+    );
     return data;
   },
 
@@ -382,11 +431,11 @@ export const sophieService = {
   ) {
     assertAiEnabled();
     const { data } = await api.post<CreateNonConformityAutomationResponse>(
-      '/ai/create-nonconformity',
+      "/ai/create-nonconformity",
       payload,
       {
         timeout: AI_DEFAULT_TIMEOUT_MS,
-        headers: companyId ? { 'x-company-id': companyId } : undefined,
+        headers: companyId ? { "x-company-id": companyId } : undefined,
       },
     );
     return data;
@@ -397,23 +446,34 @@ export const sophieService = {
     companyId?: string,
   ) {
     assertAiEnabled();
-    const { data } = await api.post<QueueMonthlyReportAutomationResponse>('/ai/generate-monthly-report', payload, {
-      timeout: AI_DEFAULT_TIMEOUT_MS,
-      headers: companyId ? { 'x-company-id': companyId } : undefined,
-    });
+    const { data } = await api.post<QueueMonthlyReportAutomationResponse>(
+      "/ai/generate-monthly-report",
+      payload,
+      {
+        timeout: AI_DEFAULT_TIMEOUT_MS,
+        headers: companyId ? { "x-company-id": companyId } : undefined,
+      },
+    );
     return data;
   },
 
-  async analyzeImageRisk(image: File, context?: string): Promise<ImageRiskAnalysis> {
+  async analyzeImageRisk(
+    image: File,
+    context?: string,
+  ): Promise<ImageRiskAnalysis> {
     assertAiEnabled();
     const formData = new FormData();
-    formData.append('image', image);
+    formData.append("image", image);
     if (context?.trim()) {
-      formData.append('context', context.trim());
+      formData.append("context", context.trim());
     }
-    const { data } = await api.post<ImageRiskAnalysis>('/ai/sst/analyze-image-risk', formData, {
-      timeout: AI_IMAGE_TIMEOUT_MS,
-    });
+    const { data } = await api.post<ImageRiskAnalysis>(
+      "/ai/sst/analyze-image-risk",
+      formData,
+      {
+        timeout: AI_IMAGE_TIMEOUT_MS,
+      },
+    );
     return data;
   },
 };

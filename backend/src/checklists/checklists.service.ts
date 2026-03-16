@@ -17,6 +17,7 @@ import {
 } from 'typeorm';
 import { plainToClass } from 'class-transformer';
 import { ConfigService } from '@nestjs/config';
+import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { Checklist } from './entities/checklist.entity';
 import { ChecklistResponseDto } from './dto/checklist-response.dto';
 import { TenantService } from '../common/tenant/tenant.service';
@@ -51,6 +52,7 @@ import { DocumentGovernanceService } from '../document-registry/document-governa
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import { Company } from '../companies/entities/company.entity';
 import { getIsoWeekNumber } from '../common/utils/document-calendar.util';
+import { requestOpenAiChatCompletionResponse } from '../ai/openai-request.util';
 
 @Injectable({ scope: Scope.REQUEST })
 export class ChecklistsService {
@@ -248,6 +250,7 @@ export class ChecklistsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly fileParserService: FileParserService,
     private readonly configService: ConfigService,
+    private readonly integrationResilienceService: IntegrationResilienceService,
   ) {}
 
   private readonly checklistListSelect: FindOptionsSelect<Checklist> = {
@@ -1197,25 +1200,20 @@ Regras:
 
       const userPrompt = `Texto extraído do documento "${originalname}":\n\n${rawText.slice(0, 6000)}`;
 
-      const response = await fetch(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt },
-            ],
-            temperature: 0.2,
-            max_tokens: 4000,
-          }),
+      const response = await requestOpenAiChatCompletionResponse({
+        apiKey,
+        body: {
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.2,
+          max_tokens: 4000,
         },
-      );
+        configService: this.configService,
+        integration: this.integrationResilienceService,
+      });
 
       if (!response.ok) {
         throw new BadRequestException(

@@ -45,14 +45,14 @@
   --ds-space-7: 3rem;
   --ds-space-8: 4rem;
 
-  --ds-text-2xs: 0.6875rem;
-  --ds-text-xs: 0.75rem;
-  --ds-text-sm: 0.8125rem;
-  --ds-text-md: 0.9375rem;
-  --ds-text-lg: 1rem;
-  --ds-text-xl: 1.125rem;
-  --ds-text-2xl: 1.375rem;
-  --ds-text-3xl: 1.75rem;
+  --ds-text-2xs: 0.75rem;
+  --ds-text-xs: 0.8125rem;
+  --ds-text-sm: 0.875rem;
+  --ds-text-md: 1rem;
+  --ds-text-lg: 1.0625rem;
+  --ds-text-xl: 1.1875rem;
+  --ds-text-2xl: 1.5rem;
+  --ds-text-3xl: 1.875rem;
 
   --ds-line-tight: 1.22;
   --ds-line-base: 1.45;
@@ -66,8 +66,8 @@
 }
 
 :root,
-:root[data-theme='light'],
-:root[data-theme='dark'],
+:root[data-theme="light"],
+:root[data-theme="dark"],
 .theme-light,
 .theme-dark {
   --background: var(--ds-color-bg-canvas);
@@ -139,15 +139,27 @@
 
   --component-overlay: var(--ds-color-overlay);
   --component-shell-backdrop: var(--ds-shell-backdrop);
-  --component-navbar-bg: color-mix(in srgb, var(--ds-color-surface-elevated) 84%, transparent);
+  --component-navbar-bg: color-mix(
+    in srgb,
+    var(--ds-color-surface-elevated) 84%,
+    transparent
+  );
   --component-navbar-border: var(--ds-color-border-subtle);
-  --component-navbar-chip-bg: color-mix(in srgb, var(--ds-color-surface-base) 84%, transparent);
+  --component-navbar-chip-bg: color-mix(
+    in srgb,
+    var(--ds-color-surface-base) 84%,
+    transparent
+  );
   --component-navbar-chip-text: var(--ds-color-text-secondary);
   --component-navbar-chip-hover-bg: var(--ds-color-surface-muted);
 
   --component-card-bg: var(--ds-color-surface-base);
   --component-card-bg-elevated: var(--ds-color-surface-elevated);
-  --component-card-bg-muted: color-mix(in srgb, var(--ds-color-surface-muted) 42%, transparent);
+  --component-card-bg-muted: color-mix(
+    in srgb,
+    var(--ds-color-surface-muted) 42%,
+    transparent
+  );
   --component-card-border: var(--ds-color-border-subtle);
   --component-card-border-strong: var(--ds-color-border-strong);
   --component-card-shadow: var(--ds-shadow-sm);
@@ -178,15 +190,27 @@
   --component-button-warning-bg: var(--ds-color-warning);
   --component-button-warning-text: var(--ds-color-text-inverse);
 
-  --component-badge-neutral-bg: color-mix(in srgb, var(--ds-color-surface-muted) 42%, transparent);
+  --component-badge-neutral-bg: color-mix(
+    in srgb,
+    var(--ds-color-surface-muted) 42%,
+    transparent
+  );
   --component-badge-neutral-text: var(--ds-color-text-secondary);
 
   --component-table-bg: var(--ds-color-surface-base);
   --component-table-header-bg: var(--ds-color-surface-elevated);
   --component-table-header-text: var(--ds-color-text-muted);
-  --component-table-footer-bg: color-mix(in srgb, var(--ds-color-surface-muted) 28%, transparent);
+  --component-table-footer-bg: color-mix(
+    in srgb,
+    var(--ds-color-surface-muted) 28%,
+    transparent
+  );
   --component-table-row-border: var(--ds-color-border-subtle);
-  --component-table-row-hover: color-mix(in srgb, var(--ds-color-primary-subtle) 92%, transparent);
+  --component-table-row-hover: color-mix(
+    in srgb,
+    var(--ds-color-primary-subtle) 92%,
+    transparent
+  );
   --component-table-row-selected: color-mix(
     in srgb,
     var(--ds-color-primary-subtle) 86%,
@@ -200,5 +224,9 @@
   --component-command-icon-bg: color-mix(in srgb, white 8%, transparent);
 
   --component-focus-ring: var(--ds-color-focus-ring);
-  --component-scrollbar-thumb: color-mix(in srgb, var(--ds-color-border-strong) 78%, transparent);
+  --component-scrollbar-thumb: color-mix(
+    in srgb,
+    var(--ds-color-border-strong) 78%,
+    transparent
+  );
 }

@@ -13,6 +13,7 @@ import type { NotificationsGateway } from '../notifications/notifications.gatewa
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { FileParserService } from '../document-import/services/file-parser.service';
 import type { ConfigService } from '@nestjs/config';
+import type { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -129,6 +130,11 @@ describe('ChecklistsService', () => {
       {
         get: jest.fn(),
       } as unknown as ConfigService,
+      {
+        execute: jest.fn(async <T>(_name: string, fn: () => Promise<T>) =>
+          fn(),
+        ),
+      } as unknown as IntegrationResilienceService,
     );
   });
 

@@ -214,6 +214,13 @@ export class AprsController {
     return this.aprsService.getVersionHistory(id);
   }
 
+  /** Evidências de risco com URLs assinadas quando disponíveis */
+  @Get(':id/evidence')
+  @Authorize('can_view_apr')
+  listAprEvidences(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.aprsService.listAprEvidences(id);
+  }
+
   /** Anexa PDF a uma APR existente */
   @Post(':id/file')
   @Roles(

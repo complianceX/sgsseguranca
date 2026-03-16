@@ -40,25 +40,10 @@ jest.mock('recharts', () => {
 
 const getSummary = jest.fn();
 const getPendingQueue = jest.fn();
-const getMonthlyAnalytics = jest.fn();
-const getInsights = jest.fn();
-
 jest.mock('@/services/dashboardService', () => ({
   dashboardService: {
     getSummary: (...args: unknown[]) => getSummary(...args),
     getPendingQueue: (...args: unknown[]) => getPendingQueue(...args),
-  },
-}));
-
-jest.mock('@/services/nonConformitiesService', () => ({
-  nonConformitiesService: {
-    getMonthlyAnalytics: (...args: unknown[]) => getMonthlyAnalytics(...args),
-  },
-}));
-
-jest.mock('@/services/aiService', () => ({
-  aiService: {
-    getInsights: (...args: unknown[]) => getInsights(...args),
   },
 }));
 
@@ -155,28 +140,22 @@ describe('DashboardPage', () => {
       },
       items: [],
     });
-
-    getMonthlyAnalytics.mockResolvedValue([
-      { mes: '2026-02-01', total: 2 },
-      { mes: '2026-03-01', total: 4 },
-    ]);
-
-    getInsights.mockResolvedValue({ safetyScore: 84 });
   });
 
-  it('renders the new consolidated lower dashboard sections', async () => {
+  it('renders the editorial dashboard with queue and critical expirations', async () => {
     render(<DashboardPage />);
 
     expect(await screen.findByText(/vencimentos críticos/i)).toBeInTheDocument();
-    expect(screen.getByText(/síntese executiva/i)).toBeInTheDocument();
-    expect(screen.getByText(/indicadores sst/i)).toBeInTheDocument();
-    expect(screen.getByText(/plano de ação/i)).toBeInTheDocument();
-    expect(screen.getByText(/gandra insights mock/i)).toBeInTheDocument();
+    expect(screen.getByText(/fila central de pendências/i)).toBeInTheDocument();
+    expect(screen.getByText(/o que exige ação agora/i)).toBeInTheDocument();
+    expect(screen.getByText(/^epis$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^treinamentos$/i)).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.queryByText('Aprovação e Assinaturas')).not.toBeInTheDocument();
-      expect(screen.queryByText('Status de Treinamentos')).not.toBeInTheDocument();
-      expect(screen.queryByText(/benchmark de conformidade por obra/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/síntese executiva/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/indicadores sst/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/plano de ação/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/gandra insights mock/i)).not.toBeInTheDocument();
     });
   });
 });

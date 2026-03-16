@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
+import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import {
   type LucideIcon,
   Shield,
@@ -15,62 +15,71 @@ import {
   ArrowUpRight,
   MessageSquare,
   CheckCheck,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   dashboardService,
   DashboardPendingQueueResponse,
   DashboardSummaryResponse,
-} from '@/services/dashboardService';
-import { nonConformitiesService } from '@/services/nonConformitiesService';
-import { useAuth } from '@/context/AuthContext';
-import { format, isBefore } from 'date-fns';
-import { StatusPill } from '@/components/ui/status-pill';
-import { isAiEnabled } from '@/lib/featureFlags';
-import { cn } from '@/lib/utils';
+} from "@/services/dashboardService";
+import { useAuth } from "@/context/AuthContext";
+import { format, isBefore } from "date-fns";
+import { StatusPill } from "@/components/ui/status-pill";
+import { cn } from "@/lib/utils";
 
-type QueueFilter = 'all' | 'critical' | 'documents' | 'health' | 'actions';
+type QueueFilter = "all" | "critical" | "documents" | "health" | "actions";
 
 const QUEUE_FILTERS: Array<{ id: QueueFilter; label: string }> = [
-  { id: 'all', label: 'Tudo' },
-  { id: 'critical', label: 'Críticas' },
-  { id: 'documents', label: 'Documentos' },
-  { id: 'health', label: 'Saúde ocupacional' },
-  { id: 'actions', label: 'Ações' },
+  { id: "all", label: "Tudo" },
+  { id: "critical", label: "Críticas" },
+  { id: "documents", label: "Documentos" },
+  { id: "health", label: "Saúde ocupacional" },
+  { id: "actions", label: "Ações" },
 ];
 
 function formatDateOnly(value?: string | number | Date | null) {
-  if (!value) return 'Sem prazo';
+  if (!value) return "Sem prazo";
   const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return 'Sem prazo';
-  return format(d, 'dd/MM/yyyy');
+  if (Number.isNaN(d.getTime())) return "Sem prazo";
+  return format(d, "dd/MM/yyyy");
 }
 
-function resolveQueuePriorityClasses(priority: 'critical' | 'high' | 'medium') {
+function resolveQueuePriorityClasses(priority: "critical" | "high" | "medium") {
   switch (priority) {
-    case 'critical': return 'bg-[color:var(--ds-color-danger)]';
-    case 'high': return 'bg-[color:var(--ds-color-warning)]';
-    default: return 'bg-[color:var(--ds-color-info)]';
+    case "critical":
+      return "bg-[color:var(--ds-color-danger)]";
+    case "high":
+      return "bg-[color:var(--ds-color-warning)]";
+    default:
+      return "bg-[color:var(--ds-color-info)]";
   }
 }
 
 function resolveQueueModuleIcon(module: string): LucideIcon {
   switch (module) {
-    case 'APR': return Shield;
-    case 'PT': return FileText;
-    case 'Checklist': return ClipboardCheck;
-    case 'NC': return AlertTriangle;
-    case 'Treinamento': return GraduationCap;
-    case 'ASO': return AlertCircle;
-    case 'Ação': return CheckCheck;
-    default: return FileStack;
+    case "APR":
+      return Shield;
+    case "PT":
+      return FileText;
+    case "Checklist":
+      return ClipboardCheck;
+    case "NC":
+      return AlertTriangle;
+    case "Treinamento":
+      return GraduationCap;
+    case "ASO":
+      return AlertCircle;
+    case "Ação":
+      return CheckCheck;
+    default:
+      return FileStack;
   }
 }
 
-type PendingQueueEntry = DashboardPendingQueueResponse['items'][number];
+type PendingQueueEntry = DashboardPendingQueueResponse["items"][number];
 
 function buildPendingQueueSophieHref(item: PendingQueueEntry) {
   const params = new URLSearchParams({
-    pendingContext: 'true',
+    pendingContext: "true",
     module: item.module,
     category: item.category,
     title: item.title,
@@ -79,31 +88,51 @@ function buildPendingQueueSophieHref(item: PendingQueueEntry) {
     status: item.status,
     href: item.href,
   });
-  if (item.sourceId) params.set('sourceId', item.sourceId);
-  if (item.siteId) params.set('site_id', item.siteId);
-  if (item.site) params.set('site_name', item.site);
-  if (item.responsible) params.set('responsible', item.responsible);
-  if (item.dueDate) params.set('dueDate', item.dueDate);
+  if (item.sourceId) params.set("sourceId", item.sourceId);
+  if (item.siteId) params.set("site_id", item.siteId);
+  if (item.site) params.set("site_name", item.site);
+  if (item.responsible) params.set("responsible", item.responsible);
+  if (item.dueDate) params.set("dueDate", item.dueDate);
   return `/dashboard/sst-agent?${params.toString()}`;
 }
 
 export default function DashboardPage() {
   const { hasPermission } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [expiringEpis, setExpiringEpis] = useState<DashboardSummaryResponse['expiringEpis']>([]);
-  const [expiringTrainings, setExpiringTrainings] = useState<DashboardSummaryResponse['expiringTrainings']>([]);
-  const [pendingQueue, setPendingQueue] = useState<DashboardPendingQueueResponse>({
-    summary: { total: 0, critical: 0, high: 0, medium: 0, documents: 0, health: 0, actions: 0 },
-    items: [],
-  });
-  const [queueFilter, setQueueFilter] = useState<QueueFilter>('all');
+  const [expiringEpis, setExpiringEpis] = useState<
+    DashboardSummaryResponse["expiringEpis"]
+  >([]);
+  const [expiringTrainings, setExpiringTrainings] = useState<
+    DashboardSummaryResponse["expiringTrainings"]
+  >([]);
+  const [pendingQueue, setPendingQueue] =
+    useState<DashboardPendingQueueResponse>({
+      degraded: false,
+      failedSources: [],
+      summary: {
+        total: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        documents: 0,
+        health: 0,
+        actions: 0,
+      },
+      items: [],
+    });
+  const [queueFilter, setQueueFilter] = useState<QueueFilter>("all");
 
-  const canUseAi = hasPermission('can_use_ai');
+  const canUseAi = hasPermission("can_use_ai");
 
   const filteredPendingQueueItems = useMemo(() => {
-    if (queueFilter === 'all') return pendingQueue.items.slice(0, 12);
-    if (queueFilter === 'critical') return pendingQueue.items.filter((item) => item.priority === 'critical').slice(0, 12);
-    return pendingQueue.items.filter((item) => item.category === queueFilter).slice(0, 12);
+    if (queueFilter === "all") return pendingQueue.items.slice(0, 12);
+    if (queueFilter === "critical")
+      return pendingQueue.items
+        .filter((item) => item.priority === "critical")
+        .slice(0, 12);
+    return pendingQueue.items
+      .filter((item) => item.category === queueFilter)
+      .slice(0, 12);
   }, [pendingQueue.items, queueFilter]);
 
   useEffect(() => {
@@ -114,17 +143,17 @@ export default function DashboardPage() {
           dashboardService.getPendingQueue(),
         ]);
 
-        if (summaryR.status === 'fulfilled') {
+        if (summaryR.status === "fulfilled") {
           const summary = summaryR.value;
           setExpiringEpis(summary.expiringEpis);
           setExpiringTrainings(summary.expiringTrainings);
         }
 
-        if (pendingQueueR.status === 'fulfilled') {
+        if (pendingQueueR.status === "fulfilled") {
           setPendingQueue(pendingQueueR.value);
         }
       } catch (error) {
-        console.error('Erro ao carregar dados do dashboard:', error);
+        console.error("Erro ao carregar dados do dashboard:", error);
       } finally {
         setLoading(false);
       }
@@ -133,47 +162,56 @@ export default function DashboardPage() {
     loadDashboardData();
   }, []);
 
-  const expiredEpisCount = expiringEpis.filter((epi) => isBefore(new Date(epi.validade_ca || ''), new Date())).length;
-  const expiredTrainingsCount = expiringTrainings.filter((t) => isBefore(new Date(t.data_vencimento), new Date())).length;
+  const expiredEpisCount = expiringEpis.filter((epi) =>
+    isBefore(new Date(epi.validade_ca || ""), new Date()),
+  ).length;
+  const expiredTrainingsCount = expiringTrainings.filter((t) =>
+    isBefore(new Date(t.data_vencimento), new Date()),
+  ).length;
 
   const kpis = [
     {
-      label: 'Pendências críticas',
-      value: loading ? '—' : pendingQueue.summary.critical.toString(),
-      tone: pendingQueue.summary.critical > 0 ? 'danger' : 'success',
+      label: "Pendências críticas",
+      value: loading ? "—" : pendingQueue.summary.critical.toString(),
+      tone: pendingQueue.summary.critical > 0 ? "danger" : "success",
     },
     {
-      label: 'Total de pendências',
-      value: loading ? '—' : pendingQueue.summary.total.toString(),
-      tone: pendingQueue.summary.total > 0 ? 'warning' : 'success',
+      label: "Total de pendências",
+      value: loading ? "—" : pendingQueue.summary.total.toString(),
+      tone: pendingQueue.summary.total > 0 ? "warning" : "success",
     },
     {
-      label: 'EPIs vencidos',
-      value: loading ? '—' : expiredEpisCount.toString(),
-      tone: expiredEpisCount > 0 ? 'danger' : 'success',
+      label: "EPIs vencidos",
+      value: loading ? "—" : expiredEpisCount.toString(),
+      tone: expiredEpisCount > 0 ? "danger" : "success",
     },
     {
-      label: 'Treinamentos vencidos',
-      value: loading ? '—' : expiredTrainingsCount.toString(),
-      tone: expiredTrainingsCount > 0 ? 'danger' : 'success',
+      label: "Treinamentos vencidos",
+      value: loading ? "—" : expiredTrainingsCount.toString(),
+      tone: expiredTrainingsCount > 0 ? "danger" : "success",
     },
   ] as const;
 
   const kpiToneClasses: Record<string, string> = {
-    danger: 'border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]',
-    warning: 'border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]',
-    success: 'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 text-[var(--ds-color-success)]',
+    danger:
+      "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]",
+    warning:
+      "border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]",
+    success:
+      "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 text-[var(--ds-color-success)]",
   };
 
   return (
     <div className="ds-dashboard-shell">
-
       {/* ── KPIs ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {kpis.map((kpi) => (
           <div
             key={kpi.label}
-            className={cn('rounded-xl border px-4 py-3', kpiToneClasses[kpi.tone])}
+            className={cn(
+              "rounded-xl border px-4 py-3",
+              kpiToneClasses[kpi.tone],
+            )}
           >
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] opacity-70">
               {kpi.label}
@@ -193,18 +231,29 @@ export default function DashboardPage() {
             <h2 className="mt-1 text-base font-bold text-[var(--ds-color-text-primary)]">
               O que exige ação agora
             </h2>
+            {pendingQueue.degraded ? (
+              <p className="mt-1 text-xs text-[var(--ds-color-warning)]">
+                A fila foi carregada com dados parciais. Fontes afetadas:{" "}
+                {(pendingQueue.failedSources ?? []).join(", ") ||
+                  "indisponíveis"}
+                .
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
+            {pendingQueue.degraded ? (
+              <StatusPill tone="warning">leitura parcial</StatusPill>
+            ) : null}
             {QUEUE_FILTERS.map((filter) => (
               <button
                 key={filter.id}
                 type="button"
                 onClick={() => setQueueFilter(filter.id)}
                 className={cn(
-                  'rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
+                  "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
                   queueFilter === filter.id
-                    ? 'border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]'
-                    : 'border-[var(--ds-color-border-subtle)] text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)]/35',
+                    ? "border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]"
+                    : "border-[var(--ds-color-border-subtle)] text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)]/35",
                 )}
               >
                 {filter.label}
@@ -229,10 +278,13 @@ export default function DashboardPage() {
             {filteredPendingQueueItems.map((item) => {
               const ItemIcon = resolveQueueModuleIcon(item.module);
               return (
-                <div key={item.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                >
                   <div
                     className={cn(
-                      'h-2 w-2 shrink-0 rounded-full',
+                      "h-2 w-2 shrink-0 rounded-full",
                       resolveQueuePriorityClasses(item.priority),
                     )}
                   />
@@ -245,9 +297,13 @@ export default function DashboardPage() {
                       {item.title}
                     </p>
                     <p className="mt-0.5 truncate text-xs text-[var(--ds-color-text-muted)]">
-                      {[item.responsible, item.site, `Prazo: ${formatDateOnly(item.dueDate)}`]
+                      {[
+                        item.responsible,
+                        item.site,
+                        `Prazo: ${formatDateOnly(item.dueDate)}`,
+                      ]
                         .filter(Boolean)
-                        .join(' · ')}
+                        .join(" · ")}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -282,11 +338,14 @@ export default function DashboardPage() {
             Vencimentos críticos
           </h2>
           <div className="flex flex-wrap gap-2">
-            <StatusPill tone={expiredEpisCount > 0 ? 'danger' : 'warning'}>
-              {expiredEpisCount} EPI{expiredEpisCount === 1 ? '' : 's'} vencido{expiredEpisCount === 1 ? '' : 's'}
+            <StatusPill tone={expiredEpisCount > 0 ? "danger" : "warning"}>
+              {expiredEpisCount} EPI{expiredEpisCount === 1 ? "" : "s"} vencido
+              {expiredEpisCount === 1 ? "" : "s"}
             </StatusPill>
-            <StatusPill tone={expiredTrainingsCount > 0 ? 'danger' : 'warning'}>
-              {expiredTrainingsCount} treinamento{expiredTrainingsCount === 1 ? '' : 's'} vencido{expiredTrainingsCount === 1 ? '' : 's'}
+            <StatusPill tone={expiredTrainingsCount > 0 ? "danger" : "warning"}>
+              {expiredTrainingsCount} treinamento
+              {expiredTrainingsCount === 1 ? "" : "s"} vencido
+              {expiredTrainingsCount === 1 ? "" : "s"}
             </StatusPill>
           </div>
         </div>
@@ -299,7 +358,12 @@ export default function DashboardPage() {
                 <AlertCircle className="mr-2 h-4 w-4 text-[var(--ds-color-warning)]" />
                 EPIs
               </h3>
-              <Link href="/dashboard/epis" className="ds-section-link text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline">Ver todos</Link>
+              <Link
+                href="/dashboard/epis"
+                className="ds-section-link text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+              >
+                Ver todos
+              </Link>
             </div>
             {loading ? (
               <div className="flex h-24 items-center justify-center">
@@ -308,18 +372,32 @@ export default function DashboardPage() {
             ) : expiringEpis.length > 0 ? (
               <div className="space-y-2">
                 {expiringEpis.slice(0, 5).map((epi) => {
-                  const isExpired = isBefore(new Date(epi.validade_ca || ''), new Date());
+                  const isExpired = isBefore(
+                    new Date(epi.validade_ca || ""),
+                    new Date(),
+                  );
                   return (
-                    <div key={epi.id} className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
+                    <div
+                      key={epi.id}
+                      className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5"
+                    >
                       <div className="flex items-center gap-3">
-                        <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-warning)]'}`} />
+                        <div
+                          className={`h-2 w-2 rounded-full ${isExpired ? "bg-[var(--ds-color-danger)]" : "bg-[var(--ds-color-warning)]"}`}
+                        />
                         <div>
-                          <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{epi.nome}</p>
-                          <p className="text-xs text-[var(--ds-color-text-muted)]">CA: {epi.ca}</p>
+                          <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                            {epi.nome}
+                          </p>
+                          <p className="text-xs text-[var(--ds-color-text-muted)]">
+                            CA: {epi.ca}
+                          </p>
                         </div>
                       </div>
-                      <StatusPill tone={isExpired ? 'danger' : 'warning'}>
-                        {isExpired ? 'Vencido' : `Vence ${format(new Date(epi.validade_ca || ''), 'dd/MM/yyyy')}`}
+                      <StatusPill tone={isExpired ? "danger" : "warning"}>
+                        {isExpired
+                          ? "Vencido"
+                          : `Vence ${format(new Date(epi.validade_ca || ""), "dd/MM/yyyy")}`}
                       </StatusPill>
                     </div>
                   );
@@ -328,7 +406,9 @@ export default function DashboardPage() {
             ) : (
               <div className="flex flex-col items-center justify-center py-6 text-center">
                 <CheckCircle2 className="h-10 w-10 text-[var(--ds-color-success)]" />
-                <p className="mt-2 text-sm text-[var(--ds-color-text-muted)]">Todos os EPIs estão com CA em dia.</p>
+                <p className="mt-2 text-sm text-[var(--ds-color-text-muted)]">
+                  Todos os EPIs estão com CA em dia.
+                </p>
               </div>
             )}
           </div>
@@ -340,7 +420,12 @@ export default function DashboardPage() {
                 <GraduationCap className="mr-2 h-4 w-4 text-[var(--ds-color-warning)]" />
                 Treinamentos
               </h3>
-              <Link href="/dashboard/trainings" className="ds-section-link text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline">Ver todos</Link>
+              <Link
+                href="/dashboard/trainings"
+                className="ds-section-link text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+              >
+                Ver todos
+              </Link>
             </div>
             {loading ? (
               <div className="flex h-24 items-center justify-center">
@@ -349,18 +434,32 @@ export default function DashboardPage() {
             ) : expiringTrainings.length > 0 ? (
               <div className="space-y-2">
                 {expiringTrainings.slice(0, 5).map((training) => {
-                  const isExpired = isBefore(new Date(training.data_vencimento), new Date());
+                  const isExpired = isBefore(
+                    new Date(training.data_vencimento),
+                    new Date(),
+                  );
                   return (
-                    <div key={training.id} className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5">
+                    <div
+                      key={training.id}
+                      className="flex items-center justify-between rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5"
+                    >
                       <div className="flex items-center gap-3">
-                        <div className={`h-2 w-2 rounded-full ${isExpired ? 'bg-[var(--ds-color-danger)]' : 'bg-[var(--ds-color-warning)]'}`} />
+                        <div
+                          className={`h-2 w-2 rounded-full ${isExpired ? "bg-[var(--ds-color-danger)]" : "bg-[var(--ds-color-warning)]"}`}
+                        />
                         <div>
-                          <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{training.nome}</p>
-                          <p className="text-xs text-[var(--ds-color-text-muted)]">{training.user?.nome || 'Colaborador'}</p>
+                          <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                            {training.nome}
+                          </p>
+                          <p className="text-xs text-[var(--ds-color-text-muted)]">
+                            {training.user?.nome || "Colaborador"}
+                          </p>
                         </div>
                       </div>
-                      <StatusPill tone={isExpired ? 'danger' : 'warning'}>
-                        {isExpired ? 'Vencido' : `Vence ${format(new Date(training.data_vencimento), 'dd/MM/yyyy')}`}
+                      <StatusPill tone={isExpired ? "danger" : "warning"}>
+                        {isExpired
+                          ? "Vencido"
+                          : `Vence ${format(new Date(training.data_vencimento), "dd/MM/yyyy")}`}
                       </StatusPill>
                     </div>
                   );
@@ -369,13 +468,14 @@ export default function DashboardPage() {
             ) : (
               <div className="flex flex-col items-center justify-center py-6 text-center">
                 <CheckCircle2 className="h-10 w-10 text-[var(--ds-color-success)]" />
-                <p className="mt-2 text-sm text-[var(--ds-color-text-muted)]">Todos os treinamentos estão em dia.</p>
+                <p className="mt-2 text-sm text-[var(--ds-color-text-muted)]">
+                  Todos os treinamentos estão em dia.
+                </p>
               </div>
             )}
           </div>
         </div>
       </div>
-
     </div>
   );
 }

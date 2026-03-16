@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useDeferredValue } from 'react';
-import { toast } from 'sonner';
+import { useState, useEffect, useCallback, useDeferredValue } from "react";
+import { toast } from "sonner";
 import {
   rdosService,
   Rdo,
@@ -15,10 +15,10 @@ import {
   RDO_ALLOWED_TRANSITIONS,
   CLIMA_LABEL,
   OCORRENCIA_TIPO_LABEL,
-} from '@/services/rdosService';
-import { sitesService, Site } from '@/services/sitesService';
-import { usersService, User } from '@/services/usersService';
-import { downloadExcel } from '@/lib/download-excel';
+} from "@/services/rdosService";
+import { sitesService, Site } from "@/services/sitesService";
+import { usersService, User } from "@/services/usersService";
+import { downloadExcel } from "@/lib/download-excel";
 import {
   Plus,
   Search,
@@ -42,7 +42,7 @@ import {
   PenLine,
   Mail,
   Send,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   Table,
   TableBody,
@@ -50,58 +50,75 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { PaginationControls } from '@/components/PaginationControls';
-import { Button, buttonVariants } from '@/components/ui/button';
+} from "@/components/ui/table";
+import { PaginationControls } from "@/components/PaginationControls";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/card";
+import {
+  EmptyState,
+  ErrorState,
+  PageLoadingState,
+} from "@/components/ui/state";
+import { cn } from "@/lib/utils";
 
 const inputClassName =
-  'h-10 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+  "h-10 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
 
 const formInputClassName =
-  'w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] transition-all';
+  "w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] transition-all";
 
 const formInputSmClassName =
-  'w-full rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2 py-1.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none transition-all';
+  "w-full rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2 py-1.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none transition-all";
 
 const STEPS = [
-  { label: 'Dados Básicos', icon: ClipboardList },
-  { label: 'Clima', icon: CloudRain },
-  { label: 'Mão de Obra', icon: Users },
-  { label: 'Equipamentos', icon: Wrench },
-  { label: 'Materiais', icon: Package },
-  { label: 'Serviços', icon: CheckSquare },
-  { label: 'Ocorrências', icon: AlertTriangle },
+  { label: "Dados Básicos", icon: ClipboardList },
+  { label: "Clima", icon: CloudRain },
+  { label: "Mão de Obra", icon: Users },
+  { label: "Equipamentos", icon: Wrench },
+  { label: "Materiais", icon: Package },
+  { label: "Serviços", icon: CheckSquare },
+  { label: "Ocorrências", icon: AlertTriangle },
 ];
 
 const CLIMA_OPTIONS = [
-  { value: 'ensolarado', label: 'Ensolarado' },
-  { value: 'nublado', label: 'Nublado' },
-  { value: 'chuvoso', label: 'Chuvoso' },
-  { value: 'parcialmente_nublado', label: 'Parcialmente Nublado' },
+  { value: "ensolarado", label: "Ensolarado" },
+  { value: "nublado", label: "Nublado" },
+  { value: "chuvoso", label: "Chuvoso" },
+  { value: "parcialmente_nublado", label: "Parcialmente Nublado" },
 ];
 
 const TURNO_OPTIONS = [
-  { value: 'manha', label: 'Manhã' },
-  { value: 'tarde', label: 'Tarde' },
-  { value: 'noite', label: 'Noite' },
+  { value: "manha", label: "Manhã" },
+  { value: "tarde", label: "Tarde" },
+  { value: "noite", label: "Noite" },
 ];
 
 const OCORRENCIA_TIPO_OPTIONS = [
-  { value: 'acidente', label: 'Acidente' },
-  { value: 'incidente', label: 'Incidente' },
-  { value: 'visita', label: 'Visita' },
-  { value: 'paralisacao', label: 'Paralisação' },
-  { value: 'outro', label: 'Outro' },
+  { value: "acidente", label: "Acidente" },
+  { value: "incidente", label: "Incidente" },
+  { value: "visita", label: "Visita" },
+  { value: "paralisacao", label: "Paralisação" },
+  { value: "outro", label: "Outro" },
 ];
+
+function escapePrintHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapePrintHtmlWithBreaks(value: unknown) {
+  return escapePrintHtml(value).replace(/\r?\n/g, "<br/>");
+}
 
 interface FormState {
   data: string;
@@ -126,13 +143,13 @@ interface FormState {
 
 const defaultForm: FormState = {
   data: new Date().toISOString().slice(0, 10),
-  site_id: '',
-  responsavel_id: '',
-  clima_manha: '',
-  clima_tarde: '',
-  temperatura_min: '',
-  temperatura_max: '',
-  condicao_terreno: '',
+  site_id: "",
+  responsavel_id: "",
+  clima_manha: "",
+  clima_tarde: "",
+  temperatura_min: "",
+  temperatura_max: "",
+  condicao_terreno: "",
   mao_de_obra: [],
   equipamentos: [],
   materiais_recebidos: [],
@@ -140,21 +157,26 @@ const defaultForm: FormState = {
   ocorrencias: [],
   houve_acidente: false,
   houve_paralisacao: false,
-  motivo_paralisacao: '',
-  observacoes: '',
-  programa_servicos_amanha: '',
+  motivo_paralisacao: "",
+  observacoes: "",
+  programa_servicos_amanha: "",
 };
 
 function rdoToForm(rdo: Rdo): FormState {
   return {
-    data: typeof rdo.data === 'string' ? rdo.data.slice(0, 10) : new Date(rdo.data).toISOString().slice(0, 10),
-    site_id: rdo.site_id ?? '',
-    responsavel_id: rdo.responsavel_id ?? '',
-    clima_manha: rdo.clima_manha ?? '',
-    clima_tarde: rdo.clima_tarde ?? '',
-    temperatura_min: rdo.temperatura_min != null ? String(rdo.temperatura_min) : '',
-    temperatura_max: rdo.temperatura_max != null ? String(rdo.temperatura_max) : '',
-    condicao_terreno: rdo.condicao_terreno ?? '',
+    data:
+      typeof rdo.data === "string"
+        ? rdo.data.slice(0, 10)
+        : new Date(rdo.data).toISOString().slice(0, 10),
+    site_id: rdo.site_id ?? "",
+    responsavel_id: rdo.responsavel_id ?? "",
+    clima_manha: rdo.clima_manha ?? "",
+    clima_tarde: rdo.clima_tarde ?? "",
+    temperatura_min:
+      rdo.temperatura_min != null ? String(rdo.temperatura_min) : "",
+    temperatura_max:
+      rdo.temperatura_max != null ? String(rdo.temperatura_max) : "",
+    condicao_terreno: rdo.condicao_terreno ?? "",
     mao_de_obra: rdo.mao_de_obra ?? [],
     equipamentos: rdo.equipamentos ?? [],
     materiais_recebidos: rdo.materiais_recebidos ?? [],
@@ -162,9 +184,9 @@ function rdoToForm(rdo: Rdo): FormState {
     ocorrencias: rdo.ocorrencias ?? [],
     houve_acidente: rdo.houve_acidente,
     houve_paralisacao: rdo.houve_paralisacao,
-    motivo_paralisacao: rdo.motivo_paralisacao ?? '',
-    observacoes: rdo.observacoes ?? '',
-    programa_servicos_amanha: rdo.programa_servicos_amanha ?? '',
+    motivo_paralisacao: rdo.motivo_paralisacao ?? "",
+    observacoes: rdo.observacoes ?? "",
+    programa_servicos_amanha: rdo.programa_servicos_amanha ?? "",
   };
 }
 
@@ -184,13 +206,20 @@ export default function RdosPage() {
   const [viewRdo, setViewRdo] = useState<Rdo | null>(null);
 
   // Sign modal
-  const [signModal, setSignModal] = useState<{ rdo: Rdo; tipo: 'responsavel' | 'engenheiro' } | null>(null);
-  const [signForm, setSignForm] = useState({ nome: '', cpf: '', tipo: 'responsavel' as 'responsavel' | 'engenheiro' });
+  const [signModal, setSignModal] = useState<{
+    rdo: Rdo;
+    tipo: "responsavel" | "engenheiro";
+  } | null>(null);
+  const [signForm, setSignForm] = useState({
+    nome: "",
+    cpf: "",
+    tipo: "responsavel" as "responsavel" | "engenheiro",
+  });
   const [signing, setSigning] = useState(false);
 
   // Email modal
   const [emailModal, setEmailModal] = useState<Rdo | null>(null);
-  const [emailTo, setEmailTo] = useState('');
+  const [emailTo, setEmailTo] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
 
   // Paginação + filtros
@@ -198,11 +227,11 @@ export default function RdosPage() {
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterSiteId, setFilterSiteId] = useState('');
-  const [filterDataInicio, setFilterDataInicio] = useState('');
-  const [filterDataFim, setFilterDataFim] = useState('');
-  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterSiteId, setFilterSiteId] = useState("");
+  const [filterDataInicio, setFilterDataInicio] = useState("");
+  const [filterDataFim, setFilterDataFim] = useState("");
+  const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
 
   // Resumo
@@ -238,18 +267,25 @@ export default function RdosPage() {
       const allRdos = rdosData.data;
       setSummary({
         total: rdosData.total,
-        rascunho: allRdos.filter((r) => r.status === 'rascunho').length,
-        enviado: allRdos.filter((r) => r.status === 'enviado').length,
-        aprovado: allRdos.filter((r) => r.status === 'aprovado').length,
+        rascunho: allRdos.filter((r) => r.status === "rascunho").length,
+        enviado: allRdos.filter((r) => r.status === "enviado").length,
+        aprovado: allRdos.filter((r) => r.status === "aprovado").length,
       });
     } catch (error) {
-      console.error('Erro ao carregar RDOs:', error);
-      setLoadError('Não foi possível carregar os RDOs.');
-      toast.error('Erro ao carregar RDOs.');
+      console.error("Erro ao carregar RDOs:", error);
+      setLoadError("Não foi possível carregar os RDOs.");
+      toast.error("Erro ao carregar RDOs.");
     } finally {
       setLoading(false);
     }
-  }, [page, limit, filterStatus, filterSiteId, filterDataInicio, filterDataFim]);
+  }, [
+    page,
+    limit,
+    filterStatus,
+    filterSiteId,
+    filterDataInicio,
+    filterDataFim,
+  ]);
 
   useEffect(() => {
     loadData();
@@ -271,7 +307,7 @@ export default function RdosPage() {
 
   const handleSave = async () => {
     if (!form.data) {
-      toast.error('Informe a data do RDO.');
+      toast.error("Informe a data do RDO.");
       return;
     }
     setSaving(true);
@@ -281,13 +317,24 @@ export default function RdosPage() {
       responsavel_id: form.responsavel_id || undefined,
       clima_manha: form.clima_manha || undefined,
       clima_tarde: form.clima_tarde || undefined,
-      temperatura_min: form.temperatura_min ? Number(form.temperatura_min) : undefined,
-      temperatura_max: form.temperatura_max ? Number(form.temperatura_max) : undefined,
+      temperatura_min: form.temperatura_min
+        ? Number(form.temperatura_min)
+        : undefined,
+      temperatura_max: form.temperatura_max
+        ? Number(form.temperatura_max)
+        : undefined,
       condicao_terreno: form.condicao_terreno || undefined,
       mao_de_obra: form.mao_de_obra.length > 0 ? form.mao_de_obra : undefined,
-      equipamentos: form.equipamentos.length > 0 ? form.equipamentos : undefined,
-      materiais_recebidos: form.materiais_recebidos.length > 0 ? form.materiais_recebidos : undefined,
-      servicos_executados: form.servicos_executados.length > 0 ? form.servicos_executados : undefined,
+      equipamentos:
+        form.equipamentos.length > 0 ? form.equipamentos : undefined,
+      materiais_recebidos:
+        form.materiais_recebidos.length > 0
+          ? form.materiais_recebidos
+          : undefined,
+      servicos_executados:
+        form.servicos_executados.length > 0
+          ? form.servicos_executados
+          : undefined,
       ocorrencias: form.ocorrencias.length > 0 ? form.ocorrencias : undefined,
       houve_acidente: form.houve_acidente,
       houve_paralisacao: form.houve_paralisacao,
@@ -298,16 +345,16 @@ export default function RdosPage() {
     try {
       if (editingId) {
         await rdosService.update(editingId, payload);
-        toast.success('RDO atualizado com sucesso!');
+        toast.success("RDO atualizado com sucesso!");
       } else {
         await rdosService.create(payload);
-        toast.success('RDO criado com sucesso!');
+        toast.success("RDO criado com sucesso!");
       }
       setShowModal(false);
       loadData();
     } catch (error) {
-      console.error('Erro ao salvar RDO:', error);
-      toast.error('Erro ao salvar RDO.');
+      console.error("Erro ao salvar RDO:", error);
+      toast.error("Erro ao salvar RDO.");
     } finally {
       setSaving(false);
     }
@@ -316,24 +363,27 @@ export default function RdosPage() {
   const handleStatusChange = async (id: string, newStatus: string) => {
     try {
       const updated = await rdosService.updateStatus(id, newStatus);
-      setRdos((prev) => prev.map((r) => (r.id === id ? { ...r, status: updated.status } : r)));
-      if (viewRdo?.id === id) setViewRdo((v) => v ? { ...v, status: updated.status } : v);
+      setRdos((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: updated.status } : r)),
+      );
+      if (viewRdo?.id === id)
+        setViewRdo((v) => (v ? { ...v, status: updated.status } : v));
       toast.success(`Status atualizado para "${RDO_STATUS_LABEL[newStatus]}"`);
     } catch (error) {
-      console.error('Erro ao atualizar status:', error);
-      toast.error('Erro ao atualizar status do RDO.');
+      console.error("Erro ao atualizar status:", error);
+      toast.error("Erro ao atualizar status do RDO.");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Deseja excluir este RDO?')) return;
+    if (!confirm("Deseja excluir este RDO?")) return;
     try {
       await rdosService.delete(id);
-      toast.success('RDO excluído.');
+      toast.success("RDO excluído.");
       loadData();
     } catch (error) {
-      console.error('Erro ao excluir RDO:', error);
-      toast.error('Erro ao excluir RDO.');
+      console.error("Erro ao excluir RDO:", error);
+      toast.error("Erro ao excluir RDO.");
     }
   };
 
@@ -341,11 +391,21 @@ export default function RdosPage() {
   const addMaoDeObra = () =>
     setForm((f) => ({
       ...f,
-      mao_de_obra: [...f.mao_de_obra, { funcao: '', quantidade: 1, turno: 'manha', horas: 8 }],
+      mao_de_obra: [
+        ...f.mao_de_obra,
+        { funcao: "", quantidade: 1, turno: "manha", horas: 8 },
+      ],
     }));
   const removeMaoDeObra = (i: number) =>
-    setForm((f) => ({ ...f, mao_de_obra: f.mao_de_obra.filter((_, idx) => idx !== i) }));
-  const updateMaoDeObra = (i: number, field: keyof MaoDeObraItem, value: string | number) =>
+    setForm((f) => ({
+      ...f,
+      mao_de_obra: f.mao_de_obra.filter((_, idx) => idx !== i),
+    }));
+  const updateMaoDeObra = (
+    i: number,
+    field: keyof MaoDeObraItem,
+    value: string | number,
+  ) =>
     setForm((f) => {
       const arr = [...f.mao_de_obra];
       arr[i] = { ...arr[i], [field]: value } as MaoDeObraItem;
@@ -355,11 +415,21 @@ export default function RdosPage() {
   const addEquipamento = () =>
     setForm((f) => ({
       ...f,
-      equipamentos: [...f.equipamentos, { nome: '', quantidade: 1, horas_trabalhadas: 0, horas_ociosas: 0 }],
+      equipamentos: [
+        ...f.equipamentos,
+        { nome: "", quantidade: 1, horas_trabalhadas: 0, horas_ociosas: 0 },
+      ],
     }));
   const removeEquipamento = (i: number) =>
-    setForm((f) => ({ ...f, equipamentos: f.equipamentos.filter((_, idx) => idx !== i) }));
-  const updateEquipamento = (i: number, field: keyof EquipamentoItem, value: string | number) =>
+    setForm((f) => ({
+      ...f,
+      equipamentos: f.equipamentos.filter((_, idx) => idx !== i),
+    }));
+  const updateEquipamento = (
+    i: number,
+    field: keyof EquipamentoItem,
+    value: string | number,
+  ) =>
     setForm((f) => {
       const arr = [...f.equipamentos];
       arr[i] = { ...arr[i], [field]: value } as EquipamentoItem;
@@ -369,11 +439,21 @@ export default function RdosPage() {
   const addMaterial = () =>
     setForm((f) => ({
       ...f,
-      materiais_recebidos: [...f.materiais_recebidos, { descricao: '', unidade: 'un', quantidade: 0 }],
+      materiais_recebidos: [
+        ...f.materiais_recebidos,
+        { descricao: "", unidade: "un", quantidade: 0 },
+      ],
     }));
   const removeMaterial = (i: number) =>
-    setForm((f) => ({ ...f, materiais_recebidos: f.materiais_recebidos.filter((_, idx) => idx !== i) }));
-  const updateMaterial = (i: number, field: keyof MaterialItem, value: string | number) =>
+    setForm((f) => ({
+      ...f,
+      materiais_recebidos: f.materiais_recebidos.filter((_, idx) => idx !== i),
+    }));
+  const updateMaterial = (
+    i: number,
+    field: keyof MaterialItem,
+    value: string | number,
+  ) =>
     setForm((f) => {
       const arr = [...f.materiais_recebidos];
       arr[i] = { ...arr[i], [field]: value } as MaterialItem;
@@ -383,11 +463,21 @@ export default function RdosPage() {
   const addServico = () =>
     setForm((f) => ({
       ...f,
-      servicos_executados: [...f.servicos_executados, { descricao: '', percentual_concluido: 0 }],
+      servicos_executados: [
+        ...f.servicos_executados,
+        { descricao: "", percentual_concluido: 0 },
+      ],
     }));
   const removeServico = (i: number) =>
-    setForm((f) => ({ ...f, servicos_executados: f.servicos_executados.filter((_, idx) => idx !== i) }));
-  const updateServico = (i: number, field: keyof ServicoItem, value: string | number) =>
+    setForm((f) => ({
+      ...f,
+      servicos_executados: f.servicos_executados.filter((_, idx) => idx !== i),
+    }));
+  const updateServico = (
+    i: number,
+    field: keyof ServicoItem,
+    value: string | number,
+  ) =>
     setForm((f) => {
       const arr = [...f.servicos_executados];
       arr[i] = { ...arr[i], [field]: value } as ServicoItem;
@@ -397,11 +487,18 @@ export default function RdosPage() {
   const addOcorrencia = () =>
     setForm((f) => ({
       ...f,
-      ocorrencias: [...f.ocorrencias, { tipo: 'outro', descricao: '' }],
+      ocorrencias: [...f.ocorrencias, { tipo: "outro", descricao: "" }],
     }));
   const removeOcorrencia = (i: number) =>
-    setForm((f) => ({ ...f, ocorrencias: f.ocorrencias.filter((_, idx) => idx !== i) }));
-  const updateOcorrencia = (i: number, field: keyof OcorrenciaItem, value: string) =>
+    setForm((f) => ({
+      ...f,
+      ocorrencias: f.ocorrencias.filter((_, idx) => idx !== i),
+    }));
+  const updateOcorrencia = (
+    i: number,
+    field: keyof OcorrenciaItem,
+    value: string,
+  ) =>
     setForm((f) => {
       const arr = [...f.ocorrencias];
       arr[i] = { ...arr[i], [field]: value } as OcorrenciaItem;
@@ -409,20 +506,54 @@ export default function RdosPage() {
     });
 
   const handlePrint = (rdo: Rdo) => {
-    const dataFormatada = new Date(rdo.data).toLocaleDateString('pt-BR');
-    const totalTrab = (rdo.mao_de_obra ?? []).reduce((s, m) => s + m.quantidade, 0);
-    const win = window.open('', '_blank');
-    if (!win) { toast.error('Ative pop-ups para imprimir.'); return; }
-    const rows = (rdo.mao_de_obra ?? []).map(m =>
-      `<tr><td>${m.funcao}</td><td>${m.quantidade}</td><td>${m.turno}</td><td>${m.horas}h</td></tr>`).join('');
-    const servicos = (rdo.servicos_executados ?? []).map(s =>
-      `<tr><td>${s.descricao}</td><td>${s.percentual_concluido}%</td></tr>`).join('');
-    const ocorrencias = (rdo.ocorrencias ?? []).map(o =>
-      `<tr><td>${OCORRENCIA_TIPO_LABEL[o.tipo] ?? o.tipo}</td><td>${o.descricao}</td><td>${o.hora ?? ''}</td></tr>`).join('');
-    const sigResp = rdo.assinatura_responsavel ? (() => { try { return JSON.parse(rdo.assinatura_responsavel!); } catch { return null; } })() : null;
-    const sigEng = rdo.assinatura_engenheiro ? (() => { try { return JSON.parse(rdo.assinatura_engenheiro!); } catch { return null; } })() : null;
+    const dataFormatada = new Date(rdo.data).toLocaleDateString("pt-BR");
+    const totalTrab = (rdo.mao_de_obra ?? []).reduce(
+      (s, m) => s + m.quantidade,
+      0,
+    );
+    const win = window.open("", "_blank");
+    if (!win) {
+      toast.error("Ative pop-ups para imprimir.");
+      return;
+    }
+    const rows = (rdo.mao_de_obra ?? [])
+      .map(
+        (m) =>
+          `<tr><td>${escapePrintHtml(m.funcao)}</td><td>${escapePrintHtml(m.quantidade)}</td><td>${escapePrintHtml(m.turno)}</td><td>${escapePrintHtml(m.horas)}h</td></tr>`,
+      )
+      .join("");
+    const servicos = (rdo.servicos_executados ?? [])
+      .map(
+        (s) =>
+          `<tr><td>${escapePrintHtml(s.descricao)}</td><td>${escapePrintHtml(s.percentual_concluido)}%</td></tr>`,
+      )
+      .join("");
+    const ocorrencias = (rdo.ocorrencias ?? [])
+      .map(
+        (o) =>
+          `<tr><td>${escapePrintHtml(OCORRENCIA_TIPO_LABEL[o.tipo] ?? o.tipo)}</td><td>${escapePrintHtml(o.descricao)}</td><td>${escapePrintHtml(o.hora ?? "")}</td></tr>`,
+      )
+      .join("");
+    const sigResp = rdo.assinatura_responsavel
+      ? (() => {
+          try {
+            return JSON.parse(rdo.assinatura_responsavel!);
+          } catch {
+            return null;
+          }
+        })()
+      : null;
+    const sigEng = rdo.assinatura_engenheiro
+      ? (() => {
+          try {
+            return JSON.parse(rdo.assinatura_engenheiro!);
+          } catch {
+            return null;
+          }
+        })()
+      : null;
     win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
-<title>RDO ${rdo.numero}</title>
+<title>RDO ${escapePrintHtml(rdo.numero)}</title>
 <style>
   body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:24px}
   h1{font-size:18px;margin:0 0 4px}
@@ -439,26 +570,26 @@ export default function RdosPage() {
   @media print{body{margin:0}button{display:none}}
 </style></head><body>
 <h1>Relatório Diário de Obra</h1>
-<div class="sub">${rdo.numero} · ${dataFormatada} · ${rdo.site?.nome ?? ''}</div>
-<table><tr><th>Responsável</th><td>${rdo.responsavel?.nome ?? '—'}</td>
-<th>Status</th><td><span class="badge">${RDO_STATUS_LABEL[rdo.status] ?? rdo.status}</span></td></tr>
-<tr><th>Clima manhã</th><td>${rdo.clima_manha ? (CLIMA_LABEL[rdo.clima_manha] ?? rdo.clima_manha) : '—'}</td>
-<th>Clima tarde</th><td>${rdo.clima_tarde ? (CLIMA_LABEL[rdo.clima_tarde] ?? rdo.clima_tarde) : '—'}</td></tr>
-${rdo.temperatura_min != null ? `<tr><th>Temp. mín</th><td>${rdo.temperatura_min}°C</td><th>Temp. máx</th><td>${rdo.temperatura_max ?? '?'}°C</td></tr>` : ''}
-${rdo.condicao_terreno ? `<tr><th>Terreno</th><td colspan="3">${rdo.condicao_terreno}</td></tr>` : ''}
+<div class="sub">${escapePrintHtml(rdo.numero)} · ${escapePrintHtml(dataFormatada)} · ${escapePrintHtml(rdo.site?.nome ?? "")}</div>
+<table><tr><th>Responsável</th><td>${escapePrintHtml(rdo.responsavel?.nome ?? "—")}</td>
+<th>Status</th><td><span class="badge">${escapePrintHtml(RDO_STATUS_LABEL[rdo.status] ?? rdo.status)}</span></td></tr>
+<tr><th>Clima manhã</th><td>${escapePrintHtml(rdo.clima_manha ? (CLIMA_LABEL[rdo.clima_manha] ?? rdo.clima_manha) : "—")}</td>
+<th>Clima tarde</th><td>${escapePrintHtml(rdo.clima_tarde ? (CLIMA_LABEL[rdo.clima_tarde] ?? rdo.clima_tarde) : "—")}</td></tr>
+${rdo.temperatura_min != null ? `<tr><th>Temp. mín</th><td>${escapePrintHtml(rdo.temperatura_min)}°C</td><th>Temp. máx</th><td>${escapePrintHtml(rdo.temperatura_max ?? "?")}°C</td></tr>` : ""}
+${rdo.condicao_terreno ? `<tr><th>Terreno</th><td colspan="3">${escapePrintHtml(rdo.condicao_terreno)}</td></tr>` : ""}
 <tr><th>Trabalhadores</th><td>${totalTrab}</td>
 <th>Equipamentos</th><td>${(rdo.equipamentos ?? []).length}</td></tr>
 </table>
-${rdo.houve_acidente ? '<div class="badge flag-danger" style="margin-bottom:6px">⚠️ Houve acidente</div>' : ''}
-${rdo.houve_paralisacao ? `<div class="badge flag-warn" style="margin-bottom:6px">⏸️ Paralisação: ${rdo.motivo_paralisacao ?? ''}</div>` : ''}
-${rows ? `<div class="section">Mão de Obra</div><table><tr><th>Função</th><th>Qtd</th><th>Turno</th><th>Horas</th></tr>${rows}</table>` : ''}
-${servicos ? `<div class="section">Serviços Executados</div><table><tr><th>Descrição</th><th>% Concluído</th></tr>${servicos}</table>` : ''}
-${ocorrencias ? `<div class="section">Ocorrências</div><table><tr><th>Tipo</th><th>Descrição</th><th>Hora</th></tr>${ocorrencias}</table>` : ''}
-${rdo.observacoes ? `<div class="section">Observações</div><p>${rdo.observacoes}</p>` : ''}
-${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</div><p>${rdo.programa_servicos_amanha}</p>` : ''}
+${rdo.houve_acidente ? '<div class="badge flag-danger" style="margin-bottom:6px">⚠️ Houve acidente</div>' : ""}
+${rdo.houve_paralisacao ? `<div class="badge flag-warn" style="margin-bottom:6px">⏸️ Paralisação: ${escapePrintHtml(rdo.motivo_paralisacao ?? "")}</div>` : ""}
+${rows ? `<div class="section">Mão de Obra</div><table><tr><th>Função</th><th>Qtd</th><th>Turno</th><th>Horas</th></tr>${rows}</table>` : ""}
+${servicos ? `<div class="section">Serviços Executados</div><table><tr><th>Descrição</th><th>% Concluído</th></tr>${servicos}</table>` : ""}
+${ocorrencias ? `<div class="section">Ocorrências</div><table><tr><th>Tipo</th><th>Descrição</th><th>Hora</th></tr>${ocorrencias}</table>` : ""}
+${rdo.observacoes ? `<div class="section">Observações</div><p>${escapePrintHtmlWithBreaks(rdo.observacoes)}</p>` : ""}
+${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</div><p>${escapePrintHtmlWithBreaks(rdo.programa_servicos_amanha)}</p>` : ""}
 <div class="sig-box">
-  <div class="sig-item">${sigResp ? `Responsável: ${sigResp.nome}<br/>CPF: ${sigResp.cpf}<br/>Assinado em: ${new Date(sigResp.signed_at).toLocaleString('pt-BR')}` : 'Responsável pela Obra'}</div>
-  <div class="sig-item">${sigEng ? `Engenheiro: ${sigEng.nome}<br/>CPF: ${sigEng.cpf}<br/>Assinado em: ${new Date(sigEng.signed_at).toLocaleString('pt-BR')}` : 'Engenheiro Responsável'}</div>
+  <div class="sig-item">${sigResp ? `Responsável: ${escapePrintHtml(sigResp.nome)}<br/>CPF: ${escapePrintHtml(sigResp.cpf)}<br/>Assinado em: ${escapePrintHtml(new Date(sigResp.signed_at).toLocaleString("pt-BR"))}` : "Responsável pela Obra"}</div>
+  <div class="sig-item">${sigEng ? `Engenheiro: ${escapePrintHtml(sigEng.nome)}<br/>CPF: ${escapePrintHtml(sigEng.cpf)}<br/>Assinado em: ${escapePrintHtml(new Date(sigEng.signed_at).toLocaleString("pt-BR"))}` : "Engenheiro Responsável"}</div>
 </div>
 </body></html>`);
     win.document.close();
@@ -468,7 +599,10 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
 
   const handleSign = async () => {
     if (!signModal) return;
-    if (!signForm.nome || !signForm.cpf) { toast.error('Preencha nome e CPF.'); return; }
+    if (!signForm.nome || !signForm.cpf) {
+      toast.error("Preencha nome e CPF.");
+      return;
+    }
     setSigning(true);
     try {
       const hash = btoa(`${signForm.nome}:${signForm.cpf}:${Date.now()}`);
@@ -479,13 +613,13 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
         hash,
         timestamp: new Date().toISOString(),
       });
-      setRdos((prev) => prev.map((r) => r.id === updated.id ? updated : r));
+      setRdos((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       if (viewRdo?.id === updated.id) setViewRdo(updated);
-      toast.success('RDO assinado com sucesso!');
+      toast.success("RDO assinado com sucesso!");
       setSignModal(null);
-      setSignForm({ nome: '', cpf: '', tipo: 'responsavel' });
+      setSignForm({ nome: "", cpf: "", tipo: "responsavel" });
     } catch {
-      toast.error('Erro ao assinar RDO.');
+      toast.error("Erro ao assinar RDO.");
     } finally {
       setSigning(false);
     }
@@ -493,16 +627,22 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
 
   const handleSendEmail = async () => {
     if (!emailModal) return;
-    const emails = emailTo.split(/[,;\s]+/).map((e) => e.trim()).filter(Boolean);
-    if (emails.length === 0) { toast.error('Informe pelo menos um e-mail.'); return; }
+    const emails = emailTo
+      .split(/[,;\s]+/)
+      .map((e) => e.trim())
+      .filter(Boolean);
+    if (emails.length === 0) {
+      toast.error("Informe pelo menos um e-mail.");
+      return;
+    }
     setSendingEmail(true);
     try {
       await rdosService.sendEmail(emailModal.id, emails);
       toast.success(`RDO enviado para ${emails.length} destinatário(s).`);
       setEmailModal(null);
-      setEmailTo('');
+      setEmailTo("");
     } catch {
-      toast.error('Erro ao enviar e-mail.');
+      toast.error("Erro ao enviar e-mail.");
     } finally {
       setSendingEmail(false);
     }
@@ -553,9 +693,12 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               <ClipboardList className="h-5 w-5" />
             </div>
             <div className="space-y-2">
-              <CardTitle className="text-2xl">Relatórios Diários de Obras</CardTitle>
+              <CardTitle className="text-2xl">
+                Relatórios Diários de Obras
+              </CardTitle>
               <CardDescription>
-                Controle produção diária, clima, mão de obra, ocorrências e status do canteiro.
+                Controle produção diária, clima, mão de obra, ocorrências e
+                status do canteiro.
               </CardDescription>
             </div>
           </div>
@@ -564,11 +707,15 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               type="button"
               variant="outline"
               leftIcon={<FileSpreadsheet className="h-4 w-4" />}
-              onClick={() => downloadExcel('/rdos/export/excel', 'rdos.xlsx')}
+              onClick={() => downloadExcel("/rdos/export/excel", "rdos.xlsx")}
             >
               Exportar Excel
             </Button>
-            <Button type="button" leftIcon={<Plus className="h-4 w-4" />} onClick={handleOpenCreate}>
+            <Button
+              type="button"
+              leftIcon={<Plus className="h-4 w-4" />}
+              onClick={handleOpenCreate}
+            >
               Novo RDO
             </Button>
           </div>
@@ -585,19 +732,25 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
         <Card interactive padding="md">
           <CardHeader>
             <CardDescription>Rascunhos</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-text-secondary)]">{summary.rascunho}</CardTitle>
+            <CardTitle className="text-3xl text-[var(--ds-color-text-secondary)]">
+              {summary.rascunho}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card interactive padding="md">
           <CardHeader>
             <CardDescription>Enviados</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">{summary.enviado}</CardTitle>
+            <CardTitle className="text-3xl text-[var(--ds-color-action-primary)]">
+              {summary.enviado}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card interactive padding="md">
           <CardHeader>
             <CardDescription>Aprovados</CardDescription>
-            <CardTitle className="text-3xl text-[var(--ds-color-success)]">{summary.aprovado}</CardTitle>
+            <CardTitle className="text-3xl text-[var(--ds-color-success)]">
+              {summary.aprovado}
+            </CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -611,10 +764,13 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
           <CardHeader className="gap-2">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-[var(--ds-color-warning)]" />
-              <CardTitle className="text-base">Há RDOs pendentes de envio</CardTitle>
+              <CardTitle className="text-base">
+                Há RDOs pendentes de envio
+              </CardTitle>
             </div>
             <CardDescription>
-              {summary.rascunho} relatório(s) ainda estão em rascunho. Feche o ciclo diário e encaminhe para aprovação.
+              {summary.rascunho} relatório(s) ainda estão em rascunho. Feche o
+              ciclo diário e encaminhe para aprovação.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -625,7 +781,8 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
           <div className="space-y-1">
             <CardTitle>Base de RDOs</CardTitle>
             <CardDescription>
-              {total} registro(s) no recorte atual com filtros por status, obra e período.
+              {total} registro(s) no recorte atual com filtros por status, obra
+              e período.
             </CardDescription>
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -636,14 +793,17 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 placeholder="Buscar número ou obra..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className={cn(inputClassName, 'w-full pl-9')}
+                className={cn(inputClassName, "w-full pl-9")}
               />
             </div>
             <select
               aria-label="Filtrar por status"
               value={filterStatus}
-              onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
-              className={cn(inputClassName, 'w-full')}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setPage(1);
+              }}
+              className={cn(inputClassName, "w-full")}
             >
               <option value="">Todos os status</option>
               <option value="rascunho">Rascunho</option>
@@ -653,26 +813,37 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
             <select
               aria-label="Filtrar por obra"
               value={filterSiteId}
-              onChange={(e) => { setFilterSiteId(e.target.value); setPage(1); }}
-              className={cn(inputClassName, 'w-full')}
+              onChange={(e) => {
+                setFilterSiteId(e.target.value);
+                setPage(1);
+              }}
+              className={cn(inputClassName, "w-full")}
             >
               <option value="">Todas as obras</option>
               {sites.map((s) => (
-                <option key={s.id} value={s.id}>{s.nome}</option>
+                <option key={s.id} value={s.id}>
+                  {s.nome}
+                </option>
               ))}
             </select>
             <input
               type="date"
               value={filterDataInicio}
-              onChange={(e) => { setFilterDataInicio(e.target.value); setPage(1); }}
-              className={cn(inputClassName, 'w-full')}
+              onChange={(e) => {
+                setFilterDataInicio(e.target.value);
+                setPage(1);
+              }}
+              className={cn(inputClassName, "w-full")}
               title="Data início"
             />
             <input
               type="date"
               value={filterDataFim}
-              onChange={(e) => { setFilterDataFim(e.target.value); setPage(1); }}
-              className={cn(inputClassName, 'w-full')}
+              onChange={(e) => {
+                setFilterDataFim(e.target.value);
+                setPage(1);
+              }}
+              className={cn(inputClassName, "w-full")}
               title="Data fim"
             />
           </div>
@@ -684,15 +855,15 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               title="Nenhum RDO encontrado"
               description={
                 deferredSearch
-                  ? 'Nenhum resultado corresponde ao filtro aplicado.'
-                  : 'Ainda não existem RDOs registrados para este tenant.'
+                  ? "Nenhum resultado corresponde ao filtro aplicado."
+                  : "Ainda não existem RDOs registrados para este tenant."
               }
               action={
                 !deferredSearch ? (
                   <button
                     type="button"
                     onClick={handleOpenCreate}
-                    className={cn(buttonVariants(), 'inline-flex items-center')}
+                    className={cn(buttonVariants(), "inline-flex items-center")}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Novo RDO
@@ -722,14 +893,18 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                         {rdo.numero}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {new Date(rdo.data).toLocaleDateString('pt-BR')}
+                        {new Date(rdo.data).toLocaleDateString("pt-BR")}
                       </TableCell>
-                      <TableCell className="text-sm">{rdo.site?.nome ?? '—'}</TableCell>
-                      <TableCell className="text-sm">{rdo.responsavel?.nome ?? '—'}</TableCell>
+                      <TableCell className="text-sm">
+                        {rdo.site?.nome ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {rdo.responsavel?.nome ?? "—"}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span
-                            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${RDO_STATUS_COLORS[rdo.status] ?? 'bg-gray-100 text-gray-600'}`}
+                            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${RDO_STATUS_COLORS[rdo.status] ?? "bg-gray-100 text-gray-600"}`}
                           >
                             {RDO_STATUS_LABEL[rdo.status] ?? rdo.status}
                           </span>
@@ -738,13 +913,16 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                               aria-label="Mover status do RDO"
                               value=""
                               onChange={(e) => {
-                                if (e.target.value) handleStatusChange(rdo.id, e.target.value);
+                                if (e.target.value)
+                                  handleStatusChange(rdo.id, e.target.value);
                               }}
                               className="rounded border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-1 py-0.5 text-xs text-[var(--ds-color-text-secondary)]"
                             >
                               <option value="">Mover para...</option>
                               {RDO_ALLOWED_TRANSITIONS[rdo.status].map((s) => (
-                                <option key={s} value={s}>{RDO_STATUS_LABEL[s]}</option>
+                                <option key={s} value={s}>
+                                  {RDO_STATUS_LABEL[s]}
+                                </option>
                               ))}
                             </select>
                           )}
@@ -752,9 +930,13 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       </TableCell>
                       <TableCell className="text-sm">
                         {totalTrabalhadores(rdo) > 0 ? (
-                          <span className="font-medium">{totalTrabalhadores(rdo)}</span>
+                          <span className="font-medium">
+                            {totalTrabalhadores(rdo)}
+                          </span>
                         ) : (
-                          <span className="text-[var(--ds-color-text-muted)]">—</span>
+                          <span className="text-[var(--ds-color-text-muted)]">
+                            —
+                          </span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -763,7 +945,9 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                             <AlertTriangle className="h-3 w-3" /> Sim
                           </span>
                         ) : (
-                          <span className="text-xs text-[var(--ds-color-text-muted)]">Não</span>
+                          <span className="text-xs text-[var(--ds-color-text-muted)]">
+                            Não
+                          </span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
@@ -814,7 +998,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
             {/* Header */}
             <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-6 py-4">
               <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
-                {editingId ? 'Editar RDO' : 'Novo Relatório Diário de Obra'}
+                {editingId ? "Editar RDO" : "Novo Relatório Diário de Obra"}
               </h2>
               <button
                 type="button"
@@ -836,10 +1020,10 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       onClick={() => setCurrentStep(idx)}
                       className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors ${
                         idx === currentStep
-                          ? 'bg-[var(--ds-color-action-primary)] text-white'
+                          ? "bg-[var(--ds-color-action-primary)] text-white"
                           : idx < currentStep
-                          ? 'bg-[color:var(--ds-color-action-primary)]/15 text-[var(--ds-color-action-primary)]'
-                          : 'bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-muted)]'
+                            ? "bg-[color:var(--ds-color-action-primary)]/15 text-[var(--ds-color-action-primary)]"
+                            : "bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-muted)]"
                       }`}
                       title={step.label}
                     >
@@ -849,58 +1033,87 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       <div
                         className={`h-0.5 w-4 transition-colors ${
                           idx < currentStep
-                            ? 'bg-[var(--ds-color-action-primary)]'
-                            : 'bg-[var(--ds-color-border-subtle)]'
+                            ? "bg-[var(--ds-color-action-primary)]"
+                            : "bg-[var(--ds-color-border-subtle)]"
                         }`}
                       />
                     )}
                   </div>
                 ))}
-                <span className="ml-3 text-xs text-[var(--ds-color-text-muted)]">{STEPS[currentStep].label}</span>
+                <span className="ml-3 text-xs text-[var(--ds-color-text-muted)]">
+                  {STEPS[currentStep].label}
+                </span>
               </div>
             </div>
 
             {/* Conteúdo do step */}
             <div className="max-h-[55vh] overflow-y-auto px-6 py-5 space-y-4">
-
               {/* Step 0: Dados Básicos */}
               {currentStep === 0 && (
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="rdo-data" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Data *</label>
+                    <label
+                      htmlFor="rdo-data"
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                    >
+                      Data *
+                    </label>
                     <input
                       id="rdo-data"
                       type="date"
                       value={form.data}
-                      onChange={(e) => setForm((f) => ({ ...f, data: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, data: e.target.value }))
+                      }
                       className={formInputClassName}
                     />
                   </div>
                   <div>
-                    <label htmlFor="rdo-site-id" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Obra/Setor</label>
+                    <label
+                      htmlFor="rdo-site-id"
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                    >
+                      Obra/Setor
+                    </label>
                     <select
                       id="rdo-site-id"
                       value={form.site_id}
-                      onChange={(e) => setForm((f) => ({ ...f, site_id: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, site_id: e.target.value }))
+                      }
                       className={formInputClassName}
                     >
                       <option value="">Selecionar obra...</option>
                       {sites.map((s) => (
-                        <option key={s.id} value={s.id}>{s.nome}</option>
+                        <option key={s.id} value={s.id}>
+                          {s.nome}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="rdo-responsavel-id" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Responsável</label>
+                    <label
+                      htmlFor="rdo-responsavel-id"
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                    >
+                      Responsável
+                    </label>
                     <select
                       id="rdo-responsavel-id"
                       value={form.responsavel_id}
-                      onChange={(e) => setForm((f) => ({ ...f, responsavel_id: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          responsavel_id: e.target.value,
+                        }))
+                      }
                       className={formInputClassName}
                     >
                       <option value="">Selecionar responsável...</option>
                       {users.map((u) => (
-                        <option key={u.id} value={u.id}>{u.nome}</option>
+                        <option key={u.id} value={u.id}>
+                          {u.nome}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -912,61 +1125,115 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="rdo-clima-manha" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Clima manhã</label>
+                      <label
+                        htmlFor="rdo-clima-manha"
+                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                      >
+                        Clima manhã
+                      </label>
                       <select
                         id="rdo-clima-manha"
                         value={form.clima_manha}
-                        onChange={(e) => setForm((f) => ({ ...f, clima_manha: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            clima_manha: e.target.value,
+                          }))
+                        }
                         className={formInputClassName}
                       >
                         <option value="">Selecionar...</option>
                         {CLIMA_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="rdo-clima-tarde" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Clima tarde</label>
+                      <label
+                        htmlFor="rdo-clima-tarde"
+                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                      >
+                        Clima tarde
+                      </label>
                       <select
                         id="rdo-clima-tarde"
                         value={form.clima_tarde}
-                        onChange={(e) => setForm((f) => ({ ...f, clima_tarde: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            clima_tarde: e.target.value,
+                          }))
+                        }
                         className={formInputClassName}
                       >
                         <option value="">Selecionar...</option>
                         {CLIMA_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="rdo-temperatura-min" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Temp. mín (°C)</label>
+                      <label
+                        htmlFor="rdo-temperatura-min"
+                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                      >
+                        Temp. mín (°C)
+                      </label>
                       <input
                         id="rdo-temperatura-min"
                         type="number"
                         value={form.temperatura_min}
-                        onChange={(e) => setForm((f) => ({ ...f, temperatura_min: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            temperatura_min: e.target.value,
+                          }))
+                        }
                         className={formInputClassName}
                       />
                     </div>
                     <div>
-                      <label htmlFor="rdo-temperatura-max" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Temp. máx (°C)</label>
+                      <label
+                        htmlFor="rdo-temperatura-max"
+                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                      >
+                        Temp. máx (°C)
+                      </label>
                       <input
                         id="rdo-temperatura-max"
                         type="number"
                         value={form.temperatura_max}
-                        onChange={(e) => setForm((f) => ({ ...f, temperatura_max: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            temperatura_max: e.target.value,
+                          }))
+                        }
                         className={formInputClassName}
                       />
                     </div>
                   </div>
                   <div>
-                    <label htmlFor="rdo-condicao-terreno" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Condição do terreno</label>
+                    <label
+                      htmlFor="rdo-condicao-terreno"
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                    >
+                      Condição do terreno
+                    </label>
                     <input
                       id="rdo-condicao-terreno"
                       type="text"
                       value={form.condicao_terreno}
-                      onChange={(e) => setForm((f) => ({ ...f, condicao_terreno: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          condicao_terreno: e.target.value,
+                        }))
+                      }
                       placeholder="Ex: seco, molhado, enlameado..."
                       className={formInputClassName}
                     />
@@ -978,61 +1245,99 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {currentStep === 2 && (
                 <div className="space-y-3">
                   {form.mao_de_obra.map((item, i) => (
-                    <div key={i} className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3">
+                    <div
+                      key={i}
+                      className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
+                    >
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">Função</label>
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          Função
+                        </label>
                         <input
                           type="text"
                           value={item.funcao}
-                          onChange={(e) => updateMaoDeObra(i, 'funcao', e.target.value)}
+                          onChange={(e) =>
+                            updateMaoDeObra(i, "funcao", e.target.value)
+                          }
                           className={formInputSmClassName}
                           placeholder="Ex: Pedreiro"
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">Qtd</label>
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          Qtd
+                        </label>
                         <input
                           type="number"
                           aria-label="Quantidade de trabalhadores"
                           value={item.quantidade}
                           min={1}
-                          onChange={(e) => updateMaoDeObra(i, 'quantidade', Number(e.target.value))}
+                          onChange={(e) =>
+                            updateMaoDeObra(
+                              i,
+                              "quantidade",
+                              Number(e.target.value),
+                            )
+                          }
                           className={formInputSmClassName}
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">Turno</label>
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          Turno
+                        </label>
                         <select
                           aria-label="Turno de trabalho"
                           value={item.turno}
-                          onChange={(e) => updateMaoDeObra(i, 'turno', e.target.value)}
+                          onChange={(e) =>
+                            updateMaoDeObra(i, "turno", e.target.value)
+                          }
                           className={formInputSmClassName}
                         >
                           {TURNO_OPTIONS.map((t) => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
+                            <option key={t.value} value={t.value}>
+                              {t.label}
+                            </option>
                           ))}
                         </select>
                       </div>
                       <div className="flex items-end gap-1">
                         <div className="flex-1">
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">Horas</label>
+                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                            Horas
+                          </label>
                           <input
                             type="number"
                             aria-label="Horas trabalhadas"
                             value={item.horas}
                             min={0}
                             max={24}
-                            onChange={(e) => updateMaoDeObra(i, 'horas', Number(e.target.value))}
+                            onChange={(e) =>
+                              updateMaoDeObra(
+                                i,
+                                "horas",
+                                Number(e.target.value),
+                              )
+                            }
                             className={formInputSmClassName}
                           />
                         </div>
-                        <button type="button" title="Remover" onClick={() => removeMaoDeObra(i)} className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10">
+                        <button
+                          type="button"
+                          title="Remover"
+                          onClick={() => removeMaoDeObra(i)}
+                          className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
                   ))}
-                  <button type="button" onClick={addMaoDeObra} className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline">
+                  <button
+                    type="button"
+                    onClick={addMaoDeObra}
+                    className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline"
+                  >
                     <Plus className="h-4 w-4" /> Adicionar função
                   </button>
                 </div>
@@ -1042,47 +1347,79 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {currentStep === 3 && (
                 <div className="space-y-3">
                   {form.equipamentos.map((item, i) => (
-                    <div key={i} className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3">
+                    <div
+                      key={i}
+                      className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
+                    >
                       <div className="col-span-2">
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">Equipamento</label>
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          Equipamento
+                        </label>
                         <input
                           type="text"
                           value={item.nome}
-                          onChange={(e) => updateEquipamento(i, 'nome', e.target.value)}
+                          onChange={(e) =>
+                            updateEquipamento(i, "nome", e.target.value)
+                          }
                           className={formInputSmClassName}
                           placeholder="Ex: Betoneira"
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">Qtd</label>
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          Qtd
+                        </label>
                         <input
                           type="number"
                           aria-label="Quantidade de equipamentos"
                           value={item.quantidade}
                           min={1}
-                          onChange={(e) => updateEquipamento(i, 'quantidade', Number(e.target.value))}
+                          onChange={(e) =>
+                            updateEquipamento(
+                              i,
+                              "quantidade",
+                              Number(e.target.value),
+                            )
+                          }
                           className={formInputSmClassName}
                         />
                       </div>
                       <div className="flex items-end gap-1">
                         <div className="flex-1">
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">H. trabalhadas</label>
+                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                            H. trabalhadas
+                          </label>
                           <input
                             type="number"
                             aria-label="Horas trabalhadas pelo equipamento"
                             value={item.horas_trabalhadas}
                             min={0}
-                            onChange={(e) => updateEquipamento(i, 'horas_trabalhadas', Number(e.target.value))}
+                            onChange={(e) =>
+                              updateEquipamento(
+                                i,
+                                "horas_trabalhadas",
+                                Number(e.target.value),
+                              )
+                            }
                             className={formInputSmClassName}
                           />
                         </div>
-                        <button type="button" title="Remover" onClick={() => removeEquipamento(i)} className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10">
+                        <button
+                          type="button"
+                          title="Remover"
+                          onClick={() => removeEquipamento(i)}
+                          className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
                   ))}
-                  <button type="button" onClick={addEquipamento} className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline">
+                  <button
+                    type="button"
+                    onClick={addEquipamento}
+                    className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline"
+                  >
                     <Plus className="h-4 w-4" /> Adicionar equipamento
                   </button>
                 </div>
@@ -1092,46 +1429,74 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {currentStep === 4 && (
                 <div className="space-y-3">
                   {form.materiais_recebidos.map((item, i) => (
-                    <div key={i} className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3">
+                    <div
+                      key={i}
+                      className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
+                    >
                       <div className="col-span-2">
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">Descrição</label>
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          Descrição
+                        </label>
                         <input
                           type="text"
                           value={item.descricao}
-                          onChange={(e) => updateMaterial(i, 'descricao', e.target.value)}
+                          onChange={(e) =>
+                            updateMaterial(i, "descricao", e.target.value)
+                          }
                           className={formInputSmClassName}
                           placeholder="Ex: Cimento CP-II"
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">Unidade</label>
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          Unidade
+                        </label>
                         <input
                           type="text"
                           value={item.unidade}
-                          onChange={(e) => updateMaterial(i, 'unidade', e.target.value)}
+                          onChange={(e) =>
+                            updateMaterial(i, "unidade", e.target.value)
+                          }
                           className={formInputSmClassName}
                           placeholder="sc, m³, kg"
                         />
                       </div>
                       <div className="flex items-end gap-1">
                         <div className="flex-1">
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">Quantidade</label>
+                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                            Quantidade
+                          </label>
                           <input
                             type="number"
                             aria-label="Quantidade do material"
                             value={item.quantidade}
                             min={0}
-                            onChange={(e) => updateMaterial(i, 'quantidade', Number(e.target.value))}
+                            onChange={(e) =>
+                              updateMaterial(
+                                i,
+                                "quantidade",
+                                Number(e.target.value),
+                              )
+                            }
                             className={formInputSmClassName}
                           />
                         </div>
-                        <button type="button" title="Remover" onClick={() => removeMaterial(i)} className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10">
+                        <button
+                          type="button"
+                          title="Remover"
+                          onClick={() => removeMaterial(i)}
+                          className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
                   ))}
-                  <button type="button" onClick={addMaterial} className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline">
+                  <button
+                    type="button"
+                    onClick={addMaterial}
+                    className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline"
+                  >
                     <Plus className="h-4 w-4" /> Adicionar material
                   </button>
                 </div>
@@ -1141,37 +1506,61 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {currentStep === 5 && (
                 <div className="space-y-3">
                   {form.servicos_executados.map((item, i) => (
-                    <div key={i} className="grid grid-cols-5 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3">
+                    <div
+                      key={i}
+                      className="grid grid-cols-5 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
+                    >
                       <div className="col-span-3">
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">Descrição do serviço</label>
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          Descrição do serviço
+                        </label>
                         <input
                           type="text"
                           value={item.descricao}
-                          onChange={(e) => updateServico(i, 'descricao', e.target.value)}
+                          onChange={(e) =>
+                            updateServico(i, "descricao", e.target.value)
+                          }
                           className={formInputSmClassName}
                           placeholder="Ex: Concretagem de laje"
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">% Concluído</label>
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          % Concluído
+                        </label>
                         <input
                           type="number"
                           aria-label="Percentual concluído"
                           value={item.percentual_concluido}
                           min={0}
                           max={100}
-                          onChange={(e) => updateServico(i, 'percentual_concluido', Number(e.target.value))}
+                          onChange={(e) =>
+                            updateServico(
+                              i,
+                              "percentual_concluido",
+                              Number(e.target.value),
+                            )
+                          }
                           className={formInputSmClassName}
                         />
                       </div>
                       <div className="flex items-end">
-                        <button type="button" title="Remover" onClick={() => removeServico(i)} className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10">
+                        <button
+                          type="button"
+                          title="Remover"
+                          onClick={() => removeServico(i)}
+                          className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
+                        >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
                   ))}
-                  <button type="button" onClick={addServico} className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline">
+                  <button
+                    type="button"
+                    onClick={addServico}
+                    className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline"
+                  >
                     <Plus className="h-4 w-4" /> Adicionar serviço
                   </button>
                 </div>
@@ -1185,99 +1574,168 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       <input
                         type="checkbox"
                         checked={form.houve_acidente}
-                        onChange={(e) => setForm((f) => ({ ...f, houve_acidente: e.target.checked }))}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            houve_acidente: e.target.checked,
+                          }))
+                        }
                         className="h-4 w-4 rounded accent-[var(--ds-color-danger)]"
                       />
-                      <span className="font-medium text-[var(--ds-color-danger)]">Houve acidente</span>
+                      <span className="font-medium text-[var(--ds-color-danger)]">
+                        Houve acidente
+                      </span>
                     </label>
                     <label className="flex items-center gap-2 text-sm">
                       <input
                         type="checkbox"
                         checked={form.houve_paralisacao}
-                        onChange={(e) => setForm((f) => ({ ...f, houve_paralisacao: e.target.checked }))}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            houve_paralisacao: e.target.checked,
+                          }))
+                        }
                         className="h-4 w-4 rounded accent-[var(--ds-color-action-primary)]"
                       />
-                      <span className="font-medium text-[var(--ds-color-action-primary)]">Houve paralisação</span>
+                      <span className="font-medium text-[var(--ds-color-action-primary)]">
+                        Houve paralisação
+                      </span>
                     </label>
                   </div>
                   {form.houve_paralisacao && (
                     <div>
-                      <label htmlFor="rdo-motivo-paralisacao" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Motivo da paralisação</label>
+                      <label
+                        htmlFor="rdo-motivo-paralisacao"
+                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                      >
+                        Motivo da paralisação
+                      </label>
                       <input
                         id="rdo-motivo-paralisacao"
                         type="text"
                         value={form.motivo_paralisacao}
-                        onChange={(e) => setForm((f) => ({ ...f, motivo_paralisacao: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            motivo_paralisacao: e.target.value,
+                          }))
+                        }
                         className={formInputClassName}
                       />
                     </div>
                   )}
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Ocorrências</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                      Ocorrências
+                    </p>
                     {form.ocorrencias.map((item, i) => (
-                      <div key={i} className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3">
+                      <div
+                        key={i}
+                        className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
+                      >
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">Tipo</label>
+                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                            Tipo
+                          </label>
                           <select
                             aria-label="Tipo de ocorrência"
                             value={item.tipo}
-                            onChange={(e) => updateOcorrencia(i, 'tipo', e.target.value)}
+                            onChange={(e) =>
+                              updateOcorrencia(i, "tipo", e.target.value)
+                            }
                             className={formInputSmClassName}
                           >
                             {OCORRENCIA_TIPO_OPTIONS.map((o) => (
-                              <option key={o.value} value={o.value}>{o.label}</option>
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
                             ))}
                           </select>
                         </div>
                         <div className="col-span-2">
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">Descrição</label>
+                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                            Descrição
+                          </label>
                           <input
                             type="text"
                             aria-label="Descrição da ocorrência"
                             placeholder="Descreva a ocorrência..."
                             value={item.descricao}
-                            onChange={(e) => updateOcorrencia(i, 'descricao', e.target.value)}
+                            onChange={(e) =>
+                              updateOcorrencia(i, "descricao", e.target.value)
+                            }
                             className={formInputSmClassName}
                           />
                         </div>
                         <div className="flex items-end gap-1">
                           <div className="flex-1">
-                            <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">Hora</label>
+                            <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                              Hora
+                            </label>
                             <input
                               type="time"
                               aria-label="Hora da ocorrência"
-                              value={item.hora ?? ''}
-                              onChange={(e) => updateOcorrencia(i, 'hora', e.target.value)}
+                              value={item.hora ?? ""}
+                              onChange={(e) =>
+                                updateOcorrencia(i, "hora", e.target.value)
+                              }
                               className={formInputSmClassName}
                             />
                           </div>
-                          <button type="button" title="Remover" onClick={() => removeOcorrencia(i)} className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10">
+                          <button
+                            type="button"
+                            title="Remover"
+                            onClick={() => removeOcorrencia(i)}
+                            className="mb-0.5 rounded p-1 text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10"
+                          >
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </div>
                     ))}
-                    <button type="button" onClick={addOcorrencia} className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline">
+                    <button
+                      type="button"
+                      onClick={addOcorrencia}
+                      className="flex items-center gap-1 text-sm text-[var(--ds-color-action-primary)] hover:underline"
+                    >
                       <Plus className="h-4 w-4" /> Adicionar ocorrência
                     </button>
                   </div>
                   <div>
-                    <label htmlFor="rdo-observacoes" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Observações gerais</label>
+                    <label
+                      htmlFor="rdo-observacoes"
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                    >
+                      Observações gerais
+                    </label>
                     <textarea
                       id="rdo-observacoes"
                       value={form.observacoes}
-                      onChange={(e) => setForm((f) => ({ ...f, observacoes: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, observacoes: e.target.value }))
+                      }
                       rows={3}
                       className={formInputClassName}
                       placeholder="Observações relevantes do dia..."
                     />
                   </div>
                   <div>
-                    <label htmlFor="rdo-programa-amanha" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Programa para amanhã</label>
+                    <label
+                      htmlFor="rdo-programa-amanha"
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                    >
+                      Programa para amanhã
+                    </label>
                     <textarea
                       id="rdo-programa-amanha"
                       value={form.programa_servicos_amanha}
-                      onChange={(e) => setForm((f) => ({ ...f, programa_servicos_amanha: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          programa_servicos_amanha: e.target.value,
+                        }))
+                      }
                       rows={2}
                       className={formInputClassName}
                       placeholder="Serviços planejados para o próximo dia..."
@@ -1321,7 +1779,11 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     disabled={saving}
                     className="rounded-xl bg-[var(--ds-color-action-primary)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 transition-colors"
                   >
-                    {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Criar RDO'}
+                    {saving
+                      ? "Salvando..."
+                      : editingId
+                        ? "Salvar alterações"
+                        : "Criar RDO"}
                   </button>
                 )}
               </div>
@@ -1337,8 +1799,12 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
             {/* Header */}
             <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-6 py-4 flex-shrink-0">
               <div className="flex items-center gap-3">
-                <span className="font-mono text-sm font-bold text-[var(--ds-color-action-primary)]">{viewRdo.numero}</span>
-                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${RDO_STATUS_COLORS[viewRdo.status] ?? ''}`}>
+                <span className="font-mono text-sm font-bold text-[var(--ds-color-action-primary)]">
+                  {viewRdo.numero}
+                </span>
+                <span
+                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${RDO_STATUS_COLORS[viewRdo.status] ?? ""}`}
+                >
                   {RDO_STATUS_LABEL[viewRdo.status] ?? viewRdo.status}
                 </span>
                 {RDO_ALLOWED_TRANSITIONS[viewRdo.status]?.length > 0 && (
@@ -1346,13 +1812,16 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     aria-label="Mover status do RDO"
                     value=""
                     onChange={(e) => {
-                      if (e.target.value) handleStatusChange(viewRdo.id, e.target.value);
+                      if (e.target.value)
+                        handleStatusChange(viewRdo.id, e.target.value);
                     }}
                     className="rounded border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-1 py-0.5 text-xs text-[var(--ds-color-text-secondary)]"
                   >
                     <option value="">Mover para...</option>
                     {RDO_ALLOWED_TRANSITIONS[viewRdo.status].map((s) => (
-                      <option key={s} value={s}>{RDO_STATUS_LABEL[s]}</option>
+                      <option key={s} value={s}>
+                        {RDO_STATUS_LABEL[s]}
+                      </option>
                     ))}
                   </select>
                 )}
@@ -1360,7 +1829,10 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => { setViewRdo(null); handleOpenEdit(viewRdo); }}
+                  onClick={() => {
+                    setViewRdo(null);
+                    handleOpenEdit(viewRdo);
+                  }}
                   className="flex items-center gap-1 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors"
                 >
                   <Pencil className="h-3.5 w-3.5" /> Editar
@@ -1380,14 +1852,30 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {/* Info básica */}
               <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 {[
-                  { label: 'Data', value: new Date(viewRdo.data).toLocaleDateString('pt-BR') },
-                  { label: 'Obra/Setor', value: viewRdo.site?.nome ?? '—' },
-                  { label: 'Responsável', value: viewRdo.responsavel?.nome ?? '—' },
-                  { label: 'Trabalhadores', value: String(totalTrabalhadores(viewRdo)) },
+                  {
+                    label: "Data",
+                    value: new Date(viewRdo.data).toLocaleDateString("pt-BR"),
+                  },
+                  { label: "Obra/Setor", value: viewRdo.site?.nome ?? "—" },
+                  {
+                    label: "Responsável",
+                    value: viewRdo.responsavel?.nome ?? "—",
+                  },
+                  {
+                    label: "Trabalhadores",
+                    value: String(totalTrabalhadores(viewRdo)),
+                  },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">{item.label}</p>
-                    <p className="mt-0.5 text-sm font-medium text-[var(--ds-color-text-primary)]">{item.value}</p>
+                  <div
+                    key={item.label}
+                    className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-3"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                      {item.label}
+                    </p>
+                    <p className="mt-0.5 text-sm font-medium text-[var(--ds-color-text-primary)]">
+                      {item.value}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -1402,14 +1890,20 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   )}
                   {viewRdo.houve_paralisacao && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-[color:var(--ds-color-warning)]/10 px-3 py-1 text-xs font-medium text-[var(--ds-color-warning)]">
-                      <AlertTriangle className="h-3.5 w-3.5" /> Houve paralisação{viewRdo.motivo_paralisacao ? `: ${viewRdo.motivo_paralisacao}` : ''}
+                      <AlertTriangle className="h-3.5 w-3.5" /> Houve
+                      paralisação
+                      {viewRdo.motivo_paralisacao
+                        ? `: ${viewRdo.motivo_paralisacao}`
+                        : ""}
                     </span>
                   )}
                 </div>
               )}
 
               {/* Clima */}
-              {(viewRdo.clima_manha || viewRdo.clima_tarde || viewRdo.temperatura_min != null) && (
+              {(viewRdo.clima_manha ||
+                viewRdo.clima_tarde ||
+                viewRdo.temperatura_min != null) && (
                 <div>
                   <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
                     <Sun className="h-3.5 w-3.5" /> Condições Climáticas
@@ -1417,28 +1911,44 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                     {viewRdo.clima_manha && (
                       <div className="rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2">
-                        <p className="text-xs text-[var(--ds-color-text-muted)]">Manhã</p>
-                        <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">{CLIMA_LABEL[viewRdo.clima_manha] ?? viewRdo.clima_manha}</p>
+                        <p className="text-xs text-[var(--ds-color-text-muted)]">
+                          Manhã
+                        </p>
+                        <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">
+                          {CLIMA_LABEL[viewRdo.clima_manha] ??
+                            viewRdo.clima_manha}
+                        </p>
                       </div>
                     )}
                     {viewRdo.clima_tarde && (
                       <div className="rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2">
-                        <p className="text-xs text-[var(--ds-color-text-muted)]">Tarde</p>
-                        <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">{CLIMA_LABEL[viewRdo.clima_tarde] ?? viewRdo.clima_tarde}</p>
+                        <p className="text-xs text-[var(--ds-color-text-muted)]">
+                          Tarde
+                        </p>
+                        <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">
+                          {CLIMA_LABEL[viewRdo.clima_tarde] ??
+                            viewRdo.clima_tarde}
+                        </p>
                       </div>
                     )}
-                    {(viewRdo.temperatura_min != null || viewRdo.temperatura_max != null) && (
+                    {(viewRdo.temperatura_min != null ||
+                      viewRdo.temperatura_max != null) && (
                       <div className="rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2 flex items-center gap-1">
                         <Thermometer className="h-3.5 w-3.5 text-[var(--ds-color-text-muted)]" />
                         <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">
-                          {viewRdo.temperatura_min ?? '?'}°C – {viewRdo.temperatura_max ?? '?'}°C
+                          {viewRdo.temperatura_min ?? "?"}°C –{" "}
+                          {viewRdo.temperatura_max ?? "?"}°C
                         </p>
                       </div>
                     )}
                     {viewRdo.condicao_terreno && (
                       <div className="rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2">
-                        <p className="text-xs text-[var(--ds-color-text-muted)]">Terreno</p>
-                        <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">{viewRdo.condicao_terreno}</p>
+                        <p className="text-xs text-[var(--ds-color-text-muted)]">
+                          Terreno
+                        </p>
+                        <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">
+                          {viewRdo.condicao_terreno}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -1449,25 +1959,46 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {(viewRdo.mao_de_obra ?? []).length > 0 && (
                 <div>
                   <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
-                    <Users className="h-3.5 w-3.5" /> Mão de Obra ({viewRdo.mao_de_obra!.reduce((s, m) => s + m.quantidade, 0)} trabalhadores)
+                    <Users className="h-3.5 w-3.5" /> Mão de Obra (
+                    {viewRdo.mao_de_obra!.reduce((s, m) => s + m.quantidade, 0)}{" "}
+                    trabalhadores)
                   </p>
                   <div className="rounded-xl border border-[var(--ds-color-border-subtle)] overflow-hidden">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40">
-                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Função</th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Qtd</th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Turno</th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Horas</th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                            Função
+                          </th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                            Qtd
+                          </th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                            Turno
+                          </th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                            Horas
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {viewRdo.mao_de_obra!.map((m, i) => (
-                          <tr key={i} className="border-b border-[var(--ds-color-border-subtle)] last:border-0">
-                            <td className="px-3 py-2 text-[var(--ds-color-text-primary)]">{m.funcao}</td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">{m.quantidade}</td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)] capitalize">{m.turno}</td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">{m.horas}h</td>
+                          <tr
+                            key={i}
+                            className="border-b border-[var(--ds-color-border-subtle)] last:border-0"
+                          >
+                            <td className="px-3 py-2 text-[var(--ds-color-text-primary)]">
+                              {m.funcao}
+                            </td>
+                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
+                              {m.quantidade}
+                            </td>
+                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)] capitalize">
+                              {m.turno}
+                            </td>
+                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
+                              {m.horas}h
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1486,19 +2017,38 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40">
-                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Equipamento</th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Qtd</th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">H. trabalhadas</th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">H. ociosas</th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                            Equipamento
+                          </th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                            Qtd
+                          </th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                            H. trabalhadas
+                          </th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                            H. ociosas
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {viewRdo.equipamentos!.map((e, i) => (
-                          <tr key={i} className="border-b border-[var(--ds-color-border-subtle)] last:border-0">
-                            <td className="px-3 py-2 text-[var(--ds-color-text-primary)]">{e.nome}</td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">{e.quantidade}</td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">{e.horas_trabalhadas}h</td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">{e.horas_ociosas}h</td>
+                          <tr
+                            key={i}
+                            className="border-b border-[var(--ds-color-border-subtle)] last:border-0"
+                          >
+                            <td className="px-3 py-2 text-[var(--ds-color-text-primary)]">
+                              {e.nome}
+                            </td>
+                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
+                              {e.quantidade}
+                            </td>
+                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
+                              {e.horas_trabalhadas}h
+                            </td>
+                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
+                              {e.horas_ociosas}h
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1517,17 +2067,32 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40">
-                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Descrição</th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Qtd</th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Unidade</th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                            Descrição
+                          </th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                            Qtd
+                          </th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                            Unidade
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {viewRdo.materiais_recebidos!.map((m, i) => (
-                          <tr key={i} className="border-b border-[var(--ds-color-border-subtle)] last:border-0">
-                            <td className="px-3 py-2 text-[var(--ds-color-text-primary)]">{m.descricao}</td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">{m.quantidade}</td>
-                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">{m.unidade}</td>
+                          <tr
+                            key={i}
+                            className="border-b border-[var(--ds-color-border-subtle)] last:border-0"
+                          >
+                            <td className="px-3 py-2 text-[var(--ds-color-text-primary)]">
+                              {m.descricao}
+                            </td>
+                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
+                              {m.quantidade}
+                            </td>
+                            <td className="px-3 py-2 text-center text-[var(--ds-color-text-secondary)]">
+                              {m.unidade}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1544,8 +2109,13 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   </p>
                   <div className="space-y-2">
                     {viewRdo.servicos_executados!.map((s, i) => (
-                      <div key={i} className="flex items-center gap-3 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2">
-                        <span className="flex-1 text-sm text-[var(--ds-color-text-primary)]">{s.descricao}</span>
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2"
+                      >
+                        <span className="flex-1 text-sm text-[var(--ds-color-text-primary)]">
+                          {s.descricao}
+                        </span>
                         <div className="flex items-center gap-2">
                           <div
                             className="h-1.5 w-24 overflow-hidden rounded-full bg-[var(--ds-color-border-subtle)]"
@@ -1554,11 +2124,12 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                           >
                             <div
                               className="h-full rounded-full bg-[var(--ds-color-success)] transition-all"
-                            // eslint-disable-next-line react/forbid-dom-props
-                            style={{ width: `${s.percentual_concluido}%` }}
+                              style={{ width: `${s.percentual_concluido}%` }}
                             />
                           </div>
-                          <span className="w-10 text-right text-xs font-medium text-[var(--ds-color-text-secondary)]">{s.percentual_concluido}%</span>
+                          <span className="w-10 text-right text-xs font-medium text-[var(--ds-color-text-secondary)]">
+                            {s.percentual_concluido}%
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -1574,12 +2145,21 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   </p>
                   <div className="space-y-2">
                     {viewRdo.ocorrencias!.map((o, i) => (
-                      <div key={i} className="flex items-start gap-3 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2">
+                      <div
+                        key={i}
+                        className="flex items-start gap-3 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2"
+                      >
                         <span className="rounded-full bg-[color:var(--ds-color-warning)]/10 px-2 py-0.5 text-xs font-medium text-[var(--ds-color-warning)]">
                           {OCORRENCIA_TIPO_LABEL[o.tipo] ?? o.tipo}
                         </span>
-                        <span className="flex-1 text-sm text-[var(--ds-color-text-primary)]">{o.descricao}</span>
-                        {o.hora && <span className="text-xs text-[var(--ds-color-text-muted)]">{o.hora}</span>}
+                        <span className="flex-1 text-sm text-[var(--ds-color-text-primary)]">
+                          {o.descricao}
+                        </span>
+                        {o.hora && (
+                          <span className="text-xs text-[var(--ds-color-text-muted)]">
+                            {o.hora}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1589,16 +2169,24 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {/* Observações */}
               {viewRdo.observacoes && (
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Observações gerais</p>
-                  <p className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-3 text-sm text-[var(--ds-color-text-primary)] whitespace-pre-wrap">{viewRdo.observacoes}</p>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                    Observações gerais
+                  </p>
+                  <p className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-3 text-sm text-[var(--ds-color-text-primary)] whitespace-pre-wrap">
+                    {viewRdo.observacoes}
+                  </p>
                 </div>
               )}
 
               {/* Programa amanhã */}
               {viewRdo.programa_servicos_amanha && (
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Programa para amanhã</p>
-                  <p className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-3 text-sm text-[var(--ds-color-text-primary)] whitespace-pre-wrap">{viewRdo.programa_servicos_amanha}</p>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                    Programa para amanhã
+                  </p>
+                  <p className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-3 text-sm text-[var(--ds-color-text-primary)] whitespace-pre-wrap">
+                    {viewRdo.programa_servicos_amanha}
+                  </p>
                 </div>
               )}
 
@@ -1609,35 +2197,75 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   {(() => {
-                    const sig = viewRdo.assinatura_responsavel ? (() => { try { return JSON.parse(viewRdo.assinatura_responsavel!); } catch { return null; } })() : null;
+                    const sig = viewRdo.assinatura_responsavel
+                      ? (() => {
+                          try {
+                            return JSON.parse(viewRdo.assinatura_responsavel!);
+                          } catch {
+                            return null;
+                          }
+                        })()
+                      : null;
                     return (
-                      <div className={`rounded-xl border px-4 py-3 ${sig ? 'border-green-200 bg-green-50' : 'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20'}`}>
-                        <p className="text-xs font-semibold text-[var(--ds-color-text-muted)]">Responsável pela Obra</p>
+                      <div
+                        className={`rounded-xl border px-4 py-3 ${sig ? "border-green-200 bg-green-50" : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20"}`}
+                      >
+                        <p className="text-xs font-semibold text-[var(--ds-color-text-muted)]">
+                          Responsável pela Obra
+                        </p>
                         {sig ? (
                           <>
-                            <p className="mt-1 text-sm font-medium text-green-800">{sig.nome}</p>
-                            <p className="text-xs text-green-600">CPF: {sig.cpf}</p>
-                            <p className="text-xs text-green-600">{new Date(sig.signed_at).toLocaleString('pt-BR')}</p>
+                            <p className="mt-1 text-sm font-medium text-green-800">
+                              {sig.nome}
+                            </p>
+                            <p className="text-xs text-green-600">
+                              CPF: {sig.cpf}
+                            </p>
+                            <p className="text-xs text-green-600">
+                              {new Date(sig.signed_at).toLocaleString("pt-BR")}
+                            </p>
                           </>
                         ) : (
-                          <p className="mt-1 text-xs text-[var(--ds-color-text-muted)] italic">Aguardando assinatura</p>
+                          <p className="mt-1 text-xs text-[var(--ds-color-text-muted)] italic">
+                            Aguardando assinatura
+                          </p>
                         )}
                       </div>
                     );
                   })()}
                   {(() => {
-                    const sig = viewRdo.assinatura_engenheiro ? (() => { try { return JSON.parse(viewRdo.assinatura_engenheiro!); } catch { return null; } })() : null;
+                    const sig = viewRdo.assinatura_engenheiro
+                      ? (() => {
+                          try {
+                            return JSON.parse(viewRdo.assinatura_engenheiro!);
+                          } catch {
+                            return null;
+                          }
+                        })()
+                      : null;
                     return (
-                      <div className={`rounded-xl border px-4 py-3 ${sig ? 'border-green-200 bg-green-50' : 'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20'}`}>
-                        <p className="text-xs font-semibold text-[var(--ds-color-text-muted)]">Engenheiro Responsável</p>
+                      <div
+                        className={`rounded-xl border px-4 py-3 ${sig ? "border-green-200 bg-green-50" : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20"}`}
+                      >
+                        <p className="text-xs font-semibold text-[var(--ds-color-text-muted)]">
+                          Engenheiro Responsável
+                        </p>
                         {sig ? (
                           <>
-                            <p className="mt-1 text-sm font-medium text-green-800">{sig.nome}</p>
-                            <p className="text-xs text-green-600">CPF: {sig.cpf}</p>
-                            <p className="text-xs text-green-600">{new Date(sig.signed_at).toLocaleString('pt-BR')}</p>
+                            <p className="mt-1 text-sm font-medium text-green-800">
+                              {sig.nome}
+                            </p>
+                            <p className="text-xs text-green-600">
+                              CPF: {sig.cpf}
+                            </p>
+                            <p className="text-xs text-green-600">
+                              {new Date(sig.signed_at).toLocaleString("pt-BR")}
+                            </p>
                           </>
                         ) : (
-                          <p className="mt-1 text-xs text-[var(--ds-color-text-muted)] italic">Aguardando assinatura</p>
+                          <p className="mt-1 text-xs text-[var(--ds-color-text-muted)] italic">
+                            Aguardando assinatura
+                          </p>
                         )}
                       </div>
                     );
@@ -1658,14 +2286,20 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setSignModal({ rdo: viewRdo, tipo: 'responsavel' }); setSignForm({ nome: '', cpf: '', tipo: 'responsavel' }); }}
+                  onClick={() => {
+                    setSignModal({ rdo: viewRdo, tipo: "responsavel" });
+                    setSignForm({ nome: "", cpf: "", tipo: "responsavel" });
+                  }}
                   className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
                 >
                   <PenLine className="h-3.5 w-3.5" /> Assinar
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setEmailModal(viewRdo); setEmailTo(''); }}
+                  onClick={() => {
+                    setEmailModal(viewRdo);
+                    setEmailTo("");
+                  }}
                   className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
                 >
                   <Mail className="h-3.5 w-3.5" /> Enviar e-mail
@@ -1688,18 +2322,38 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-lg)]">
             <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-5 py-4">
-              <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">Assinar RDO</h2>
-              <button type="button" aria-label="Fechar" onClick={() => setSignModal(null)} className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-surface-muted)]">
+              <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">
+                Assinar RDO
+              </h2>
+              <button
+                type="button"
+                aria-label="Fechar"
+                onClick={() => setSignModal(null)}
+                className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-surface-muted)]"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="space-y-4 px-5 py-5">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Tipo de assinatura</label>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                  Tipo de assinatura
+                </label>
                 <select
                   aria-label="Tipo de assinatura"
                   value={signModal.tipo}
-                  onChange={(e) => setSignModal((prev) => prev ? { ...prev, tipo: e.target.value as 'responsavel' | 'engenheiro' } : prev)}
+                  onChange={(e) =>
+                    setSignModal((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            tipo: e.target.value as
+                              | "responsavel"
+                              | "engenheiro",
+                          }
+                        : prev,
+                    )
+                  }
                   className={formInputClassName}
                 >
                   <option value="responsavel">Responsável pela Obra</option>
@@ -1707,23 +2361,37 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 </select>
               </div>
               <div>
-                <label htmlFor="sign-nome" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Nome completo</label>
+                <label
+                  htmlFor="sign-nome"
+                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                >
+                  Nome completo
+                </label>
                 <input
                   id="sign-nome"
                   type="text"
                   value={signForm.nome}
-                  onChange={(e) => setSignForm((f) => ({ ...f, nome: e.target.value }))}
+                  onChange={(e) =>
+                    setSignForm((f) => ({ ...f, nome: e.target.value }))
+                  }
                   className={formInputClassName}
                   placeholder="Nome de quem assina"
                 />
               </div>
               <div>
-                <label htmlFor="sign-cpf" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">CPF</label>
+                <label
+                  htmlFor="sign-cpf"
+                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                >
+                  CPF
+                </label>
                 <input
                   id="sign-cpf"
                   type="text"
                   value={signForm.cpf}
-                  onChange={(e) => setSignForm((f) => ({ ...f, cpf: e.target.value }))}
+                  onChange={(e) =>
+                    setSignForm((f) => ({ ...f, cpf: e.target.value }))
+                  }
                   className={formInputClassName}
                   placeholder="000.000.000-00"
                   maxLength={14}
@@ -1731,7 +2399,11 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-[var(--ds-color-border-subtle)] px-5 py-4">
-              <button type="button" onClick={() => setSignModal(null)} className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors">
+              <button
+                type="button"
+                onClick={() => setSignModal(null)}
+                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors"
+              >
                 Cancelar
               </button>
               <button
@@ -1740,7 +2412,8 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 disabled={signing}
                 className="flex items-center gap-1.5 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 transition-colors"
               >
-                <PenLine className="h-4 w-4" /> {signing ? 'Assinando...' : 'Confirmar assinatura'}
+                <PenLine className="h-4 w-4" />{" "}
+                {signing ? "Assinando..." : "Confirmar assinatura"}
               </button>
             </div>
           </div>
@@ -1752,16 +2425,27 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-lg)]">
             <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-5 py-4">
-              <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">Enviar RDO por E-mail</h2>
-              <button type="button" aria-label="Fechar" onClick={() => setEmailModal(null)} className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-surface-muted)]">
+              <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">
+                Enviar RDO por E-mail
+              </h2>
+              <button
+                type="button"
+                aria-label="Fechar"
+                onClick={() => setEmailModal(null)}
+                className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-surface-muted)]"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="px-5 py-5">
               <p className="mb-3 text-xs text-[var(--ds-color-text-muted)]">
-                Enviar <strong>{emailModal.numero}</strong> — {new Date(emailModal.data).toLocaleDateString('pt-BR')}
+                Enviar <strong>{emailModal.numero}</strong> —{" "}
+                {new Date(emailModal.data).toLocaleDateString("pt-BR")}
               </p>
-              <label htmlFor="email-to" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+              <label
+                htmlFor="email-to"
+                className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+              >
                 Destinatários (separados por vírgula)
               </label>
               <input
@@ -1774,7 +2458,11 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               />
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-[var(--ds-color-border-subtle)] px-5 py-4">
-              <button type="button" onClick={() => setEmailModal(null)} className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors">
+              <button
+                type="button"
+                onClick={() => setEmailModal(null)}
+                className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors"
+              >
                 Cancelar
               </button>
               <button
@@ -1783,7 +2471,8 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 disabled={sendingEmail}
                 className="flex items-center gap-1.5 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 transition-colors"
               >
-                <Send className="h-4 w-4" /> {sendingEmail ? 'Enviando...' : 'Enviar'}
+                <Send className="h-4 w-4" />{" "}
+                {sendingEmail ? "Enviando..." : "Enviar"}
               </button>
             </div>
           </div>

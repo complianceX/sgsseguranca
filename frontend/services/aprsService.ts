@@ -1,18 +1,22 @@
-import api from '@/lib/api';
-import { AxiosResponse } from 'axios';
-import { AxiosError } from 'axios';
-import { Activity } from './activitiesService';
-import { Risk } from './risksService';
-import { Epi } from './episService';
-import { Tool } from './toolsService';
-import { Machine } from './machinesService';
-import { User } from './usersService';
+import api from "@/lib/api";
+import { AxiosResponse } from "axios";
+import { AxiosError } from "axios";
+import { Activity } from "./activitiesService";
+import { Risk } from "./risksService";
+import { Epi } from "./episService";
+import { Tool } from "./toolsService";
+import { Machine } from "./machinesService";
+import { User } from "./usersService";
 
-import { Site } from './sitesService';
-import { Company } from './companiesService';
-import { fetchAllPages, PaginatedResponse } from './pagination';
-import { enqueueOfflineMutation } from '@/lib/offline-sync';
-import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
+import { Site } from "./sitesService";
+import { Company } from "./companiesService";
+import { fetchAllPages, PaginatedResponse } from "./pagination";
+import { enqueueOfflineMutation } from "@/lib/offline-sync";
+import {
+  getOfflineCache,
+  isOfflineRequestError,
+  setOfflineCache,
+} from "@/lib/offline-cache";
 
 export interface Apr {
   id: string;
@@ -21,7 +25,7 @@ export interface Apr {
   descricao?: string;
   data_inicio: string;
   data_fim: string;
-  status: 'Pendente' | 'Aprovada' | 'Cancelada' | 'Encerrada';
+  status: "Pendente" | "Aprovada" | "Cancelada" | "Encerrada";
   is_modelo?: boolean;
   is_modelo_padrao?: boolean;
   itens_risco?: Array<Record<string, string>>;
@@ -29,7 +33,7 @@ export interface Apr {
   severity?: number;
   exposure?: number;
   initial_risk?: number;
-  residual_risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  residual_risk?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   evidence_photo?: string;
   evidence_document?: string;
   control_description?: string;
@@ -118,14 +122,14 @@ export interface CreateAprDto {
   descricao?: string;
   data_inicio: string;
   data_fim: string;
-  status?: 'Pendente' | 'Aprovada' | 'Cancelada' | 'Encerrada';
+  status?: "Pendente" | "Aprovada" | "Cancelada" | "Encerrada";
   is_modelo?: boolean;
   is_modelo_padrao?: boolean;
   itens_risco?: Array<Record<string, string>>;
   probability?: number;
   severity?: number;
   exposure?: number;
-  residual_risk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  residual_risk?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   evidence_photo?: string;
   evidence_document?: string;
   control_description?: string;
@@ -167,7 +171,9 @@ export const aprsService = {
     const cacheKey = `aprs.paginated.${JSON.stringify(params)}`;
 
     try {
-      const response = await api.get<PaginatedResponse<Apr>>('/aprs', { params });
+      const response = await api.get<PaginatedResponse<Apr>>("/aprs", {
+        params,
+      });
       setOfflineCache(cacheKey, response.data);
       return response.data;
     } catch (error) {
@@ -181,7 +187,7 @@ export const aprsService = {
   },
 
   findAll: async (companyId?: string) => {
-    const cacheKey = 'aprs.all';
+    const cacheKey = "aprs.all";
     try {
       const data = await fetchAllPages({
         fetchPage: (page, limit) =>
@@ -219,25 +225,26 @@ export const aprsService = {
 
   create: async (data: CreateAprDto) => {
     try {
-      const response = await api.post<Apr>('/aprs', data);
+      const response = await api.post<Apr>("/aprs", data);
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
-      if (axiosError.code !== 'ERR_NETWORK') {
+      if (axiosError.code !== "ERR_NETWORK") {
         throw error;
       }
 
       const queued = enqueueOfflineMutation({
-        url: '/aprs',
-        method: 'post',
+        url: "/aprs",
+        method: "post",
         data,
-        label: 'APR',
+        label: "APR",
       });
 
       return {
         ...(data as unknown as Partial<Apr>),
         id: queued.id,
-        status: ((data as unknown as Partial<Apr>)?.status || 'Pendente') as Apr['status'],
+        status: ((data as unknown as Partial<Apr>)?.status ||
+          "Pendente") as Apr["status"],
         created_at: queued.createdAt,
         updated_at: queued.createdAt,
         offlineQueued: true,
@@ -251,15 +258,15 @@ export const aprsService = {
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
-      if (axiosError.code !== 'ERR_NETWORK') {
+      if (axiosError.code !== "ERR_NETWORK") {
         throw error;
       }
 
       const queued = enqueueOfflineMutation({
         url: `/aprs/${id}`,
-        method: 'patch',
+        method: "patch",
         data,
-        label: 'APR',
+        label: "APR",
       });
 
       return {
@@ -274,9 +281,9 @@ export const aprsService = {
 
   attachFile: async (id: string, file: File) => {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
     const response = await api.post(`/aprs/${id}/file`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data;
   },
@@ -297,7 +304,7 @@ export const aprsService = {
     year?: number;
     week?: number;
   }) => {
-    const response = await api.get('/aprs/files/list', { params: filters });
+    const response = await api.get("/aprs/files/list", { params: filters });
     return response.data;
   },
 
@@ -306,9 +313,9 @@ export const aprsService = {
     year: number;
     week: number;
   }) => {
-    const response = await api.get('/aprs/files/weekly-bundle', {
+    const response = await api.get("/aprs/files/weekly-bundle", {
       params: filters,
-      responseType: 'blob',
+      responseType: "blob",
     });
     return response.data as Blob;
   },
@@ -354,7 +361,7 @@ export const aprsService = {
       pendentes: number;
       riscosCriticos: number;
       mediaScoreRisco: number;
-    }>('/aprs/analytics/overview');
+    }>("/aprs/analytics/overview");
     return response.data;
   },
 
@@ -367,13 +374,18 @@ export const aprsService = {
   }) => {
     const response = await api.post<{
       score: number | null;
-      riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | null;
+      riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | null;
       suggestions: Array<{
-        hierarchy: 'ELIMINATION' | 'SUBSTITUTION' | 'ENGINEERING' | 'ADMINISTRATIVE' | 'PPE';
+        hierarchy:
+          | "ELIMINATION"
+          | "SUBSTITUTION"
+          | "ENGINEERING"
+          | "ADMINISTRATIVE"
+          | "PPE";
         title: string;
         description: string;
       }>;
-    }>('/aprs/risk-controls/suggestions', payload);
+    }>("/aprs/risk-controls/suggestions", payload);
     return response.data;
   },
 
@@ -436,22 +448,23 @@ export const aprsService = {
     },
   ) => {
     const formData = new FormData();
-    formData.append('file', file);
-    if (metadata?.captured_at) formData.append('captured_at', metadata.captured_at);
-    if (typeof metadata?.latitude === 'number')
-      formData.append('latitude', String(metadata.latitude));
-    if (typeof metadata?.longitude === 'number')
-      formData.append('longitude', String(metadata.longitude));
-    if (typeof metadata?.accuracy_m === 'number')
-      formData.append('accuracy_m', String(metadata.accuracy_m));
-    if (metadata?.device_id) formData.append('device_id', metadata.device_id);
+    formData.append("file", file);
+    if (metadata?.captured_at)
+      formData.append("captured_at", metadata.captured_at);
+    if (typeof metadata?.latitude === "number")
+      formData.append("latitude", String(metadata.latitude));
+    if (typeof metadata?.longitude === "number")
+      formData.append("longitude", String(metadata.longitude));
+    if (typeof metadata?.accuracy_m === "number")
+      formData.append("accuracy_m", String(metadata.accuracy_m));
+    if (metadata?.device_id) formData.append("device_id", metadata.device_id);
     if (metadata?.exif_datetime)
-      formData.append('exif_datetime', metadata.exif_datetime);
+      formData.append("exif_datetime", metadata.exif_datetime);
 
     const response = await api.post(
       `/aprs/${aprId}/risk-items/${riskItemId}/evidence`,
       formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } },
+      { headers: { "Content-Type": "multipart/form-data" } },
     );
     return response.data;
   },
@@ -463,6 +476,7 @@ export const aprsService = {
         apr_id: string;
         apr_risk_item_id: string;
         uploaded_by_id?: string;
+        uploaded_by_name?: string;
         file_key: string;
         original_name?: string;
         mime_type: string;
@@ -480,6 +494,7 @@ export const aprsService = {
         ip_address?: string;
         exif_datetime?: string;
         integrity_flags?: Record<string, unknown>;
+        risk_item_ordem?: number;
         url?: string;
         watermarked_url?: string;
       }>
@@ -490,7 +505,7 @@ export const aprsService = {
   verifyEvidenceHash: async (hash: string) => {
     const response = await api.get<{
       verified: boolean;
-      matchedIn?: 'original' | 'watermarked';
+      matchedIn?: "original" | "watermarked";
       message?: string;
       evidence?: {
         id: string;
@@ -506,7 +521,7 @@ export const aprsService = {
         watermarked_hash?: string | null;
         integrity_flags?: Record<string, unknown>;
       };
-    }>('/aprs/evidence/verify', { params: { hash } });
+    }>("/aprs/evidence/verify", { params: { hash } });
     return response.data;
   },
 
@@ -523,7 +538,7 @@ export const aprsService = {
       timeline: Array<{
         evidence_id: string;
         timestamp: string;
-        event: 'EVIDENCE_STORED';
+        event: "EVIDENCE_STORED";
         actor_id?: string | null;
         actor_name?: string | null;
         risk_item_id: string;
@@ -541,13 +556,13 @@ export const aprsService = {
   },
 
   downloadEvidenceCustodyPdf: async (aprId: string, riskItemId?: string) => {
-    const response = await api.get<
-      Blob,
-      AxiosResponse<Blob>
-    >(`/aprs/${aprId}/evidence/report/pdf`, {
-      params: riskItemId ? { riskItemId } : undefined,
-      responseType: 'blob',
-    });
+    const response = await api.get<Blob, AxiosResponse<Blob>>(
+      `/aprs/${aprId}/evidence/report/pdf`,
+      {
+        params: riskItemId ? { riskItemId } : undefined,
+        responseType: "blob",
+      },
+    );
     return response;
   },
 

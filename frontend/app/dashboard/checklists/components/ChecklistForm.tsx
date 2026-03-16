@@ -22,7 +22,7 @@ import { aiService } from '@/services/aiService';
 import { isAiEnabled } from '@/lib/featureFlags';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { Button } from '@/components/ui/button';
-import { openPdfForPrint } from '@/lib/print-utils';
+import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 
 interface ChecklistFormProps {
   id?: string;
@@ -674,14 +674,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
           );
         });
       } else {
-        const opened = window.open(
-          access.url,
-          '_blank',
-          'noopener,noreferrer',
-        );
-        if (!opened) {
-          window.location.assign(access.url);
-        }
+        openUrlInNewTab(access.url);
       }
       return true;
     } catch (error) {
@@ -789,14 +782,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       );
 
       if (result.fileUrl) {
-        const opened = window.open(
-          result.fileUrl,
-          '_blank',
-          'noopener,noreferrer',
-        );
-        if (!opened) {
-          window.location.assign(result.fileUrl);
-        }
+        openUrlInNewTab(result.fileUrl);
       }
     } catch (error) {
       console.error('Erro ao emitir PDF final do checklist:', error);

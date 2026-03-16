@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Apr } from '../aprs/entities/apr.entity';
@@ -58,6 +58,8 @@ type PendingQueueItem = {
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+
   constructor(
     @InjectRepository(Apr)
     private readonly aprsRepository: Repository<Apr>,
@@ -94,6 +96,39 @@ export class DashboardService {
     @InjectRepository(MedicalExam)
     private readonly medicalExamsRepository: Repository<MedicalExam>,
   ) {}
+
+  private createEmptyPendingQueueResponse() {
+    return {
+      degraded: false,
+      failedSources: [] as string[],
+      summary: {
+        total: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        documents: 0,
+        health: 0,
+        actions: 0,
+      },
+      items: [] as PendingQueueItem[],
+    };
+  }
+
+  private async loadPendingQueueChunk<T>(
+    label: string,
+    loader: () => Promise<T>,
+    fallback: T,
+  ): Promise<{ data: T; failed: boolean; source: string }> {
+    try {
+      return { data: await loader(), failed: false, source: label };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `[dashboard.pending-queue] Falha ao carregar ${label}: ${message}`,
+      );
+      return { data: fallback, failed: true, source: label };
+    }
+  }
 
   async getSummary(companyId: string) {
     const now = new Date();
@@ -878,91 +913,131 @@ export class DashboardService {
   }
 
   async getPendingQueue(companyId: string) {
+    if (!companyId) {
+      return this.createEmptyPendingQueueResponse();
+    }
+
     const now = new Date();
     const warningLimit = new Date(now);
     warningLimit.setDate(now.getDate() + 14);
 
     const [
-      pendingAprs,
-      pendingPts,
-      pendingChecklists,
-      openNonConformities,
-      trainingAttention,
-      medicalExamAttention,
-      inspectionActions,
-      auditActions,
+      pendingAprsChunk,
+      pendingPtsChunk,
+      pendingChecklistsChunk,
+      openNonConformitiesChunk,
+      trainingAttentionChunk,
+      medicalExamAttentionChunk,
+      inspectionActionsChunk,
+      auditActionsChunk,
     ] = await Promise.all([
-      this.aprsRepository.find({
-        where: { company_id: companyId, status: 'Pendente' },
-        relations: ['site', 'elaborador'],
-        order: { updated_at: 'DESC' },
-        take: 20,
-      }),
-      this.ptsRepository
-        .createQueryBuilder('pt')
-        .leftJoinAndSelect('pt.site', 'site')
-        .leftJoinAndSelect('pt.responsavel', 'responsavel')
-        .where('pt.company_id = :companyId', { companyId })
-        .andWhere('pt.status IN (:...statuses)', {
-          statuses: ['Pendente', 'Expirada'],
-        })
-        .orderBy('pt.data_hora_fim', 'ASC')
-        .take(20)
-        .getMany(),
-      this.checklistsRepository.find({
-        where: { company_id: companyId, status: 'Pendente', is_modelo: false },
-        relations: ['site', 'inspetor'],
-        order: { data: 'ASC' },
-        take: 20,
-      }),
-      this.nonConformitiesRepository
-        .createQueryBuilder('nc')
-        .leftJoinAndSelect('nc.site', 'site')
-        .where('nc.company_id = :companyId', { companyId })
-        .andWhere(
-          "LOWER(COALESCE(nc.status, '')) NOT IN (:...closedStatuses)",
-          {
-            closedStatuses: ['encerrada', 'concluída', 'concluida', 'fechada'],
+      this.loadPendingQueueChunk('aprs', () =>
+        this.aprsRepository.find({
+          where: { company_id: companyId, status: 'Pendente' },
+          relations: ['site', 'elaborador'],
+          order: { updated_at: 'DESC' },
+          take: 20,
+        }), [] as Apr[]),
+      this.loadPendingQueueChunk('pts', () =>
+        this.ptsRepository
+          .createQueryBuilder('pt')
+          .leftJoinAndSelect('pt.site', 'site')
+          .leftJoinAndSelect('pt.responsavel', 'responsavel')
+          .where('pt.company_id = :companyId', { companyId })
+          .andWhere('pt.status IN (:...statuses)', {
+            statuses: ['Pendente', 'Expirada'],
+          })
+          .orderBy('pt.data_hora_fim', 'ASC')
+          .take(20)
+          .getMany(), [] as Pt[]),
+      this.loadPendingQueueChunk('checklists', () =>
+        this.checklistsRepository.find({
+          where: {
+            company_id: companyId,
+            status: 'Pendente',
+            is_modelo: false,
           },
-        )
-        .orderBy('nc.updated_at', 'DESC')
-        .take(20)
-        .getMany(),
-      this.trainingsRepository
-        .createQueryBuilder('training')
-        .leftJoinAndSelect('training.user', 'user')
-        .where('training.company_id = :companyId', { companyId })
-        .andWhere('training.data_vencimento <= :warningLimit', { warningLimit })
-        .orderBy('training.data_vencimento', 'ASC')
-        .take(20)
-        .getMany(),
-      this.medicalExamsRepository
-        .createQueryBuilder('exam')
-        .leftJoinAndSelect('exam.user', 'user')
-        .where('exam.company_id = :companyId', { companyId })
-        .andWhere(
-          "(LOWER(COALESCE(exam.resultado, '')) = :inapto OR (exam.data_vencimento IS NOT NULL AND exam.data_vencimento <= :warningLimit))",
-          {
-            inapto: 'inapto',
+          relations: ['site', 'inspetor'],
+          order: { data: 'ASC' },
+          take: 20,
+        }), [] as Checklist[]),
+      this.loadPendingQueueChunk('nonconformities', () =>
+        this.nonConformitiesRepository
+          .createQueryBuilder('nc')
+          .leftJoinAndSelect('nc.site', 'site')
+          .where('nc.company_id = :companyId', { companyId })
+          .andWhere(
+            "LOWER(COALESCE(nc.status, '')) NOT IN (:...closedStatuses)",
+            {
+              closedStatuses: ['encerrada', 'concluída', 'concluida', 'fechada'],
+            },
+          )
+          .orderBy('nc.updated_at', 'DESC')
+          .take(20)
+          .getMany(), [] as NonConformity[]),
+      this.loadPendingQueueChunk('trainings', () =>
+        this.trainingsRepository
+          .createQueryBuilder('training')
+          .leftJoinAndSelect('training.user', 'user')
+          .where('training.company_id = :companyId', { companyId })
+          .andWhere('training.data_vencimento <= :warningLimit', {
             warningLimit,
-          },
-        )
-        .orderBy('exam.data_vencimento', 'ASC')
-        .take(20)
-        .getMany(),
-      this.inspectionsRepository.find({
-        where: { company_id: companyId },
-        relations: ['site', 'responsavel'],
-        order: { updated_at: 'DESC' },
-        take: 20,
-      }),
-      this.auditsRepository.find({
-        where: { company_id: companyId },
-        relations: ['site', 'auditor'],
-        order: { updated_at: 'DESC' },
-        take: 20,
-      }),
+          })
+          .orderBy('training.data_vencimento', 'ASC')
+          .take(20)
+          .getMany(), [] as Training[]),
+      this.loadPendingQueueChunk('medical-exams', () =>
+        this.medicalExamsRepository
+          .createQueryBuilder('exam')
+          .leftJoinAndSelect('exam.user', 'user')
+          .where('exam.company_id = :companyId', { companyId })
+          .andWhere(
+            "(LOWER(COALESCE(exam.resultado, '')) = :inapto OR (exam.data_vencimento IS NOT NULL AND exam.data_vencimento <= :warningLimit))",
+            {
+              inapto: 'inapto',
+              warningLimit,
+            },
+          )
+          .orderBy('exam.data_vencimento', 'ASC')
+          .take(20)
+          .getMany(), [] as MedicalExam[]),
+      this.loadPendingQueueChunk('inspections', () =>
+        this.inspectionsRepository.find({
+          where: { company_id: companyId },
+          relations: ['site', 'responsavel'],
+          order: { updated_at: 'DESC' },
+          take: 20,
+        }), [] as Inspection[]),
+      this.loadPendingQueueChunk('audits', () =>
+        this.auditsRepository.find({
+          where: { company_id: companyId },
+          relations: ['site', 'auditor'],
+          order: { updated_at: 'DESC' },
+          take: 20,
+        }), [] as Audit[]),
     ]);
+
+    const failedSources = [
+      pendingAprsChunk,
+      pendingPtsChunk,
+      pendingChecklistsChunk,
+      openNonConformitiesChunk,
+      trainingAttentionChunk,
+      medicalExamAttentionChunk,
+      inspectionActionsChunk,
+      auditActionsChunk,
+    ]
+      .filter((chunk) => chunk.failed)
+      .map((chunk) => chunk.source);
+
+    const pendingAprs = pendingAprsChunk.data;
+    const pendingPts = pendingPtsChunk.data;
+    const pendingChecklists = pendingChecklistsChunk.data;
+    const openNonConformities = openNonConformitiesChunk.data;
+    const trainingAttention = trainingAttentionChunk.data;
+    const medicalExamAttention = medicalExamAttentionChunk.data;
+    const inspectionActions = inspectionActionsChunk.data;
+    const auditActions = auditActionsChunk.data;
 
     const sortedQueueItems: PendingQueueItem[] = [
       ...pendingAprs.map((item) => ({
@@ -1141,6 +1216,8 @@ export class DashboardService {
     const queueItems = sortedQueueItems.slice(0, 40);
 
     return {
+      degraded: failedSources.length > 0,
+      failedSources,
       summary: {
         total: sortedQueueItems.length,
         critical: sortedQueueItems.filter(

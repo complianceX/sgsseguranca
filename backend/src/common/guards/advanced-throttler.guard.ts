@@ -1,7 +1,8 @@
-import { Injectable, ExecutionContext } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ThrottlerGuard, ThrottlerException } from '@nestjs/throttler';
 import type { ThrottlerRequest } from '@nestjs/throttler';
 import { Reflector } from '@nestjs/core';
+import { getRequestIp } from '../utils/request-ip.util';
 
 /**
  * Advanced Throttler Guard com rate limiting por:
@@ -64,15 +65,7 @@ export class AdvancedThrottlerGuard extends ThrottlerGuard {
   }
 
   private getRequestIP(request: any): string {
-    // Suporta proxies (Nginx, CloudFlare, etc)
-    return (
-      request.headers['cf-connecting-ip'] || // CloudFlare
-      request.headers['x-real-ip'] || // Nginx
-      request.headers['x-forwarded-for']?.split(',')[0] || // Proxy
-      request.connection?.remoteAddress ||
-      request.socket?.remoteAddress ||
-      'unknown'
-    );
+    return getRequestIp(request) || 'unknown';
   }
 }
 

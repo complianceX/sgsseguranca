@@ -573,6 +573,83 @@ export class AprsService {
     };
   }
 
+  async listAprEvidences(id: string) {
+    await this.findOneForWrite(id);
+
+    const evidences = await this.aprsRepository.manager
+      .getRepository(AprRiskEvidence)
+      .find({
+        where: { apr_id: id },
+        relations: ['apr_risk_item', 'uploaded_by'],
+        order: { uploaded_at: 'DESC' },
+      });
+
+    return Promise.all(
+      evidences.map(async (evidence) => {
+        let url: string | undefined;
+        let watermarkedUrl: string | undefined;
+
+        try {
+          url = await this.documentStorageService.getSignedUrl(
+            evidence.file_key,
+            3600,
+          );
+        } catch {
+          url = undefined;
+        }
+
+        if (evidence.watermarked_file_key) {
+          try {
+            watermarkedUrl = await this.documentStorageService.getSignedUrl(
+              evidence.watermarked_file_key,
+              3600,
+            );
+          } catch {
+            watermarkedUrl = undefined;
+          }
+        }
+
+        return {
+          id: evidence.id,
+          apr_id: evidence.apr_id,
+          apr_risk_item_id: evidence.apr_risk_item_id,
+          uploaded_by_id: evidence.uploaded_by_id ?? undefined,
+          uploaded_by_name: evidence.uploaded_by?.nome ?? undefined,
+          file_key: evidence.file_key,
+          original_name: evidence.original_name ?? undefined,
+          mime_type: evidence.mime_type,
+          file_size_bytes: evidence.file_size_bytes,
+          hash_sha256: evidence.hash_sha256,
+          watermarked_file_key: evidence.watermarked_file_key ?? undefined,
+          watermarked_hash_sha256:
+            evidence.watermarked_hash_sha256 ?? undefined,
+          watermark_text: evidence.watermark_text ?? undefined,
+          captured_at: evidence.captured_at?.toISOString(),
+          uploaded_at: evidence.uploaded_at?.toISOString(),
+          latitude:
+            evidence.latitude !== null && evidence.latitude !== undefined
+              ? Number(evidence.latitude)
+              : undefined,
+          longitude:
+            evidence.longitude !== null && evidence.longitude !== undefined
+              ? Number(evidence.longitude)
+              : undefined,
+          accuracy_m:
+            evidence.accuracy_m !== null && evidence.accuracy_m !== undefined
+              ? Number(evidence.accuracy_m)
+              : undefined,
+          device_id: evidence.device_id ?? undefined,
+          ip_address: evidence.ip_address ?? undefined,
+          exif_datetime: evidence.exif_datetime?.toISOString(),
+          integrity_flags: evidence.integrity_flags ?? undefined,
+          risk_item_ordem: evidence.apr_risk_item?.ordem ?? undefined,
+          url,
+          watermarked_url: watermarkedUrl,
+        };
+      }),
+    );
+  }
+
   async getPdfAccess(id: string): Promise<{
     entityId: string;
     fileKey: string;

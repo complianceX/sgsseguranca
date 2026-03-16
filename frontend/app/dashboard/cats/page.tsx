@@ -21,6 +21,7 @@ import {
 import { catsService, CatRecord } from '@/services/catsService';
 import { sitesService, Site } from '@/services/sitesService';
 import { usersService, User } from '@/services/usersService';
+import { openUrlInNewTab } from '@/lib/print-utils';
 import { Eye, Plus, Upload } from 'lucide-react';
 
 export default function CatsPage() {
@@ -253,7 +254,7 @@ export default function CatsPage() {
   const handleOpenAttachment = async (catId: string, attachmentId: string) => {
     try {
       const access = await catsService.getAttachmentAccess(catId, attachmentId);
-      window.open(access.url, '_blank', 'noopener,noreferrer');
+      openUrlInNewTab(access.url);
     } catch (error) {
       console.error('Erro ao abrir anexo:', error);
       toast.error('Nao foi possivel abrir o anexo.');
