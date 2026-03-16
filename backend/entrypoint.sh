@@ -1,8 +1,6 @@
 #!/bin/sh
 set -e
 
-if [ $# -gt 0 ]; then
-  exec "$@"
-fi
+node scripts/run-migrations.js
 
 exec node dist/main.js
