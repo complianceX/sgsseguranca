@@ -22,6 +22,7 @@ import { aiService } from '@/services/aiService';
 import { isAiEnabled } from '@/lib/featureFlags';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { Button } from '@/components/ui/button';
+import { openPdfForPrint } from '@/lib/print-utils';
 
 interface ChecklistFormProps {
   id?: string;
@@ -62,6 +63,9 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   const isAdminGeneral = user?.profile?.nome === 'Administrador Geral';
   const [fetching, setFetching] = useState(true);
   const [currentChecklistId, setCurrentChecklistId] = useState<string | undefined>(id);
+  const [currentChecklist, setCurrentChecklist] = useState<Checklist | null>(null);
+  const [isOfflineQueued, setIsOfflineQueued] = useState(false);
+  const [finalizingPdf, setFinalizingPdf] = useState(false);
   
   const [companies, setCompanies] = useState<Company[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
@@ -73,7 +77,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailTo, setEmailTo] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
-  const activeChecklistId = currentChecklistId || id;
+  const activeChecklistId = currentChecklist?.id || currentChecklistId || id;
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -152,6 +156,8 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
   const selectedCompanyId = watch('company_id');
   const selectedSiteId = watch('site_id');
   const selectedInspectorId = watch('inspetor_id');
+  const isFinalized = !isTemplateMode && Boolean(currentChecklist?.pdf_file_key);
+  const hasAnySignature = Object.keys(signatures).length > 0;
   const filteredSites = sites.filter(site => !selectedCompanyId || site.company_id === selectedCompanyId);
   const filteredInspectors = users.filter(u => !selectedCompanyId || u.company_id === selectedCompanyId);
   const equipamentoValue = watch('equipamento');
@@ -222,6 +228,8 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
           try {
             const template = await checklistsService.findOne(templateId);
             if (template) {
+              setCurrentChecklist(null);
+              setIsOfflineQueued(false);
               setValue('titulo', template.titulo);
               setValue('descricao', template.descricao || '');
               setValue('equipamento', template.equipamento || '');
@@ -263,6 +271,9 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
 
         if (checklistData) {
           const checklist = checklistData;
+          setCurrentChecklist(checklist);
+          setCurrentChecklistId(checklist.id);
+          setIsOfflineQueued(false);
           reset({
             titulo: checklist.titulo,
             descricao: checklist.descricao || '',
@@ -574,6 +585,8 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       if (saved?.id) {
         setCurrentChecklistId(saved.id);
       }
+      setCurrentChecklist(saved);
+      setIsOfflineQueued(Boolean((saved as Checklist & { offlineQueued?: boolean }).offlineQueued));
 
       if (draftStorageKey && typeof window !== 'undefined') {
         window.localStorage.removeItem(draftStorageKey);
@@ -602,6 +615,39 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
     toast.success('Rascunho local removido.');
   };
 
+  const ensureChecklistPersisted = async () => {
+    if (isOfflineQueued) {
+      toast.error(
+        'Sincronize o checklist salvo offline antes de assinar, emitir ou enviar.',
+      );
+      return null;
+    }
+
+    if (activeChecklistId) {
+      return currentChecklist;
+    }
+
+    let savedChecklist: Checklist | null = null;
+    await handleSubmit(async (data) => {
+      const saved = await onSubmit(data);
+      if (saved) {
+        savedChecklist = saved as Checklist;
+      }
+    })();
+
+    if (
+      (savedChecklist as (Checklist & { offlineQueued?: boolean }) | null)
+        ?.offlineQueued
+    ) {
+      toast.error(
+        'O checklist entrou na fila offline. Aguarde a sincronização antes de continuar.',
+      );
+      return null;
+    }
+
+    return savedChecklist;
+  };
+
   if (fetching) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -610,7 +656,47 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
     );
   }
 
-  const handlePrint = () => {
+  const openStoredPdf = async (mode: 'open' | 'print' = 'open') => {
+    if (!activeChecklistId) {
+      return false;
+    }
+
+    try {
+      const access = await checklistsService.getPdfAccess(activeChecklistId);
+      if (!access.url) {
+        throw new Error('PDF final ainda não está disponível para download.');
+      }
+
+      if (mode === 'print') {
+        openPdfForPrint(access.url, () => {
+          toast.info(
+            'Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressão.',
+          );
+        });
+      } else {
+        const opened = window.open(
+          access.url,
+          '_blank',
+          'noopener,noreferrer',
+        );
+        if (!opened) {
+          window.location.assign(access.url);
+        }
+      }
+      return true;
+    } catch (error) {
+      console.error('Erro ao abrir PDF final do checklist:', error);
+      toast.error('Não foi possível abrir o PDF final deste checklist.');
+      return false;
+    }
+  };
+
+  const handlePrint = async () => {
+    if (isFinalized) {
+      await openStoredPdf('print');
+      return;
+    }
+
     window.print();
   };
 
@@ -619,33 +705,27 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       toast.error('Selecione o inspetor.');
       return;
     }
-    const activeId = currentChecklistId || id;
-    if (!activeId) {
-      // Tentar salvar antes de assinar
-      handleSubmit(async (data) => {
-        const saved = await onSubmit(data);
-        if (saved) {
-            const inspector = users.find(u => u.id === selectedInspectorId) || user || null;
-            setCurrentSigningUser(inspector);
-            setIsSignatureModalOpen(true);
-        }
-      })();
+
+    if (isFinalized) {
+      toast.info('Checklist já finalizado. O PDF emitido está bloqueado para edição.');
       return;
     }
+
+    const persistedChecklist = await ensureChecklistPersisted();
+    const resolvedChecklistId = persistedChecklist?.id || activeChecklistId;
+    if (!resolvedChecklistId) {
+      return;
+    }
+
     const inspector = users.find(u => u.id === selectedInspectorId) || user || null;
     setCurrentSigningUser(inspector);
     setIsSignatureModalOpen(true);
   };
 
-  const handleOpenEmail = () => {
-    const activeId = currentChecklistId || id;
-    if (!activeId) {
-      handleSubmit(async (data) => {
-        const saved = await onSubmit(data);
-        if (saved) {
-            setEmailModalOpen(true);
-        }
-      })();
+  const handleOpenEmail = async () => {
+    const persistedChecklist = await ensureChecklistPersisted();
+    const resolvedChecklistId = persistedChecklist?.id || activeChecklistId;
+    if (!resolvedChecklistId) {
       return;
     }
     setEmailModalOpen(true);
@@ -658,9 +738,9 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
     }
     try {
       setSendingEmail(true);
-      const activeId = currentChecklistId || id;
-      if (activeId) {
-        await checklistsService.sendEmail(activeId, emailTo);
+      const resolvedChecklistId = activeChecklistId;
+      if (resolvedChecklistId) {
+        await checklistsService.sendEmail(resolvedChecklistId, emailTo);
         toast.success('Checklist enviado por email com sucesso!');
         setEmailModalOpen(false);
       }
@@ -669,6 +749,60 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       toast.error('Erro ao enviar email.');
     } finally {
       setSendingEmail(false);
+    }
+  };
+
+  const handleFinalizeChecklist = async () => {
+    if (isTemplateMode) {
+      return;
+    }
+
+    if (isFinalized) {
+      await openStoredPdf();
+      return;
+    }
+
+    if (!hasAnySignature) {
+      toast.error(
+        'Adicione ao menos uma assinatura antes de emitir o PDF final.',
+      );
+      return;
+    }
+
+    const persistedChecklist = await ensureChecklistPersisted();
+    const resolvedChecklistId = persistedChecklist?.id || activeChecklistId;
+    if (!resolvedChecklistId) {
+      return;
+    }
+
+    try {
+      setFinalizingPdf(true);
+      const result = await checklistsService.savePdf(resolvedChecklistId);
+      const refreshedChecklist = await checklistsService.findOne(
+        resolvedChecklistId,
+      );
+      setCurrentChecklist(refreshedChecklist);
+      setCurrentChecklistId(refreshedChecklist.id);
+      setIsOfflineQueued(false);
+      toast.success(
+        'PDF final emitido e salvo no armazenamento semanal do checklist.',
+      );
+
+      if (result.fileUrl) {
+        const opened = window.open(
+          result.fileUrl,
+          '_blank',
+          'noopener,noreferrer',
+        );
+        if (!opened) {
+          window.location.assign(result.fileUrl);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao emitir PDF final do checklist:', error);
+      toast.error('Não foi possível emitir o PDF final deste checklist.');
+    } finally {
+      setFinalizingPdf(false);
     }
   };
 
@@ -751,6 +885,38 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
         </div>
       ) : null}
 
+      {isFinalized ? (
+        <div className={`${panelClassName} mb-6 border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-5 print:hidden`}>
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="flex items-start gap-3">
+              <CheckCircle className="mt-0.5 h-5 w-5 text-[var(--ds-color-success)]" />
+              <div>
+                <p className="text-sm font-semibold text-[var(--ds-color-success-fg)]">
+                  PDF final emitido e salvo no armazenamento
+                </p>
+                <p className="mt-1 text-sm text-[var(--ds-color-success)]">
+                  Este checklist já entrou no storage semanal e agora está bloqueado para edição.
+                </p>
+                {currentChecklist?.pdf_folder_path ? (
+                  <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
+                    Pasta: {currentChecklist.pdf_folder_path}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <Button
+              type="button"
+              onClick={() => void openStoredPdf()}
+              variant="outline"
+              className="gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              Abrir PDF final
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {/* Cabeçalho de Impressão */}
       <div className="hidden print:mb-8 print:block">
         <div className="border-b border-[var(--ds-color-border-subtle)] pb-4 text-center">
@@ -763,6 +929,10 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 print:space-y-4">
+        <fieldset
+          disabled={isFinalized}
+          className={`space-y-6 ${isFinalized ? 'opacity-75' : ''}`}
+        >
         {/* Dados Principais */}
         <div className={`${panelClassName} p-6`}>
             <h2 className="mb-4 text-lg font-semibold text-[var(--ds-color-text-primary)]">Informações</h2>
@@ -984,26 +1154,15 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
             <div className={`${panelClassName} p-6`}>
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Assinatura</h2>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            type="button"
-                            onClick={handleOpenSignature}
-                            variant="outline"
-                            className="gap-2"
-                        >
-                            <PenTool className="h-4 w-4" />
-                            {signatures[selectedInspectorId || ''] ? 'Reassinar' : 'Assinar Agora'}
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleOpenEmail}
-                            variant="outline"
-                            className="gap-2"
-                        >
-                            <Send className="h-4 w-4" />
-                            Enviar por Email
-                        </Button>
-                    </div>
+                    <Button
+                        type="button"
+                        onClick={handleOpenSignature}
+                        variant="outline"
+                        className="gap-2"
+                    >
+                        <PenTool className="h-4 w-4" />
+                        {signatures[selectedInspectorId || ''] ? 'Reassinar' : 'Assinar Agora'}
+                    </Button>
                 </div>
                 <p className="mb-3 text-sm text-[var(--ds-color-text-secondary)]">
                     Inspetor selecionado: {users.find(u => u.id === selectedInspectorId)?.nome || '-'}
@@ -1029,8 +1188,12 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                         Nenhuma assinatura ainda.
                     </p>
                 )}
+                <p className="mt-4 text-xs text-[var(--ds-color-text-muted)]">
+                  Depois da assinatura, use <strong>Emitir PDF final</strong> para salvar este checklist na pasta semanal da empresa e bloquear novas edições.
+                </p>
             </div>
         )}
+        </fieldset>
 
         {/* Rodapé de Ações */}
         <div className={`print:hidden ${isFieldMode ? 'sticky bottom-4 z-10 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[var(--ds-color-surface-elevated)]/95 p-4 shadow-[var(--ds-shadow-lg)] backdrop-blur' : 'flex items-center justify-end gap-3'}`}>
@@ -1055,18 +1218,31 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                 loading={loading}
                 className="gap-2"
                 size="lg"
+                disabled={isFinalized}
             >
                 <Save className="h-4 w-4" />
-                {isTemplateMode ? 'Salvar Modelo' : isFieldMode ? 'Salvar em campo' : 'Salvar Checklist'}
+                {isTemplateMode ? 'Salvar Modelo' : isFieldMode ? 'Salvar em campo' : isFinalized ? 'Checklist finalizado' : 'Salvar Checklist'}
             </Button>
             
             {!isTemplateMode && !isFieldMode && (
                 <>
                     <Button
                         type="button"
+                        onClick={handleFinalizeChecklist}
+                        variant={isFinalized ? 'outline' : 'secondary'}
+                        className="gap-2"
+                        loading={finalizingPdf}
+                        disabled={loading || isOfflineQueued}
+                    >
+                        <CheckCircle className="h-4 w-4" />
+                        {isFinalized ? 'Abrir PDF final' : 'Emitir PDF final'}
+                    </Button>
+                    <Button
+                        type="button"
                         onClick={handleOpenEmail}
                         variant="outline"
                         className="gap-2"
+                        disabled={isOfflineQueued}
                     >
                         <Send className="h-4 w-4" />
                         Enviar por Email
@@ -1091,7 +1267,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
         isOpen={isSignatureModalOpen}
         onClose={() => setIsSignatureModalOpen(false)}
         onSave={async (signatureData, type) => {
-            const activeId = currentChecklistId || id;
+            const activeId = activeChecklistId;
             if (activeId && currentSigningUser) {
                 try {
                     const createdSignature = await signaturesService.create({
@@ -1114,6 +1290,9 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
                         }
                     }));
                     toast.success('Assinatura salva com sucesso!');
+                    toast.info(
+                      'Assinatura registrada. Agora emita o PDF final para salvar o checklist no armazenamento semanal.',
+                    );
                     setIsSignatureModalOpen(false);
                 } catch (error) {
                     console.error('Erro ao salvar assinatura:', error);

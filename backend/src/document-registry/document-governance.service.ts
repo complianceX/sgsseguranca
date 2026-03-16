@@ -3,6 +3,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { PdfService } from '../common/services/pdf.service';
 import { DocumentRegistryService } from './document-registry.service';
 import { DocumentRegistryEntry } from './entities/document-registry.entity';
+import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 
 type GovernedModule =
   | 'apr'
@@ -44,6 +45,7 @@ type RemoveFinalDocumentReferenceInput = {
   entityId: string;
   documentType?: string;
   removeEntityState?: (manager: EntityManager) => Promise<void>;
+  cleanupStoredFile?: (fileKey: string) => Promise<void>;
 };
 
 const signatureDocumentTypeToRegistryModule = new Map<string, GovernedModule>([
@@ -158,9 +160,53 @@ export class DocumentGovernanceService {
     });
   }
 
+  async listFinalDocuments(
+    module: GovernedModule,
+    filters: WeeklyBundleFilters,
+  ): Promise<
+    Array<{
+      entityId: string;
+      id: string;
+      title: string;
+      date: Date | null;
+      companyId: string;
+      fileKey: string;
+      folderPath: string;
+      originalName: string;
+      module: GovernedModule;
+    }>
+  > {
+    const entries = await this.documentRegistryService.list({
+      ...filters,
+      modules: [module],
+    });
+
+    return entries.map((entry) => ({
+      entityId: entry.entity_id,
+      id: entry.entity_id,
+      title: entry.title,
+      date: entry.document_date,
+      companyId: entry.company_id,
+      fileKey: entry.file_key,
+      folderPath: entry.folder_path || '',
+      originalName:
+        entry.original_name ||
+        entry.file_key.split('/').pop() ||
+        'documento.pdf',
+      module,
+    }));
+  }
+
   async removeFinalDocumentReference(
     input: RemoveFinalDocumentReferenceInput,
   ): Promise<void> {
+    const registryEntry = await this.documentRegistryService.findByDocument(
+      input.module,
+      input.entityId,
+      input.documentType || 'pdf',
+      input.companyId,
+    );
+
     await this.dataSource.transaction(async (manager) => {
       if (input.removeEntityState) {
         await input.removeEntityState(manager);
@@ -176,6 +222,19 @@ export class DocumentGovernanceService {
         documentType: input.documentType,
       });
     });
+
+    if (registryEntry?.file_key && input.cleanupStoredFile) {
+      try {
+        await input.cleanupStoredFile(registryEntry.file_key);
+      } catch (error) {
+        this.logger.warn(
+          `Registry removido para ${input.module}:${input.entityId}, mas a limpeza do arquivo físico falhou (${registryEntry.file_key}): ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
     this.logger.debug(
       `Registry removido para ${input.module}:${input.entityId}; registro de integridade preservado por rastreabilidade histórica.`,
     );

@@ -115,12 +115,16 @@ export class InspectionsService {
     values?: CreateInspectionDto['evidencias'],
   ): Inspection['evidencias'] {
     return (values ?? [])
-      .map((item) => ({
-        descricao: this.normalizeRequiredText(item.descricao),
-        url: this.normalizeText(item.url) || undefined,
-        original_name:
-          this.normalizeText((item as any).original_name) || undefined,
-      }))
+      .map((item) => {
+        const evidenceWithOriginalName = item as { original_name?: string };
+        return {
+          descricao: this.normalizeRequiredText(item.descricao),
+          url: this.normalizeText(item.url) || undefined,
+          original_name:
+            this.normalizeText(evidenceWithOriginalName.original_name) ||
+            undefined,
+        };
+      })
       .filter((item) => item.descricao || item.url);
   }
 
@@ -380,7 +384,13 @@ export class InspectionsService {
 
   private buildValidationCode(inspection: Inspection): string {
     const prefix = 'INS';
-    const year = new Date().getFullYear();
+    const documentDate = inspection.data_inspecao
+      ? new Date(inspection.data_inspecao)
+      : null;
+    const year =
+      documentDate && !Number.isNaN(documentDate.getTime())
+        ? documentDate.getFullYear()
+        : new Date().getFullYear();
     const ref = (inspection.id || inspection.tipo_inspecao || 'INS')
       .replace(/[^a-zA-Z0-9]/g, '')
       .slice(-8)

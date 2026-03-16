@@ -10,7 +10,7 @@ describe('DocumentGovernanceService', () => {
   let pdfService: Pick<PdfService, 'computeHash' | 'registerHashIntegrity'>;
   let documentRegistryService: Pick<
     DocumentRegistryService,
-    'upsertWithManager' | 'removeWithManager' | 'findByDocument'
+    'upsertWithManager' | 'removeWithManager' | 'findByDocument' | 'list'
   >;
 
   beforeEach(() => {
@@ -28,6 +28,7 @@ describe('DocumentGovernanceService', () => {
       upsertWithManager: jest.fn(),
       removeWithManager: jest.fn(),
       findByDocument: jest.fn(),
+      list: jest.fn(),
     };
 
     service = new DocumentGovernanceService(
@@ -129,16 +130,27 @@ describe('DocumentGovernanceService', () => {
     const loggerDebug = jest
       .spyOn(service['logger'], 'debug')
       .mockImplementation();
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue({
+      file_key: 'documents/company-1/checklists/doc.pdf',
+    });
+    const cleanupStoredFile = jest.fn();
 
     await service.removeFinalDocumentReference({
       companyId: 'company-1',
       module: 'checklist',
       entityId: 'checklist-1',
       removeEntityState,
+      cleanupStoredFile,
     });
 
     expect(dataSource.transaction).toHaveBeenCalledTimes(1);
     expect(removeEntityState).toHaveBeenCalledWith(manager);
+    expect(documentRegistryService.findByDocument).toHaveBeenCalledWith(
+      'checklist',
+      'checklist-1',
+      'pdf',
+      'company-1',
+    );
     expect(documentRegistryService.removeWithManager).toHaveBeenCalledWith(
       manager,
       {
@@ -147,6 +159,9 @@ describe('DocumentGovernanceService', () => {
         entityId: 'checklist-1',
         documentType: undefined,
       },
+    );
+    expect(cleanupStoredFile).toHaveBeenCalledWith(
+      'documents/company-1/checklists/doc.pdf',
     );
     expect(loggerDebug).toHaveBeenCalledWith(
       expect.stringContaining('registro de integridade preservado'),
@@ -181,6 +196,42 @@ describe('DocumentGovernanceService', () => {
       'pdf',
       'company-1',
     );
+  });
+
+  it('lista documentos finais de um módulo a partir do registry canônico', async () => {
+    (documentRegistryService.list as jest.Mock).mockResolvedValue([
+      {
+        entity_id: 'pt-1',
+        company_id: 'company-1',
+        title: 'PT principal',
+        document_date: new Date('2026-03-16T00:00:00.000Z'),
+        file_key: 'documents/company-1/pts/pt-1/final.pdf',
+        folder_path: 'documents/company-1/pts/2026/11',
+        original_name: 'pt-final.pdf',
+      },
+    ]);
+
+    await expect(
+      service.listFinalDocuments('pt', { companyId: 'company-1', year: 2026 }),
+    ).resolves.toEqual([
+      {
+        entityId: 'pt-1',
+        id: 'pt-1',
+        title: 'PT principal',
+        date: new Date('2026-03-16T00:00:00.000Z'),
+        companyId: 'company-1',
+        fileKey: 'documents/company-1/pts/pt-1/final.pdf',
+        folderPath: 'documents/company-1/pts/2026/11',
+        originalName: 'pt-final.pdf',
+        module: 'pt',
+      },
+    ]);
+
+    expect(documentRegistryService.list).toHaveBeenCalledWith({
+      companyId: 'company-1',
+      year: 2026,
+      modules: ['pt'],
+    });
   });
 
   it('mantem o mapeamento centralizado para auditoria sem perder contexto', async () => {

@@ -200,7 +200,7 @@ export const checklistsService = {
       fileKey: string;
       folderPath: string;
       originalName: string;
-      url: string;
+      url: string | null;
     }>(`/checklists/${id}/pdf`);
     return response.data;
   },

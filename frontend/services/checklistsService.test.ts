@@ -44,4 +44,14 @@ describe('checklistsService', () => {
       }),
     );
   });
+
+  it('emite o PDF final do checklist pela rota oficial de storage', async () => {
+    (api.post as jest.Mock).mockResolvedValue({
+      data: { fileKey: 'documents/company-1/checklists/checklist-1.pdf' },
+    });
+
+    await checklistsService.savePdf('checklist-1');
+
+    expect(api.post).toHaveBeenCalledWith('/checklists/checklist-1/save-pdf');
+  });
 });

@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { ChecklistsService } from './checklists.service';
 import { Checklist } from './entities/checklist.entity';
+import { CreateChecklistDto } from './dto/create-checklist.dto';
 import type { TenantService } from '../common/tenant/tenant.service';
 import type { MailService } from '../mail/mail.service';
 import type { SignaturesService } from '../signatures/signatures.service';
@@ -44,16 +45,20 @@ describe('ChecklistsService', () => {
     'registerFinalDocument' | 'removeFinalDocumentReference'
   >;
   let notificationsGateway: Pick<NotificationsGateway, 'sendToCompany'>;
+  let signaturesService: Pick<SignaturesService, 'findByDocument'>;
 
   beforeEach(() => {
     repository = {
-      create: jest.fn((payload) => payload),
-      save: jest.fn(async (payload) => ({
-        id: payload.id || 'checklist-1',
-        created_at: payload.created_at || new Date('2026-03-14T12:00:00.000Z'),
-        updated_at: new Date('2026-03-14T12:00:00.000Z'),
-        ...payload,
-      })),
+      create: jest.fn((payload: Partial<Checklist>) => payload),
+      save: jest.fn((payload: Partial<Checklist>) =>
+        Promise.resolve({
+          id: payload.id || 'checklist-1',
+          created_at:
+            payload.created_at || new Date('2026-03-14T12:00:00.000Z'),
+          updated_at: new Date('2026-03-14T12:00:00.000Z'),
+          ...payload,
+        }),
+      ),
       update: jest.fn(),
       createQueryBuilder: jest.fn(),
       findOne: jest.fn(),
@@ -77,15 +82,26 @@ describe('ChecklistsService', () => {
     notificationsGateway = {
       sendToCompany: jest.fn(),
     };
+    signaturesService = {
+      findByDocument: jest.fn(() =>
+        Promise.resolve([
+          {
+            id: 'signature-1',
+            user_id: 'user-1',
+            signature_data: 'data:image/png;base64,AAAA',
+            created_at: '2026-03-14T12:00:00.000Z',
+            user: { nome: 'Maria' },
+          },
+        ]),
+      ),
+    };
 
     service = new ChecklistsService(
       repository as unknown as Repository<Checklist>,
       { getTenantId: jest.fn(() => 'company-1') } as TenantService,
       {} as DataSource,
       { sendMailSimple: jest.fn() } as unknown as MailService,
-      {
-        findByDocument: jest.fn(() => Promise.resolve([])),
-      } as unknown as SignaturesService,
+      signaturesService as unknown as SignaturesService,
       notificationsGateway as NotificationsGateway,
       storageService as StorageService,
       {} as UsersService,
@@ -111,6 +127,10 @@ describe('ChecklistsService', () => {
       company_id: 'company-1',
       titulo: 'Checklist de campo',
       data: new Date('2026-03-14T12:00:00.000Z'),
+      site_id: 'site-1',
+      inspetor_id: 'user-1',
+      is_modelo: false,
+      pdf_file_key: null,
     } as Checklist;
     const update = jest.fn();
     const manager = {
@@ -195,6 +215,10 @@ describe('ChecklistsService', () => {
       company_id: 'company-1',
       titulo: 'Checklist de campo',
       data: new Date('2026-03-14T12:00:00.000Z'),
+      site_id: 'site-1',
+      inspetor_id: 'user-1',
+      is_modelo: false,
+      pdf_file_key: null,
     } as Checklist;
     jest.spyOn(service, 'findOneEntity').mockResolvedValue(checklist);
     jest
@@ -213,6 +237,45 @@ describe('ChecklistsService', () => {
     );
   });
 
+  it('bloqueia emissao final quando o checklist ainda nao possui assinatura', async () => {
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'checklist-1',
+      company_id: 'company-1',
+      titulo: 'Checklist sem assinatura',
+      data: new Date('2026-03-14T12:00:00.000Z'),
+      site_id: 'site-1',
+      inspetor_id: 'user-1',
+      is_modelo: false,
+      pdf_file_key: null,
+    } as Checklist);
+    (signaturesService.findByDocument as jest.Mock).mockResolvedValueOnce([]);
+
+    await expect(service.savePdfToStorage('checklist-1')).rejects.toThrow(
+      'Checklist precisa de ao menos uma assinatura antes da emissão do PDF final.',
+    );
+
+    expect(storageService.uploadFile).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia emissao final de modelo de checklist', async () => {
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'template-1',
+      company_id: 'company-1',
+      titulo: 'Modelo',
+      data: new Date('2026-03-14T12:00:00.000Z'),
+      site_id: null,
+      inspetor_id: null,
+      is_modelo: true,
+      pdf_file_key: null,
+    } as unknown as Checklist);
+
+    await expect(service.savePdfToStorage('template-1')).rejects.toThrow(
+      'Modelos de checklist não podem ser emitidos como documento final.',
+    );
+
+    expect(storageService.uploadFile).not.toHaveBeenCalled();
+  });
+
   it('rejeita checklist operacional sem obra ou inspetor', async () => {
     await expect(
       service.create({
@@ -221,8 +284,29 @@ describe('ChecklistsService', () => {
         company_id: 'company-1',
         itens: [],
         is_modelo: false,
-      } as any),
+      } as CreateChecklistDto),
     ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia edicao quando o checklist ja possui PDF final emitido', async () => {
+    jest.spyOn(service, 'findOneEntity').mockResolvedValue({
+      id: 'checklist-1',
+      company_id: 'company-1',
+      titulo: 'Checklist finalizado',
+      data: new Date('2026-03-14T12:00:00.000Z'),
+      site_id: 'site-1',
+      inspetor_id: 'user-1',
+      is_modelo: false,
+      pdf_file_key: 'documents/company-1/checklists/checklist-1.pdf',
+    } as Checklist);
+
+    await expect(
+      service.update('checklist-1', { titulo: 'Novo título' }),
+    ).rejects.toThrow(
+      'Checklist com PDF final emitido. Edição bloqueada. Gere um novo checklist para alterar o documento.',
+    );
 
     expect(repository.save).not.toHaveBeenCalled();
   });
@@ -281,7 +365,8 @@ describe('ChecklistsService', () => {
       }),
     );
     expect(result.is_modelo).toBe(false);
-    expect(result.itens[0]).toEqual(
+    const firstItem = (result.itens as Array<Record<string, unknown>>)[0];
+    expect(firstItem).toEqual(
       expect.objectContaining({
         item: 'Verificar trava',
         status: 'ok',
@@ -368,9 +453,7 @@ describe('ChecklistsService', () => {
       { getTenantId: jest.fn(() => 'company-1') } as TenantService,
       {} as DataSource,
       { sendMailSimple } as unknown as MailService,
-      {
-        findByDocument: jest.fn(() => Promise.resolve([])),
-      } as unknown as SignaturesService,
+      signaturesService as unknown as SignaturesService,
       notificationsGateway as NotificationsGateway,
       storageService as StorageService,
       {} as UsersService,

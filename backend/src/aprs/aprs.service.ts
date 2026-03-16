@@ -318,6 +318,7 @@ export class AprsService {
       removeEntityState: async (manager) => {
         await manager.getRepository(Apr).softDelete(id);
       },
+      cleanupStoredFile: (fileKey) => this.s3Service.deleteFile(fileKey),
     });
     await this.addLog(id, userId, 'removido', { companyId: apr.company_id });
     this.logger.log({
@@ -706,50 +707,7 @@ export class AprsService {
   }
 
   async listStoredFiles(filters: WeeklyBundleFilters) {
-    const tenantId = this.tenantService.getTenantId();
-    const query = this.aprsRepository
-      .createQueryBuilder('apr')
-      .where('apr.pdf_file_key IS NOT NULL');
-
-    if (tenantId) query.andWhere('apr.company_id = :tenantId', { tenantId });
-    if (filters.companyId) {
-      query.andWhere('apr.company_id = :companyId', {
-        companyId: filters.companyId,
-      });
-    }
-
-    const results = await query.getMany();
-
-    return results
-      .filter((apr) => {
-        if (!apr.created_at) return false;
-        const date = new Date(apr.created_at);
-        if (filters.year && date.getFullYear() !== filters.year) return false;
-        if (filters.week) {
-          const d = new Date(
-            Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-          );
-          d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-          const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-          const isoWeek = Math.ceil(
-            ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
-          );
-          if (isoWeek !== filters.week) return false;
-        }
-        return true;
-      })
-      .map((apr) => ({
-        entityId: apr.id,
-        title: apr.titulo || apr.numero || 'APR',
-        date: apr.data_inicio || apr.created_at,
-        id: apr.id,
-        titulo: apr.titulo,
-        data_inicio: apr.data_inicio,
-        companyId: apr.company_id,
-        fileKey: apr.pdf_file_key,
-        folderPath: apr.pdf_folder_path,
-        originalName: apr.pdf_original_name,
-      }));
+    return this.documentGovernanceService.listFinalDocuments('apr', filters);
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {

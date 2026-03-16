@@ -512,6 +512,7 @@ export class PtsService {
       removeEntityState: async (manager) => {
         await manager.getRepository(Pt).softDelete(id);
       },
+      cleanupStoredFile: (fileKey) => this.s3Service.deleteFile(fileKey),
     });
     this.logger.log({ event: 'pt_soft_deleted', ptId: id });
   }
@@ -521,52 +522,7 @@ export class PtsService {
   }
 
   async listStoredFiles(filters: WeeklyBundleFilters) {
-    const tenantId = this.tenantService.getTenantId();
-    const query = this.ptsRepository
-      .createQueryBuilder('pt')
-      .where('pt.pdf_file_key IS NOT NULL');
-
-    if (tenantId) {
-      query.andWhere('pt.company_id = :tenantId', { tenantId });
-    }
-    if (filters.companyId) {
-      query.andWhere('pt.company_id = :companyId', {
-        companyId: filters.companyId,
-      });
-    }
-
-    const results = await query.getMany();
-
-    return results
-      .filter((pt) => {
-        if (!pt.created_at) return false;
-        const date = new Date(pt.created_at);
-        if (filters.year && date.getFullYear() !== filters.year) return false;
-        if (filters.week) {
-          const d = new Date(
-            Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-          );
-          d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-          const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-          const isoWeek = Math.ceil(
-            ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
-          );
-          if (isoWeek !== filters.week) return false;
-        }
-        return true;
-      })
-      .map((pt) => ({
-        entityId: pt.id,
-        title: pt.titulo || pt.numero || 'PT',
-        date: pt.data_hora_inicio || pt.created_at,
-        id: pt.id,
-        numero: pt.numero,
-        titulo: pt.titulo,
-        companyId: pt.company_id,
-        fileKey: pt.pdf_file_key,
-        folderPath: pt.pdf_folder_path,
-        originalName: pt.pdf_original_name,
-      }));
+    return this.documentGovernanceService.listFinalDocuments('pt', filters);
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {

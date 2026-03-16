@@ -139,6 +139,64 @@ export class DocumentRegistryService {
     });
   }
 
+  async findByCode(code: string): Promise<DocumentRegistryEntry | null> {
+    const normalizedCode = String(code || '')
+      .trim()
+      .toUpperCase();
+    if (!normalizedCode) {
+      return null;
+    }
+
+    return this.registryRepository
+      .createQueryBuilder('document')
+      .where('UPPER(document.document_code) = :code', { code: normalizedCode })
+      .getOne();
+  }
+
+  async validatePublicCode(code: string): Promise<{
+    valid: boolean;
+    code: string;
+    message?: string;
+    document?: {
+      id: string;
+      module: string;
+      document_type: string;
+      title: string;
+      document_date: Date | null;
+      original_name: string | null;
+      file_hash: string | null;
+      updated_at: Date;
+    };
+  }> {
+    const normalizedCode = String(code || '')
+      .trim()
+      .toUpperCase();
+    const entry = await this.findByCode(normalizedCode);
+
+    if (!entry) {
+      return {
+        valid: false,
+        code: normalizedCode,
+        message: 'Documento não encontrado.',
+      };
+    }
+
+    return {
+      valid: true,
+      code: normalizedCode,
+      document: {
+        id: entry.entity_id,
+        module: entry.module,
+        document_type: entry.document_type,
+        title: entry.title,
+        document_date: entry.document_date,
+        original_name: entry.original_name,
+        file_hash: entry.file_hash,
+        updated_at: entry.updated_at,
+      },
+    };
+  }
+
   async list(filters: WeeklyBundleFilters & { modules?: string[] }) {
     const effectiveCompanyId = this.resolveCompanyId(filters.companyId);
     const query = this.registryRepository

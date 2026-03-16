@@ -162,6 +162,7 @@ export class AuditsService {
       removeEntityState: async (manager) => {
         await manager.getRepository(Audit).remove(audit);
       },
+      cleanupStoredFile: (fileKey) => this.s3Service.deleteFile(fileKey),
     });
     this.logger.log({
       event: 'audit_removed',
@@ -281,47 +282,7 @@ export class AuditsService {
   }
 
   async listStoredFiles(filters: WeeklyBundleFilters) {
-    const query = this.auditsRepository
-      .createQueryBuilder('a')
-      .where('a.pdf_file_key IS NOT NULL');
-
-    if (filters.companyId) {
-      query.andWhere('a.company_id = :companyId', {
-        companyId: filters.companyId,
-      });
-    }
-
-    const results = await query.getMany();
-
-    return results
-      .filter((a) => {
-        if (!a.created_at) return false;
-        const date = new Date(a.created_at);
-        if (filters.year && date.getFullYear() !== filters.year) return false;
-        if (filters.week) {
-          const d = new Date(
-            Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-          );
-          d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-          const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-          const isoWeek = Math.ceil(
-            ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
-          );
-          if (isoWeek !== filters.week) return false;
-        }
-        return true;
-      })
-      .map((a) => ({
-        entityId: a.id,
-        title: a.titulo,
-        date: a.data_auditoria || a.created_at,
-        id: a.id,
-        titulo: a.titulo,
-        companyId: a.company_id,
-        fileKey: a.pdf_file_key,
-        folderPath: a.pdf_folder_path,
-        originalName: a.pdf_original_name,
-      }));
+    return this.documentGovernanceService.listFinalDocuments('audit', filters);
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {

@@ -7,7 +7,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindManyOptions, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
-import { format } from 'date-fns';
 import { NonConformity } from './entities/nonconformity.entity';
 import {
   CreateNonConformityDto,
@@ -30,6 +29,10 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import {
+  coerceDocumentDate,
+  getIsoWeekNumber,
+} from '../common/utils/document-calendar.util';
 
 export enum NcStatus {
   ABERTA = 'ABERTA',
@@ -73,6 +76,16 @@ export class NonConformitiesService {
 
   private normalizeRequiredText(value: string): string {
     return value.trim();
+  }
+
+  private assertNcDocumentMutable(
+    nc: Pick<NonConformity, 'pdf_file_key'>,
+  ): void {
+    if (nc.pdf_file_key) {
+      throw new BadRequestException(
+        'Não conformidade com PDF final anexado. Edição bloqueada. Gere uma nova NC para alterar o documento.',
+      );
+    }
   }
 
   private normalizeOptionalText(value?: string | null): string | undefined {
@@ -583,6 +596,7 @@ export class NonConformitiesService {
 
   async update(id: string, updateNonConformityDto: UpdateNonConformityDto) {
     const nonConformity = await this.findOne(id);
+    this.assertNcDocumentMutable(nonConformity);
     const before = { ...nonConformity };
     const payload = this.buildUpdatePayload(updateNonConformityDto);
     await this.validateLinkedRecords(payload, nonConformity.company_id);
@@ -602,52 +616,16 @@ export class NonConformitiesService {
       removeEntityState: async (manager) => {
         await manager.getRepository(NonConformity).remove(nonConformity);
       },
+      cleanupStoredFile: (fileKey) => this.storageService.deleteFile(fileKey),
     });
     await this.logAudit(AuditAction.DELETE, id, before, null);
   }
 
   async listStoredFiles(filters: WeeklyBundleFilters) {
-    const tenantId = this.tenantService.getTenantId();
-    const query = this.nonConformitiesRepository
-      .createQueryBuilder('nc')
-      .where('nc.pdf_file_key IS NOT NULL');
-
-    if (tenantId) {
-      query.andWhere('nc.company_id = :tenantId', { tenantId });
-    }
-
-    if (filters.companyId) {
-      query.andWhere('nc.company_id = :companyId', {
-        companyId: filters.companyId,
-      });
-    }
-
-    const results = await query.getMany();
-
-    // Filtragem por ano e semana (se fornecido)
-    return results
-      .filter((nc) => {
-        if (!nc.created_at) return false;
-        const date = new Date(nc.created_at);
-        if (filters.year && date.getFullYear() !== filters.year) return false;
-        if (filters.week) {
-          const ncWeek = parseInt(format(date, 'I')); // ISO week
-          if (ncWeek !== filters.week) return false;
-        }
-        return true;
-      })
-      .map((nc) => ({
-        entityId: nc.id,
-        title: nc.codigo_nc || nc.tipo || 'NC',
-        date: nc.data_identificacao || nc.created_at,
-        id: nc.id,
-        codigo_nc: nc.codigo_nc,
-        data_identificacao: nc.data_identificacao,
-        companyId: nc.company_id,
-        fileKey: nc.pdf_file_key,
-        folderPath: nc.pdf_folder_path,
-        originalName: nc.pdf_original_name,
-      }));
+    return this.documentGovernanceService.listFinalDocuments(
+      'nonconformity',
+      filters,
+    );
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
@@ -670,9 +648,13 @@ export class NonConformitiesService {
       throw new NotFoundException('Arquivo PDF não encontrado para esta NC');
     }
 
-    const url = await this.storageService.getPresignedDownloadUrl(
-      nc.pdf_file_key,
-    );
+    let url: string | null = null;
+    try {
+      url = await this.storageService.getPresignedDownloadUrl(nc.pdf_file_key);
+    } catch {
+      url = null;
+    }
+
     return {
       entityId: nc.id,
       fileKey: nc.pdf_file_key,
@@ -689,9 +671,11 @@ export class NonConformitiesService {
     mimetype: string,
   ) {
     const nc = await this.findOne(id);
-    const date = new Date();
-    const year = date.getFullYear();
-    const week = format(date, 'I');
+    this.assertNcDocumentMutable(nc);
+    const documentDate =
+      coerceDocumentDate(nc.data_identificacao) || new Date();
+    const year = documentDate.getFullYear();
+    const week = String(getIsoWeekNumber(documentDate) || 1).padStart(2, '0');
     const folderPath = `nonconformities/${nc.company_id}/${year}/week-${week}`;
     const fileKey = `${folderPath}/${id}.pdf`;
 
@@ -702,7 +686,7 @@ export class NonConformitiesService {
         module: 'nonconformity',
         entityId: nc.id,
         title: nc.codigo_nc || nc.tipo || 'Nao Conformidade',
-        documentDate: nc.data_identificacao || date,
+        documentDate,
         fileKey,
         folderPath,
         originalName,
@@ -753,6 +737,7 @@ export class NonConformitiesService {
 
   async updateStatus(id: string, newStatus: NcStatus): Promise<NonConformity> {
     const nc = await this.findOne(id);
+    this.assertNcDocumentMutable(nc);
     const before = { ...nc };
     const current = this.normalizeStatus(nc.status);
     const allowed = ALLOWED_TRANSITIONS[current] ?? [];

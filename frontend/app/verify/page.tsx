@@ -1,14 +1,20 @@
-'use client';
+"use client";
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, Search, ShieldAlert, ShieldCheck } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/layout';
-import { buildApiUrl } from '@/lib/api';
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import { CheckCircle2, Search, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/layout";
+import { buildApiUrl } from "@/lib/api";
 
-type VerifyMode = 'evidence' | 'signature' | 'code';
+type VerifyMode = "evidence" | "signature" | "code";
 
 function normalizeVerifyMode(value: string | null): VerifyMode | null {
   if (!value) {
@@ -16,16 +22,20 @@ function normalizeVerifyMode(value: string | null): VerifyMode | null {
   }
 
   const normalized = value.trim().toLowerCase();
-  if (normalized === 'evidence' || normalized === 'signature' || normalized === 'code') {
+  if (
+    normalized === "evidence" ||
+    normalized === "signature" ||
+    normalized === "code"
+  ) {
     return normalized;
   }
 
-  if (normalized === 'assinatura') {
-    return 'signature';
+  if (normalized === "assinatura") {
+    return "signature";
   }
 
-  if (normalized === 'codigo' || normalized === 'document-code') {
-    return 'code';
+  if (normalized === "codigo" || normalized === "document-code") {
+    return "code";
   }
 
   return null;
@@ -33,7 +43,7 @@ function normalizeVerifyMode(value: string | null): VerifyMode | null {
 
 interface EvidenceVerifyResponse {
   verified: boolean;
-  matchedIn?: 'original' | 'watermarked';
+  matchedIn?: "original" | "watermarked";
   message?: string;
   evidence?: {
     apr_numero?: string;
@@ -47,10 +57,10 @@ interface EvidenceVerifyResponse {
 }
 
 const SIGNATURE_TYPE_LABEL: Record<string, string> = {
-  digital: 'Digital (Desenho)',
-  upload: 'Imagem Enviada',
-  facial: 'Facial',
-  hmac: 'PIN Seguro (HMAC-SHA256)',
+  digital: "Digital (Desenho)",
+  upload: "Imagem Enviada",
+  facial: "Facial",
+  hmac: "PIN Seguro (HMAC-SHA256)",
 };
 
 interface SignatureVerifyResponse {
@@ -70,6 +80,16 @@ interface CodeVerifyResponse {
   valid: boolean;
   code?: string;
   message?: string;
+  document?: {
+    id: string;
+    module: string;
+    document_type: string;
+    title: string;
+    document_date: string | null;
+    original_name: string | null;
+    file_hash: string | null;
+    updated_at: string;
+  };
   inspection?: {
     id: string;
     site_id?: string;
@@ -92,17 +112,19 @@ interface CodeVerifyResponse {
 }
 
 const modeLabels: Record<VerifyMode, string> = {
-  evidence: 'Evidência APR',
-  signature: 'Assinatura PDF',
-  code: 'Código do documento',
+  evidence: "Evidência APR",
+  signature: "Assinatura PDF",
+  code: "Código do documento",
 };
 
 export default function PublicHashVerifyPage() {
-  const [mode, setMode] = useState<VerifyMode>('code');
-  const [hash, setHash] = useState('');
+  const [mode, setMode] = useState<VerifyMode>("code");
+  const [hash, setHash] = useState("");
   const [loading, setLoading] = useState(false);
-  const [evidenceResult, setEvidenceResult] = useState<EvidenceVerifyResponse | null>(null);
-  const [signatureResult, setSignatureResult] = useState<SignatureVerifyResponse | null>(null);
+  const [evidenceResult, setEvidenceResult] =
+    useState<EvidenceVerifyResponse | null>(null);
+  const [signatureResult, setSignatureResult] =
+    useState<SignatureVerifyResponse | null>(null);
   const [codeResult, setCodeResult] = useState<CodeVerifyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,7 +132,7 @@ export default function PublicHashVerifyPage() {
     const url = buildApiUrl(path);
     if (!url) {
       throw new Error(
-        'API pública não configurada para este ambiente. Defina NEXT_PUBLIC_API_URL no frontend.',
+        "API pública não configurada para este ambiente. Defina NEXT_PUBLIC_API_URL no frontend.",
       );
     }
     return url;
@@ -123,65 +145,76 @@ export default function PublicHashVerifyPage() {
     setError(null);
   };
 
-  const runVerify = useCallback(async (rawValue: string, targetMode: VerifyMode) => {
-    resetResults();
+  const runVerify = useCallback(
+    async (rawValue: string, targetMode: VerifyMode) => {
+      resetResults();
 
-    if (targetMode === 'code') {
-      const code = rawValue.trim();
-      if (!code) {
-        setError('Informe o código do documento (ex.: INS-2026-22D77ACC ou CHK-2026-XXXXXXXX).');
+      if (targetMode === "code") {
+        const code = rawValue.trim();
+        if (!code) {
+          setError(
+            "Informe o código do documento (ex.: PT-2026-11-ABCD1234 ou INS-2026-22D77ACC).",
+          );
+          return;
+        }
+        try {
+          setLoading(true);
+          const isInspection = code.toUpperCase().startsWith("INS-");
+          const endpoint = isInspection
+            ? `/public/inspections/validate?code=${encodeURIComponent(code)}`
+            : `/public/documents/validate?code=${encodeURIComponent(code)}`;
+          const response = await fetch(resolvePublicUrl(endpoint), {
+            method: "GET",
+            cache: "no-store",
+          });
+          const data = (await response.json()) as CodeVerifyResponse;
+          setCodeResult(data);
+          if (!data.valid) {
+            setError(data.message || "Documento não encontrado.");
+          }
+        } catch {
+          setError("Falha ao consultar validação por código. Tente novamente.");
+        } finally {
+          setLoading(false);
+        }
         return;
       }
+
+      const normalizedHash = rawValue.trim().toLowerCase();
+      if (!/^[a-f0-9]{64}$/.test(normalizedHash)) {
+        setError("Informe um hash SHA-256 válido com 64 caracteres.");
+        return;
+      }
+
       try {
         setLoading(true);
-        // Route to the correct endpoint based on document prefix
-        const isChecklist = code.toUpperCase().startsWith('CHK-');
-        const endpoint = isChecklist
-          ? `/public/checklists/validate?code=${encodeURIComponent(code)}`
-          : `/public/inspections/validate?code=${encodeURIComponent(code)}`;
-        const response = await fetch(resolvePublicUrl(endpoint), { method: 'GET', cache: 'no-store' });
-        const data = (await response.json()) as CodeVerifyResponse;
-        setCodeResult(data);
-        if (!data.valid) {
-          setError(data.message || 'Documento não encontrado.');
+        if (targetMode === "evidence") {
+          const response = await fetch(
+            resolvePublicUrl(
+              `/public/evidence/verify?hash=${encodeURIComponent(normalizedHash)}`,
+            ),
+            { method: "GET", cache: "no-store" },
+          );
+          const data = (await response.json()) as EvidenceVerifyResponse;
+          setEvidenceResult(data);
+        } else {
+          const response = await fetch(
+            resolvePublicUrl(
+              `/public/signature/verify?hash=${encodeURIComponent(normalizedHash)}`,
+            ),
+            { method: "GET", cache: "no-store" },
+          );
+          const data = (await response.json()) as SignatureVerifyResponse;
+          setSignatureResult(data);
         }
       } catch {
-        setError('Falha ao consultar validação por código. Tente novamente.');
+        setError("Falha ao consultar validação pública. Tente novamente.");
       } finally {
         setLoading(false);
       }
-      return;
-    }
-
-    const normalizedHash = rawValue.trim().toLowerCase();
-    if (!/^[a-f0-9]{64}$/.test(normalizedHash)) {
-      setError('Informe um hash SHA-256 válido com 64 caracteres.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      if (targetMode === 'evidence') {
-        const response = await fetch(
-          resolvePublicUrl(`/public/evidence/verify?hash=${encodeURIComponent(normalizedHash)}`),
-          { method: 'GET', cache: 'no-store' },
-        );
-        const data = (await response.json()) as EvidenceVerifyResponse;
-        setEvidenceResult(data);
-      } else {
-        const response = await fetch(
-          resolvePublicUrl(`/public/signature/verify?hash=${encodeURIComponent(normalizedHash)}`),
-          { method: 'GET', cache: 'no-store' },
-        );
-        const data = (await response.json()) as SignatureVerifyResponse;
-        setSignatureResult(data);
-      }
-    } catch {
-      setError('Falha ao consultar validação pública. Tente novamente.');
-    } finally {
-      setLoading(false);
-    }
-  }, [resolvePublicUrl]);
+    },
+    [resolvePublicUrl],
+  );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -190,17 +223,22 @@ export default function PublicHashVerifyPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const hashParam = params.get('hash');
-    const codeParam = params.get('code');
-    const requestedMode = normalizeVerifyMode(params.get('type')) ?? normalizeVerifyMode(params.get('mode'));
+    const hashParam = params.get("hash");
+    const codeParam = params.get("code");
+    const requestedMode =
+      normalizeVerifyMode(params.get("type")) ??
+      normalizeVerifyMode(params.get("mode"));
     if (codeParam) {
       setHash(codeParam);
-      setMode('code');
-      void runVerify(codeParam, 'code');
+      setMode("code");
+      void runVerify(codeParam, "code");
       return;
     }
     if (hashParam) {
-      const targetMode = requestedMode === 'signature' || requestedMode === 'evidence' ? requestedMode : 'evidence';
+      const targetMode =
+        requestedMode === "signature" || requestedMode === "evidence"
+          ? requestedMode
+          : "evidence";
       setHash(hashParam);
       setMode(targetMode);
       void runVerify(hashParam, targetMode);
@@ -208,9 +246,9 @@ export default function PublicHashVerifyPage() {
   }, [runVerify]);
 
   const isValid =
-    mode === 'evidence'
+    mode === "evidence"
       ? Boolean(evidenceResult?.verified)
-      : mode === 'signature'
+      : mode === "signature"
         ? Boolean(signatureResult?.valid)
         : Boolean(codeResult?.valid);
 
@@ -227,25 +265,27 @@ export default function PublicHashVerifyPage() {
         <Card>
           <CardHeader className="space-y-3">
             <div className="flex flex-wrap gap-2">
-              {(['evidence', 'signature', 'code'] as VerifyMode[]).map((item) => (
-                <Button
-                  key={item}
-                  type="button"
-                  variant={mode === item ? 'default' : 'secondary'}
-                  size="sm"
-                  onClick={() => {
-                    setMode(item);
-                    resetResults();
-                  }}
-                >
-                  {modeLabels[item]}
-                </Button>
-              ))}
+              {(["evidence", "signature", "code"] as VerifyMode[]).map(
+                (item) => (
+                  <Button
+                    key={item}
+                    type="button"
+                    variant={mode === item ? "default" : "secondary"}
+                    size="sm"
+                    onClick={() => {
+                      setMode(item);
+                      resetResults();
+                    }}
+                  >
+                    {modeLabels[item]}
+                  </Button>
+                ),
+              )}
             </div>
             <CardDescription>
-              {mode === 'code'
-                ? 'Use o código público do documento para validar inspeções publicadas.'
-                : 'Use o hash SHA-256 do artefato registrado para consultar autenticidade.'}
+              {mode === "code"
+                ? "Use o código público do documento para validar documentos emitidos e inspeções publicadas."
+                : "Use o hash SHA-256 do artefato registrado para consultar autenticidade."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -256,23 +296,29 @@ export default function PublicHashVerifyPage() {
                   value={hash}
                   onChange={(e) => setHash(e.target.value)}
                   placeholder={
-                    mode === 'code'
-                      ? 'Cole o código (ex.: INS-2026-XXXXXXXX ou CHK-2026-XXXXXXXX)'
-                      : 'Cole o hash SHA-256'
+                    mode === "code"
+                      ? "Cole o código (ex.: PT-2026-11-ABCD1234 ou INS-2026-XXXXXXXX)"
+                      : "Cole o hash SHA-256"
                   }
-                  aria-label={mode === 'code' ? 'Código do documento' : 'Hash SHA-256'}
+                  aria-label={
+                    mode === "code" ? "Código do documento" : "Hash SHA-256"
+                  }
                   className="flex-1"
                 />
-                <Button type="submit" disabled={loading} className="sm:min-w-[10rem]">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="sm:min-w-[10rem]"
+                >
                   <Search className="h-4 w-4" />
-                  {loading ? 'Consultando...' : 'Validar'}
+                  {loading ? "Consultando..." : "Validar"}
                 </Button>
               </div>
             </form>
           </CardContent>
         </Card>
 
-        {(error || evidenceResult || signatureResult || codeResult) ? (
+        {error || evidenceResult || signatureResult || codeResult ? (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
@@ -289,53 +335,110 @@ export default function PublicHashVerifyPage() {
                 <div className="space-y-3">
                   <div className="flex items-start gap-2 text-[var(--ds-color-success)]">
                     <ShieldCheck className="mt-0.5 h-5 w-5" />
-                    <p className="text-[13px] font-semibold">Registro validado com sucesso.</p>
+                    <p className="text-[13px] font-semibold">
+                      Registro validado com sucesso.
+                    </p>
                   </div>
 
-                  {mode === 'code' && codeResult?.checklist ? (
+                  {mode === "code" && codeResult?.document ? (
+                    <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
+                      <p>Código: {codeResult.code}</p>
+                      <p>Módulo: {codeResult.document.module.toUpperCase()}</p>
+                      <p>Título: {codeResult.document.title}</p>
+                      <p>Tipo: {codeResult.document.document_type}</p>
+                      <p>
+                        Data documental:{" "}
+                        {codeResult.document.document_date || "-"}
+                      </p>
+                      <p>
+                        Arquivo original:{" "}
+                        {codeResult.document.original_name || "-"}
+                      </p>
+                      <p>
+                        Hash do arquivo: {codeResult.document.file_hash || "-"}
+                      </p>
+                      <p>
+                        Última atualização: {codeResult.document.updated_at}
+                      </p>
+                    </div>
+                  ) : mode === "code" && codeResult?.checklist ? (
                     <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
                       <p>Código: {codeResult.code}</p>
                       <p>Título: {codeResult.checklist.titulo}</p>
                       <p>Status: {codeResult.checklist.status}</p>
                       <p>Data: {codeResult.checklist.data}</p>
-                      <p>Obra/Setor: {codeResult.checklist.site || '-'}</p>
-                      <p>Inspetor: {codeResult.checklist.inspetor || '-'}</p>
-                      <p>Tipo: {codeResult.checklist.is_modelo ? 'Modelo' : 'Preenchimento'}</p>
-                      <p>Última atualização: {codeResult.checklist.updated_at}</p>
+                      <p>Obra/Setor: {codeResult.checklist.site || "-"}</p>
+                      <p>Inspetor: {codeResult.checklist.inspetor || "-"}</p>
+                      <p>
+                        Tipo:{" "}
+                        {codeResult.checklist.is_modelo
+                          ? "Modelo"
+                          : "Preenchimento"}
+                      </p>
+                      <p>
+                        Última atualização: {codeResult.checklist.updated_at}
+                      </p>
                     </div>
-                  ) : mode === 'code' && codeResult?.inspection ? (
+                  ) : mode === "code" && codeResult?.inspection ? (
                     <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
                       <p>Código: {codeResult.code}</p>
                       <p>Inspeção: {codeResult.inspection.id}</p>
-                      <p>Tipo: {codeResult.inspection.tipo_inspecao || '-'}</p>
-                      <p>Setor/Área: {codeResult.inspection.setor_area || '-'}</p>
-                      <p>Data: {codeResult.inspection.data_inspecao || '-'}</p>
-                      <p>Última atualização: {codeResult.inspection.updated_at || '-'}</p>
-                    </div>
-                  ) : null}
-
-                  {mode === 'evidence' && evidenceResult?.evidence ? (
-                    <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
-                      <p>APR: {evidenceResult.evidence.apr_numero || '-'}</p>
-                      <p>Versão: {evidenceResult.evidence.apr_versao ?? '-'}</p>
+                      <p>Tipo: {codeResult.inspection.tipo_inspecao || "-"}</p>
                       <p>
-                        Item de risco:{' '}
-                        {typeof evidenceResult.evidence.risk_item_ordem === 'number'
-                          ? `#${evidenceResult.evidence.risk_item_ordem + 1}`
-                          : '-'}
+                        Setor/Área: {codeResult.inspection.setor_area || "-"}
                       </p>
-                      <p>Upload: {evidenceResult.evidence.uploaded_at || '-'}</p>
-                      <p>Tipo de hash: {evidenceResult.matchedIn || '-'}</p>
+                      <p>Data: {codeResult.inspection.data_inspecao || "-"}</p>
+                      <p>
+                        Última atualização:{" "}
+                        {codeResult.inspection.updated_at || "-"}
+                      </p>
                     </div>
                   ) : null}
 
-                  {mode === 'signature' && signatureResult?.signature ? (
+                  {mode === "evidence" && evidenceResult?.evidence ? (
                     <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
-                      <p>Documento: {signatureResult.signature.document_type || '-'}</p>
-                      <p>ID do documento: {signatureResult.signature.document_id || '-'}</p>
-                      <p>Tipo de assinatura: {signatureResult.signature.type ? (SIGNATURE_TYPE_LABEL[signatureResult.signature.type] ?? signatureResult.signature.type) : '-'}</p>
-                      <p>Assinado em: {signatureResult.signature.signed_at || '-'}</p>
-                      <p>Autoridade: {signatureResult.signature.timestamp_authority || '-'}</p>
+                      <p>APR: {evidenceResult.evidence.apr_numero || "-"}</p>
+                      <p>Versão: {evidenceResult.evidence.apr_versao ?? "-"}</p>
+                      <p>
+                        Item de risco:{" "}
+                        {typeof evidenceResult.evidence.risk_item_ordem ===
+                        "number"
+                          ? `#${evidenceResult.evidence.risk_item_ordem + 1}`
+                          : "-"}
+                      </p>
+                      <p>
+                        Upload: {evidenceResult.evidence.uploaded_at || "-"}
+                      </p>
+                      <p>Tipo de hash: {evidenceResult.matchedIn || "-"}</p>
+                    </div>
+                  ) : null}
+
+                  {mode === "signature" && signatureResult?.signature ? (
+                    <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
+                      <p>
+                        Documento:{" "}
+                        {signatureResult.signature.document_type || "-"}
+                      </p>
+                      <p>
+                        ID do documento:{" "}
+                        {signatureResult.signature.document_id || "-"}
+                      </p>
+                      <p>
+                        Tipo de assinatura:{" "}
+                        {signatureResult.signature.type
+                          ? (SIGNATURE_TYPE_LABEL[
+                              signatureResult.signature.type
+                            ] ?? signatureResult.signature.type)
+                          : "-"}
+                      </p>
+                      <p>
+                        Assinado em:{" "}
+                        {signatureResult.signature.signed_at || "-"}
+                      </p>
+                      <p>
+                        Autoridade:{" "}
+                        {signatureResult.signature.timestamp_authority || "-"}
+                      </p>
                       <p>Hash: {signatureResult.signature.hash}</p>
                     </div>
                   ) : null}
@@ -344,11 +447,12 @@ export default function PublicHashVerifyPage() {
                 <div className="flex items-start gap-2 text-[var(--ds-color-warning)]">
                   <ShieldAlert className="mt-0.5 h-5 w-5" />
                   <p className="text-[13px] font-medium">
-                    {mode === 'evidence'
-                      ? evidenceResult?.message || 'Hash não localizado.'
-                      : mode === 'signature'
-                        ? signatureResult?.message || 'Assinatura não localizada.'
-                        : codeResult?.message || 'Documento não localizado.'}
+                    {mode === "evidence"
+                      ? evidenceResult?.message || "Hash não localizado."
+                      : mode === "signature"
+                        ? signatureResult?.message ||
+                          "Assinatura não localizada."
+                        : codeResult?.message || "Documento não localizado."}
                   </p>
                 </div>
               )}

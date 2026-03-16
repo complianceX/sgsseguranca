@@ -8,7 +8,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, FindOptionsSelect, DeepPartial } from 'typeorm';
+import {
+  Repository,
+  DataSource,
+  FindOptionsSelect,
+  DeepPartial,
+} from 'typeorm';
 import { plainToClass } from 'class-transformer';
 import { ConfigService } from '@nestjs/config';
 import { Checklist } from './entities/checklist.entity';
@@ -47,6 +52,7 @@ import {
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import { Company } from '../companies/entities/company.entity';
+import { matchesDocumentWeekFilters } from '../common/utils/document-calendar.util';
 
 @Injectable({ scope: Scope.REQUEST })
 export class ChecklistsService {
@@ -261,6 +267,9 @@ export class ChecklistsService {
     is_modelo: true,
     created_at: true,
     updated_at: true,
+    pdf_file_key: true,
+    pdf_folder_path: true,
+    pdf_original_name: true,
     company: {
       id: true,
       razao_social: true,
@@ -291,6 +300,47 @@ export class ChecklistsService {
     if (!checklist.inspetor_id) {
       throw new BadRequestException(
         'Checklist operacional exige inspetor responsável.',
+      );
+    }
+  }
+
+  private assertChecklistDocumentMutable(
+    checklist: Pick<Checklist, 'is_modelo' | 'pdf_file_key'>,
+  ) {
+    if (checklist.is_modelo) {
+      return;
+    }
+
+    if (checklist.pdf_file_key) {
+      throw new BadRequestException(
+        'Checklist com PDF final emitido. Edição bloqueada. Gere um novo checklist para alterar o documento.',
+      );
+    }
+  }
+
+  private async assertChecklistReadyForFinalPdf(
+    checklist: Pick<
+      Checklist,
+      'id' | 'is_modelo' | 'site_id' | 'inspetor_id' | 'pdf_file_key'
+    >,
+  ) {
+    if (checklist.is_modelo) {
+      throw new BadRequestException(
+        'Modelos de checklist não podem ser emitidos como documento final.',
+      );
+    }
+
+    this.assertChecklistExecutionRequirements(checklist);
+    this.assertChecklistDocumentMutable(checklist);
+
+    const signatures = await this.signaturesService.findByDocument(
+      checklist.id,
+      'CHECKLIST',
+    );
+
+    if (!signatures.length) {
+      throw new BadRequestException(
+        'Checklist precisa de ao menos uma assinatura antes da emissão do PDF final.',
       );
     }
   }
@@ -356,12 +406,12 @@ export class ChecklistsService {
       equipamento: fillData.equipamento ?? template.equipamento,
       maquina: fillData.maquina ?? template.maquina,
       foto_equipamento:
-        fillData.foto_equipamento ?? template.foto_equipamento ?? null,
+        fillData.foto_equipamento ?? template.foto_equipamento ?? undefined,
       data: fillData.data ?? template.data,
       status: fillData.status ?? 'Pendente',
       company_id: template.company_id,
-      site_id: fillData.site_id ?? null,
-      inspetor_id: fillData.inspetor_id ?? null,
+      site_id: fillData.site_id ?? undefined,
+      inspetor_id: fillData.inspetor_id ?? undefined,
       itens:
         fillData.itens !== undefined
           ? this.cloneChecklistItems(fillData.itens)
@@ -375,10 +425,10 @@ export class ChecklistsService {
       periodicidade: fillData.periodicidade ?? template.periodicidade,
       nivel_risco_padrao:
         fillData.nivel_risco_padrao ?? template.nivel_risco_padrao,
-      auditado_por_id: fillData.auditado_por_id ?? null,
-      data_auditoria: fillData.data_auditoria ?? null,
-      resultado_auditoria: template.resultado_auditoria ?? null,
-      notas_auditoria: template.notas_auditoria ?? null,
+      auditado_por_id: fillData.auditado_por_id ?? undefined,
+      data_auditoria: fillData.data_auditoria ?? undefined,
+      resultado_auditoria: template.resultado_auditoria ?? undefined,
+      notas_auditoria: template.notas_auditoria ?? undefined,
     };
 
     return this.checklistsRepository.create(checklistData);
@@ -439,7 +489,7 @@ export class ChecklistsService {
       itens: this.cloneChecklistItems(createChecklistDto.itens),
     });
     this.assertChecklistExecutionRequirements(checklist);
-    const saved = await this.checklistsRepository.save(checklist);
+    const saved: Checklist = await this.checklistsRepository.save(checklist);
     this.logger.log(`Checklist salvo: ${saved.id}`);
     return plainToClass(ChecklistResponseDto, saved);
   }
@@ -531,15 +581,62 @@ export class ChecklistsService {
     updateChecklistDto: UpdateChecklistDto,
   ): Promise<ChecklistResponseDto> {
     const checklist = await this.findOneEntity(id);
-    Object.assign(checklist, {
-      ...updateChecklistDto,
-      itens:
-        updateChecklistDto.itens !== undefined
-          ? this.cloneChecklistItems(updateChecklistDto.itens)
-          : checklist.itens,
-    });
+    this.assertChecklistDocumentMutable(checklist);
+
+    if (updateChecklistDto.titulo !== undefined) {
+      checklist.titulo = updateChecklistDto.titulo;
+    }
+    if (updateChecklistDto.descricao !== undefined) {
+      checklist.descricao = updateChecklistDto.descricao;
+    }
+    if (updateChecklistDto.equipamento !== undefined) {
+      checklist.equipamento = updateChecklistDto.equipamento;
+    }
+    if (updateChecklistDto.maquina !== undefined) {
+      checklist.maquina = updateChecklistDto.maquina;
+    }
+    if (updateChecklistDto.foto_equipamento !== undefined) {
+      checklist.foto_equipamento = updateChecklistDto.foto_equipamento;
+    }
+    if (updateChecklistDto.data !== undefined) {
+      checklist.data = new Date(updateChecklistDto.data);
+    }
+    if (updateChecklistDto.status !== undefined) {
+      checklist.status = updateChecklistDto.status;
+    }
+    if (updateChecklistDto.site_id !== undefined) {
+      checklist.site_id = updateChecklistDto.site_id;
+    }
+    if (updateChecklistDto.inspetor_id !== undefined) {
+      checklist.inspetor_id = updateChecklistDto.inspetor_id;
+    }
+    if (updateChecklistDto.itens !== undefined) {
+      checklist.itens = this.cloneChecklistItems(updateChecklistDto.itens);
+    }
+    if (updateChecklistDto.is_modelo !== undefined) {
+      checklist.is_modelo = updateChecklistDto.is_modelo;
+    }
+    if (updateChecklistDto.ativo !== undefined) {
+      checklist.ativo = updateChecklistDto.ativo;
+    }
+    if (updateChecklistDto.categoria !== undefined) {
+      checklist.categoria = updateChecklistDto.categoria;
+    }
+    if (updateChecklistDto.periodicidade !== undefined) {
+      checklist.periodicidade = updateChecklistDto.periodicidade;
+    }
+    if (updateChecklistDto.nivel_risco_padrao !== undefined) {
+      checklist.nivel_risco_padrao = updateChecklistDto.nivel_risco_padrao;
+    }
+    if (updateChecklistDto.auditado_por_id !== undefined) {
+      checklist.auditado_por_id = updateChecklistDto.auditado_por_id;
+    }
+    if (updateChecklistDto.data_auditoria) {
+      checklist.data_auditoria = new Date(updateChecklistDto.data_auditoria);
+    }
+
     this.assertChecklistExecutionRequirements(checklist);
-    const saved = await this.checklistsRepository.save(checklist);
+    const saved: Checklist = await this.checklistsRepository.save(checklist);
 
     try {
       this.notificationsGateway.sendToCompany(
@@ -566,6 +663,7 @@ export class ChecklistsService {
       removeEntityState: async (manager) => {
         await manager.getRepository(Checklist).remove(checklist);
       },
+      cleanupStoredFile: (fileKey) => this.storageService.deleteFile(fileKey),
     });
   }
 
@@ -893,6 +991,7 @@ export class ChecklistsService {
     id: string,
   ): Promise<{ fileKey: string; folderPath: string; fileUrl: string }> {
     const checklist = await this.findOneEntity(id);
+    await this.assertChecklistReadyForFinalPdf(checklist);
     const pdfBuffer = await this.generatePdf(checklist);
 
     const date = new Date(checklist.data);
@@ -1007,22 +1106,8 @@ export class ChecklistsService {
 
     return results
       .filter((c) => {
-        const rawDate = c.data || c.created_at;
-        if (!rawDate) return false;
-        const date = new Date(rawDate);
-        if (filters.year && date.getFullYear() !== filters.year) return false;
-        if (filters.week) {
-          const d = new Date(
-            Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-          );
-          d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-          const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-          const isoWeek = Math.ceil(
-            ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
-          );
-          if (isoWeek !== filters.week) return false;
-        }
-        return true;
+        const documentDate = c.data || c.created_at;
+        return matchesDocumentWeekFilters(documentDate, filters);
       })
       .map((c) => ({
         entityId: c.id,
@@ -1175,7 +1260,55 @@ Regras:
       try {
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error('JSON não encontrado na resposta');
-        structured = JSON.parse(jsonMatch[0]);
+        const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+        const parsedItems = Array.isArray(parsed.itens) ? parsed.itens : [];
+
+        structured = {
+          titulo:
+            typeof parsed.titulo === 'string' && parsed.titulo.trim()
+              ? parsed.titulo.trim()
+              : originalname.replace(/\.(docx?|pdf)$/i, '').trim() ||
+                'Checklist Importado',
+          descricao:
+            typeof parsed.descricao === 'string' ? parsed.descricao : '',
+          categoria:
+            typeof parsed.categoria === 'string' ? parsed.categoria : 'SST',
+          periodicidade:
+            typeof parsed.periodicidade === 'string'
+              ? parsed.periodicidade
+              : 'Por tarefa',
+          nivel_risco_padrao:
+            typeof parsed.nivel_risco_padrao === 'string'
+              ? parsed.nivel_risco_padrao
+              : 'Médio',
+          itens: parsedItems
+            .map((item) => {
+              const current =
+                item && typeof item === 'object'
+                  ? (item as Record<string, unknown>)
+                  : null;
+              if (!current || typeof current.item !== 'string') {
+                return null;
+              }
+              return {
+                item: current.item,
+                tipo_resposta:
+                  typeof current.tipo_resposta === 'string'
+                    ? current.tipo_resposta
+                    : 'sim_nao_na',
+                obrigatorio: current.obrigatorio !== false,
+              };
+            })
+            .filter(
+              (
+                item,
+              ): item is {
+                item: string;
+                tipo_resposta: string;
+                obrigatorio: boolean;
+              } => item !== null,
+            ),
+        };
       } catch {
         throw new BadRequestException(
           'Não foi possível interpretar a resposta da IA. Tente novamente ou ajuste o arquivo.',

@@ -21,11 +21,17 @@ describe('NonConformitiesService', () => {
     findOne: jest.Mock;
     save: jest.Mock;
     update: jest.Mock;
+    createQueryBuilder: jest.Mock;
   };
-  let storageService: Pick<StorageService, 'uploadFile' | 'deleteFile'>;
+  let storageService: Pick<
+    StorageService,
+    'uploadFile' | 'deleteFile' | 'getPresignedDownloadUrl'
+  >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
-    'registerFinalDocument' | 'removeFinalDocumentReference'
+    | 'registerFinalDocument'
+    | 'removeFinalDocumentReference'
+    | 'listFinalDocuments'
   >;
 
   beforeEach(() => {
@@ -33,14 +39,19 @@ describe('NonConformitiesService', () => {
       findOne: jest.fn(),
       save: jest.fn((input) => Promise.resolve(input as NonConformity)),
       update: jest.fn(),
+      createQueryBuilder: jest.fn(),
     };
     storageService = {
       uploadFile: jest.fn(),
       deleteFile: jest.fn(() => Promise.resolve()),
+      getPresignedDownloadUrl: jest.fn(() =>
+        Promise.resolve('https://example.com/nc.pdf'),
+      ),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
       removeFinalDocumentReference: jest.fn(),
+      listFinalDocuments: jest.fn(),
     };
 
     service = new NonConformitiesService(
@@ -163,5 +174,69 @@ describe('NonConformitiesService', () => {
     expect(storageService.deleteFile).toHaveBeenCalledWith(
       expect.stringContaining('/nc-1.pdf'),
     );
+  });
+
+  it('bloqueia edicao quando a NC já possui PDF final emitido', async () => {
+    jest.spyOn(service, 'findOne').mockResolvedValue({
+      id: 'nc-1',
+      company_id: 'company-1',
+      pdf_file_key: 'nonconformities/company-1/2026/week-11/nc-1.pdf',
+    } as NonConformity);
+
+    await expect(
+      service.update('nc-1', { descricao: 'Novo texto' }),
+    ).rejects.toThrow(
+      'Não conformidade com PDF final anexado. Edição bloqueada. Gere uma nova NC para alterar o documento.',
+    );
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('filtra arquivos semanais pela data documental da NC', async () => {
+    (
+      documentGovernanceService.listFinalDocuments as jest.Mock
+    ).mockResolvedValue([
+      {
+        entityId: 'nc-1',
+        id: 'nc-1',
+        title: 'NC-001',
+        date: new Date('2025-12-31T00:00:00.000Z'),
+        companyId: 'company-1',
+        fileKey: 'nonconformities/company-1/2025/week-01/nc-1.pdf',
+        folderPath: 'nonconformities/company-1/2025/week-01',
+        originalName: 'nc-1.pdf',
+        module: 'nonconformity',
+      },
+    ]);
+
+    const files = await service.listStoredFiles({ year: 2025 });
+
+    expect(files).toHaveLength(1);
+    expect(files[0].entityId).toBe('nc-1');
+    expect(documentGovernanceService.listFinalDocuments).toHaveBeenCalledWith(
+      'nonconformity',
+      { year: 2025 },
+    );
+  });
+
+  it('retorna metadados do PDF mesmo quando a URL assinada falha', async () => {
+    jest.spyOn(service, 'findOne').mockResolvedValue({
+      id: 'nc-1',
+      company_id: 'company-1',
+      pdf_file_key: 'nonconformities/company-1/2026/week-11/nc-1.pdf',
+      pdf_folder_path: 'nonconformities/company-1/2026/week-11',
+      pdf_original_name: 'nc-1.pdf',
+    } as NonConformity);
+    (storageService.getPresignedDownloadUrl as jest.Mock).mockRejectedValueOnce(
+      new Error('storage offline'),
+    );
+
+    await expect(service.getPdfAccess('nc-1')).resolves.toEqual({
+      entityId: 'nc-1',
+      fileKey: 'nonconformities/company-1/2026/week-11/nc-1.pdf',
+      folderPath: 'nonconformities/company-1/2026/week-11',
+      originalName: 'nc-1.pdf',
+      url: null,
+    });
   });
 });
