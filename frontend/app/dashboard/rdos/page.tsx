@@ -38,6 +38,10 @@ import {
   X,
   Sun,
   Thermometer,
+  Printer,
+  PenLine,
+  Mail,
+  Send,
 } from 'lucide-react';
 import {
   Table,
@@ -178,6 +182,16 @@ export default function RdosPage() {
 
   // View modal
   const [viewRdo, setViewRdo] = useState<Rdo | null>(null);
+
+  // Sign modal
+  const [signModal, setSignModal] = useState<{ rdo: Rdo; tipo: 'responsavel' | 'engenheiro' } | null>(null);
+  const [signForm, setSignForm] = useState({ nome: '', cpf: '', tipo: 'responsavel' as 'responsavel' | 'engenheiro' });
+  const [signing, setSigning] = useState(false);
+
+  // Email modal
+  const [emailModal, setEmailModal] = useState<Rdo | null>(null);
+  const [emailTo, setEmailTo] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   // Paginação + filtros
   const [page, setPage] = useState(1);
@@ -393,6 +407,106 @@ export default function RdosPage() {
       arr[i] = { ...arr[i], [field]: value } as OcorrenciaItem;
       return { ...f, ocorrencias: arr };
     });
+
+  const handlePrint = (rdo: Rdo) => {
+    const dataFormatada = new Date(rdo.data).toLocaleDateString('pt-BR');
+    const totalTrab = (rdo.mao_de_obra ?? []).reduce((s, m) => s + m.quantidade, 0);
+    const win = window.open('', '_blank');
+    if (!win) { toast.error('Ative pop-ups para imprimir.'); return; }
+    const rows = (rdo.mao_de_obra ?? []).map(m =>
+      `<tr><td>${m.funcao}</td><td>${m.quantidade}</td><td>${m.turno}</td><td>${m.horas}h</td></tr>`).join('');
+    const servicos = (rdo.servicos_executados ?? []).map(s =>
+      `<tr><td>${s.descricao}</td><td>${s.percentual_concluido}%</td></tr>`).join('');
+    const ocorrencias = (rdo.ocorrencias ?? []).map(o =>
+      `<tr><td>${OCORRENCIA_TIPO_LABEL[o.tipo] ?? o.tipo}</td><td>${o.descricao}</td><td>${o.hora ?? ''}</td></tr>`).join('');
+    const sigResp = rdo.assinatura_responsavel ? (() => { try { return JSON.parse(rdo.assinatura_responsavel!); } catch { return null; } })() : null;
+    const sigEng = rdo.assinatura_engenheiro ? (() => { try { return JSON.parse(rdo.assinatura_engenheiro!); } catch { return null; } })() : null;
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
+<title>RDO ${rdo.numero}</title>
+<style>
+  body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:24px}
+  h1{font-size:18px;margin:0 0 4px}
+  .sub{color:#555;font-size:11px;margin-bottom:16px}
+  table{width:100%;border-collapse:collapse;margin-bottom:12px}
+  th{background:#f0f0f0;padding:6px 8px;text-align:left;font-size:11px;border:1px solid #ccc}
+  td{padding:5px 8px;border:1px solid #ddd;font-size:11px}
+  .section{font-weight:bold;text-transform:uppercase;font-size:10px;letter-spacing:.08em;color:#555;margin:14px 0 4px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:9999px;font-size:10px;font-weight:bold}
+  .flag-danger{background:#fee2e2;color:#991b1b}
+  .flag-warn{background:#fef3c7;color:#92400e}
+  .sig-box{margin-top:32px;display:flex;gap:40px}
+  .sig-item{flex:1;border-top:1px solid #555;padding-top:6px;font-size:11px;color:#333}
+  @media print{body{margin:0}button{display:none}}
+</style></head><body>
+<h1>Relatório Diário de Obra</h1>
+<div class="sub">${rdo.numero} · ${dataFormatada} · ${rdo.site?.nome ?? ''}</div>
+<table><tr><th>Responsável</th><td>${rdo.responsavel?.nome ?? '—'}</td>
+<th>Status</th><td><span class="badge">${RDO_STATUS_LABEL[rdo.status] ?? rdo.status}</span></td></tr>
+<tr><th>Clima manhã</th><td>${rdo.clima_manha ? (CLIMA_LABEL[rdo.clima_manha] ?? rdo.clima_manha) : '—'}</td>
+<th>Clima tarde</th><td>${rdo.clima_tarde ? (CLIMA_LABEL[rdo.clima_tarde] ?? rdo.clima_tarde) : '—'}</td></tr>
+${rdo.temperatura_min != null ? `<tr><th>Temp. mín</th><td>${rdo.temperatura_min}°C</td><th>Temp. máx</th><td>${rdo.temperatura_max ?? '?'}°C</td></tr>` : ''}
+${rdo.condicao_terreno ? `<tr><th>Terreno</th><td colspan="3">${rdo.condicao_terreno}</td></tr>` : ''}
+<tr><th>Trabalhadores</th><td>${totalTrab}</td>
+<th>Equipamentos</th><td>${(rdo.equipamentos ?? []).length}</td></tr>
+</table>
+${rdo.houve_acidente ? '<div class="badge flag-danger" style="margin-bottom:6px">⚠️ Houve acidente</div>' : ''}
+${rdo.houve_paralisacao ? `<div class="badge flag-warn" style="margin-bottom:6px">⏸️ Paralisação: ${rdo.motivo_paralisacao ?? ''}</div>` : ''}
+${rows ? `<div class="section">Mão de Obra</div><table><tr><th>Função</th><th>Qtd</th><th>Turno</th><th>Horas</th></tr>${rows}</table>` : ''}
+${servicos ? `<div class="section">Serviços Executados</div><table><tr><th>Descrição</th><th>% Concluído</th></tr>${servicos}</table>` : ''}
+${ocorrencias ? `<div class="section">Ocorrências</div><table><tr><th>Tipo</th><th>Descrição</th><th>Hora</th></tr>${ocorrencias}</table>` : ''}
+${rdo.observacoes ? `<div class="section">Observações</div><p>${rdo.observacoes}</p>` : ''}
+${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</div><p>${rdo.programa_servicos_amanha}</p>` : ''}
+<div class="sig-box">
+  <div class="sig-item">${sigResp ? `Responsável: ${sigResp.nome}<br/>CPF: ${sigResp.cpf}<br/>Assinado em: ${new Date(sigResp.signed_at).toLocaleString('pt-BR')}` : 'Responsável pela Obra'}</div>
+  <div class="sig-item">${sigEng ? `Engenheiro: ${sigEng.nome}<br/>CPF: ${sigEng.cpf}<br/>Assinado em: ${new Date(sigEng.signed_at).toLocaleString('pt-BR')}` : 'Engenheiro Responsável'}</div>
+</div>
+</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
+  const handleSign = async () => {
+    if (!signModal) return;
+    if (!signForm.nome || !signForm.cpf) { toast.error('Preencha nome e CPF.'); return; }
+    setSigning(true);
+    try {
+      const hash = btoa(`${signForm.nome}:${signForm.cpf}:${Date.now()}`);
+      const updated = await rdosService.sign(signModal.rdo.id, {
+        tipo: signModal.tipo,
+        nome: signForm.nome,
+        cpf: signForm.cpf,
+        hash,
+        timestamp: new Date().toISOString(),
+      });
+      setRdos((prev) => prev.map((r) => r.id === updated.id ? updated : r));
+      if (viewRdo?.id === updated.id) setViewRdo(updated);
+      toast.success('RDO assinado com sucesso!');
+      setSignModal(null);
+      setSignForm({ nome: '', cpf: '', tipo: 'responsavel' });
+    } catch {
+      toast.error('Erro ao assinar RDO.');
+    } finally {
+      setSigning(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailModal) return;
+    const emails = emailTo.split(/[,;\s]+/).map((e) => e.trim()).filter(Boolean);
+    if (emails.length === 0) { toast.error('Informe pelo menos um e-mail.'); return; }
+    setSendingEmail(true);
+    try {
+      await rdosService.sendEmail(emailModal.id, emails);
+      toast.success(`RDO enviado para ${emails.length} destinatário(s).`);
+      setEmailModal(null);
+      setEmailTo('');
+    } catch {
+      toast.error('Erro ao enviar e-mail.');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
 
   const filteredRdos = deferredSearch
     ? rdos.filter(
@@ -1440,7 +1554,8 @@ export default function RdosPage() {
                           >
                             <div
                               className="h-full rounded-full bg-[var(--ds-color-success)] transition-all"
-                              style={{ width: `${s.percentual_concluido}%` } as React.CSSProperties}
+                            // eslint-disable-next-line react/forbid-dom-props
+                            style={{ width: `${s.percentual_concluido}%` }}
                             />
                           </div>
                           <span className="w-10 text-right text-xs font-medium text-[var(--ds-color-text-secondary)]">{s.percentual_concluido}%</span>
@@ -1486,16 +1601,189 @@ export default function RdosPage() {
                   <p className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-3 text-sm text-[var(--ds-color-text-primary)] whitespace-pre-wrap">{viewRdo.programa_servicos_amanha}</p>
                 </div>
               )}
+
+              {/* Assinaturas */}
+              <div>
+                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                  <PenLine className="h-3.5 w-3.5" /> Assinaturas
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {(() => {
+                    const sig = viewRdo.assinatura_responsavel ? (() => { try { return JSON.parse(viewRdo.assinatura_responsavel!); } catch { return null; } })() : null;
+                    return (
+                      <div className={`rounded-xl border px-4 py-3 ${sig ? 'border-green-200 bg-green-50' : 'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20'}`}>
+                        <p className="text-xs font-semibold text-[var(--ds-color-text-muted)]">Responsável pela Obra</p>
+                        {sig ? (
+                          <>
+                            <p className="mt-1 text-sm font-medium text-green-800">{sig.nome}</p>
+                            <p className="text-xs text-green-600">CPF: {sig.cpf}</p>
+                            <p className="text-xs text-green-600">{new Date(sig.signed_at).toLocaleString('pt-BR')}</p>
+                          </>
+                        ) : (
+                          <p className="mt-1 text-xs text-[var(--ds-color-text-muted)] italic">Aguardando assinatura</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                  {(() => {
+                    const sig = viewRdo.assinatura_engenheiro ? (() => { try { return JSON.parse(viewRdo.assinatura_engenheiro!); } catch { return null; } })() : null;
+                    return (
+                      <div className={`rounded-xl border px-4 py-3 ${sig ? 'border-green-200 bg-green-50' : 'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20'}`}>
+                        <p className="text-xs font-semibold text-[var(--ds-color-text-muted)]">Engenheiro Responsável</p>
+                        {sig ? (
+                          <>
+                            <p className="mt-1 text-sm font-medium text-green-800">{sig.nome}</p>
+                            <p className="text-xs text-green-600">CPF: {sig.cpf}</p>
+                            <p className="text-xs text-green-600">{new Date(sig.signed_at).toLocaleString('pt-BR')}</p>
+                          </>
+                        ) : (
+                          <p className="mt-1 text-xs text-[var(--ds-color-text-muted)] italic">Aguardando assinatura</p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end border-t border-[var(--ds-color-border-subtle)] px-6 py-4 flex-shrink-0">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--ds-color-border-subtle)] px-6 py-4 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePrint(viewRdo)}
+                  className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors"
+                >
+                  <Printer className="h-3.5 w-3.5" /> Imprimir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSignModal({ rdo: viewRdo, tipo: 'responsavel' }); setSignForm({ nome: '', cpf: '', tipo: 'responsavel' }); }}
+                  className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
+                >
+                  <PenLine className="h-3.5 w-3.5" /> Assinar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEmailModal(viewRdo); setEmailTo(''); }}
+                  className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
+                >
+                  <Mail className="h-3.5 w-3.5" /> Enviar e-mail
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => setViewRdo(null)}
                 className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors"
               >
                 Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal de assinatura ───────────────────────────────────── */}
+      {signModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-lg)]">
+            <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-5 py-4">
+              <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">Assinar RDO</h2>
+              <button type="button" aria-label="Fechar" onClick={() => setSignModal(null)} className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-surface-muted)]">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4 px-5 py-5">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Tipo de assinatura</label>
+                <select
+                  aria-label="Tipo de assinatura"
+                  value={signModal.tipo}
+                  onChange={(e) => setSignModal((prev) => prev ? { ...prev, tipo: e.target.value as 'responsavel' | 'engenheiro' } : prev)}
+                  className={formInputClassName}
+                >
+                  <option value="responsavel">Responsável pela Obra</option>
+                  <option value="engenheiro">Engenheiro Responsável</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="sign-nome" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Nome completo</label>
+                <input
+                  id="sign-nome"
+                  type="text"
+                  value={signForm.nome}
+                  onChange={(e) => setSignForm((f) => ({ ...f, nome: e.target.value }))}
+                  className={formInputClassName}
+                  placeholder="Nome de quem assina"
+                />
+              </div>
+              <div>
+                <label htmlFor="sign-cpf" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">CPF</label>
+                <input
+                  id="sign-cpf"
+                  type="text"
+                  value={signForm.cpf}
+                  onChange={(e) => setSignForm((f) => ({ ...f, cpf: e.target.value }))}
+                  className={formInputClassName}
+                  placeholder="000.000.000-00"
+                  maxLength={14}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-[var(--ds-color-border-subtle)] px-5 py-4">
+              <button type="button" onClick={() => setSignModal(null)} className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSign}
+                disabled={signing}
+                className="flex items-center gap-1.5 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 transition-colors"
+              >
+                <PenLine className="h-4 w-4" /> {signing ? 'Assinando...' : 'Confirmar assinatura'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal de envio de e-mail ──────────────────────────────── */}
+      {emailModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-lg)]">
+            <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-5 py-4">
+              <h2 className="text-base font-semibold text-[var(--ds-color-text-primary)]">Enviar RDO por E-mail</h2>
+              <button type="button" aria-label="Fechar" onClick={() => setEmailModal(null)} className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-surface-muted)]">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="px-5 py-5">
+              <p className="mb-3 text-xs text-[var(--ds-color-text-muted)]">
+                Enviar <strong>{emailModal.numero}</strong> — {new Date(emailModal.data).toLocaleDateString('pt-BR')}
+              </p>
+              <label htmlFor="email-to" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                Destinatários (separados por vírgula)
+              </label>
+              <input
+                id="email-to"
+                type="text"
+                value={emailTo}
+                onChange={(e) => setEmailTo(e.target.value)}
+                className={formInputClassName}
+                placeholder="email@exemplo.com, outro@exemplo.com"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-[var(--ds-color-border-subtle)] px-5 py-4">
+              <button type="button" onClick={() => setEmailModal(null)} className="rounded-xl border border-[var(--ds-color-border-subtle)] px-4 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSendEmail}
+                disabled={sendingEmail}
+                className="flex items-center gap-1.5 rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 transition-colors"
+              >
+                <Send className="h-4 w-4" /> {sendingEmail ? 'Enviando...' : 'Enviar'}
               </button>
             </div>
           </div>

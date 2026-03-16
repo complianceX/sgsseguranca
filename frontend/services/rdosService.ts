@@ -153,4 +153,37 @@ export const rdosService = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/rdos/${id}`);
   },
+
+  sign: async (
+    id: string,
+    body: {
+      tipo: 'responsavel' | 'engenheiro';
+      nome: string;
+      cpf: string;
+      hash: string;
+      timestamp: string;
+    },
+  ): Promise<Rdo> => {
+    const response = await api.patch<Rdo>(`/rdos/${id}/sign`, body);
+    return response.data;
+  },
+
+  savePdf: async (id: string, filename: string): Promise<Rdo> => {
+    const response = await api.post<Rdo>(`/rdos/${id}/save-pdf`, { filename });
+    return response.data;
+  },
+
+  sendEmail: async (id: string, to: string[]): Promise<void> => {
+    await api.post(`/rdos/${id}/send-email`, { to });
+  },
+
+  listFiles: async (opts?: { year?: string; week?: string }): Promise<Rdo[]> => {
+    const response = await api.get<Rdo[]>('/rdos/files/list', { params: opts });
+    return response.data;
+  },
+
+  exportExcel: async (): Promise<Blob> => {
+    const response = await api.get('/rdos/export/excel', { responseType: 'blob' });
+    return response.data;
+  },
 };

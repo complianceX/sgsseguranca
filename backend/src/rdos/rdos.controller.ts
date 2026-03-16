@@ -12,6 +12,8 @@ import {
   Query,
   Header,
   StreamableFile,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { RdosService } from './rdos.service';
 import { CreateRdoDto } from './dto/create-rdo.dto';
@@ -23,6 +25,22 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
+
+class SignRdoDto {
+  tipo: 'responsavel' | 'engenheiro';
+  nome: string;
+  cpf: string;
+  hash: string;
+  timestamp: string;
+}
+
+class SavePdfDto {
+  filename: string;
+}
+
+class SendEmailDto {
+  to: string[];
+}
 
 @Controller('rdos')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -68,6 +86,15 @@ export class RdosController {
     return new StreamableFile(buffer);
   }
 
+  @Get('files/list')
+  @Authorize('can_view_rdos')
+  listFiles(
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ) {
+    return this.rdosService.listFiles({ year, week });
+  }
+
   @Get(':id')
   @Authorize('can_view_rdos')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
@@ -90,6 +117,34 @@ export class RdosController {
     @Body('status') status: string,
   ) {
     return this.rdosService.updateStatus(id, status);
+  }
+
+  @Patch(':id/sign')
+  @Authorize('can_manage_rdos')
+  sign(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: SignRdoDto,
+  ) {
+    return this.rdosService.sign(id, body);
+  }
+
+  @Post(':id/save-pdf')
+  @Authorize('can_manage_rdos')
+  savePdf(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: SavePdfDto,
+  ) {
+    return this.rdosService.markPdfSaved(id, body);
+  }
+
+  @Post(':id/send-email')
+  @Authorize('can_manage_rdos')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async sendEmail(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: SendEmailDto,
+  ) {
+    await this.rdosService.sendEmail(id, body.to);
   }
 
   @Delete(':id')
