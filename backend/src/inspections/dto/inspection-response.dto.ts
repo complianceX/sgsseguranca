@@ -3,6 +3,15 @@ import { UserResponseDto } from '../../users/dto/user-response.dto';
 import { SiteResponseDto } from '../../sites/dto/site-response.dto';
 
 @Exclude()
+class InspectionCompanyResponseDto {
+  @Expose()
+  id: string;
+
+  @Expose()
+  razao_social: string;
+}
+
+@Exclude()
 export class InspectionResponseDto {
   @Expose()
   id: string;
@@ -62,4 +71,8 @@ export class InspectionResponseDto {
   @Expose()
   @Type(() => SiteResponseDto)
   site: SiteResponseDto;
+
+  @Expose()
+  @Type(() => InspectionCompanyResponseDto)
+  company?: InspectionCompanyResponseDto;
 }

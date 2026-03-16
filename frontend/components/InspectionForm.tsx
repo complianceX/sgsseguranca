@@ -47,6 +47,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { ErrorState, PageLoadingState } from "@/components/ui/state";
 import { useAuth } from "@/context/AuthContext";
 import { FormPageLayout } from "@/components/layout";
+import {
+  buildInspectionDraftStorageKey,
+  mergeInspectionDraftWithPrefill,
+} from "@/lib/inspection-form-draft";
 
 const methodologyOptions = [
   "Observação direta em campo",
@@ -383,6 +387,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
   );
   const isFieldMode = searchParams.get("field") === "1";
   const isPhotographicReport = searchParams.get("kind") === "photographic";
+  const hasExplicitGoalPrefill = searchParams.has("objetivo");
   const prefillSiteId = searchParams.get("site_id") || "";
   const prefillResponsibleId =
     searchParams.get("responsavel_id") || searchParams.get("user_id") || "";
@@ -397,8 +402,25 @@ export function InspectionForm({ id }: InspectionFormProps) {
     () =>
       id
         ? null
-        : `inspection.form.draft.${user?.id || "anon"}.${isPhotographicReport ? "photographic" : "standard"}`,
-    [id, isPhotographicReport, user?.id],
+        : buildInspectionDraftStorageKey({
+            userId: user?.id,
+            isPhotographicReport,
+            prefillSiteId,
+            prefillArea,
+            prefillResponsibleId,
+            prefillGoal,
+            hasExplicitGoalPrefill,
+          }),
+    [
+      hasExplicitGoalPrefill,
+      id,
+      isPhotographicReport,
+      prefillArea,
+      prefillGoal,
+      prefillResponsibleId,
+      prefillSiteId,
+      user?.id,
+    ],
   );
 
   const {
@@ -538,7 +560,16 @@ export function InspectionForm({ id }: InspectionFormProps) {
 
       if (!parsed.values) return;
 
-      reset(buildDefaultValues(parsed.values));
+      const mergedValues = mergeInspectionDraftWithPrefill(parsed.values, {
+        isPhotographicReport,
+        prefillSiteId,
+        prefillArea,
+        prefillResponsibleId,
+        prefillGoal,
+        hasExplicitGoalPrefill,
+      });
+
+      reset(buildDefaultValues(mergedValues));
       if (parsed.savedAt) {
         setDraftSavedAt(parsed.savedAt);
       }
@@ -546,7 +577,17 @@ export function InspectionForm({ id }: InspectionFormProps) {
     } catch (error) {
       console.error("Erro ao restaurar rascunho da inspeção:", error);
     }
-  }, [draftStorageKey, fetching, reset]);
+  }, [
+    draftStorageKey,
+    fetching,
+    hasExplicitGoalPrefill,
+    isPhotographicReport,
+    prefillArea,
+    prefillGoal,
+    prefillResponsibleId,
+    prefillSiteId,
+    reset,
+  ]);
 
   useEffect(() => {
     if (!draftStorageKey || fetching || id) return;

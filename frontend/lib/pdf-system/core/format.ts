@@ -1,19 +1,64 @@
+function parseDocumentDate(value: string): Date | null {
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnlyMatch) {
+    const [, year, month, day] = dateOnlyMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
 export function sanitize(value?: string | number | boolean | null): string {
   if (value === undefined || value === null || value === "") return "-";
-  return String(value);
+
+  const subscriptDigits: Record<string, string> = {
+    "₀": "0",
+    "₁": "1",
+    "₂": "2",
+    "₃": "3",
+    "₄": "4",
+    "₅": "5",
+    "₆": "6",
+    "₇": "7",
+    "₈": "8",
+    "₉": "9",
+  };
+
+  const normalized = String(value)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/\u00A0/g, " ")
+    .replace(/[₀₁₂₃₄₅₆₇₈₉]/g, (char) => subscriptDigits[char] || char)
+    .replace(/[‘’‚‛]/g, "'")
+    .replace(/[“”„‟]/g, '"')
+    .replace(/[–—−]/g, "-")
+    .replace(/…/g, "...")
+    .replace(/•/g, "-");
+
+  const collapsed = normalized
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trimEnd())
+    .join("\n")
+    .trim();
+
+  return collapsed || "-";
 }
 
 export function formatDate(value?: string | null): string {
   if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
+  const date = parseDocumentDate(value);
+  if (!date) return String(value);
   return date.toLocaleDateString("pt-BR");
 }
 
 export function formatDateTime(value?: string | null): string {
   if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
+  const date = parseDocumentDate(value);
+  if (!date) return String(value);
   return date.toLocaleString("pt-BR");
 }
 

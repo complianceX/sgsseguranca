@@ -1,4 +1,5 @@
-import { buildDocumentCode } from './format';
+import { buildDocumentCode, sanitize } from './format';
+import { formatDate } from './format';
 
 describe('buildDocumentCode', () => {
   it('usa a data documental quando informada', () => {
@@ -17,5 +18,23 @@ describe('buildDocumentCode', () => {
     expect(
       buildDocumentCode('CHK', 'abc-123456', 'data-invalida'),
     ).toBe(`CHK-${currentYear}-BC123456`);
+  });
+});
+
+describe('formatDate', () => {
+  it('preserva datas no formato YYYY-MM-DD sem deslocar pelo timezone', () => {
+    expect(formatDate('2026-03-15')).toBe('15/03/2026');
+  });
+});
+
+describe('sanitize', () => {
+  it('normaliza caracteres problemáticos para o PDF', () => {
+    expect(sanitize('Garantir extintores de CO₂ — “próximos”\x00')).toBe(
+      'Garantir extintores de CO2 - "próximos"',
+    );
+  });
+
+  it('remove controles invisíveis sem destruir quebras de linha', () => {
+    expect(sanitize('Linha 1\x13\nLinha 2')).toBe('Linha 1\nLinha 2');
   });
 });

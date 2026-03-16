@@ -9,6 +9,10 @@ import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/o
 export interface Inspection {
   id: string;
   company_id: string;
+  company?: {
+    id: string;
+    razao_social: string;
+  };
   site_id: string;
   site?: Site;
   setor_area: string;
