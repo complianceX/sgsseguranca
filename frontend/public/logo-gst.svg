@@ -1,55 +1,63 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="820" height="180" viewBox="0 0 820 180" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="120" viewBox="0 0 760 120" fill="none">
   <defs>
-    <linearGradient id="gst-bg" x1="12" y1="12" x2="168" y2="168" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#1D4ED8" />
-      <stop offset="1" stop-color="#0F172A" />
+    <linearGradient id="bg" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1e6b43"/>
+      <stop offset="1" stop-color="#0c2e1a"/>
     </linearGradient>
-    <linearGradient id="gst-shield" x1="90" y1="36" x2="90" y2="144" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#1E3A8A" />
-      <stop offset="1" stop-color="#0B1B3B" />
+    <linearGradient id="shield-fill" x1="60" y1="14" x2="60" y2="106" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="rgba(255,255,255,0.18)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0.05)"/>
     </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
 
-  <rect x="10" y="10" width="160" height="160" rx="36" fill="url(#gst-bg)" />
-  <path
-    d="M90 32C64.4 32 42 43.7 42 59.7V93.8C42 123.1 66 146.6 90 154C114 146.6 138 123.1 138 93.8V59.7C138 43.7 115.6 32 90 32Z"
-    fill="url(#gst-shield)"
-    stroke="rgba(255,255,255,0.72)"
-    stroke-width="4"
-  />
-  <text
-    x="90"
-    y="103"
-    text-anchor="middle"
-    font-family="Inter, Segoe UI, Roboto, Arial, sans-serif"
-    font-size="36"
-    font-weight="800"
-    fill="#F59E0B"
-    letter-spacing="1"
-  >
-    GST
-  </text>
+  <!-- Icon mark background -->
+  <rect x="0" y="0" width="120" height="120" rx="24" fill="url(#bg)"/>
+  <rect x="1" y="1" width="118" height="118" rx="23.5" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
 
+  <!-- Shield -->
+  <path d="M60 14 L90 28 L90 56 Q90 82 60 96 Q30 82 30 56 L30 28 Z"
+    fill="url(#shield-fill)"
+    stroke="rgba(255,255,255,0.30)"
+    stroke-width="2"
+    stroke-linejoin="round"
+  />
+
+  <!-- Checkmark -->
+  <path d="M43 57 L54 68 L78 44"
+    stroke="white"
+    stroke-width="5.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+    filter="url(#glow)"
+  />
+
+  <!-- Vertical divider -->
+  <line x1="144" y1="24" x2="144" y2="96" stroke="#d1e8da" stroke-width="1.5"/>
+
+  <!-- "GST" brand name -->
   <text
-    x="206"
-    y="82"
+    x="164"
+    y="72"
     font-family="Inter, Segoe UI, Roboto, Arial, sans-serif"
-    font-size="54"
+    font-size="58"
     font-weight="900"
-    fill="#F8FAFC"
-    letter-spacing="1.2"
-  >
-    &lt;GST&gt;
-  </text>
+    fill="#0d3524"
+    letter-spacing="2"
+  >GST</text>
+
+  <!-- Subtitle -->
   <text
-    x="206"
-    y="126"
+    x="164"
+    y="98"
     font-family="Inter, Segoe UI, Roboto, Arial, sans-serif"
-    font-size="31"
-    font-weight="700"
-    fill="#CBD5E1"
-    letter-spacing="0.8"
-  >
-    GESTÃO DE SEGURANÇA DO TRABALHO
-  </text>
+    font-size="19"
+    font-weight="500"
+    fill="#2d7a50"
+    letter-spacing="3.5"
+  >SEGURANÇA DO TRABALHO</text>
 </svg>
