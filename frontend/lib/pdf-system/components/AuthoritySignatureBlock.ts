@@ -8,6 +8,7 @@ export type AuthoritySignature = {
   role?: string;
   date?: string;
   image?: string | null;
+  signatureType?: string;
 };
 
 type AuthoritySignatureBlockOptions = {

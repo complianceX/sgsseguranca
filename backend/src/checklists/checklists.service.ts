@@ -991,4 +991,69 @@ Regras:
     this.logger.log(`Checklist importado do Word salvo como modelo: ${saved.id}`);
     return plainToClass(ChecklistResponseDto, saved);
   }
+
+  /** Validação pública por código de documento (ex.: CHK-2026-XXXXXXXX) */
+  async validateByCode(code: string): Promise<{
+    valid: boolean;
+    code?: string;
+    message?: string;
+    checklist?: {
+      id: string;
+      titulo: string;
+      status: string;
+      data: string;
+      is_modelo: boolean;
+      site?: string;
+      inspetor?: string;
+      updated_at: string;
+    };
+  }> {
+    const normalized = code.trim().toUpperCase();
+
+    if (!normalized.startsWith('CHK-')) {
+      return { valid: false, message: 'Código inválido para checklist (esperado CHK-YYYY-XXXXXXXX).' };
+    }
+
+    const suffix = normalized.split('-').pop();
+    if (!suffix || suffix.length < 6) {
+      return { valid: false, message: 'Código inválido.' };
+    }
+
+    const matches = await this.checklistsRepository
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.site', 'site')
+      .leftJoinAndSelect('c.inspetor', 'inspetor')
+      .where("REPLACE(c.id::text, '-', '') ILIKE :suffix", { suffix: `%${suffix.toLowerCase()}` })
+      .orderBy('c.created_at', 'DESC')
+      .limit(5)
+      .getMany();
+
+    // Reproduce the same code generation as the frontend buildDocumentCode
+    const buildCode = (cl: Checklist): string => {
+      const year = new Date().getFullYear();
+      const ref = (cl.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase();
+      return `CHK-${year}-${ref}`;
+    };
+
+    const match = matches.find((cl) => buildCode(cl) === normalized);
+
+    if (!match) {
+      return { valid: false, message: 'Checklist não encontrado para este código.' };
+    }
+
+    return {
+      valid: true,
+      code: normalized,
+      checklist: {
+        id: match.id,
+        titulo: match.titulo,
+        status: match.status,
+        data: match.data,
+        is_modelo: Boolean(match.is_modelo),
+        site: (match as any).site?.nome,
+        inspetor: (match as any).inspetor?.nome,
+        updated_at: match.updated_at,
+      },
+    };
+  }
 }

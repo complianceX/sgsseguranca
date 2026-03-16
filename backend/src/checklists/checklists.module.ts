@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ChecklistsService } from './checklists.service';
 import { ChecklistsController } from './checklists.controller';
+import { PublicChecklistsController } from './public-checklists.controller';
 import { Checklist } from './entities/checklist.entity';
 import { MailModule } from '../mail/mail.module';
 import { SignaturesModule } from '../signatures/signatures.module';
@@ -26,7 +27,7 @@ import { FileParserModule } from '../document-import/file-parser.module';
     DocumentRegistryModule,
     FileParserModule,
   ],
-  controllers: [ChecklistsController],
+  controllers: [ChecklistsController, PublicChecklistsController],
   providers: [ChecklistsService],
   exports: [ChecklistsService],
 })

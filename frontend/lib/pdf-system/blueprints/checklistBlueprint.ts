@@ -111,13 +111,22 @@ export async function drawChecklistBlueprint(
     });
   }
 
+  const SIGNATURE_TYPE_LABEL: Record<string, string> = {
+    digital: 'Assinatura Digital',
+    upload: 'Imagem Enviada',
+    facial: 'Facial',
+    hmac: 'PIN Seguro (HMAC-SHA256)',
+  };
+
   await drawGovernanceClosingBlock(ctx, {
     signatures: signatures.map((signature) => ({
-      label: sanitize(signature.type),
+      label: SIGNATURE_TYPE_LABEL[signature.type] ?? sanitize(signature.type),
       name: sanitize(signature.user?.nome || signature.type),
-      role: sanitize(signature.type),
+      role: SIGNATURE_TYPE_LABEL[signature.type] ?? sanitize(signature.type),
       date: formatDate(signature.signed_at || signature.created_at),
+      // For HMAC, signature_data is a hex string — mark it so GovernanceClosingBlock handles it correctly
       image: signature.signature_data,
+      signatureType: signature.type,
     })),
     code,
     url: validationUrl,

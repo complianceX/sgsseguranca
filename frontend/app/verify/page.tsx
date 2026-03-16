@@ -79,6 +79,16 @@ interface CodeVerifyResponse {
     responsavel_id?: string;
     updated_at?: string;
   };
+  checklist?: {
+    id: string;
+    titulo: string;
+    status: string;
+    data: string;
+    is_modelo: boolean;
+    site?: string;
+    inspetor?: string;
+    updated_at: string;
+  };
 }
 
 const modeLabels: Record<VerifyMode, string> = {
@@ -119,15 +129,17 @@ export default function PublicHashVerifyPage() {
     if (targetMode === 'code') {
       const code = rawValue.trim();
       if (!code) {
-        setError('Informe o código do documento (ex.: INS-2026-22D77ACC).');
+        setError('Informe o código do documento (ex.: INS-2026-22D77ACC ou CHK-2026-XXXXXXXX).');
         return;
       }
       try {
         setLoading(true);
-        const response = await fetch(
-          resolvePublicUrl(`/public/inspections/validate?code=${encodeURIComponent(code)}`),
-          { method: 'GET', cache: 'no-store' },
-        );
+        // Route to the correct endpoint based on document prefix
+        const isChecklist = code.toUpperCase().startsWith('CHK-');
+        const endpoint = isChecklist
+          ? `/public/checklists/validate?code=${encodeURIComponent(code)}`
+          : `/public/inspections/validate?code=${encodeURIComponent(code)}`;
+        const response = await fetch(resolvePublicUrl(endpoint), { method: 'GET', cache: 'no-store' });
         const data = (await response.json()) as CodeVerifyResponse;
         setCodeResult(data);
         if (!data.valid) {
@@ -245,7 +257,7 @@ export default function PublicHashVerifyPage() {
                   onChange={(e) => setHash(e.target.value)}
                   placeholder={
                     mode === 'code'
-                      ? 'Cole o código (ex.: INS-2026-22D77ACC)'
+                      ? 'Cole o código (ex.: INS-2026-XXXXXXXX ou CHK-2026-XXXXXXXX)'
                       : 'Cole o hash SHA-256'
                   }
                   aria-label={mode === 'code' ? 'Código do documento' : 'Hash SHA-256'}
@@ -280,7 +292,18 @@ export default function PublicHashVerifyPage() {
                     <p className="text-[13px] font-semibold">Registro validado com sucesso.</p>
                   </div>
 
-                  {mode === 'code' && codeResult?.inspection ? (
+                  {mode === 'code' && codeResult?.checklist ? (
+                    <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
+                      <p>Código: {codeResult.code}</p>
+                      <p>Título: {codeResult.checklist.titulo}</p>
+                      <p>Status: {codeResult.checklist.status}</p>
+                      <p>Data: {codeResult.checklist.data}</p>
+                      <p>Obra/Setor: {codeResult.checklist.site || '-'}</p>
+                      <p>Inspetor: {codeResult.checklist.inspetor || '-'}</p>
+                      <p>Tipo: {codeResult.checklist.is_modelo ? 'Modelo' : 'Preenchimento'}</p>
+                      <p>Última atualização: {codeResult.checklist.updated_at}</p>
+                    </div>
+                  ) : mode === 'code' && codeResult?.inspection ? (
                     <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
                       <p>Código: {codeResult.code}</p>
                       <p>Inspeção: {codeResult.inspection.id}</p>

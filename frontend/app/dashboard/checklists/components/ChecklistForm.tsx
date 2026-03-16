@@ -291,7 +291,7 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
           const sigsMap: Record<string, { data: string, type: string }> = {};
           sigs.forEach(sig => {
             if (!sig.user_id) return;
-            sigsMap[sig.user_id] = { data: sig.signature_data, type: 'digital' };
+            sigsMap[sig.user_id] = { data: sig.signature_data, type: sig.type || 'digital' };
           });
           setSignatures(sigsMap);
 

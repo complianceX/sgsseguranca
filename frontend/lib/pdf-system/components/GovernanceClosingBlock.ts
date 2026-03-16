@@ -123,7 +123,25 @@ export async function drawGovernanceClosingBlock(
         { maxWidth: signatureW - 24 },
       );
 
-      if (signature.image && signature.image.startsWith("data:image")) {
+      const isHmac = signature.signatureType === 'hmac' || (
+        signature.image != null &&
+        !signature.image.startsWith('data:image') &&
+        /^[a-f0-9]{64}$/i.test(signature.image)
+      );
+
+      if (isHmac) {
+        // HMAC: show a lock icon (text) and the first 8 chars of hash as proof
+        const hmacPreview = signature.image ? signature.image.slice(0, 8).toUpperCase() : '--------';
+        doc.setFillColor(...theme.tone.info);
+        doc.roundedRect(signaturesX + signatureW - 20, rowY + 2.5, 16, 8, 1, 1, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(5.5);
+        doc.setTextColor(255, 255, 255);
+        doc.text("PIN HMAC", signaturesX + signatureW - 12, rowY + 6, { align: "center" });
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(4.5);
+        doc.text(hmacPreview, signaturesX + signatureW - 12, rowY + 9, { align: "center" });
+      } else if (signature.image && signature.image.startsWith("data:image")) {
         try {
           doc.addImage(signature.image, "PNG", signaturesX + signatureW - 18, rowY + 2.2, 12, 7);
         } catch {
