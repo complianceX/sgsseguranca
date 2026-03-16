@@ -74,17 +74,8 @@
 .brandBadge {
   width: 44px;
   height: 44px;
-  border-radius: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  border: 1px solid var(--ds-color-border-subtle);
-  background: var(--ds-color-surface-base);
-  color: var(--ds-color-action-primary);
-  box-shadow: var(--ds-shadow-xs);
+  border-radius: 12px;
+  flex-shrink: 0;
 }
 
 .brandName {
@@ -179,7 +170,31 @@
 .mobileBrand {
   margin-bottom: 18px;
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 12px;
+}
+
+.mobileBrandText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mobileBrandTitle {
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--ds-color-text-primary);
+  line-height: 1;
+}
+
+.mobileBrandSub {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--ds-color-text-secondary);
+  text-transform: uppercase;
 }
 
 .loginTitle {

@@ -155,8 +155,8 @@ function LoginPageContent() {
       <main className={styles.layout}>
         <section className={`${styles.institutionalPanel} ${styles.fadeInUp}`}>
           <div className={styles.brandRow}>
-            <div className={styles.brandBadge}>GST</div>
-            <span className={styles.brandName}>&lt;GST&gt; GESTÃO DE SEGURANÇA DO TRABALHO</span>
+            <Image src="/logo-gst-mark.svg" alt="GST" width={44} height={44} priority className={styles.brandBadge} />
+            <span className={styles.brandName}>GST — Gestão de Segurança do Trabalho</span>
           </div>
 
           <h1 className={styles.heroTitle}>Gestão de Segurança do Trabalho</h1>
@@ -197,13 +197,11 @@ function LoginPageContent() {
         <section className={styles.loginSection}>
           <div className={`${styles.loginCard} ${styles.fadeInUp} ${shake ? styles.shake : ''}`}>
             <div className={styles.mobileBrand}>
-              <Image
-                src="/logo-gst.svg"
-                alt="Logo <GST> Gestão de Segurança do Trabalho"
-                width={284}
-                height={62}
-                priority
-              />
+              <Image src="/logo-gst-mark.svg" alt="GST" width={56} height={56} priority />
+              <div className={styles.mobileBrandText}>
+                <span className={styles.mobileBrandTitle}>GST</span>
+                <span className={styles.mobileBrandSub}>GESTÃO DE SEGURANÇA DO TRABALHO</span>
+              </div>
             </div>
 
             <h2 className={styles.loginTitle}>Bem-vindo de volta</h2>
@@ -317,7 +315,7 @@ function LoginPageContent() {
             </form>
 
             <footer className={styles.footer}>
-              <p>© 2026 &lt;GST&gt; Gestão de Segurança do Trabalho</p>
+              <p>© 2026 GST — Gestão de Segurança do Trabalho</p>
               <p>Todos os direitos reservados</p>
               <p>Versão 2.0.0</p>
             </footer>
