@@ -14,7 +14,7 @@ import { InspectionsService } from '../inspections/inspections.service';
 import { AuditsService } from '../audits/audits.service';
 import { CompaniesService } from '../companies/companies.service';
 import { TenantService } from '../common/tenant/tenant.service';
-import { StorageService } from '../common/services/storage.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 import { ServiceUnavailableException, NotFoundException } from '@nestjs/common';
 import { ReportsService } from '../reports/reports.service';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
@@ -35,7 +35,7 @@ jest.mock('resend', () => {
 describe('MailService', () => {
   const originalApiCronsDisabled = process.env.API_CRONS_DISABLED;
   let service: MailService;
-  let storageService: StorageService;
+  let documentStorageService: DocumentStorageService;
   let ptsService: PtsService;
   let mailLogRepository: any;
 
@@ -53,7 +53,7 @@ describe('MailService', () => {
     }),
   };
 
-  const mockStorageService = {
+  const mockDocumentStorageService = {
     getPresignedDownloadUrl: jest.fn(),
     downloadFileBuffer: jest.fn(),
   };
@@ -88,7 +88,10 @@ describe('MailService', () => {
           provide: getRepositoryToken(MailLog),
           useValue: mockMailLogRepository,
         },
-        { provide: StorageService, useValue: mockStorageService },
+        {
+          provide: DocumentStorageService,
+          useValue: mockDocumentStorageService,
+        },
         { provide: EpisService, useValue: mockDomainService },
         { provide: TrainingsService, useValue: mockDomainService },
         { provide: PtsService, useValue: mockDomainService },
@@ -113,7 +116,9 @@ describe('MailService', () => {
     }).compile();
 
     service = module.get<MailService>(MailService);
-    storageService = module.get<StorageService>(StorageService);
+    documentStorageService = module.get<DocumentStorageService>(
+      DocumentStorageService,
+    );
     ptsService = module.get<PtsService>(PtsService);
     mailLogRepository = module.get(getRepositoryToken(MailLog));
   });
@@ -202,7 +207,7 @@ describe('MailService', () => {
       };
       jest.spyOn(ptsService, 'findOne').mockResolvedValue(mockPt as any);
       jest
-        .spyOn(storageService, 'downloadFileBuffer')
+        .spyOn(documentStorageService, 'downloadFileBuffer')
         .mockResolvedValue(Buffer.from('pdf-content'));
       mockResendSend.mockResolvedValue({ data: { id: 'msg-1' }, error: null });
 
@@ -213,7 +218,7 @@ describe('MailService', () => {
       );
 
       expect(ptsService.findOne).toHaveBeenCalledWith('pt-1');
-      expect(storageService.downloadFileBuffer).toHaveBeenCalledWith(
+      expect(documentStorageService.downloadFileBuffer).toHaveBeenCalledWith(
         'pts/arquivo.pdf',
       );
       expect(mockResendSend).toHaveBeenCalledWith(

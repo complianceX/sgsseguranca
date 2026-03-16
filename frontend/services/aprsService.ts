@@ -287,7 +287,7 @@ export const aprsService = {
       fileKey: string;
       folderPath: string;
       originalName: string;
-      url: string;
+      url: string | null;
     }>(`/aprs/${id}/pdf`);
     return response.data;
   },

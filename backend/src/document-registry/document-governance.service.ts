@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { PdfService } from '../common/services/pdf.service';
+import { DocumentBundleService } from '../common/services/document-bundle.service';
 import { DocumentRegistryService } from './document-registry.service';
 import { DocumentRegistryEntry } from './entities/document-registry.entity';
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
@@ -87,6 +88,7 @@ export class DocumentGovernanceService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly pdfService: PdfService,
+    private readonly documentBundleService: DocumentBundleService,
     private readonly documentRegistryService: DocumentRegistryService,
   ) {}
 
@@ -237,6 +239,25 @@ export class DocumentGovernanceService {
 
     this.logger.debug(
       `Registry removido para ${input.module}:${input.entityId}; registro de integridade preservado por rastreabilidade histórica.`,
+    );
+  }
+
+  async getModuleWeeklyBundle(
+    module: GovernedModule,
+    bundleName: string,
+    filters: WeeklyBundleFilters,
+  ) {
+    const files = await this.listFinalDocuments(module, filters);
+
+    return this.documentBundleService.buildWeeklyPdfBundle(
+      bundleName,
+      filters,
+      files.map((file) => ({
+        fileKey: file.fileKey,
+        title: file.title,
+        originalName: file.originalName,
+        date: file.date,
+      })),
     );
   }
 

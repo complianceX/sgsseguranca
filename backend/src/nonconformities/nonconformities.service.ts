@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindManyOptions, Repository } from 'typeorm';
+import { FindManyOptions, IsNull, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { NonConformity } from './entities/nonconformity.entity';
 import {
@@ -13,12 +13,9 @@ import {
   UpdateNonConformityDto,
 } from './dto/create-nonconformity.dto';
 import { TenantService } from '../common/tenant/tenant.service';
-import { StorageService } from '../common/services/storage.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
-import {
-  DocumentBundleService,
-  WeeklyBundleFilters,
-} from '../common/services/document-bundle.service';
+import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
@@ -58,8 +55,7 @@ export class NonConformitiesService {
     @InjectRepository(Site)
     private sitesRepository: Repository<Site>,
     private tenantService: TenantService,
-    private storageService: StorageService,
-    private readonly documentBundleService: DocumentBundleService,
+    private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly auditService: AuditService,
   ) {}
@@ -460,7 +456,9 @@ export class NonConformitiesService {
   async findAll() {
     const tenantId = this.tenantService.getTenantId();
     return this.nonConformitiesRepository.find({
-      where: tenantId ? { company_id: tenantId } : {},
+      where: tenantId
+        ? { company_id: tenantId, deleted_at: IsNull() }
+        : { deleted_at: IsNull() },
       relations: ['site'],
       order: { created_at: 'DESC' },
     });
@@ -480,12 +478,13 @@ export class NonConformitiesService {
     const query = this.nonConformitiesRepository
       .createQueryBuilder('nc')
       .leftJoinAndSelect('nc.site', 'site')
+      .where('nc.deleted_at IS NULL')
       .orderBy('nc.created_at', 'DESC')
       .skip(skip)
       .take(limit);
 
     if (tenantId) {
-      query.where('nc.company_id = :tenantId', { tenantId });
+      query.andWhere('nc.company_id = :tenantId', { tenantId });
     }
 
     if (opts?.search?.trim()) {
@@ -496,11 +495,7 @@ export class NonConformitiesService {
         OR LOWER(nc.tipo) LIKE :search
         OR LOWER(nc.status) LIKE :search
       )`;
-      if (tenantId) {
-        query.andWhere(condition, { search });
-      } else {
-        query.where(condition, { search });
-      }
+      query.andWhere(condition, { search });
     }
 
     const [data, total] = await query.getManyAndCount();
@@ -538,7 +533,12 @@ export class NonConformitiesService {
       );
 
     if (tenantId) {
-      query.where('nc.company_id = :tenantId', { tenantId });
+      query.where('nc.deleted_at IS NULL').andWhere(
+        'nc.company_id = :tenantId',
+        { tenantId },
+      );
+    } else {
+      query.where('nc.deleted_at IS NULL');
     }
 
     const row = await query.getRawOne<{ total?: string | number }>();
@@ -552,10 +552,11 @@ export class NonConformitiesService {
       .select('UPPER(COALESCE(nc.status, :emptyStatus))', 'status')
       .addSelect('COUNT(*)', 'total')
       .setParameter('emptyStatus', 'SEM_STATUS')
+      .where('nc.deleted_at IS NULL')
       .groupBy('UPPER(COALESCE(nc.status, :emptyStatus))');
 
     if (tenantId) {
-      query.where('nc.company_id = :tenantId', { tenantId });
+      query.andWhere('nc.company_id = :tenantId', { tenantId });
     }
 
     const rows = await query.getRawMany<{ status: string; total: string }>();
@@ -581,7 +582,9 @@ export class NonConformitiesService {
   async findOne(id: string) {
     const tenantId = this.tenantService.getTenantId();
     const nonConformity = await this.nonConformitiesRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: tenantId
+        ? { id, company_id: tenantId, deleted_at: IsNull() }
+        : { id, deleted_at: IsNull() },
       relations: ['site', 'company'],
     });
 
@@ -614,9 +617,10 @@ export class NonConformitiesService {
       module: 'nonconformity',
       entityId: nonConformity.id,
       removeEntityState: async (manager) => {
-        await manager.getRepository(NonConformity).remove(nonConformity);
+        await manager.getRepository(NonConformity).softDelete(nonConformity.id);
       },
-      cleanupStoredFile: (fileKey) => this.storageService.deleteFile(fileKey),
+      cleanupStoredFile: (fileKey) =>
+        this.documentStorageService.deleteFile(fileKey),
     });
     await this.logAudit(AuditAction.DELETE, id, before, null);
   }
@@ -629,16 +633,10 @@ export class NonConformitiesService {
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    const files = await this.listStoredFiles(filters);
-    return this.documentBundleService.buildWeeklyPdfBundle(
+    return this.documentGovernanceService.getModuleWeeklyBundle(
+      'nonconformity',
       'Nao Conformidade',
       filters,
-      files.map((file) => ({
-        fileKey: file.fileKey,
-        title: file.title,
-        originalName: file.originalName,
-        date: file.date,
-      })),
     );
   }
 
@@ -650,7 +648,7 @@ export class NonConformitiesService {
 
     let url: string | null = null;
     try {
-      url = await this.storageService.getPresignedDownloadUrl(nc.pdf_file_key);
+      url = await this.documentStorageService.getSignedUrl(nc.pdf_file_key);
     } catch {
       url = null;
     }
@@ -677,9 +675,14 @@ export class NonConformitiesService {
     const year = documentDate.getFullYear();
     const week = String(getIsoWeekNumber(documentDate) || 1).padStart(2, '0');
     const folderPath = `nonconformities/${nc.company_id}/${year}/week-${week}`;
-    const fileKey = `${folderPath}/${id}.pdf`;
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      nc.company_id,
+      `nonconformities/${year}/week-${week}`,
+      id,
+      `${id}.pdf`,
+    );
 
-    await this.storageService.uploadFile(fileKey, buffer, mimetype);
+    await this.documentStorageService.uploadFile(fileKey, buffer, mimetype);
     try {
       await this.documentGovernanceService.registerFinalDocument({
         companyId: nc.company_id,
@@ -709,7 +712,7 @@ export class NonConformitiesService {
         this.logger,
         `nonconformity:${nc.id}`,
         fileKey,
-        (key) => this.storageService.deleteFile(key),
+        (key) => this.documentStorageService.deleteFile(key),
       );
       throw error;
     }
@@ -723,7 +726,8 @@ export class NonConformitiesService {
       .createQueryBuilder('nc')
       .select("TO_CHAR(DATE_TRUNC('month', nc.created_at), 'YYYY-MM')", 'mes')
       .addSelect('COUNT(*)', 'total')
-      .where("nc.created_at >= NOW() - INTERVAL '12 months'")
+      .where('nc.deleted_at IS NULL')
+      .andWhere("nc.created_at >= NOW() - INTERVAL '12 months'")
       .groupBy("DATE_TRUNC('month', nc.created_at)")
       .orderBy("DATE_TRUNC('month', nc.created_at)", 'ASC');
 

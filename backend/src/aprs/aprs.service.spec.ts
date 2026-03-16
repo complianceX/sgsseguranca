@@ -4,8 +4,7 @@ import { Apr, AprStatus } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
 import type { TenantService } from '../common/tenant/tenant.service';
 import type { RiskCalculationService } from '../common/services/risk-calculation.service';
-import type { DocumentBundleService } from '../common/services/document-bundle.service';
-import type { S3Service } from '../common/storage/s3.service';
+import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 
 type RegisterFinalDocumentInput = Parameters<
@@ -24,8 +23,8 @@ describe('AprsService', () => {
     create: jest.Mock;
     save: jest.Mock;
   };
-  let s3Service: Pick<
-    S3Service,
+  let documentStorageService: Pick<
+    DocumentStorageService,
     'generateDocumentKey' | 'uploadFile' | 'deleteFile'
   >;
   let documentGovernanceService: Pick<
@@ -41,7 +40,7 @@ describe('AprsService', () => {
       create: jest.fn((input: Partial<AprLog>) => input as AprLog),
       save: jest.fn(() => Promise.resolve()),
     };
-    s3Service = {
+    documentStorageService = {
       generateDocumentKey: jest.fn(
         () => 'documents/company-1/aprs/apr-1/apr-final.pdf',
       ),
@@ -58,8 +57,7 @@ describe('AprsService', () => {
       aprLogsRepository as unknown as Repository<AprLog>,
       { getTenantId: jest.fn(() => 'company-1') } as TenantService,
       {} as RiskCalculationService,
-      {} as DocumentBundleService,
-      s3Service as S3Service,
+      documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
     );
   });
@@ -76,6 +74,7 @@ describe('AprsService', () => {
       numero: 'APR-001',
       data_inicio: new Date('2026-03-14T10:00:00.000Z'),
       created_at: new Date('2026-03-14T09:00:00.000Z'),
+      status: AprStatus.APROVADA,
       pdf_file_key: null,
     } as unknown as Apr;
     const update = jest.fn();
@@ -102,7 +101,7 @@ describe('AprsService', () => {
       originalName: 'apr-final.pdf',
     });
 
-    expect(s3Service.uploadFile).toHaveBeenCalledWith(
+    expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
       'documents/company-1/aprs/apr-1/apr-final.pdf',
       file.buffer,
       'application/pdf',
@@ -123,18 +122,37 @@ describe('AprsService', () => {
       string,
       {
         pdf_file_key: string;
-        status: AprStatus;
-        aprovado_por_id: string | null;
-        aprovado_motivo: string;
+        pdf_original_name: string;
       },
     ];
     expect(id).toBe('apr-1');
     expect(payload.pdf_file_key).toBe(
       'documents/company-1/aprs/apr-1/apr-final.pdf',
     );
-    expect(payload.status).toBe(AprStatus.APROVADA);
-    expect(payload.aprovado_por_id).toBe('user-1');
-    expect(payload.aprovado_motivo).toBe('PDF assinado anexado');
+    expect(payload.pdf_original_name).toBe('apr-final.pdf');
+  });
+
+  it('bloqueia anexo final quando a APR ainda nao foi aprovada', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      titulo: 'APR Torre',
+      numero: 'APR-001',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+    } as unknown as Apr);
+
+    const file = {
+      originalname: 'apr-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-apr'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('apr-1', file, 'user-1')).rejects.toThrow(
+      'A APR precisa estar aprovada antes do anexo do PDF final.',
+    );
+
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
   });
 
   it('remove a APR via esteira central e aplica a policy de lifecycle', async () => {
@@ -190,7 +208,7 @@ describe('AprsService', () => {
       'governance failed',
     );
 
-    expect(s3Service.deleteFile).toHaveBeenCalledWith(
+    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
       'documents/company-1/aprs/apr-1/apr-final.pdf',
     );
   });

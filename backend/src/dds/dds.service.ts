@@ -11,16 +11,13 @@ import { TenantService } from '../common/tenant/tenant.service';
 import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
 import { User } from '../users/entities/user.entity';
-import {
-  DocumentBundleService,
-  WeeklyBundleFilters,
-} from '../common/services/document-bundle.service';
+import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import {
   normalizeOffsetPagination,
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
-import { S3Service } from '../common/storage/s3.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 import {
   cleanupUploadedFile,
   isS3DisabledUploadError,
@@ -35,8 +32,7 @@ export class DdsService {
     @InjectRepository(Dds)
     private ddsRepository: Repository<Dds>,
     private tenantService: TenantService,
-    private readonly documentBundleService: DocumentBundleService,
-    private readonly s3Service: S3Service,
+    private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
 
@@ -185,7 +181,7 @@ export class DdsService {
       );
     }
     const companyId = dds.company_id;
-    const key = this.s3Service.generateDocumentKey(
+    const key = this.documentStorageService.generateDocumentKey(
       companyId,
       'dds',
       id,
@@ -194,7 +190,11 @@ export class DdsService {
     let uploadedToStorage = false;
 
     try {
-      await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
+      await this.documentStorageService.uploadFile(
+        key,
+        file.buffer,
+        file.mimetype,
+      );
       uploadedToStorage = true;
     } catch (error) {
       if (!isS3DisabledUploadError(error)) {
@@ -232,7 +232,7 @@ export class DdsService {
           this.logger,
           `dds:${dds.id}`,
           key,
-          (fileKey) => this.s3Service.deleteFile(fileKey),
+          (fileKey) => this.documentStorageService.deleteFile(fileKey),
         );
       }
       throw error;
@@ -259,7 +259,10 @@ export class DdsService {
 
     let url: string | null = null;
     try {
-      url = await this.s3Service.getSignedUrl(dds.pdf_file_key, 3600);
+      url = await this.documentStorageService.getSignedUrl(
+        dds.pdf_file_key,
+        3600,
+      );
     } catch {
       // S3 desabilitado — retorna null e frontend usa geração local
       url = null;
@@ -328,7 +331,8 @@ export class DdsService {
       removeEntityState: async (manager) => {
         await manager.getRepository(Dds).softDelete(id);
       },
-      cleanupStoredFile: (fileKey) => this.s3Service.deleteFile(fileKey),
+      cleanupStoredFile: (fileKey) =>
+        this.documentStorageService.deleteFile(fileKey),
     });
     this.logger.log({
       event: 'dds_archived',
@@ -352,16 +356,10 @@ export class DdsService {
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    const files = await this.listStoredFiles(filters);
-    return this.documentBundleService.buildWeeklyPdfBundle(
+    return this.documentGovernanceService.getModuleWeeklyBundle(
+      'dds',
       'DDS',
       filters,
-      files.map((file) => ({
-        fileKey: file.fileKey,
-        title: file.title,
-        originalName: file.originalName,
-        date: file.date,
-      })),
     );
   }
 }

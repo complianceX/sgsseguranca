@@ -3,8 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import { DdsService } from './dds.service';
 import { Dds, DdsStatus } from './entities/dds.entity';
 import type { TenantService } from '../common/tenant/tenant.service';
-import type { DocumentBundleService } from '../common/services/document-bundle.service';
-import type { S3Service } from '../common/storage/s3.service';
+import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 
 type RegisterFinalDocumentInput = Parameters<
@@ -20,8 +19,8 @@ describe('DdsService', () => {
     findOne: jest.Mock;
     save: jest.Mock;
   };
-  let s3Service: Pick<
-    S3Service,
+  let documentStorageService: Pick<
+    DocumentStorageService,
     'generateDocumentKey' | 'uploadFile' | 'deleteFile'
   >;
   let documentGovernanceService: Pick<
@@ -34,7 +33,7 @@ describe('DdsService', () => {
       findOne: jest.fn(),
       save: jest.fn((input) => Promise.resolve(input as Dds)),
     };
-    s3Service = {
+    documentStorageService = {
       generateDocumentKey: jest.fn(
         () => 'documents/company-1/dds/dds-1/dds-final.pdf',
       ),
@@ -49,8 +48,7 @@ describe('DdsService', () => {
     service = new DdsService(
       repository as unknown as Repository<Dds>,
       { getTenantId: jest.fn(() => 'company-1') } as TenantService,
-      {} as DocumentBundleService,
-      s3Service as S3Service,
+      documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
     );
   });
@@ -157,7 +155,7 @@ describe('DdsService', () => {
       BadRequestException,
     );
 
-    expect(s3Service.uploadFile).not.toHaveBeenCalled();
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
     expect(
       documentGovernanceService.registerFinalDocument,
     ).not.toHaveBeenCalled();
@@ -214,7 +212,7 @@ describe('DdsService', () => {
       'governance failed',
     );
 
-    expect(s3Service.deleteFile).toHaveBeenCalledWith(
+    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
       'documents/company-1/dds/dds-1/dds-final.pdf',
     );
   });

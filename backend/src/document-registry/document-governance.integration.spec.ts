@@ -17,11 +17,11 @@ import { AuditsService } from '../audits/audits.service';
 import { Company } from '../companies/entities/company.entity';
 import { PdfIntegrityRecord } from '../common/entities/pdf-integrity-record.entity';
 import type { DocumentBundleService } from '../common/services/document-bundle.service';
+import type { DocumentStorageService } from '../common/services/document-storage.service';
 import { PdfService } from '../common/services/pdf.service';
 import { PdfValidatorService } from '../common/services/pdf-validator.service';
 import type { PuppeteerPoolService } from '../common/services/puppeteer-pool.service';
 import type { RiskCalculationService } from '../common/services/risk-calculation.service';
-import type { S3Service } from '../common/storage/s3.service';
 import type { TenantRepositoryFactory } from '../common/tenant/tenant-repository';
 import type { TenantService } from '../common/tenant/tenant.service';
 import { Dds } from '../dds/entities/dds.entity';
@@ -51,7 +51,7 @@ function buildPdfBuffer(label: string): Buffer {
   );
 }
 
-function buildS3Stub() {
+function buildDocumentStorageStub() {
   return {
     generateDocumentKey: jest.fn(
       (
@@ -62,7 +62,12 @@ function buildS3Stub() {
       ) => `documents/${companyId}/${module}/${entityId}/${originalName}`,
     ),
     uploadFile: jest.fn(() => Promise.resolve()),
-  } as unknown as Pick<S3Service, 'generateDocumentKey' | 'uploadFile'>;
+    deleteFile: jest.fn(() => Promise.resolve()),
+    getSignedUrl: jest.fn(() => Promise.resolve('https://example.com/doc.pdf')),
+  } as unknown as Pick<
+    DocumentStorageService,
+    'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
+  >;
 }
 
 function buildTenantService(companyId: string | null): TenantService {
@@ -220,35 +225,34 @@ describe('Document governance integration', () => {
       buildTenantService(null),
       buildBundleService(),
     );
+    const bundleService = buildBundleService();
     const governanceService = new DocumentGovernanceService(
       dataSource,
       pdfService,
+      bundleService,
       documentRegistryService,
     );
-    const s3Service = buildS3Stub();
+    const documentStorageService = buildDocumentStorageStub();
 
     aprsService = new AprsService(
       dataSource.getRepository(Apr),
       dataSource.getRepository(AprLog),
       buildTenantService(companyId),
       buildRiskCalculationService(),
-      buildBundleService(),
-      s3Service as unknown as S3Service,
+      documentStorageService as unknown as DocumentStorageService,
       governanceService,
     );
     ddsService = new DdsService(
       dataSource.getRepository(Dds),
       buildTenantService(companyId),
-      buildBundleService(),
-      s3Service as unknown as S3Service,
+      documentStorageService as unknown as DocumentStorageService,
       governanceService,
     );
     auditsService = new AuditsService(
       dataSource.getRepository(Audit),
       buildTenantRepositoryFactory(),
-      buildBundleService(),
+      documentStorageService as unknown as DocumentStorageService,
       governanceService,
-      s3Service as unknown as S3Service,
     );
     ptsService = new PtsService(
       dataSource.getRepository(Pt),
@@ -258,8 +262,7 @@ describe('Document governance integration', () => {
       buildRiskCalculationService(),
       buildAuditService(),
       buildWorkerOperationalStatusService(),
-      buildBundleService(),
-      s3Service as unknown as S3Service,
+      documentStorageService as unknown as DocumentStorageService,
       governanceService,
     );
 

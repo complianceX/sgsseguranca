@@ -25,7 +25,7 @@ import { InspectionsService } from '../inspections/inspections.service';
 import { AuditsService } from '../audits/audits.service';
 import { CompaniesService } from '../companies/companies.service';
 import { TenantService } from '../common/tenant/tenant.service';
-import { StorageService } from '../common/services/storage.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { isApiCronDisabled } from '../common/utils/scheduler.util';
 import { ReportsService } from '../reports/reports.service';
@@ -78,7 +78,7 @@ export class MailService {
     private auditsService: AuditsService,
     private companiesService: CompaniesService,
     private tenantService: TenantService,
-    private storageService: StorageService,
+    private documentStorageService: DocumentStorageService,
     private reportsService: ReportsService,
     private readonly integration: IntegrationResilienceService,
     private readonly distributedLock: DistributedLockService,
@@ -194,7 +194,9 @@ export class MailService {
       );
     }
 
-    const pdfBuffer = await this.storageService.downloadFileBuffer(fileKey);
+    const pdfBuffer = await this.documentStorageService.downloadFileBuffer(
+      fileKey,
+    );
     const attachmentFilename = this.buildAttachmentFilename(docName, fileKey);
 
     const html = `
@@ -245,7 +247,9 @@ export class MailService {
 
     const docName = options?.docName?.trim() || 'Documento';
     const subject = options?.subject?.trim() || 'Documento Compartilhado - GST';
-    const pdfBuffer = await this.storageService.downloadFileBuffer(fileKey);
+    const pdfBuffer = await this.documentStorageService.downloadFileBuffer(
+      fileKey,
+    );
     const attachmentFilename = this.buildAttachmentFilename(docName, fileKey);
 
     const html = `

@@ -15,13 +15,16 @@ import { TenantRepositoryFactory } from './tenant/tenant-repository';
 import { TenantGuard } from './guards/tenant.guard';
 import { RiskCalculationService } from './services/risk-calculation.service';
 import { DocumentBundleService } from './services/document-bundle.service';
+import { DocumentStorageService } from './services/document-storage.service';
 import { PdfIntegrityRecord } from './entities/pdf-integrity-record.entity';
 import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
+import { StorageModule as CommonStorageModule } from './storage/storage.module';
 
 @Global()
 @Module({
   imports: [
     RedisModule,
+    CommonStorageModule,
     TypeOrmModule.forFeature([PdfIntegrityRecord, DocumentRegistryEntry]),
   ],
   providers: [
@@ -38,6 +41,7 @@ import { DocumentRegistryEntry } from '../document-registry/entities/document-re
     PdfValidatorService,
     SignatureTimestampService,
     RiskCalculationService,
+    DocumentStorageService,
     DocumentBundleService,
   ],
   exports: [
@@ -56,6 +60,7 @@ import { DocumentRegistryEntry } from '../document-registry/entities/document-re
     PdfValidatorService,
     SignatureTimestampService,
     RiskCalculationService,
+    DocumentStorageService,
     DocumentBundleService,
   ],
 })

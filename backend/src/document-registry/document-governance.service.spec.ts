@@ -1,6 +1,7 @@
 import { DataSource, EntityManager } from 'typeorm';
 import { DocumentGovernanceService } from './document-governance.service';
 import type { PdfService } from '../common/services/pdf.service';
+import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import type { DocumentRegistryService } from './document-registry.service';
 
 describe('DocumentGovernanceService', () => {
@@ -8,6 +9,7 @@ describe('DocumentGovernanceService', () => {
   let dataSource: Pick<DataSource, 'transaction'>;
   let manager: EntityManager;
   let pdfService: Pick<PdfService, 'computeHash' | 'registerHashIntegrity'>;
+  let documentBundleService: Pick<DocumentBundleService, 'buildWeeklyPdfBundle'>;
   let documentRegistryService: Pick<
     DocumentRegistryService,
     'upsertWithManager' | 'removeWithManager' | 'findByDocument' | 'list'
@@ -24,6 +26,9 @@ describe('DocumentGovernanceService', () => {
       computeHash: jest.fn(() => 'abc123'),
       registerHashIntegrity: jest.fn(),
     };
+    documentBundleService = {
+      buildWeeklyPdfBundle: jest.fn(),
+    };
     documentRegistryService = {
       upsertWithManager: jest.fn(),
       removeWithManager: jest.fn(),
@@ -34,6 +39,7 @@ describe('DocumentGovernanceService', () => {
     service = new DocumentGovernanceService(
       dataSource as DataSource,
       pdfService as PdfService,
+      documentBundleService as DocumentBundleService,
       documentRegistryService as DocumentRegistryService,
     );
   });
@@ -232,6 +238,48 @@ describe('DocumentGovernanceService', () => {
       year: 2026,
       modules: ['pt'],
     });
+  });
+
+  it('gera pacote semanal de módulo a partir do registry como fonte única', async () => {
+    (documentRegistryService.list as jest.Mock).mockResolvedValue([
+      {
+        entity_id: 'audit-1',
+        company_id: 'company-1',
+        title: 'Auditoria interna',
+        document_date: new Date('2026-03-16T00:00:00.000Z'),
+        file_key: 'documents/company-1/audit/audit-1/final.pdf',
+        folder_path: 'audits/company-1/2026/week-12',
+        original_name: 'audit-final.pdf',
+      },
+    ]);
+    (documentBundleService.buildWeeklyPdfBundle as jest.Mock).mockResolvedValue({
+      buffer: Buffer.from('%PDF-bundle'),
+      fileName: 'auditoria-semana-2026-12.pdf',
+    });
+
+    await expect(
+      service.getModuleWeeklyBundle('audit', 'Auditoria', {
+        companyId: 'company-1',
+        year: 2026,
+        week: 12,
+      }),
+    ).resolves.toEqual({
+      buffer: Buffer.from('%PDF-bundle'),
+      fileName: 'auditoria-semana-2026-12.pdf',
+    });
+
+    expect(documentBundleService.buildWeeklyPdfBundle).toHaveBeenCalledWith(
+      'Auditoria',
+      { companyId: 'company-1', year: 2026, week: 12 },
+      [
+        {
+          fileKey: 'documents/company-1/audit/audit-1/final.pdf',
+          title: 'Auditoria interna',
+          originalName: 'audit-final.pdf',
+          date: new Date('2026-03-16T00:00:00.000Z'),
+        },
+      ],
+    );
   });
 
   it('mantem o mapeamento centralizado para auditoria sem perder contexto', async () => {

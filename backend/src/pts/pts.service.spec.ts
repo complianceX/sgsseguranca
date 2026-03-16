@@ -8,8 +8,7 @@ import { TenantService } from '../common/tenant/tenant.service';
 import { RiskCalculationService } from '../common/services/risk-calculation.service';
 import { AuditService } from '../audit/audit.service';
 import { WorkerOperationalStatusService } from '../users/worker-operational-status.service';
-import { DocumentBundleService } from '../common/services/document-bundle.service';
-import { S3Service } from '../common/storage/s3.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 
@@ -31,8 +30,7 @@ describe('PtsService', () => {
   let riskCalculationService: Partial<RiskCalculationService>;
   let auditService: Partial<AuditService>;
   let workerOperationalStatusService: Partial<WorkerOperationalStatusService>;
-  let documentBundleService: Partial<DocumentBundleService>;
-  let s3Service: Partial<S3Service>;
+  let documentStorageService: Partial<DocumentStorageService>;
   let documentGovernanceService: Partial<DocumentGovernanceService>;
 
   beforeEach(() => {
@@ -57,8 +55,7 @@ describe('PtsService', () => {
       log: jest.fn(),
     };
     workerOperationalStatusService = {};
-    documentBundleService = {};
-    s3Service = {
+    documentStorageService = {
       generateDocumentKey: jest.fn(
         () => 'documents/company-1/pts/pt-1/pt-final.pdf',
       ),
@@ -78,8 +75,7 @@ describe('PtsService', () => {
       riskCalculationService as RiskCalculationService,
       auditService as AuditService,
       workerOperationalStatusService as WorkerOperationalStatusService,
-      documentBundleService as DocumentBundleService,
-      s3Service as S3Service,
+      documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
     );
   });
@@ -276,7 +272,7 @@ describe('PtsService', () => {
       'governance failed',
     );
 
-    expect(s3Service.deleteFile).toHaveBeenCalledWith(
+    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
       'documents/company-1/pts/pt-1/pt-final.pdf',
     );
   });
@@ -292,7 +288,7 @@ describe('PtsService', () => {
       created_at: new Date('2026-03-14T07:00:00.000Z'),
     } as Pt;
     ptsRepository.findOne.mockResolvedValue(pt);
-    (s3Service.uploadFile as jest.Mock).mockRejectedValue(
+    (documentStorageService.uploadFile as jest.Mock).mockRejectedValue(
       new Error('S3 is not enabled'),
     );
     (
@@ -309,7 +305,7 @@ describe('PtsService', () => {
       'governance failed',
     );
 
-    expect(s3Service.deleteFile).not.toHaveBeenCalled();
+    expect(documentStorageService.deleteFile).not.toHaveBeenCalled();
   });
 
   it('bloqueia o anexo final quando a PT ainda nao esta aprovada', async () => {
@@ -330,7 +326,7 @@ describe('PtsService', () => {
       BadRequestException,
     );
 
-    expect(s3Service.uploadFile).not.toHaveBeenCalled();
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
     expect(
       documentGovernanceService.registerFinalDocument,
     ).not.toHaveBeenCalled();

@@ -3,9 +3,8 @@ import { BadRequestException } from '@nestjs/common';
 import { AuditsService } from './audits.service';
 import { Audit } from './entities/audit.entity';
 import type { TenantRepositoryFactory } from '../common/tenant/tenant-repository';
-import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
-import type { S3Service } from '../common/storage/s3.service';
+import type { DocumentStorageService } from '../common/services/document-storage.service';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -22,8 +21,8 @@ describe('AuditsService', () => {
   let tenantRepo: {
     findOne: jest.Mock;
   };
-  let s3Service: Pick<
-    S3Service,
+  let documentStorageService: Pick<
+    DocumentStorageService,
     'generateDocumentKey' | 'uploadFile' | 'deleteFile'
   >;
   let documentGovernanceService: Pick<
@@ -38,7 +37,7 @@ describe('AuditsService', () => {
     tenantRepo = {
       findOne: jest.fn(),
     };
-    s3Service = {
+    documentStorageService = {
       generateDocumentKey: jest.fn(
         () => 'documents/company-1/audits/audit-1/audit-final.pdf',
       ),
@@ -55,9 +54,8 @@ describe('AuditsService', () => {
       {
         wrap: jest.fn(() => tenantRepo),
       } as unknown as TenantRepositoryFactory,
-      {} as DocumentBundleService,
+      documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
-      s3Service as S3Service,
     );
   });
 
@@ -152,7 +150,7 @@ describe('AuditsService', () => {
       service.attachPdf('audit-1', 'company-1', file, 'user-1'),
     ).rejects.toThrow(BadRequestException);
 
-    expect(s3Service.uploadFile).not.toHaveBeenCalled();
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
     expect(
       documentGovernanceService.registerFinalDocument,
     ).not.toHaveBeenCalled();
@@ -163,9 +161,9 @@ describe('AuditsService', () => {
       id: 'audit-1',
       company_id: 'company-1',
     } as Audit;
-    const remove = jest.fn();
+    const softDelete = jest.fn();
     const manager = {
-      getRepository: jest.fn(() => ({ remove })),
+      getRepository: jest.fn(() => ({ softDelete })),
     };
     tenantRepo.findOne.mockResolvedValue(audit);
     (
@@ -185,7 +183,7 @@ describe('AuditsService', () => {
     expect(removeInput.module).toBe('audit');
     expect(removeInput.entityId).toBe('audit-1');
     expect(typeof removeInput.removeEntityState).toBe('function');
-    expect(remove).toHaveBeenCalledWith(audit);
+    expect(softDelete).toHaveBeenCalledWith('audit-1');
   });
 
   it('remove o arquivo da auditoria do storage quando a governanca falha depois do upload', async () => {
@@ -211,7 +209,7 @@ describe('AuditsService', () => {
       service.attachPdf('audit-1', 'company-1', file, 'user-1'),
     ).rejects.toThrow('governance failed');
 
-    expect(s3Service.deleteFile).toHaveBeenCalledWith(
+    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
       'documents/company-1/audits/audit-1/audit-final.pdf',
     );
   });

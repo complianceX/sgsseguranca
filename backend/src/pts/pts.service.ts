@@ -8,7 +8,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Pt, PtStatus, PT_ALLOWED_TRANSITIONS } from './entities/pt.entity';
-import { S3Service } from '../common/storage/s3.service';
 import {
   cleanupUploadedFile,
   isS3DisabledUploadError,
@@ -31,11 +30,9 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
-import {
-  DocumentBundleService,
-  WeeklyBundleFilters,
-} from '../common/services/document-bundle.service';
+import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 
 @Injectable()
 export class PtsService {
@@ -58,8 +55,7 @@ export class PtsService {
     private readonly riskCalculationService: RiskCalculationService,
     private readonly auditService: AuditService,
     private readonly workerOperationalStatusService: WorkerOperationalStatusService,
-    private readonly documentBundleService: DocumentBundleService,
-    private readonly s3Service: S3Service,
+    private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
 
@@ -253,7 +249,7 @@ export class PtsService {
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
     const pt = await this.findOne(id);
     this.assertPtReadyForFinalPdf(pt);
-    const key = this.s3Service.generateDocumentKey(
+    const key = this.documentStorageService.generateDocumentKey(
       pt.company_id,
       'pts',
       id,
@@ -262,7 +258,11 @@ export class PtsService {
     let uploadedToStorage = false;
 
     try {
-      await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
+      await this.documentStorageService.uploadFile(
+        key,
+        file.buffer,
+        file.mimetype,
+      );
       uploadedToStorage = true;
     } catch (error) {
       if (!isS3DisabledUploadError(error)) {
@@ -299,7 +299,7 @@ export class PtsService {
           this.logger,
           `pt:${pt.id}`,
           key,
-          (fileKey) => this.s3Service.deleteFile(fileKey),
+          (fileKey) => this.documentStorageService.deleteFile(fileKey),
         );
       }
       throw error;
@@ -332,7 +332,10 @@ export class PtsService {
 
     let url: string | null = null;
     try {
-      url = await this.s3Service.getSignedUrl(pt.pdf_file_key, 3600);
+      url = await this.documentStorageService.getSignedUrl(
+        pt.pdf_file_key,
+        3600,
+      );
     } catch {
       url = null;
     }
@@ -512,7 +515,8 @@ export class PtsService {
       removeEntityState: async (manager) => {
         await manager.getRepository(Pt).softDelete(id);
       },
-      cleanupStoredFile: (fileKey) => this.s3Service.deleteFile(fileKey),
+      cleanupStoredFile: (fileKey) =>
+        this.documentStorageService.deleteFile(fileKey),
     });
     this.logger.log({ event: 'pt_soft_deleted', ptId: id });
   }
@@ -526,16 +530,10 @@ export class PtsService {
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    const files = await this.listStoredFiles(filters);
-    return this.documentBundleService.buildWeeklyPdfBundle(
+    return this.documentGovernanceService.getModuleWeeklyBundle(
+      'pt',
       'PT',
       filters,
-      files.map((file) => ({
-        fileKey: file.fileKey,
-        title: file.title,
-        originalName: file.originalName,
-        date: file.date,
-      })),
     );
   }
 

@@ -27,11 +27,8 @@ import {
 import { plainToClass } from 'class-transformer';
 import { AprListItemDto } from './dto/apr-list-item.dto';
 import { RiskCalculationService } from '../common/services/risk-calculation.service';
-import {
-  DocumentBundleService,
-  WeeklyBundleFilters,
-} from '../common/services/document-bundle.service';
-import { S3Service } from '../common/storage/s3.service';
+import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 import {
   cleanupUploadedFile,
   isS3DisabledUploadError,
@@ -49,10 +46,27 @@ export class AprsService {
     private aprLogsRepository: Repository<AprLog>,
     private tenantService: TenantService,
     private readonly riskCalculationService: RiskCalculationService,
-    private readonly documentBundleService: DocumentBundleService,
-    private readonly s3Service: S3Service,
+    private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
   ) {}
+
+  private assertAprDocumentMutable(apr: Pick<Apr, 'pdf_file_key'>) {
+    if (apr.pdf_file_key) {
+      throw new BadRequestException(
+        'APR assinada anexada. Edição bloqueada. Crie uma nova versão para alterar.',
+      );
+    }
+  }
+
+  private assertAprReadyForFinalPdf(apr: Pick<Apr, 'status' | 'pdf_file_key'>) {
+    this.assertAprDocumentMutable(apr);
+
+    if (apr.status !== AprStatus.APROVADA) {
+      throw new BadRequestException(
+        'A APR precisa estar aprovada antes do anexo do PDF final.',
+      );
+    }
+  }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -245,13 +259,7 @@ export class AprsService {
 
   async update(id: string, updateAprDto: UpdateAprDto): Promise<Apr> {
     const apr = await this.findOneForWrite(id);
-    // Se a APR tem PDF anexado, assumimos que é o documento final assinado.
-    // Por integridade e rastreabilidade, bloqueamos qualquer edição no registro.
-    if (apr.pdf_file_key) {
-      throw new BadRequestException(
-        'APR assinada anexada. Edição bloqueada. Crie uma nova versão para alterar.',
-      );
-    }
+    this.assertAprDocumentMutable(apr);
     const { activities, risks, epis, tools, machines, participants, ...rest } =
       updateAprDto;
 
@@ -318,7 +326,8 @@ export class AprsService {
       removeEntityState: async (manager) => {
         await manager.getRepository(Apr).softDelete(id);
       },
-      cleanupStoredFile: (fileKey) => this.s3Service.deleteFile(fileKey),
+      cleanupStoredFile: (fileKey) =>
+        this.documentStorageService.deleteFile(fileKey),
     });
     await this.addLog(id, userId, 'removido', { companyId: apr.company_id });
     this.logger.log({
@@ -442,12 +451,8 @@ export class AprsService {
     userId?: string,
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
     const apr = await this.findOneForWrite(id);
-    if (apr.pdf_file_key) {
-      throw new BadRequestException(
-        'Esta APR já possui PDF anexado e está bloqueada para edição.',
-      );
-    }
-    const key = this.s3Service.generateDocumentKey(
+    this.assertAprReadyForFinalPdf(apr);
+    const key = this.documentStorageService.generateDocumentKey(
       apr.company_id,
       'aprs',
       id,
@@ -456,7 +461,11 @@ export class AprsService {
     let uploadedToStorage = false;
 
     try {
-      await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
+      await this.documentStorageService.uploadFile(
+        key,
+        file.buffer,
+        file.mimetype,
+      );
       uploadedToStorage = true;
     } catch (error) {
       if (!isS3DisabledUploadError(error)) {
@@ -466,9 +475,6 @@ export class AprsService {
     }
 
     const folder = `aprs/${apr.company_id}`;
-    // Anexar PDF assinado finaliza a APR: aprova e bloqueia edição.
-    const approvalReason = 'PDF assinado anexado';
-    const now = new Date();
     try {
       await this.documentGovernanceService.registerFinalDocument({
         companyId: apr.company_id,
@@ -487,10 +493,6 @@ export class AprsService {
             pdf_file_key: key,
             pdf_folder_path: folder,
             pdf_original_name: file.originalname,
-            status: AprStatus.APROVADA,
-            aprovado_por_id: userId ?? null,
-            aprovado_em: now,
-            aprovado_motivo: approvalReason,
           });
         },
       });
@@ -500,15 +502,12 @@ export class AprsService {
           this.logger,
           `apr:${apr.id}`,
           key,
-          (fileKey) => this.s3Service.deleteFile(fileKey),
+          (fileKey) => this.documentStorageService.deleteFile(fileKey),
         );
       }
       throw error;
     }
     await this.addLog(id, userId, 'pdf_anexado', { fileKey: key });
-    await this.addLog(id, userId, 'aprovado_por_pdf', {
-      motivo: approvalReason,
-    });
 
     return {
       fileKey: key,
@@ -588,7 +587,10 @@ export class AprsService {
 
     let url: string | null = null;
     try {
-      url = await this.s3Service.getSignedUrl(apr.pdf_file_key, 3600);
+      url = await this.documentStorageService.getSignedUrl(
+        apr.pdf_file_key,
+        3600,
+      );
     } catch {
       url = null;
     }
@@ -711,16 +713,10 @@ export class AprsService {
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    const files = await this.listStoredFiles(filters);
-    return this.documentBundleService.buildWeeklyPdfBundle(
+    return this.documentGovernanceService.getModuleWeeklyBundle(
+      'apr',
       'APR',
       filters,
-      files.map((file) => ({
-        fileKey: file.fileKey,
-        title: file.title,
-        originalName: file.originalName,
-        date: file.date,
-      })),
     );
   }
 

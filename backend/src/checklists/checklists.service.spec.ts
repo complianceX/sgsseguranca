@@ -6,11 +6,10 @@ import { CreateChecklistDto } from './dto/create-checklist.dto';
 import type { TenantService } from '../common/tenant/tenant.service';
 import type { MailService } from '../mail/mail.service';
 import type { SignaturesService } from '../signatures/signatures.service';
-import type { StorageService } from '../common/services/storage.service';
+import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { UsersService } from '../users/users.service';
 import type { SitesService } from '../sites/sites.service';
 import type { NotificationsGateway } from '../notifications/notifications.gateway';
-import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { FileParserService } from '../document-import/services/file-parser.service';
 import type { ConfigService } from '@nestjs/config';
@@ -33,16 +32,21 @@ describe('ChecklistsService', () => {
     findAndCount: jest.Mock;
     count: jest.Mock;
   };
-  let storageService: Pick<
-    StorageService,
+  let documentStorageService: Pick<
+    DocumentStorageService,
     | 'uploadFile'
+    | 'generateDocumentKey'
     | 'getPresignedDownloadUrl'
+    | 'getSignedUrl'
     | 'deleteFile'
     | 'downloadFileBuffer'
   >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
-    'registerFinalDocument' | 'removeFinalDocumentReference'
+    | 'registerFinalDocument'
+    | 'removeFinalDocumentReference'
+    | 'listFinalDocuments'
+    | 'getModuleWeeklyBundle'
   >;
   let notificationsGateway: Pick<NotificationsGateway, 'sendToCompany'>;
   let signaturesService: Pick<SignaturesService, 'findByDocument'>;
@@ -65,9 +69,21 @@ describe('ChecklistsService', () => {
       findAndCount: jest.fn(),
       count: jest.fn(),
     };
-    storageService = {
+    documentStorageService = {
       uploadFile: jest.fn(),
+      generateDocumentKey: jest.fn(
+        (
+          companyId: string,
+          documentType: string,
+          documentId: string,
+          originalName: string,
+        ) =>
+          `documents/${companyId}/${documentType}/${documentId}/${originalName}`,
+      ),
       getPresignedDownloadUrl: jest.fn(() =>
+        Promise.resolve('https://example.com/checklist.pdf'),
+      ),
+      getSignedUrl: jest.fn(() =>
         Promise.resolve('https://example.com/checklist.pdf'),
       ),
       deleteFile: jest.fn(() => Promise.resolve()),
@@ -78,6 +94,8 @@ describe('ChecklistsService', () => {
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
       removeFinalDocumentReference: jest.fn(),
+      listFinalDocuments: jest.fn(),
+      getModuleWeeklyBundle: jest.fn(),
     };
     notificationsGateway = {
       sendToCompany: jest.fn(),
@@ -103,12 +121,9 @@ describe('ChecklistsService', () => {
       { sendMailSimple: jest.fn() } as unknown as MailService,
       signaturesService as unknown as SignaturesService,
       notificationsGateway as NotificationsGateway,
-      storageService as StorageService,
+      documentStorageService as DocumentStorageService,
       {} as UsersService,
       {} as SitesService,
-      {
-        buildWeeklyPdfBundle: jest.fn(),
-      } as unknown as DocumentBundleService,
       documentGovernanceService as DocumentGovernanceService,
       {} as FileParserService,
       {
@@ -157,7 +172,7 @@ describe('ChecklistsService', () => {
     );
     expect(result.fileUrl).toBe('https://example.com/checklist.pdf');
 
-    expect(storageService.uploadFile).toHaveBeenCalledWith(
+    expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
       expect.stringContaining('checklist-checklist-1.pdf'),
       Buffer.from('%PDF-checklist'),
       'application/pdf',
@@ -186,9 +201,9 @@ describe('ChecklistsService', () => {
       id: 'checklist-1',
       company_id: 'company-1',
     } as Checklist;
-    const remove = jest.fn();
+    const softDelete = jest.fn();
     const manager = {
-      getRepository: jest.fn(() => ({ remove })),
+      getRepository: jest.fn(() => ({ softDelete })),
     };
     jest.spyOn(service, 'findOneEntity').mockResolvedValue(checklist);
     (
@@ -206,7 +221,7 @@ describe('ChecklistsService', () => {
     expect(removeInput.module).toBe('checklist');
     expect(removeInput.entityId).toBe('checklist-1');
     expect(typeof removeInput.removeEntityState).toBe('function');
-    expect(remove).toHaveBeenCalledWith(checklist);
+    expect(softDelete).toHaveBeenCalledWith('checklist-1');
   });
 
   it('limpa o PDF do checklist no storage quando a governanca falha', async () => {
@@ -232,7 +247,7 @@ describe('ChecklistsService', () => {
       'governance failed',
     );
 
-    expect(storageService.deleteFile).toHaveBeenCalledWith(
+    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
       expect.stringContaining('checklist-checklist-1.pdf'),
     );
   });
@@ -254,7 +269,7 @@ describe('ChecklistsService', () => {
       'Checklist precisa de ao menos uma assinatura antes da emissão do PDF final.',
     );
 
-    expect(storageService.uploadFile).not.toHaveBeenCalled();
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
   });
 
   it('bloqueia emissao final de modelo de checklist', async () => {
@@ -273,7 +288,7 @@ describe('ChecklistsService', () => {
       'Modelos de checklist não podem ser emitidos como documento final.',
     );
 
-    expect(storageService.uploadFile).not.toHaveBeenCalled();
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
   });
 
   it('rejeita checklist operacional sem obra ou inspetor', async () => {
@@ -405,28 +420,30 @@ describe('ChecklistsService', () => {
   });
 
   it('filtra arquivos semanais pela data documental e nao pela criacao', async () => {
-    repository.createQueryBuilder.mockReturnValue({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([
-        {
-          id: 'checklist-1',
-          titulo: 'Checklist datado',
-          company_id: 'company-1',
-          data: new Date('2025-12-31T00:00:00.000Z'),
-          created_at: new Date('2026-01-05T00:00:00.000Z'),
-          pdf_file_key:
-            'documents/company-1/checklists/2025/12/semana-01/checklist-1.pdf',
-          pdf_folder_path: 'documents/company-1/checklists/2025/12/semana-01',
-          pdf_original_name: 'checklist-1.pdf',
-        },
-      ]),
-    });
+    (
+      documentGovernanceService.listFinalDocuments as jest.Mock
+    ).mockResolvedValue([
+      {
+        entityId: 'checklist-1',
+        title: 'Checklist datado',
+        date: new Date('2025-12-31T00:00:00.000Z'),
+        id: 'checklist-1',
+        companyId: 'company-1',
+        fileKey:
+          'documents/company-1/checklists/2025/week-01/checklist-1/checklist-checklist-1.pdf',
+        folderPath: 'checklists/company-1/2025/week-01',
+        originalName: 'checklist-checklist-1.pdf',
+      },
+    ]);
 
     const files = await service.listStoredFiles({ year: 2025 });
 
     expect(files).toHaveLength(1);
     expect(files[0].entityId).toBe('checklist-1');
+    expect(documentGovernanceService.listFinalDocuments).toHaveBeenCalledWith(
+      'checklist',
+      { year: 2025 },
+    );
   });
 
   it('retorna acesso ao PDF salvo do checklist', async () => {
@@ -455,12 +472,9 @@ describe('ChecklistsService', () => {
       { sendMailSimple } as unknown as MailService,
       signaturesService as unknown as SignaturesService,
       notificationsGateway as NotificationsGateway,
-      storageService as StorageService,
+      documentStorageService as DocumentStorageService,
       {} as UsersService,
       {} as SitesService,
-      {
-        buildWeeklyPdfBundle: jest.fn(),
-      } as unknown as DocumentBundleService,
       documentGovernanceService as DocumentGovernanceService,
       {} as FileParserService,
       {
@@ -479,7 +493,7 @@ describe('ChecklistsService', () => {
 
     await service.sendEmail('checklist-1', 'cliente@empresa.com');
 
-    expect(storageService.downloadFileBuffer).toHaveBeenCalledWith(
+    expect(documentStorageService.downloadFileBuffer).toHaveBeenCalledWith(
       'documents/company-1/checklists/checklist-1.pdf',
     );
     expect(generatePdfSpy).not.toHaveBeenCalled();

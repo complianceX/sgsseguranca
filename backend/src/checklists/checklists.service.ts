@@ -13,6 +13,7 @@ import {
   DataSource,
   FindOptionsSelect,
   DeepPartial,
+  IsNull,
 } from 'typeorm';
 import { plainToClass } from 'class-transformer';
 import { ConfigService } from '@nestjs/config';
@@ -23,7 +24,7 @@ import { CreateChecklistDto } from './dto/create-checklist.dto';
 import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { MailService } from '../mail/mail.service';
 import { SignaturesService } from '../signatures/signatures.service';
-import { StorageService } from '../common/services/storage.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 import { FileParserService } from '../document-import/services/file-parser.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { jsPDF } from 'jspdf';
@@ -45,14 +46,11 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
-import {
-  DocumentBundleService,
-  WeeklyBundleFilters,
-} from '../common/services/document-bundle.service';
+import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import { Company } from '../companies/entities/company.entity';
-import { matchesDocumentWeekFilters } from '../common/utils/document-calendar.util';
+import { getIsoWeekNumber } from '../common/utils/document-calendar.util';
 
 @Injectable({ scope: Scope.REQUEST })
 export class ChecklistsService {
@@ -244,10 +242,9 @@ export class ChecklistsService {
     private mailService: MailService,
     private signaturesService: SignaturesService,
     private notificationsGateway: NotificationsGateway,
-    private storageService: StorageService,
+    private readonly documentStorageService: DocumentStorageService,
     private usersService: UsersService,
     private sitesService: SitesService,
-    private readonly documentBundleService: DocumentBundleService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly fileParserService: FileParserService,
     private readonly configService: ConfigService,
@@ -512,7 +509,7 @@ export class ChecklistsService {
     }
 
     const results = await this.checklistsRepository.find({
-      where: filter,
+      where: { ...filter, deleted_at: IsNull() },
       relations: ['company', 'site', 'inspetor'],
       order: { created_at: 'DESC' },
     });
@@ -546,7 +543,7 @@ export class ChecklistsService {
     );
 
     const [rows, total] = await this.checklistsRepository.findAndCount({
-      where: filter,
+      where: { ...filter, deleted_at: IsNull() },
       // LISTING: evitar relations pesadas no endpoint de listagem.
       select: this.checklistListSelect,
       relations: ['company', 'site', 'inspetor'],
@@ -567,7 +564,9 @@ export class ChecklistsService {
   async findOneEntity(id: string): Promise<Checklist> {
     const tenantId = this.tenantService.getTenantId();
     const checklist = await this.checklistsRepository.findOne({
-      where: tenantId ? { id, company_id: tenantId } : { id },
+      where: tenantId
+        ? { id, company_id: tenantId, deleted_at: IsNull() }
+        : { id, deleted_at: IsNull() },
       relations: ['company', 'site', 'inspetor'],
     });
     if (!checklist) {
@@ -661,9 +660,10 @@ export class ChecklistsService {
       module: 'checklist',
       entityId: checklist.id,
       removeEntityState: async (manager) => {
-        await manager.getRepository(Checklist).remove(checklist);
+        await manager.getRepository(Checklist).softDelete(checklist.id);
       },
-      cleanupStoredFile: (fileKey) => this.storageService.deleteFile(fileKey),
+      cleanupStoredFile: (fileKey) =>
+        this.documentStorageService.deleteFile(fileKey),
     });
   }
 
@@ -674,7 +674,7 @@ export class ChecklistsService {
 
     if (checklist.pdf_file_key) {
       try {
-        pdfBuffer = await this.storageService.downloadFileBuffer(
+        pdfBuffer = await this.documentStorageService.downloadFileBuffer(
           checklist.pdf_file_key,
         );
       } catch (error) {
@@ -994,31 +994,36 @@ export class ChecklistsService {
     await this.assertChecklistReadyForFinalPdf(checklist);
     const pdfBuffer = await this.generatePdf(checklist);
 
-    const date = new Date(checklist.data);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const firstDayOfYear = new Date(year, 0, 1);
-    const pastDaysOfYear =
-      (date.getTime() - firstDayOfYear.getTime()) / 86400000;
-    const weekNumber = Math.ceil(
-      (pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7,
+    const documentDate = this.getChecklistDocumentDate(checklist);
+    const year = documentDate.getFullYear();
+    const weekNumber = String(getIsoWeekNumber(documentDate) || 1).padStart(
+      2,
+      '0',
+    );
+    const folderPath = `checklists/${checklist.company_id}/${year}/week-${weekNumber}`;
+    const fileName = `checklist-${checklist.id}.pdf`;
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      checklist.company_id,
+      `checklists/${year}/week-${weekNumber}`,
+      checklist.id,
+      fileName,
     );
 
-    const folderPath = `documents/${checklist.company_id}/checklists/${year}/${month}/semana-${String(weekNumber).padStart(2, '0')}`;
-    const fileName = `checklist-${checklist.id}.pdf`;
-    const fileKey = `${folderPath}/${fileName}`;
-
-    await this.storageService.uploadFile(fileKey, pdfBuffer, 'application/pdf');
+    await this.documentStorageService.uploadFile(
+      fileKey,
+      pdfBuffer,
+      'application/pdf',
+    );
     try {
       const fileUrl =
-        await this.storageService.getPresignedDownloadUrl(fileKey);
+        await this.documentStorageService.getPresignedDownloadUrl(fileKey);
 
       await this.documentGovernanceService.registerFinalDocument({
         companyId: checklist.company_id,
         module: 'checklist',
         entityId: checklist.id,
         title: checklist.titulo,
-        documentDate: checklist.data,
+        documentDate,
         fileKey,
         folderPath,
         originalName: fileName,
@@ -1043,7 +1048,7 @@ export class ChecklistsService {
         this.logger,
         `checklist:${checklist.id}`,
         fileKey,
-        (key) => this.storageService.deleteFile(key),
+        (key) => this.documentStorageService.deleteFile(key),
       );
       throw error;
     }
@@ -1063,7 +1068,7 @@ export class ChecklistsService {
 
     let url: string | null = null;
     try {
-      url = await this.storageService.getPresignedDownloadUrl(
+      url = await this.documentStorageService.getSignedUrl(
         checklist.pdf_file_key,
       );
     } catch {
@@ -1088,51 +1093,17 @@ export class ChecklistsService {
   }
 
   async listStoredFiles(filters: WeeklyBundleFilters) {
-    const tenantId = this.tenantService.getTenantId();
-    const query = this.checklistsRepository
-      .createQueryBuilder('c')
-      .where('c.pdf_file_key IS NOT NULL');
-
-    if (tenantId) {
-      query.andWhere('c.company_id = :tenantId', { tenantId });
-    }
-    if (filters.companyId) {
-      query.andWhere('c.company_id = :companyId', {
-        companyId: filters.companyId,
-      });
-    }
-
-    const results = await query.getMany();
-
-    return results
-      .filter((c) => {
-        const documentDate = c.data || c.created_at;
-        return matchesDocumentWeekFilters(documentDate, filters);
-      })
-      .map((c) => ({
-        entityId: c.id,
-        title: c.titulo,
-        date: c.data || c.created_at,
-        id: c.id,
-        titulo: c.titulo,
-        companyId: c.company_id,
-        fileKey: c.pdf_file_key,
-        folderPath: c.pdf_folder_path,
-        originalName: c.pdf_original_name,
-      }));
+    return this.documentGovernanceService.listFinalDocuments(
+      'checklist',
+      filters,
+    );
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    const files = await this.listStoredFiles(filters);
-    return this.documentBundleService.buildWeeklyPdfBundle(
+    return this.documentGovernanceService.getModuleWeeklyBundle(
+      'checklist',
       'Checklist',
       filters,
-      files.map((file) => ({
-        fileKey: file.fileKey,
-        title: file.title,
-        originalName: file.originalName,
-        date: file.date,
-      })),
     );
   }
 
@@ -1388,6 +1359,7 @@ Regras:
       .where("REPLACE(c.id::text, '-', '') ILIKE :suffix", {
         suffix: `%${suffix.toLowerCase()}`,
       })
+      .andWhere('c.deleted_at IS NULL')
       .orderBy('c.created_at', 'DESC')
       .limit(5)
       .getMany();

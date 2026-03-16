@@ -83,9 +83,6 @@ const aprSchema = z.object({
   resultado_auditoria: z.string().optional(),
   notas_auditoria: z.string().optional(),
 }).superRefine((data, ctx) => {
-  // Se anexou a APR já preenchida e assinada (PDF), não exigimos preencher o wizard inteiro.
-  if (data.pdf_signed) return;
-
   if (!data.activities || data.activities.length < 1) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -365,11 +362,14 @@ export function AprForm({ id }: AprFormProps) {
   const watchedRiskItems = watch('itens_risco') || [];
   const isModelo = watch('is_modelo');
   const isApproved = currentApr?.status === 'Aprovada';
-  const signedPdfMode = Boolean(watch('pdf_signed')) || Boolean(currentApr?.pdf_file_key);
+  const hasFinalPdf = Boolean(currentApr?.pdf_file_key);
+  const hasPendingPdfUpload = Boolean(pdfFile);
+  const canAttachFinalPdf = Boolean(id && isApproved && !hasFinalPdf);
   const aiEnabled = isAiEnabled();
   const selectedCompany = companies.find((company) => company.id === selectedCompanyId);
   const selectedSite = sites.find((site) => site.id === selectedSiteId);
   const selectedElaborador = users.find((user) => user.id === selectedElaboradorId);
+  const isApprovedAwaitingFinalPdf = Boolean(id && isApproved && !hasFinalPdf);
 
   const buildChecklistSuggestionHref = useCallback(
     (suggestion: SophieDraftChecklistSuggestion) => {
@@ -496,24 +496,48 @@ export function AprForm({ id }: AprFormProps) {
 
   const { handleSubmit: onSubmit, loading } = useFormSubmit(
     async (data: AprFormData) => {
-      if (id && isApproved) {
-        throw new Error('APR aprovada está bloqueada para edição. Crie uma nova versão.');
+      if (id && hasFinalPdf) {
+        throw new Error('APR com PDF final emitido está bloqueada. Crie uma nova versão.');
       }
 
       let aprId = id;
-      // Remove campo interno (não existe no DTO do backend) e força status Aprovada quando há PDF assinado.
       const payload = Object.fromEntries(
         Object.entries(data).filter(([key]) => key !== 'pdf_signed'),
       ) as AprMutationPayload;
-      const finalPayload = {
-        ...payload,
-        status: signedPdfMode ? 'Aprovada' : payload.status,
-      } as AprMutationPayload;
+
+      if (id && isApproved) {
+        if (!pdfFile) {
+          throw new Error('APR aprovada está bloqueada para edição. Anexe o PDF final ou crie uma nova versão.');
+        }
+
+        await attachPdfIfProvided(id, pdfFile, aprsService.attachFile);
+
+        const [updatedApr, logs, versions, evidences] = await Promise.all([
+          aprsService.findOne(id),
+          aprsService.getLogs(id),
+          aprsService.getVersionHistory(id),
+          aprsService.listAprEvidences(id),
+        ]);
+        setCurrentApr(updatedApr);
+        setAprLogs(logs);
+        setAprEvidences(evidences);
+        setVersionHistory(
+          versions.map((item) => ({
+            id: item.id,
+            numero: item.numero,
+            versao: item.versao,
+            status: item.status,
+          })),
+        );
+        setPdfFile(null);
+        toast.success('PDF final da APR anexado com sucesso.');
+        return;
+      }
       
       if (id) {
-        await aprsService.update(id, finalPayload);
+        await aprsService.update(id, payload);
       } else {
-        const newApr = await aprsService.create(finalPayload);
+        const newApr = await aprsService.create(payload);
         aprId = newApr.id;
       }
 
@@ -1855,22 +1879,33 @@ export function AprForm({ id }: AprFormProps) {
                 type="file"
                 accept="application/pdf"
                 aria-label="Selecionar PDF da APR"
-                disabled={Boolean(currentApr?.pdf_file_key)}
+                disabled={!canAttachFinalPdf}
                 onChange={(event) => {
                   const file = event.target.files?.[0] || null;
                   setPdfFile(file);
-                  const hasSignedPdf = Boolean(file) || Boolean(currentApr?.pdf_file_key);
-                  setValue('pdf_signed', hasSignedPdf, { shouldDirty: true, shouldValidate: true });
-                  if (hasSignedPdf) {
-                    setValue('status', 'Aprovada', { shouldDirty: true, shouldValidate: true });
-                  }
+                  setValue('pdf_signed', Boolean(file) || hasFinalPdf, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
                 }}
                 className={aprFileFieldClass}
               />
-              {(pdfFile || currentApr?.pdf_file_key) && (
+              {hasFinalPdf ? (
                 <div className="mt-2">
                   <p className={aprWarningInlineClass}>
-                    PDF assinado anexado: ao salvar, a APR será marcada como <strong>Aprovada</strong> e ficará bloqueada para edição.
+                    Esta APR já possui PDF final emitido e está bloqueada para edição.
+                  </p>
+                </div>
+              ) : canAttachFinalPdf ? (
+                <div className="mt-2">
+                  <p className={aprWarningInlineClass}>
+                    O PDF final só será anexado agora porque a APR já está <strong>Aprovada</strong>. Após o anexo, o documento ficará bloqueado para edição.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <p className={aprWarningInlineClass}>
+                    O anexo do PDF final é liberado somente depois que a APR estiver <strong>Aprovada</strong>.
                   </p>
                 </div>
               )}
@@ -1947,8 +1982,8 @@ export function AprForm({ id }: AprFormProps) {
               <label className={aprLabelClass}>Status</label>
               <select
                 {...register('status')}
-                disabled={signedPdfMode}
-                className={cn(aprFieldClass, signedPdfMode && aprFieldDisabledClass)}
+                disabled={hasFinalPdf}
+                className={cn(aprFieldClass, hasFinalPdf && aprFieldDisabledClass)}
               >
                 <option value="Pendente">Pendente</option>
                 <option value="Aprovada">Aprovada</option>
@@ -2537,10 +2572,10 @@ export function AprForm({ id }: AprFormProps) {
               "flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-0 sm:space-x-4",
               isFieldMode && "grid grid-cols-2 gap-3 sm:flex-none sm:space-x-0",
             )}>
-              {signedPdfMode || currentStep >= 3 ? (
+              {currentStep >= 3 ? (
                 <button
                   type="submit"
-                  disabled={loading || isApproved}
+                  disabled={loading || hasFinalPdf || (isApprovedAwaitingFinalPdf && !hasPendingPdfUpload)}
                   className={cn(aprPrimarySubmitActionClass, isFieldMode && "min-h-12")}
                 >
                   {loading ? (
@@ -2549,10 +2584,10 @@ export function AprForm({ id }: AprFormProps) {
                     <Save className="h-4 w-4" />
                   )}
                   <span>
-                    {isApproved
-                      ? 'APR bloqueada (aprovada)'
-                      : signedPdfMode
-                        ? 'Salvar APR (PDF assinado)'
+                    {hasFinalPdf
+                      ? 'APR bloqueada (PDF final emitido)'
+                      : hasPendingPdfUpload && canAttachFinalPdf
+                        ? 'Anexar PDF final'
                         : id
                           ? 'Atualizar APR'
                           : 'Salvar APR'}

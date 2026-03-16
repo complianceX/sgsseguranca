@@ -2,8 +2,7 @@ import { Repository } from 'typeorm';
 import { NonConformitiesService } from './nonconformities.service';
 import { NonConformity } from './entities/nonconformity.entity';
 import type { TenantService } from '../common/tenant/tenant.service';
-import type { StorageService } from '../common/services/storage.service';
-import type { DocumentBundleService } from '../common/services/document-bundle.service';
+import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { AuditService } from '../audit/audit.service';
 import type { Site } from '../sites/entities/site.entity';
@@ -23,9 +22,9 @@ describe('NonConformitiesService', () => {
     update: jest.Mock;
     createQueryBuilder: jest.Mock;
   };
-  let storageService: Pick<
-    StorageService,
-    'uploadFile' | 'deleteFile' | 'getPresignedDownloadUrl'
+  let documentStorageService: Pick<
+    DocumentStorageService,
+    'uploadFile' | 'deleteFile' | 'getSignedUrl' | 'generateDocumentKey'
   >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
@@ -41,12 +40,19 @@ describe('NonConformitiesService', () => {
       update: jest.fn(),
       createQueryBuilder: jest.fn(),
     };
-    storageService = {
+    documentStorageService = {
       uploadFile: jest.fn(),
       deleteFile: jest.fn(() => Promise.resolve()),
-      getPresignedDownloadUrl: jest.fn(() =>
-        Promise.resolve('https://example.com/nc.pdf'),
+      generateDocumentKey: jest.fn(
+        (
+          companyId: string,
+          documentType: string,
+          documentId: string,
+          originalName: string,
+        ) =>
+          `documents/${companyId}/${documentType}/${documentId}/${originalName}`,
       ),
+      getSignedUrl: jest.fn(() => Promise.resolve('https://example.com/nc.pdf')),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
@@ -58,8 +64,7 @@ describe('NonConformitiesService', () => {
       repository as unknown as Repository<NonConformity>,
       {} as Repository<Site>,
       { getTenantId: jest.fn(() => 'company-1') } as TenantService,
-      storageService as StorageService,
-      {} as DocumentBundleService,
+      documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
       { log: jest.fn() } as unknown as AuditService,
     );
@@ -93,8 +98,8 @@ describe('NonConformitiesService', () => {
     const buffer = Buffer.from('pdf-content');
     await service.attachPdf('nc-1', buffer, 'nc-001.pdf', 'application/pdf');
 
-    expect(storageService.uploadFile).toHaveBeenCalledWith(
-      expect.stringContaining('nonconformities/company-1/'),
+    expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
+      expect.stringContaining('nc-1.pdf'),
       buffer,
       'application/pdf',
     );
@@ -125,9 +130,9 @@ describe('NonConformitiesService', () => {
       id: 'nc-1',
       company_id: 'company-1',
     } as NonConformity;
-    const remove = jest.fn();
+    const softDelete = jest.fn();
     const manager = {
-      getRepository: jest.fn(() => ({ remove })),
+      getRepository: jest.fn(() => ({ softDelete })),
     };
     jest.spyOn(service, 'findOne').mockResolvedValue(nc);
     (
@@ -145,7 +150,7 @@ describe('NonConformitiesService', () => {
     expect(removeInput.module).toBe('nonconformity');
     expect(removeInput.entityId).toBe('nc-1');
     expect(typeof removeInput.removeEntityState).toBe('function');
-    expect(remove).toHaveBeenCalledWith(nc);
+    expect(softDelete).toHaveBeenCalledWith('nc-1');
   });
 
   it('remove o arquivo da NC do storage quando a governanca falha', async () => {
@@ -171,8 +176,8 @@ describe('NonConformitiesService', () => {
       ),
     ).rejects.toThrow('governance failed');
 
-    expect(storageService.deleteFile).toHaveBeenCalledWith(
-      expect.stringContaining('/nc-1.pdf'),
+    expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
+      expect.stringContaining('nc-1.pdf'),
     );
   });
 
@@ -227,7 +232,7 @@ describe('NonConformitiesService', () => {
       pdf_folder_path: 'nonconformities/company-1/2026/week-11',
       pdf_original_name: 'nc-1.pdf',
     } as NonConformity);
-    (storageService.getPresignedDownloadUrl as jest.Mock).mockRejectedValueOnce(
+    (documentStorageService.getSignedUrl as jest.Mock).mockRejectedValueOnce(
       new Error('storage offline'),
     );
 

@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { StorageService } from './storage.service';
+import { DocumentStorageService } from './document-storage.service';
 
 export interface WeeklyBundleFilters {
   companyId?: string;
@@ -24,7 +24,7 @@ export interface WeeklyBundleDocument {
 export class DocumentBundleService {
   private readonly logger = new Logger(DocumentBundleService.name);
 
-  constructor(private readonly storageService: StorageService) {}
+  constructor(private readonly documentStorageService: DocumentStorageService) {}
 
   async buildWeeklyPdfBundle(
     moduleName: string,
@@ -55,7 +55,7 @@ export class DocumentBundleService {
 
     for (const document of sortedDocuments) {
       try {
-        const fileBuffer = await this.storageService.downloadFileBuffer(
+        const fileBuffer = await this.documentStorageService.downloadFileBuffer(
           document.fileKey,
         );
         const sourcePdf = await PDFDocument.load(fileBuffer);

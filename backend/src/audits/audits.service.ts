@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Audit } from './entities/audit.entity';
 import { CreateAuditDto } from './dto/create-audit.dto';
 import { UpdateAuditDto } from './dto/create-audit.dto';
@@ -19,11 +19,10 @@ import {
   TenantRepositoryFactory,
 } from '../common/tenant/tenant-repository';
 import {
-  DocumentBundleService,
   WeeklyBundleFilters,
 } from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
-import { S3Service } from '../common/storage/s3.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 import {
   cleanupUploadedFile,
   isS3DisabledUploadError,
@@ -38,9 +37,8 @@ export class AuditsService {
     @InjectRepository(Audit)
     private auditsRepository: Repository<Audit>,
     tenantRepositoryFactory: TenantRepositoryFactory,
-    private readonly documentBundleService: DocumentBundleService,
+    private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
-    private readonly s3Service: S3Service,
   ) {
     this.tenantRepo = tenantRepositoryFactory.wrap(this.auditsRepository);
   }
@@ -61,7 +59,7 @@ export class AuditsService {
 
   async findAll(companyId: string) {
     return await this.auditsRepository.find({
-      where: { company_id: companyId },
+      where: { company_id: companyId, deleted_at: IsNull() },
       relations: ['site', 'auditor'],
       order: { created_at: 'DESC' },
     });
@@ -81,6 +79,7 @@ export class AuditsService {
       .leftJoinAndSelect('a.site', 'site')
       .leftJoinAndSelect('a.auditor', 'auditor')
       .where('a.company_id = :companyId', { companyId })
+      .andWhere('a.deleted_at IS NULL')
       .orderBy('a.created_at', 'DESC')
       .skip(skip)
       .take(limit);
@@ -115,7 +114,7 @@ export class AuditsService {
           0
         )::int AS total
         FROM audits a
-        ${where}
+        ${where ? `${where} AND a.deleted_at IS NULL` : 'WHERE a.deleted_at IS NULL'}
       `,
         params,
       );
@@ -160,9 +159,10 @@ export class AuditsService {
       module: 'audit',
       entityId: auditId,
       removeEntityState: async (manager) => {
-        await manager.getRepository(Audit).remove(audit);
+        await manager.getRepository(Audit).softDelete(auditId);
       },
-      cleanupStoredFile: (fileKey) => this.s3Service.deleteFile(fileKey),
+      cleanupStoredFile: (fileKey) =>
+        this.documentStorageService.deleteFile(fileKey),
     });
     this.logger.log({
       event: 'audit_removed',
@@ -183,7 +183,7 @@ export class AuditsService {
         'Esta auditoria já possui PDF final anexado. Gere uma nova auditoria para substituir o documento.',
       );
     }
-    const key = this.s3Service.generateDocumentKey(
+    const key = this.documentStorageService.generateDocumentKey(
       audit.company_id,
       'audits',
       audit.id,
@@ -192,7 +192,11 @@ export class AuditsService {
     let uploadedToStorage = false;
 
     try {
-      await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
+      await this.documentStorageService.uploadFile(
+        key,
+        file.buffer,
+        file.mimetype,
+      );
       uploadedToStorage = true;
     } catch (error) {
       if (!isS3DisabledUploadError(error)) {
@@ -229,7 +233,7 @@ export class AuditsService {
           this.logger,
           `audit:${audit.id}`,
           key,
-          (fileKey) => this.s3Service.deleteFile(fileKey),
+          (fileKey) => this.documentStorageService.deleteFile(fileKey),
         );
       }
       throw error;
@@ -267,7 +271,10 @@ export class AuditsService {
 
     let url: string | null = null;
     try {
-      url = await this.s3Service.getSignedUrl(audit.pdf_file_key, 3600);
+      url = await this.documentStorageService.getSignedUrl(
+        audit.pdf_file_key,
+        3600,
+      );
     } catch {
       url = null;
     }
@@ -286,16 +293,10 @@ export class AuditsService {
   }
 
   async getWeeklyBundle(filters: WeeklyBundleFilters) {
-    const files = await this.listStoredFiles(filters);
-    return this.documentBundleService.buildWeeklyPdfBundle(
+    return this.documentGovernanceService.getModuleWeeklyBundle(
+      'audit',
       'Auditoria',
       filters,
-      files.map((file) => ({
-        fileKey: file.fileKey,
-        title: file.title,
-        originalName: file.originalName,
-        date: file.date,
-      })),
     );
   }
 }
