@@ -14,6 +14,7 @@ function createMockContext(): {
   ctx: PdfContext;
   doc: {
     splitTextToSize: jest.Mock;
+    addPage: jest.Mock;
     setFillColor: jest.Mock;
     setDrawColor: jest.Mock;
     setLineWidth: jest.Mock;
@@ -30,6 +31,7 @@ function createMockContext(): {
 } {
   const doc = {
     splitTextToSize: jest.fn((value: string) => [value]),
+    addPage: jest.fn(),
     setFillColor: jest.fn(),
     setDrawColor: jest.fn(),
     setLineWidth: jest.fn(),
@@ -103,5 +105,28 @@ describe("drawGovernanceClosingBlock", () => {
       expect.any(Number),
     );
     expect(ctx.y).toBeGreaterThan(24);
+  });
+
+  it("paginates signatures when the block exceeds a single page", async () => {
+    const { ctx, doc } = createMockContext();
+    ctx.y = 180;
+
+    await drawGovernanceClosingBlock(ctx, {
+      code: "APR-2026-ABC123",
+      url: "https://gst.example/validar/APR-2026-ABC123",
+      signatures: Array.from({ length: 12 }, (_, index) => ({
+        label: `Participante ${index + 1}`,
+        name: `Assinante ${index + 1}`,
+        role: "Equipe de campo",
+        date: "2026-03-14T10:00:00.000Z",
+      })),
+    });
+
+    expect(doc.addPage).toHaveBeenCalled();
+    expect(doc.text).toHaveBeenCalledWith(
+      "Governanca, autenticidade e rastreabilidade - assinaturas complementares",
+      expect.any(Number),
+      expect.any(Number),
+    );
   });
 });

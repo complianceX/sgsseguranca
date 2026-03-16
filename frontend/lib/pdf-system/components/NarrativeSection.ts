@@ -1,5 +1,5 @@
 import type { PdfContext } from "../core/types";
-import { ensureSpace, moveY } from "../core/grid";
+import { ensureSpace, getRemainingHeight, moveY } from "../core/grid";
 import { sanitize } from "../core/format";
 
 type NarrativeSectionOptions = {
@@ -11,27 +11,48 @@ export function drawNarrativeSection(ctx: PdfContext, options: NarrativeSectionO
   if (!options.content) return;
   const { doc, margin, contentWidth, theme } = ctx;
 
-  const lines = doc.splitTextToSize(sanitize(options.content), contentWidth - 8);
-  const height = 10 + lines.length * 4.5 + 4;
-  ensureSpace(ctx, height + 4);
+  const lines = doc
+    .splitTextToSize(sanitize(options.content), contentWidth - 8)
+    .map((line: unknown) => String(line));
+  const lineHeight = 4.5;
+  const titleGap = 10;
+  const bottomPadding = 4;
+  const minHeight = titleGap + lineHeight + bottomPadding;
+  let cursor = 0;
+  let isContinuation = false;
 
-  doc.setFillColor(...theme.tone.surface);
-  doc.setDrawColor(...theme.tone.border);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(margin, ctx.y, contentWidth, height, 2, 2, "FD");
-  doc.setFillColor(...theme.tone.info);
-  doc.rect(margin, ctx.y, 2.5, 10, "F");
+  while (cursor < lines.length) {
+    ensureSpace(ctx, minHeight + 4);
+    const availableHeight = getRemainingHeight(ctx);
+    const maxLines = Math.max(
+      1,
+      Math.floor((availableHeight - titleGap - bottomPadding) / lineHeight),
+    );
+    const chunk = lines.slice(cursor, cursor + maxLines);
+    const height = titleGap + chunk.length * lineHeight + bottomPadding;
+    const title = isContinuation
+      ? `${options.title} (continuação)`
+      : options.title;
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(theme.typography.headingSm);
-  doc.setTextColor(...theme.tone.textPrimary);
-  doc.text(options.title, margin + 5, ctx.y + 6.5);
+    doc.setFillColor(...theme.tone.surface);
+    doc.setDrawColor(...theme.tone.border);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, ctx.y, contentWidth, height, 2, 2, "FD");
+    doc.setFillColor(...theme.tone.info);
+    doc.rect(margin, ctx.y, 2.5, 10, "F");
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(theme.typography.body);
-  doc.setTextColor(...theme.tone.textPrimary);
-  doc.text(lines, margin + 4, ctx.y + 14);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(theme.typography.headingSm);
+    doc.setTextColor(...theme.tone.textPrimary);
+    doc.text(title, margin + 5, ctx.y + 6.5);
 
-  moveY(ctx, height + theme.spacing.sectionGap);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(theme.typography.body);
+    doc.setTextColor(...theme.tone.textPrimary);
+    doc.text(chunk, margin + 4, ctx.y + 14);
+
+    moveY(ctx, height + theme.spacing.sectionGap);
+    cursor += chunk.length;
+    isContinuation = true;
+  }
 }
-

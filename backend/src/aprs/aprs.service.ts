@@ -34,6 +34,7 @@ import {
   isS3DisabledUploadError,
 } from '../common/storage/storage-compensation.util';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { SignaturesService } from '../signatures/signatures.service';
 
 @Injectable()
 export class AprsService {
@@ -48,6 +49,7 @@ export class AprsService {
     private readonly riskCalculationService: RiskCalculationService,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly signaturesService: SignaturesService,
   ) {}
 
   private assertAprDocumentMutable(apr: Pick<Apr, 'pdf_file_key'>) {
@@ -58,7 +60,9 @@ export class AprsService {
     }
   }
 
-  private assertAprReadyForFinalPdf(apr: Pick<Apr, 'status' | 'pdf_file_key'>) {
+  private async assertAprReadyForFinalPdf(
+    apr: Pick<Apr, 'id' | 'status' | 'pdf_file_key' | 'is_modelo' | 'participants'>,
+  ) {
     this.assertAprDocumentMutable(apr);
 
     if (apr.status !== AprStatus.APROVADA) {
@@ -66,6 +70,65 @@ export class AprsService {
         'A APR precisa estar aprovada antes do anexo do PDF final.',
       );
     }
+
+    if (apr.is_modelo) {
+      throw new BadRequestException(
+        'Modelos de APR não podem receber PDF final. Gere uma APR operacional a partir do modelo.',
+      );
+    }
+
+    const participantIds = Array.isArray(apr.participants)
+      ? apr.participants
+          .map((participant) => participant.id)
+          .filter((participantId): participantId is string =>
+            Boolean(participantId),
+          )
+      : [];
+
+    if (participantIds.length === 0) {
+      throw new BadRequestException(
+        'A APR precisa ter participantes definidos antes do PDF final.',
+      );
+    }
+
+    const signatures = await this.signaturesService.findByDocument(apr.id, 'APR');
+    const participantSigners = new Set(
+      signatures
+        .map((signature) => signature.user_id)
+        .filter(
+          (userId): userId is string =>
+            Boolean(userId) && participantIds.includes(userId),
+        ),
+    );
+
+    const missingParticipants = participantIds.filter(
+      (participantId) => !participantSigners.has(participantId),
+    );
+
+    if (missingParticipants.length > 0) {
+      throw new BadRequestException(
+        'Todos os participantes precisam assinar a APR antes do PDF final.',
+      );
+    }
+  }
+
+  private buildAprDocumentCode(
+    apr: Pick<Apr, 'id' | 'numero' | 'titulo' | 'data_inicio' | 'created_at'>,
+  ): string {
+    const candidateDate = apr.data_inicio
+      ? new Date(apr.data_inicio)
+      : apr.created_at
+        ? new Date(apr.created_at)
+        : new Date();
+    const year = Number.isNaN(candidateDate.getTime())
+      ? new Date().getFullYear()
+      : candidateDate.getFullYear();
+    const reference = String(apr.id || apr.numero || apr.titulo || 'APR')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .slice(-8)
+      .toUpperCase();
+
+    return `APR-${year}-${reference || String(Date.now()).slice(-6)}`;
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -450,8 +513,8 @@ export class AprsService {
     file: Express.Multer.File,
     userId?: string,
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
-    const apr = await this.findOneForWrite(id);
-    this.assertAprReadyForFinalPdf(apr);
+    const apr = await this.findOne(id);
+    await this.assertAprReadyForFinalPdf(apr);
     const key = this.documentStorageService.generateDocumentKey(
       apr.company_id,
       'aprs',
@@ -482,6 +545,7 @@ export class AprsService {
         entityId: apr.id,
         title: apr.titulo || apr.numero || 'APR',
         documentDate: apr.data_inicio || apr.created_at,
+        documentCode: this.buildAprDocumentCode(apr),
         fileKey: key,
         folderPath: folder,
         originalName: file.originalname,

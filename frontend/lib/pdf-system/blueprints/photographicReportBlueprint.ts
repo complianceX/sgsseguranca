@@ -70,8 +70,12 @@ export async function drawPhotographicReportBlueprint(
       { label: "Horario", value: inspection.horario },
       { label: "Responsavel", value: inspection.responsavel?.nome },
       { label: "Site/Obra", value: inspection.site?.nome },
-      { label: "Objetivo", value: inspection.objetivo },
     ],
+  });
+
+  drawNarrativeSection(ctx, {
+    title: "Objetivo da inspecao",
+    content: inspection.objetivo,
   });
 
   drawNarrativeSection(ctx, {

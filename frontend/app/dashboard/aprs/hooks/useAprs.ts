@@ -7,8 +7,13 @@ import { signaturesService } from '@/services/signaturesService';
 import { generateAprPdf } from '@/lib/pdf/aprGenerator';
 import { toast } from 'sonner';
 import { handleApiError } from '@/lib/error-handler';
-import { openPdfForPrint } from '@/lib/print-utils';
+import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { isAiEnabled } from '@/lib/featureFlags';
+import {
+  base64ToPdfBlob,
+  base64ToPdfFile,
+  blobToBase64,
+} from '@/lib/pdf/pdfFile';
 
 interface Insight {
   type: 'warning' | 'success' | 'info';
@@ -41,6 +46,20 @@ export function useAprs() {
   // Estados para o modal de e-mail
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
+
+  const getErrorStatus = useCallback((error: unknown) => {
+    return (
+      Number(
+        (error as { response?: { status?: number } } | undefined)?.response
+          ?.status ?? 0,
+      ) || null
+    );
+  }, []);
+
+  const buildAprFilename = useCallback(
+    (apr: Apr) => `APR_${String(apr.numero || apr.titulo || apr.id).replace(/\s+/g, '_')}.pdf`,
+    [],
+  );
 
   const loadAprs = useCallback(async () => {
     try {
@@ -86,6 +105,70 @@ export function useAprs() {
     loadInsights();
   }, [loadAprs, loadInsights]);
 
+  const getStoredPdfAttachment = useCallback(
+    async (apr: Apr): Promise<{ base64: string; filename: string } | null> => {
+      if (!apr.pdf_file_key) {
+        return null;
+      }
+
+      const access = await aprsService.getPdfAccess(apr.id);
+      if (!access.url) {
+        return null;
+      }
+
+      const response = await fetch(access.url);
+      if (!response.ok) {
+        throw new Error('Falha ao baixar o PDF final armazenado da APR.');
+      }
+
+      const blob = await response.blob();
+      return {
+        base64: await blobToBase64(blob),
+        filename: access.originalName || buildAprFilename(apr),
+      };
+    },
+    [buildAprFilename],
+  );
+
+  const ensureGovernedPdf = useCallback(
+    async (apr: Apr) => {
+      try {
+        return await aprsService.getPdfAccess(apr.id);
+      } catch (error) {
+        if (getErrorStatus(error) !== 404) {
+          throw error;
+        }
+      }
+
+      if (apr.status !== 'Aprovada') {
+        return null;
+      }
+
+      const [fullApr, signatures] = await Promise.all([
+        aprsService.findOne(apr.id),
+        signaturesService.findByDocument(apr.id, 'APR'),
+      ]);
+      const result = (await generateAprPdf(fullApr, signatures, {
+        save: false,
+        output: 'base64',
+      })) as { base64: string; filename: string } | undefined;
+
+      if (!result?.base64) {
+        throw new Error('Falha ao gerar o PDF oficial da APR.');
+      }
+
+      const pdfFile = base64ToPdfFile(
+        result.base64,
+        result.filename || buildAprFilename(fullApr),
+      );
+      await aprsService.attachFile(apr.id, pdfFile);
+      await loadAprs();
+      toast.success('PDF final da APR emitido e registrado com sucesso.');
+      return aprsService.getPdfAccess(apr.id);
+    },
+    [buildAprFilename, getErrorStatus, loadAprs],
+  );
+
   const handleDelete = useCallback(async (id: string) => {
     if (confirm('Tem certeza que deseja excluir esta APR?')) {
       try {
@@ -100,32 +183,64 @@ export function useAprs() {
 
   const handleDownloadPdf = useCallback(async (id: string) => {
     try {
+      const apr = aprs.find((item) => item.id === id) || (await aprsService.findOne(id));
+      const shouldUseGovernedPdf = Boolean(apr.pdf_file_key) || apr.status === 'Aprovada';
+
+      if (shouldUseGovernedPdf) {
+        const access = await ensureGovernedPdf(apr);
+        if (access?.url) {
+          openUrlInNewTab(access.url);
+          return;
+        }
+
+        toast.warning(
+          'O PDF final da APR existe, mas a URL segura não está disponível no momento.',
+        );
+        return;
+      }
+
       toast.info('Gerando PDF...');
-      const apr = await aprsService.findOne(id);
       const signatures = await signaturesService.findByDocument(id, 'APR');
       await generateAprPdf(apr, signatures);
       toast.success('PDF gerado com sucesso!');
     } catch (error) {
       handleApiError(error, 'PDF');
     }
-  }, []);
+  }, [aprs, ensureGovernedPdf]);
 
   const handlePrint = useCallback(async (apr: Apr) => {
     try {
       toast.info('Preparando impressão...');
-      const fullApr = await aprsService.findOne(apr.id);
-      const signatures = await signaturesService.findByDocument(apr.id, 'APR');
-      const result = await generateAprPdf(fullApr, signatures, { save: false, output: 'base64' }) as { base64: string };
-      
-      if (result) {
-        const byteCharacters = atob(result.base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+      const currentApr =
+        aprs.find((item) => item.id === apr.id) || (await aprsService.findOne(apr.id));
+      const shouldUseGovernedPdf =
+        Boolean(currentApr.pdf_file_key) || currentApr.status === 'Aprovada';
+
+      if (shouldUseGovernedPdf) {
+        const access = await ensureGovernedPdf(currentApr);
+        if (access?.url) {
+          openPdfForPrint(access.url, () => {
+            toast.info(
+              'Pop-up bloqueado. Abrimos o PDF final da APR na mesma aba para impressão.',
+            );
+          });
+          return;
         }
-        const byteArray = new Uint8Array(byteNumbers);
-        const file = new Blob([byteArray], { type: 'application/pdf' });
-        const fileURL = URL.createObjectURL(file);
+
+        toast.warning(
+          'O PDF final da APR foi emitido, mas a URL segura não está disponível agora.',
+        );
+        return;
+      }
+
+      const signatures = await signaturesService.findByDocument(apr.id, 'APR');
+      const result = (await generateAprPdf(currentApr, signatures, {
+        save: false,
+        output: 'base64',
+      })) as { base64: string } | undefined;
+
+      if (result?.base64) {
+        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
         openPdfForPrint(fileURL, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
         });
@@ -133,16 +248,47 @@ export function useAprs() {
     } catch (error) {
       handleApiError(error, 'Impressão');
     }
-  }, []);
+  }, [aprs, ensureGovernedPdf]);
 
   const handleSendEmail = useCallback(async (id: string) => {
     try {
       toast.info('Preparando documento...');
-      const apr = await aprsService.findOne(id);
+      const apr = aprs.find((item) => item.id === id) || (await aprsService.findOne(id));
+      const shouldUseGovernedPdf = Boolean(apr.pdf_file_key) || apr.status === 'Aprovada';
+
+      if (shouldUseGovernedPdf) {
+        const access = await ensureGovernedPdf(apr);
+        if (!access?.url) {
+          toast.warning(
+            'O PDF final da APR foi emitido, mas a URL segura não está disponível agora.',
+          );
+          return;
+        }
+
+        const storedAttachment = await getStoredPdfAttachment({
+          ...apr,
+          pdf_file_key: access.fileKey,
+          pdf_folder_path: access.folderPath,
+          pdf_original_name: access.originalName,
+        });
+        if (storedAttachment) {
+          setSelectedDoc({
+            name: apr.titulo,
+            filename: storedAttachment.filename,
+            base64: storedAttachment.base64,
+          });
+          setIsMailModalOpen(true);
+          return;
+        }
+      }
+
       const signatures = await signaturesService.findByDocument(id, 'APR');
-      const result = await generateAprPdf(apr, signatures, { save: false, output: 'base64' }) as { filename: string; base64: string };
-      
-      if (result) {
+      const result = (await generateAprPdf(apr, signatures, {
+        save: false,
+        output: 'base64',
+      })) as { filename: string; base64: string } | undefined;
+
+      if (result?.base64) {
         setSelectedDoc({
           name: apr.titulo,
           filename: result.filename,
@@ -153,7 +299,7 @@ export function useAprs() {
     } catch (error) {
       handleApiError(error, 'Email');
     }
-  }, []);
+  }, [aprs, ensureGovernedPdf, getStoredPdfAttachment]);
 
   // Filtering is now server-side — aprs already contains the filtered page
   const filteredAprs = aprs;

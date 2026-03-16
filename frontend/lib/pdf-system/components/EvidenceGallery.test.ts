@@ -6,6 +6,7 @@ function createMockContext(): {
   ctx: PdfContext;
   doc: {
     splitTextToSize: jest.Mock;
+    addPage: jest.Mock;
     setFillColor: jest.Mock;
     setDrawColor: jest.Mock;
     setLineWidth: jest.Mock;
@@ -22,6 +23,7 @@ function createMockContext(): {
 } {
   const doc = {
     splitTextToSize: jest.fn((value: string) => [value]),
+    addPage: jest.fn(),
     setFillColor: jest.fn(),
     setDrawColor: jest.fn(),
     setLineWidth: jest.fn(),
@@ -101,6 +103,39 @@ describe("drawEvidenceGallery", () => {
       expect.any(Number),
       expect.any(Number),
       expect.objectContaining({ align: "center" }),
+    );
+  });
+
+  it("recalcula a posicao da descricao quando o titulo da evidencia quebra em varias linhas", async () => {
+    const { ctx, doc } = createMockContext();
+    doc.splitTextToSize.mockImplementation((value: string) => {
+      if (String(value).includes("Titulo extremamente longo")) {
+        return ["Titulo extremamente longo", "quebrado em duas linhas"];
+      }
+      return [String(value)];
+    });
+
+    await drawEvidenceGallery(ctx, {
+      title: "Galeria",
+      items: [
+        {
+          title: "Titulo extremamente longo quebrado em duas linhas",
+          description: "Descricao da evidencia",
+          meta: "Meta da evidencia",
+        },
+      ],
+      resolveImageDataUrl: jest.fn().mockResolvedValue(null),
+    });
+
+    expect(doc.text).toHaveBeenCalledWith(
+      ["Titulo extremamente longo", "quebrado em duas linhas"],
+      expect.any(Number),
+      expect.any(Number),
+    );
+    expect(doc.text).toHaveBeenCalledWith(
+      ["Descricao da evidencia"],
+      expect.any(Number),
+      expect.any(Number),
     );
   });
 });

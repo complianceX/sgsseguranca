@@ -38,9 +38,15 @@ async function drawOneEvidence(
   const imageWrapW = hasImage ? 74 : 52;
   const imageWrapH = hasImage ? 66 : 36;
   const detailsW = contentWidth - imageWrapW - 16;
+  const titleLines = doc.splitTextToSize(
+    sanitize(item.title || "Registro fotografico"),
+    detailsW,
+  );
   const descLines = doc.splitTextToSize(sanitize(item.description), detailsW);
   const metaLines = doc.splitTextToSize(sanitize(item.meta), detailsW);
-  const contentTextHeight = 8 + 6 + descLines.length * 4 + 5 + metaLines.length * 3.4;
+  const titleHeight = Math.max(4.8, titleLines.length * 4.8);
+  const contentTextHeight =
+    8 + titleHeight + 6 + descLines.length * 4 + 5 + metaLines.length * 3.4;
   const cardInnerH = Math.max(imageWrapH, contentTextHeight + (hasImage ? 8 : 5));
   const cardH = cardInnerH + 12;
   ensureSpace(ctx, cardH + 6);
@@ -65,17 +71,18 @@ async function drawOneEvidence(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.headingSm);
   doc.setTextColor(...theme.tone.textPrimary);
-  doc.text(sanitize(item.title || "Registro fotografico"), textX, ctx.y + 18, { maxWidth: detailsW });
+  doc.text(titleLines, textX, ctx.y + 18);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(theme.typography.bodySm);
   doc.setTextColor(...theme.tone.textSecondary);
-  doc.text(descLines, textX, ctx.y + 24);
+  const descriptionY = ctx.y + 18 + titleLines.length * 4.8 + 1.2;
+  doc.text(descLines, textX, descriptionY);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(theme.typography.caption);
   doc.setTextColor(...theme.tone.textMuted);
-  const metaY = ctx.y + 26 + descLines.length * 4 + 4;
+  const metaY = descriptionY + descLines.length * 4 + 6;
   doc.text(metaLines, textX, metaY);
 
   if (hasImage && dataUrl) {

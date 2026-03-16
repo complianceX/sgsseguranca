@@ -18,6 +18,7 @@ export function drawDocumentHeader(ctx: PdfContext, options: DocumentHeaderOptio
   const codeW = 60;
   const codeX = margin + contentWidth - codeW;
   const textMaxWidth = codeX - margin - 3;
+  const boxY = 6;
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(theme.typography.headingLg);
@@ -37,7 +38,18 @@ export function drawDocumentHeader(ctx: PdfContext, options: DocumentHeaderOptio
   const titleHeight = titleLines.length * 5.2;
   const subtitleHeight = subtitleLines.length * 3.8;
   const metaHeight = metaLines.length * 3.6;
-  const headerHeight = Math.max(34, 7 + titleHeight + 1.5 + subtitleHeight + 1.2 + metaHeight + 5);
+  const statusText = `Status: ${sanitize(options.status)} | V${sanitize(options.version || "1")}`;
+  const codeLines = doc.splitTextToSize(options.code, codeW - 4);
+  const statusLines = doc.splitTextToSize(statusText, codeW - 4);
+  const boxH = Math.max(
+    22,
+    8 + codeLines.length * 4.2 + statusLines.length * 3.2 + 4,
+  );
+  const headerHeight = Math.max(
+    34,
+    7 + titleHeight + 1.5 + subtitleHeight + 1.2 + metaHeight + 5,
+    boxY + boxH + 6,
+  );
 
   doc.setFillColor(...theme.tone.brandStrong);
   doc.rect(0, 0, ctx.pageWidth, headerHeight, "F");
@@ -57,8 +69,6 @@ export function drawDocumentHeader(ctx: PdfContext, options: DocumentHeaderOptio
   doc.text(metaLines, margin, metaY);
 
   doc.setFillColor(...theme.tone.surface);
-  const boxY = 6;
-  const boxH = 22;
   doc.roundedRect(codeX, boxY, codeW, boxH, theme.spacing.radius, theme.spacing.radius, "F");
   doc.setDrawColor(...theme.tone.borderStrong);
   doc.setLineWidth(0.35);
@@ -71,13 +81,14 @@ export function drawDocumentHeader(ctx: PdfContext, options: DocumentHeaderOptio
 
   doc.setFontSize(theme.typography.headingSm);
   doc.setTextColor(...theme.tone.textPrimary);
-  const codeLines = doc.splitTextToSize(options.code, codeW - 4);
   doc.text(codeLines, codeX + codeW / 2, boxY + 11.5, { align: "center" });
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(theme.typography.caption);
-  const statusText = `Status: ${sanitize(options.status)} | V${sanitize(options.version || "1")}`;
-  doc.text(statusText, codeX + codeW / 2, boxY + boxH - 3, { align: "center", maxWidth: codeW - 4 });
+  doc.text(statusLines, codeX + codeW / 2, boxY + boxH - 5, {
+    align: "center",
+    maxWidth: codeW - 4,
+  });
 
   moveY(ctx, headerHeight + 7);
 }

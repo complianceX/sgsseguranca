@@ -172,7 +172,14 @@ export class AprsController {
 
   @Get(':id')
   @Authorize('can_view_apr')
-  async findOne(
+  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.aprsService.findOne(id);
+  }
+
+  /** Retorna URL assinada (S3) ou null do PDF armazenado */
+  @Get(':id/pdf')
+  @Authorize('can_view_apr')
+  async getPdfAccess(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req()
     req: Request & {
@@ -190,13 +197,6 @@ export class AprsController {
     } catch (error) {
       throw new UnauthorizedException(this.getRequestErrorMessage(error));
     }
-    return this.aprsService.findOne(id);
-  }
-
-  /** Retorna URL assinada (S3) ou null do PDF armazenado */
-  @Get(':id/pdf')
-  @Authorize('can_view_apr')
-  getPdfAccess(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.aprsService.getPdfAccess(id);
   }
 

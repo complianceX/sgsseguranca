@@ -6,6 +6,7 @@ import type { TenantService } from '../common/tenant/tenant.service';
 import type { RiskCalculationService } from '../common/services/risk-calculation.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import type { SignaturesService } from '../signatures/signatures.service';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -31,6 +32,7 @@ describe('AprsService', () => {
     DocumentGovernanceService,
     'registerFinalDocument' | 'removeFinalDocumentReference'
   >;
+  let signaturesService: Pick<SignaturesService, 'findByDocument'>;
 
   beforeEach(() => {
     aprRepository = {
@@ -54,6 +56,9 @@ describe('AprsService', () => {
       registerFinalDocument: jest.fn(),
       removeFinalDocumentReference: jest.fn(),
     };
+    signaturesService = {
+      findByDocument: jest.fn(() => Promise.resolve([{ user_id: 'user-1' }])),
+    };
 
     service = new AprsService(
       aprRepository as unknown as Repository<Apr>,
@@ -62,6 +67,7 @@ describe('AprsService', () => {
       {} as RiskCalculationService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
+      signaturesService as SignaturesService,
     );
   });
 
@@ -79,6 +85,8 @@ describe('AprsService', () => {
       created_at: new Date('2026-03-14T09:00:00.000Z'),
       status: AprStatus.APROVADA,
       pdf_file_key: null,
+      is_modelo: false,
+      participants: [{ id: 'user-1' }],
     } as unknown as Apr;
     const update = jest.fn();
     const manager = {
@@ -114,6 +122,7 @@ describe('AprsService', () => {
     ).toHaveBeenCalledWith(
       expect.objectContaining({
         companyId: 'company-1',
+        documentCode: 'APR-2026-APR1',
         module: 'apr',
         entityId: 'apr-1',
         fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
@@ -143,6 +152,8 @@ describe('AprsService', () => {
       numero: 'APR-001',
       status: AprStatus.PENDENTE,
       pdf_file_key: null,
+      is_modelo: false,
+      participants: [{ id: 'user-1' }],
     } as unknown as Apr);
 
     const file = {
@@ -196,6 +207,8 @@ describe('AprsService', () => {
       created_at: new Date('2026-03-14T09:00:00.000Z'),
       status: AprStatus.APROVADA,
       pdf_file_key: null,
+      is_modelo: false,
+      participants: [{ id: 'user-1' }],
     } as unknown as Apr;
     aprRepository.findOne.mockResolvedValue(apr);
     (
@@ -215,6 +228,36 @@ describe('AprsService', () => {
     expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
       'documents/company-1/aprs/apr-1/apr-final.pdf',
     );
+  });
+
+  it('bloqueia anexo final quando faltam assinaturas dos participantes', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      titulo: 'APR Torre',
+      numero: 'APR-001',
+      data_inicio: new Date('2026-03-14T10:00:00.000Z'),
+      created_at: new Date('2026-03-14T09:00:00.000Z'),
+      status: AprStatus.APROVADA,
+      pdf_file_key: null,
+      is_modelo: false,
+      participants: [{ id: 'user-1' }, { id: 'user-2' }],
+    } as unknown as Apr);
+    (signaturesService.findByDocument as jest.Mock).mockResolvedValue([
+      { user_id: 'user-1' },
+    ]);
+
+    const file = {
+      originalname: 'apr-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-apr'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('apr-1', file, 'user-1')).rejects.toThrow(
+      'Todos os participantes precisam assinar a APR antes do PDF final.',
+    );
+
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
   });
 
   it('lista evidencias da APR com URLs assinadas quando disponiveis', async () => {
@@ -254,24 +297,32 @@ describe('AprsService', () => {
       getRepository: jest.fn(() => ({ find })),
     };
 
-    const result = await service.listAprEvidences('apr-1');
+    const result = (await service.listAprEvidences('apr-1')) as Array<{
+      id: string;
+      uploaded_by_name?: string;
+      risk_item_ordem?: number;
+      latitude?: number;
+      longitude?: number;
+      accuracy_m?: number;
+      url?: string;
+      watermarked_url?: string;
+    }>;
 
     expect(find).toHaveBeenCalledWith({
       where: { apr_id: 'apr-1' },
       relations: ['apr_risk_item', 'uploaded_by'],
       order: { uploaded_at: 'DESC' },
     });
-    expect(result).toEqual([
-      expect.objectContaining({
-        id: 'evidence-1',
-        uploaded_by_name: 'Carlos',
-        risk_item_ordem: 3,
-        latitude: -23.5505,
-        longitude: -46.6333,
-        accuracy_m: 5.4,
-        url: expect.stringContaining('documents%2Fcompany-1%2Faprs'),
-        watermarked_url: expect.stringContaining('watermarked'),
-      }),
-    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      id: 'evidence-1',
+      uploaded_by_name: 'Carlos',
+      risk_item_ordem: 3,
+      latitude: -23.5505,
+      longitude: -46.6333,
+      accuracy_m: 5.4,
+    });
+    expect(result[0]?.url).toContain('documents%2Fcompany-1%2Faprs');
+    expect(result[0]?.watermarked_url).toContain('watermarked');
   });
 });

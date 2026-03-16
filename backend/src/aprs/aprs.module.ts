@@ -12,6 +12,7 @@ import { Company } from '../companies/entities/company.entity';
 import { StorageModule } from '../common/storage/storage.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { PublicAprEvidenceController } from './public-apr-evidence.controller';
+import { SignaturesModule } from '../signatures/signatures.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { PublicAprEvidenceController } from './public-apr-evidence.controller';
     AuthModule,
     StorageModule,
     DocumentRegistryModule,
+    SignaturesModule,
   ],
   controllers: [AprsController, PublicAprEvidenceController],
   providers: [AprsService],

@@ -100,6 +100,7 @@ export const AprCard = React.memo(
     };
 
     const isApproved = apr.status === 'Aprovada';
+    const hasGovernedPdf = Boolean(apr.pdf_file_key) || isApproved;
     const hasCriticalRisk = (apr.classificacao_resumo?.critico || 0) > 0;
     const hasSubstantialRisk = (apr.classificacao_resumo?.substancial || 0) > 0;
     const riskHighlightClass = hasCriticalRisk
@@ -179,7 +180,7 @@ export const AprCard = React.memo(
               >
                 Nova versão
               </Button>
-            ) : hasPermission('can_approve_pt') ? (
+            ) : hasPermission('can_create_apr') ? (
               <>
                 <Button
                   type="button"
@@ -203,7 +204,17 @@ export const AprCard = React.memo(
               </>
             ) : null}
 
-            <Button type="button" size="icon" variant="ghost" onClick={() => onPrint(apr)} title="Imprimir APR">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => onPrint(apr)}
+              title={
+                hasGovernedPdf
+                  ? 'Imprimir PDF final governado da APR'
+                  : 'Pré-visualizar APR'
+              }
+            >
               <Printer className="h-4 w-4" />
             </Button>
             <Button
@@ -211,7 +222,11 @@ export const AprCard = React.memo(
               size="icon"
               variant="ghost"
               onClick={() => onSendEmail(apr.id)}
-              title="Enviar por e-mail"
+              title={
+                hasGovernedPdf
+                  ? 'Enviar PDF final governado por e-mail'
+                  : 'Enviar pré-visualização por e-mail'
+              }
             >
               <Mail className="h-4 w-4" />
             </Button>
@@ -220,7 +235,11 @@ export const AprCard = React.memo(
               size="icon"
               variant="ghost"
               onClick={() => onDownloadPdf(apr.id)}
-              title="Baixar PDF"
+              title={
+                hasGovernedPdf
+                  ? 'Abrir PDF final governado da APR'
+                  : 'Gerar PDF de pré-visualização'
+              }
             >
               <Download className="h-4 w-4" />
             </Button>

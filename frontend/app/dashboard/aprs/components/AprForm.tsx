@@ -37,7 +37,6 @@ import { signaturesService } from '@/services/signaturesService';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { AuditSection } from '@/components/AuditSection';
 import { cn } from '@/lib/utils';
-import { attachPdfIfProvided } from '@/lib/document-upload';
 import { AprLogEntry, AprTimeline } from './AprTimeline';
 import { useAuth } from '@/context/AuthContext';
 import type {
@@ -293,6 +292,9 @@ export function AprForm({ id }: AprFormProps) {
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [currentSigningUser, setCurrentSigningUser] = useState<User | null>(null);
   const [signatures, setSignatures] = useState<Record<string, { data: string; type: string }>>({});
+  const [persistedSignatures, setPersistedSignatures] = useState<
+    Record<string, { id?: string; data: string; type: string }>
+  >({});
   const [currentStep, setCurrentStep] = useState(1);
   const [draftRestored, setDraftRestored] = useState(false);
   const [sophieSuggestedRisks, setSophieSuggestedRisks] = useState<SophieDraftRiskSuggestion[]>([]);
@@ -510,7 +512,7 @@ export function AprForm({ id }: AprFormProps) {
           throw new Error('APR aprovada está bloqueada para edição. Anexe o PDF final ou crie uma nova versão.');
         }
 
-        await attachPdfIfProvided(id, pdfFile, aprsService.attachFile);
+        await aprsService.attachFile(id, pdfFile);
 
         const [updatedApr, logs, versions, evidences] = await Promise.all([
           aprsService.findOne(id),
@@ -530,8 +532,7 @@ export function AprForm({ id }: AprFormProps) {
           })),
         );
         setPdfFile(null);
-        toast.success('PDF final da APR anexado com sucesso.');
-        return;
+        return { attachedFinalPdf: true };
       }
       
       if (id) {
@@ -541,22 +542,52 @@ export function AprForm({ id }: AprFormProps) {
         aprId = newApr.id;
       }
 
-      // Save signatures if we have an aprId
       if (aprId) {
-        await attachPdfIfProvided(aprId, pdfFile, aprsService.attachFile);
-
-        const signaturePromises = Object.entries(signatures).map(([userId, sig]) => 
-          signaturesService.create({
-            user_id: userId,
-            document_id: aprId as string,
-            document_type: 'APR',
-            signature_data: sig.data,
-            type: sig.type
-          })
+        const signaturesToDelete = Object.entries(persistedSignatures).filter(
+          ([userId, persisted]) => {
+            const current = signatures[userId];
+            return (
+              !current ||
+              current.data !== persisted.data ||
+              current.type !== persisted.type
+            );
+          },
         );
-        
-        if (signaturePromises.length > 0) {
-          await Promise.all(signaturePromises);
+        const signaturesToCreate = Object.entries(signatures).filter(
+          ([userId, current]) => {
+            const persisted = persistedSignatures[userId];
+            return (
+              !persisted ||
+              current.data !== persisted.data ||
+              current.type !== persisted.type
+            );
+          },
+        );
+
+        const signatureIdsToDelete = signaturesToDelete
+          .map(([, persisted]) => persisted.id)
+          .filter((signatureId): signatureId is string => Boolean(signatureId));
+
+        if (signatureIdsToDelete.length > 0) {
+          await Promise.all(
+            signatureIdsToDelete.map((signatureId) =>
+              signaturesService.deleteById(signatureId),
+            ),
+          );
+        }
+
+        if (signaturesToCreate.length > 0) {
+          await Promise.all(
+            signaturesToCreate.map(([userId, sig]) =>
+              signaturesService.create({
+                user_id: userId,
+                document_id: aprId as string,
+                document_type: 'APR',
+                signature_data: sig.data,
+                type: sig.type,
+              }),
+            ),
+          );
         }
       }
 
@@ -581,7 +612,16 @@ export function AprForm({ id }: AprFormProps) {
       }
     },
     {
-      successMessage: id ? 'APR atualizada com sucesso!' : 'APR cadastrada com sucesso!',
+      successMessage: (result) => {
+        if (
+          typeof result === 'object' &&
+          result !== null &&
+          'attachedFinalPdf' in result
+        ) {
+          return 'PDF final da APR anexado com sucesso!';
+        }
+        return id ? 'APR atualizada com sucesso!' : 'APR cadastrada com sucesso!';
+      },
       redirectTo: '/dashboard/aprs',
       context: 'APR',
       onSuccess: () => {
@@ -681,11 +721,11 @@ export function AprForm({ id }: AprFormProps) {
 
   const handleFinalizeApr = useCallback(async () => {
     if (!id) return;
-    if (!confirm('Deseja finalizar e aprovar esta APR?')) return;
+    if (!confirm('Deseja aprovar esta APR?')) return;
 
     try {
       setFinalizing(true);
-      const updated = await aprsService.finalize(id);
+      const updated = await aprsService.approve(id);
       setCurrentApr(updated);
       setValue('status', updated.status);
       const [logs, versions] = await Promise.all([
@@ -703,8 +743,8 @@ export function AprForm({ id }: AprFormProps) {
       );
       toast.success('APR aprovada com sucesso.');
     } catch (error) {
-      console.error('Erro ao finalizar APR:', error);
-      toast.error('Não foi possível finalizar a APR.');
+      console.error('Erro ao aprovar APR:', error);
+      toast.error('Não foi possível aprovar a APR.');
     } finally {
       setFinalizing(false);
     }
@@ -938,11 +978,21 @@ export function AprForm({ id }: AprFormProps) {
 
           // Pre-populate signatures state from backend
           const sigMap: Record<string, { data: string; type: string }> = {};
+          const persistedSigMap: Record<
+            string,
+            { id?: string; data: string; type: string }
+          > = {};
           sigs.forEach(s => {
             if (!s.user_id) return;
             sigMap[s.user_id] = { data: s.signature_data, type: s.type };
+            persistedSigMap[s.user_id] = {
+              id: s.id,
+              data: s.signature_data,
+              type: s.type,
+            };
           });
           setSignatures(sigMap);
+          setPersistedSignatures(persistedSigMap);
           companySeedId = apr.company_id;
           setActivities(dedupeById(apr.activities || []));
           setRisks(dedupeById(apr.risks || []));
@@ -987,6 +1037,7 @@ export function AprForm({ id }: AprFormProps) {
           });
           setLoadingTimeline(false);
         } else if (draftStorageKey && typeof window !== 'undefined') {
+          setPersistedSignatures({});
           const rawDraft =
             window.localStorage.getItem(draftStorageKey) ||
             (legacyDraftStorageKey
@@ -1031,6 +1082,7 @@ export function AprForm({ id }: AprFormProps) {
 
             setDraftRestored(true);
           } else {
+            setPersistedSignatures({});
             setSophieSuggestedRisks([]);
             setSophieMandatoryChecklists([]);
             const defaultAprPage = await aprsService.findPaginated({
@@ -1309,7 +1361,7 @@ export function AprForm({ id }: AprFormProps) {
       }));
       
       const current = watch('participants') || [];
-      const updated = [...current, currentSigningUser.id];
+      const updated = Array.from(new Set([...current, currentSigningUser.id]));
       setValue('participants', updated, { shouldValidate: true });
       toast.success(`Assinatura de ${currentSigningUser.nome} capturada!`);
     }
@@ -1424,7 +1476,7 @@ export function AprForm({ id }: AprFormProps) {
                   disabled={finalizing}
                   className={aprSuccessButtonCompactClass}
                 >
-                  {finalizing ? 'Finalizando...' : 'Finalizar APR'}
+                  {finalizing ? 'Aprovando...' : 'Aprovar APR'}
                 </button>
               )}
               {isApproved && (

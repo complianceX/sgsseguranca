@@ -250,6 +250,7 @@ describe('Document governance integration', () => {
       buildRiskCalculationService(),
       documentStorageService as unknown as DocumentStorageService,
       governanceService,
+      buildSignaturesService([{ user_id: userId, type: 'pin' }]),
     );
     ddsService = new DdsService(
       dataSource.getRepository(Dds),
@@ -352,6 +353,13 @@ describe('Document governance integration', () => {
       is_modelo: false,
       is_modelo_padrao: false,
     });
+
+    // A APR precisa ter ao menos um participante antes de anexar o PDF final
+    await aprRepository
+      .createQueryBuilder()
+      .relation('participants')
+      .of(apr.id)
+      .add(userId);
 
     await aprsService.attachPdf(
       apr.id,
