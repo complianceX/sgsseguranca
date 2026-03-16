@@ -10,6 +10,17 @@ import {
   Res,
   Req,
 } from '@nestjs/common';
+import { IsString, IsOptional, Matches } from 'class-validator';
+
+class SetSignaturePinDto {
+  @IsString()
+  @Matches(/^\d{4,6}$/, { message: 'PIN deve ter 4 a 6 dígitos numéricos.' })
+  pin: string;
+
+  @IsOptional()
+  @IsString()
+  current_password?: string;
+}
 import type { Response, Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
 import type { User } from '../users/entities/user.entity';
@@ -201,5 +212,30 @@ export class AuthController {
     const user = await this.usersService.findOne(req.user.userId);
     const access = await this.rbacService.getUserAccess(req.user.userId);
     return { user, roles: access.roles, permissions: access.permissions };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Signature PIN endpoints
+  // ---------------------------------------------------------------------------
+
+  @UseGuards(JwtAuthGuard)
+  @Get('signature-pin/status')
+  async getSignaturePinStatus(@Request() req: any) {
+    const hasPin = await this.usersService.hasSignaturePin(req.user.userId);
+    return { has_pin: hasPin };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('signature-pin')
+  async setSignaturePin(
+    @Request() req: any,
+    @Body() dto: SetSignaturePinDto,
+  ) {
+    await this.usersService.setSignaturePin(
+      req.user.userId,
+      dto.pin,
+      dto.current_password,
+    );
+    return { ok: true, message: 'PIN de assinatura configurado com sucesso.' };
   }
 }

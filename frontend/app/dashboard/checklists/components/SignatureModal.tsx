@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
-import { PenTool, Upload, Camera, Check, RefreshCw } from 'lucide-react';
+import { PenTool, Upload, Camera, Check, RefreshCw, ShieldCheck } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import {
   ModalFrame,
   ModalHeader,
 } from '@/components/ui/modal-frame';
+import { signaturesService } from '@/services/signaturesService';
 
 interface SignatureModalProps {
   isOpen: boolean;
@@ -21,8 +22,13 @@ interface SignatureModalProps {
 }
 
 export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureModalProps) {
-  const [activeTab, setActiveTab] = useState<'digital' | 'upload' | 'facial'>('digital');
+  const [activeTab, setActiveTab] = useState<'digital' | 'upload' | 'facial' | 'hmac'>('digital');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [pin, setPin] = useState('');
+  const [hasPin, setHasPin] = useState<boolean | null>(null);
+  const [newPin, setNewPin] = useState('');
+  const [settingPin, setSettingPin] = useState(false);
+  const [pinPassword, setPinPassword] = useState('');
 
   const sigCanvas = useRef<SignatureCanvas>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -61,6 +67,14 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
     return () => stopCamera();
   }, [activeTab, isOpen]);
 
+  useEffect(() => {
+    if (activeTab === 'hmac' && isOpen && hasPin === null) {
+      signaturesService.getSignaturePinStatus()
+        .then((r) => setHasPin(r.has_pin))
+        .catch(() => setHasPin(false));
+    }
+  }, [activeTab, isOpen, hasPin]);
+
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
@@ -91,9 +105,30 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
   const clearSignature = () => {
     if (activeTab === 'digital') {
       sigCanvas.current?.clear();
+    } else if (activeTab === 'hmac') {
+      setPin('');
     } else {
       setPreviewImage(null);
       if (activeTab === 'facial') startCamera();
+    }
+  };
+
+  const handleSavePin = async () => {
+    if (!/^\d{4,6}$/.test(newPin)) {
+      toast.error('PIN deve ter 4 a 6 dígitos numéricos.');
+      return;
+    }
+    setSettingPin(true);
+    try {
+      await signaturesService.setSignaturePin(newPin, pinPassword || undefined);
+      setHasPin(true);
+      setNewPin('');
+      setPinPassword('');
+      toast.success('PIN de assinatura configurado!');
+    } catch {
+      toast.error('Erro ao configurar PIN. Verifique sua senha.');
+    } finally {
+      setSettingPin(false);
     }
   };
 
@@ -106,6 +141,16 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
         return;
       }
       signatureData = sigCanvas.current?.getTrimmedCanvas().toDataURL('image/png') || '';
+    } else if (activeTab === 'hmac') {
+      if (!/^\d{4,6}$/.test(pin)) {
+        toast.error('Digite um PIN válido (4 a 6 dígitos).');
+        return;
+      }
+      // Passa o PIN junto com tipo 'hmac'; o backend computa o HMAC
+      onSave(pin, 'hmac');
+      setPin('');
+      onClose();
+      return;
     } else {
       if (!previewImage) {
         toast.error('Por favor, forneça a imagem da assinatura.');
@@ -165,6 +210,18 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
               <Camera className="h-4 w-4" />
               <span>Facial</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('hmac')}
+              className={`${tabButtonClassName} ${
+                activeTab === 'hmac'
+                  ? 'border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]'
+                  : 'text-[var(--ds-color-text-secondary)] hover:text-[var(--ds-color-text-primary)]'
+              }`}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              <span>PIN</span>
+            </button>
           </div>
 
           <div
@@ -213,11 +270,11 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
             {activeTab === 'facial' && (
               <div className="relative h-full w-full">
                 {previewImage ? (
-                  <Image 
-                    src={previewImage} 
-                    alt="Foto Capturada" 
+                  <Image
+                    src={previewImage}
+                    alt="Foto Capturada"
                     fill
-                    className="object-cover" 
+                    className="object-cover"
                   />
                 ) : (
                   <>
@@ -233,6 +290,62 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
                   </>
                 )}
                 <canvas ref={canvasRef} className="hidden" />
+              </div>
+            )}
+
+            {activeTab === 'hmac' && (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-4 p-6">
+                {hasPin === null && (
+                  <p className="text-sm text-[var(--ds-color-text-muted)]">Verificando PIN…</p>
+                )}
+
+                {hasPin === false && (
+                  <div className="flex w-full flex-col gap-3">
+                    <p className="text-center text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                      Configure seu PIN de assinatura (4–6 dígitos)
+                    </p>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="Novo PIN (4–6 dígitos)"
+                      value={newPin}
+                      onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+                      className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-center text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Senha de acesso (confirmação)"
+                      value={pinPassword}
+                      onChange={(e) => setPinPassword(e.target.value)}
+                      className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
+                    />
+                    <Button type="button" onClick={handleSavePin} disabled={settingPin}>
+                      {settingPin ? 'Salvando…' : 'Salvar PIN'}
+                    </Button>
+                  </div>
+                )}
+
+                {hasPin === true && (
+                  <div className="flex w-full flex-col items-center gap-3">
+                    <ShieldCheck className="h-10 w-10 text-[var(--ds-color-action-primary)]" />
+                    <p className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                      Digite seu PIN para assinar
+                    </p>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="PIN (4–6 dígitos)"
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                      className="w-full max-w-xs rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-center text-2xl tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]"
+                    />
+                    <p className="text-xs text-[var(--ds-color-text-muted)]">
+                      Assinatura HMAC-SHA256 verificada pelo servidor
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

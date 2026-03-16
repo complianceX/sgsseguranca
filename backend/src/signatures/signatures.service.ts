@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -8,6 +9,7 @@ import { In, IsNull, Repository } from 'typeorm';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { UsersService } from '../users/users.service';
 import { Signature } from './entities/signature.entity';
 import { CreateSignatureDto } from './dto/create-signature.dto';
 
@@ -19,6 +21,7 @@ export class SignaturesService {
     private readonly tenantService: TenantService,
     private readonly signatureTimestampService: SignatureTimestampService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly usersService: UsersService,
   ) {}
 
   async create(
@@ -26,6 +29,32 @@ export class SignaturesService {
     authenticatedUserId: string,
   ): Promise<Signature> {
     const tenantId = this.tenantService.getTenantId();
+
+    // HMAC-SHA256: assinatura com PIN derivado por PBKDF2
+    if (createSignatureDto.type === 'hmac') {
+      if (!createSignatureDto.pin) {
+        throw new BadRequestException('PIN obrigatório para assinatura HMAC.');
+      }
+      const hmacKey = await this.usersService.deriveHmacKey(
+        authenticatedUserId,
+        createSignatureDto.pin,
+      );
+      const timestamp = new Date().toISOString();
+      const message = [
+        createSignatureDto.document_id,
+        createSignatureDto.document_type,
+        authenticatedUserId,
+        timestamp,
+      ].join('|');
+      const hmacHex = this.usersService.computeHmac(hmacKey, message);
+      // Sobrescreve signature_data com o HMAC (não há imagem neste tipo)
+      createSignatureDto = {
+        ...createSignatureDto,
+        signature_data: hmacHex,
+        pin: undefined,
+      };
+    }
+
     const generatedStamp = this.signatureTimestampService.issueFromRaw(
       createSignatureDto.signature_data,
     );
@@ -57,6 +86,7 @@ export class SignaturesService {
         user_id: authenticatedUserId,
         type: createSignatureDto.type,
         signed_at: signedAt.toISOString(),
+        hmac_verified: createSignatureDto.type === 'hmac' ? true : undefined,
         document_registry: registryContext
           ? {
               entry_id: registryContext.registryEntryId,

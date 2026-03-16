@@ -16,6 +16,7 @@ export interface Signature {
   timestamp_authority?: string;
   signed_at?: string;
   created_at?: string;
+  pin?: string;
 }
 
 export const signaturesService = {
@@ -24,6 +25,15 @@ export const signaturesService = {
       timeout: 45000,
     });
     return response.data;
+  },
+
+  getSignaturePinStatus: async (): Promise<{ has_pin: boolean }> => {
+    const response = await api.get<{ has_pin: boolean }>('/auth/signature-pin/status');
+    return response.data;
+  },
+
+  setSignaturePin: async (pin: string, current_password?: string): Promise<void> => {
+    await api.post('/auth/signature-pin', { pin, current_password });
   },
 
   findByDocument: async (document_id: string, document_type: string) => {

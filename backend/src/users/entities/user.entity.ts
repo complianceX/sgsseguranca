@@ -32,6 +32,12 @@ export class User {
   @Column({ select: false, nullable: true })
   password?: string;
 
+  @Column({ select: false, nullable: true })
+  signature_pin_hash?: string;
+
+  @Column({ nullable: true })
+  signature_pin_salt?: string;
+
   @Column({ default: true })
   status: boolean;
 

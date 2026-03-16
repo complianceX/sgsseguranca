@@ -18,12 +18,14 @@ const TYPE_LABEL: Record<string, string> = {
   digital: 'Digital (Desenho)',
   upload: 'Imagem Enviada',
   facial: 'Facial',
+  hmac: 'PIN Seguro (HMAC-SHA256)',
 };
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
   digital: <PenTool className="h-3.5 w-3.5" />,
   upload: <Upload className="h-3.5 w-3.5" />,
   facial: <Camera className="h-3.5 w-3.5" />,
+  hmac: <ShieldCheck className="h-3.5 w-3.5" />,
 };
 
 interface SignaturesPanelProps {
@@ -83,6 +85,11 @@ export function SignaturesPanel({ isOpen, onClose, documentId, documentType }: S
                         fill
                         className="object-contain p-1"
                       />
+                    </div>
+                  )}
+                  {sig.type === 'hmac' && (
+                    <div className="flex h-16 w-24 flex-shrink-0 items-center justify-center rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-primary-subtle)]">
+                      <ShieldCheck className="h-8 w-8 text-[var(--ds-color-action-primary)]" />
                     </div>
                   )}
 

@@ -4,8 +4,10 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  UnauthorizedException,
   Logger,
 } from '@nestjs/common';
+import { randomBytes, pbkdf2Sync, createHmac } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DeepPartial } from 'typeorm';
 import { plainToClass } from 'class-transformer';
@@ -322,5 +324,69 @@ export class UsersService {
       userAgent,
       companyId,
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Signature PIN (HMAC-SHA256)
+  // ---------------------------------------------------------------------------
+
+  async hasSignaturePin(userId: string): Promise<boolean> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'signature_pin_hash'],
+    });
+    return Boolean(user?.signature_pin_hash);
+  }
+
+  async setSignaturePin(userId: string, pin: string, currentPassword?: string): Promise<void> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'password', 'signature_pin_hash'],
+    });
+    if (!user) throw new NotFoundException('Usuário não encontrado.');
+
+    // Se já tem PIN configurado, exige a senha atual como confirmação de identidade
+    if (user.signature_pin_hash && currentPassword !== undefined) {
+      const passwordOk = await this.passwordService.compare(
+        currentPassword,
+        user.password ?? '',
+      );
+      if (!passwordOk) throw new UnauthorizedException('Senha atual incorreta.');
+    }
+
+    const pbkdf2Salt = randomBytes(32).toString('hex');
+    const pinBcryptHash = await this.passwordService.hash(pin);
+
+    await this.usersRepository.update(userId, {
+      signature_pin_hash: pinBcryptHash,
+      signature_pin_salt: pbkdf2Salt,
+    } as any);
+  }
+
+  async verifySignaturePin(userId: string, pin: string): Promise<boolean> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'signature_pin_hash'],
+    });
+    if (!user?.signature_pin_hash) return false;
+    return this.passwordService.compare(pin, user.signature_pin_hash);
+  }
+
+  async deriveHmacKey(userId: string, pin: string): Promise<Buffer> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'signature_pin_hash', 'signature_pin_salt'],
+    });
+    if (!user?.signature_pin_hash || !user.signature_pin_salt) {
+      throw new BadRequestException('PIN de assinatura não configurado.');
+    }
+    const pinOk = await this.passwordService.compare(pin, user.signature_pin_hash);
+    if (!pinOk) throw new UnauthorizedException('PIN inválido.');
+
+    return pbkdf2Sync(pin, user.signature_pin_salt, 100_000, 32, 'sha256');
+  }
+
+  computeHmac(key: Buffer, message: string): string {
+    return createHmac('sha256', key).update(message).digest('hex');
   }
 }
