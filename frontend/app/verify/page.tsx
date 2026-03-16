@@ -46,6 +46,13 @@ interface EvidenceVerifyResponse {
   };
 }
 
+const SIGNATURE_TYPE_LABEL: Record<string, string> = {
+  digital: 'Digital (Desenho)',
+  upload: 'Imagem Enviada',
+  facial: 'Facial',
+  hmac: 'PIN Seguro (HMAC-SHA256)',
+};
+
 interface SignatureVerifyResponse {
   valid: boolean;
   message?: string;
@@ -55,6 +62,7 @@ interface SignatureVerifyResponse {
     timestamp_authority?: string;
     document_id?: string;
     document_type?: string;
+    type?: string;
   };
 }
 
@@ -302,6 +310,7 @@ export default function PublicHashVerifyPage() {
                     <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">
                       <p>Documento: {signatureResult.signature.document_type || '-'}</p>
                       <p>ID do documento: {signatureResult.signature.document_id || '-'}</p>
+                      <p>Tipo de assinatura: {signatureResult.signature.type ? (SIGNATURE_TYPE_LABEL[signatureResult.signature.type] ?? signatureResult.signature.type) : '-'}</p>
                       <p>Assinado em: {signatureResult.signature.signed_at || '-'}</p>
                       <p>Autoridade: {signatureResult.signature.timestamp_authority || '-'}</p>
                       <p>Hash: {signatureResult.signature.hash}</p>

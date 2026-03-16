@@ -277,6 +277,7 @@ export class SignaturesService {
         timestamp_authority: signature.timestamp_authority,
         document_id: signature.document_id,
         document_type: signature.document_type,
+        type: signature.type,
       },
     };
   }

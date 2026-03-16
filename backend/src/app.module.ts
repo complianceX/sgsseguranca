@@ -75,6 +75,10 @@ import { DocumentRegistryModule } from './document-registry/document-registry.mo
 import { CalendarModule } from './calendar/calendar.module';
 import { SystemThemeModule } from './system-theme/system-theme.module';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
+import {
+  parseBooleanFlag,
+  resolveDbSslOptions,
+} from './common/database/db-ssl.util';
 // QueueServicesModule removido do AppModule — registra as mesmas filas que
 // MailModule/ReportsModule/TasksModule, causando conflito de DI no NestJS.
 // Fica apenas no WorkerModule onde tem acesso completo a todas as filas.
@@ -230,6 +234,7 @@ const validationSchema = Joi.object({
   POSTGRES_PASSWORD: REDACTED
   POSTGRES_DB: Joi.string().optional().allow(''),
   DATABASE_SSL: Joi.boolean().default(false),
+  DATABASE_SSL_ALLOW_INSECURE: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
   REDIS_URL: Joi.string().optional(),
   REDIS_DISABLED: Joi.string().valid('true', 'false').optional().allow(''),
@@ -788,7 +793,9 @@ export class AppModule implements OnModuleInit {
     );
     const jwtSecret = this.configService.get<string>('JWT_SECRET');
     const databaseSSL = this.configService.get<boolean>('DATABASE_SSL');
-    const databaseUrl = resolveDatabaseUrl(this.configService);
+    const databaseSSLAllowInsecure = this.configService.get<boolean>(
+      'DATABASE_SSL_ALLOW_INSECURE',
+    );
     const railwaySelfSigned =
       this.configService.get<string>('BANCO_DE_DADOS_SSL') === 'true';
     const redisHost = this.configService.get<string>('REDIS_HOST');
@@ -808,11 +815,13 @@ export class AppModule implements OnModuleInit {
         message: 'JWT_SECRET deve ter no mínimo 32 caracteres',
       },
       {
-        name: 'DATABASE_SSL',
+        name: 'DATABASE_SSL_POLICY',
         valid:
-          databaseSSL === true || railwaySelfSigned === true || !!databaseUrl,
+          databaseSSL === true ||
+          databaseSSLAllowInsecure === true ||
+          railwaySelfSigned === true,
         message:
-          'Configure DATABASE_URL (Railway) ou habilite DATABASE_SSL/BANCO_DE_DADOS_SSL em produção',
+          'Habilite DATABASE_SSL=true em produção (recomendado) ou, apenas em último caso, DATABASE_SSL_ALLOW_INSECURE=true/BANCO_DE_DADOS_SSL=true',
       },
       {
         name: 'REDIS_CONNECTION',
@@ -870,49 +879,38 @@ export class AppModule implements OnModuleInit {
   ) {
     const sslEnabled = config.get<boolean>('DATABASE_SSL');
     const sslCA = config.get<string>('DATABASE_SSL_CA');
-    const databaseUrl = resolveDatabaseUrl(config);
-    const railwaySelfSigned =
-      config.get<string>('BANCO_DE_DADOS_SSL') === 'true';
+    const allowInsecure =
+      parseBooleanFlag(config.get<string>('DATABASE_SSL_ALLOW_INSECURE')) ||
+      parseBooleanFlag(config.get<string>('BANCO_DE_DADOS_SSL'));
 
-    if (!isProduction) {
+    if (!isProduction && !sslEnabled && !allowInsecure) {
       logger.log('🔓 SSL desabilitado (desenvolvimento)');
       return false;
     }
 
-    // Railway: certificado self-signed interno
-    if (railwaySelfSigned) {
+    if (allowInsecure) {
       logger.warn(
-        '⚠️  SSL com rejectUnauthorized:false habilitado (Railway self-signed)',
+        '⚠️  SSL inseguro habilitado (rejectUnauthorized:false). Use apenas temporariamente.',
       );
-      return { rejectUnauthorized: false };
+      return resolveDbSslOptions({
+        isProduction,
+        sslEnabled: !!sslEnabled,
+        sslCA,
+        allowInsecure: true,
+      });
     }
-
-    if (databaseUrl && !sslCA) {
-      logger.warn(
-        '⚠️  DATABASE_URL detectada sem CA customizado — usando rejectUnauthorized:false (Railway compat)',
-      );
-      return { rejectUnauthorized: false };
-    }
-
-    if (!sslEnabled) {
-      logger.warn('⚠️  SSL desabilitado em PRODUÇÃO - NÃO RECOMENDADO');
-      return false;
-    }
-
-    // SSL com certificado CA customizado
+    const sslOptions = resolveDbSslOptions({
+      isProduction,
+      sslEnabled: !!sslEnabled,
+      sslCA,
+      allowInsecure: false,
+    });
     if (sslCA) {
       logger.log('🔒 SSL habilitado com CA customizado');
-      return {
-        rejectUnauthorized: true,
-        ca: sslCA,
-      };
+    } else if (sslOptions) {
+      logger.log('🔒 SSL habilitado com validação de certificado');
     }
-
-    // SSL padrão (Railway, Heroku, AWS RDS)
-    logger.log('🔒 SSL habilitado (validação padrão)');
-    return {
-      rejectUnauthorized: true,
-    };
+    return sslOptions;
   }
 
   /**

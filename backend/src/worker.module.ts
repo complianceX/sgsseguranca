@@ -12,6 +12,10 @@ import { ObservabilityModule } from './common/observability/observability.module
 import { SlaEscalationWorkerModule } from './sla-escalation-worker.module';
 import { ExpiryNotificationsWorkerModule } from './tasks/expiry-notifications-worker.module';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
+import {
+  parseBooleanFlag,
+  resolveDbSslOptions,
+} from './common/database/db-ssl.util';
 
 function firstNonEmpty(
   values: Array<string | undefined | null>,
@@ -108,6 +112,7 @@ const validationSchema = Joi.object({
   DATABASE_PASSWORD: Joi.string().optional(),
   DATABASE_NAME: Joi.string().optional(),
   DATABASE_SSL: Joi.boolean().default(false),
+  DATABASE_SSL_ALLOW_INSECURE: Joi.boolean().default(false),
   DATABASE_SSL_CA: Joi.string().optional(),
   DB_POOL_MAX: Joi.number().default(5),
   DB_POOL_MIN: Joi.number().default(0),
@@ -251,24 +256,37 @@ export class WorkerModule {
   ) {
     const sslEnabled = config.get<boolean>('DATABASE_SSL');
     const sslCA = config.get<string>('DATABASE_SSL_CA');
-    const railwaySelfSigned =
-      config.get<string>('BANCO_DE_DADOS_SSL') === 'true';
-    if (!isProduction) {
+    const allowInsecure =
+      parseBooleanFlag(config.get<string>('DATABASE_SSL_ALLOW_INSECURE')) ||
+      parseBooleanFlag(config.get<string>('BANCO_DE_DADOS_SSL'));
+
+    if (!isProduction && !sslEnabled && !allowInsecure) {
       return false;
     }
-    if (railwaySelfSigned) {
+
+    if (allowInsecure) {
       logger.warn(
-        'SSL com rejectUnauthorized:false habilitado (Railway self-signed) para Worker',
+        'SSL inseguro habilitado no worker (rejectUnauthorized:false). Use apenas temporariamente.',
       );
-      return { rejectUnauthorized: false };
+      return resolveDbSslOptions({
+        isProduction,
+        sslEnabled: !!sslEnabled,
+        sslCA,
+        allowInsecure: true,
+      });
     }
-    if (!sslEnabled) {
-      logger.warn('SSL desabilitado em PRODUÇÃO para Worker - NÃO RECOMENDADO');
-      return false;
-    }
+
+    const sslOptions = resolveDbSslOptions({
+      isProduction,
+      sslEnabled: !!sslEnabled,
+      sslCA,
+      allowInsecure: false,
+    });
     if (sslCA) {
-      return { rejectUnauthorized: true, ca: sslCA };
+      logger.log('Worker com SSL + CA customizado');
+    } else if (sslOptions) {
+      logger.log('Worker com SSL validado');
     }
-    return { rejectUnauthorized: true };
+    return sslOptions;
   }
 }

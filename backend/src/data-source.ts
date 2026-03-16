@@ -1,5 +1,9 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
+import {
+  parseBooleanFlag,
+  resolveDbSslOptions,
+} from './common/database/db-ssl.util';
 
 // Suporte a DATABASE_URL (Railway/Heroku) ou variáveis individuais
 const url =
@@ -9,32 +13,18 @@ const url =
 
 function getSslConfig() {
   const isProduction = process.env.NODE_ENV === 'production';
-  const hasDatabaseUrl = !!process.env.DATABASE_URL;
-  const railwaySelfSigned = process.env.BANCO_DE_DADOS_SSL === 'true';
-  const sslEnabled = process.env.DATABASE_SSL === 'true';
+  const railwaySelfSigned = parseBooleanFlag(process.env.BANCO_DE_DADOS_SSL);
+  const sslAllowInsecure = parseBooleanFlag(
+    process.env.DATABASE_SSL_ALLOW_INSECURE,
+  );
+  const sslEnabled = parseBooleanFlag(process.env.DATABASE_SSL);
   const sslCA = process.env.DATABASE_SSL_CA;
-
-  if (!isProduction) {
-    return sslEnabled ? { rejectUnauthorized: false } : false;
-  }
-
-  if (railwaySelfSigned) {
-    return { rejectUnauthorized: false };
-  }
-
-  if (hasDatabaseUrl && !sslCA) {
-    return { rejectUnauthorized: false };
-  }
-
-  if (!sslEnabled) {
-    return false;
-  }
-
-  if (sslCA) {
-    return { rejectUnauthorized: true, ca: sslCA };
-  }
-
-  return { rejectUnauthorized: true };
+  return resolveDbSslOptions({
+    isProduction,
+    sslEnabled,
+    sslCA,
+    allowInsecure: sslAllowInsecure || railwaySelfSigned,
+  });
 }
 
 export default new DataSource(
