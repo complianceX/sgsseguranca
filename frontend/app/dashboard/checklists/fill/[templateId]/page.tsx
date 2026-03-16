@@ -259,18 +259,34 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
 
   const handlePrint = async () => {
     if (!savedChecklist) return;
+    // Open window synchronously (before any await) to bypass popup blocker
+    const win = window.open('', '_blank');
     setPrintingOrSending(true);
     try {
       const pdf = await buildPdf();
-      if (!pdf) { toast.error('Erro ao gerar PDF'); return; }
+      if (!pdf) {
+        win?.close();
+        toast.error('Erro ao gerar PDF');
+        return;
+      }
       const byteString = atob(pdf.base64);
       const bytes = new Uint8Array(byteString.length);
       for (let i = 0; i < byteString.length; i++) bytes[i] = byteString.charCodeAt(i);
       const blob = new Blob([bytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
-      const win = window.open(url, '_blank');
-      if (win) { win.onload = () => { win.print(); }; }
+      if (win) {
+        win.location.href = url;
+        // Give the PDF time to load before triggering print
+        setTimeout(() => { try { win.print(); } catch { /* ignore */ } }, 1200);
+      } else {
+        // Fallback: download directly
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = pdf.filename;
+        a.click();
+      }
     } catch {
+      win?.close();
       toast.error('Erro ao abrir impressão');
     } finally {
       setPrintingOrSending(false);
