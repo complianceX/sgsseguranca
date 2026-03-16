@@ -137,7 +137,8 @@ async function drawOneEvidence(
 export async function drawEvidenceGallery(ctx: PdfContext, options: EvidenceGalleryOptions) {
   if (!options.items.length) return;
   const { doc, margin, contentWidth, theme } = ctx;
-  ensureSpace(ctx, 18);
+  // Keep the gallery heading together with the first evidence card to avoid orphaned titles.
+  ensureSpace(ctx, 60);
 
   doc.setFillColor(...theme.tone.surface);
   doc.setDrawColor(...theme.tone.border);

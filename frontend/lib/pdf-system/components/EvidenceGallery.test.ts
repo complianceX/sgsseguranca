@@ -138,4 +138,24 @@ describe("drawEvidenceGallery", () => {
       expect.any(Number),
     );
   });
+
+  it("abre nova pagina quando a galeria iniciaria no fim da folha", async () => {
+    const { ctx, doc } = createMockContext();
+    ctx.y = 245;
+
+    await drawEvidenceGallery(ctx, {
+      title: "Galeria",
+      items: [
+        {
+          title: "Registro 3",
+          description: "Descricao longa da evidencia",
+          meta: "Meta da evidencia",
+        },
+      ],
+      resolveImageDataUrl: jest.fn().mockResolvedValue(null),
+    });
+
+    expect(doc.addPage).toHaveBeenCalled();
+    expect(ctx.y).toBeGreaterThanOrEqual(22);
+  });
 });

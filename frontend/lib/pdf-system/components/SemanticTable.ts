@@ -297,7 +297,8 @@ function semanticCellStyle(
 export function drawSemanticTable(ctx: PdfContext, options: SemanticTableOptions): number {
   const { doc, margin, contentWidth, theme } = ctx;
   const tone = paletteForTone(ctx, options.tone || "default");
-  ensureSpace(ctx, 22);
+  // Keep the section title together with the table header and at least one body row.
+  ensureSpace(ctx, 34);
 
   doc.setFillColor(...theme.tone.surface);
   doc.setDrawColor(...theme.tone.border);
