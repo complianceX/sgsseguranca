@@ -14,6 +14,7 @@ import {
   UploadedFile,
   BadRequestException,
   Res,
+  StreamableFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -30,6 +31,10 @@ import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import type { Response } from 'express';
+import {
+  assertUploadedPdf,
+  createGovernedPdfUploadOptions,
+} from '../common/interceptors/file-upload.interceptor';
 
 @Controller('inspections')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -73,10 +78,49 @@ export class InspectionsController {
     });
   }
 
+  @Get('files/list')
+  @Authorize('can_view_inspections')
+  listStoredFiles(
+    @Query('company_id') companyId?: string,
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ) {
+    return this.inspectionsService.listStoredFiles({
+      companyId,
+      year: year ? Number(year) : undefined,
+      week: week ? Number(week) : undefined,
+    });
+  }
+
+  @Get('files/weekly-bundle')
+  @Authorize('can_view_inspections')
+  async getWeeklyBundle(
+    @Query('company_id') companyId?: string,
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ): Promise<StreamableFile> {
+    const { buffer, fileName } = await this.inspectionsService.getWeeklyBundle({
+      companyId,
+      year: year ? Number(year) : undefined,
+      week: week ? Number(week) : undefined,
+    });
+
+    return new StreamableFile(buffer, {
+      disposition: `attachment; filename="${fileName}"`,
+      type: 'application/pdf',
+    });
+  }
+
   @Get(':id')
   @Authorize('can_view_inspections')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.inspectionsService.findOne(id, this.getTenantIdOrThrow());
+  }
+
+  @Get(':id/pdf')
+  @Authorize('can_view_inspections')
+  getPdfAccess(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.inspectionsService.getPdfAccess(id, this.getTenantIdOrThrow());
   }
 
   @Get(':id/evidences/:index/file')
@@ -147,6 +191,22 @@ export class InspectionsController {
       id,
       file,
       descricao,
+      this.getTenantIdOrThrow(),
+    );
+  }
+
+  @Post(':id/file')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_inspections')
+  @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
+  attachFile(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const pdfFile = assertUploadedPdf(file);
+    return this.inspectionsService.savePdf(
+      id,
+      pdfFile,
       this.getTenantIdOrThrow(),
     );
   }

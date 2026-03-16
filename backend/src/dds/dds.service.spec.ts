@@ -5,6 +5,7 @@ import { Dds, DdsStatus } from './entities/dds.entity';
 import type { TenantService } from '../common/tenant/tenant.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import type { SignaturesService } from '../signatures/signatures.service';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -18,6 +19,7 @@ describe('DdsService', () => {
   let repository: {
     findOne: jest.Mock;
     save: jest.Mock;
+    createQueryBuilder: jest.Mock;
   };
   let documentStorageService: Pick<
     DocumentStorageService,
@@ -27,11 +29,26 @@ describe('DdsService', () => {
     DocumentGovernanceService,
     'registerFinalDocument' | 'removeFinalDocumentReference'
   >;
+  let signaturesService: Pick<
+    SignaturesService,
+    'findByDocument' | 'replaceDocumentSignatures' | 'findManyByDocuments'
+  >;
 
   beforeEach(() => {
     repository = {
       findOne: jest.fn(),
       save: jest.fn((input) => Promise.resolve(input as Dds)),
+      createQueryBuilder: jest.fn(() => {
+        const builder = {
+          select: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          orderBy: jest.fn().mockReturnThis(),
+          limit: jest.fn().mockReturnThis(),
+          getRawMany: jest.fn().mockResolvedValue([]),
+        };
+        return builder;
+      }),
     };
     documentStorageService = {
       generateDocumentKey: jest.fn(
@@ -44,12 +61,18 @@ describe('DdsService', () => {
       registerFinalDocument: jest.fn(),
       removeFinalDocumentReference: jest.fn(),
     };
+    signaturesService = {
+      findByDocument: jest.fn(() => Promise.resolve([])),
+      replaceDocumentSignatures: jest.fn(),
+      findManyByDocuments: jest.fn(() => Promise.resolve([])),
+    };
 
     service = new DdsService(
       repository as unknown as Repository<Dds>,
       { getTenantId: jest.fn(() => 'company-1') } as TenantService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
+      signaturesService as SignaturesService,
     );
   });
 
@@ -62,6 +85,8 @@ describe('DdsService', () => {
       id: 'dds-1',
       company_id: 'company-1',
       tema: 'DDS Trabalho em Altura',
+      status: DdsStatus.PUBLICADO,
+      participants: [{ id: 'user-1' }],
       data: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
     } as Dds;
@@ -70,6 +95,13 @@ describe('DdsService', () => {
       getRepository: jest.fn(() => ({ update })),
     };
     repository.findOne.mockResolvedValue(dds);
+    (signaturesService.findByDocument as jest.Mock).mockResolvedValue([
+      {
+        user_id: 'user-1',
+        type: 'digital',
+        signature_data: 'sig-1',
+      },
+    ]);
     (
       documentGovernanceService.registerFinalDocument as jest.Mock
     ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
@@ -95,6 +127,7 @@ describe('DdsService', () => {
       expect.objectContaining({
         module: 'dds',
         entityId: 'dds-1',
+        documentCode: 'DDS-2026-DDS1',
         fileBuffer: file.buffer,
       }),
     );
@@ -194,10 +227,19 @@ describe('DdsService', () => {
       id: 'dds-1',
       company_id: 'company-1',
       tema: 'DDS Trabalho em Altura',
+      status: DdsStatus.PUBLICADO,
+      participants: [{ id: 'user-1' }],
       data: new Date('2026-03-14T08:00:00.000Z'),
       created_at: new Date('2026-03-14T07:00:00.000Z'),
     } as Dds;
     repository.findOne.mockResolvedValue(dds);
+    (signaturesService.findByDocument as jest.Mock).mockResolvedValue([
+      {
+        user_id: 'user-1',
+        type: 'digital',
+        signature_data: 'sig-1',
+      },
+    ]);
     (
       documentGovernanceService.registerFinalDocument as jest.Mock
     ).mockRejectedValue(new Error('governance failed'));
@@ -214,6 +256,180 @@ describe('DdsService', () => {
 
     expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
       'documents/company-1/dds/dds-1/dds-final.pdf',
+    );
+  });
+
+  it('bloqueia PDF final quando o DDS ainda esta em rascunho', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      status: DdsStatus.RASCUNHO,
+      participants: [{ id: 'user-1' }],
+      created_at: new Date('2026-03-14T07:00:00.000Z'),
+      data: new Date('2026-03-14T08:00:00.000Z'),
+    } as unknown as Dds);
+
+    const file = {
+      originalname: 'dds-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-dds'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('dds-1', file)).rejects.toThrow(
+      'O DDS precisa estar publicado ou auditado antes do anexo do PDF final.',
+    );
+
+    expect(signaturesService.findByDocument).not.toHaveBeenCalled();
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia PDF final quando faltam assinaturas de participantes', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      status: DdsStatus.PUBLICADO,
+      participants: [{ id: 'user-1' }, { id: 'user-2' }],
+      created_at: new Date('2026-03-14T07:00:00.000Z'),
+      data: new Date('2026-03-14T08:00:00.000Z'),
+    } as unknown as Dds);
+    (signaturesService.findByDocument as jest.Mock).mockResolvedValue([
+      {
+        user_id: 'user-1',
+        type: 'digital',
+        signature_data: 'sig-1',
+      },
+    ]);
+
+    const file = {
+      originalname: 'dds-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-dds'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('dds-1', file)).rejects.toThrow(
+      'Todos os participantes precisam assinar o DDS antes do anexo do PDF final.',
+    );
+
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
+  });
+
+  it('persiste assinaturas do DDS com o participante correto e justificativa de reuso quando necessario', async () => {
+    repository.createQueryBuilder.mockImplementationOnce(() => ({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([
+        {
+          id: 'dds-old',
+          tema: 'DDS antigo',
+          data: '2026-03-10',
+        },
+      ]),
+    }));
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      facilitador_id: 'facilitador-1',
+      participants: [{ id: 'user-1' }],
+      is_modelo: false,
+    } as unknown as Dds);
+    (signaturesService.findManyByDocuments as jest.Mock).mockResolvedValue([
+      {
+        document_id: 'dds-old',
+        type: 'team_photo_1',
+        signature_data: JSON.stringify({
+          imageData: 'data:image/jpeg;base64,old-photo',
+          capturedAt: '2026-03-10T08:00:00.000Z',
+          hash: 'hash-duplicado',
+          metadata: { userAgent: 'jest' },
+        }),
+      },
+    ]);
+
+    await expect(
+      service.replaceSignatures(
+        'dds-1',
+        {
+          participant_signatures: [
+            {
+              user_id: 'user-1',
+              signature_data: '1234',
+              type: 'hmac',
+              pin: '1234',
+            },
+          ],
+          team_photos: [
+            {
+              imageData: 'data:image/jpeg;base64,new-photo',
+              capturedAt: '2026-03-14T08:00:00.000Z',
+              hash: 'hash-duplicado',
+              metadata: { userAgent: 'jest' },
+            },
+          ],
+          photo_reuse_justification:
+            'Equipe reaproveitou a mesma imagem por indisponibilidade temporaria de camera em campo.',
+        },
+        'operador-1',
+      ),
+    ).resolves.toEqual({
+      participantSignatures: 1,
+      teamPhotos: 1,
+      duplicatePhotoWarnings: ['hash-duplicado'],
+    });
+
+    const replaceCalls = (
+      signaturesService.replaceDocumentSignatures as jest.Mock
+    ).mock.calls as Array<
+      [
+        {
+          document_id: string;
+          document_type: string;
+          authenticated_user_id: string;
+          signatures: Array<{
+            user_id: string;
+            signer_user_id?: string;
+            type: string;
+            pin?: string;
+          }>;
+        },
+      ]
+    >;
+    const replaceCall = replaceCalls[0]?.[0] as {
+      document_id: string;
+      document_type: string;
+      authenticated_user_id: string;
+      signatures: Array<{
+        user_id: string;
+        signer_user_id?: string;
+        type: string;
+        pin?: string;
+      }>;
+    };
+
+    expect(replaceCall).toBeDefined();
+    expect(replaceCall.document_id).toBe('dds-1');
+    expect(replaceCall.document_type).toBe('DDS');
+    expect(replaceCall.authenticated_user_id).toBe('operador-1');
+    expect(replaceCall.signatures).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          user_id: 'user-1',
+          signer_user_id: 'user-1',
+          type: 'hmac',
+          pin: '1234',
+        }),
+        expect.objectContaining({
+          user_id: 'facilitador-1',
+          signer_user_id: 'facilitador-1',
+          type: 'team_photo_1',
+        }),
+        expect.objectContaining({
+          user_id: 'facilitador-1',
+          type: 'team_photo_reuse_justification',
+        }),
+      ]),
     );
   });
 });

@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Patch,
+  Put,
   Param,
   ParseUUIDPipe,
   Delete,
@@ -27,6 +28,7 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
+import { ReplaceDdsSignaturesDto } from './dto/replace-dds-signatures.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
@@ -65,6 +67,18 @@ export class DdsController {
     private readonly pdfRateLimitService: PdfRateLimitService,
   ) {}
 
+  private getAuthenticatedUserIdOrThrow(
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): string {
+    const userId = this.getRequestUserId(req);
+    if (!userId) {
+      throw new UnauthorizedException('Usuário não autorizado');
+    }
+    return userId;
+  }
+
   @Post()
   @Roles(
     Role.ADMIN_GERAL,
@@ -98,6 +112,23 @@ export class DdsController {
     @Body() body: Record<string, string>,
     @UploadedFile() file?: Express.Multer.File,
   ) {
+    if (file) {
+      throw new BadRequestException(
+        'Anexe o PDF final somente apos salvar o DDS e registrar as assinaturas dos participantes.',
+      );
+    }
+
+    let participants: string[] | undefined;
+    if (body.participants) {
+      try {
+        participants = JSON.parse(body.participants) as string[];
+      } catch {
+        throw new BadRequestException(
+          'O campo participants deve ser um JSON valido.',
+        );
+      }
+    }
+
     const dto: CreateDdsDto = {
       tema: body.tema,
       conteudo: body.conteudo,
@@ -106,20 +137,10 @@ export class DdsController {
       facilitador_id: body.facilitador_id,
       company_id: body.company_id,
       is_modelo: body.is_modelo === 'true',
-      participants: body.participants
-        ? (JSON.parse(body.participants) as string[])
-        : undefined,
+      participants,
     };
 
-    const dds = await this.ddsService.create(dto);
-
-    if (file) {
-      const pdfFile = assertUploadedPdf(file);
-      await this.ddsService.attachPdf(dds.id, pdfFile);
-      return this.ddsService.findOne(dds.id);
-    }
-
-    return dds;
+    return this.ddsService.create(dto);
   }
 
   @Get()
@@ -182,7 +203,14 @@ export class DdsController {
 
   @Get(':id')
   @Authorize('can_view_dds')
-  async findOne(
+  async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.ddsService.findOne(id);
+  }
+
+  /** Retorna URL assinada (S3) ou null do PDF armazenado */
+  @Get(':id/pdf')
+  @Authorize('can_view_dds')
+  async getPdfAccess(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req()
     req: Request & {
@@ -190,24 +218,38 @@ export class DdsController {
     },
   ) {
     try {
-      const userId = this.getRequestUserId(req);
-      if (userId) {
-        await this.pdfRateLimitService.checkDownloadLimit(
-          userId,
-          this.getRequestIp(req),
-        );
-      }
+      await this.pdfRateLimitService.checkDownloadLimit(
+        this.getAuthenticatedUserIdOrThrow(req),
+        this.getRequestIp(req),
+      );
     } catch (error) {
       throw new UnauthorizedException(this.getRequestErrorMessage(error));
     }
-    return this.ddsService.findOne(id);
+    return this.ddsService.getPdfAccess(id);
   }
 
-  /** Retorna URL assinada (S3) ou null do PDF armazenado */
-  @Get(':id/pdf')
-  @Authorize('can_view_dds')
-  async getPdfAccess(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.ddsService.getPdfAccess(id);
+  @Put(':id/signatures')
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+  )
+  @Authorize('can_manage_dds')
+  replaceSignatures(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: ReplaceDdsSignaturesDto,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    return this.ddsService.replaceSignatures(
+      id,
+      dto,
+      this.getAuthenticatedUserIdOrThrow(req),
+    );
   }
 
   /** Anexa PDF a um DDS existente */

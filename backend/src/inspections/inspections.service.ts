@@ -28,6 +28,13 @@ import {
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
 import { S3Service } from '../common/storage/s3.service';
+import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
+import { DocumentStorageService } from '../common/services/document-storage.service';
+import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { DocumentRegistryService } from '../document-registry/document-registry.service';
+import { RequestContext } from '../common/middleware/request-context.middleware';
+import { getIsoWeekNumber } from '../common/utils/document-calendar.util';
 
 @Injectable()
 export class InspectionsService {
@@ -45,6 +52,9 @@ export class InspectionsService {
     private tenantService: TenantService,
     tenantRepositoryFactory: TenantRepositoryFactory,
     private readonly s3Service: S3Service,
+    private readonly documentStorageService: DocumentStorageService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly documentRegistryService: DocumentRegistryService,
   ) {
     this.tenantRepo = tenantRepositoryFactory.wrap(this.inspectionsRepository);
   }
@@ -400,26 +410,30 @@ export class InspectionsService {
 
   async validateByCode(code: string) {
     const normalized = code.trim().toUpperCase();
-    const suffix = normalized.split('-').pop();
-    if (!suffix) {
-      throw new BadRequestException('Código inválido.');
+    if (!normalized.startsWith('INS-')) {
+      return { valid: false, message: 'Código inválido para inspeção.' };
     }
 
-    const query = this.inspectionsRepository
-      .createQueryBuilder('inspection')
-      .where("REPLACE(inspection.id, '-', '') ILIKE :suffix", {
-        suffix: `%${suffix}%`,
-      })
-      .orderBy('inspection.created_at', 'DESC')
-      .limit(5);
+    const registryEntry =
+      await this.documentRegistryService.findByCode(normalized);
 
-    const matches = await query.getMany();
-    const match = matches.find(
-      (item) => this.buildValidationCode(item) === normalized,
-    );
+    if (!registryEntry || registryEntry.module !== 'inspection') {
+      return {
+        valid: false,
+        message:
+          'Relatório de inspeção não encontrado ou ainda não foi emitido como documento final.',
+      };
+    }
+
+    const match = await this.inspectionsRepository.findOne({
+      where: { id: registryEntry.entity_id },
+    });
 
     if (!match) {
-      return { valid: false, message: 'Documento não encontrado.' };
+      return {
+        valid: false,
+        message: 'Registro de inspeção não localizado para o código informado.',
+      };
     }
 
     return {
@@ -514,6 +528,7 @@ export class InspectionsService {
     companyId: string,
   ): Promise<InspectionResponseDto> {
     const inspection = await this.findOneEntity(id, companyId);
+    await this.assertInspectionDocumentMutable(inspection);
     const payload = this.buildUpdatePayload(updateInspectionDto);
     await this.validateLinkedRecords(payload, companyId);
     Object.assign(inspection, payload);
@@ -523,7 +538,16 @@ export class InspectionsService {
 
   async remove(id: string, companyId: string): Promise<void> {
     const inspection = await this.findOneEntity(id, companyId);
-    await this.inspectionsRepository.remove(inspection);
+    await this.documentGovernanceService.removeFinalDocumentReference({
+      companyId: inspection.company_id,
+      module: 'inspection',
+      entityId: inspection.id,
+      removeEntityState: async (manager) => {
+        await manager.getRepository(Inspection).delete({ id: inspection.id });
+      },
+      cleanupStoredFile: (fileKey) =>
+        this.documentStorageService.deleteFile(fileKey),
+    });
   }
 
   async attachEvidence(
@@ -534,6 +558,7 @@ export class InspectionsService {
   ) {
     if (!file) throw new BadRequestException('Arquivo não enviado.');
     const inspection = await this.findOneEntity(id, companyId);
+    await this.assertInspectionDocumentMutable(inspection);
 
     let entry;
     try {
@@ -571,5 +596,163 @@ export class InspectionsService {
     await this.inspectionsRepository.update(id, { evidencias });
 
     return { evidencias };
+  }
+
+  async savePdf(
+    id: string,
+    file: Express.Multer.File,
+    companyId: string,
+  ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
+    const inspection = await this.findOneEntity(id, companyId);
+    await this.assertInspectionDocumentMutable(inspection);
+
+    const documentDate = this.getInspectionDocumentDate(inspection);
+    const year = documentDate.getFullYear();
+    const weekNumber = String(getIsoWeekNumber(documentDate) || 1).padStart(
+      2,
+      '0',
+    );
+    const folderPath = `inspections/${inspection.company_id}/${year}/week-${weekNumber}`;
+    const originalName =
+      file.originalname?.trim() || `inspection-${inspection.id}.pdf`;
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      inspection.company_id,
+      `inspections/${year}/week-${weekNumber}`,
+      inspection.id,
+      originalName,
+    );
+
+    await this.documentStorageService.uploadFile(
+      fileKey,
+      file.buffer,
+      file.mimetype,
+    );
+
+    try {
+      await this.documentGovernanceService.registerFinalDocument({
+        companyId: inspection.company_id,
+        module: 'inspection',
+        entityId: inspection.id,
+        title: this.buildInspectionTitle(inspection),
+        documentDate,
+        documentCode: this.buildValidationCode(inspection),
+        fileKey,
+        folderPath,
+        originalName,
+        mimeType: file.mimetype,
+        fileBuffer: file.buffer,
+        createdBy: RequestContext.getUserId() || undefined,
+      });
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `inspection:${inspection.id}`,
+        fileKey,
+        (key) => this.documentStorageService.deleteFile(key),
+      );
+      throw error;
+    }
+
+    return {
+      fileKey,
+      folderPath,
+      originalName,
+    };
+  }
+
+  async getPdfAccess(
+    id: string,
+    companyId: string,
+  ): Promise<{
+    entityId: string;
+    fileKey: string;
+    folderPath: string;
+    originalName: string;
+    url: string | null;
+  }> {
+    const inspection = await this.findOneEntity(id, companyId);
+    const registryEntry = await this.documentRegistryService.findByDocument(
+      'inspection',
+      inspection.id,
+      'pdf',
+      inspection.company_id,
+    );
+
+    if (!registryEntry) {
+      throw new NotFoundException(
+        `Relatório de inspeção ${id} não possui PDF final armazenado`,
+      );
+    }
+
+    let url: string | null = null;
+    try {
+      url = await this.documentStorageService.getSignedUrl(
+        registryEntry.file_key,
+        3600,
+      );
+    } catch {
+      url = null;
+    }
+
+    return {
+      entityId: inspection.id,
+      fileKey: registryEntry.file_key,
+      folderPath: registryEntry.folder_path || '',
+      originalName:
+        registryEntry.original_name ||
+        registryEntry.file_key.split('/').pop() ||
+        'inspection.pdf',
+      url,
+    };
+  }
+
+  async listStoredFiles(filters: WeeklyBundleFilters) {
+    return this.documentGovernanceService.listFinalDocuments(
+      'inspection',
+      filters,
+    );
+  }
+
+  async getWeeklyBundle(filters: WeeklyBundleFilters) {
+    return this.documentGovernanceService.getModuleWeeklyBundle(
+      'inspection',
+      'Inspeção',
+      filters,
+    );
+  }
+
+  private buildInspectionTitle(
+    inspection: Pick<Inspection, 'tipo_inspecao' | 'setor_area'>,
+  ) {
+    return `${inspection.tipo_inspecao} - ${inspection.setor_area}`;
+  }
+
+  private getInspectionDocumentDate(
+    inspection: Pick<Inspection, 'data_inspecao' | 'created_at'>,
+  ): Date {
+    const candidate = inspection.data_inspecao
+      ? new Date(inspection.data_inspecao)
+      : inspection.created_at
+        ? new Date(inspection.created_at)
+        : new Date();
+
+    return Number.isNaN(candidate.getTime()) ? new Date() : candidate;
+  }
+
+  private async assertInspectionDocumentMutable(
+    inspection: Pick<Inspection, 'id' | 'company_id'>,
+  ): Promise<void> {
+    const registryEntry = await this.documentRegistryService.findByDocument(
+      'inspection',
+      inspection.id,
+      'pdf',
+      inspection.company_id,
+    );
+
+    if (registryEntry) {
+      throw new BadRequestException(
+        'Relatório de inspeção com PDF final emitido. Edição bloqueada. Gere um novo relatório para alterar o documento.',
+      );
+    }
   }
 }

@@ -10,6 +10,7 @@ import { Dds, DdsStatus, DDS_ALLOWED_TRANSITIONS } from './entities/dds.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
+import { ReplaceDdsSignaturesDto } from './dto/replace-dds-signatures.dto';
 import { User } from '../users/entities/user.entity';
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import {
@@ -23,6 +24,30 @@ import {
   isS3DisabledUploadError,
 } from '../common/storage/storage-compensation.util';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { SignaturesService } from '../signatures/signatures.service';
+import { Signature } from '../signatures/entities/signature.entity';
+
+const TEAM_PHOTO_SIGNATURE_PREFIX = 'team_photo';
+const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = 'team_photo_reuse_justification';
+
+type HistoricalPhotoHashes = {
+  ddsId: string;
+  tema: string;
+  data: string;
+  hashes: string[];
+};
+
+type TeamPhotoEvidence = {
+  imageData: string;
+  capturedAt: string;
+  hash: string;
+  metadata: {
+    userAgent: string;
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+  };
+};
 
 @Injectable()
 export class DdsService {
@@ -34,6 +59,7 @@ export class DdsService {
     private tenantService: TenantService,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly signaturesService: SignaturesService,
   ) {}
 
   async create(createDdsDto: CreateDdsDto): Promise<Dds> {
@@ -92,21 +118,19 @@ export class DdsService {
       .createQueryBuilder('dds')
       .orderBy('dds.created_at', 'DESC');
 
+    idsQuery.where('dds.deleted_at IS NULL');
+    countQuery.where('dds.deleted_at IS NULL');
+
     if (tenantId) {
-      idsQuery.where('dds.company_id = :tenantId', { tenantId });
-      countQuery.where('dds.company_id = :tenantId', { tenantId });
+      idsQuery.andWhere('dds.company_id = :tenantId', { tenantId });
+      countQuery.andWhere('dds.company_id = :tenantId', { tenantId });
     }
 
     if (opts?.search?.trim()) {
       const search = `%${opts.search.trim().toLowerCase()}%`;
       const condition = 'LOWER(dds.tema) LIKE :search';
-      if (tenantId) {
-        idsQuery.andWhere(condition, { search });
-        countQuery.andWhere(condition, { search });
-      } else {
-        idsQuery.where(condition, { search });
-        countQuery.where(condition, { search });
-      }
+      idsQuery.andWhere(condition, { search });
+      countQuery.andWhere(condition, { search });
     }
 
     if (opts?.kind === 'model') {
@@ -128,7 +152,7 @@ export class DdsService {
     }
 
     const data = await this.ddsRepository.find({
-      where: ids.map((id) => ({ id })),
+      where: ids.map((id) => ({ id, deleted_at: IsNull() })),
       relations: ['site', 'facilitador', 'participants', 'company'],
     });
 
@@ -175,11 +199,8 @@ export class DdsService {
     file: Express.Multer.File,
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
     const dds = await this.findOne(id);
-    if (dds.pdf_file_key) {
-      throw new BadRequestException(
-        'Este DDS já possui PDF final anexado. Gere um novo DDS para substituir o documento.',
-      );
-    }
+    this.assertFinalDocumentMutable(dds);
+    await this.assertReadyForFinalDocument(dds);
     const companyId = dds.company_id;
     const key = this.documentStorageService.generateDocumentKey(
       companyId,
@@ -212,6 +233,7 @@ export class DdsService {
         entityId: dds.id,
         title: dds.tema || 'DDS',
         documentDate: dds.data || dds.created_at,
+        documentCode: this.buildDdsDocumentCode(dds),
         fileKey: key,
         folderPath: folder,
         originalName: file.originalname,
@@ -279,32 +301,180 @@ export class DdsService {
 
   async getHistoricalPhotoHashes(
     limit = 100,
-  ): Promise<{ ddsId: string; hashes: string[] }[]> {
+    excludeDocumentId?: string,
+  ): Promise<HistoricalPhotoHashes[]> {
     const tenantId = this.tenantService.getTenantId();
 
-    // Busca os IDs mais recentes sem fazer N+1
     const recent = await this.ddsRepository
       .createQueryBuilder('dds')
-      .select('dds.id', 'id')
+      .select(['dds.id AS id', 'dds.tema AS tema', 'dds.data AS data'])
       .where(tenantId ? 'dds.company_id = :tenantId' : '1=1', { tenantId })
       .andWhere('dds.deleted_at IS NULL')
+      .andWhere(excludeDocumentId ? 'dds.id != :excludeDocumentId' : '1=1', {
+        excludeDocumentId,
+      })
       .orderBy('dds.created_at', 'DESC')
       .limit(limit)
-      .getRawMany<{ id: string }>();
+      .getRawMany<{ id: string; tema: string; data: string }>();
 
-    // Retorna estrutura vazia — hashes estão na tabela de signatures
-    // O frontend usa este endpoint para obter apenas os IDs relevantes
-    // e faz lookup local. Isso elimina o findAll() + 40 requests anteriores.
-    return recent.map((r) => ({ ddsId: r.id, hashes: [] }));
+    const documentIds = recent.map((item) => item.id);
+    const signatures = await this.signaturesService.findManyByDocuments(
+      documentIds,
+      'DDS',
+      {
+        companyId: tenantId || undefined,
+        typePrefix: TEAM_PHOTO_SIGNATURE_PREFIX,
+      },
+    );
+    const hashesByDocument = signatures.reduce<Record<string, string[]>>(
+      (accumulator, signature) => {
+        const hash = this.parseTeamPhotoHash(signature);
+        if (!hash) {
+          return accumulator;
+        }
+        const current = accumulator[signature.document_id] || [];
+        current.push(hash);
+        accumulator[signature.document_id] = current;
+        return accumulator;
+      },
+      {},
+    );
+
+    return recent.map((item) => ({
+      ddsId: item.id,
+      tema: item.tema,
+      data: item.data,
+      hashes: hashesByDocument[item.id] || [],
+    }));
+  }
+
+  async replaceSignatures(
+    id: string,
+    dto: ReplaceDdsSignaturesDto,
+    authenticatedUserId: string,
+  ): Promise<{
+    participantSignatures: number;
+    teamPhotos: number;
+    duplicatePhotoWarnings: string[];
+  }> {
+    const dds = await this.findOne(id);
+    this.assertFinalDocumentMutable(dds);
+
+    if (dds.is_modelo) {
+      throw new BadRequestException(
+        'Modelos de DDS não podem receber assinaturas de execução.',
+      );
+    }
+
+    const participantIds = this.getParticipantIds(dds);
+    if (participantIds.length === 0) {
+      throw new BadRequestException(
+        'O DDS precisa ter participantes definidos antes das assinaturas.',
+      );
+    }
+
+    const providedParticipantSignatures = dto.participant_signatures || [];
+    const uniqueParticipantSignatures = new Map(
+      providedParticipantSignatures.map((signature) => [
+        signature.user_id,
+        signature,
+      ]),
+    );
+
+    if (uniqueParticipantSignatures.size !== participantIds.length) {
+      throw new BadRequestException(
+        'Todos os participantes do DDS precisam possuir assinatura registrada.',
+      );
+    }
+
+    const invalidParticipant = Array.from(
+      uniqueParticipantSignatures.keys(),
+    ).find((userId) => !participantIds.includes(userId));
+    if (invalidParticipant) {
+      throw new BadRequestException(
+        'Assinatura recebida para um participante que nao pertence a este DDS.',
+      );
+    }
+
+    const missingParticipants = participantIds.filter(
+      (participantId) => !uniqueParticipantSignatures.has(participantId),
+    );
+    if (missingParticipants.length > 0) {
+      throw new BadRequestException(
+        'Todos os participantes do DDS precisam possuir assinatura registrada.',
+      );
+    }
+
+    const teamPhotos = dto.team_photos || [];
+    const duplicateWarnings = await this.findDuplicateTeamPhotoHashes(
+      dds,
+      teamPhotos,
+    );
+    if (
+      duplicateWarnings.length > 0 &&
+      String(dto.photo_reuse_justification || '').trim().length < 20
+    ) {
+      throw new BadRequestException(
+        'Detectamos reuso potencial de foto. Informe uma justificativa com pelo menos 20 caracteres.',
+      );
+    }
+
+    const signaturesToPersist = [
+      ...Array.from(uniqueParticipantSignatures.values()).map((signature) => ({
+        user_id: signature.user_id,
+        signer_user_id: signature.user_id,
+        signature_data:
+          signature.type === 'hmac' ? 'HMAC_PENDING' : signature.signature_data,
+        type: signature.type,
+        pin: signature.type === 'hmac' ? signature.pin : undefined,
+        company_id: dds.company_id,
+        document_id: id,
+        document_type: 'DDS',
+      })),
+      ...teamPhotos.map((photo, index) => ({
+        user_id: dds.facilitador_id,
+        signer_user_id: dds.facilitador_id,
+        signature_data: JSON.stringify(photo),
+        type: `${TEAM_PHOTO_SIGNATURE_PREFIX}_${index + 1}`,
+        company_id: dds.company_id,
+        document_id: id,
+        document_type: 'DDS',
+      })),
+      ...(duplicateWarnings.length > 0
+        ? [
+            {
+              user_id: dds.facilitador_id,
+              signer_user_id: dds.facilitador_id,
+              signature_data: String(
+                dto.photo_reuse_justification || '',
+              ).trim(),
+              type: TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE,
+              company_id: dds.company_id,
+              document_id: id,
+              document_type: 'DDS',
+            },
+          ]
+        : []),
+    ];
+
+    await this.signaturesService.replaceDocumentSignatures({
+      document_id: id,
+      document_type: 'DDS',
+      company_id: dds.company_id,
+      authenticated_user_id: authenticatedUserId,
+      signatures: signaturesToPersist,
+    });
+
+    return {
+      participantSignatures: participantIds.length,
+      teamPhotos: teamPhotos.length,
+      duplicatePhotoWarnings: duplicateWarnings,
+    };
   }
 
   async update(id: string, updateDdsDto: UpdateDdsDto): Promise<Dds> {
     const dds = await this.findOne(id);
-    if (dds.pdf_file_key) {
-      throw new BadRequestException(
-        'DDS com PDF final anexado. Edição bloqueada. Gere um novo DDS para alterar o documento.',
-      );
-    }
+    this.assertFinalDocumentMutable(dds);
     const { participants, ...rest } = updateDdsDto;
 
     Object.assign(dds, rest);
@@ -346,8 +516,12 @@ export class DdsService {
     const where = options?.where || {};
     return this.ddsRepository.count({
       where: tenantId
-        ? ({ ...where, company_id: tenantId } as Record<string, unknown>)
-        : where,
+        ? ({
+            ...where,
+            company_id: tenantId,
+            deleted_at: IsNull(),
+          } as Record<string, unknown>)
+        : ({ ...where, deleted_at: IsNull() } as Record<string, unknown>),
     });
   }
 
@@ -361,5 +535,146 @@ export class DdsService {
       'DDS',
       filters,
     );
+  }
+
+  private async assertReadyForFinalDocument(dds: Dds): Promise<void> {
+    if (dds.is_modelo) {
+      throw new BadRequestException(
+        'Modelos de DDS nao podem receber PDF final. Gere um DDS operacional a partir do modelo.',
+      );
+    }
+
+    if (dds.status === DdsStatus.RASCUNHO) {
+      throw new BadRequestException(
+        'O DDS precisa estar publicado ou auditado antes do anexo do PDF final.',
+      );
+    }
+
+    const participantIds = this.getParticipantIds(dds);
+    if (participantIds.length === 0) {
+      throw new BadRequestException(
+        'O DDS precisa ter participantes definidos antes do PDF final.',
+      );
+    }
+
+    const signatures = await this.signaturesService.findByDocument(
+      dds.id,
+      'DDS',
+    );
+    const participantSigners = new Set(
+      signatures
+        .filter(
+          (signature) =>
+            !this.isTeamPhotoSignature(signature.type) &&
+            signature.type !== TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE,
+        )
+        .map((signature) => signature.user_id),
+    );
+
+    const missingParticipants = participantIds.filter(
+      (participantId) => !participantSigners.has(participantId),
+    );
+
+    if (missingParticipants.length > 0) {
+      throw new BadRequestException(
+        'Todos os participantes precisam assinar o DDS antes do anexo do PDF final.',
+      );
+    }
+
+    const duplicateWarnings = await this.findDuplicateTeamPhotoHashes(
+      dds,
+      signatures
+        .filter((signature) => this.isTeamPhotoSignature(signature.type))
+        .map((signature) => this.parseTeamPhoto(signature))
+        .filter((photo): photo is TeamPhotoEvidence => Boolean(photo)),
+    );
+
+    const justification = signatures.find(
+      (signature) => signature.type === TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE,
+    );
+
+    if (
+      duplicateWarnings.length > 0 &&
+      String(justification?.signature_data || '').trim().length < 20
+    ) {
+      throw new BadRequestException(
+        'O DDS possui foto potencialmente reutilizada e exige justificativa registrada antes do PDF final.',
+      );
+    }
+  }
+
+  private async findDuplicateTeamPhotoHashes(
+    dds: Dds,
+    teamPhotos: TeamPhotoEvidence[],
+  ): Promise<string[]> {
+    if (teamPhotos.length === 0) {
+      return [];
+    }
+
+    const historicalHashes = await this.getHistoricalPhotoHashes(250, dds.id);
+    const knownHashes = new Set(
+      historicalHashes.flatMap((item) => item.hashes).filter(Boolean),
+    );
+
+    return Array.from(
+      new Set(
+        teamPhotos
+          .map((photo) => photo.hash)
+          .filter((hash) => Boolean(hash) && knownHashes.has(hash)),
+      ),
+    );
+  }
+
+  private getParticipantIds(dds: Dds): string[] {
+    return Array.from(
+      new Set((dds.participants || []).map((participant) => participant.id)),
+    );
+  }
+
+  private isTeamPhotoSignature(type: string): boolean {
+    return /^team_photo_\d+$/i.test(type);
+  }
+
+  private parseTeamPhotoHash(signature: Signature): string | null {
+    return this.parseTeamPhoto(signature)?.hash || null;
+  }
+
+  private parseTeamPhoto(signature: Signature): TeamPhotoEvidence | null {
+    try {
+      const parsed = JSON.parse(signature.signature_data) as TeamPhotoEvidence;
+      if (!parsed?.hash || !parsed?.imageData) {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  private assertFinalDocumentMutable(dds: Dds): void {
+    if (dds.pdf_file_key) {
+      throw new BadRequestException(
+        'DDS com PDF final anexado. Edição bloqueada. Gere um novo DDS para alterar o documento.',
+      );
+    }
+  }
+
+  private buildDdsDocumentCode(
+    dds: Pick<Dds, 'id' | 'tema' | 'data' | 'created_at'>,
+  ): string {
+    const candidateDate = dds.data
+      ? new Date(dds.data)
+      : dds.created_at
+        ? new Date(dds.created_at)
+        : new Date();
+    const year = Number.isNaN(candidateDate.getTime())
+      ? new Date().getFullYear()
+      : candidateDate.getFullYear();
+    const reference = String(dds.id || dds.tema || 'DDS')
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .slice(-8)
+      .toUpperCase();
+
+    return `DDS-${year}-${reference || String(Date.now()).slice(-6)}`;
   }
 }

@@ -14,19 +14,26 @@ import {
   Printer,
   Search,
   ShieldAlert,
+  ShieldCheck,
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { inspectionsService, Inspection } from '@/services/inspectionsService';
 import { generateInspectionPdf } from '@/lib/pdf/inspectionGenerator';
+import {
+  base64ToPdfBlob,
+  base64ToPdfFile,
+  blobToBase64,
+} from '@/lib/pdf/pdfFile';
 import { SendMailModal } from '@/components/SendMailModal';
-import { openPdfForPrint } from '@/lib/print-utils';
+import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 
 const inputClassName =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
@@ -89,8 +96,80 @@ export default function InspectionsPage() {
     }
   };
 
+  const getErrorStatus = (error: unknown) =>
+    Number(
+      (error as { response?: { status?: number } } | undefined)?.response
+        ?.status ?? 0,
+    ) || null;
+
+  const buildInspectionFilename = (inspection: Inspection) =>
+    `INSPECAO_${inspection.tipo_inspecao}_${inspection.setor_area}.pdf`;
+
+  const getGovernedPdfAccess = async (inspectionId: string) => {
+    try {
+      return await inspectionsService.getPdfAccess(inspectionId);
+    } catch (error) {
+      if (getErrorStatus(error) === 404) {
+        return null;
+      }
+      throw error;
+    }
+  };
+
+  const getStoredPdfAttachment = async (
+    inspection: Inspection,
+  ): Promise<{ base64: string; filename: string } | null> => {
+    const access = await getGovernedPdfAccess(inspection.id);
+    if (!access?.url) {
+      return null;
+    }
+
+    const response = await fetch(access.url);
+    if (!response.ok) {
+      throw new Error('Falha ao baixar o PDF final armazenado.');
+    }
+
+    const blob = await response.blob();
+    return {
+      base64: await blobToBase64(blob),
+      filename: access.originalName || buildInspectionFilename(inspection),
+    };
+  };
+
+  const ensureGovernedPdf = async (inspection: Inspection) => {
+    const existingAccess = await getGovernedPdfAccess(inspection.id);
+    if (existingAccess) {
+      return existingAccess;
+    }
+
+    const fullInspection = await inspectionsService.findOne(inspection.id);
+    const result = (await generateInspectionPdf(fullInspection, {
+      save: false,
+      output: 'base64',
+    })) as { filename: string; base64: string } | undefined;
+
+    if (!result?.base64) {
+      throw new Error('Falha ao gerar o PDF oficial da inspeção.');
+    }
+
+    const file = base64ToPdfFile(
+      result.base64,
+      result.filename || buildInspectionFilename(fullInspection),
+    );
+    await inspectionsService.attachFile(inspection.id, file);
+    await fetchInspections();
+    toast.success('PDF final da inspeção emitido e registrado com sucesso.');
+    return inspectionsService.getPdfAccess(inspection.id);
+  };
+
   const handleDownloadPdf = async (inspection: Inspection) => {
     try {
+      const access = await getGovernedPdfAccess(inspection.id);
+      if (access?.url) {
+        openUrlInNewTab(access.url);
+        return;
+      }
+
       toast.info('Gerando PDF...');
       const fullInspection = await inspectionsService.findOne(inspection.id);
       await generateInspectionPdf(fullInspection);
@@ -104,6 +183,14 @@ export default function InspectionsPage() {
   const handlePrint = async (inspection: Inspection) => {
     try {
       toast.info('Preparando impressão...');
+      const access = await getGovernedPdfAccess(inspection.id);
+      if (access?.url) {
+        openPdfForPrint(access.url, () => {
+          toast.info('Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressão.');
+        });
+        return;
+      }
+
       const fullInspection = await inspectionsService.findOne(inspection.id);
       const result = (await generateInspectionPdf(fullInspection, {
         save: false,
@@ -111,16 +198,7 @@ export default function InspectionsPage() {
       })) as { base64: string } | undefined;
 
       if (result?.base64) {
-        const byteCharacters = atob(result.base64);
-        const byteNumbers = new Array(byteCharacters.length);
-
-        for (let index = 0; index < byteCharacters.length; index += 1) {
-          byteNumbers[index] = byteCharacters.charCodeAt(index);
-        }
-
-        const byteArray = new Uint8Array(byteNumbers);
-        const file = new Blob([byteArray], { type: 'application/pdf' });
-        const fileURL = URL.createObjectURL(file);
+        const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
         openPdfForPrint(fileURL, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
         });
@@ -134,6 +212,24 @@ export default function InspectionsPage() {
   const handleSendEmail = async (inspection: Inspection) => {
     try {
       toast.info('Preparando documento...');
+      try {
+        const storedAttachment = await getStoredPdfAttachment(inspection);
+        if (storedAttachment) {
+          setSelectedDoc({
+            name: `${inspection.tipo_inspecao} - ${inspection.setor_area}`,
+            filename: storedAttachment.filename,
+            base64: storedAttachment.base64,
+          });
+          setIsMailModalOpen(true);
+          return;
+        }
+      } catch (error) {
+        console.warn(
+          'Falha ao reutilizar PDF final armazenado, gerando fallback local:',
+          error,
+        );
+      }
+
       const fullInspection = await inspectionsService.findOne(inspection.id);
       const result = (await generateInspectionPdf(fullInspection, {
         save: false,
@@ -151,6 +247,23 @@ export default function InspectionsPage() {
     } catch (error) {
       console.error('Erro ao preparar e-mail:', error);
       toast.error('Erro ao preparar o documento para envio.');
+    }
+  };
+
+  const handleOpenGovernedPdf = async (inspection: Inspection) => {
+    try {
+      toast.info('Preparando PDF final governado...');
+      const access = await ensureGovernedPdf(inspection);
+      if (!access.url) {
+        toast.success(
+          'PDF final emitido, mas a URL segura não está disponível no momento.',
+        );
+        return;
+      }
+      openUrlInNewTab(access.url);
+    } catch (error) {
+      console.error('Erro ao emitir/abrir PDF final da inspeção:', error);
+      toast.error('Não foi possível emitir ou abrir o PDF final da inspeção.');
     }
   };
 
@@ -301,6 +414,15 @@ export default function InspectionsPage() {
                         >
                           <Bot className="h-4 w-4 text-[var(--ds-color-warning)]" />
                         </Link>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleOpenGovernedPdf(inspection)}
+                          title="Emitir / abrir PDF final governado"
+                        >
+                          <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
+                        </Button>
                         <Button type="button" size="icon" variant="ghost" onClick={() => handlePrint(inspection)} title="Imprimir">
                           <Printer className="h-4 w-4" />
                         </Button>
@@ -330,6 +452,14 @@ export default function InspectionsPage() {
               </TableBody>
             </Table>
           )}
+
+          <StoredFilesPanel
+            title="Arquivos de inspeção"
+            description="PDFs finais de inspeção emitidos pelo sistema, organizados por empresa e semana operacional."
+            listStoredFiles={inspectionsService.listStoredFiles}
+            getPdfAccess={inspectionsService.getPdfAccess}
+            downloadWeeklyBundle={inspectionsService.downloadWeeklyBundle}
+          />
         </>
       </ListPageLayout>
 

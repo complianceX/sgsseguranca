@@ -34,7 +34,11 @@ export async function generateInspectionPdf(
   const ctx = createPdfContext(doc, "photographic");
   drawPageBackground(ctx);
 
-  const code = buildDocumentCode("INS", inspection.id || inspection.tipo_inspecao);
+  const code = buildDocumentCode(
+    "INS",
+    inspection.id || inspection.tipo_inspecao,
+    inspection.data_inspecao,
+  );
   await drawPhotographicReportBlueprint(
     ctx,
     autoTable,
@@ -81,4 +85,3 @@ export async function generateInspectionPdf(
   }
   doc.save(filename);
 }
-

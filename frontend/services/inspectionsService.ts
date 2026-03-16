@@ -221,6 +221,63 @@ export const inspectionsService = {
     return response.data;
   },
 
+  attachFile: async (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post<{
+      fileKey: string;
+      folderPath: string;
+      originalName: string;
+    }>(`/inspections/${id}/file`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  getPdfAccess: async (id: string) => {
+    const response = await api.get<{
+      entityId: string;
+      fileKey: string;
+      folderPath: string;
+      originalName: string;
+      url: string | null;
+    }>(`/inspections/${id}/pdf`);
+    return response.data;
+  },
+
+  listStoredFiles: async (filters?: {
+    company_id?: string;
+    year?: number;
+    week?: number;
+  }) => {
+    const response = await api.get<
+      Array<{
+        entityId: string;
+        title: string;
+        date: string;
+        companyId: string;
+        fileKey: string;
+        folderPath: string;
+        originalName: string;
+      }>
+    >('/inspections/files/list', {
+      params: filters,
+    });
+    return response.data;
+  },
+
+  downloadWeeklyBundle: async (filters: {
+    company_id?: string;
+    year: number;
+    week: number;
+  }) => {
+    const response = await api.get('/inspections/files/weekly-bundle', {
+      params: filters,
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+
   remove: async (id: string) => {
     await api.delete(`/inspections/${id}`);
   },

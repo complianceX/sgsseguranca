@@ -1,35 +1,44 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { ddsService } from '@/services/ddsService';
-import { sitesService, Site } from '@/services/sitesService';
-import { usersService, User } from '@/services/usersService';
-import { useForm } from 'react-hook-form';
-import type { FieldErrors } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { ArrowLeft, Save, Sparkles, Loader2, Camera, Trash2 } from 'lucide-react';
-import Link from 'next/link';
-import NextImage from 'next/image';
-import { toast } from 'sonner';
-import { companiesService, Company } from '@/services/companiesService';
-import { aiService } from '@/services/aiService';
-import { isAiEnabled } from '@/lib/featureFlags';
-import { SignatureModal } from '../app/dashboard/checklists/components/SignatureModal';
-import { signaturesService } from '@/services/signaturesService';
-import { AuditSection } from './AuditSection';
-import { getFormErrorMessage } from '@/lib/error-handler';
-import { attachPdfIfProvided } from '@/lib/document-upload';
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ddsService } from "@/services/ddsService";
+import { sitesService, Site } from "@/services/sitesService";
+import { usersService, User } from "@/services/usersService";
+import { useForm } from "react-hook-form";
+import type { FieldErrors } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import {
+  ArrowLeft,
+  Save,
+  Sparkles,
+  Loader2,
+  Camera,
+  Trash2,
+} from "lucide-react";
+import Link from "next/link";
+import NextImage from "next/image";
+import { toast } from "sonner";
+import { companiesService, Company } from "@/services/companiesService";
+import { aiService } from "@/services/aiService";
+import { isAiEnabled } from "@/lib/featureFlags";
+import { SignatureModal } from "../app/dashboard/checklists/components/SignatureModal";
+import { signaturesService } from "@/services/signaturesService";
+import { AuditSection } from "./AuditSection";
+import { getFormErrorMessage } from "@/lib/error-handler";
+import { attachPdfIfProvided } from "@/lib/document-upload";
 
 const ddsSchema = z.object({
-  tema: z.string().min(5, 'O tema deve ter pelo menos 5 caracteres'),
+  tema: z.string().min(5, "O tema deve ter pelo menos 5 caracteres"),
   conteudo: z.string().optional(),
   data: z.string(),
-  company_id: z.string().min(1, 'Selecione uma empresa'),
-  site_id: z.string().min(1, 'Selecione um site'),
-  facilitador_id: z.string().min(1, 'Selecione um facilitador'),
-  participants: z.array(z.string()).min(1, 'Selecione pelo menos um participante'),
+  company_id: z.string().min(1, "Selecione uma empresa"),
+  site_id: z.string().min(1, "Selecione um site"),
+  facilitador_id: z.string().min(1, "Selecione um facilitador"),
+  participants: z
+    .array(z.string())
+    .min(1, "Selecione pelo menos um participante"),
   auditado_por_id: z.string().optional(),
   data_auditoria: z.string().optional(),
   resultado_auditoria: z.string().optional(),
@@ -62,36 +71,50 @@ type HistoricalPhotoReference = {
   data: string;
 };
 
-const TEAM_PHOTO_SIGNATURE_PREFIX = 'team_photo';
-const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = 'team_photo_reuse_justification';
+const TEAM_PHOTO_SIGNATURE_PREFIX = "team_photo";
+const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = "team_photo_reuse_justification";
+const DDS_AUDITOR_ROLES = new Set([
+  "admin",
+  "manager",
+  "administrador geral",
+  "administrador da empresa",
+  "supervisor / encarregado",
+  "tst",
+]);
 
 export function DdsForm({ id }: DdsFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const prefillCompanyId = searchParams.get('company_id') || '';
-  const prefillSiteId = searchParams.get('site_id') || '';
+  const prefillCompanyId = searchParams.get("company_id") || "";
+  const prefillSiteId = searchParams.get("site_id") || "";
   const prefillFacilitatorId =
-    searchParams.get('facilitador_id') ||
-    searchParams.get('user_id') ||
-    '';
-  const prefillTitle = searchParams.get('title') || '';
-  const prefillDescription = searchParams.get('description') || '';
+    searchParams.get("facilitador_id") || searchParams.get("user_id") || "";
+  const prefillTitle = searchParams.get("title") || "";
+  const prefillDescription = searchParams.get("description") || "";
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [suggesting, setSuggesting] = useState(false);
-  
+
   const [companies, setCompanies] = useState<Company[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
   // Signature States
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
-  const [currentSigningUser, setCurrentSigningUser] = useState<User | null>(null);
-  const [signatures, setSignatures] = useState<Record<string, { data: string; type: string }>>({});
+  const [currentSigningUser, setCurrentSigningUser] = useState<User | null>(
+    null,
+  );
+  const [signatures, setSignatures] = useState<
+    Record<string, { data: string; type: string }>
+  >({});
   const [teamPhotos, setTeamPhotos] = useState<TeamPhotoEvidence[]>([]);
-  const [historicalPhotoHashes, setHistoricalPhotoHashes] = useState<Record<string, HistoricalPhotoReference>>({});
-  const [photoReuseWarnings, setPhotoReuseWarnings] = useState<Record<string, HistoricalPhotoReference>>({});
-  const [photoReuseJustification, setPhotoReuseJustification] = useState('');
+  const [historicalPhotoHashes, setHistoricalPhotoHashes] = useState<
+    Record<string, HistoricalPhotoReference>
+  >({});
+  const [photoReuseWarnings, setPhotoReuseWarnings] = useState<
+    Record<string, HistoricalPhotoReference>
+  >({});
+  const [photoReuseJustification, setPhotoReuseJustification] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [ddsPdfFile, setDdsPdfFile] = useState<File | null>(null);
 
@@ -105,47 +128,51 @@ export function DdsForm({ id }: DdsFormProps) {
     formState: { errors, isValid, isSubmitting },
   } = useForm<DdsFormData>({
     resolver: zodResolver(ddsSchema),
-    mode: 'onBlur',
-    reValidateMode: 'onBlur',
+    mode: "onBlur",
+    reValidateMode: "onBlur",
     defaultValues: {
       tema: prefillTitle,
       conteudo: prefillDescription,
-      data: new Date().toISOString().split('T')[0],
+      data: new Date().toISOString().split("T")[0],
       company_id: prefillCompanyId,
       site_id: prefillSiteId,
       facilitador_id: prefillFacilitatorId,
       participants: prefillFacilitatorId ? [prefillFacilitatorId] : [],
-      auditado_por_id: '',
-      data_auditoria: '',
-      resultado_auditoria: '',
-      notas_auditoria: '',
+      auditado_por_id: "",
+      data_auditoria: "",
+      resultado_auditoria: "",
+      notas_auditoria: "",
     },
   });
 
-  const selectedCompanyId = watch('company_id');
-  const filteredSites = sites.filter(site => site.company_id === selectedCompanyId);
-  const filteredUsers = users.filter(user => user.company_id === selectedCompanyId);
-  const selectedParticipantIds = watch('participants') || [];
+  const selectedCompanyId = watch("company_id");
+  const filteredSites = sites.filter(
+    (site) => site.company_id === selectedCompanyId,
+  );
+  const filteredUsers = users.filter(
+    (user) => user.company_id === selectedCompanyId,
+  );
+  const selectedParticipantIds = watch("participants") || [];
 
   const handleAiSuggestion = async () => {
     if (!isAiEnabled()) {
-      toast.error('IA desativada neste ambiente.');
+      toast.error("IA desativada neste ambiente.");
       return;
     }
     try {
       setSuggesting(true);
       const result = await aiService.generateDds();
-      
-      setValue('tema', result.tema);
-      setValue('conteudo', result.conteudo);
 
-      toast.success('GST sugeriu um tema para o DDS!', {
+      setValue("tema", result.tema);
+      setValue("conteudo", result.conteudo);
+
+      toast.success("GST sugeriu um tema para o DDS!", {
         description: result.explanation,
         duration: 5000,
       });
     } catch (error) {
-      console.error('Erro na sugestão do GST:', error);
-      toast.error('Não foi possível obter uma sugestão no momento.');
+      console.error("Erro na sugestão do GST:", error);
+      toast.error("Não foi possível obter uma sugestão no momento.");
     } finally {
       setSuggesting(false);
     }
@@ -166,21 +193,26 @@ export function DdsForm({ id }: DdsFormProps) {
         if (id) {
           const [dds, existingSignatures] = await Promise.all([
             ddsService.findOne(id),
-            signaturesService.findByDocument(id, 'DDS'),
+            signaturesService.findByDocument(id, "DDS"),
           ]);
 
-          const participantSignatures: Record<string, { data: string; type: string }> = {};
+          const participantSignatures: Record<
+            string,
+            { data: string; type: string }
+          > = {};
           const loadedTeamPhotos: TeamPhotoEvidence[] = [];
 
           existingSignatures.forEach((sig) => {
             if (sig.type === TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE) {
-              setPhotoReuseJustification(sig.signature_data || '');
+              setPhotoReuseJustification(sig.signature_data || "");
               return;
             }
 
             if (sig.type.startsWith(TEAM_PHOTO_SIGNATURE_PREFIX)) {
               try {
-                const parsed = JSON.parse(sig.signature_data) as TeamPhotoEvidence;
+                const parsed = JSON.parse(
+                  sig.signature_data,
+                ) as TeamPhotoEvidence;
                 if (parsed?.imageData && parsed?.hash) {
                   loadedTeamPhotos.push(parsed);
                 }
@@ -188,8 +220,8 @@ export function DdsForm({ id }: DdsFormProps) {
                 loadedTeamPhotos.push({
                   imageData: sig.signature_data,
                   capturedAt: sig.created_at || new Date().toISOString(),
-                  hash: 'indisponivel',
-                  metadata: { userAgent: 'legacy' },
+                  hash: "indisponivel",
+                  metadata: { userAgent: "legacy" },
                 });
               }
               return;
@@ -197,7 +229,7 @@ export function DdsForm({ id }: DdsFormProps) {
             if (sig.user_id) {
               participantSignatures[sig.user_id] = {
                 data: sig.signature_data,
-                type: sig.type || 'participant',
+                type: sig.type || "participant",
               };
             }
           });
@@ -207,21 +239,23 @@ export function DdsForm({ id }: DdsFormProps) {
 
           reset({
             tema: dds.tema,
-            conteudo: dds.conteudo || '',
-            data: new Date(dds.data).toISOString().split('T')[0],
+            conteudo: dds.conteudo || "",
+            data: new Date(dds.data).toISOString().split("T")[0],
             company_id: dds.company_id,
             site_id: dds.site_id,
             facilitador_id: dds.facilitador_id,
             participants: dds.participants.map((p) => p.id),
-            auditado_por_id: dds.auditado_por_id || '',
-            data_auditoria: dds.data_auditoria ? new Date(dds.data_auditoria).toISOString().split('T')[0] : '',
-            resultado_auditoria: dds.resultado_auditoria || '',
-            notas_auditoria: dds.notas_auditoria || '',
+            auditado_por_id: dds.auditado_por_id || "",
+            data_auditoria: dds.data_auditoria
+              ? new Date(dds.data_auditoria).toISOString().split("T")[0]
+              : "",
+            resultado_auditoria: dds.resultado_auditoria || "",
+            notas_auditoria: dds.notas_auditoria || "",
           });
         }
       } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-        toast.error('Erro ao carregar dados para o formulário.');
+        console.error("Erro ao carregar dados:", error);
+        toast.error("Erro ao carregar dados para o formulário.");
       } finally {
         setFetching(false);
       }
@@ -230,47 +264,36 @@ export function DdsForm({ id }: DdsFormProps) {
   }, [id, reset]);
 
   useEffect(() => {
-    async function loadHistoricalPhotoHashes(companyId: string) {
+    async function loadHistoricalPhotoHashes() {
       try {
-        const allDds = await ddsService.findAll();
-        const targetDds = allDds
-          .filter((item) => item.company_id === companyId && item.id !== id)
-          .slice(0, 40);
-
-        const signaturesByDds = await Promise.all(
-          targetDds.map(async (item) => {
-            const signs = await signaturesService.findByDocument(item.id, 'DDS');
-            return { item, signs };
-          }),
-        );
-
         const nextHashes: Record<string, HistoricalPhotoReference> = {};
-        signaturesByDds.forEach(({ item, signs }) => {
-          signs
-            .filter((sig) => sig.type.startsWith(TEAM_PHOTO_SIGNATURE_PREFIX))
-            .forEach((sig) => {
-              try {
-                const parsed = JSON.parse(sig.signature_data) as TeamPhotoEvidence;
-                if (parsed?.hash) {
-                  nextHashes[parsed.hash] = {
-                    ddsId: item.id,
-                    tema: item.tema,
-                    data: item.data,
-                  };
-                }
-              } catch {
-                // Ignora formatos legados sem hash
+        const historicalReferences =
+          await ddsService.getHistoricalPhotoHashes(100);
+        historicalReferences
+          .filter((item) => item.ddsId !== id)
+          .forEach((item) => {
+            item.hashes.forEach((hash) => {
+              if (!hash) {
+                return;
               }
+              nextHashes[hash] = {
+                ddsId: item.ddsId,
+                tema: item.tema,
+                data: item.data,
+              };
             });
-        });
+          });
         setHistoricalPhotoHashes(nextHashes);
       } catch (error) {
-        console.error('Erro ao carregar hashes históricos de fotos do DDS:', error);
+        console.error(
+          "Erro ao carregar hashes históricos de fotos do DDS:",
+          error,
+        );
       }
     }
 
     if (selectedCompanyId) {
-      loadHistoricalPhotoHashes(selectedCompanyId);
+      loadHistoricalPhotoHashes();
     } else {
       setHistoricalPhotoHashes({});
       setPhotoReuseWarnings({});
@@ -289,10 +312,11 @@ export function DdsForm({ id }: DdsFormProps) {
   }, [teamPhotos, historicalPhotoHashes]);
 
   const getGeoMetadata = async (): Promise<TeamPhotoMetadata> => {
-    const nav: Navigator | undefined = typeof window !== 'undefined' ? window.navigator : undefined;
+    const nav: Navigator | undefined =
+      typeof window !== "undefined" ? window.navigator : undefined;
 
     if (!nav) {
-      return { userAgent: 'server' };
+      return { userAgent: "server" };
     }
 
     if (!nav.geolocation) {
@@ -300,13 +324,15 @@ export function DdsForm({ id }: DdsFormProps) {
     }
 
     try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        nav.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 6000,
-          maximumAge: 120000,
-        });
-      });
+      const position = await new Promise<GeolocationPosition>(
+        (resolve, reject) => {
+          nav.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 6000,
+            maximumAge: 120000,
+          });
+        },
+      );
 
       return {
         userAgent: nav.userAgent,
@@ -321,17 +347,18 @@ export function DdsForm({ id }: DdsFormProps) {
 
   const sha256 = async (value: string): Promise<string> => {
     const data = new TextEncoder().encode(value);
-    const digest = await crypto.subtle.digest('SHA-256', data);
+    const digest = await crypto.subtle.digest("SHA-256", data);
     return Array.from(new Uint8Array(digest))
-      .map((byte) => byte.toString(16).padStart(2, '0'))
-      .join('');
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("");
   };
 
   const fileToDataUrl = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(new Error('Falha ao ler arquivo de imagem.'));
+      reader.onerror = () =>
+        reject(new Error("Falha ao ler arquivo de imagem."));
       reader.readAsDataURL(file);
     });
 
@@ -340,7 +367,8 @@ export function DdsForm({ id }: DdsFormProps) {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const image = new Image();
       image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error('Não foi possível processar a imagem.'));
+      image.onerror = () =>
+        reject(new Error("Não foi possível processar a imagem."));
       image.src = imageDataUrl;
     });
 
@@ -354,18 +382,20 @@ export function DdsForm({ id }: DdsFormProps) {
       height = Math.round(height * ratio);
     }
 
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) {
-      throw new Error('Não foi possível otimizar a imagem.');
+      throw new Error("Não foi possível otimizar a imagem.");
     }
     ctx.drawImage(img, 0, 0, width, height);
-    return canvas.toDataURL('image/jpeg', 0.8);
+    return canvas.toDataURL("image/jpeg", 0.8);
   };
 
-  const handleTeamPhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTeamPhotoChange = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const files = event.target.files;
     if (!files || files.length === 0) {
       return;
@@ -385,17 +415,23 @@ export function DdsForm({ id }: DdsFormProps) {
           } as TeamPhotoEvidence;
         }),
       );
-      const hasPotentialReuse = processedPhotos.some((photo) => Boolean(historicalPhotoHashes[photo.hash]));
+      const hasPotentialReuse = processedPhotos.some((photo) =>
+        Boolean(historicalPhotoHashes[photo.hash]),
+      );
       if (hasPotentialReuse) {
-        toast.warning('Detectamos foto(s) já usada(s) em DDS anterior desta empresa.');
+        toast.warning(
+          "Detectamos foto(s) já usada(s) em DDS anterior desta empresa.",
+        );
       }
       setTeamPhotos((prev) => [...prev, ...processedPhotos].slice(0, 6));
-      toast.success(`${processedPhotos.length} foto(s) auditável(is) adicionada(s) ao DDS.`);
+      toast.success(
+        `${processedPhotos.length} foto(s) auditável(is) adicionada(s) ao DDS.`,
+      );
     } catch (error) {
-      console.error('Erro ao processar fotos da equipe:', error);
-      toast.error('Não foi possível processar uma ou mais fotos.');
+      console.error("Erro ao processar fotos da equipe:", error);
+      toast.error("Não foi possível processar uma ou mais fotos.");
     } finally {
-      event.target.value = '';
+      event.target.value = "";
     }
   };
 
@@ -403,104 +439,83 @@ export function DdsForm({ id }: DdsFormProps) {
     try {
       setLoading(true);
       setSubmitError(null);
+
+      const missingSignatureUsers = data.participants.filter(
+        (participantId) => !signatures[participantId],
+      );
+      if (missingSignatureUsers.length > 0) {
+        setSubmitError(
+          "Todos os participantes selecionados devem assinar o DDS.",
+        );
+        toast.error("Faltam assinaturas de participantes.");
+        return;
+      }
+
+      if (
+        Object.keys(photoReuseWarnings).length > 0 &&
+        photoReuseJustification.trim().length < 20
+      ) {
+        setSubmitError(
+          "Detectamos possível reuso de foto. Informe uma justificativa com pelo menos 20 caracteres para continuar.",
+        );
+        toast.error("Justificativa obrigatória para reuso de foto detectado.");
+        return;
+      }
+
       let ddsId = id;
       const payload = { ...data };
-      if (payload.conteudo === '') delete payload.conteudo;
-      if (payload.auditado_por_id === '') delete payload.auditado_por_id;
-      if (payload.data_auditoria === '') delete payload.data_auditoria;
-      if (payload.resultado_auditoria === '') delete payload.resultado_auditoria;
-      if (payload.notas_auditoria === '') delete payload.notas_auditoria;
-      
+      if (payload.conteudo === "") delete payload.conteudo;
+      if (payload.auditado_por_id === "") delete payload.auditado_por_id;
+      if (payload.data_auditoria === "") delete payload.data_auditoria;
+      if (payload.resultado_auditoria === "")
+        delete payload.resultado_auditoria;
+      if (payload.notas_auditoria === "") delete payload.notas_auditoria;
+
       if (id) {
         await ddsService.update(id, payload);
-        await attachPdfIfProvided(id, ddsPdfFile, ddsService.attachFile);
-        toast.success('DDS atualizado com sucesso!');
       } else {
-        if (ddsPdfFile) {
-          const response = await ddsService.createWithFile(payload, ddsPdfFile);
-          ddsId = response?.dds?.id || response?.id;
-        } else {
-          const newDds = await ddsService.create(payload);
-          ddsId = newDds.id;
-        }
-        toast.success('DDS cadastrado com sucesso!');
+        const newDds = await ddsService.create(payload);
+        ddsId = newDds.id;
       }
 
-      const missingSignatureUsers = data.participants.filter((participantId) => !signatures[participantId]);
-      if (missingSignatureUsers.length > 0) {
-        setSubmitError('Todos os participantes selecionados devem assinar o DDS.');
-        toast.error('Faltam assinaturas de participantes.');
-        return;
-      }
-
-      if (Object.keys(photoReuseWarnings).length > 0 && photoReuseJustification.trim().length < 20) {
-        setSubmitError(
-          'Detectamos possível reuso de foto. Informe uma justificativa com pelo menos 20 caracteres para continuar.',
-        );
-        toast.error('Justificativa obrigatória para reuso de foto detectado.');
-        return;
-      }
-
-      // Save signatures and team photos if we have a ddsId
       if (ddsId) {
-        await signaturesService.deleteByDocument(ddsId as string, 'DDS');
-
-        const participantSignaturePromises = data.participants.map((participantId) => {
-          const sig = signatures[participantId];
-          return signaturesService.create({
-            user_id: participantId,
-            document_id: ddsId as string,
-            document_type: 'DDS',
-            signature_data: sig.data,
-            type: sig.type || 'participant',
-          });
+        await ddsService.replaceSignatures(ddsId, {
+          participant_signatures: data.participants.map((participantId) => {
+            const signature = signatures[participantId];
+            return {
+              user_id: participantId,
+              type: signature.type || "digital",
+              signature_data:
+                signature.type === "hmac" ? "HMAC_PENDING" : signature.data,
+              pin: signature.type === "hmac" ? signature.data : undefined,
+            };
+          }),
+          team_photos: teamPhotos,
+          photo_reuse_justification:
+            Object.keys(photoReuseWarnings).length > 0
+              ? photoReuseJustification.trim()
+              : undefined,
         });
-
-        const teamPhotoPromises = teamPhotos.map((photo, index) =>
-          signaturesService.create({
-            user_id: data.facilitador_id,
-            document_id: ddsId as string,
-            document_type: 'DDS',
-            signature_data: JSON.stringify(photo),
-            type: `${TEAM_PHOTO_SIGNATURE_PREFIX}_${index + 1}`,
-          })
-        );
-
-        const justificationPromise =
-          Object.keys(photoReuseWarnings).length > 0
-            ? [
-                signaturesService.create({
-                  user_id: data.facilitador_id,
-                  document_id: ddsId as string,
-                  document_type: 'DDS',
-                  signature_data: photoReuseJustification.trim(),
-                  type: TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE,
-                }),
-              ]
-            : [];
-
-        const allPromises = [...participantSignaturePromises, ...teamPhotoPromises, ...justificationPromise];
-        if (allPromises.length > 0) {
-          await Promise.all(allPromises);
-          toast.success(
-            `DDS salvo com ${participantSignaturePromises.length} assinatura(s) e ${teamPhotoPromises.length} foto(s) da equipe.`,
-          );
-        }
+        await attachPdfIfProvided(ddsId, ddsPdfFile, ddsService.attachFile);
       }
 
-      router.push('/dashboard/dds');
+      toast.success(
+        id ? "DDS atualizado com sucesso!" : "DDS cadastrado com sucesso!",
+      );
+
+      router.push("/dashboard/dds");
       router.refresh();
     } catch (error) {
-      console.error('Erro ao salvar DDS:', error);
+      console.error("Erro ao salvar DDS:", error);
       const errorMessage = getFormErrorMessage(error, {
-        badRequest: 'Dados inválidos. Revise os campos obrigatórios.',
-        unauthorized: 'Sessão expirada. Faça login novamente.',
-        forbidden: 'Você não tem permissão para salvar DDS.',
-        server: 'Erro interno do servidor ao salvar DDS.',
-        fallback: 'Erro ao salvar DDS. Tente novamente.',
+        badRequest: "Dados inválidos. Revise os campos obrigatórios.",
+        unauthorized: "Sessão expirada. Faça login novamente.",
+        forbidden: "Você não tem permissão para salvar DDS.",
+        server: "Erro interno do servidor ao salvar DDS.",
+        fallback: "Erro ao salvar DDS. Tente novamente.",
       });
       setSubmitError(errorMessage);
-      toast.error('Erro ao salvar DDS. Verifique os dados e tente novamente.');
+      toast.error("Erro ao salvar DDS. Verifique os dados e tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -508,31 +523,31 @@ export function DdsForm({ id }: DdsFormProps) {
 
   const onInvalid = (formErrors: FieldErrors<DdsFormData>) => {
     if (formErrors.tema) {
-      setFocus('tema');
+      setFocus("tema");
     } else if (formErrors.company_id) {
-      setFocus('company_id');
+      setFocus("company_id");
     } else if (formErrors.site_id) {
-      setFocus('site_id');
+      setFocus("site_id");
     } else if (formErrors.facilitador_id) {
-      setFocus('facilitador_id');
+      setFocus("facilitador_id");
     }
-    toast.error('Revise os campos obrigatórios antes de salvar.');
+    toast.error("Revise os campos obrigatórios antes de salvar.");
   };
 
   const toggleParticipant = (userId: string) => {
     const isSelected = selectedParticipantIds.includes(userId);
-    
+
     if (isSelected) {
       // If already selected, just remove
-      const updated = selectedParticipantIds.filter(id => id !== userId);
-      setValue('participants', updated, { shouldValidate: true });
+      const updated = selectedParticipantIds.filter((id) => id !== userId);
+      setValue("participants", updated, { shouldValidate: true });
       // Also remove temporary signature if exists
       const newSignatures = { ...signatures };
       delete newSignatures[userId];
       setSignatures(newSignatures);
     } else {
       // If not selected, open signature modal first
-      const user = users.find(u => u.id === userId);
+      const user = users.find((u) => u.id === userId);
       if (user) {
         setCurrentSigningUser(user);
         setIsSignatureModalOpen(true);
@@ -542,13 +557,13 @@ export function DdsForm({ id }: DdsFormProps) {
 
   const handleSaveSignature = (signatureData: string, type: string) => {
     if (currentSigningUser) {
-      setSignatures(prev => ({
+      setSignatures((prev) => ({
         ...prev,
-        [currentSigningUser.id]: { data: signatureData, type }
+        [currentSigningUser.id]: { data: signatureData, type },
       }));
-      
+
       const updated = [...selectedParticipantIds, currentSigningUser.id];
-      setValue('participants', updated, { shouldValidate: true });
+      setValue("participants", updated, { shouldValidate: true });
       toast.success(`Assinatura de ${currentSigningUser.nome} capturada!`);
     }
   };
@@ -572,7 +587,7 @@ export function DdsForm({ id }: DdsFormProps) {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">
-            {id ? 'Editar DDS' : 'Novo DDS'}
+            {id ? "Editar DDS" : "Novo DDS"}
           </h1>
         </div>
       </div>
@@ -583,46 +598,64 @@ export function DdsForm({ id }: DdsFormProps) {
             {submitError}
           </div>
         )}
-          <div className="sst-card p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900">Informações Básicas</h2>
-              {isAiEnabled() && (
-                <button
-                  type="button"
-                  onClick={handleAiSuggestion}
-                  disabled={suggesting}
-                  className="flex items-center space-x-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-slate-800 disabled:opacity-50"
-                >
-                  {suggesting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-4 w-4" />
-                  )}
-                  <span>Sugerir Tema com GST</span>
-                </button>
-              )}
-            </div>
+        <div className="sst-card p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-900">
+              Informações Básicas
+            </h2>
+            {isAiEnabled() && (
+              <button
+                type="button"
+                onClick={handleAiSuggestion}
+                disabled={suggesting}
+                className="flex items-center space-x-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-slate-800 disabled:opacity-50"
+              >
+                {suggesting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                <span>Sugerir Tema com GST</span>
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="md:col-span-2">
-              <label htmlFor="dds-tema" className="block text-sm font-medium text-gray-700">Tema do DDS</label>
+              <label
+                htmlFor="dds-tema"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Tema do DDS
+              </label>
               <input
                 id="dds-tema"
                 type="text"
-                {...register('tema')}
+                {...register("tema")}
                 className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                  errors.tema ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+                  errors.tema
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-gray-300 focus:border-blue-500"
                 }`}
-                aria-invalid={errors.tema ? 'true' : undefined}
+                aria-invalid={errors.tema ? "true" : undefined}
                 placeholder="Ex: Importância do uso de EPIs"
               />
-              {errors.tema && <p className="mt-1 text-xs text-red-500">{errors.tema.message}</p>}
+              {errors.tema && (
+                <p className="mt-1 text-xs text-red-500">
+                  {errors.tema.message}
+                </p>
+              )}
             </div>
 
             <div className="md:col-span-2">
-              <label htmlFor="dds-conteudo" className="block text-sm font-medium text-gray-700">Conteúdo / Resumo</label>
+              <label
+                htmlFor="dds-conteudo"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Conteúdo / Resumo
+              </label>
               <textarea
                 id="dds-conteudo"
-                {...register('conteudo')}
+                {...register("conteudo")}
                 rows={5}
                 aria-label="Conteúdo do DDS"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
@@ -631,18 +664,26 @@ export function DdsForm({ id }: DdsFormProps) {
             </div>
 
             <div>
-              <label htmlFor="dds-data" className="block text-sm font-medium text-gray-700">Data</label>
+              <label
+                htmlFor="dds-data"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Data
+              </label>
               <input
                 id="dds-data"
                 type="date"
-                {...register('data')}
+                {...register("data")}
                 aria-label="Data do DDS"
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
 
             <div>
-              <label htmlFor="dds-pdf-file" className="block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="dds-pdf-file"
+                className="block text-sm font-medium text-gray-700"
+              >
                 PDF do DDS (opcional)
               </label>
               <input
@@ -657,74 +698,124 @@ export function DdsForm({ id }: DdsFormProps) {
                 className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-blue-100"
               />
               <p className="mt-1 text-xs text-gray-500">
-                Se anexado no cadastro, o backend salva automaticamente em pasta por empresa/ano/semana.
+                Se anexado no cadastro, o backend salva automaticamente em pasta
+                por empresa/ano/semana.
               </p>
             </div>
 
             <div>
-              <label htmlFor="dds-company-id" className="block text-sm font-medium text-gray-700">Empresa</label>
+              <label
+                htmlFor="dds-company-id"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Empresa
+              </label>
               <select
                 id="dds-company-id"
-                {...register('company_id')}
+                {...register("company_id")}
                 onChange={(e) => {
-                  setValue('company_id', e.target.value);
-                  setValue('site_id', '');
-                  setValue('facilitador_id', '');
-                  setValue('participants', []);
+                  setValue("company_id", e.target.value);
+                  setValue("site_id", "");
+                  setValue("facilitador_id", "");
+                  setValue("participants", []);
                 }}
                 className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                  errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+                  errors.company_id
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-gray-300 focus:border-blue-500"
                 }`}
-                aria-invalid={errors.company_id ? 'true' : undefined}
+                aria-invalid={errors.company_id ? "true" : undefined}
               >
                 <option value="">Selecione uma empresa</option>
-                {companies.map(company => (
-                  <option key={company.id} value={company.id}>{company.razao_social}</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.razao_social}
+                  </option>
                 ))}
               </select>
-              {errors.company_id && <p className="mt-1 text-xs text-red-500">{errors.company_id.message}</p>}
+              {errors.company_id && (
+                <p className="mt-1 text-xs text-red-500">
+                  {errors.company_id.message}
+                </p>
+              )}
             </div>
 
             <div>
-              <label htmlFor="dds-site-id" className="block text-sm font-medium text-gray-700">Site/Unidade</label>
+              <label
+                htmlFor="dds-site-id"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Site/Unidade
+              </label>
               <select
                 id="dds-site-id"
-                {...register('site_id')}
+                {...register("site_id")}
                 disabled={!selectedCompanyId}
                 aria-label="Site ou unidade do DDS"
                 className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                  !selectedCompanyId ? 'bg-gray-100 cursor-not-allowed border-gray-300' : 
-                  errors.site_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+                  !selectedCompanyId
+                    ? "bg-gray-100 cursor-not-allowed border-gray-300"
+                    : errors.site_id
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-gray-300 focus:border-blue-500"
                 }`}
-                aria-invalid={errors.site_id ? 'true' : undefined}
+                aria-invalid={errors.site_id ? "true" : undefined}
               >
-                <option value="">{selectedCompanyId ? 'Selecione um site' : 'Selecione uma empresa primeiro'}</option>
-                {filteredSites.map(site => (
-                  <option key={site.id} value={site.id}>{site.nome}</option>
+                <option value="">
+                  {selectedCompanyId
+                    ? "Selecione um site"
+                    : "Selecione uma empresa primeiro"}
+                </option>
+                {filteredSites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.nome}
+                  </option>
                 ))}
               </select>
-              {errors.site_id && <p className="mt-1 text-xs text-red-500">{errors.site_id.message}</p>}
+              {errors.site_id && (
+                <p className="mt-1 text-xs text-red-500">
+                  {errors.site_id.message}
+                </p>
+              )}
             </div>
 
             <div>
-              <label htmlFor="dds-facilitador-id" className="block text-sm font-medium text-gray-700">Facilitador</label>
+              <label
+                htmlFor="dds-facilitador-id"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Facilitador
+              </label>
               <select
                 id="dds-facilitador-id"
-                {...register('facilitador_id')}
+                {...register("facilitador_id")}
                 disabled={!selectedCompanyId}
                 aria-label="Facilitador do DDS"
                 className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                  !selectedCompanyId ? 'bg-gray-100 cursor-not-allowed border-gray-300' :
-                  errors.facilitador_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+                  !selectedCompanyId
+                    ? "bg-gray-100 cursor-not-allowed border-gray-300"
+                    : errors.facilitador_id
+                      ? "border-red-500 focus:border-red-500"
+                      : "border-gray-300 focus:border-blue-500"
                 }`}
-                aria-invalid={errors.facilitador_id ? 'true' : undefined}
+                aria-invalid={errors.facilitador_id ? "true" : undefined}
               >
-                <option value="">{selectedCompanyId ? 'Selecione um facilitador' : 'Selecione uma empresa primeiro'}</option>
-                {filteredUsers.map(user => (
-                  <option key={user.id} value={user.id}>{user.nome}</option>
+                <option value="">
+                  {selectedCompanyId
+                    ? "Selecione um facilitador"
+                    : "Selecione uma empresa primeiro"}
+                </option>
+                {filteredUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.nome}
+                  </option>
                 ))}
               </select>
-              {errors.facilitador_id && <p className="mt-1 text-xs text-red-500">{errors.facilitador_id.message}</p>}
+              {errors.facilitador_id && (
+                <p className="mt-1 text-xs text-red-500">
+                  {errors.facilitador_id.message}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -732,7 +823,9 @@ export function DdsForm({ id }: DdsFormProps) {
         <div className="sst-card p-6">
           <h2 className="mb-4 flex items-center justify-between text-lg font-bold text-gray-900">
             Participantes
-            <span className="text-xs font-normal text-gray-500">{selectedParticipantIds.length} selecionados</span>
+            <span className="text-xs font-normal text-gray-500">
+              {selectedParticipantIds.length} selecionados
+            </span>
           </h2>
           {!selectedCompanyId ? (
             <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 py-8 text-center text-sm text-gray-500">
@@ -744,15 +837,15 @@ export function DdsForm({ id }: DdsFormProps) {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-              {filteredUsers.map(user => (
+              {filteredUsers.map((user) => (
                 <button
                   key={user.id}
                   type="button"
                   onClick={() => toggleParticipant(user.id)}
                   className={`flex items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors ${
                     selectedParticipantIds.includes(user.id)
-                      ? 'border-slate-800 bg-blue-50 text-slate-800'
-                      : 'border-gray-200 hover:bg-gray-50'
+                      ? "border-slate-800 bg-blue-50 text-slate-800"
+                      : "border-gray-200 hover:bg-gray-50"
                   }`}
                 >
                   <span>{user.nome}</span>
@@ -763,14 +856,23 @@ export function DdsForm({ id }: DdsFormProps) {
               ))}
             </div>
           )}
-          {errors.participants && <p className="mt-1 text-xs text-red-500">{errors.participants.message}</p>}
+          {errors.participants && (
+            <p className="mt-1 text-xs text-red-500">
+              {errors.participants.message}
+            </p>
+          )}
         </div>
 
         <div className="sst-card p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Registro Fotográfico da Equipe</h2>
-              <p className="text-xs text-gray-500">Use a câmera do celular para registrar presença e evidência do DDS.</p>
+              <h2 className="text-lg font-bold text-gray-900">
+                Registro Fotográfico da Equipe
+              </h2>
+              <p className="text-xs text-gray-500">
+                Use a câmera do celular para registrar presença e evidência do
+                DDS.
+              </p>
             </div>
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
               <Camera className="h-4 w-4" />
@@ -788,12 +890,16 @@ export function DdsForm({ id }: DdsFormProps) {
 
           {teamPhotos.length === 0 ? (
             <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 py-6 text-center text-sm text-gray-500">
-              Nenhuma foto adicionada. Recomendado: anexar pelo menos 1 foto da equipe.
+              Nenhuma foto adicionada. Recomendado: anexar pelo menos 1 foto da
+              equipe.
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {teamPhotos.map((photo, index) => (
-                <div key={`${index}-${photo.hash.slice(0, 12)}`} className="relative overflow-hidden rounded-lg border">
+                <div
+                  key={`${index}-${photo.hash.slice(0, 12)}`}
+                  className="relative overflow-hidden rounded-lg border"
+                >
                   <NextImage
                     src={photo.imageData}
                     alt={`Foto da equipe ${index + 1}`}
@@ -807,7 +913,9 @@ export function DdsForm({ id }: DdsFormProps) {
                   <button
                     type="button"
                     onClick={() =>
-                      setTeamPhotos((prev) => prev.filter((_, i) => i !== index))
+                      setTeamPhotos((prev) =>
+                        prev.filter((_, i) => i !== index),
+                      )
                     }
                     className="absolute right-2 top-2 rounded-md bg-white/90 p-1 text-red-600 hover:bg-white"
                     title="Remover foto"
@@ -820,10 +928,14 @@ export function DdsForm({ id }: DdsFormProps) {
           )}
           {Object.keys(photoReuseWarnings).length > 0 && (
             <div className="mt-4 space-y-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-              <p className="font-semibold">Alerta de possível reuso de imagem:</p>
+              <p className="font-semibold">
+                Alerta de possível reuso de imagem:
+              </p>
               {Object.entries(photoReuseWarnings).map(([hash, ref]) => (
                 <p key={hash}>
-                  Hash {hash.slice(0, 12)}... já apareceu no DDS &quot;{ref.tema}&quot; ({new Date(ref.data).toLocaleDateString('pt-BR')}).
+                  Hash {hash.slice(0, 12)}... já apareceu no DDS &quot;
+                  {ref.tema}&quot; (
+                  {new Date(ref.data).toLocaleDateString("pt-BR")}).
                 </p>
               ))}
               <div className="pt-2">
@@ -832,7 +944,9 @@ export function DdsForm({ id }: DdsFormProps) {
                 </label>
                 <textarea
                   value={photoReuseJustification}
-                  onChange={(event) => setPhotoReuseJustification(event.target.value)}
+                  onChange={(event) =>
+                    setPhotoReuseJustification(event.target.value)
+                  }
                   className="w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-xs text-gray-900 focus:border-amber-500 focus:outline-none"
                   rows={3}
                   placeholder="Explique por que a mesma foto está sendo reutilizada neste DDS."
@@ -843,10 +957,18 @@ export function DdsForm({ id }: DdsFormProps) {
         </div>
 
         <div className="sst-card p-6">
-          <h2 className="mb-4 text-lg font-bold text-gray-900">Seção de Auditoria</h2>
+          <h2 className="mb-4 text-lg font-bold text-gray-900">
+            Seção de Auditoria
+          </h2>
           <AuditSection
             register={register}
-            auditors={filteredUsers.filter(u => u.role === 'admin' || u.role === 'manager')}
+            auditors={filteredUsers.filter((user) =>
+              DDS_AUDITOR_ROLES.has(
+                String(user.role || "")
+                  .trim()
+                  .toLowerCase(),
+              ),
+            )}
             disabled={!selectedCompanyId}
           />
         </div>
@@ -865,7 +987,7 @@ export function DdsForm({ id }: DdsFormProps) {
             className="flex items-center space-x-2 rounded-lg bg-slate-900 px-6 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
-            <span>{loading ? 'Salvando...' : 'Salvar DDS'}</span>
+            <span>{loading ? "Salvando..." : "Salvar DDS"}</span>
           </button>
         </div>
       </form>

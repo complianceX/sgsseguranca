@@ -1,6 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useDeferredValue, useMemo } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useDeferredValue,
+  useMemo,
+} from "react";
 import {
   ddsService,
   Dds,
@@ -8,7 +14,7 @@ import {
   DDS_STATUS_LABEL,
   DDS_STATUS_COLORS,
   DDS_ALLOWED_TRANSITIONS,
-} from '@/services/ddsService';
+} from "@/services/ddsService";
 import {
   ChevronLeft,
   ChevronRight,
@@ -25,29 +31,34 @@ import {
   ShieldCheck,
   Trash2,
   Users,
-} from 'lucide-react';
-import Link from 'next/link';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { toast } from 'sonner';
-import { generateDdsPdf } from '@/lib/pdf/ddsGenerator';
-import { signaturesService } from '@/services/signaturesService';
-import { SendMailModal } from '@/components/SendMailModal';
-import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
-import { Button, buttonVariants } from '@/components/ui/button';
+} from "lucide-react";
+import Link from "next/link";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
+import { generateDdsPdf } from "@/lib/pdf/ddsGenerator";
+import {
+  base64ToPdfBlob,
+  base64ToPdfFile,
+  blobToBase64,
+} from "@/lib/pdf/pdfFile";
+import { signaturesService } from "@/services/signaturesService";
+import { SendMailModal } from "@/components/SendMailModal";
+import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from "@/components/ui/card";
 import {
   EmptyState,
   ErrorState,
   InlineLoadingState,
   PageLoadingState,
-} from '@/components/ui/state';
+} from "@/components/ui/state";
 import {
   Table,
   TableBody,
@@ -55,9 +66,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { PaginationControls } from '@/components/PaginationControls';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/table";
+import { PaginationControls } from "@/components/PaginationControls";
+import { cn } from "@/lib/utils";
 
 type StoredFile = {
   ddsId: string;
@@ -70,24 +81,26 @@ type StoredFile = {
 };
 
 const inputClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
+  "w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
 
 export default function DdsPage() {
   const [ddsList, setDdsList] = useState<Dds[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const deferredSearchTerm = useDeferredValue(searchTerm);
-  const [modelFilter, setModelFilter] = useState<'all' | 'model' | 'regular'>('all');
+  const [modelFilter, setModelFilter] = useState<"all" | "model" | "regular">(
+    "all",
+  );
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
 
   const [storedFiles, setStoredFiles] = useState<StoredFile[]>([]);
   const [loadingFiles, setLoadingFiles] = useState(false);
-  const [fileYear, setFileYear] = useState<string>('');
-  const [fileWeek, setFileWeek] = useState<string>('');
-  const [fileCompanyId, setFileCompanyId] = useState<string>('');
+  const [fileYear, setFileYear] = useState<string>("");
+  const [fileWeek, setFileWeek] = useState<string>("");
+  const [fileCompanyId, setFileCompanyId] = useState<string>("");
   const [filesPage, setFilesPage] = useState(1);
   const [filesPageSize, setFilesPageSize] = useState(10);
 
@@ -112,9 +125,9 @@ export default function DdsPage() {
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
-      console.error('Erro ao carregar DDS:', error);
-      setLoadError('Nao foi possivel carregar a lista de DDS.');
-      toast.error('Erro ao carregar lista de DDS.');
+      console.error("Erro ao carregar DDS:", error);
+      setLoadError("Nao foi possivel carregar a lista de DDS.");
+      toast.error("Erro ao carregar lista de DDS.");
     } finally {
       setLoading(false);
     }
@@ -132,8 +145,8 @@ export default function DdsPage() {
       });
       setStoredFiles(data);
     } catch (error) {
-      console.error('Erro ao carregar arquivos DDS:', error);
-      toast.error('Erro ao carregar arquivos salvos de DDS.');
+      console.error("Erro ao carregar arquivos DDS:", error);
+      toast.error("Erro ao carregar arquivos salvos de DDS.");
     } finally {
       setLoadingFiles(false);
     }
@@ -156,66 +169,185 @@ export default function DdsPage() {
   }, [fileCompanyId, fileYear, fileWeek, filesPageSize]);
 
   async function handleDelete(id: string) {
-    if (!confirm('Tem certeza que deseja excluir este DDS?')) return;
+    if (!confirm("Tem certeza que deseja excluir este DDS?")) return;
 
     try {
       await ddsService.delete(id);
-      toast.success('DDS excluído com sucesso.');
+      toast.success("DDS excluído com sucesso.");
       if (ddsList.length === 1 && page > 1) {
         setPage((current) => current - 1);
         return;
       }
       await loadDds();
     } catch (error) {
-      console.error('Erro ao excluir DDS:', error);
-      toast.error('Erro ao excluir DDS. Verifique dependências e tente novamente.');
+      console.error("Erro ao excluir DDS:", error);
+      toast.error(
+        "Erro ao excluir DDS. Verifique dependências e tente novamente.",
+      );
     }
   }
 
+  const getErrorStatus = (error: unknown) =>
+    Number(
+      (error as { response?: { status?: number } } | undefined)?.response
+        ?.status ?? 0,
+    ) || null;
+
+  const buildDdsFilename = (dds: Dds) =>
+    `DDS_${dds.tema.replace(/\s+/g, "_")}.pdf`;
+
+  const getStoredPdfAttachment = async (
+    dds: Dds,
+  ): Promise<{ base64: string; filename: string } | null> => {
+    if (!dds.pdf_file_key) {
+      return null;
+    }
+
+    const access = await ddsService.getPdfAccess(dds.id);
+    if (!access.url) {
+      return null;
+    }
+
+    const response = await fetch(access.url);
+    if (!response.ok) {
+      throw new Error("Falha ao baixar o PDF final armazenado.");
+    }
+
+    const blob = await response.blob();
+    return {
+      base64: await blobToBase64(blob),
+      filename: access.originalName || buildDdsFilename(dds),
+    };
+  };
+
+  const ensureGovernedPdf = async (dds: Dds) => {
+    try {
+      return await ddsService.getPdfAccess(dds.id);
+    } catch (error) {
+      if (getErrorStatus(error) !== 404) {
+        throw error;
+      }
+    }
+
+    const signatures = await signaturesService.findByDocument(dds.id, "DDS");
+    const base64 = await generateDdsPdf(dds, signatures, {
+      save: false,
+      output: "base64",
+    });
+
+    if (!base64) {
+      throw new Error("Falha ao gerar o PDF oficial do DDS.");
+    }
+
+    const file = base64ToPdfFile(String(base64), buildDdsFilename(dds));
+    await ddsService.attachFile(dds.id, file);
+    await Promise.all([loadDds(), loadStoredFiles()]);
+    toast.success("PDF final do DDS emitido e registrado com sucesso.");
+    return ddsService.getPdfAccess(dds.id);
+  };
+
   const handlePrint = async (dds: Dds) => {
     try {
-      toast.info('Preparando impressão...');
-      const signatures = await signaturesService.findByDocument(dds.id, 'DDS');
-      const base64 = await generateDdsPdf(dds, signatures, { save: false, output: 'base64' });
+      toast.info("Preparando impressão...");
+      if (dds.pdf_file_key) {
+        try {
+          const access = await ddsService.getPdfAccess(dds.id);
+          if (access.url) {
+            openPdfForPrint(access.url, () => {
+              toast.info("Pop-up bloqueado. Abrimos o PDF final na mesma aba.");
+            });
+            return;
+          }
+        } catch (error) {
+          console.warn(
+            "Falha ao abrir PDF final armazenado, gerando fallback local:",
+            error,
+          );
+        }
+      }
+
+      const signatures = await signaturesService.findByDocument(dds.id, "DDS");
+      const base64 = await generateDdsPdf(dds, signatures, {
+        save: false,
+        output: "base64",
+      });
 
       if (base64) {
-        const byteCharacters = atob(base64 as string);
-        const byteNumbers = new Array(byteCharacters.length);
-
-        for (let index = 0; index < byteCharacters.length; index += 1) {
-          byteNumbers[index] = byteCharacters.charCodeAt(index);
-        }
-
-        const byteArray = new Uint8Array(byteNumbers);
-        const file = new Blob([byteArray], { type: 'application/pdf' });
-        const fileURL = URL.createObjectURL(file);
+        const fileURL = URL.createObjectURL(base64ToPdfBlob(String(base64)));
 
         openPdfForPrint(fileURL, () => {
-          toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+          toast.info(
+            "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
+          );
         });
       }
     } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
-      toast.error('Erro ao gerar PDF para impressão.');
+      console.error("Erro ao gerar PDF:", error);
+      toast.error("Erro ao gerar PDF para impressão.");
     }
   };
 
   const handleEmail = async (dds: Dds) => {
     try {
-      const signatures = await signaturesService.findByDocument(dds.id, 'DDS');
-      const base64 = await generateDdsPdf(dds, signatures, { save: false, output: 'base64' });
-
-      if (base64) {
+      let storedAttachment: { base64: string; filename: string } | null = null;
+      try {
+        storedAttachment = await getStoredPdfAttachment(dds);
+      } catch (error) {
+        console.warn(
+          "Falha ao reutilizar PDF final armazenado, gerando fallback local:",
+          error,
+        );
+      }
+      if (storedAttachment) {
         setSelectedDoc({
           name: `DDS - ${dds.tema}`,
-          filename: `DDS_${dds.tema.replace(/\s+/g, '_')}.pdf`,
-          base64: base64 as string,
+          filename: storedAttachment.filename,
+          base64: storedAttachment.base64,
         });
         setIsMailModalOpen(true);
+        return;
       }
+
+      const signatures = await signaturesService.findByDocument(dds.id, "DDS");
+      const base64 = await generateDdsPdf(dds, signatures, {
+        save: false,
+        output: "base64",
+      });
+
+      if (!base64) {
+        throw new Error("Falha ao gerar PDF do DDS.");
+      }
+
+      setSelectedDoc({
+        name: `DDS - ${dds.tema}`,
+        filename: `DDS_${dds.tema.replace(/\s+/g, "_")}.pdf`,
+        base64: base64 as string,
+      });
+      setIsMailModalOpen(true);
     } catch (error) {
-      console.error('Erro ao preparar e-mail:', error);
-      toast.error('Erro ao preparar e-mail com o documento.');
+      console.error("Erro ao preparar e-mail:", error);
+      toast.error("Erro ao preparar e-mail com o documento.");
+    }
+  };
+
+  const handleOpenGovernedPdf = async (dds: Dds) => {
+    try {
+      toast.info(
+        dds.pdf_file_key
+          ? "Abrindo PDF final governado..."
+          : "Emitindo PDF final governado...",
+      );
+      const access = await ensureGovernedPdf(dds);
+      if (!access.url) {
+        toast.success(
+          "PDF final emitido, mas a URL segura não está disponível no momento.",
+        );
+        return;
+      }
+      openUrlInNewTab(access.url);
+    } catch (error) {
+      console.error("Erro ao emitir/abrir PDF final do DDS:", error);
+      toast.error("Não foi possível emitir ou abrir o PDF final do DDS.");
     }
   };
 
@@ -223,99 +355,105 @@ export default function DdsPage() {
     try {
       const access = await ddsService.getPdfAccess(ddsId);
       if (!access.url) {
-        toast.info('PDF armazenado localmente — use o botão Imprimir para gerar.');
+        toast.info(
+          "PDF armazenado localmente — use o botão Imprimir para gerar.",
+        );
         return;
       }
       openUrlInNewTab(access.url);
     } catch (error) {
-      console.error('Erro ao obter link do PDF:', error);
-      toast.error('Não foi possível abrir o PDF armazenado.');
+      console.error("Erro ao obter link do PDF:", error);
+      toast.error("Não foi possível abrir o PDF armazenado.");
     }
   };
 
   const handleStatusChange = async (dds: Dds, newStatus: DdsStatus) => {
     try {
       const updated = await ddsService.updateStatus(dds.id, newStatus);
-      setDdsList((prev) => prev.map((d) => (d.id === dds.id ? { ...d, status: updated.status } : d)));
+      setDdsList((prev) =>
+        prev.map((d) =>
+          d.id === dds.id ? { ...d, status: updated.status } : d,
+        ),
+      );
       toast.success(`DDS movido para "${DDS_STATUS_LABEL[updated.status]}".`);
     } catch (error) {
-      console.error('Erro ao atualizar status do DDS:', error);
-      toast.error('Não foi possível atualizar o status.');
+      console.error("Erro ao atualizar status do DDS:", error);
+      toast.error("Não foi possível atualizar o status.");
     }
   };
 
   const handleCopyFolderPath = async (folderPath: string) => {
     try {
       await navigator.clipboard.writeText(folderPath);
-      toast.success('Caminho da pasta copiado.');
+      toast.success("Caminho da pasta copiado.");
     } catch (error) {
-      console.error('Erro ao copiar caminho:', error);
-      toast.error('Não foi possível copiar o caminho da pasta.');
+      console.error("Erro ao copiar caminho:", error);
+      toast.error("Não foi possível copiar o caminho da pasta.");
     }
   };
 
   const handleExportStoredFilesCsv = () => {
     if (storedFiles.length === 0) {
-      toast.error('Não há arquivos para exportar.');
+      toast.error("Não há arquivos para exportar.");
       return;
     }
 
     const headers = [
-      'dds_id',
-      'data',
-      'tema',
-      'company_id',
-      'folder_path',
-      'file_key',
-      'original_name',
+      "dds_id",
+      "data",
+      "tema",
+      "company_id",
+      "folder_path",
+      "file_key",
+      "original_name",
     ];
     const escapeCsv = (value: string) => `"${value.replace(/"/g, '""')}"`;
 
     const rows = storedFiles.map((file) =>
       [
         file.ddsId,
-        format(new Date(file.data), 'yyyy-MM-dd'),
+        format(new Date(file.data), "yyyy-MM-dd"),
         file.tema,
         file.companyId,
         file.folderPath,
         file.fileKey,
         file.originalName,
       ]
-        .map((item) => escapeCsv(String(item ?? '')))
-        .join(','),
+        .map((item) => escapeCsv(String(item ?? "")))
+        .join(","),
     );
 
-    const csvContent = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
+    const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = `dds-files-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
     URL.revokeObjectURL(url);
-    toast.success('CSV exportado com sucesso.');
+    toast.success("CSV exportado com sucesso.");
   };
 
   const handleCopyPdfLink = async (ddsId: string) => {
     try {
       const access = await ddsService.getPdfAccess(ddsId);
       if (!access.url) {
-        toast.info('PDF sem URL pública — S3 não configurado.');
+        toast.info("PDF sem URL pública — S3 não configurado.");
         return;
       }
       await navigator.clipboard.writeText(access.url);
-      toast.success('Link do PDF copiado.');
+      toast.success("Link do PDF copiado.");
     } catch (error) {
-      console.error('Erro ao copiar link do PDF:', error);
-      toast.error('Não foi possível copiar o link do PDF.');
+      console.error("Erro ao copiar link do PDF:", error);
+      toast.error("Não foi possível copiar o link do PDF.");
     }
   };
 
   const handleDownloadWeeklyBundle = async () => {
     if (!fileYear || !fileWeek) {
-      toast.error('Selecione ano e semana para gerar o pacote.');
+      toast.error("Selecione ano e semana para gerar o pacote.");
       return;
     }
 
@@ -326,23 +464,23 @@ export default function DdsPage() {
         week: Number(fileWeek),
       });
       const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
+      const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `dds-semana-${fileYear}-${String(fileWeek).padStart(2, '0')}.pdf`;
+      anchor.download = `dds-semana-${fileYear}-${String(fileWeek).padStart(2, "0")}.pdf`;
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
       URL.revokeObjectURL(url);
-      toast.success('Pacote semanal gerado com sucesso.');
+      toast.success("Pacote semanal gerado com sucesso.");
     } catch (error) {
-      console.error('Erro ao gerar pacote semanal DDS:', error);
-      toast.error('Não foi possível gerar o pacote semanal de DDS.');
+      console.error("Erro ao gerar pacote semanal DDS:", error);
+      toast.error("Não foi possível gerar o pacote semanal de DDS.");
     }
   };
 
   const handlePrintWeeklyBundle = async () => {
     if (!fileYear || !fileWeek) {
-      toast.error('Selecione ano e semana para imprimir o pacote.');
+      toast.error("Selecione ano e semana para imprimir o pacote.");
       return;
     }
 
@@ -354,11 +492,11 @@ export default function DdsPage() {
       });
       const url = URL.createObjectURL(blob);
       openPdfForPrint(url, () => {
-        toast.info('Pop-up bloqueado. Abrimos o pacote na mesma aba.');
+        toast.info("Pop-up bloqueado. Abrimos o pacote na mesma aba.");
       });
     } catch (error) {
-      console.error('Erro ao imprimir pacote semanal DDS:', error);
-      toast.error('Não foi possível abrir o pacote semanal de DDS.');
+      console.error("Erro ao imprimir pacote semanal DDS:", error);
+      toast.error("Não foi possível abrir o pacote semanal de DDS.");
     }
   };
 
@@ -387,7 +525,10 @@ export default function DdsPage() {
     [ddsList, storedFiles.length, total],
   );
 
-  const totalFilesPages = Math.max(1, Math.ceil(storedFiles.length / filesPageSize));
+  const totalFilesPages = Math.max(
+    1,
+    Math.ceil(storedFiles.length / filesPageSize),
+  );
   const pagedStoredFiles = storedFiles.slice(
     (filesPage - 1) * filesPageSize,
     filesPage * filesPageSize,
@@ -423,12 +564,18 @@ export default function DdsPage() {
       <Card tone="elevated" padding="lg">
         <CardHeader className="gap-4 md:flex-row md:items-start md:justify-between">
           <div className="space-y-2">
-            <CardTitle className="text-2xl">Diálogo Diário de Segurança (DDS)</CardTitle>
+            <CardTitle className="text-2xl">
+              Diálogo Diário de Segurança (DDS)
+            </CardTitle>
             <CardDescription>
-              Gerencie registros de DDS, modelos reutilizáveis e PDFs armazenados por empresa.
+              Gerencie registros de DDS, modelos reutilizáveis e PDFs
+              armazenados por empresa.
             </CardDescription>
           </div>
-          <Link href="/dashboard/dds/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
+          <Link
+            href="/dashboard/dds/new"
+            className={cn(buttonVariants(), "inline-flex items-center")}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Novo DDS
           </Link>
@@ -522,7 +669,9 @@ export default function DdsPage() {
               <Button
                 type="button"
                 variant="outline"
-                leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
+                leftIcon={
+                  <FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />
+                }
                 onClick={handleExportStoredFilesCsv}
               >
                 Exportar CSV
@@ -574,7 +723,9 @@ export default function DdsPage() {
                   {pagedStoredFiles.map((file) => (
                     <TableRow key={`${file.ddsId}-${file.fileKey}`}>
                       <TableCell>
-                        {format(new Date(file.data), 'dd/MM/yyyy', { locale: ptBR })}
+                        {format(new Date(file.data), "dd/MM/yyyy", {
+                          locale: ptBR,
+                        })}
                       </TableCell>
                       <TableCell className="font-medium text-[var(--ds-color-text-primary)]">
                         {file.tema}
@@ -587,7 +738,9 @@ export default function DdsPage() {
                             type="button"
                             size="icon"
                             variant="ghost"
-                            onClick={() => handleCopyFolderPath(file.folderPath)}
+                            onClick={() =>
+                              handleCopyFolderPath(file.folderPath)
+                            }
                             title="Copiar caminho da pasta"
                             className="h-6 w-6"
                           >
@@ -628,8 +781,14 @@ export default function DdsPage() {
 
               <div className="mt-4 flex items-center justify-between text-sm text-[var(--ds-color-text-muted)]">
                 <span>
-                  Página <span className="font-semibold text-[var(--ds-color-text-primary)]">{filesPage}</span>{' '}
-                  de <span className="font-semibold text-[var(--ds-color-text-primary)]">{totalFilesPages}</span>{' '}
+                  Página{" "}
+                  <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                    {filesPage}
+                  </span>{" "}
+                  de{" "}
+                  <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                    {totalFilesPages}
+                  </span>{" "}
                   • {storedFiles.length} arquivo(s)
                 </span>
                 <div className="flex items-center gap-2">
@@ -638,7 +797,9 @@ export default function DdsPage() {
                     size="sm"
                     variant="outline"
                     leftIcon={<ChevronLeft className="h-4 w-4" />}
-                    onClick={() => setFilesPage((current) => Math.max(1, current - 1))}
+                    onClick={() =>
+                      setFilesPage((current) => Math.max(1, current - 1))
+                    }
                     disabled={filesPage <= 1}
                   >
                     Anterior
@@ -648,7 +809,11 @@ export default function DdsPage() {
                     size="sm"
                     variant="outline"
                     rightIcon={<ChevronRight className="h-4 w-4" />}
-                    onClick={() => setFilesPage((current) => Math.min(totalFilesPages, current + 1))}
+                    onClick={() =>
+                      setFilesPage((current) =>
+                        Math.min(totalFilesPages, current + 1),
+                      )
+                    }
                     disabled={filesPage >= totalFilesPages}
                   >
                     Próxima
@@ -674,17 +839,19 @@ export default function DdsPage() {
               <input
                 type="text"
                 placeholder="Pesquisar DDS"
-                className={cn(inputClassName, 'pl-10')}
+                className={cn(inputClassName, "pl-10")}
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
               />
             </div>
             <select
               aria-label="Filtro de DDS"
-              className={cn(inputClassName, 'min-w-[180px]')}
+              className={cn(inputClassName, "min-w-[180px]")}
               value={modelFilter}
               onChange={(event) =>
-                setModelFilter(event.target.value as 'all' | 'model' | 'regular')
+                setModelFilter(
+                  event.target.value as "all" | "model" | "regular",
+                )
               }
             >
               <option value="all">Todos</option>
@@ -699,13 +866,16 @@ export default function DdsPage() {
             <EmptyState
               title="Nenhum DDS encontrado"
               description={
-                deferredSearchTerm || modelFilter !== 'all'
-                  ? 'Nenhum resultado corresponde aos filtros aplicados.'
-                  : 'Ainda não existem registros de DDS para este tenant.'
+                deferredSearchTerm || modelFilter !== "all"
+                  ? "Nenhum resultado corresponde aos filtros aplicados."
+                  : "Ainda não existem registros de DDS para este tenant."
               }
               action={
-                !deferredSearchTerm && modelFilter === 'all' ? (
-                  <Link href="/dashboard/dds/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
+                !deferredSearchTerm && modelFilter === "all" ? (
+                  <Link
+                    href="/dashboard/dds/new"
+                    className={cn(buttonVariants(), "inline-flex items-center")}
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Novo DDS
                   </Link>
@@ -725,94 +895,122 @@ export default function DdsPage() {
               </TableHeader>
               <TableBody>
                 {ddsList.map((dds) => {
-                  const currentStatus: DdsStatus = dds.status ?? 'rascunho';
+                  const currentStatus: DdsStatus = dds.status ?? "rascunho";
                   const transitions = DDS_ALLOWED_TRANSITIONS[currentStatus];
                   return (
-                  <TableRow key={dds.id}>
-                    <TableCell>
-                      {format(new Date(dds.data), 'dd/MM/yyyy', { locale: ptBR })}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="font-medium text-[var(--ds-color-text-primary)]">{dds.tema}</div>
-                        {dds.is_modelo ? (
-                          <span className="rounded-full bg-[color:var(--ds-color-action-primary)]/12 px-2.5 py-1 text-xs font-semibold text-[var(--ds-color-action-primary)]">
-                            Modelo
-                          </span>
-                        ) : null}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
-                        <Users className="h-4 w-4" />
-                        <span>{dds.participants?.length || 0}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className={cn(
-                          'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
-                          DDS_STATUS_COLORS[currentStatus],
-                        )}>
-                          {DDS_STATUS_LABEL[currentStatus]}
-                        </span>
-                        {transitions.length > 0 && (
-                          <select
-                            aria-label="Mover status"
-                            className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2 py-1 text-xs text-[var(--ds-color-text-muted)] transition-colors hover:border-[var(--ds-color-border-strong)] focus:outline-none"
-                            value=""
-                            onChange={(e) => {
-                              if (e.target.value) handleStatusChange(dds, e.target.value as DdsStatus);
-                            }}
+                    <TableRow key={dds.id}>
+                      <TableCell>
+                        {format(new Date(dds.data), "dd/MM/yyyy", {
+                          locale: ptBR,
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="font-medium text-[var(--ds-color-text-primary)]">
+                            {dds.tema}
+                          </div>
+                          {dds.is_modelo ? (
+                            <span className="rounded-full bg-[color:var(--ds-color-action-primary)]/12 px-2.5 py-1 text-xs font-semibold text-[var(--ds-color-action-primary)]">
+                              Modelo
+                            </span>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-[var(--ds-color-text-secondary)]">
+                          <Users className="h-4 w-4" />
+                          <span>{dds.participants?.length || 0}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+                              DDS_STATUS_COLORS[currentStatus],
+                            )}
                           >
-                            <option value="">Mover para...</option>
-                            {transitions.map((s) => (
-                              <option key={s} value={s}>{DDS_STATUS_LABEL[s]}</option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handlePrint(dds)}
-                          title="Imprimir DDS"
-                        >
-                          <Printer className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleEmail(dds)}
-                          title="Enviar por e-mail"
-                        >
-                          <Mail className="h-4 w-4" />
-                        </Button>
-                        <Link
-                          href={`/dashboard/dds/edit/${dds.id}`}
-                          className={buttonVariants({ size: 'icon', variant: 'ghost' })}
-                          title="Editar DDS"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Link>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleDelete(dds.id)}
-                          title="Excluir DDS"
-                          className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                            {DDS_STATUS_LABEL[currentStatus]}
+                          </span>
+                          {transitions.length > 0 && (
+                            <select
+                              aria-label="Mover status"
+                              className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2 py-1 text-xs text-[var(--ds-color-text-muted)] transition-colors hover:border-[var(--ds-color-border-strong)] focus:outline-none"
+                              value=""
+                              onChange={(e) => {
+                                if (e.target.value)
+                                  handleStatusChange(
+                                    dds,
+                                    e.target.value as DdsStatus,
+                                  );
+                              }}
+                            >
+                              <option value="">Mover para...</option>
+                              {transitions.map((s) => (
+                                <option key={s} value={s}>
+                                  {DDS_STATUS_LABEL[s]}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleOpenGovernedPdf(dds)}
+                            title={
+                              dds.pdf_file_key
+                                ? "Abrir PDF final governado"
+                                : "Emitir PDF final governado"
+                            }
+                          >
+                            <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handlePrint(dds)}
+                            title="Imprimir DDS"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleEmail(dds)}
+                            title="Enviar por e-mail"
+                          >
+                            <Mail className="h-4 w-4" />
+                          </Button>
+                          <Link
+                            href={`/dashboard/dds/edit/${dds.id}`}
+                            className={buttonVariants({
+                              size: "icon",
+                              variant: "ghost",
+                            })}
+                            title="Editar DDS"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Link>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDelete(dds.id)}
+                            title="Excluir DDS"
+                            className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
               </TableBody>
@@ -831,14 +1029,22 @@ export default function DdsPage() {
       </Card>
 
       {ddsSummary.modelos > 0 ? (
-        <Card tone="muted" padding="md" className="border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/8">
+        <Card
+          tone="muted"
+          padding="md"
+          className="border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-action-primary)]/8"
+        >
           <CardHeader className="gap-2">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
-              <CardTitle className="text-base">Biblioteca de modelos ativa</CardTitle>
+              <CardTitle className="text-base">
+                Biblioteca de modelos ativa
+              </CardTitle>
             </div>
             <CardDescription>
-              Existem {ddsSummary.modelos} modelo(s) cadastrados. Use-os para acelerar criação de DDS padronizados por tema, obra ou rotina operacional.
+              Existem {ddsSummary.modelos} modelo(s) cadastrados. Use-os para
+              acelerar criação de DDS padronizados por tema, obra ou rotina
+              operacional.
             </CardDescription>
           </CardHeader>
         </Card>

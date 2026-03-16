@@ -28,6 +28,7 @@ const moduleOptions = [
   { value: 'apr', label: 'APR' },
   { value: 'pt', label: 'PT' },
   { value: 'dds', label: 'DDS' },
+  { value: 'inspection', label: 'Inspeção' },
   { value: 'checklist', label: 'Checklist' },
   { value: 'audit', label: 'Auditoria' },
   { value: 'nonconformity', label: 'NC' },

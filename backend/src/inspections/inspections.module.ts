@@ -7,11 +7,13 @@ import { Inspection } from './entities/inspection.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
+import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Inspection, Site, User]),
     NotificationsModule,
+    DocumentRegistryModule,
   ],
   controllers: [InspectionsController, PublicInspectionsController],
   providers: [InspectionsService],

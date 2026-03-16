@@ -12,7 +12,8 @@ type GovernedModule =
   | 'dds'
   | 'checklist'
   | 'audit'
-  | 'nonconformity';
+  | 'nonconformity'
+  | 'inspection';
 
 type RegisterFinalDocumentInput = {
   companyId: string;
@@ -26,6 +27,7 @@ type RegisterFinalDocumentInput = {
   mimeType?: string | null;
   fileBuffer: Buffer;
   createdBy?: string | null;
+  documentCode?: string | null;
   documentType?: string;
   persistEntityMetadata?: (
     manager: EntityManager,
@@ -59,6 +61,9 @@ const signatureDocumentTypeToRegistryModule = new Map<string, GovernedModule>([
   ['NONCONFORMITY', 'nonconformity'],
   ['NAO_CONFORMIDADE', 'nonconformity'],
   ['NC', 'nonconformity'],
+  ['INSPECTION', 'inspection'],
+  ['INSPECAO', 'inspection'],
+  ['INS', 'inspection'],
 ]);
 
 function normalizeSignatureDocumentType(documentType: string): string {
@@ -128,6 +133,7 @@ export class DocumentGovernanceService {
             originalName: input.originalName,
             mimeType: input.mimeType,
             fileHash: hash,
+            documentCode: input.documentCode,
             createdBy: input.createdBy,
             documentType: input.documentType,
           });
@@ -157,6 +163,7 @@ export class DocumentGovernanceService {
       originalName: input.originalName,
       mimeType: input.mimeType,
       fileHash: input.fileHash,
+      documentCode: input.documentCode,
       createdBy: input.createdBy,
       documentType: input.documentType,
     });

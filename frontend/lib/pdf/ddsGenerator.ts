@@ -26,7 +26,7 @@ export async function generateDdsPdf(
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const ctx = createPdfContext(doc, 'operational');
   drawPageBackground(ctx);
-  const code = buildDocumentCode('DDS', dds.id || dds.tema);
+  const code = buildDocumentCode('DDS', dds.id || dds.tema, dds.data);
   await drawDdsBlueprint(ctx, autoTable, dds, signatures, code, buildValidationUrl(code));
 
   applyFooterGovernance(ctx, {

@@ -15,7 +15,8 @@ type RegistryModule =
   | 'dds'
   | 'checklist'
   | 'audit'
-  | 'nonconformity';
+  | 'nonconformity'
+  | 'inspection';
 
 type UpsertRegistryInput = {
   companyId: string;
@@ -29,6 +30,7 @@ type UpsertRegistryInput = {
   mimeType?: string | null;
   fileBuffer?: Buffer | null;
   fileHash?: string | null;
+  documentCode?: string | null;
   createdBy?: string | null;
   documentType?: string;
 };
@@ -86,6 +88,7 @@ export class DocumentRegistryService {
         ? createHash('sha256').update(input.fileBuffer).digest('hex')
         : entity.file_hash || null;
     entity.document_code =
+      input.documentCode ||
       entity.document_code ||
       `${input.module.toUpperCase()}-${String(entity.iso_year)}-${String(entity.iso_week).padStart(2, '0')}-${input.entityId.slice(0, 8).toUpperCase()}`;
     entity.created_by = input.createdBy || entity.created_by || null;

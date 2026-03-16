@@ -5,13 +5,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, Repository } from 'typeorm';
+import { type EntityManager, In, IsNull, Repository } from 'typeorm';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { UsersService } from '../users/users.service';
 import { Signature } from './entities/signature.entity';
 import { CreateSignatureDto } from './dto/create-signature.dto';
+
+type SignatureWriteInput = CreateSignatureDto & {
+  signer_user_id?: string;
+};
 
 @Injectable()
 export class SignaturesService {
@@ -28,65 +32,153 @@ export class SignaturesService {
     createSignatureDto: CreateSignatureDto,
     authenticatedUserId: string,
   ): Promise<Signature> {
+    return this.persistSignature(
+      createSignatureDto,
+      authenticatedUserId,
+      authenticatedUserId,
+    );
+  }
+
+  async replaceDocumentSignatures(input: {
+    document_id: string;
+    document_type: string;
+    company_id?: string;
+    authenticated_user_id: string;
+    signatures: SignatureWriteInput[];
+  }): Promise<Signature[]> {
+    return this.signaturesRepository.manager.transaction(async (manager) => {
+      await manager.getRepository(Signature).delete({
+        document_id: input.document_id,
+        document_type: input.document_type,
+      });
+
+      const created: Signature[] = [];
+      for (const signatureInput of input.signatures) {
+        created.push(
+          await this.persistSignature(
+            {
+              ...signatureInput,
+              document_id: input.document_id,
+              document_type: input.document_type,
+              company_id: signatureInput.company_id || input.company_id,
+            },
+            input.authenticated_user_id,
+            signatureInput.signer_user_id || signatureInput.user_id,
+            manager,
+          ),
+        );
+      }
+
+      return created;
+    });
+  }
+
+  async findManyByDocuments(
+    documentIds: string[],
+    documentType: string,
+    options?: {
+      companyId?: string;
+      typePrefix?: string;
+    },
+  ): Promise<Signature[]> {
+    if (documentIds.length === 0) {
+      return [];
+    }
+
     const tenantId = this.tenantService.getTenantId();
+    const effectiveCompanyId = options?.companyId || tenantId;
+    const query = this.signaturesRepository
+      .createQueryBuilder('signature')
+      .where('signature.document_id IN (:...documentIds)', { documentIds })
+      .andWhere('signature.document_type = :documentType', { documentType })
+      .orderBy('signature.created_at', 'DESC');
+
+    if (effectiveCompanyId) {
+      query.andWhere(
+        '(signature.company_id = :companyId OR signature.company_id IS NULL)',
+        { companyId: effectiveCompanyId },
+      );
+    }
+
+    if (options?.typePrefix) {
+      query.andWhere('signature.type LIKE :typePrefix', {
+        typePrefix: `${options.typePrefix}%`,
+      });
+    }
+
+    return query.getMany();
+  }
+
+  private async persistSignature(
+    createSignatureDto: CreateSignatureDto,
+    authenticatedUserId: string,
+    signerUserId = authenticatedUserId,
+    manager?: EntityManager,
+  ): Promise<Signature> {
+    const tenantId = this.tenantService.getTenantId();
+    let payload = { ...createSignatureDto };
 
     // HMAC-SHA256: assinatura com PIN derivado por PBKDF2
-    if (createSignatureDto.type === 'hmac') {
-      if (!createSignatureDto.pin) {
+    if (payload.type === 'hmac') {
+      if (!payload.pin) {
         throw new BadRequestException('PIN obrigatório para assinatura HMAC.');
       }
       const hmacKey = await this.usersService.deriveHmacKey(
-        authenticatedUserId,
-        createSignatureDto.pin,
+        signerUserId,
+        payload.pin,
       );
       const timestamp = new Date().toISOString();
       const message = [
-        createSignatureDto.document_id,
-        createSignatureDto.document_type,
-        authenticatedUserId,
+        payload.document_id,
+        payload.document_type,
+        signerUserId,
         timestamp,
       ].join('|');
       const hmacHex = this.usersService.computeHmac(hmacKey, message);
       // Sobrescreve signature_data com o HMAC (não há imagem neste tipo)
-      createSignatureDto = {
-        ...createSignatureDto,
+      payload = {
+        ...payload,
         signature_data: hmacHex,
         pin: undefined,
       };
     }
 
     const generatedStamp = this.signatureTimestampService.issueFromRaw(
-      createSignatureDto.signature_data,
+      payload.signature_data,
     );
     const signedAt = new Date(generatedStamp.timestamp_issued_at);
     const registryContext =
       await this.documentGovernanceService.findRegistryContextForSignature(
-        createSignatureDto.document_id,
-        createSignatureDto.document_type,
-        createSignatureDto.company_id || tenantId || null,
+        payload.document_id,
+        payload.document_type,
+        payload.company_id || tenantId || null,
       );
-    const signature = this.signaturesRepository.create({
-      document_id: createSignatureDto.document_id,
-      document_type: createSignatureDto.document_type,
-      signature_data: createSignatureDto.signature_data,
-      type: createSignatureDto.type,
-      user_id: authenticatedUserId,
-      company_id: createSignatureDto.company_id || tenantId,
-      signature_hash:
-        createSignatureDto.signature_hash || generatedStamp.signature_hash,
+    const signatureRepository =
+      manager?.getRepository(Signature) ?? this.signaturesRepository;
+    const signature = signatureRepository.create({
+      document_id: payload.document_id,
+      document_type: payload.document_type,
+      signature_data: payload.signature_data,
+      type: payload.type,
+      user_id: signerUserId,
+      company_id: payload.company_id || tenantId,
+      signature_hash: payload.signature_hash || generatedStamp.signature_hash,
       timestamp_token:
-        createSignatureDto.timestamp_token || generatedStamp.timestamp_token,
+        payload.timestamp_token || generatedStamp.timestamp_token,
       timestamp_authority:
-        createSignatureDto.timestamp_authority ||
-        generatedStamp.timestamp_authority,
+        payload.timestamp_authority || generatedStamp.timestamp_authority,
       signed_at: signedAt,
       integrity_payload: {
-        document_id: createSignatureDto.document_id,
-        document_type: createSignatureDto.document_type,
-        user_id: authenticatedUserId,
-        type: createSignatureDto.type,
+        document_id: payload.document_id,
+        document_type: payload.document_type,
+        user_id: signerUserId,
+        captured_by_user_id:
+          authenticatedUserId !== signerUserId
+            ? authenticatedUserId
+            : undefined,
+        type: payload.type,
         signed_at: signedAt.toISOString(),
-        hmac_verified: createSignatureDto.type === 'hmac' ? true : undefined,
+        hmac_verified: payload.type === 'hmac' ? true : undefined,
         document_registry: registryContext
           ? {
               entry_id: registryContext.registryEntryId,
@@ -98,7 +190,7 @@ export class SignaturesService {
           : undefined,
       },
     });
-    return this.signaturesRepository.save(signature);
+    return signatureRepository.save(signature);
   }
 
   async findByDocument(
