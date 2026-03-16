@@ -1,8 +1,10 @@
 import {
   BadRequestException,
+  HttpException,
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { DocumentStorageService } from './document-storage.service';
@@ -24,7 +26,9 @@ export interface WeeklyBundleDocument {
 export class DocumentBundleService {
   private readonly logger = new Logger(DocumentBundleService.name);
 
-  constructor(private readonly documentStorageService: DocumentStorageService) {}
+  constructor(
+    private readonly documentStorageService: DocumentStorageService,
+  ) {}
 
   async buildWeeklyPdfBundle(
     moduleName: string,
@@ -52,6 +56,7 @@ export class DocumentBundleService {
 
     const skipped: string[] = [];
     let importedDocuments = 0;
+    let storageUnavailable = false;
 
     for (const document of sortedDocuments) {
       try {
@@ -66,6 +71,12 @@ export class DocumentBundleService {
         pages.forEach((page) => mergedPdf.addPage(page));
         importedDocuments += 1;
       } catch (error) {
+        if (
+          error instanceof ServiceUnavailableException ||
+          (error instanceof HttpException && error.getStatus() === 503)
+        ) {
+          storageUnavailable = true;
+        }
         skipped.push(
           document.originalName || document.title || document.fileKey,
         );
@@ -79,6 +90,14 @@ export class DocumentBundleService {
     }
 
     if (importedDocuments === 0) {
+      if (storageUnavailable) {
+        throw new ServiceUnavailableException({
+          error: 'DOCUMENT_STORAGE_UNAVAILABLE',
+          message:
+            'Armazenamento documental indisponível. Não foi possível montar o pacote semanal.',
+        });
+      }
+
       throw new NotFoundException(
         'Nenhum PDF válido foi encontrado para compor o pacote semanal.',
       );

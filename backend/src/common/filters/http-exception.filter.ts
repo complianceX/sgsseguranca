@@ -54,7 +54,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
 
       // Sanitização em produção: para 5xx, não expor mensagens internas ao client.
-      if (isProduction && status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      const preserveOperationalDetails =
+        request.url === '/health' || code === 'DOCUMENT_STORAGE_UNAVAILABLE';
+
+      if (
+        isProduction &&
+        status >= HttpStatus.INTERNAL_SERVER_ERROR &&
+        !preserveOperationalDetails
+      ) {
         message = 'Erro interno do servidor';
         details = undefined;
       }

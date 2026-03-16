@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Readable } from 'stream';
 import { S3Service } from '../storage/s3.service';
@@ -29,6 +29,8 @@ export class DocumentStorageService {
     contentType: string,
     metadata?: Record<string, string>,
   ): Promise<void> {
+    this.ensureStorageConfigured('upload');
+
     if (this.shouldUseManagedStorage()) {
       const buffer = await this.toBuffer(file);
       await this.storageService.uploadFile(key, buffer, contentType);
@@ -39,6 +41,8 @@ export class DocumentStorageService {
   }
 
   async getSignedUrl(key: string, expiresIn = 3600): Promise<string> {
+    this.ensureStorageConfigured('presign');
+
     if (this.shouldUseManagedStorage()) {
       return this.storageService.getPresignedDownloadUrl(key, expiresIn);
     }
@@ -54,6 +58,8 @@ export class DocumentStorageService {
   }
 
   async downloadFileBuffer(key: string): Promise<Buffer> {
+    this.ensureStorageConfigured('download');
+
     if (this.shouldUseManagedStorage()) {
       return this.storageService.downloadFileBuffer(key);
     }
@@ -62,6 +68,8 @@ export class DocumentStorageService {
   }
 
   async deleteFile(key: string): Promise<void> {
+    this.ensureStorageConfigured('delete');
+
     if (this.shouldUseManagedStorage()) {
       await this.storageService.deleteFile(key);
       return;
@@ -74,6 +82,28 @@ export class DocumentStorageService {
     return Boolean(this.configService.get<string>('AWS_BUCKET_NAME'));
   }
 
+  private shouldUseLegacyS3(): boolean {
+    return /^true$/i.test(this.configService.get<string>('USE_S3', 'false'));
+  }
+
+  private ensureStorageConfigured(
+    action: 'upload' | 'presign' | 'download' | 'delete',
+  ): void {
+    if (this.shouldUseManagedStorage() || this.shouldUseLegacyS3()) {
+      return;
+    }
+
+    throw new ServiceUnavailableException({
+      error: 'DOCUMENT_STORAGE_UNAVAILABLE',
+      message:
+        'Armazenamento documental indisponível. Configure o storage antes de emitir ou acessar PDFs finais.',
+      details: {
+        action,
+        storageConfigured: false,
+      },
+    });
+  }
+
   private async toBuffer(file: Buffer | Readable): Promise<Buffer> {
     if (Buffer.isBuffer(file)) {
       return file;
@@ -81,7 +111,13 @@ export class DocumentStorageService {
 
     const chunks: Buffer[] = [];
     for await (const chunk of file) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      chunks.push(
+        Buffer.isBuffer(chunk)
+          ? chunk
+          : typeof chunk === 'string'
+            ? Buffer.from(chunk)
+            : Buffer.from(chunk as Uint8Array),
+      );
     }
     return Buffer.concat(chunks);
   }
