@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { checklistsService, Checklist } from '@/services/checklistsService';
 import { signaturesService } from '@/services/signaturesService';
 import { generateChecklistPdf } from '@/lib/pdf/checklistGenerator';
-import { Plus, Pencil, Trash2, Search, PlayCircle, Copy, Mail } from 'lucide-react';
+import { Plus, Trash2, Search, PlayCircle, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { SendMailModal } from '@/components/SendMailModal';
 import { Badge } from '@/components/ui/badge';
@@ -70,25 +70,6 @@ export default function ChecklistModelsPage() {
       } catch (error) {
         console.error('Erro ao excluir modelo:', error);
         toast.error('Erro ao excluir modelo.');
-      }
-    }
-  }
-
-  async function handleDuplicate(model: Checklist) {
-    if (confirm(`Duplicar o modelo "${model.titulo}"?`)) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { id, created_at, updated_at, ...data } = model;
-        await checklistsService.create({
-          ...data,
-          titulo: `${data.titulo} (Cópia)`,
-          is_modelo: true,
-        });
-        toast.success('Modelo duplicado com sucesso!');
-      void loadModels(modelFilter);
-      } catch (error) {
-        console.error('Erro ao duplicar modelo:', error);
-        toast.error('Erro ao duplicar modelo.');
       }
     }
   }
@@ -238,28 +219,15 @@ export default function ChecklistModelsPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <Link
-                        href={`/dashboard/checklist-models/new?templateId=${m.id}`}
-                        className="text-[var(--ds-color-success)] transition-colors hover:text-[var(--ds-color-success-hover)]"
-                        title="Preencher Checklist"
-                      >
-                        <PlayCircle className="h-4 w-4" />
-                      </Link>
-                      <Link
-                        href={`/dashboard/checklist-models/edit/${m.id}`}
-                        className="text-[var(--ds-color-accent)] transition-colors hover:brightness-110"
-                        title="Editar modelo"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => handleDuplicate(m)}
-                        className="text-[var(--ds-color-action-primary)] transition-colors hover:text-[var(--ds-color-action-primary-hover)]"
-                        title="Duplicar modelo"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </button>
+                      {m.is_modelo && (
+                        <Link
+                        href={`/dashboard/checklists/fill/${m.id}`}
+                          className="text-[var(--ds-color-success)] transition-colors hover:text-[var(--ds-color-success-hover)]"
+                          title="Preencher Checklist"
+                        >
+                          <PlayCircle className="h-4 w-4" />
+                        </Link>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleSendEmail(m)}

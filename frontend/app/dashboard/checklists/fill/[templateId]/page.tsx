@@ -7,7 +7,7 @@ import { sitesService, Site } from '@/services/sitesService';
 import { usersService, User } from '@/services/usersService';
 import { signaturesService } from '@/services/signaturesService';
 import { generateChecklistPdf } from '@/lib/pdf/checklistGenerator';
-import { ArrowLeft, Save, Printer, Mail, CheckCircle2, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, Save, Printer, Mail, CheckCircle2, ClipboardCheck, Lock } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'sonner';
@@ -55,16 +55,6 @@ function ItemStatusButtons({
       <div className="flex gap-2">
         {choiceBtn('sim', 'Sim', 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35')}
         {choiceBtn('nao', 'Não', 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35')}
-      </div>
-    );
-  }
-
-  if (item.tipo_resposta === 'sim_nao_na') {
-    return (
-      <div className="flex gap-2">
-        {choiceBtn('sim', 'Sim', 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35')}
-        {choiceBtn('nao', 'Não', 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35')}
-        {choiceBtn('na', 'N/A', 'border-transparent bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] ring-2 ring-[var(--ds-color-border-default)]')}
       </div>
     );
   }
@@ -117,6 +107,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
 
   // Post-save states
   const [savedChecklist, setSavedChecklist] = useState<Checklist | null>(null);
+  const [signed, setSigned] = useState(false);
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [pdfBase64, setPdfBase64] = useState<string>('');
@@ -139,13 +130,10 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
       setDescricao(data.descricao || '');
       setEquipamento(data.equipamento || '');
       setMaquina(data.maquina || '');
-      // Initialize items with default status per tipo_resposta
       setItens(
         (data.itens || []).map((item) => ({
           ...item,
-          status: item.tipo_resposta === 'conforme'
-            ? 'ok'
-            : 'sim',
+          status: item.tipo_resposta === 'conforme' ? 'ok' : 'sim',
           observacao: '',
         })),
       );
@@ -193,7 +181,6 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
     void loadUsers();
   }, [loadSites, loadTemplate, loadUsers]);
 
-  // Auto-set inspetor when user loads
   useEffect(() => {
     if (user?.id && !inspetorId) setInspetorId(user.id);
   }, [user?.id, inspetorId]);
@@ -319,14 +306,15 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
       toast.success('Assinatura registrada!');
       setIsSignatureModalOpen(false);
 
-      // Auto-save PDF to R2 after signing
+      // Auto-save PDF to R2 after signing and lock the checklist
       try {
         toast.info('Salvando PDF no storage...');
         await checklistsService.savePdf(savedChecklist.id);
-        toast.success('PDF salvo no storage!');
+        toast.success('PDF salvo e checklist finalizado!');
       } catch {
-        toast.warning('Checklist salvo, mas PDF não pôde ser armazenado automaticamente.');
+        toast.warning('Assinatura registrada, mas PDF não pôde ser salvo automaticamente.');
       }
+      setSigned(true);
     } catch (error) {
       console.error('Erro ao assinar:', error);
       toast.error('Erro ao registrar assinatura');
@@ -346,8 +334,69 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
 
   if (!template) return null;
 
-  // ── POST-SAVE STATE ──────────────────────────────────────────────────────────
+  // ── POST-SAVE / SIGNED STATE ─────────────────────────────────────────────────
   if (savedChecklist) {
+    // Locked state after signing
+    if (signed) {
+      return (
+        <div className="mx-auto max-w-2xl space-y-6 py-10">
+          <div className={`${panelClassName} p-8 text-center`}>
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[color:var(--ds-color-success)]/15">
+              <Lock className="h-7 w-7 text-[var(--ds-color-success)]" />
+            </div>
+            <h2 className="mb-1 text-xl font-bold text-[var(--ds-color-text-primary)]">
+              Checklist finalizado e assinado
+            </h2>
+            <p className="mb-6 text-sm text-[var(--ds-color-text-muted)]">
+              O documento foi assinado e o PDF salvo. Este checklist não pode mais ser editado.
+            </p>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <button
+                type="button"
+                onClick={() => void handlePrint()}
+                disabled={printingOrSending}
+                className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-5 py-2.5 text-sm font-semibold text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
+              >
+                <Printer className="h-4 w-4" />
+                Imprimir PDF
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleSendEmail()}
+                disabled={printingOrSending}
+                className="flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-5 py-2.5 text-sm font-semibold text-[var(--ds-color-text-primary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]/40 disabled:opacity-50"
+              >
+                <Mail className="h-4 w-4" />
+                Enviar por E-mail
+              </button>
+            </div>
+
+            <div className="mt-6 border-t border-[var(--ds-color-border-subtle)] pt-4">
+              <Link
+                href="/dashboard/checklists"
+                className="text-sm text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-secondary)]"
+              >
+                ← Voltar para checklists
+              </Link>
+            </div>
+          </div>
+
+          {isMailModalOpen && pdfBase64 && (
+            <SendMailModal
+              isOpen={isMailModalOpen}
+              onClose={() => setIsMailModalOpen(false)}
+              documentName={titulo}
+              filename={pdfFilename}
+              base64={pdfBase64}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // Saved but not yet signed
     return (
       <div className="mx-auto max-w-2xl space-y-6 py-10">
         <div className={`${panelClassName} p-8 text-center`}>
@@ -358,7 +407,7 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
             Checklist salvo com sucesso!
           </h2>
           <p className="mb-6 text-sm text-[var(--ds-color-text-muted)]">
-            O que você deseja fazer agora?
+            Assine para finalizar e bloquear o documento.
           </p>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
@@ -402,7 +451,6 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
           </div>
         </div>
 
-        {/* Modais */}
         <SignatureModal
           isOpen={isSignatureModalOpen}
           onClose={() => setIsSignatureModalOpen(false)}
