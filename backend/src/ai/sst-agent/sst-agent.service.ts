@@ -23,6 +23,7 @@ import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
 
 import { TenantService } from '../../common/tenant/tenant.service';
+import { IntegrationResilienceService } from '../../common/resilience/integration-resilience.service';
 import { AiInteraction } from '../entities/ai-interaction.entity';
 import {
   SOPHIE_IMAGE_ANALYSIS_PROMPT,
@@ -35,6 +36,7 @@ import {
   SstToolsExecutor,
   SST_TOOL_DEFINITIONS,
 } from './sst-agent.tools';
+import { requestOpenAiChatCompletionResponse } from '../openai-request.util';
 import { SstRateLimitService } from './sst-rate-limit.service';
 import {
   SstAgentResponse,
@@ -163,6 +165,7 @@ export class SstAgentService {
     private readonly toolsExecutor: SstToolsExecutor,
     private readonly rateLimitService: SstRateLimitService,
     private readonly sophieLocalChatService: SophieLocalChatService,
+    private readonly integration: IntegrationResilienceService,
   ) {
     const openaiApiKey =
       this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
@@ -382,17 +385,12 @@ export class SstAgentService {
         delete body.reasoning_effort;
       }
 
-      const response = await fetch(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.openaiApiKey}`,
-          },
-          body: JSON.stringify(body),
-        },
-      );
+      const response = await requestOpenAiChatCompletionResponse({
+        apiKey: this.openaiApiKey,
+        body,
+        configService: this.configService,
+        integration: this.integration,
+      });
 
       if (response.ok) {
         if (index > 0) {

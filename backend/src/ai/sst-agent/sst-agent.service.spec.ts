@@ -24,6 +24,7 @@ import { SstRateLimitService } from './sst-rate-limit.service';
 import { TenantService } from '../../common/tenant/tenant.service';
 import { AiInteraction } from '../entities/ai-interaction.entity';
 import { SophieLocalChatService } from '../../sophie/sophie.local-chat.service';
+import { IntegrationResilienceService } from '../../common/resilience/integration-resilience.service';
 import {
   AiInteractionStatus,
   ConfidenceLevel,
@@ -56,6 +57,10 @@ const mockRateLimitService = () => ({
 
 const mockSophieLocalChatService = () => ({
   chat: jest.fn(),
+});
+
+const mockIntegrationResilienceService = () => ({
+  execute: jest.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
 });
 
 const mockConfigService = (apiKey?: string) => ({
@@ -95,6 +100,7 @@ const makeService = async (options?: {
   const toolsMock = mockToolsExecutor();
   const rlMock = mockRateLimitService();
   const sophieLocalChatMock = mockSophieLocalChatService();
+  const integrationMock = mockIntegrationResilienceService();
 
   tenantMock.getTenantId.mockReturnValue(tenantId);
   rlMock.checkAndConsume.mockResolvedValue({
@@ -118,6 +124,10 @@ const makeService = async (options?: {
       { provide: SstToolsExecutor, useValue: toolsMock },
       { provide: SstRateLimitService, useValue: rlMock },
       { provide: SophieLocalChatService, useValue: sophieLocalChatMock },
+      {
+        provide: IntegrationResilienceService,
+        useValue: integrationMock,
+      },
     ],
   }).compile();
 

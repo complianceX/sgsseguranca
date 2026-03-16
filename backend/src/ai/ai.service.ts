@@ -65,6 +65,8 @@ import type {
 } from './dto/generate-dds.dto';
 import type { GenerateSophieReportDto } from './dto/generate-sophie-report.dto';
 import { defaultJobOptions } from '../queue/default-job-options';
+import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
+import { requestOpenAiChatCompletionResponse } from './openai-request.util';
 
 const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
 const DEFAULT_OPENAI_FALLBACK_MODEL = 'gpt-4o-mini';
@@ -228,6 +230,7 @@ export class AiService {
     private readonly nonConformitiesService: NonConformitiesService,
     private readonly ddsService: DdsService,
     private readonly inspectionsService: InspectionsService,
+    private readonly integration: IntegrationResilienceService,
     @InjectQueue('pdf-generation')
     private readonly pdfQueue: Queue,
   ) {
@@ -410,17 +413,12 @@ export class AiService {
         delete body.reasoning_effort;
       }
 
-      const response = await fetch(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.openaiApiKey}`,
-          },
-          body: JSON.stringify(body),
-        },
-      );
+      const response = await requestOpenAiChatCompletionResponse({
+        apiKey: this.openaiApiKey,
+        body,
+        configService: this.configService,
+        integration: this.integration,
+      });
 
       if (response.ok) {
         if (index > 0) {
