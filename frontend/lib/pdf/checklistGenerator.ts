@@ -35,7 +35,7 @@ export async function generateChecklistPdf(
   });
 
   const filename = buildPdfFilename("CHECKLIST", checklist.titulo, checklist.data);
-  if (options?.save === false && options?.output === "base64") {
+  if (options?.output === "base64") {
     const output = doc as unknown as { output: (type: "datauri" | "dataurl") => string };
     return { base64: pdfDocToBase64(output), filename };
   }

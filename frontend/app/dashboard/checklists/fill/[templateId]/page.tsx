@@ -69,15 +69,25 @@ function ItemStatusButtons({
     );
   }
 
+  if (item.tipo_resposta === 'conforme') {
+    return (
+      <div className="flex gap-2">
+        {choiceBtn('ok', 'Conforme', 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35')}
+        {choiceBtn('nok', 'NC', 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35')}
+        {choiceBtn('na', 'N/A', 'border-transparent bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] ring-2 ring-[var(--ds-color-border-default)]')}
+      </div>
+    );
+  }
+
   if (item.tipo_resposta === 'texto') {
     return null; // observação field is enough
   }
 
-  // default: conforme
+  // default (sim_nao_na or unset): Sim / Não / N/A
   return (
     <div className="flex gap-2">
-      {choiceBtn('ok', 'Conforme', 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35')}
-      {choiceBtn('nok', 'NC', 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35')}
+      {choiceBtn('sim', 'Sim', 'border-transparent bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] ring-2 ring-[color:var(--ds-color-success)]/35')}
+      {choiceBtn('nao', 'Não', 'border-transparent bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] ring-2 ring-[color:var(--ds-color-danger)]/35')}
       {choiceBtn('na', 'N/A', 'border-transparent bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] ring-2 ring-[var(--ds-color-border-default)]')}
     </div>
   );
@@ -133,9 +143,9 @@ export default function FillChecklistPage({ params }: { params: Promise<{ templa
       setItens(
         (data.itens || []).map((item) => ({
           ...item,
-          status: item.tipo_resposta === 'sim_nao' || item.tipo_resposta === 'sim_nao_na'
-            ? 'sim'
-            : 'ok',
+          status: item.tipo_resposta === 'conforme'
+            ? 'ok'
+            : 'sim',
           observacao: '',
         })),
       );
