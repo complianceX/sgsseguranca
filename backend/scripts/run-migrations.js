@@ -1,81 +1,20 @@
 require('reflect-metadata');
 const { DataSource } = require('typeorm');
-
-
-function firstNonEmpty(...values) {
-  for (const value of values) {
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-function resolveSslConfig() {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const hasDatabaseUrl = !!firstNonEmpty(
-    process.env.DATABASE_URL,
-    process.env.DATABASE_PUBLIC_URL,
-    process.env.URL_DO_BANCO_DE_DADOS,
-  );
-  const railwaySelfSigned = process.env.BANCO_DE_DADOS_SSL === 'true';
-  const sslEnabled = process.env.DATABASE_SSL === 'true';
-  const sslCA = process.env.DATABASE_SSL_CA;
-
-  if (!isProduction) {
-    return sslEnabled ? { rejectUnauthorized: false } : false;
-  }
-
-  if (railwaySelfSigned) {
-    return { rejectUnauthorized: false };
-  }
-
-  if (hasDatabaseUrl && !sslCA) {
-    return { rejectUnauthorized: false };
-  }
-
-  if (!sslEnabled) {
-    return false;
-  }
-
-  if (sslCA) {
-    return { rejectUnauthorized: true, ca: sslCA };
-  }
-
-  return { rejectUnauthorized: true };
-}
-
-function describeDatabaseTarget(url) {
-  if (!url) {
-    return 'target=unknown';
-  }
-
-  try {
-    const parsed = new URL(url);
-    const databaseName = parsed.pathname.replace(/^\//, '') || '(default)';
-    return `host=${parsed.hostname} port=${parsed.port || '5432'} db=${databaseName}`;
-  } catch {
-    return 'target=invalid-url';
-  }
-}
+const {
+  resolveDatabaseConfig,
+  resolveSslConfig,
+} = require('./database-runtime.config');
 
 function buildDataSource() {
-  const databaseUrl = firstNonEmpty(
-    process.env.DATABASE_URL,
-    process.env.DATABASE_PRIVATE_URL,
-    process.env.DATABASE_PUBLIC_URL,
-    process.env.URL_DO_BANCO_DE_DADOS,
-    process.env.POSTGRES_URL,
-    process.env.POSTGRESQL_URL,
-  );
+  const databaseConfig = resolveDatabaseConfig();
 
-  if (databaseUrl) {
+  if (databaseConfig.url) {
     console.log(
-      `[MIGRATIONS] Using database URL from environment (${describeDatabaseTarget(databaseUrl)}).`,
+      `[MIGRATIONS] Using database URL from environment (${databaseConfig.target}).`,
     );
     return new DataSource({
       type: 'postgres',
-      url: databaseUrl,
+      url: databaseConfig.url,
       ssl: resolveSslConfig(),
       synchronize: false,
       entities: ['dist/!(database|seed|queue|worker)/**/*.entity.js'],
@@ -83,50 +22,16 @@ function buildDataSource() {
     });
   }
 
-  const host = firstNonEmpty(
-    process.env.DATABASE_HOST,
-    process.env.PGHOST,
-    process.env.POSTGRES_HOST,
-  );
-  const port = Number(
-    firstNonEmpty(
-      process.env.DATABASE_PORT,
-      process.env.PGPORT,
-      process.env.POSTGRES_PORT,
-    ) || '5432',
-  );
-  const username = firstNonEmpty(
-    process.env.DATABASE_USER,
-    process.env.PGUSER,
-    process.env.POSTGRES_USER,
-  );
-  const password = firstNonEmpty(
-    process.env.DATABASE_PASSWORD,
-    process.env.PGPASSWORD,
-    process.env.POSTGRES_PASSWORD,
-  );
-  const database = firstNonEmpty(
-    process.env.DATABASE_NAME,
-    process.env.PGDATABASE,
-    process.env.POSTGRES_DB,
-  );
-
-  if (!host || !username || !password || !database) {
-    throw new Error(
-      'Database config missing. Set DATABASE_URL (recommended) or DATABASE_HOST/PORT/USER/PASSWORD/NAME.',
-    );
-  }
-
   console.log(
-    `[MIGRATIONS] Using host credentials (${username}@${host}:${port}/${database}).`,
+    `[MIGRATIONS] Using host credentials (${databaseConfig.target}).`,
   );
   return new DataSource({
     type: 'postgres',
-    host,
-    port,
-    username,
-    password,
-    database,
+    host: databaseConfig.host,
+    port: databaseConfig.port,
+    username: databaseConfig.username,
+    password: databaseConfig.password,
+    database: databaseConfig.database,
     ssl: resolveSslConfig(),
     synchronize: false,
     entities: ['dist/!(database|seed|queue|worker)/**/*.entity.js'],

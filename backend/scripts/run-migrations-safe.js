@@ -1,48 +1,23 @@
 require('reflect-metadata');
 require('dotenv').config();
 const { DataSource } = require('typeorm');
+const {
+  resolveDatabaseConfig,
+  resolveSslConfig,
+} = require('./database-runtime.config');
 
 function buildDataSource() {
-  const databaseUrl =
-    process.env.DATABASE_URL ||
-    process.env.DATABASE_PUBLIC_URL ||
-    process.env.URL_DO_BANCO_DE_DADOS;
-
-  const host = process.env.DATABASE_HOST || process.env.PGHOST;
-  const port = Number(process.env.DATABASE_PORT || process.env.PGPORT || 5432);
-  const username = process.env.DATABASE_USER || process.env.PGUSER;
-  const password = process.env.DATABASE_PASSWORD || process.env.PGPASSWORD;
-  const database = process.env.DATABASE_NAME || process.env.PGDATABASE;
-
-  if (!databaseUrl && (!host || !username || !database)) {
-    throw new Error(
-      'Database config missing. Set DATABASE_URL/URL_DO_BANCO_DE_DADOS or DATABASE_HOST/PORT/USER/PASSWORD/NAME.',
-    );
-  }
-
-  const isProduction = process.env.NODE_ENV === 'production';
-  const railwaySelfSigned = process.env.BANCO_DE_DADOS_SSL === 'true';
-  const sslEnabled =
-    process.env.DATABASE_SSL === 'true' || process.env.DB_SSL === 'true';
-  const sslConfig = isProduction
-    ? railwaySelfSigned || (databaseUrl && !process.env.DATABASE_SSL_CA)
-      ? { rejectUnauthorized: false }
-      : sslEnabled
-        ? process.env.DATABASE_SSL_CA
-          ? { rejectUnauthorized: true, ca: process.env.DATABASE_SSL_CA }
-          : { rejectUnauthorized: true }
-        : false
-    : false;
+  const databaseConfig = resolveDatabaseConfig();
 
   return new DataSource({
     type: 'postgres',
-    url: databaseUrl,
-    host,
-    port,
-    username,
-    password,
-    database,
-    ssl: sslConfig,
+    url: databaseConfig.url,
+    host: databaseConfig.host,
+    port: databaseConfig.port,
+    username: databaseConfig.username,
+    password: databaseConfig.password,
+    database: databaseConfig.database,
+    ssl: resolveSslConfig(),
     synchronize: false,
     entities: ['src/**/*.entity.ts', 'dist/**/*.entity.js'],
     migrations: [

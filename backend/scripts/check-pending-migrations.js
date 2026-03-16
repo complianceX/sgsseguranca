@@ -1,33 +1,22 @@
 require('reflect-metadata');
 const { DataSource } = require('typeorm');
+const {
+  resolveDatabaseConfig,
+  resolveSslConfig,
+} = require('./database-runtime.config');
 
 function buildDataSource() {
-  const databaseUrl =
-    process.env.DATABASE_URL ||
-    process.env.DATABASE_PUBLIC_URL ||
-    process.env.URL_DO_BANCO_DE_DADOS;
-
-  const host = process.env.DATABASE_HOST || process.env.PGHOST;
-  const port = Number(process.env.DATABASE_PORT || process.env.PGPORT || 5432);
-  const username = process.env.DATABASE_USER || process.env.PGUSER;
-  const password = process.env.DATABASE_PASSWORD || process.env.PGPASSWORD;
-  const database = process.env.DATABASE_NAME || process.env.PGDATABASE;
-
-  if (!databaseUrl && (!host || !username || !database)) {
-    throw new Error(
-      'Database config missing. Set DATABASE_URL/URL_DO_BANCO_DE_DADOS or DATABASE_HOST/PORT/USER/PASSWORD/NAME.',
-    );
-  }
+  const databaseConfig = resolveDatabaseConfig();
 
   return new DataSource({
     type: 'postgres',
-    url: databaseUrl,
-    host,
-    port,
-    username,
-    password,
-    database,
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+    url: databaseConfig.url,
+    host: databaseConfig.host,
+    port: databaseConfig.port,
+    username: databaseConfig.username,
+    password: databaseConfig.password,
+    database: databaseConfig.database,
+    ssl: resolveSslConfig(),
     synchronize: false,
     entities: ['src/**/*.entity.ts', 'dist/**/*.entity.js'],
     migrations: [
