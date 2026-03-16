@@ -4,37 +4,26 @@
       <stop offset="0" stop-color="#1e6b43"/>
       <stop offset="1" stop-color="#0c2e1a"/>
     </linearGradient>
-    <linearGradient id="shield-fill" x1="64" y1="22" x2="64" y2="106" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="rgba(255,255,255,0.18)"/>
-      <stop offset="1" stop-color="rgba(255,255,255,0.05)"/>
+    <linearGradient id="sf" x1="64" y1="22" x2="64" y2="106" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="rgba(255,255,255,0.20)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0.06)"/>
     </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
   </defs>
-
-  <!-- Background rounded square -->
   <rect width="128" height="128" rx="26" fill="url(#bg)"/>
-
-  <!-- Subtle inner border -->
   <rect x="1" y="1" width="126" height="126" rx="25.5" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
-
-  <!-- Shield shape -->
-  <path d="M64 22 L96 37 L96 67 Q96 94 64 108 Q32 94 32 67 L32 37 Z"
-    fill="url(#shield-fill)"
-    stroke="rgba(255,255,255,0.30)"
+  <!-- Shield with rounded bottom -->
+  <path d="M64 22 L94 36 L94 66 Q94 91 64 106 Q34 91 34 66 L34 36 Z"
+    fill="url(#sf)"
+    stroke="rgba(255,255,255,0.28)"
     stroke-width="2"
     stroke-linejoin="round"
   />
-
-  <!-- Checkmark — bold, centered in shield -->
-  <path d="M46 66 L58 78 L83 52"
+  <!-- Bold checkmark — readable at 26px -->
+  <path d="M45 65 L57 77 L84 50"
     stroke="white"
-    stroke-width="6"
+    stroke-width="7"
     stroke-linecap="round"
     stroke-linejoin="round"
     fill="none"
-    filter="url(#glow)"
   />
 </svg>

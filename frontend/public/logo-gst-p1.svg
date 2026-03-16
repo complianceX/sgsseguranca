@@ -1,0 +1,61 @@
+<!-- PALETA 1: Clássico GST — Engrenagem preta, capacete amarelo, swoosh verde -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 540" fill="none">
+  <defs>
+    <mask id="hub1">
+      <rect width="500" height="540" fill="white"/>
+      <circle cx="250" cy="225" r="107" fill="black"/>
+    </mask>
+    <clipPath id="front1">
+      <rect x="210" y="0" width="290" height="238"/>
+    </clipPath>
+  </defs>
+
+  <!-- Swoosh ATRÁS da engrenagem -->
+  <path d="M 52,408 C 118,328 190,282 250,268 C 310,254 372,204 458,122"
+    stroke="#1e6b43" stroke-width="46" fill="none" stroke-linecap="round"/>
+
+  <!-- Engrenagem — 12 dentes, cor preta -->
+  <polygon
+    points="
+      227.8,99 236.5,70.5 263.5,70.5 272.2,99
+      293.7,104.8 315.5,84.5 338.9,98 332.2,127
+      347.9,142.8 377,136.1 390.5,159.5 370.2,181.3
+      376,202.8 404.5,211.5 404.5,238.5 376,247.2
+      370.2,268.7 390.5,290.5 377,313.9 347.9,307.2
+      332.2,323 338.9,352 315.5,365.5 293.7,345.2
+      272.2,351 263.5,379.5 236.5,379.5 227.8,351
+      206.3,345.2 184.5,365.5 161.1,352 167.8,323
+      152.1,307.2 123,313.9 109.5,290.5 129.8,268.7
+      124,247.2 95.5,238.5 95.5,211.5 124,202.8
+      129.8,181.3 109.5,159.5 123,136.1 152.1,142.8
+      167.8,127 161.1,98 184.5,84.5 206.3,104.8"
+    fill="#111827"
+    mask="url(#hub1)"
+  />
+
+  <!-- Capacete: cúpula -->
+  <path d="M 192,240 Q 186,152 250,143 Q 314,152 308,240 Z" fill="#F59E0B"/>
+  <!-- Capacete: reflexo esquerdo -->
+  <path d="M 221,167 Q 219,202 219,240" stroke="rgba(255,255,255,0.28)" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <!-- Capacete: reflexo direito -->
+  <path d="M 274,156 Q 272,197 272,240" stroke="rgba(255,255,255,0.16)" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- Capacete: aba -->
+  <path d="M 156,240 L 344,240 L 339,260 Q 250,269 161,260 Z" fill="#F59E0B"/>
+  <!-- Capacete: sombra aba -->
+  <line x1="156" y1="240" x2="344" y2="240" stroke="rgba(0,0,0,0.18)" stroke-width="3"/>
+
+  <!-- Swoosh NA FRENTE da engrenagem (quadrante superior-direito) -->
+  <path d="M 52,408 C 118,328 190,282 250,268 C 310,254 372,204 458,122"
+    stroke="#1e6b43" stroke-width="46" fill="none" stroke-linecap="round"
+    clip-path="url(#front1)"/>
+
+  <!-- Texto GST -->
+  <text x="250" y="476"
+    text-anchor="middle"
+    font-family="Inter,Arial Black,Roboto,sans-serif"
+    font-size="124" font-weight="900"
+    fill="#111827" letter-spacing="6">GST</text>
+
+  <!-- Sombra verde embaixo -->
+  <ellipse cx="250" cy="494" rx="150" ry="9" fill="#1e6b43" opacity="0.6"/>
+</svg>

@@ -1,19 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192" fill="none">
   <defs>
-    <linearGradient id="gst-bg" x1="20" y1="20" x2="172" y2="172" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#1D4ED8"/>
-      <stop offset="100%" stop-color="#0F172A"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="192" y2="192" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1e6b43"/>
+      <stop offset="1" stop-color="#0c2e1a"/>
     </linearGradient>
-    <linearGradient id="gst-shield" x1="96" y1="46" x2="96" y2="152" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#1E3A8A"/>
-      <stop offset="100%" stop-color="#0B1B3B"/>
+    <linearGradient id="sf" x1="96" y1="32" x2="96" y2="158" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="rgba(255,255,255,0.20)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0.06)"/>
     </linearGradient>
   </defs>
-
-  <rect width="192" height="192" rx="40" fill="url(#gst-bg)"/>
-  <path d="M96 34C68 34 44 46 44 62V98C44 124 66 146 96 156C126 146 148 124 148 98V62C148 46 124 34 96 34Z"
-        fill="url(#gst-shield)"
-        stroke="rgba(255,255,255,0.78)"
-        stroke-width="3.8"/>
-  <text x="96" y="108" text-anchor="middle" font-family="Inter,Segoe UI,Roboto,Arial,sans-serif" font-size="38" font-weight="800" fill="#F59E0B" letter-spacing="1.2">GST</text>
+  <rect width="192" height="192" rx="40" fill="url(#bg)"/>
+  <rect x="2" y="2" width="188" height="188" rx="38.5" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="2"/>
+  <path d="M96 34 L142 55 L142 99 Q142 137 96 158 Q50 137 50 99 L50 55 Z"
+    fill="url(#sf)"
+    stroke="rgba(255,255,255,0.28)"
+    stroke-width="3"
+    stroke-linejoin="round"
+  />
+  <path d="M68 98 L86 116 L126 76"
+    stroke="white"
+    stroke-width="10"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
 </svg>

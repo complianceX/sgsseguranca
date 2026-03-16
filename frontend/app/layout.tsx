@@ -19,9 +19,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "<GST> GESTÃO DE SEGURANÇA DO TRABALHO | Sistema Web SST",
+  title: "GST | Gestão de Segurança do Trabalho",
   description: "Sistema inteligente de gestão de Segurança e Saúde no Trabalho",
-  applicationName: "<GST> GESTÃO DE SEGURANÇA DO TRABALHO",
+  applicationName: "GST – Segurança do Trabalho",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f4f7fa",
+  themeColor: "#1e6b43",
   width: "device-width",
   initialScale: 1,
 };

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>GST — Preview de Paletas</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, sans-serif; background: #f0f2f5; padding: 40px 20px; }
+  h1 { text-align: center; color: #111827; margin-bottom: 8px; font-size: 22px; }
+  p.sub { text-align: center; color: #6b7280; margin-bottom: 40px; font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 32px; max-width: 1000px; margin: 0 auto; }
+  .card { background: #fff; border-radius: 16px; padding: 32px 24px 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  .card.dark { background: #0a1a0e; }
+  .label { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280; }
+  .dark .label { color: #6ee7a0; }
+  .desc { font-size: 12px; color: #9ca3af; text-align: center; line-height: 1.5; }
+  .dark .desc { color: #4ade80; opacity: 0.7; }
+  img { width: 200px; height: auto; }
+  .badge { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(0,0,0,0.08); }
+</style>
+</head>
+<body>
+<h1>GST — 3 Paletas de Logo</h1>
+<p class="sub">Engrenagem preta + capacete + swoosh · Escolha a paleta preferida</p>
+<div class="grid">
+
+  <div class="card">
+    <span class="label">Paleta 1 · Clássico</span>
+    <img src="logo-gst-p1.svg" alt="Paleta 1">
+    <div class="badge">
+      <div class="swatch" style="background:#111827" title="Engrenagem: #111827"></div>
+      <div class="swatch" style="background:#F59E0B" title="Capacete: #F59E0B"></div>
+      <div class="swatch" style="background:#1e6b43" title="Swoosh: #1e6b43"></div>
+    </div>
+    <p class="desc">Engrenagem preta · Capacete amarelo-âmbar · Swoosh verde escuro · Fundo branco</p>
+  </div>
+
+  <div class="card">
+    <span class="label">Paleta 2 · Verde</span>
+    <img src="logo-gst-p2.svg" alt="Paleta 2">
+    <div class="badge">
+      <div class="swatch" style="background:#0c2e1a" title="Engrenagem: #0c2e1a"></div>
+      <div class="swatch" style="background:#ffffff;border:2px solid #d1d5db" title="Capacete: branco"></div>
+      <div class="swatch" style="background:#22c55e" title="Swoosh: #22c55e"></div>
+    </div>
+    <p class="desc">Engrenagem verde-escuro · Capacete branco · Swoosh verde-vivo · Fundo branco</p>
+  </div>
+
+  <div class="card dark">
+    <span class="label">Paleta 3 · Premium Dark</span>
+    <img src="logo-gst-p3.svg" alt="Paleta 3">
+    <div class="badge">
+      <div class="swatch" style="background:#1e293b" title="Engrenagem: #1e293b"></div>
+      <div class="swatch" style="background:#fbbf24" title="Capacete: #fbbf24"></div>
+      <div class="swatch" style="background:#4ade80" title="Swoosh: #4ade80"></div>
+    </div>
+    <p class="desc" style="color:#4ade80;opacity:0.7">Fundo escuro · Engrenagem grafite · Capacete âmbar · Swoosh verde-neon</p>
+  </div>
+
+</div>
+</body>
+</html>

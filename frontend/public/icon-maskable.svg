@@ -1,19 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+  <!-- Maskable: full bleed background, safe zone = central 80% -->
   <defs>
-    <linearGradient id="gst-bg" x1="44" y1="44" x2="468" y2="468" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#1D4ED8"/>
-      <stop offset="100%" stop-color="#0F172A"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1e6b43"/>
+      <stop offset="1" stop-color="#0c2e1a"/>
     </linearGradient>
-    <linearGradient id="gst-shield" x1="256" y1="126" x2="256" y2="400" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#1E3A8A"/>
-      <stop offset="100%" stop-color="#0B1B3B"/>
+    <linearGradient id="sf" x1="256" y1="130" x2="256" y2="390" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="rgba(255,255,255,0.20)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0.06)"/>
     </linearGradient>
   </defs>
-
-  <rect width="512" height="512" fill="url(#gst-bg)"/>
-  <path d="M256 98C186 98 132 126 132 166V266C132 338 188 396 256 420C324 396 380 338 380 266V166C380 126 326 98 256 98Z"
-        fill="url(#gst-shield)"
-        stroke="rgba(255,255,255,0.8)"
-        stroke-width="9"/>
-  <text x="256" y="296" text-anchor="middle" font-family="Inter,Segoe UI,Roboto,Arial,sans-serif" font-size="96" font-weight="800" fill="#F59E0B" letter-spacing="2">GST</text>
+  <!-- Full bleed — no border radius for maskable -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- Shield inset within safe zone (>10% padding each side) -->
+  <path d="M256 130 L360 178 L360 278 Q360 362 256 400 Q152 362 152 278 L152 178 Z"
+    fill="url(#sf)"
+    stroke="rgba(255,255,255,0.28)"
+    stroke-width="7"
+    stroke-linejoin="round"
+  />
+  <path d="M196 276 L238 318 L328 228"
+    stroke="white"
+    stroke-width="26"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
 </svg>
