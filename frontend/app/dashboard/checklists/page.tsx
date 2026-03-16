@@ -458,6 +458,7 @@ export default function ChecklistsPage() {
           documentName={selectedDoc.name}
           filename={selectedDoc.filename}
           base64={selectedDoc.base64}
+          storedDocument={selectedDoc.storedDocument}
         />
       ) : null}
     </div>

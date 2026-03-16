@@ -6,7 +6,10 @@ import { DataSource } from 'typeorm';
 
 type App = Parameters<typeof request>[0];
 
-describe('Multi-Tenant Isolation (APR) (e2e)', () => {
+const describeE2E =
+  process.env.E2E_INFRA_AVAILABLE === 'false' ? describe.skip : describe;
+
+describeE2E('Multi-Tenant Isolation (APR) (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
 

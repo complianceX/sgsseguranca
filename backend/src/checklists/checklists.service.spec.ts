@@ -11,6 +11,7 @@ import type { UsersService } from '../users/users.service';
 import type { SitesService } from '../sites/sites.service';
 import type { NotificationsGateway } from '../notifications/notifications.gateway';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import type { DocumentRegistryService } from '../document-registry/document-registry.service';
 import type { FileParserService } from '../document-import/services/file-parser.service';
 import type { ConfigService } from '@nestjs/config';
 import type { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
@@ -49,6 +50,7 @@ describe('ChecklistsService', () => {
     | 'listFinalDocuments'
     | 'getModuleWeeklyBundle'
   >;
+  let documentRegistryService: Pick<DocumentRegistryService, 'validatePublicCode'>;
   let notificationsGateway: Pick<NotificationsGateway, 'sendToCompany'>;
   let signaturesService: Pick<SignaturesService, 'findByDocument'>;
 
@@ -98,6 +100,9 @@ describe('ChecklistsService', () => {
       listFinalDocuments: jest.fn(),
       getModuleWeeklyBundle: jest.fn(),
     };
+    documentRegistryService = {
+      validatePublicCode: jest.fn(),
+    };
     notificationsGateway = {
       sendToCompany: jest.fn(),
     };
@@ -126,6 +131,7 @@ describe('ChecklistsService', () => {
       {} as UsersService,
       {} as SitesService,
       documentGovernanceService as DocumentGovernanceService,
+      documentRegistryService as DocumentRegistryService,
       {} as FileParserService,
       {
         get: jest.fn(),
@@ -397,25 +403,34 @@ describe('ChecklistsService', () => {
     );
   });
 
-  it('usa a data do checklist para validar codigo publico', async () => {
-    repository.createQueryBuilder.mockReturnValue({
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      limit: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([
-        {
-          id: '12345678-1234-1234-1234-abcdef123456',
-          titulo: 'Checklist 2025',
-          status: 'Conforme',
-          data: new Date('2025-12-30T00:00:00.000Z'),
-          is_modelo: false,
-          updated_at: new Date('2025-12-30T18:00:00.000Z'),
-          site: { nome: 'Obra A' },
-          inspetor: { nome: 'Maria' },
-        },
-      ]),
+  it('valida codigo publico apenas quando o checklist existe no registry governado', async () => {
+    (
+      documentRegistryService.validatePublicCode as jest.Mock
+    ).mockResolvedValueOnce({
+      valid: true,
+      code: 'CHK-2025-EF123456',
+      document: {
+        id: '12345678-1234-1234-1234-abcdef123456',
+        module: 'checklist',
+      },
+    });
+    repository.findOne.mockResolvedValueOnce({
+      id: '12345678-1234-1234-1234-abcdef123456',
+      titulo: 'Checklist 2025',
+      status: 'Conforme',
+      data: new Date('2025-12-30T00:00:00.000Z'),
+      is_modelo: false,
+      updated_at: new Date('2025-12-30T18:00:00.000Z'),
+      site: { nome: 'Obra A' },
+      inspetor: { nome: 'Maria' },
+    });
+
+    (
+      documentRegistryService.validatePublicCode as jest.Mock
+    ).mockResolvedValueOnce({
+      valid: false,
+      code: 'CHK-2026-EF123456',
+      message: 'Documento não encontrado.',
     });
 
     const valid = await service.validateByCode('CHK-2025-EF123456');
@@ -424,6 +439,10 @@ describe('ChecklistsService', () => {
     expect(valid.valid).toBe(true);
     expect(valid.checklist?.titulo).toBe('Checklist 2025');
     expect(invalid.valid).toBe(false);
+    expect(documentRegistryService.validatePublicCode).toHaveBeenNthCalledWith(
+      1,
+      'CHK-2025-EF123456',
+    );
   });
 
   it('filtra arquivos semanais pela data documental e nao pela criacao', async () => {
@@ -483,6 +502,7 @@ describe('ChecklistsService', () => {
       {} as UsersService,
       {} as SitesService,
       documentGovernanceService as DocumentGovernanceService,
+      documentRegistryService as DocumentRegistryService,
       {} as FileParserService,
       {
         get: jest.fn(),

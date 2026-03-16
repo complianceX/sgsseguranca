@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Button } from './ui/button';
 import api from '@/lib/api';
 import { Input } from './ui/input';
+import { mailService } from '@/services/mailService';
 import {
   ModalBody,
   ModalFooter,
@@ -16,7 +17,11 @@ interface SendMailModalProps {
   onClose: () => void;
   documentName: string;
   filename: string;
-  base64: string;
+  base64?: string;
+  storedDocument?: {
+    documentId: string;
+    documentType: string;
+  };
 }
 
 export function SendMailModal({
@@ -25,6 +30,7 @@ export function SendMailModal({
   documentName,
   filename,
   base64,
+  storedDocument,
 }: SendMailModalProps) {
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
@@ -39,20 +45,30 @@ export function SendMailModal({
     try {
       setSending(true);
 
-      const byteCharacters = atob(base64);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      if (storedDocument) {
+        await mailService.sendStoredDocument(
+          storedDocument.documentId,
+          storedDocument.documentType,
+          email,
+        );
+      } else if (base64) {
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+        const formData = new FormData();
+        formData.append('file', blob, filename);
+        formData.append('email', email);
+        formData.append('docName', documentName);
+
+        await api.post('/mail/send-uploaded-document', formData);
+      } else {
+        throw new Error('Nenhum documento disponível para envio.');
       }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'application/pdf' });
-
-      const formData = new FormData();
-      formData.append('file', blob, filename);
-      formData.append('email', email);
-      formData.append('docName', documentName);
-
-      await api.post('/mail/send-uploaded-document', formData);
 
       toast.success('E-mail enviado com sucesso!');
       onClose();

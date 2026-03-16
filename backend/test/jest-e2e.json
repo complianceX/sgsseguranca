@@ -5,5 +5,8 @@
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
-  }
+  },
+  "globalSetup": "<rootDir>/setup/e2e-infra-check.ts",
+  "maxWorkers": 1,
+  "workerThreads": false
 }

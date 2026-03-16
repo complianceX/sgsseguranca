@@ -8,7 +8,10 @@ import { Role } from '../src/auth/enums/roles.enum';
 
 type App = Parameters<typeof request>[0];
 
-describe('IDOR/BOLA Multi-Tenant (e2e)', () => {
+const describeE2E =
+  process.env.E2E_INFRA_AVAILABLE === 'false' ? describe.skip : describe;
+
+describeE2E('IDOR/BOLA Multi-Tenant (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let passwordService: PasswordService;

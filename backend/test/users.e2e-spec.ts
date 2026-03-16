@@ -4,7 +4,10 @@ import { E2EHelper } from './helpers/e2e.helper';
 
 type App = Parameters<typeof request>[0];
 
-describe('Users CRUD (e2e)', () => {
+const describeE2E =
+  process.env.E2E_INFRA_AVAILABLE === 'false' ? describe.skip : describe;
+
+describeE2E('Users CRUD (e2e)', () => {
   let app: INestApplication;
   let authCookie: string;
   let createdUserId: string;

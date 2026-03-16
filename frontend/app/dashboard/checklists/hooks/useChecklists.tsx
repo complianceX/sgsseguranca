@@ -36,7 +36,15 @@ export function useChecklists() {
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<{
+    name: string;
+    filename: string;
+    base64?: string;
+    storedDocument?: {
+      documentId: string;
+      documentType: string;
+    };
+  } | null>(null);
 
   const loadChecklists = useCallback(async () => {
     try {
@@ -81,6 +89,7 @@ export function useChecklists() {
           toast.success('PDF aberto com sucesso!');
           return;
         }
+        throw new Error('PDF final emitido, mas indisponível no armazenamento.');
       }
       const signatures = await signaturesService.findByChecklist(checklist.id);
       await generateChecklistPdf(checklist, signatures);
@@ -95,6 +104,19 @@ export function useChecklists() {
   const handleSendEmail = useCallback(async (checklist: Checklist) => {
     try {
       setPrintingId(checklist.id);
+      if (checklist.pdf_file_key) {
+        setSelectedDoc({
+          name: checklist.titulo,
+          filename: checklist.pdf_original_name || `checklist-${checklist.id}.pdf`,
+          storedDocument: {
+            documentId: checklist.id,
+            documentType: 'CHECKLIST',
+          },
+        });
+        setIsMailModalOpen(true);
+        return;
+      }
+
       const signatures = await signaturesService.findByChecklist(checklist.id);
       const pdfData = await generateChecklistPdf(checklist, signatures, { save: false, output: 'base64' });
       
@@ -124,6 +146,7 @@ export function useChecklists() {
           });
           return;
         }
+        throw new Error('PDF final emitido, mas indisponível no armazenamento.');
       }
       const signatures = await signaturesService.findByChecklist(checklist.id);
       const result = await generateChecklistPdf(checklist, signatures, { save: false, output: 'base64' }) as { base64: string };

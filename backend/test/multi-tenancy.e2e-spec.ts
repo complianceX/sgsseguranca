@@ -4,7 +4,10 @@ import { E2EHelper } from './helpers/e2e.helper';
 
 type App = Parameters<typeof request>[0];
 
-describe('Multi-tenancy Isolation (e2e)', () => {
+const describeE2E =
+  process.env.E2E_INFRA_AVAILABLE === 'false' ? describe.skip : describe;
+
+describeE2E('Multi-tenancy Isolation (e2e)', () => {
   let app: INestApplication;
   let company1Token: string;
   let company2Token: string;

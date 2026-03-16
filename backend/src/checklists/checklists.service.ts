@@ -49,6 +49,7 @@ import {
 } from '../common/utils/offset-pagination.util';
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import { Company } from '../companies/entities/company.entity';
 import { getIsoWeekNumber } from '../common/utils/document-calendar.util';
@@ -248,6 +249,7 @@ export class ChecklistsService {
     private usersService: UsersService,
     private sitesService: SitesService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly documentRegistryService: DocumentRegistryService,
     private readonly fileParserService: FileParserService,
     private readonly configService: ConfigService,
     private readonly integrationResilienceService: IntegrationResilienceService,
@@ -1090,8 +1092,12 @@ export class ChecklistsService {
   async count(options?: { where?: Record<string, unknown> }): Promise<number> {
     const tenantId = this.tenantService.getTenantId();
     const where = options?.where || {};
+    const effectiveWhere =
+      'deleted_at' in where ? where : { ...where, deleted_at: IsNull() };
     return this.checklistsRepository.count({
-      where: tenantId ? { ...where, company_id: tenantId } : where,
+      where: tenantId
+        ? { ...effectiveWhere, company_id: tenantId }
+        : effectiveWhere,
     });
   }
 
@@ -1345,28 +1351,26 @@ Regras:
       };
     }
 
-    const suffix = normalized.split('-').pop();
-    if (!suffix || suffix.length < 6) {
-      return { valid: false, message: 'Código inválido.' };
+    const validation =
+      await this.documentRegistryService.validatePublicCode(normalized);
+
+    if (!validation.valid || validation.document?.module !== 'checklist') {
+      return {
+        valid: false,
+        code: normalized,
+        message: validation.message || 'Checklist não encontrado para este código.',
+      };
     }
 
-    const matches = await this.checklistsRepository
-      .createQueryBuilder('c')
-      .leftJoinAndSelect('c.site', 'site')
-      .leftJoinAndSelect('c.inspetor', 'inspetor')
-      .where("REPLACE(c.id::text, '-', '') ILIKE :suffix", {
-        suffix: `%${suffix.toLowerCase()}`,
-      })
-      .andWhere('c.deleted_at IS NULL')
-      .orderBy('c.created_at', 'DESC')
-      .limit(5)
-      .getMany();
+    const checklist = await this.checklistsRepository.findOne({
+      where: {
+        id: validation.document.id,
+        deleted_at: IsNull(),
+      },
+      relations: ['site', 'inspetor'],
+    });
 
-    const match = matches.find(
-      (cl) => this.buildChecklistDocumentCode(cl) === normalized,
-    );
-
-    if (!match) {
+    if (!checklist) {
       return {
         valid: false,
         message: 'Checklist não encontrado para este código.',
@@ -1377,17 +1381,17 @@ Regras:
       valid: true,
       code: normalized,
       checklist: {
-        id: match.id,
-        titulo: match.titulo,
-        status: match.status,
+        id: checklist.id,
+        titulo: checklist.titulo,
+        status: checklist.status,
         data:
-          match.data instanceof Date
-            ? match.data.toISOString().split('T')[0]
-            : String(match.data),
-        is_modelo: Boolean(match.is_modelo),
-        site: match.site?.nome,
-        inspetor: match.inspetor?.nome,
-        updated_at: match.updated_at?.toISOString() ?? '',
+          checklist.data instanceof Date
+            ? checklist.data.toISOString().split('T')[0]
+            : String(checklist.data),
+        is_modelo: Boolean(checklist.is_modelo),
+        site: checklist.site?.nome,
+        inspetor: checklist.inspetor?.nome,
+        updated_at: checklist.updated_at?.toISOString() ?? '',
       },
     };
   }

@@ -721,6 +721,18 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
     if (!resolvedChecklistId) {
       return;
     }
+
+    const latestChecklist =
+      persistedChecklist ||
+      currentChecklist ||
+      (await checklistsService.findOne(resolvedChecklistId));
+
+    if (!latestChecklist?.pdf_file_key) {
+      toast.info(
+        'Emita o PDF final antes de enviar este checklist por e-mail.',
+      );
+      return;
+    }
     setEmailModalOpen(true);
   };
 
@@ -733,6 +745,11 @@ export function ChecklistForm({ id, mode = 'checklist' }: ChecklistFormProps) {
       setSendingEmail(true);
       const resolvedChecklistId = activeChecklistId;
       if (resolvedChecklistId) {
+        const latestChecklist =
+          currentChecklist || (await checklistsService.findOne(resolvedChecklistId));
+        if (!latestChecklist?.pdf_file_key) {
+          throw new Error('Checklist sem PDF final governado.');
+        }
         await checklistsService.sendEmail(resolvedChecklistId, emailTo);
         toast.success('Checklist enviado por email com sucesso!');
         setEmailModalOpen(false);

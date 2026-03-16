@@ -4,7 +4,10 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 
-describe('AppController (e2e)', () => {
+const describeE2E =
+  process.env.E2E_INFRA_AVAILABLE === 'false' ? describe.skip : describe;
+
+describeE2E('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
