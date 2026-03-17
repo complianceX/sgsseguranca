@@ -53,10 +53,17 @@ export class RdosService {
   private async generateNumero(companyId: string): Promise<string> {
     const now = new Date();
     const yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const count = await this.rdosRepository.count({
-      where: { company_id: companyId },
-    });
-    return `RDO-${yyyymm}-${String(count + 1).padStart(3, '0')}`;
+    const prefix = `RDO-${yyyymm}-`;
+    const last = await this.rdosRepository
+      .createQueryBuilder('rdo')
+      .select('MAX(rdo.numero)', 'max')
+      .where('rdo.company_id = :companyId', { companyId })
+      .andWhere('rdo.numero LIKE :prefix', { prefix: `${prefix}%` })
+      .getRawOne<{ max: string | null }>();
+    const lastSeq = last?.max
+      ? Number(last.max.slice(prefix.length)) || 0
+      : 0;
+    return `${prefix}${String(lastSeq + 1).padStart(3, '0')}`;
   }
 
   async create(createRdoDto: CreateRdoDto): Promise<Rdo> {
@@ -129,6 +136,11 @@ export class RdosService {
   async update(id: string, updateRdoDto: UpdateRdoDto): Promise<Rdo> {
     const rdo = await this.findOne(id);
     await this.assertRdoDocumentMutable(rdo);
+    if ('status' in updateRdoDto && updateRdoDto.status !== undefined) {
+      throw new BadRequestException(
+        'Use PATCH /rdos/:id/status para alterar o status do RDO.',
+      );
+    }
     Object.assign(rdo, updateRdoDto);
     return this.rdosRepository.save(rdo);
   }

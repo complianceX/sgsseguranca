@@ -54,6 +54,20 @@ describe('RdosService', () => {
   let documentRegistryService: Pick<DocumentRegistryService, 'findByDocument'>;
 
   beforeEach(() => {
+    const defaultQb = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({ max: null }),
+      getRawMany: jest.fn().mockResolvedValue([]),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      getMany: jest.fn().mockResolvedValue([]),
+    };
     repository = {
       findOne: jest.fn(),
       find: jest.fn(),
@@ -61,7 +75,7 @@ describe('RdosService', () => {
       count: jest.fn().mockResolvedValue(0),
       create: jest.fn((input) => ({ ...input } as Rdo)),
       remove: jest.fn().mockResolvedValue(undefined),
-      createQueryBuilder: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue(defaultQb),
     };
     tenantService = { getTenantId: jest.fn(() => COMPANY_ID) };
     mailService = {
@@ -111,7 +125,12 @@ describe('RdosService', () => {
   // ─── create ──────────────────────────────────────────────────────────────────
 
   it('cria RDO com numero gerado automaticamente', async () => {
-    repository.count.mockResolvedValue(2);
+    (repository.createQueryBuilder as jest.Mock).mockReturnValueOnce({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({ max: 'RDO-202603-002' }),
+    });
     const dto = { company_id: COMPANY_ID, data: new Date('2026-03-16'), status: 'rascunho' };
     const result = await service.create(dto as any);
     expect(result.numero).toMatch(/^RDO-\d{6}-003$/);
@@ -329,6 +348,108 @@ describe('RdosService', () => {
   it('lanca NotFoundException ao remover RDO inexistente', async () => {
     repository.findOne.mockResolvedValue(null);
     await expect(service.remove('inexistente')).rejects.toThrow(NotFoundException);
+  });
+
+  // ─── generateNumero (via create) ─────────────────────────────────────────────
+
+  it('gera numero sequencial por mes (nao por total da empresa)', async () => {
+    (repository.createQueryBuilder as jest.Mock).mockReturnValueOnce({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({ max: 'RDO-202603-005' }),
+    });
+    const dto = { company_id: COMPANY_ID, data: new Date('2026-03-16') };
+    const result = await service.create(dto as any);
+    expect(result.numero).toMatch(/^RDO-\d{6}-006$/);
+  });
+
+  it('inicia sequencia em 001 quando nao ha RDOs no mes', async () => {
+    // default mock already returns { max: null } — no override needed
+    const dto = { company_id: COMPANY_ID, data: new Date('2026-04-01') };
+    const result = await service.create(dto as any);
+    expect(result.numero).toMatch(/^RDO-\d{6}-001$/);
+  });
+
+  // ─── update (status bypass protection) ───────────────────────────────────────
+
+  it('bloqueia alteracao de status pelo endpoint generico de update', async () => {
+    repository.findOne.mockResolvedValue(makeRdo());
+    await expect(
+      service.update(RDO_ID, { status: 'aprovado' } as any),
+    ).rejects.toThrow('Use PATCH /rdos/:id/status para alterar o status do RDO.');
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  // ─── sign (PDF lock) ──────────────────────────────────────────────────────────
+
+  it('bloqueia assinatura quando o RDO ja possui PDF final governado', async () => {
+    repository.findOne.mockResolvedValue(makeRdo());
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue({
+      id: 'registry-1',
+      file_key: 'documents/rdo.pdf',
+    });
+
+    await expect(
+      service.sign(RDO_ID, {
+        tipo: 'responsavel',
+        nome: 'João',
+        cpf: '12345678900',
+        hash: 'h',
+        timestamp: new Date().toISOString(),
+      }),
+    ).rejects.toThrow(BadRequestException);
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  // ─── markPdfSaved (validations) ──────────────────────────────────────────────
+
+  it('bloqueia markPdfSaved quando falta assinatura do responsavel', async () => {
+    repository.findOne.mockResolvedValue(
+      makeRdo({ status: 'aprovado', assinatura_engenheiro: '{"nome":"Eng"}' }),
+    );
+    await expect(
+      service.markPdfSaved(RDO_ID, { filename: 'rdo.pdf' }),
+    ).rejects.toThrow('Assinaturas do responsável e do engenheiro são obrigatórias');
+    expect(documentGovernanceService.syncFinalDocumentMetadata).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia markPdfSaved quando RDO nao esta aprovado', async () => {
+    repository.findOne.mockResolvedValue(
+      makeRdo({
+        status: 'enviado',
+        assinatura_responsavel: '{"nome":"Resp"}',
+        assinatura_engenheiro: '{"nome":"Eng"}',
+      }),
+    );
+    await expect(
+      service.markPdfSaved(RDO_ID, { filename: 'rdo.pdf' }),
+    ).rejects.toThrow('Somente RDO aprovado pode receber PDF final');
+    expect(documentGovernanceService.syncFinalDocumentMetadata).not.toHaveBeenCalled();
+  });
+
+  // ─── savePdf (cleanup on governance failure) ──────────────────────────────────
+
+  it('remove arquivo do storage quando a governanca falha no savePdf', async () => {
+    repository.findOne.mockResolvedValue(
+      makeRdo({
+        status: 'aprovado',
+        assinatura_responsavel: '{"nome":"Resp"}',
+        assinatura_engenheiro: '{"nome":"Eng"}',
+      }),
+    );
+    (documentGovernanceService.registerFinalDocument as jest.Mock).mockRejectedValue(
+      new Error('governance failure'),
+    );
+
+    const file = {
+      originalname: 'rdo.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-rdo'),
+    } as Express.Multer.File;
+
+    await expect(service.savePdf(RDO_ID, file)).rejects.toThrow('governance failure');
+    expect(documentStorageService.deleteFile).toHaveBeenCalled();
   });
 
   // ─── exportExcel ─────────────────────────────────────────────────────────────

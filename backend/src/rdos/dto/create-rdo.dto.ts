@@ -4,7 +4,6 @@ import {
   IsDateString,
   IsIn,
   IsNumber,
-  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -187,12 +186,4 @@ export class CreateRdoDto {
   @IsOptional()
   programa_servicos_amanha?: string;
 
-  // Assinaturas
-  @IsString()
-  @IsOptional()
-  assinatura_responsavel?: string;
-
-  @IsString()
-  @IsOptional()
-  assinatura_engenheiro?: string;
 }

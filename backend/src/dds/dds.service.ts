@@ -184,6 +184,14 @@ export class DdsService {
         'DDS com PDF final anexado. Edição bloqueada. Gere um novo DDS para alterar o documento.',
       );
     }
+    if (
+      dds.is_modelo &&
+      (status === DdsStatus.PUBLICADO || status === DdsStatus.AUDITADO)
+    ) {
+      throw new BadRequestException(
+        'Modelos de DDS não podem ser publicados ou auditados. Gere um DDS operacional a partir do modelo.',
+      );
+    }
     const allowed = DDS_ALLOWED_TRANSITIONS[dds.status];
     if (!allowed.includes(status)) {
       throw new BadRequestException(

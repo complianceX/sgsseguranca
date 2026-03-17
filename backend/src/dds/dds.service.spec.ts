@@ -313,6 +313,229 @@ describe('DdsService', () => {
     expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
   });
 
+  it('updateStatus: avanca status de rascunho para publicado', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      status: DdsStatus.RASCUNHO,
+      is_modelo: false,
+    } as Dds);
+
+    const result = await service.updateStatus('dds-1', DdsStatus.PUBLICADO);
+    expect(result.status).toBe(DdsStatus.PUBLICADO);
+    expect(repository.save).toHaveBeenCalled();
+  });
+
+  it('updateStatus: rejeita transicao invalida', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      status: DdsStatus.AUDITADO,
+      is_modelo: false,
+    } as Dds);
+
+    await expect(
+      service.updateStatus('dds-1', DdsStatus.PUBLICADO),
+    ).rejects.toThrow(BadRequestException);
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('updateStatus: bloqueia publicacao de modelo de DDS', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      status: DdsStatus.RASCUNHO,
+      is_modelo: true,
+    } as Dds);
+
+    await expect(
+      service.updateStatus('dds-1', DdsStatus.PUBLICADO),
+    ).rejects.toThrow(
+      'Modelos de DDS não podem ser publicados ou auditados.',
+    );
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('updateStatus: bloqueia auditoria de modelo de DDS', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      status: DdsStatus.PUBLICADO,
+      is_modelo: true,
+    } as Dds);
+
+    await expect(
+      service.updateStatus('dds-1', DdsStatus.AUDITADO),
+    ).rejects.toThrow(BadRequestException);
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('replaceSignatures: rejeita quando DDS nao tem participantes', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      facilitador_id: 'facilitador-1',
+      participants: [],
+      is_modelo: false,
+    } as unknown as Dds);
+
+    await expect(
+      service.replaceSignatures(
+        'dds-1',
+        { participant_signatures: [] },
+        'operador-1',
+      ),
+    ).rejects.toThrow(
+      'O DDS precisa ter participantes definidos antes das assinaturas.',
+    );
+    expect(signaturesService.replaceDocumentSignatures).not.toHaveBeenCalled();
+  });
+
+  it('replaceSignatures: rejeita quando DDS e um modelo', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      facilitador_id: 'facilitador-1',
+      participants: [{ id: 'user-1' }],
+      is_modelo: true,
+    } as unknown as Dds);
+
+    await expect(
+      service.replaceSignatures(
+        'dds-1',
+        {
+          participant_signatures: [
+            { user_id: 'user-1', signature_data: 'sig', type: 'digital' },
+          ],
+        },
+        'operador-1',
+      ),
+    ).rejects.toThrow(
+      'Modelos de DDS não podem receber assinaturas de execução.',
+    );
+    expect(signaturesService.replaceDocumentSignatures).not.toHaveBeenCalled();
+  });
+
+  it('replaceSignatures: rejeita participante fora do DDS', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      facilitador_id: 'facilitador-1',
+      participants: [{ id: 'user-1' }],
+      is_modelo: false,
+    } as unknown as Dds);
+
+    await expect(
+      service.replaceSignatures(
+        'dds-1',
+        {
+          participant_signatures: [
+            { user_id: 'user-externo', signature_data: 'sig', type: 'digital' },
+          ],
+        },
+        'operador-1',
+      ),
+    ).rejects.toThrow(BadRequestException);
+    expect(signaturesService.replaceDocumentSignatures).not.toHaveBeenCalled();
+  });
+
+  it('replaceSignatures: rejeita foto duplicada sem justificativa', async () => {
+    repository.createQueryBuilder.mockImplementationOnce(() => ({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([
+        { id: 'dds-old', tema: 'DDS antigo', data: '2026-03-10' },
+      ]),
+    }));
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      facilitador_id: 'facilitador-1',
+      participants: [{ id: 'user-1' }],
+      is_modelo: false,
+    } as unknown as Dds);
+    (signaturesService.findManyByDocuments as jest.Mock).mockResolvedValue([
+      {
+        document_id: 'dds-old',
+        type: 'team_photo_1',
+        signature_data: JSON.stringify({
+          imageData: 'data:image/jpeg;base64,old',
+          capturedAt: '2026-03-10T08:00:00.000Z',
+          hash: 'hash-dup',
+          metadata: { userAgent: 'jest' },
+        }),
+      },
+    ]);
+
+    await expect(
+      service.replaceSignatures(
+        'dds-1',
+        {
+          participant_signatures: [
+            { user_id: 'user-1', signature_data: 'sig', type: 'digital' },
+          ],
+          team_photos: [
+            {
+              imageData: 'data:image/jpeg;base64,new',
+              capturedAt: '2026-03-14T08:00:00.000Z',
+              hash: 'hash-dup',
+              metadata: { userAgent: 'jest' },
+            },
+          ],
+          // sem photo_reuse_justification
+        },
+        'operador-1',
+      ),
+    ).rejects.toThrow(
+      'Detectamos reuso potencial de foto.',
+    );
+    expect(signaturesService.replaceDocumentSignatures).not.toHaveBeenCalled();
+  });
+
+  it('replaceSignatures: aceita assinaturas sem fotos duplicadas normalmente', async () => {
+    repository.createQueryBuilder.mockImplementationOnce(() => ({
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    }));
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      facilitador_id: 'facilitador-1',
+      participants: [{ id: 'user-1' }],
+      is_modelo: false,
+    } as unknown as Dds);
+
+    const result = await service.replaceSignatures(
+      'dds-1',
+      {
+        participant_signatures: [
+          { user_id: 'user-1', signature_data: 'sig-1', type: 'digital' },
+        ],
+        team_photos: [
+          {
+            imageData: 'data:image/jpeg;base64,photo',
+            capturedAt: '2026-03-14T08:00:00.000Z',
+            hash: 'hash-novo',
+            metadata: { userAgent: 'jest' },
+          },
+        ],
+      },
+      'operador-1',
+    );
+
+    expect(result.participantSignatures).toBe(1);
+    expect(result.teamPhotos).toBe(1);
+    expect(result.duplicatePhotoWarnings).toHaveLength(0);
+    expect(signaturesService.replaceDocumentSignatures).toHaveBeenCalledTimes(1);
+  });
+
   it('persiste assinaturas do DDS com o participante correto e justificativa de reuso quando necessario', async () => {
     repository.createQueryBuilder.mockImplementationOnce(() => ({
       select: jest.fn().mockReturnThis(),

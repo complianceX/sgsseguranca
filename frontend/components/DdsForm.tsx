@@ -243,9 +243,8 @@ export function DdsForm({ id }: DdsFormProps) {
       try {
         const nextHashes: Record<string, HistoricalPhotoReference> = {};
         const historicalReferences =
-          await ddsService.getHistoricalPhotoHashes(100);
+          await ddsService.getHistoricalPhotoHashes(100, id);
         historicalReferences
-          .filter((item) => item.ddsId !== id)
           .forEach((item) => {
             item.hashes.forEach((hash) => {
               if (!hash) {

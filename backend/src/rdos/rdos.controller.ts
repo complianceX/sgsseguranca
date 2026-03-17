@@ -31,22 +31,9 @@ import {
   assertUploadedPdf,
   createGovernedPdfUploadOptions,
 } from '../common/interceptors/file-upload.interceptor';
-
-class SignRdoDto {
-  tipo: 'responsavel' | 'engenheiro';
-  nome: string;
-  cpf: string;
-  hash: string;
-  timestamp: string;
-}
-
-class SavePdfDto {
-  filename: string;
-}
-
-class SendEmailDto {
-  to: string[];
-}
+import { SignRdoDto } from './dto/sign-rdo.dto';
+import { SavePdfDto } from './dto/save-pdf.dto';
+import { SendEmailDto } from './dto/send-email.dto';
 
 @Controller('rdos')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)

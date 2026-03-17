@@ -163,10 +163,11 @@ export const ddsService = {
 
   getHistoricalPhotoHashes: async (
     limit = 100,
+    excludeId?: string,
   ): Promise<HistoricalPhotoHashReference[]> => {
     const response = await api.get<HistoricalPhotoHashReference[]>(
       "/dds/historical-photo-hashes",
-      { params: { limit } },
+      { params: { limit, ...(excludeId ? { exclude_id: excludeId } : {}) } },
     );
     return response.data;
   },
