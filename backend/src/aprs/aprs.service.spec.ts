@@ -260,6 +260,31 @@ describe('AprsService', () => {
     expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
   });
 
+  it('bloqueia alteracao de status via endpoint update (bypass de workflow)', async () => {
+    await expect(
+      service.update('apr-1', { status: 'Aprovada' } as never),
+    ).rejects.toThrow(
+      'Use os endpoints /approve, /reject ou /finalize para alterar o status da APR.',
+    );
+
+    expect(aprRepository.findOne).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia criacao de nova versao quando APR nao esta aprovada', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.PENDENTE,
+      numero: 'APR-001',
+      versao: 1,
+      pdf_file_key: null,
+    } as unknown as Apr);
+
+    await expect(service.createNewVersion('apr-1', 'user-1')).rejects.toThrow(
+      'Somente APRs Aprovadas podem gerar nova versão.',
+    );
+  });
+
   it('lista evidencias da APR com URLs assinadas quando disponiveis', async () => {
     const find = jest.fn().mockResolvedValue([
       {

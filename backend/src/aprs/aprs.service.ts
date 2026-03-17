@@ -323,6 +323,11 @@ export class AprsService {
   }
 
   async update(id: string, updateAprDto: UpdateAprDto): Promise<Apr> {
+    if ('status' in updateAprDto && updateAprDto.status !== undefined) {
+      throw new BadRequestException(
+        'Use os endpoints /approve, /reject ou /finalize para alterar o status da APR.',
+      );
+    }
     const apr = await this.findOneForWrite(id);
     this.assertAprDocumentMutable(apr);
     const { activities, risks, epis, tools, machines, participants, ...rest } =
@@ -457,7 +462,7 @@ export class AprsService {
 
   async createNewVersion(id: string, userId: string): Promise<Apr> {
     const original = await this.findOneForWrite(id);
-    if (original.status !== 'Aprovada') {
+    if (original.status !== AprStatus.APROVADA) {
       throw new BadRequestException(
         `Somente APRs Aprovadas podem gerar nova versão. Status atual: ${original.status}`,
       );
