@@ -20,6 +20,9 @@ export class DocumentValidationService {
       case 'APR':
         pendencias.push(...this.validateApr(analysis));
         break;
+      case 'PT':
+        pendencias.push(...this.validatePt(analysis));
+        break;
       case 'PGR':
         pendencias.push(...this.validatePgr(analysis));
         break;
@@ -32,8 +35,12 @@ export class DocumentValidationService {
       case 'CHECKLIST':
         pendencias.push(...this.validateChecklist(analysis));
         break;
+      case 'INSPECTION':
       case 'RELATORIO':
-        pendencias.push(...this.validateRelatorio(analysis));
+        pendencias.push(...this.validateInspection(analysis));
+        break;
+      case 'NC':
+        pendencias.push(...this.validateNc(analysis));
         break;
       default:
         pendencias.push('Tipo de documento não reconhecido');
@@ -101,6 +108,24 @@ export class DocumentValidationService {
 
     if (!analysis.camposEstruturados?.participantes) {
       pendencias.push('Participantes do DDS não identificados');
+    }
+
+    return pendencias;
+  }
+
+  private validatePt(analysis: DocumentAnalysisDto): string[] {
+    const pendencias: string[] = [];
+
+    if (!analysis.data) {
+      pendencias.push('Data da permissão de trabalho não identificada');
+    }
+
+    if (!analysis.responsavelTecnico && !analysis.responsavel) {
+      pendencias.push('Responsável pela PT não identificado');
+    }
+
+    if (!analysis.riscos || analysis.riscos.length === 0) {
+      pendencias.push('Riscos da PT não identificados');
     }
 
     return pendencias;
@@ -174,19 +199,37 @@ export class DocumentValidationService {
     return pendencias;
   }
 
-  private validateRelatorio(analysis: DocumentAnalysisDto): string[] {
+  private validateInspection(analysis: DocumentAnalysisDto): string[] {
     const pendencias: string[] = [];
 
     if (!analysis.data) {
-      pendencias.push('Data do relatório não identificada');
+      pendencias.push('Data do relatório fotográfico não identificada');
     }
 
     if (!analysis.responsavelTecnico) {
-      pendencias.push('Responsável técnico não identificado');
+      pendencias.push('Responsável pela inspeção não identificado');
     }
 
-    if (!analysis.assinaturas || analysis.assinaturas.length === 0) {
-      pendencias.push('Assinatura do responsável não identificada');
+    if (!analysis.resumo && !analysis.tema) {
+      pendencias.push('Tema ou resumo da inspeção não identificado');
+    }
+
+    return pendencias;
+  }
+
+  private validateNc(analysis: DocumentAnalysisDto): string[] {
+    const pendencias: string[] = [];
+
+    if (!analysis.data) {
+      pendencias.push('Data da não conformidade não identificada');
+    }
+
+    if (!analysis.responsavelTecnico && !analysis.responsavel) {
+      pendencias.push('Responsável pela não conformidade não identificado');
+    }
+
+    if (!analysis.riscos || analysis.riscos.length === 0) {
+      pendencias.push('Desvio ou risco relacionado à não conformidade não identificado');
     }
 
     return pendencias;

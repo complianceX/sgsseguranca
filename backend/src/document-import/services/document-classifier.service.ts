@@ -12,6 +12,18 @@ export class DocumentClassifierService {
   private readonly logger = new Logger(DocumentClassifierService.name);
 
   private readonly documentPatterns = {
+    DDS: {
+      keywords: [
+        'dialogo diario de seguranca',
+        'dds',
+        'tema',
+        'participantes',
+        'facilitador',
+        'dialogo',
+        'seguranca',
+      ],
+      weight: 0.95,
+    },
     APR: {
       keywords: [
         'análise preliminar de risco',
@@ -28,6 +40,18 @@ export class DocumentClassifierService {
         'inapto',
       ],
       weight: 1.0,
+    },
+    PT: {
+      keywords: [
+        'permissao de trabalho',
+        'pt',
+        'trabalho em altura',
+        'espaco confinado',
+        'trabalho a quente',
+        'aprovacao',
+        'liberacao',
+      ],
+      weight: 0.98,
     },
     PGR: {
       keywords: [
@@ -101,25 +125,28 @@ export class DocumentClassifierService {
       ],
       weight: 0.8,
     },
-    RELATORIO: {
+    INSPECTION: {
       keywords: [
-        'relatório',
-        'laudo',
-        'pericial',
-        'técnico',
-        'conclusão',
-        'recomendações',
-        'análise',
-        'dados',
-        'estatísticas',
-        'resultados',
-        'metodologia',
-        'considerações finais',
-        'assinatura',
-        'crea',
-        'art',
+        'relatorio fotografico',
+        'registro fotografico',
+        'evidencias',
+        'inspecao de rotina',
+        'fotos',
+        'setor',
+        'subestacao',
       ],
-      weight: 0.75,
+      weight: 0.82,
+    },
+    NC: {
+      keywords: [
+        'nao conformidade',
+        'não conformidade',
+        'desvio',
+        'acao corretiva',
+        'plano de acao',
+        'tratativa',
+      ],
+      weight: 0.84,
     },
   };
 
@@ -186,7 +213,7 @@ export class DocumentClassifierService {
   ): Promise<ClassificationResult | null> {
     try {
       const prompt = `
-Classifique o documento abaixo como um dos tipos: "DDS", "APR", "PGR", "OUTRO".
+Classifique o documento abaixo como um dos tipos: "DDS", "APR", "PT", "CHECKLIST", "INSPECTION", "NC", "PGR", "PCMSO", "ASO", "OUTRO".
 Retorne apenas JSON no formato: {"tipo": "DDS", "score": number, "motivos": ["motivo1","motivo2"]}.
 
 Texto:
@@ -271,12 +298,16 @@ ${normalizedText.slice(0, 8000)}
 
   getDocumentTypeDescription(tipoDocumento: string): string {
     const descriptions: Record<string, string> = {
+      DDS: 'Diálogo Diário de Segurança',
       APR: 'Análise Preliminar de Risco',
+      PT: 'Permissão de Trabalho',
+      INSPECTION: 'Relatório Fotográfico de Inspeção',
+      RELATORIO: 'Relatório Fotográfico de Inspeção',
+      NC: 'Não Conformidade',
       PGR: 'Programa de Gerenciamento de Riscos',
       PCMSO: 'Programa de Controle Médico de Saúde Ocupacional',
       ASO: 'Atestado de Saúde Ocupacional',
       CHECKLIST: 'Checklist de Segurança',
-      RELATORIO: 'Relatório Técnico',
       DESCONHECIDO: 'Tipo de Documento Desconhecido',
     };
 

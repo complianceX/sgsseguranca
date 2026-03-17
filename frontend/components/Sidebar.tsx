@@ -29,7 +29,6 @@ import {
   MapPin,
   MessageSquare,
   Paintbrush,
-  PlusCircle,
   Radio,
   Settings,
   Shield,
@@ -100,7 +99,6 @@ const menuSections: MenuSection[] = [
     label: 'Documentos',
     defaultOpen: true,
     items: [
-      { icon: PlusCircle, label: 'Novo Documento', href: '/dashboard/documentos/novo' },
       { icon: Upload, label: 'Importar com IA', href: '/dashboard/documentos/importar' },
       { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
       { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
@@ -166,7 +164,7 @@ function buildQuickAccessItems(context: SidebarContext): MenuEntry[] {
     case 'admin-empresa':
       return [
         { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-        { icon: PlusCircle, label: 'Novo documento', href: '/dashboard/documentos/novo' },
+        { icon: Upload, label: 'Importar com IA', href: '/dashboard/documentos/importar' },
         { icon: GraduationCap, label: 'Treinamentos', href: '/dashboard/trainings' },
         { icon: BarChart3, label: 'Relatórios GST', href: '/dashboard/reports' },
       ];
@@ -175,7 +173,7 @@ function buildQuickAccessItems(context: SidebarContext): MenuEntry[] {
         { icon: Radio, label: 'Campo', href: '/dashboard/tst' },
         { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
         { icon: AlertTriangle, label: 'Não conformidades', href: '/dashboard/nonconformities' },
-        { icon: PlusCircle, label: 'Novo documento', href: '/dashboard/documentos/novo' },
+        { icon: Upload, label: 'Importar com IA', href: '/dashboard/documentos/importar' },
       ];
     case 'supervisor':
       return [

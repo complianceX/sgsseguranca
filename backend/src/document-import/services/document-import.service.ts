@@ -142,7 +142,10 @@ export class DocumentImportService {
         success: true,
         documentId: documentImport.id,
         tipoDocumento: tipoDocumentoFinal,
-        tipoDocumentoDescricao: tipoDocumentoFinal,
+        tipoDocumentoDescricao:
+          this.documentClassifierService.getDocumentTypeDescription(
+            tipoDocumentoFinal,
+          ),
         analysis,
         validation,
         metadata: {

@@ -275,9 +275,6 @@ export function AprForm({ id }: AprFormProps) {
     message?: string;
   } | null>(null);
   const [suggestingControls, setSuggestingControls] = useState(false);
-  const [generatingReport, setGeneratingReport] = useState(false);
-  const [custodyReportDigest, setCustodyReportDigest] = useState<string>('');
-  const [downloadingCustodyPdf, setDownloadingCustodyPdf] = useState(false);
   
   const [activities, setActivities] = useState<Activity[]>([]);
   const [risks, setRisks] = useState<Risk[]>([]);
@@ -863,55 +860,6 @@ export function AprForm({ id }: AprFormProps) {
       setVerifyingHash(false);
     }
   }, [hashToVerify]);
-
-  const handleGenerateCustodyReport = useCallback(async () => {
-    if (!id) return;
-    try {
-      setGeneratingReport(true);
-      const report = await aprsService.getEvidenceCustodyReport(id);
-      setCustodyReportDigest(report.chain_digest_sha256);
-      toast.success('Relatório de cadeia de custódia gerado.');
-    } catch (error) {
-      console.error('Erro ao gerar relatório:', error);
-      toast.error('Não foi possível gerar o relatório.');
-    } finally {
-      setGeneratingReport(false);
-    }
-  }, [id]);
-
-  const handleDownloadCustodyPdf = useCallback(async () => {
-    if (!id) return;
-    try {
-      setDownloadingCustodyPdf(true);
-      const response = await aprsService.downloadEvidenceCustodyPdf(id);
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      const disposition = response.headers['content-disposition'] as string | undefined;
-      const fallbackName = `apr-custody-${id}.pdf`;
-      const fileName =
-        disposition?.match(/filename="([^"]+)"/)?.[1] ||
-        disposition?.match(/filename=([^;]+)/)?.[1] ||
-        fallbackName;
-      anchor.href = url;
-      anchor.download = fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      URL.revokeObjectURL(url);
-      const signature = response.headers['x-document-signature'] as string | undefined;
-      if (signature) {
-        toast.success(`PDF gerado e assinado (${signature.slice(0, 12)}...)`);
-      } else {
-        toast.success('PDF de custódia baixado.');
-      }
-    } catch (error) {
-      console.error('Erro ao baixar PDF de custódia:', error);
-      toast.error('Falha ao baixar PDF de custódia.');
-    } finally {
-      setDownloadingCustodyPdf(false);
-    }
-  }, [id]);
 
   useEffect(() => {
     async function loadData() {
@@ -1712,29 +1660,6 @@ export function AprForm({ id }: AprFormProps) {
                   : verificationResult.message || 'Hash não validado.'}
               </p>
             )}
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-              <button
-                type="button"
-                onClick={handleGenerateCustodyReport}
-                disabled={generatingReport}
-                className={aprSoftPrimaryButtonClass}
-              >
-                {generatingReport ? 'Gerando relatório...' : 'Gerar cadeia de custódia'}
-              </button>
-              <button
-                type="button"
-                onClick={handleDownloadCustodyPdf}
-                disabled={downloadingCustodyPdf}
-                className={aprSoftSuccessButtonClass}
-              >
-                {downloadingCustodyPdf ? 'Baixando PDF...' : 'Baixar PDF assinado'}
-              </button>
-              {custodyReportDigest && (
-                <span className="text-[11px] text-[var(--color-text-secondary)]">
-                  Digest da cadeia: {custodyReportDigest}
-                </span>
-              )}
-            </div>
           </div>
         </div>
       )}

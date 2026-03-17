@@ -4,12 +4,14 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Apr, AprStatus, APR_ALLOWED_TRANSITIONS } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
 import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
+import { AprRiskItem } from './entities/apr-risk-item.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreateAprDto } from './dto/create-apr.dto';
 import { UpdateAprDto } from './dto/update-apr.dto';
@@ -578,6 +580,129 @@ export class AprsService {
       folderPath: folder,
       originalName: file.originalname,
     };
+  }
+
+  async uploadRiskEvidence(
+    aprId: string,
+    riskItemId: string,
+    file: Express.Multer.File,
+    metadata: {
+      captured_at?: string;
+      latitude?: number;
+      longitude?: number;
+      accuracy_m?: number;
+      device_id?: string;
+      exif_datetime?: string;
+    },
+    userId?: string,
+    ipAddress?: string,
+  ): Promise<{
+    id: string;
+    fileKey: string;
+    originalName: string;
+    hashSha256: string;
+  }> {
+    const apr = await this.findOneForWrite(aprId);
+    this.assertAprDocumentMutable(apr);
+
+    const riskItem = await this.aprsRepository.manager
+      .getRepository(AprRiskItem)
+      .findOne({
+        where: {
+          id: riskItemId,
+          apr_id: aprId,
+        },
+      });
+
+    if (!riskItem) {
+      throw new NotFoundException(
+        `Item de risco ${riskItemId} não encontrado para a APR ${aprId}.`,
+      );
+    }
+
+    const parseOptionalDate = (value?: string): Date | null => {
+      if (!value?.trim()) return null;
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    const originalName =
+      file.originalname?.trim() || `apr-evidence-${Date.now()}.jpg`;
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      apr.company_id,
+      'apr-evidences',
+      apr.id,
+      originalName,
+    );
+    const hashSha256 = createHash('sha256').update(file.buffer).digest('hex');
+
+    await this.documentStorageService.uploadFile(
+      fileKey,
+      file.buffer,
+      file.mimetype,
+    );
+
+    try {
+      const evidenceRepository =
+        this.aprsRepository.manager.getRepository(AprRiskEvidence);
+      const evidence = evidenceRepository.create({
+        apr_id: apr.id,
+        apr_risk_item_id: riskItem.id,
+        uploaded_by_id: userId ?? null,
+        file_key: fileKey,
+        original_name: originalName,
+        mime_type: file.mimetype,
+        file_size_bytes: file.size || file.buffer.length,
+        hash_sha256: hashSha256,
+        watermarked_file_key: null,
+        watermarked_hash_sha256: null,
+        watermark_text: null,
+        captured_at: parseOptionalDate(metadata.captured_at),
+        latitude:
+          typeof metadata.latitude === 'number' ? metadata.latitude : null,
+        longitude:
+          typeof metadata.longitude === 'number' ? metadata.longitude : null,
+        accuracy_m:
+          typeof metadata.accuracy_m === 'number' ? metadata.accuracy_m : null,
+        device_id: metadata.device_id?.trim() || null,
+        ip_address: ipAddress || null,
+        exif_datetime: parseOptionalDate(metadata.exif_datetime),
+        integrity_flags: {
+          gps:
+            typeof metadata.latitude === 'number' &&
+            typeof metadata.longitude === 'number',
+          accuracy:
+            typeof metadata.accuracy_m === 'number' &&
+            Number.isFinite(metadata.accuracy_m),
+          device: Boolean(metadata.device_id),
+          ip: Boolean(ipAddress),
+          exif: Boolean(metadata.exif_datetime),
+        },
+      });
+
+      const saved = await evidenceRepository.save(evidence);
+      await this.addLog(apr.id, userId, 'evidencia_enviada', {
+        evidenceId: saved.id,
+        riskItemId: riskItem.id,
+        fileKey,
+        hashSha256,
+      });
+
+      return {
+        id: saved.id,
+        fileKey,
+        originalName,
+        hashSha256,
+      };
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `apr-evidence:${apr.id}`,
+        fileKey,
+        (key) => this.documentStorageService.deleteFile(key),
+      );
+      throw error;
+    }
   }
 
   async verifyEvidenceByHashPublic(hash: string): Promise<{

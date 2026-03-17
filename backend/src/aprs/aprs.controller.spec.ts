@@ -24,6 +24,7 @@ describe('AprsController (http)', () => {
     attachPdf: jest.fn(),
     findOne: jest.fn(),
     getPdfAccess: jest.fn(),
+    uploadRiskEvidence: jest.fn(),
   };
   const pdfRateLimitService = {
     checkDownloadLimit: jest.fn(),
@@ -34,6 +35,7 @@ describe('AprsController (http)', () => {
     aprsService.attachPdf.mockReset();
     aprsService.findOne.mockReset();
     aprsService.getPdfAccess.mockReset();
+    aprsService.uploadRiskEvidence.mockReset();
     pdfRateLimitService.checkDownloadLimit.mockReset();
   });
 
@@ -140,5 +142,46 @@ describe('AprsController (http)', () => {
       expect.any(String),
     );
     expect(aprsService.getPdfAccess).toHaveBeenCalledWith(aprId);
+  });
+
+  it('encaminha a evidência fotográfica da APR para o backend com metadata normalizada', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.uploadRiskEvidence.mockResolvedValue({
+      id: 'evidence-1',
+      fileKey: 'documents/company-1/apr-evidences/apr-1/evidence.jpg',
+      originalName: 'evidence.jpg',
+      hashSha256: 'hash-1',
+    });
+
+    await request(httpServer)
+      .post(`/aprs/${aprId}/risk-items/22222222-2222-4222-8222-222222222222/evidence`)
+      .field('captured_at', '2026-03-16T10:00:00.000Z')
+      .field('latitude', '-23.5505')
+      .field('longitude', '-46.6333')
+      .field('accuracy_m', '5.4')
+      .field('device_id', 'unit-test')
+      .attach('file', Buffer.from([0xff, 0xd8, 0xff, 0xdb]), {
+        filename: 'evidence.jpg',
+        contentType: 'image/jpeg',
+      })
+      .expect(201);
+
+    expect(aprsService.uploadRiskEvidence).toHaveBeenCalledWith(
+      aprId,
+      '22222222-2222-4222-8222-222222222222',
+      expect.objectContaining({
+        originalname: 'evidence.jpg',
+        mimetype: 'image/jpeg',
+      }),
+      expect.objectContaining({
+        captured_at: '2026-03-16T10:00:00.000Z',
+        latitude: -23.5505,
+        longitude: -46.6333,
+        accuracy_m: 5.4,
+        device_id: 'unit-test',
+      }),
+      'user-1',
+      expect.any(String),
+    );
   });
 });

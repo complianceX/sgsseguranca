@@ -325,4 +325,83 @@ describe('AprsService', () => {
     expect(result[0]?.url).toContain('documents%2Fcompany-1%2Faprs');
     expect(result[0]?.watermarked_url).toContain('watermarked');
   });
+
+  it('salva evidencias fotograficas da APR no storage e registra o hash', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      pdf_file_key: null,
+    } as Apr);
+
+    const riskItemRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'risk-1',
+        apr_id: 'apr-1',
+        ordem: 0,
+      }),
+    };
+    const save = jest.fn(async (input) => ({
+      ...input,
+      id: 'evidence-1',
+    }));
+    const evidenceRepository = {
+      create: jest.fn((input) => input),
+      save,
+    };
+    (aprRepository as unknown as { manager: unknown }).manager = {
+      getRepository: jest.fn((entity) => {
+        if (entity.name === 'AprRiskItem') return riskItemRepository;
+        return evidenceRepository;
+      }),
+    };
+
+    const file = {
+      originalname: 'evidence.jpg',
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0x00]),
+      size: 5,
+    } as Express.Multer.File;
+
+    await expect(
+      service.uploadRiskEvidence(
+        'apr-1',
+        'risk-1',
+        file,
+        {
+          captured_at: '2026-03-16T10:00:00.000Z',
+          latitude: -23.55,
+          longitude: -46.63,
+          accuracy_m: 4.2,
+          device_id: 'pixel',
+        },
+        'user-1',
+        '127.0.0.1',
+      ),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: 'evidence-1',
+        fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
+        originalName: 'evidence.jpg',
+        hashSha256: expect.any(String),
+      }),
+    );
+
+    expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
+      'documents/company-1/aprs/apr-1/apr-final.pdf',
+      file.buffer,
+      'image/jpeg',
+    );
+    expect(evidenceRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        apr_id: 'apr-1',
+        apr_risk_item_id: 'risk-1',
+        uploaded_by_id: 'user-1',
+        file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
+        original_name: 'evidence.jpg',
+        mime_type: 'image/jpeg',
+        file_size_bytes: 5,
+        ip_address: '127.0.0.1',
+      }),
+    );
+  });
 });

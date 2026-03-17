@@ -144,13 +144,15 @@ export function useAprs() {
         return null;
       }
 
-      const [fullApr, signatures] = await Promise.all([
+      const [fullApr, signatures, evidences] = await Promise.all([
         aprsService.findOne(apr.id),
         signaturesService.findByDocument(apr.id, 'APR'),
+        aprsService.listAprEvidences(apr.id),
       ]);
       const result = (await generateAprPdf(fullApr, signatures, {
         save: false,
         output: 'base64',
+        evidences,
       })) as { base64: string; filename: string } | undefined;
 
       if (!result?.base64) {
@@ -200,8 +202,12 @@ export function useAprs() {
       }
 
       toast.info('Gerando PDF...');
-      const signatures = await signaturesService.findByDocument(id, 'APR');
-      await generateAprPdf(apr, signatures);
+      const [fullApr, signatures, evidences] = await Promise.all([
+        aprsService.findOne(id),
+        signaturesService.findByDocument(id, 'APR'),
+        aprsService.listAprEvidences(id),
+      ]);
+      await generateAprPdf(fullApr, signatures, { evidences });
       toast.success('PDF gerado com sucesso!');
     } catch (error) {
       handleApiError(error, 'PDF');
@@ -233,10 +239,15 @@ export function useAprs() {
         return;
       }
 
-      const signatures = await signaturesService.findByDocument(apr.id, 'APR');
-      const result = (await generateAprPdf(currentApr, signatures, {
+      const [fullApr, signatures, evidences] = await Promise.all([
+        aprsService.findOne(apr.id),
+        signaturesService.findByDocument(apr.id, 'APR'),
+        aprsService.listAprEvidences(apr.id),
+      ]);
+      const result = (await generateAprPdf(fullApr, signatures, {
         save: false,
         output: 'base64',
+        evidences,
       })) as { base64: string } | undefined;
 
       if (result?.base64) {
@@ -282,10 +293,15 @@ export function useAprs() {
         }
       }
 
-      const signatures = await signaturesService.findByDocument(id, 'APR');
-      const result = (await generateAprPdf(apr, signatures, {
+      const [fullApr, signatures, evidences] = await Promise.all([
+        aprsService.findOne(id),
+        signaturesService.findByDocument(id, 'APR'),
+        aprsService.listAprEvidences(id),
+      ]);
+      const result = (await generateAprPdf(fullApr, signatures, {
         save: false,
         output: 'base64',
+        evidences,
       })) as { filename: string; base64: string } | undefined;
 
       if (result?.base64) {

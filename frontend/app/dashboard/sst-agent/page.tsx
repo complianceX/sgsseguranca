@@ -668,8 +668,8 @@ export default function SstAgentPage() {
               Use este workspace quando precisar montar documentos assistidos, revisar contexto operacional e disparar automações com apoio da SOPHIE. Para ajuda rápida e ideias do dia a dia, prefira o chat flutuante.
             </p>
             <div className="ds-inline-link-list mt-4">
-              <Link href="/dashboard/documentos/novo" className="ds-inline-link-list__item">
-                Abrir novo documento assistido
+              <Link href="/dashboard/documentos/importar" className="ds-inline-link-list__item">
+                Importar PDF com IA
               </Link>
               <Link href="/dashboard" className="ds-inline-link-list__item">
                 Voltar ao dashboard

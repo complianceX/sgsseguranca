@@ -103,10 +103,10 @@ export function GandraInsights() {
                 Abrir workspace assistido <ArrowRight className="h-3.5 w-3.5" />
               </Link>
               <Link
-                href="/dashboard/documentos/novo"
+                href="/dashboard/documentos/importar"
                 className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline"
               >
-                Novo documento assistido <ArrowRight className="h-3.5 w-3.5" />
+                Importar PDF com IA <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
           </div>
@@ -143,11 +143,11 @@ export function GandraInsights() {
             Workspace assistido
           </Link>
           <Link
-            href="/dashboard/documentos/novo"
+            href="/dashboard/documentos/importar"
             className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-action-primary)] transition-colors hover:border-[var(--ds-color-action-primary)]/30 hover:bg-[var(--ds-color-primary-subtle)]"
           >
             <FileText className="h-3.5 w-3.5" />
-            Novo documento
+            Importar PDF
           </Link>
         </div>
       </div>

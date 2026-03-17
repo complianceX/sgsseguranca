@@ -56,6 +56,15 @@ const DOCUMENT_LABELS: Record<string, string> = {
   nc: 'Não Conformidade',
 };
 
+const DOCUMENT_TYPE_UPLOAD_MAP: Record<string, string> = {
+  apr: 'APR',
+  pt: 'PT',
+  checklist: 'CHECKLIST',
+  dds: 'DDS',
+  inspection: 'INSPECTION',
+  nc: 'NC',
+};
+
 export default function DocumentImportPage() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -114,6 +123,12 @@ export default function DocumentImportPage() {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('empresaId', user?.company_id || '');
+    if (requestedDocumentType && DOCUMENT_TYPE_UPLOAD_MAP[requestedDocumentType]) {
+      formData.append(
+        'tipoDocumento',
+        DOCUMENT_TYPE_UPLOAD_MAP[requestedDocumentType],
+      );
+    }
 
     try {
       // Simulação de progresso para melhor UX
@@ -163,12 +178,12 @@ export default function DocumentImportPage() {
     <div className="ds-form-page mx-auto max-w-6xl space-y-8 p-6">
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">Importação Inteligente de PDF</h1>
-        <p className="text-sm text-slate-500">
-          {requestedDocumentLabel
-            ? `Fluxo preparado para anexar um PDF de ${requestedDocumentLabel} já emitido, sem refazer o preenchimento no sistema.`
-            : 'Faça upload de documentos SST (APR, PGR, PCMSO, ASO) para extração automática e validação.'}
-        </p>
-      </div>
+          <p className="text-sm text-slate-500">
+            {requestedDocumentLabel
+              ? `Fluxo preparado para anexar um PDF de ${requestedDocumentLabel} já emitido, sem refazer o preenchimento no sistema.`
+              : 'Faça upload de documentos SST (APR, PT, DDS, Checklist, Relatório Fotográfico, NC, PGR, PCMSO, ASO) para extração automática e validação.'}
+          </p>
+        </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Lado Esquerdo: Upload */}
@@ -257,10 +272,11 @@ export default function DocumentImportPage() {
               <Info size={16} /> Como funciona?
             </h3>
             <ul className="text-xs text-amber-800 space-y-2 list-disc pl-4">
-              <li>Extraímos todo o texto do documento usando OCR e Processamento de Linguagem Natural.</li>
+              <li>Extraímos o texto legível do PDF e analisamos o conteúdo com Processamento de Linguagem Natural.</li>
               <li>Nossa IA classifica automaticamente o tipo do documento.</li>
               <li>Identificamos riscos, EPIs, empresas, datas e assinaturas.</li>
               <li>Validamos as exigências das NRs (Normas Regulamentadoras).</li>
+              <li>Se o PDF for apenas imagem escaneada, a extração pode ficar parcial e exigir revisão manual.</li>
             </ul>
           </div>
         </div>

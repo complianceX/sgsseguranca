@@ -110,7 +110,9 @@ export interface Apr {
     ip_address?: string;
     exif_datetime?: string;
     integrity_flags?: Record<string, unknown>;
+    risk_item_ordem?: number;
     url?: string;
+    watermarked_url?: string;
   }>;
   created_at: string;
   updated_at: string;

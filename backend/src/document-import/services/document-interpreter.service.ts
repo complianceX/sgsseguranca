@@ -103,6 +103,58 @@ Tipo APR. Campos esperados:
   "participantes": [{"nome": "...", "funcao": "..."}]
 }
 `,
+        PT: `
+Tipo PT. Campos esperados:
+{
+  "tipo": "PT",
+  "empresa": "...",
+  "cnpj": "...",
+  "data": "YYYY-MM-DD",
+  "responsavel": "...",
+  "atividade": "...",
+  "riscos": ["..."],
+  "epis": ["..."],
+  "participantes": [{"nome": "...", "funcao": "..."}]
+}
+`,
+        CHECKLIST: `
+Tipo CHECKLIST. Campos esperados:
+{
+  "tipo": "CHECKLIST",
+  "empresa": "...",
+  "cnpj": "...",
+  "data": "YYYY-MM-DD",
+  "responsavel": "...",
+  "tema": "...",
+  "riscos": ["..."],
+  "epis": ["..."]
+}
+`,
+        INSPECTION: `
+Tipo INSPECTION. Campos esperados:
+{
+  "tipo": "INSPECTION",
+  "empresa": "...",
+  "cnpj": "...",
+  "data": "YYYY-MM-DD",
+  "responsavel": "...",
+  "tema": "...",
+  "resumo": "...",
+  "riscos": ["..."]
+}
+`,
+        NC: `
+Tipo NC. Campos esperados:
+{
+  "tipo": "NC",
+  "empresa": "...",
+  "cnpj": "...",
+  "data": "YYYY-MM-DD",
+  "responsavel": "...",
+  "resumo": "...",
+  "riscos": ["..."]
+}
+`,
         PGR: `
 Tipo PGR. Campos esperados:
 {
