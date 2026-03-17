@@ -163,7 +163,7 @@ describe('PtsService', () => {
             },
           },
         },
-      } as AuditLog,
+      } as unknown as AuditLog,
     ]);
 
     const result = await service.getPreApprovalHistory('pt-1');
@@ -325,7 +325,7 @@ describe('PtsService', () => {
       company_id: 'company-1',
       status: PtStatus.PENDENTE,
       pdf_file_key: null,
-    } as Pt);
+    } as unknown as Pt);
 
     const file = {
       originalname: 'pt-final.pdf',
@@ -428,7 +428,7 @@ describe('PtsService', () => {
       exposure: 2,
       residual_risk: 'LOW',
       control_evidence: false,
-    } as Pt);
+    } as unknown as Pt);
 
     await expect(
       service.update('pt-1', {
@@ -452,7 +452,7 @@ describe('PtsService', () => {
       residual_risk: 'LOW',
       control_evidence: false,
       titulo: 'PT original',
-    } as Pt);
+    } as unknown as Pt);
 
     await expect(
       service.update('pt-1', {
@@ -467,6 +467,97 @@ describe('PtsService', () => {
     );
 
     expect(ptsSaveMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('getPdfAccess: lança NotFoundException quando a PT nao possui PDF armazenado', async () => {
+    ptsRepository.findOne.mockResolvedValue({
+      id: 'pt-1',
+      company_id: 'company-1',
+      pdf_file_key: null,
+    } as unknown as Pt);
+
+    await expect(service.getPdfAccess('pt-1')).rejects.toThrow(
+      'PT pt-1 não possui PDF armazenado',
+    );
+  });
+
+  it('bloqueia aprovacao quando transicao de status e invalida (Cancelada -> Aprovada)', async () => {
+    ptsRepository.findOne.mockResolvedValue({
+      id: 'pt-1',
+      company_id: 'company-1',
+      status: PtStatus.CANCELADA,
+      pdf_file_key: null,
+      executantes: [],
+    } as unknown as Pt);
+
+    await expect(service.approve('pt-1', 'approver-1')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('bloqueia aprovacao quando o risco residual e CRITICAL sem evidencia de controle', async () => {
+    ptsRepository.findOne.mockResolvedValue({
+      id: 'pt-1',
+      company_id: 'company-1',
+      status: PtStatus.PENDENTE,
+      pdf_file_key: null,
+      residual_risk: 'CRITICAL',
+      control_evidence: false,
+      responsavel_id: 'resp-1',
+      executantes: [],
+    } as unknown as Pt);
+    (companiesRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'company-1',
+      pt_approval_rules: {
+        blockCriticalRiskWithoutEvidence: true,
+        blockWorkerWithoutValidMedicalExam: false,
+        blockWorkerWithExpiredBlockingTraining: false,
+        requireAtLeastOneExecutante: false,
+      },
+    });
+    (workerOperationalStatusService.getByUserIds as jest.Mock).mockResolvedValue([]);
+
+    await expect(service.approve('pt-1', 'approver-1')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('bloqueia aprovacao quando trabalhador possui treinamento bloqueante vencido', async () => {
+    ptsRepository.findOne.mockResolvedValue({
+      id: 'pt-1',
+      company_id: 'company-1',
+      status: PtStatus.PENDENTE,
+      pdf_file_key: null,
+      residual_risk: 'LOW',
+      control_evidence: true,
+      responsavel_id: 'resp-1',
+      executantes: [],
+    } as unknown as Pt);
+    (companiesRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'company-1',
+      pt_approval_rules: {
+        blockCriticalRiskWithoutEvidence: true,
+        blockWorkerWithoutValidMedicalExam: false,
+        blockWorkerWithExpiredBlockingTraining: true,
+        requireAtLeastOneExecutante: false,
+      },
+    });
+    (workerOperationalStatusService.getByUserIds as jest.Mock).mockResolvedValue([
+      {
+        user: { nome: 'Responsável' },
+        medicalExam: { status: 'VALIDO' },
+        trainings: { expiredBlocking: [{ nome: 'NR-35 Trabalho em Altura' }] },
+      },
+    ]);
+
+    await expect(service.approve('pt-1', 'approver-1')).rejects.toMatchObject({
+      response: expect.objectContaining({
+        code: 'PT_APPROVAL_BLOCKED',
+        reasons: expect.arrayContaining([
+          expect.stringContaining('NR-35 Trabalho em Altura'),
+        ]),
+      }),
+    });
   });
 
   it('bloqueia aprovacao quando ainda existem executantes sem assinatura unica valida', async () => {

@@ -30,6 +30,8 @@ import { CreatePtDto } from './dto/create-pt.dto';
 import { UpdatePtDto } from './dto/update-pt.dto';
 import { LogPreApprovalReviewDto } from './dto/log-pre-approval-review.dto';
 import { UpdatePtApprovalRulesDto } from './dto/update-pt-approval-rules.dto';
+import { ApprovePtDto } from './dto/approve-pt.dto';
+import { RejectPtDto } from './dto/reject-pt.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Authorize } from '../auth/authorize.decorator';
 import {
@@ -84,14 +86,14 @@ export class PtsController {
   @Authorize('can_approve_pt')
   approve(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body('reason') reason: string | undefined,
+    @Body() body: ApprovePtDto,
     @Req() req: { user?: { userId?: string } },
   ) {
     const userId = req.user?.userId;
     if (!userId) {
       throw new BadRequestException('Usuário autenticado inválido');
     }
-    return this.ptsService.approve(id, userId, reason);
+    return this.ptsService.approve(id, userId, body.reason);
   }
 
   @Post(':id/pre-approval-review')
@@ -120,14 +122,14 @@ export class PtsController {
   @Authorize('can_approve_pt')
   reject(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body('reason') reason: string,
+    @Body() body: RejectPtDto,
     @Req() req: { user?: { userId?: string } },
   ) {
     const userId = req.user?.userId;
     if (!userId) {
       throw new BadRequestException('Usuário autenticado inválido');
     }
-    return this.ptsService.reject(id, userId, reason);
+    return this.ptsService.reject(id, userId, body.reason);
   }
 
   @Get()
