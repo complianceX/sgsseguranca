@@ -256,6 +256,35 @@ export default function RdosPage() {
     );
   }, []);
 
+  const getApiErrorMessage = useCallback((error: unknown) => {
+    const message = (
+      error as
+        | { response?: { data?: { message?: string | string[] } } }
+        | undefined
+    )?.response?.data?.message;
+
+    if (Array.isArray(message)) {
+      return message.join(" ");
+    }
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+    return null;
+  }, []);
+
+  const getAllowedStatusTransitions = useCallback((rdo: Rdo) => {
+    if (rdo.pdf_file_key) {
+      return [];
+    }
+
+    return (RDO_ALLOWED_TRANSITIONS[rdo.status] ?? []).filter((status) => {
+      if (status !== "aprovado") {
+        return true;
+      }
+      return Boolean(rdo.assinatura_responsavel && rdo.assinatura_engenheiro);
+    });
+  }, []);
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -493,7 +522,7 @@ export default function RdosPage() {
       toast.success(`Status atualizado para "${RDO_STATUS_LABEL[newStatus]}"`);
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
-      toast.error("Erro ao atualizar status do RDO.");
+      toast.error(getApiErrorMessage(error) || "Erro ao atualizar status do RDO.");
     }
   };
 
@@ -1070,7 +1099,9 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRdos.map((rdo) => (
+                  {filteredRdos.map((rdo) => {
+                    const statusTransitions = getAllowedStatusTransitions(rdo);
+                    return (
                     <TableRow key={rdo.id}>
                       <TableCell className="font-mono text-sm font-medium text-[var(--ds-color-action-primary)]">
                         {rdo.numero}
@@ -1091,7 +1122,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                           >
                             {RDO_STATUS_LABEL[rdo.status] ?? rdo.status}
                           </span>
-                          {RDO_ALLOWED_TRANSITIONS[rdo.status]?.length > 0 && (
+                          {statusTransitions.length > 0 && (
                             <select
                               aria-label="Mover status do RDO"
                               value=""
@@ -1102,7 +1133,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                               className="rounded border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-1 py-0.5 text-xs text-[var(--ds-color-text-secondary)]"
                             >
                               <option value="">Mover para...</option>
-                              {RDO_ALLOWED_TRANSITIONS[rdo.status].map((s) => (
+                              {statusTransitions.map((s) => (
                                 <option key={s} value={s}>
                                   {RDO_STATUS_LABEL[s]}
                                 </option>
@@ -1166,7 +1197,8 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
               <PaginationControls
@@ -2019,7 +2051,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 >
                   {RDO_STATUS_LABEL[viewRdo.status] ?? viewRdo.status}
                 </span>
-                {RDO_ALLOWED_TRANSITIONS[viewRdo.status]?.length > 0 && (
+                {getAllowedStatusTransitions(viewRdo).length > 0 && (
                   <select
                     aria-label="Mover status do RDO"
                     value=""
@@ -2030,7 +2062,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     className="rounded border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-1 py-0.5 text-xs text-[var(--ds-color-text-secondary)]"
                   >
                     <option value="">Mover para...</option>
-                    {RDO_ALLOWED_TRANSITIONS[viewRdo.status].map((s) => (
+                    {getAllowedStatusTransitions(viewRdo).map((s) => (
                       <option key={s} value={s}>
                         {RDO_STATUS_LABEL[s]}
                       </option>

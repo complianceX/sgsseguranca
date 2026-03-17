@@ -963,55 +963,53 @@ export function AprForm({ id }: AprFormProps) {
           : '';
 
         const loadCompanies = async (selectedCompanyId?: string) => {
+          const isGlobalAdmin = user?.profile?.nome === 'Administrador Geral';
           let nextCompanies: Company[] = [];
           const scopedCompanyId = isUuidLike(selectedCompanyId)
             ? String(selectedCompanyId)
             : undefined;
 
-          try {
-            const companiesPage = await companiesService.findPaginated({
-              page: 1,
-              limit: 100,
-            });
-            nextCompanies = companiesPage.data;
-          } catch (error) {
-            console.error('Erro ao carregar lista de empresas da APR:', error);
+          if (isGlobalAdmin) {
+            try {
+              const companiesPage = await companiesService.findPaginated({
+                page: 1,
+                limit: 100,
+              });
+              nextCompanies = companiesPage.data;
+            } catch (error) {
+              console.error('Erro ao carregar lista de empresas da APR:', error);
+            }
+          } else {
+            const fallbackCompanyId =
+              scopedCompanyId ||
+              (isUuidLike(user?.company_id) ? String(user.company_id) : undefined);
+            if (fallbackCompanyId) {
+              try {
+                const selectedCompany = await companiesService.findOne(
+                  fallbackCompanyId,
+                );
+                nextCompanies = [selectedCompany];
+              } catch (error) {
+                console.error(
+                  'Erro ao carregar empresa padrão da APR para o usuário:',
+                  error,
+                );
+              }
+            }
           }
 
           if (
-            user?.profile?.nome !== 'Administrador Geral' &&
-            nextCompanies.length === 0 &&
-            scopedCompanyId
+            isGlobalAdmin &&
+            scopedCompanyId &&
+            !nextCompanies.some((company) => company.id === scopedCompanyId)
           ) {
             try {
               const selectedCompany = await companiesService.findOne(
                 scopedCompanyId,
               );
-              nextCompanies = [selectedCompany];
-            } catch (error) {
-              console.error(
-                'Erro ao carregar empresa padrão da APR para o usuário:',
-                error,
-              );
-            }
-          }
-
-          if (
-            scopedCompanyId &&
-            !nextCompanies.some((company) => company.id === scopedCompanyId)
-          ) {
-            if (
-              user?.profile?.nome === 'Administrador Geral' ||
-              nextCompanies.length > 0
-            ) {
-              try {
-                const selectedCompany = await companiesService.findOne(
-                  scopedCompanyId,
-                );
-                nextCompanies = dedupeById([selectedCompany, ...nextCompanies]);
-              } catch {
-                nextCompanies = dedupeById(nextCompanies);
-              }
+              nextCompanies = dedupeById([selectedCompany, ...nextCompanies]);
+            } catch {
+              nextCompanies = dedupeById(nextCompanies);
             }
           }
 
