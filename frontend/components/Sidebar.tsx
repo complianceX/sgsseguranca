@@ -6,9 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
 import {
-  Archive,
   AlertCircle,
-  AlertOctagon,
   AlertTriangle,
   BarChart3,
   BookOpen,
@@ -21,28 +19,18 @@ import {
   ClipboardX,
   FileLock2,
   FileText,
-  GraduationCap,
-  HardHat,
   LayoutDashboard,
   LineChart,
   LogOut,
   Map,
   MapPin,
   MessageSquare,
-  Paintbrush,
-  Radio,
-  Settings,
   Shield,
-  ShieldCheck,
-  Stethoscope,
   Upload,
   Users,
-  Wrench,
-  Activity,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import type { User } from '@/services/usersService';
 
 type MenuEntry = {
   icon?: typeof LayoutDashboard;
@@ -59,178 +47,50 @@ type MenuSection = {
   defaultOpen?: boolean;
 };
 
-type SidebarContext =
-  | 'admin-geral'
-  | 'admin-empresa'
-  | 'tst'
-  | 'supervisor'
-  | 'operacional';
-
 const menuSections: MenuSection[] = [
   {
-    id: 'essenciais',
-    label: 'Acesso rápido',
+    id: 'estrutura',
+    label: 'Estrutura',
     defaultOpen: true,
-    items: [],
-  },
-  {
-    id: 'principal',
-    label: 'Leitura e gestão',
     items: [
-      { icon: Activity, label: 'Indicadores', href: '/dashboard/kpis' },
-      { icon: LineChart, label: 'Executivo', href: '/dashboard/executive' },
+      { icon: Building2, label: 'Empresas', href: '/dashboard/companies', adminOnly: true },
+      { icon: MapPin, label: 'Obras/Setores', href: '/dashboard/sites', adminOnly: true },
+      { icon: Users, label: 'Funcionários', href: '/dashboard/employees' },
+      { icon: Shield, label: 'Usuários e acesso', href: '/dashboard/users', adminOnly: true },
+      { icon: CalendarDays, label: 'Calendário', href: '/dashboard/calendar', adminOnly: true },
     ],
   },
   {
     id: 'operacao',
-    label: 'Campo e operação',
+    label: 'Campo e Operação',
     defaultOpen: true,
     items: [
-      { icon: CalendarDays, label: 'Calendário', href: '/dashboard/calendar', adminOnly: true },
-      { icon: MapPin, label: 'Mapa de Risco', href: '/dashboard/risk-map' },
-      { icon: ClipboardCheck, label: 'Inspeções', href: '/dashboard/inspections' },
-      { icon: ClipboardX, label: 'Auditorias', href: '/dashboard/audits' },
-      { icon: AlertTriangle, label: 'Não conformidades', href: '/dashboard/nonconformities' },
-      { icon: AlertCircle, label: 'CATs', href: '/dashboard/cats' },
-      { icon: CheckSquare, label: 'Ações corretivas', href: '/dashboard/corrective-actions' },
-    ],
-  },
-  {
-    id: 'documentos',
-    label: 'Documentos',
-    defaultOpen: true,
-    items: [
-      { icon: Upload, label: 'Importar com IA', href: '/dashboard/documentos/importar' },
-      { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
-      { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
       { icon: MessageSquare, label: 'DDS', href: '/dashboard/dds' },
+      { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
+      { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
       { icon: ClipboardList, label: 'Checklists', href: '/dashboard/checklist-models' },
       { icon: BookOpen, label: 'RDO', href: '/dashboard/rdos' },
-      { icon: Wrench, label: 'OS (NR-1)', href: '/dashboard/service-orders' },
-      { icon: Archive, label: 'Registry', href: '/dashboard/document-registry' },
+      { icon: ClipboardCheck, label: 'Relatório de inspeção', href: '/dashboard/inspections' },
+      { icon: AlertTriangle, label: 'Não conformidades', href: '/dashboard/nonconformities' },
+      { icon: ClipboardX, label: 'Auditorias', href: '/dashboard/audits' },
     ],
   },
   {
-    id: 'estrutura',
-    label: 'Estrutura',
+    id: 'principal',
+    label: 'Leitura e Gestão',
     defaultOpen: false,
     items: [
-      { icon: Building2, label: 'Empresas', href: '/dashboard/companies', adminOnly: true },
-      { icon: Map, label: 'Obras e setores', href: '/dashboard/sites', adminOnly: true },
-      { icon: Users, label: 'Funcionários', href: '/dashboard/employees' },
-      { icon: Shield, label: 'Usuários e acesso', href: '/dashboard/users', adminOnly: true },
-      { icon: GraduationCap, label: 'Treinamentos', href: '/dashboard/trainings' },
-      { icon: Stethoscope, label: 'Exames médicos', href: '/dashboard/medical-exams' },
-      { icon: HardHat, label: 'Atividades', href: '/dashboard/activities', adminOnly: true },
-      { icon: AlertOctagon, label: 'Riscos', href: '/dashboard/risks', adminOnly: true },
-      { icon: ShieldCheck, label: 'EPIs', href: '/dashboard/epis', adminOnly: true },
-      { icon: HardHat, label: 'Fichas de EPI', href: '/dashboard/epi-fichas', adminOnly: true },
-    ],
-  },
-  {
-    id: 'plataforma',
-    label: 'Sistema',
-    defaultOpen: false,
-    items: [
-      { icon: Settings, label: 'Configurações', href: '/dashboard/settings' },
-      { icon: Paintbrush, label: 'Tema', href: '/dashboard/system/settings/theme', superAdminOnly: true },
+      { icon: AlertCircle, label: 'CATs', href: '/dashboard/cats' },
+      { icon: Map, label: 'Mapa de risco', href: '/dashboard/risk-map' },
+      { icon: CheckSquare, label: 'Ações corretivas', href: '/dashboard/corrective-actions' },
+      { icon: Upload, label: 'Importar com IA', href: '/dashboard/documentos/importar' },
+      { icon: BarChart3, label: 'Indicadores', href: '/dashboard/kpis' },
+      { icon: LineChart, label: 'Executivo', href: '/dashboard/executive' },
     ],
   },
 ];
 
 const SECTION_IDS = menuSections.map((section) => section.id);
-
-function resolveSidebarContext(user: User | null, roles: string[]): SidebarContext {
-  const parts = [user?.profile?.nome, user?.role, user?.funcao, ...roles]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-
-  if (parts.includes('administrador geral')) return 'admin-geral';
-  if (parts.includes('administrador da empresa') || parts.includes('admin_empresa')) return 'admin-empresa';
-  if (parts.includes('técnico de segurança') || parts.includes('tecnico de seguranca') || parts.includes('tst')) return 'tst';
-  if (parts.includes('supervisor') || parts.includes('encarregado')) return 'supervisor';
-  return 'operacional';
-}
-
-function buildQuickAccessItems(context: SidebarContext): MenuEntry[] {
-  switch (context) {
-    case 'admin-geral':
-      return [
-        { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-        { icon: Building2, label: 'Empresas', href: '/dashboard/companies', adminOnly: true },
-        { icon: Users, label: 'Usuários', href: '/dashboard/users', adminOnly: true },
-        { icon: BarChart3, label: 'Relatórios GST', href: '/dashboard/reports' },
-      ];
-    case 'admin-empresa':
-      return [
-        { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-        { icon: Upload, label: 'Importar com IA', href: '/dashboard/documentos/importar' },
-        { icon: GraduationCap, label: 'Treinamentos', href: '/dashboard/trainings' },
-        { icon: BarChart3, label: 'Relatórios GST', href: '/dashboard/reports' },
-      ];
-    case 'tst':
-      return [
-        { icon: Radio, label: 'Campo', href: '/dashboard/tst' },
-        { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
-        { icon: AlertTriangle, label: 'Não conformidades', href: '/dashboard/nonconformities' },
-        { icon: Upload, label: 'Importar com IA', href: '/dashboard/documentos/importar' },
-      ];
-    case 'supervisor':
-      return [
-        { icon: FileLock2, label: 'PTs', href: '/dashboard/pts' },
-        { icon: ClipboardList, label: 'Checklists', href: '/dashboard/checklist-models' },
-        { icon: CheckSquare, label: 'Ações corretivas', href: '/dashboard/corrective-actions' },
-        { icon: Radio, label: 'Campo', href: '/dashboard/tst' },
-      ];
-    default:
-      return [
-        { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-        { icon: FileText, label: 'APRs', href: '/dashboard/aprs' },
-        { icon: MessageSquare, label: 'DDS', href: '/dashboard/dds' },
-        { icon: GraduationCap, label: 'Treinamentos', href: '/dashboard/trainings' },
-      ];
-  }
-}
-
-function shouldShowSectionForContext(sectionId: string, context: SidebarContext, pathname: string) {
-  if (context === 'admin-geral' || context === 'admin-empresa') {
-    return true;
-  }
-
-  if (sectionId === 'principal') {
-    return pathname.startsWith('/dashboard/kpis') || pathname.startsWith('/dashboard/executive');
-  }
-
-  return true;
-}
-
-function getDefaultOpenSections(context: SidebarContext): Record<string, boolean> {
-  const defaults = Object.fromEntries(SECTION_IDS.map((id) => [id, false])) as Record<string, boolean>;
-
-  defaults.essenciais = true;
-
-  if (context === 'admin-geral') {
-    defaults.principal = true;
-    defaults.documentos = true;
-    return defaults;
-  }
-
-  if (context === 'admin-empresa') {
-    defaults.operacao = true;
-    defaults.documentos = true;
-    return defaults;
-  }
-
-  if (context === 'tst' || context === 'supervisor') {
-    defaults.operacao = true;
-    defaults.documentos = true;
-    return defaults;
-  }
-
-  defaults.documentos = true;
-  return defaults;
-}
 
 export function Sidebar({
   isOpen = false,
@@ -240,16 +100,20 @@ export function Sidebar({
   onClose?: () => void;
 }) {
   const pathname = usePathname();
-  const { logout, user, roles, hasPermission, isAdminGeral } = useAuth();
-  const sidebarContext = useMemo(() => resolveSidebarContext(user, roles), [roles, user]);
-  const defaultOpenSections = useMemo(() => getDefaultOpenSections(sidebarContext), [sidebarContext]);
+  const { logout, user, hasPermission, isAdminGeral } = useAuth();
+  const defaultOpenSections = useMemo(
+    () =>
+      Object.fromEntries(
+        menuSections.map((section) => [section.id, section.defaultOpen ?? true]),
+      ) as Record<string, boolean>,
+    [],
+  );
 
   const visibleSections = useMemo(() => {
     return menuSections
-      .filter((section) => shouldShowSectionForContext(section.id, sidebarContext, pathname))
       .map((section) => ({
         ...section,
-        items: (section.id === 'essenciais' ? buildQuickAccessItems(sidebarContext) : section.items).filter((item) => {
+        items: section.items.filter((item) => {
           if (!isTemporarilyVisibleDashboardRoute(item.href)) return false;
           if (item.adminOnly && !isAdminGeral) return false;
           if (item.superAdminOnly && !isAdminGeral) return false;
@@ -277,7 +141,7 @@ export function Sidebar({
         }),
       }))
       .filter((section) => section.items.length > 0);
-  }, [hasPermission, isAdminGeral, pathname, sidebarContext]);
+  }, [hasPermission, isAdminGeral]);
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(defaultOpenSections);
 
