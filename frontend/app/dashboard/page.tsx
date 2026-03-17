@@ -25,6 +25,10 @@ import { useAuth } from "@/context/AuthContext";
 import { format, isBefore } from "date-fns";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
+import {
+  isTemporarilyHiddenDashboardRoute,
+  isTemporarilyVisibleDashboardRoute,
+} from "@/lib/temporarilyHiddenModules";
 
 type QueueFilter = "all" | "critical" | "documents" | "health" | "actions";
 
@@ -123,14 +127,22 @@ export default function DashboardPage() {
   const [queueFilter, setQueueFilter] = useState<QueueFilter>("all");
 
   const canUseAi = hasPermission("can_use_ai");
+  const showEpiModule = isTemporarilyVisibleDashboardRoute("/dashboard/epis");
+  const showTrainingModule = isTemporarilyVisibleDashboardRoute(
+    "/dashboard/trainings",
+  );
 
   const filteredPendingQueueItems = useMemo(() => {
-    if (queueFilter === "all") return pendingQueue.items.slice(0, 12);
+    const visibleItems = pendingQueue.items.filter(
+      (item) => !isTemporarilyHiddenDashboardRoute(item.href),
+    );
+
+    if (queueFilter === "all") return visibleItems.slice(0, 12);
     if (queueFilter === "critical")
-      return pendingQueue.items
+      return visibleItems
         .filter((item) => item.priority === "critical")
         .slice(0, 12);
-    return pendingQueue.items
+    return visibleItems
       .filter((item) => item.category === queueFilter)
       .slice(0, 12);
   }, [pendingQueue.items, queueFilter]);
@@ -180,16 +192,24 @@ export default function DashboardPage() {
       value: loading ? "—" : pendingQueue.summary.total.toString(),
       tone: pendingQueue.summary.total > 0 ? "warning" : "success",
     },
-    {
-      label: "EPIs vencidos",
-      value: loading ? "—" : expiredEpisCount.toString(),
-      tone: expiredEpisCount > 0 ? "danger" : "success",
-    },
-    {
-      label: "Treinamentos vencidos",
-      value: loading ? "—" : expiredTrainingsCount.toString(),
-      tone: expiredTrainingsCount > 0 ? "danger" : "success",
-    },
+    ...(showEpiModule
+      ? [
+          {
+            label: "EPIs vencidos",
+            value: loading ? "—" : expiredEpisCount.toString(),
+            tone: expiredEpisCount > 0 ? "danger" : "success",
+          } as const,
+        ]
+      : []),
+    ...(showTrainingModule
+      ? [
+          {
+            label: "Treinamentos vencidos",
+            value: loading ? "—" : expiredTrainingsCount.toString(),
+            tone: expiredTrainingsCount > 0 ? "danger" : "success",
+          } as const,
+        ]
+      : []),
   ] as const;
 
   const kpiToneClasses: Record<string, string> = {
@@ -332,26 +352,32 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Vencimentos críticos ── */}
+      {showEpiModule || showTrainingModule ? (
       <div className="ds-dashboard-panel p-5">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">
             Vencimentos críticos
           </h2>
           <div className="flex flex-wrap gap-2">
+            {showEpiModule ? (
             <StatusPill tone={expiredEpisCount > 0 ? "danger" : "warning"}>
               {expiredEpisCount} EPI{expiredEpisCount === 1 ? "" : "s"} vencido
               {expiredEpisCount === 1 ? "" : "s"}
             </StatusPill>
+            ) : null}
+            {showTrainingModule ? (
             <StatusPill tone={expiredTrainingsCount > 0 ? "danger" : "warning"}>
               {expiredTrainingsCount} treinamento
               {expiredTrainingsCount === 1 ? "" : "s"} vencido
               {expiredTrainingsCount === 1 ? "" : "s"}
             </StatusPill>
+            ) : null}
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* EPIs */}
+          {showEpiModule ? (
           <div>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="flex items-center text-sm font-bold text-[var(--ds-color-text-primary)]">
@@ -412,8 +438,10 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+          ) : null}
 
           {/* Treinamentos */}
+          {showTrainingModule ? (
           <div>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="flex items-center text-sm font-bold text-[var(--ds-color-text-primary)]">
@@ -474,8 +502,10 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+          ) : null}
         </div>
       </div>
+      ) : null}
     </div>
   );
 }

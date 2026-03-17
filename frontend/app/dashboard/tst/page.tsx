@@ -33,6 +33,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState, ErrorState, InlineLoadingState, PageLoadingState } from '@/components/ui/state';
 import { toast } from 'sonner';
+import {
+  isTemporarilyHiddenDashboardRoute,
+  isTemporarilyVisibleDashboardRoute,
+} from '@/lib/temporarilyHiddenModules';
 
 const fieldActionCards = [
   {
@@ -129,36 +133,39 @@ export default function TstFieldPage() {
   }, []);
 
   const summaryCards = useMemo(
-    () => [
-      {
-        label: 'PTs para liberar',
-        value: dashboard?.summary.pendingPtApprovals ?? 0,
-        icon: FileText,
-        href: '/dashboard/pts',
-        tone: 'text-amber-300',
-      },
-      {
-        label: 'NCs críticas',
-        value: dashboard?.summary.criticalNonConformities ?? 0,
-        icon: ShieldAlert,
-        href: '/dashboard/nonconformities',
-        tone: 'text-rose-300',
-      },
-      {
-        label: 'Inspeções atrasadas',
-        value: dashboard?.summary.overdueInspections ?? 0,
-        icon: ClipboardCheck,
-        href: '/dashboard/inspections',
-        tone: 'text-[var(--ds-color-success)]',
-      },
-      {
-        label: 'Docs vencendo',
-        value: dashboard?.summary.expiringDocuments ?? 0,
-        icon: AlertTriangle,
-        href: '/dashboard/medical-exams',
-        tone: 'text-orange-300',
-      },
-    ],
+    () =>
+      [
+        {
+          label: 'PTs para liberar',
+          value: dashboard?.summary.pendingPtApprovals ?? 0,
+          icon: FileText,
+          href: '/dashboard/pts',
+          tone: 'text-amber-300',
+        },
+        {
+          label: 'NCs críticas',
+          value: dashboard?.summary.criticalNonConformities ?? 0,
+          icon: ShieldAlert,
+          href: '/dashboard/nonconformities',
+          tone: 'text-rose-300',
+        },
+        {
+          label: 'Inspeções atrasadas',
+          value: dashboard?.summary.overdueInspections ?? 0,
+          icon: ClipboardCheck,
+          href: '/dashboard/inspections',
+          tone: 'text-[var(--ds-color-success)]',
+        },
+        {
+          label: 'Docs vencendo',
+          value: dashboard?.summary.expiringDocuments ?? 0,
+          icon: AlertTriangle,
+          href: isTemporarilyVisibleDashboardRoute('/dashboard/trainings')
+            ? '/dashboard/trainings'
+            : '/dashboard/medical-exams',
+          tone: 'text-orange-300',
+        },
+      ].filter((card) => !isTemporarilyHiddenDashboardRoute(card.href)),
     [dashboard],
   );
 
@@ -628,10 +635,16 @@ export default function TstFieldPage() {
               compact
             />
 
+            {!isTemporarilyHiddenDashboardRoute('/dashboard/trainings') ||
+            !isTemporarilyHiddenDashboardRoute('/dashboard/medical-exams') ? (
             <OperationalListCard
               title="Documentos vencendo"
               description="Vencimentos próximos de ASO e treinamento."
-              href="/dashboard/trainings"
+              href={
+                isTemporarilyVisibleDashboardRoute('/dashboard/trainings')
+                  ? '/dashboard/trainings'
+                  : '/dashboard/medical-exams'
+              }
               emptyLabel="Nenhum documento vencendo nos próximos 7 dias."
               items={[
                 ...((dashboard?.expiringDocuments.medicalExams || []).map((item) => ({
@@ -651,6 +664,7 @@ export default function TstFieldPage() {
               ]}
               compact
             />
+            ) : null}
 
             <OperationalListCard
               title="Inspeções atrasadas"

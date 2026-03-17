@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { StatusPill } from './ui/status-pill';
 import { isAiEnabled } from '@/lib/featureFlags';
+import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
 
 export interface Insight {
   type: 'warning' | 'success' | 'info';
@@ -26,9 +27,19 @@ export function GandraInsights() {
 
   const [data, setData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(aiEnabled);
-  const primaryInsight = useMemo(() => data?.insights[0] ?? null, [data]);
-  const secondaryInsights = useMemo(() => data?.insights.slice(1, 3) ?? [], [data]);
-  const remainingInsights = Math.max(0, (data?.insights.length ?? 0) - (primaryInsight ? 1 : 0) - secondaryInsights.length);
+  const visibleInsights = useMemo(
+    () =>
+      (data?.insights ?? []).filter((insight) =>
+        isTemporarilyVisibleDashboardRoute(insight.action),
+      ),
+    [data],
+  );
+  const primaryInsight = useMemo(() => visibleInsights[0] ?? null, [visibleInsights]);
+  const secondaryInsights = useMemo(() => visibleInsights.slice(1, 3), [visibleInsights]);
+  const remainingInsights = Math.max(
+    0,
+    visibleInsights.length - (primaryInsight ? 1 : 0) - secondaryInsights.length,
+  );
 
   useEffect(() => {
     if (!aiEnabled) {

@@ -14,6 +14,7 @@ import { Building2, ChevronsUpDown } from 'lucide-react';
 import { MobileFieldNav } from '@/components/MobileFieldNav';
 import { CommandPalette } from '@/components/CommandPalette';
 import { AIButton } from '@/components/AIButton';
+import { isTemporarilyHiddenDashboardRoute } from '@/lib/temporarilyHiddenModules';
 
 export default function DashboardLayout({
   children,
@@ -44,6 +45,11 @@ export default function DashboardLayout({
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
+      return;
+    }
+
+    if (!loading && user && isTemporarilyHiddenDashboardRoute(pathname)) {
+      router.push('/dashboard');
       return;
     }
 

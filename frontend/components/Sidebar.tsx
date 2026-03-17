@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
 import {
   Archive,
   AlertCircle,
@@ -250,6 +251,7 @@ export function Sidebar({
       .map((section) => ({
         ...section,
         items: (section.id === 'essenciais' ? buildQuickAccessItems(sidebarContext) : section.items).filter((item) => {
+          if (!isTemporarilyVisibleDashboardRoute(item.href)) return false;
           if (item.adminOnly && !isAdmin) return false;
           if (item.superAdminOnly && !isAdmin) return false;
 

@@ -56,9 +56,11 @@ describe('GandraInsights', () => {
     render(<GandraInsights />);
 
     expect(await screen.findByText('Pendência crítica de PT')).toBeInTheDocument();
-    expect(screen.getByText('Treinamento próximo do vencimento')).toBeInTheDocument();
+    expect(screen.queryByText('Treinamento próximo do vencimento')).not.toBeInTheDocument();
     expect(screen.getByText('Checklist atualizado')).toBeInTheDocument();
-    expect(screen.getByText(/\+1 insight disponível no workspace assistido/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/\+1 insight disponível no workspace assistido/i),
+    ).not.toBeInTheDocument();
   });
 
   it('shows the fallback state when insights fail to load', async () => {

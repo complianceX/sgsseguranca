@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Archive, ClipboardCheck, Command, FileText, GraduationCap, Radio, Search, Settings, ShieldCheck, Stethoscope, UserRound, Users, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
+import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
 
 type CommandItem = {
   id: string;
@@ -142,7 +143,9 @@ export function CommandPalette() {
 
   const commands = useMemo(() => {
     const available = baseCommands.filter(
-      (command) => !command.permission || hasPermission(command.permission),
+      (command) =>
+        isTemporarilyVisibleDashboardRoute(command.href) &&
+        (!command.permission || hasPermission(command.permission)),
     );
 
     const normalized = query.trim().toLowerCase();

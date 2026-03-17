@@ -11,6 +11,7 @@ import api from '@/lib/api';
 import { companiesService, Company } from '@/services/companiesService';
 import { ptsService, PtApprovalRules } from '@/services/ptsService';
 import { SophieStatusCard } from '@/components/SophieStatusCard';
+import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
 
 export default function SettingsPage() {
   const { user, hasPermission } = useAuth();
@@ -374,7 +375,11 @@ export default function SettingsPage() {
             <p className="text-sm text-gray-500">Acesso rápido aos cadastros e módulos administrativos.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {managementLinks
-                .filter((link) => (link.adminOnly ? isAdmin : true))
+                .filter(
+                  (link) =>
+                    isTemporarilyVisibleDashboardRoute(link.href) &&
+                    (link.adminOnly ? isAdmin : true),
+                )
                 .map((link) => {
                   const Icon = link.icon;
                   return (
