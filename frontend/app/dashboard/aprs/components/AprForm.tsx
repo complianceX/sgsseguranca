@@ -230,7 +230,6 @@ export function AprForm({ id }: AprFormProps) {
   const [finalizing, setFinalizing] = useState(false);
   const [creatingVersion, setCreatingVersion] = useState(false);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [currentApr, setCurrentApr] = useState<Apr | null>(null);
   const [aprLogs, setAprLogs] = useState<AprLogEntry[]>([]);
   const [versionHistory, setVersionHistory] = useState<
@@ -362,13 +361,10 @@ export function AprForm({ id }: AprFormProps) {
   const isModelo = watch('is_modelo');
   const isApproved = currentApr?.status === 'Aprovada';
   const hasFinalPdf = Boolean(currentApr?.pdf_file_key);
-  const hasPendingPdfUpload = Boolean(pdfFile);
-  const canAttachFinalPdf = Boolean(id && isApproved && !hasFinalPdf);
   const aiEnabled = isAiEnabled();
   const selectedCompany = companies.find((company) => company.id === selectedCompanyId);
   const selectedSite = sites.find((site) => site.id === selectedSiteId);
   const selectedElaborador = users.find((user) => user.id === selectedElaboradorId);
-  const isApprovedAwaitingFinalPdf = Boolean(id && isApproved && !hasFinalPdf);
 
   const buildChecklistSuggestionHref = useCallback(
     (suggestion: SophieDraftChecklistSuggestion) => {
@@ -505,31 +501,9 @@ export function AprForm({ id }: AprFormProps) {
       ) as AprMutationPayload;
 
       if (id && isApproved) {
-        if (!pdfFile) {
-          throw new Error('APR aprovada está bloqueada para edição. Anexe o PDF final ou crie uma nova versão.');
-        }
-
-        await aprsService.attachFile(id, pdfFile);
-
-        const [updatedApr, logs, versions, evidences] = await Promise.all([
-          aprsService.findOne(id),
-          aprsService.getLogs(id),
-          aprsService.getVersionHistory(id),
-          aprsService.listAprEvidences(id),
-        ]);
-        setCurrentApr(updatedApr);
-        setAprLogs(logs);
-        setAprEvidences(evidences);
-        setVersionHistory(
-          versions.map((item) => ({
-            id: item.id,
-            numero: item.numero,
-            versao: item.versao,
-            status: item.status,
-          })),
+        throw new Error(
+          'APR aprovada está bloqueada para edição. Emita o PDF final na listagem ou crie uma nova versão para alterar o documento.',
         );
-        setPdfFile(null);
-        return { attachedFinalPdf: true };
       }
       
       if (id) {
@@ -609,16 +583,8 @@ export function AprForm({ id }: AprFormProps) {
       }
     },
     {
-      successMessage: (result) => {
-        if (
-          typeof result === 'object' &&
-          result !== null &&
-          'attachedFinalPdf' in result
-        ) {
-          return 'PDF final da APR anexado com sucesso!';
-        }
-        return id ? 'APR atualizada com sucesso!' : 'APR cadastrada com sucesso!';
-      },
+      successMessage: () =>
+        id ? 'APR atualizada com sucesso!' : 'APR cadastrada com sucesso!',
       redirectTo: '/dashboard/aprs',
       context: 'APR',
       onSuccess: () => {
@@ -1664,21 +1630,21 @@ export function AprForm({ id }: AprFormProps) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="space-y-4 xl:sticky xl:top-24 xl:self-start">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <div className="ds-dashboard-panel overflow-hidden">
             <div className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/16 px-5 py-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
                 Wizard operacional
               </p>
               <h2 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
-                Emissão guiada de APR
+                Emissão operacional da APR
               </h2>
               <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-                Conduza a análise por etapas para garantir consistência técnica, revisão e rastreabilidade.
+                Conduza a análise por etapas com foco em preenchimento técnico, revisão e emissão governada.
               </p>
             </div>
-            <div className="space-y-3 px-4 py-4">
+            <div className="grid gap-3 px-4 py-4 md:grid-cols-3">
               {APR_STEPS.map((step) => {
                 const Icon = step.icon;
                 const isActive = currentStep === step.id;
@@ -1725,67 +1691,69 @@ export function AprForm({ id }: AprFormProps) {
             </div>
           </div>
 
-          <div className="ds-dashboard-panel px-5 py-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
-                  Resumo da APR
+          <div className="space-y-4">
+            <div className="ds-dashboard-panel px-5 py-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                    Resumo da APR
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                    {tituloApr || 'Título ainda não definido'}
+                  </p>
+                </div>
+                {draftStorageKey && draftRestored ? (
+                  <span className="rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-warning)]">
+                    Rascunho restaurado
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-4 space-y-3 text-sm text-[var(--ds-color-text-secondary)]">
+                <SummaryRow label="Empresa" value={selectedCompany?.razao_social || 'Não definida'} />
+                <SummaryRow label="Obra" value={selectedSite?.nome || 'Não definida'} />
+                <SummaryRow label="Elaborador" value={selectedElaborador?.nome || 'Não definido'} />
+                <SummaryRow label="Status" value={watch('status') || 'Pendente'} />
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <WizardMetric label="Atividades" value={String(selectedActivityIds.length)} tone="info" />
+                <WizardMetric label="Riscos" value={String(selectedRiskIds.length)} tone="warning" />
+                <WizardMetric label="Linhas APR" value={String(totalRiskLines)} tone="default" />
+                <WizardMetric label="Assinaturas" value={String(completedSignatures)} tone="success" />
+              </div>
+
+              {selectedParticipantIds.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {selectedParticipantIds.slice(0, 5).map((participantId) => {
+                    const participant = filteredUsers.find((item) => item.id === participantId);
+                    return (
+                      <span
+                        key={participantId}
+                        className="rounded-full border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/20 px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)]"
+                      >
+                        {participant?.nome || 'Participante'}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className={`mt-4 ${aprWarningInlineClass}`}>
+                  Defina participantes e assinaturas antes de concluir a APR.
+                </div>
+              )}
+            </div>
+
+            <div className={aprDangerInlineClass}>
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>
+                  Não finalize a APR sem revisar a matriz de risco, controles sugeridos e evidências associadas ao trabalho.
                 </p>
-                <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                  {tituloApr || 'Título ainda não definido'}
-                </p>
               </div>
-              {draftStorageKey && draftRestored ? (
-                <span className="rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-warning)]">
-                  Rascunho restaurado
-                </span>
-              ) : null}
-            </div>
-
-            <div className="mt-4 space-y-3 text-sm text-[var(--ds-color-text-secondary)]">
-              <SummaryRow label="Empresa" value={selectedCompany?.razao_social || 'Não definida'} />
-              <SummaryRow label="Obra" value={selectedSite?.nome || 'Não definida'} />
-              <SummaryRow label="Elaborador" value={selectedElaborador?.nome || 'Não definido'} />
-              <SummaryRow label="Status" value={watch('status') || 'Pendente'} />
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <WizardMetric label="Atividades" value={String(selectedActivityIds.length)} tone="info" />
-              <WizardMetric label="Riscos" value={String(selectedRiskIds.length)} tone="warning" />
-              <WizardMetric label="Linhas APR" value={String(totalRiskLines)} tone="default" />
-              <WizardMetric label="Assinaturas" value={String(completedSignatures)} tone="success" />
-            </div>
-
-            {selectedParticipantIds.length > 0 ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {selectedParticipantIds.slice(0, 5).map((participantId) => {
-                  const participant = filteredUsers.find((item) => item.id === participantId);
-                  return (
-                    <span
-                      key={participantId}
-                      className="rounded-full border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/20 px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)]"
-                    >
-                      {participant?.nome || 'Participante'}
-                    </span>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className={`mt-4 ${aprWarningInlineClass}`}>
-                Defina participantes e assinaturas antes de concluir a APR.
-              </div>
-            )}
-          </div>
-
-          <div className={aprDangerInlineClass}>
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <p>
-                Não finalize a APR sem revisar a matriz de risco, controles sugeridos e evidências associadas ao trabalho.
-              </p>
             </div>
           </div>
-        </aside>
+        </div>
 
         <div className="space-y-8">
           {currentStep === 1 && (
@@ -1851,41 +1819,24 @@ export function AprForm({ id }: AprFormProps) {
             </div>
 
             <div className="md:col-span-2">
-              <label className={aprLabelClass}>Anexar PDF da APR (opcional)</label>
-              <input
-                type="file"
-                accept="application/pdf"
-                aria-label="Selecionar PDF da APR"
-                disabled={!canAttachFinalPdf}
-                onChange={(event) => {
-                  const file = event.target.files?.[0] || null;
-                  setPdfFile(file);
-                  setValue('pdf_signed', Boolean(file) || hasFinalPdf, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  });
-                }}
-                className={aprFileFieldClass}
-              />
-              {hasFinalPdf ? (
-                <div className="mt-2">
-                  <p className={aprWarningInlineClass}>
+              <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)]/45 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
+                  Emissão documental
+                </p>
+                <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                  O PDF final da APR não é mais anexado manualmente neste formulário. Depois da aprovação,
+                  use a listagem para emitir, abrir ou compartilhar o documento governado.
+                </p>
+                {hasFinalPdf ? (
+                  <p className="mt-2 text-sm font-semibold text-[var(--color-success)]">
                     Esta APR já possui PDF final emitido e está bloqueada para edição.
                   </p>
-                </div>
-              ) : canAttachFinalPdf ? (
-                <div className="mt-2">
-                  <p className={aprWarningInlineClass}>
-                    O PDF final só será anexado agora porque a APR já está <strong>Aprovada</strong>. Após o anexo, o documento ficará bloqueado para edição.
+                ) : isApproved ? (
+                  <p className="mt-2 text-sm font-semibold text-[var(--color-warning)]">
+                    APR aprovada. O próximo passo é emitir o PDF final governado na listagem.
                   </p>
-                </div>
-              ) : (
-                <div className="mt-2">
-                  <p className={aprWarningInlineClass}>
-                    O anexo do PDF final é liberado somente depois que a APR estiver <strong>Aprovada</strong>.
-                  </p>
-                </div>
-              )}
+                ) : null}
+              </div>
             </div>
 
             <div>
@@ -2183,59 +2134,28 @@ export function AprForm({ id }: AprFormProps) {
             </div>
           </div>
 
-          <div className="mb-4 overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border)] bg-[color:var(--color-card-muted)]/24">
-            <div className="grid min-w-[980px] grid-cols-12 border-b border-[var(--color-border)]">
-              <div className="col-span-2 border-r border-[var(--color-border)] bg-[color:var(--color-card-muted)]/42 px-3 py-2 text-xs font-bold text-[var(--color-text)]">
-                CÓDIGO
+          <div className="mb-4 rounded-[var(--ds-radius-xl)] border border-[var(--color-border)] bg-[color:var(--color-card-muted)]/24 p-4">
+            <div className="flex flex-col gap-3 border-b border-[var(--color-border)] pb-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
+                  Caderno técnico da APR
+                </p>
+                <p className="mt-1 text-lg font-extrabold text-[var(--color-text)]">
+                  APR - Análise Preliminar de Riscos
+                </p>
               </div>
-              <div className="col-span-7 border-r border-[var(--color-border)] px-3 py-2 text-center text-sm font-extrabold text-[var(--color-text)]">
-                APR - ANÁLISE PRELIMINAR DE RISCOS
-              </div>
-              <div className="col-span-3 px-3 py-2 text-right text-xs font-semibold text-[var(--color-text-secondary)]">
+              <span className="rounded-full border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] px-3 py-1 text-xs font-semibold text-[var(--color-text-secondary)]">
                 GST
-              </div>
+              </span>
             </div>
-            <div className="grid min-w-[980px] grid-cols-12 border-b border-[var(--color-border)] text-xs">
-              <div className="col-span-2 border-r border-[var(--color-border)] bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-[var(--color-text-inverse)]">
-                Descrição da atividade
-              </div>
-              <div className="col-span-7 border-r border-[var(--color-border)] px-3 py-2 text-[var(--color-text)]">
-                {tituloApr || '-'}
-              </div>
-              <div className="col-span-1 border-r border-[var(--color-border)] bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-[var(--color-text-inverse)]">
-                Empresa
-              </div>
-              <div className="col-span-2 px-3 py-2 text-[var(--color-text)]">
-                {selectedCompany?.razao_social || '-'}
-              </div>
-            </div>
-            <div className="grid min-w-[980px] grid-cols-12 border-b border-[var(--color-border)] text-xs">
-              <div className="col-span-2 border-r border-[var(--color-border)] bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-[var(--color-text-inverse)]">
-                Data de elaboração
-              </div>
-              <div className="col-span-7 border-r border-[var(--color-border)] px-3 py-2 text-[var(--color-text)]">
-                {dataInicioApr || '-'}
-              </div>
-              <div className="col-span-1 border-r border-[var(--color-border)] bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-[var(--color-text-inverse)]">
-                Site
-              </div>
-              <div className="col-span-2 px-3 py-2 text-[var(--color-text)]">
-                {selectedSite?.nome || '-'}
-              </div>
-            </div>
-            <div className="grid min-w-[980px] grid-cols-12 text-xs">
-              <div className="col-span-2 border-r border-[var(--color-border)] bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-[var(--color-text-inverse)]">
-                Data revisão / versão
-              </div>
-              <div className="col-span-7 border-r border-[var(--color-border)] px-3 py-2 text-[var(--color-text)]">
-                {`${new Date().toLocaleDateString('pt-BR')} / v${currentApr?.versao || 1}`}
-              </div>
-              <div className="col-span-1 border-r border-[var(--color-border)] bg-[var(--ds-color-accent)] px-3 py-2 font-bold text-[var(--color-text-inverse)]">
-                Responsável
-              </div>
-              <div className="col-span-2 px-3 py-2 text-[var(--color-text)]">
-                {selectedElaborador?.nome || '-'}
-              </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <SummaryMetaCard label="Descrição da atividade" value={tituloApr || '-'} />
+              <SummaryMetaCard label="Empresa" value={selectedCompany?.razao_social || '-'} />
+              <SummaryMetaCard label="Site / obra" value={selectedSite?.nome || '-'} />
+              <SummaryMetaCard label="Data de elaboração" value={dataInicioApr || '-'} />
+              <SummaryMetaCard label="Revisão / versão" value={`${new Date().toLocaleDateString('pt-BR')} / v${currentApr?.versao || 1}`} />
+              <SummaryMetaCard label="Responsável" value={selectedElaborador?.nome || '-'} />
             </div>
           </div>
 
@@ -2245,144 +2165,170 @@ export function AprForm({ id }: AprFormProps) {
             </div>
           )}
 
-          <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)]">
-            <table className="apr-sheet min-w-[1450px] w-full text-xs">
-              <thead>
-                <tr>
-                  <th rowSpan={2} className="px-2 py-2">Atividades / Processos</th>
-                  <th colSpan={4} className="px-2 py-2 !bg-[var(--ds-color-accent)]">Reconhecimento de Riscos</th>
-                  <th colSpan={3} className="px-2 py-2 !bg-[var(--ds-color-warning)]">Avaliação de Riscos</th>
-                  <th rowSpan={2} className="px-2 py-2 !bg-[var(--ds-color-accent)]">Medidas de Prevenção</th>
-                  <th rowSpan={2} className="px-2 py-2 !bg-[var(--ds-color-text-primary)]">Ação</th>
-                </tr>
-                <tr>
-                  <th className="px-2 py-2">Agente Ambiental</th>
-                  <th className="px-2 py-2">Condição Perigosa</th>
-                  <th className="px-2 py-2">Fontes / Circunstâncias</th>
-                  <th className="px-2 py-2">Possíveis Lesões</th>
-                  <th className="px-2 py-2">Probabilidade</th>
-                  <th className="px-2 py-2">Severidade</th>
-                  <th className="px-2 py-2">Categoria de Risco</th>
-                </tr>
-              </thead>
-              <tbody>
-                {riskFields.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="px-3 py-8 text-center text-sm text-[var(--color-text-muted)]">
-                      Nenhuma linha adicionada.
-                    </td>
-                  </tr>
-                )}
-                {riskFields.map((field, index) => {
-                  const p = watch(`itens_risco.${index}.probabilidade`);
-                  const s = watch(`itens_risco.${index}.severidade`);
-                  const calc = calculateRiskCategory(p, s);
+          <div className="space-y-4">
+            {riskFields.length === 0 ? (
+              <div className="rounded-[var(--ds-radius-lg)] border border-dashed border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/18 px-4 py-8 text-center text-sm text-[var(--color-text-muted)]">
+                Nenhuma linha adicionada.
+              </div>
+            ) : null}
 
-                  return (
-                    <tr key={field.id}>
-                      <td className="p-2 align-top">
+            {riskFields.map((field, index) => {
+              const p = watch(`itens_risco.${index}.probabilidade`);
+              const s = watch(`itens_risco.${index}.severidade`);
+              const calc = calculateRiskCategory(p, s);
+
+              return (
+                <div
+                  key={field.id}
+                  className="rounded-[var(--ds-radius-xl)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-4 shadow-[var(--ds-shadow-sm)]"
+                >
+                  <div className="mb-4 flex flex-col gap-3 border-b border-[var(--color-border-subtle)] pb-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
+                        Linha da matriz
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[var(--color-text)]">
+                        Risco #{index + 1}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={cn('inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold', getCategoriaBadgeClass(calc.categoria))}>
+                        {calc.categoria || 'Nao definida'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeRisk(index)}
+                        className="rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-danger-subtle)] p-2 text-[var(--color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]/78"
+                        title="Remover linha"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    <div className="space-y-4">
+                      <div>
+                        <label className={aprLabelCompactClass}>Atividade / Processo</label>
                         <input
                           {...register(`itens_risco.${index}.atividade_processo`)}
-                          className={aprFieldCompactClass}
+                          className={aprFieldClass}
                           placeholder="Atividade/processo"
                         />
-                      </td>
-                      <td className="p-2 align-top">
+                      </div>
+                      <div>
+                        <label className={aprLabelCompactClass}>Agente ambiental</label>
                         <input
                           {...register(`itens_risco.${index}.agente_ambiental`)}
-                          className={aprFieldCompactClass}
+                          className={aprFieldClass}
+                          placeholder="Agente ambiental"
                         />
-                      </td>
-                      <td className="p-2 align-top">
+                      </div>
+                      <div>
+                        <label className={aprLabelCompactClass}>Condição perigosa</label>
                         <input
                           {...register(`itens_risco.${index}.condicao_perigosa`)}
-                          className={aprFieldCompactClass}
+                          className={aprFieldClass}
+                          placeholder="Condição perigosa"
                         />
-                      </td>
-                      <td className="p-2 align-top">
+                      </div>
+                      <div>
+                        <label className={aprLabelCompactClass}>Fontes / circunstâncias</label>
                         <input
                           {...register(`itens_risco.${index}.fontes_circunstancias`)}
-                          className={aprFieldCompactClass}
+                          className={aprFieldClass}
+                          placeholder="Fontes ou circunstâncias"
                         />
-                      </td>
-                      <td className="p-2 align-top">
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className={aprLabelCompactClass}>Possíveis lesões</label>
                         <input
                           {...register(`itens_risco.${index}.possiveis_lesoes`)}
-                          className={aprFieldCompactClass}
+                          className={aprFieldClass}
+                          placeholder="Possíveis lesões"
                         />
-                      </td>
-                      <td className="p-2 align-top">
-                        <select
-                          {...register(`itens_risco.${index}.probabilidade`)}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setValue(`itens_risco.${index}.probabilidade`, value, { shouldDirty: true, shouldValidate: true });
-                            const severidade = watch(`itens_risco.${index}.severidade`);
-                            const result = calculateRiskCategory(value, severidade);
-                            setValue(`itens_risco.${index}.categoria_risco`, result.categoria, { shouldDirty: true, shouldValidate: true });
-                          }}
-                          className={aprFieldCompactClass}
-                        >
-                          <option value="">-</option>
-                          <option value="1">1</option>
-                          <option value="2">2</option>
-                          <option value="3">3</option>
-                        </select>
-                      </td>
-                      <td className="p-2 align-top">
-                        <select
-                          {...register(`itens_risco.${index}.severidade`)}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setValue(`itens_risco.${index}.severidade`, value, { shouldDirty: true, shouldValidate: true });
-                            const probabilidade = watch(`itens_risco.${index}.probabilidade`);
-                            const result = calculateRiskCategory(probabilidade, value);
-                            setValue(`itens_risco.${index}.categoria_risco`, result.categoria, { shouldDirty: true, shouldValidate: true });
-                          }}
-                          className={aprFieldCompactClass}
-                        >
-                          <option value="">-</option>
-                          <option value="1">1</option>
-                          <option value="2">2</option>
-                          <option value="3">3</option>
-                        </select>
-                      </td>
-                      <td className="p-2 align-top">
-                        <div className="space-y-1">
-                          <span className={cn('inline-block rounded px-2 py-1 text-[11px] font-semibold', getCategoriaBadgeClass(calc.categoria))}>
-                            {calc.categoria || 'Não definida'}
-                          </span>
-                          <div className="text-[11px] text-[var(--color-text-secondary)]">Prioridade: {calc.prioridade || '-'}</div>
-                          <div className="text-[11px] text-[var(--color-text-muted)]">Score: {calc.score || '-'}</div>
+                      </div>
+
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className={aprLabelCompactClass}>Probabilidade</label>
+                          <select
+                            {...register(`itens_risco.${index}.probabilidade`)}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setValue(`itens_risco.${index}.probabilidade`, value, { shouldDirty: true, shouldValidate: true });
+                              const severidade = watch(`itens_risco.${index}.severidade`);
+                              const result = calculateRiskCategory(value, severidade);
+                              setValue(`itens_risco.${index}.categoria_risco`, result.categoria, { shouldDirty: true, shouldValidate: true });
+                            }}
+                            className={aprFieldClass}
+                          >
+                            <option value="">Selecione</option>
+                            <option value="1">1 - Baixa</option>
+                            <option value="2">2 - Media</option>
+                            <option value="3">3 - Alta</option>
+                          </select>
                         </div>
-                      </td>
-                      <td className="p-2 align-top">
+                        <div>
+                          <label className={aprLabelCompactClass}>Severidade</label>
+                          <select
+                            {...register(`itens_risco.${index}.severidade`)}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setValue(`itens_risco.${index}.severidade`, value, { shouldDirty: true, shouldValidate: true });
+                              const probabilidade = watch(`itens_risco.${index}.probabilidade`);
+                              const result = calculateRiskCategory(probabilidade, value);
+                              setValue(`itens_risco.${index}.categoria_risco`, result.categoria, { shouldDirty: true, shouldValidate: true });
+                            }}
+                            className={aprFieldClass}
+                          >
+                            <option value="">Selecione</option>
+                            <option value="1">1 - Baixa</option>
+                            <option value="2">2 - Media</option>
+                            <option value="3">3 - Alta</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/24 px-4 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+                          Avaliação automática
+                        </p>
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                          <span className={cn('inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold', getCategoriaBadgeClass(calc.categoria))}>
+                            {calc.categoria || 'Nao definida'}
+                          </span>
+                          <span className="text-sm text-[var(--color-text-secondary)]">
+                            Prioridade: <strong>{calc.prioridade || '-'}</strong>
+                          </span>
+                          <span className="text-sm text-[var(--color-text-secondary)]">
+                            Score: <strong>{calc.score || '-'}</strong>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className={aprLabelCompactClass}>Medidas de prevenção</label>
                         <textarea
                           {...register(`itens_risco.${index}.medidas_prevencao`)}
-                          rows={2}
-                          className={aprFieldCompactClass}
+                          rows={4}
+                          className={aprFieldClass}
+                          placeholder="Descreva as barreiras, controles e medidas preventivas."
                         />
-                      </td>
-                      <td className="p-2 align-top">
-                        <button
-                          type="button"
-                          onClick={() => removeRisk(index)}
-                          className="rounded-[var(--ds-radius-sm)] bg-[color:var(--ds-color-danger-subtle)] p-2 text-[var(--color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]/78"
-                          title="Remover linha"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <div className="mt-4 space-y-3">
-            <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
-              <table className="apr-tech-table w-full min-w-[860px] text-[11px]">
+            <div className="overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
+              <table className="apr-tech-table w-full table-fixed text-[11px]">
                 <thead>
                   <tr>
                     <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)] w-[170px]">Severidade</th>
@@ -2402,8 +2348,8 @@ export function AprForm({ id }: AprFormProps) {
               </table>
             </div>
 
-            <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
-              <table className="apr-tech-table w-full min-w-[860px] text-[11px]">
+            <div className="overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
+              <table className="apr-tech-table w-full table-fixed text-[11px]">
                 <thead>
                   <tr>
                     <th colSpan={2} className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">
@@ -2440,8 +2386,8 @@ export function AprForm({ id }: AprFormProps) {
               </table>
             </div>
 
-            <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
-              <table className="apr-tech-table w-full min-w-[860px] text-[11px]">
+            <div className="overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
+              <table className="apr-tech-table w-full table-fixed text-[11px]">
                 <thead>
                   <tr>
                     <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)] w-[170px]">Categoria</th>
@@ -2512,7 +2458,11 @@ export function AprForm({ id }: AprFormProps) {
                       Evidência documental
                     </p>
                     <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                      {pdfFile ? pdfFile.name : currentApr?.pdf_file_key ? 'PDF já anexado' : 'Sem PDF anexado'}
+                      {currentApr?.pdf_file_key
+                        ? 'PDF final governado emitido'
+                        : isApproved
+                          ? 'Aguardando emissão final na listagem'
+                          : 'Ainda não elegível para emissão final'}
                     </p>
                   </div>
                 </div>
@@ -2555,7 +2505,7 @@ export function AprForm({ id }: AprFormProps) {
               {currentStep >= 3 ? (
                 <button
                   type="submit"
-                  disabled={loading || hasFinalPdf || (isApprovedAwaitingFinalPdf && !hasPendingPdfUpload)}
+                  disabled={loading || hasFinalPdf || isApproved}
                   className={cn(aprPrimarySubmitActionClass, isFieldMode && "min-h-12")}
                 >
                   {loading ? (
@@ -2566,8 +2516,8 @@ export function AprForm({ id }: AprFormProps) {
                   <span>
                     {hasFinalPdf
                       ? 'APR bloqueada (PDF final emitido)'
-                      : hasPendingPdfUpload && canAttachFinalPdf
-                        ? 'Anexar PDF final'
+                      : isApproved
+                        ? 'Emitir PDF final na listagem'
                         : id
                           ? 'Atualizar APR'
                           : 'Salvar APR'}
@@ -2618,6 +2568,17 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
       <span className="max-w-[13rem] truncate text-right text-sm font-medium text-[var(--ds-color-text-primary)]">
         {value}
       </span>
+    </div>
+  );
+}
+
+function SummaryMetaCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className={aprSubtleMetaCardClass}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+        {label}
+      </p>
+      <p className="text-sm font-semibold text-[var(--color-text)]">{value}</p>
     </div>
   );
 }

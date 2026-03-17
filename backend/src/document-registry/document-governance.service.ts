@@ -13,7 +13,8 @@ type GovernedModule =
   | 'checklist'
   | 'audit'
   | 'nonconformity'
-  | 'inspection';
+  | 'inspection'
+  | 'rdo';
 
 type RegisterFinalDocumentInput = {
   companyId: string;
@@ -64,6 +65,7 @@ const signatureDocumentTypeToRegistryModule = new Map<string, GovernedModule>([
   ['INSPECTION', 'inspection'],
   ['INSPECAO', 'inspection'],
   ['INS', 'inspection'],
+  ['RDO', 'rdo'],
 ]);
 
 function normalizeSignatureDocumentType(documentType: string): string {

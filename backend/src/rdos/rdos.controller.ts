@@ -14,7 +14,9 @@ import {
   StreamableFile,
   HttpCode,
   HttpStatus,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { RdosService } from './rdos.service';
 import { CreateRdoDto } from './dto/create-rdo.dto';
 import { UpdateRdoDto } from './dto/update-rdo.dto';
@@ -25,6 +27,10 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
+import {
+  assertUploadedPdf,
+  createGovernedPdfUploadOptions,
+} from '../common/interceptors/file-upload.interceptor';
 
 class SignRdoDto {
   tipo: 'responsavel' | 'engenheiro';
@@ -89,16 +95,46 @@ export class RdosController {
   @Get('files/list')
   @Authorize('can_view_rdos')
   listFiles(
+    @Query('company_id') companyId?: string,
     @Query('year') year?: string,
     @Query('week') week?: string,
   ) {
-    return this.rdosService.listFiles({ year, week });
+    return this.rdosService.listFiles({
+      companyId,
+      year: year ? Number(year) : undefined,
+      week: week ? Number(week) : undefined,
+    });
+  }
+
+  @Get('files/weekly-bundle')
+  @Authorize('can_view_rdos')
+  async getWeeklyBundle(
+    @Query('company_id') companyId?: string,
+    @Query('year') year?: string,
+    @Query('week') week?: string,
+  ): Promise<StreamableFile> {
+    const { buffer, fileName } = await this.rdosService.getWeeklyBundle({
+      companyId,
+      year: year ? Number(year) : undefined,
+      week: week ? Number(week) : undefined,
+    });
+
+    return new StreamableFile(buffer, {
+      disposition: `attachment; filename="${fileName}"`,
+      type: 'application/pdf',
+    });
   }
 
   @Get(':id')
   @Authorize('can_view_rdos')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.rdosService.findOne(id);
+  }
+
+  @Get(':id/pdf')
+  @Authorize('can_view_rdos')
+  getPdfAccess(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.rdosService.getPdfAccess(id);
   }
 
   @Patch(':id')
@@ -135,6 +171,18 @@ export class RdosController {
     @Body() body: SavePdfDto,
   ) {
     return this.rdosService.markPdfSaved(id, body);
+  }
+
+  @Post(':id/file')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_rdos')
+  @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
+  attachFile(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const pdfFile = assertUploadedPdf(file);
+    return this.rdosService.savePdf(id, pdfFile);
   }
 
   @Post(':id/send-email')

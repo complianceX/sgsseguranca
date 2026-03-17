@@ -4,9 +4,12 @@ import { RdosService } from './rdos.service';
 import { Rdo } from './entities/rdo.entity';
 import type { TenantService } from '../common/tenant/tenant.service';
 import type { MailService } from '../mail/mail.service';
+import type { DocumentStorageService } from '../common/services/document-storage.service';
+import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import type { DocumentRegistryService } from '../document-registry/document-registry.service';
 
 const COMPANY_ID = 'company-1';
-const RDO_ID = 'rdo-uuid-1';
+const RDO_ID = '11111111-2222-3333-4444-555555555555';
 
 function makeRdo(overrides: Partial<Rdo> = {}): Rdo {
   return {
@@ -35,7 +38,20 @@ describe('RdosService', () => {
     createQueryBuilder: jest.Mock;
   };
   let tenantService: Pick<TenantService, 'getTenantId'>;
-  let mailService: Pick<MailService, 'sendMail'>;
+  let mailService: Pick<MailService, 'sendMail' | 'sendMailSimple'>;
+  let documentStorageService: Pick<
+    DocumentStorageService,
+    'uploadFile' | 'getSignedUrl' | 'downloadFileBuffer' | 'deleteFile' | 'generateDocumentKey'
+  >;
+  let documentGovernanceService: Pick<
+    DocumentGovernanceService,
+    | 'syncFinalDocumentMetadata'
+    | 'registerFinalDocument'
+    | 'listFinalDocuments'
+    | 'getModuleWeeklyBundle'
+    | 'removeFinalDocumentReference'
+  >;
+  let documentRegistryService: Pick<DocumentRegistryService, 'findByDocument'>;
 
   beforeEach(() => {
     repository = {
@@ -48,12 +64,45 @@ describe('RdosService', () => {
       createQueryBuilder: jest.fn(),
     };
     tenantService = { getTenantId: jest.fn(() => COMPANY_ID) };
-    mailService = { sendMail: jest.fn().mockResolvedValue(undefined) };
+    mailService = {
+      sendMail: jest.fn().mockResolvedValue(undefined),
+      sendMailSimple: jest.fn().mockResolvedValue(undefined),
+    };
+    documentStorageService = {
+      uploadFile: jest.fn().mockResolvedValue(undefined),
+      getSignedUrl: jest.fn().mockResolvedValue('https://storage.test/rdo.pdf'),
+      downloadFileBuffer: jest.fn().mockResolvedValue(Buffer.from('%PDF-rdo')),
+      deleteFile: jest.fn().mockResolvedValue(undefined),
+      generateDocumentKey: jest
+        .fn()
+        .mockReturnValue(
+          'documents/company-1/rdos/11111111-2222-3333-4444-555555555555/rdo.pdf',
+        ),
+    };
+    documentGovernanceService = {
+      syncFinalDocumentMetadata: jest.fn().mockResolvedValue({ id: 'registry-1' }),
+      registerFinalDocument: jest.fn().mockResolvedValue({
+        hash: 'hash-rdo',
+        registryEntry: { id: 'registry-1' },
+      }),
+      listFinalDocuments: jest.fn().mockResolvedValue([]),
+      getModuleWeeklyBundle: jest.fn().mockResolvedValue({
+        buffer: Buffer.from('%PDF-bundle'),
+        fileName: 'rdo-bundle.pdf',
+      }),
+      removeFinalDocumentReference: jest.fn().mockResolvedValue(undefined),
+    };
+    documentRegistryService = {
+      findByDocument: jest.fn().mockResolvedValue(null),
+    };
 
     service = new RdosService(
       repository as unknown as Repository<Rdo>,
       tenantService as TenantService,
       mailService as MailService,
+      documentStorageService as DocumentStorageService,
+      documentGovernanceService as DocumentGovernanceService,
+      documentRegistryService as DocumentRegistryService,
     );
   });
 
@@ -108,6 +157,13 @@ describe('RdosService', () => {
     expect(result.status).toBe('enviado');
   });
 
+  it('exige assinaturas antes de aprovar o RDO', async () => {
+    repository.findOne.mockResolvedValue(makeRdo({ status: 'enviado' }));
+    await expect(service.updateStatus(RDO_ID, 'aprovado')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
   it('bloqueia transicao de status invalida', async () => {
     repository.findOne.mockResolvedValue(makeRdo({ status: 'aprovado' }));
     await expect(service.updateStatus(RDO_ID, 'rascunho')).rejects.toThrow(BadRequestException);
@@ -159,12 +215,37 @@ describe('RdosService', () => {
   // ─── markPdfSaved ────────────────────────────────────────────────────────────
 
   it('marca PDF como salvo e preenche campos de arquivo', async () => {
-    const rdo = makeRdo();
+    const rdo = makeRdo({
+      status: 'aprovado',
+      assinatura_responsavel: '{"nome":"Resp"}',
+      assinatura_engenheiro: '{"nome":"Eng"}',
+    });
     repository.findOne.mockResolvedValue(rdo);
     const result = await service.markPdfSaved(RDO_ID, { filename: 'rdo-2026.pdf' });
     expect(result.pdf_file_key).toContain('rdo-2026.pdf');
     expect(result.pdf_original_name).toBe('rdo-2026.pdf');
     expect(result.pdf_folder_path).toContain(RDO_ID);
+    expect(
+      documentGovernanceService.syncFinalDocumentMetadata,
+    ).toHaveBeenCalled();
+    expect(
+      documentGovernanceService.syncFinalDocumentMetadata,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentCode: 'RDO-2026-12-11111111',
+      }),
+    );
+  });
+
+  it('bloqueia alteracao quando o RDO ja possui PDF final governado', async () => {
+    repository.findOne.mockResolvedValue(makeRdo());
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue({
+      id: 'registry-1',
+    });
+
+    await expect(
+      service.update(RDO_ID, { observacoes: 'Nao deveria editar' } as any),
+    ).rejects.toThrow(BadRequestException);
   });
 
   // ─── sendEmail ───────────────────────────────────────────────────────────────
@@ -194,38 +275,43 @@ describe('RdosService', () => {
     expect(mailService.sendMail).not.toHaveBeenCalled();
   });
 
-  // ─── listFiles ───────────────────────────────────────────────────────────────
+  it('envia PDF final governado em anexo quando o RDO ja foi emitido', async () => {
+    repository.findOne.mockResolvedValue(makeRdo({ pdf_file_key: 'documents/rdo.pdf' }));
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue({
+      file_key: 'documents/rdo.pdf',
+      original_name: 'rdo.pdf',
+    });
 
-  it('lista somente RDOs com PDF anexado', async () => {
-    const qb = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([makeRdo({ pdf_file_key: 'rdos/rdo-1/file.pdf' })]),
-    };
-    repository.createQueryBuilder.mockReturnValue(qb);
+    await service.sendEmail(RDO_ID, ['gestor@empresa.com']);
 
-    const result = await service.listFiles();
-    expect(qb.where).toHaveBeenCalledWith('rdo.pdf_file_key IS NOT NULL');
-    expect(result).toHaveLength(1);
+    expect(documentStorageService.downloadFileBuffer).toHaveBeenCalledWith(
+      'documents/rdo.pdf',
+    );
+    expect(mailService.sendMailSimple).toHaveBeenCalledTimes(1);
   });
 
-  it('filtra listFiles por ano quando informado', async () => {
-    const qb = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([]),
-    };
-    repository.createQueryBuilder.mockReturnValue(qb);
+  // ─── listFiles ───────────────────────────────────────────────────────────────
 
-    await service.listFiles({ year: '2026' });
-    expect(qb.andWhere).toHaveBeenCalledWith(
-      expect.stringContaining('EXTRACT(YEAR'),
-      expect.objectContaining({ year: '2026' }),
+  it('lista arquivos governados pelo document registry', async () => {
+    (documentGovernanceService.listFinalDocuments as jest.Mock).mockResolvedValue([
+      {
+        entityId: RDO_ID,
+        id: RDO_ID,
+        title: 'RDO-202603-001',
+        date: new Date('2026-03-16'),
+        companyId: COMPANY_ID,
+        fileKey: 'documents/rdo.pdf',
+        folderPath: 'rdos/company-1/2026/week-12',
+        originalName: 'rdo.pdf',
+        module: 'rdo',
+      },
+    ]);
+    const result = await service.listFiles();
+    expect(documentGovernanceService.listFinalDocuments).toHaveBeenCalledWith(
+      'rdo',
+      {},
     );
+    expect(result).toHaveLength(1);
   });
 
   // ─── remove ──────────────────────────────────────────────────────────────────
@@ -234,6 +320,9 @@ describe('RdosService', () => {
     const rdo = makeRdo();
     repository.findOne.mockResolvedValue(rdo);
     await expect(service.remove(RDO_ID)).resolves.toBeUndefined();
+    expect(
+      documentGovernanceService.removeFinalDocumentReference,
+    ).toHaveBeenCalled();
     expect(repository.remove).toHaveBeenCalledWith(rdo);
   });
 

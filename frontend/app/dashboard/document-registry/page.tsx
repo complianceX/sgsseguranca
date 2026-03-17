@@ -32,6 +32,7 @@ const moduleOptions = [
   { value: 'checklist', label: 'Checklist' },
   { value: 'audit', label: 'Auditoria' },
   { value: 'nonconformity', label: 'NC' },
+  { value: 'rdo', label: 'RDO' },
 ];
 
 export default function DocumentRegistryPage() {

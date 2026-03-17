@@ -16,7 +16,8 @@ type RegistryModule =
   | 'checklist'
   | 'audit'
   | 'nonconformity'
-  | 'inspection';
+  | 'inspection'
+  | 'rdo';
 
 type UpsertRegistryInput = {
   companyId: string;

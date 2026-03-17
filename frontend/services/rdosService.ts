@@ -61,10 +61,13 @@ export interface Rdo {
   assinatura_responsavel?: string;
   assinatura_engenheiro?: string;
   pdf_file_key?: string;
+  pdf_folder_path?: string;
+  pdf_original_name?: string;
   created_at: string;
   updated_at: string;
   site?: { id: string; nome: string };
   responsavel?: { id: string; nome: string };
+  company?: { id: string; razao_social: string };
 }
 
 export const RDO_STATUS_LABEL: Record<string, string> = {
@@ -173,13 +176,49 @@ export const rdosService = {
     return response.data;
   },
 
+  attachFile: async (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post(`/rdos/${id}/file`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  getPdfAccess: async (id: string) => {
+    const response = await api.get<{
+      entityId: string;
+      fileKey: string;
+      folderPath: string;
+      originalName: string;
+      url: string | null;
+    }>(`/rdos/${id}/pdf`);
+    return response.data;
+  },
+
   sendEmail: async (id: string, to: string[]): Promise<void> => {
     await api.post(`/rdos/${id}/send-email`, { to });
   },
 
-  listFiles: async (opts?: { year?: string; week?: string }): Promise<Rdo[]> => {
-    const response = await api.get<Rdo[]>('/rdos/files/list', { params: opts });
+  listFiles: async (opts?: {
+    company_id?: string;
+    year?: number;
+    week?: number;
+  }) => {
+    const response = await api.get('/rdos/files/list', { params: opts });
     return response.data;
+  },
+
+  downloadWeeklyBundle: async (filters: {
+    company_id?: string;
+    year: number;
+    week: number;
+  }) => {
+    const response = await api.get('/rdos/files/weekly-bundle', {
+      params: filters,
+      responseType: 'blob',
+    });
+    return response.data as Blob;
   },
 
   exportExcel: async (): Promise<Blob> => {

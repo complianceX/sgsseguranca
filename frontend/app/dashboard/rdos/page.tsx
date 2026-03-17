@@ -42,6 +42,7 @@ import {
   PenLine,
   Mail,
   Send,
+  Download,
 } from "lucide-react";
 import {
   Table,
@@ -66,6 +67,10 @@ import {
   PageLoadingState,
 } from "@/components/ui/state";
 import { cn } from "@/lib/utils";
+import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
+import { StoredFilesPanel } from "@/components/StoredFilesPanel";
+import { generateRdoPdf } from "@/lib/pdf/rdoGenerator";
+import { base64ToPdfFile } from "@/lib/pdf/pdfFile";
 
 const inputClassName =
   "h-10 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
@@ -242,6 +247,15 @@ export default function RdosPage() {
     aprovado: 0,
   });
 
+  const getErrorStatus = useCallback((error: unknown) => {
+    return (
+      Number(
+        (error as { response?: { status?: number } } | undefined)?.response
+          ?.status ?? 0,
+      ) || null
+    );
+  }, []);
+
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
@@ -291,6 +305,50 @@ export default function RdosPage() {
     loadData();
   }, [loadData]);
 
+  const getGovernedPdfAccess = useCallback(
+    async (rdoId: string) => {
+      try {
+        return await rdosService.getPdfAccess(rdoId);
+      } catch (error) {
+        if (getErrorStatus(error) === 404) {
+          return null;
+        }
+        throw error;
+      }
+    },
+    [getErrorStatus],
+  );
+
+  const ensureGovernedPdf = useCallback(
+    async (rdo: Rdo) => {
+      const existingAccess = await getGovernedPdfAccess(rdo.id);
+      if (existingAccess) {
+        return existingAccess;
+      }
+
+      if (rdo.status !== "aprovado") {
+        return null;
+      }
+
+      const fullRdo = await rdosService.findOne(rdo.id);
+      const result = (await generateRdoPdf(fullRdo, {
+        save: false,
+        output: "base64",
+      })) as { base64: string; filename: string } | undefined;
+
+      if (!result?.base64) {
+        throw new Error("Falha ao gerar o PDF oficial do RDO.");
+      }
+
+      const pdfFile = base64ToPdfFile(result.base64, result.filename);
+      await rdosService.attachFile(rdo.id, pdfFile);
+      await loadData();
+      toast.success("PDF final do RDO emitido e registrado com sucesso.");
+      return rdosService.getPdfAccess(rdo.id);
+    },
+    [getGovernedPdfAccess, loadData],
+  );
+
   const handleOpenCreate = () => {
     setEditingId(null);
     setForm(defaultForm);
@@ -299,6 +357,12 @@ export default function RdosPage() {
   };
 
   const handleOpenEdit = (rdo: Rdo) => {
+    if (rdo.pdf_file_key) {
+      toast.error(
+        "RDO com PDF final emitido esta bloqueado para edicao. Gere um novo documento para alterar o conteudo.",
+      );
+      return;
+    }
     setEditingId(rdo.id);
     setForm(rdoToForm(rdo));
     setCurrentStep(0);
@@ -506,53 +570,54 @@ export default function RdosPage() {
     });
 
   const handlePrint = (rdo: Rdo) => {
-    const dataFormatada = new Date(rdo.data).toLocaleDateString("pt-BR");
-    const totalTrab = (rdo.mao_de_obra ?? []).reduce(
-      (s, m) => s + m.quantidade,
-      0,
-    );
-    const win = window.open("", "_blank");
-    if (!win) {
-      toast.error("Ative pop-ups para imprimir.");
-      return;
-    }
-    const rows = (rdo.mao_de_obra ?? [])
-      .map(
-        (m) =>
-          `<tr><td>${escapePrintHtml(m.funcao)}</td><td>${escapePrintHtml(m.quantidade)}</td><td>${escapePrintHtml(m.turno)}</td><td>${escapePrintHtml(m.horas)}h</td></tr>`,
-      )
-      .join("");
-    const servicos = (rdo.servicos_executados ?? [])
-      .map(
-        (s) =>
-          `<tr><td>${escapePrintHtml(s.descricao)}</td><td>${escapePrintHtml(s.percentual_concluido)}%</td></tr>`,
-      )
-      .join("");
-    const ocorrencias = (rdo.ocorrencias ?? [])
-      .map(
-        (o) =>
-          `<tr><td>${escapePrintHtml(OCORRENCIA_TIPO_LABEL[o.tipo] ?? o.tipo)}</td><td>${escapePrintHtml(o.descricao)}</td><td>${escapePrintHtml(o.hora ?? "")}</td></tr>`,
-      )
-      .join("");
-    const sigResp = rdo.assinatura_responsavel
-      ? (() => {
-          try {
-            return JSON.parse(rdo.assinatura_responsavel!);
-          } catch {
-            return null;
-          }
-        })()
-      : null;
-    const sigEng = rdo.assinatura_engenheiro
-      ? (() => {
-          try {
-            return JSON.parse(rdo.assinatura_engenheiro!);
-          } catch {
-            return null;
-          }
-        })()
-      : null;
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
+    const printPreview = () => {
+      const dataFormatada = new Date(rdo.data).toLocaleDateString("pt-BR");
+      const totalTrab = (rdo.mao_de_obra ?? []).reduce(
+        (s, m) => s + m.quantidade,
+        0,
+      );
+      const win = window.open("", "_blank");
+      if (!win) {
+        toast.error("Ative pop-ups para imprimir.");
+        return;
+      }
+      const rows = (rdo.mao_de_obra ?? [])
+        .map(
+          (m) =>
+            `<tr><td>${escapePrintHtml(m.funcao)}</td><td>${escapePrintHtml(m.quantidade)}</td><td>${escapePrintHtml(m.turno)}</td><td>${escapePrintHtml(m.horas)}h</td></tr>`,
+        )
+        .join("");
+      const servicos = (rdo.servicos_executados ?? [])
+        .map(
+          (s) =>
+            `<tr><td>${escapePrintHtml(s.descricao)}</td><td>${escapePrintHtml(s.percentual_concluido)}%</td></tr>`,
+        )
+        .join("");
+      const ocorrencias = (rdo.ocorrencias ?? [])
+        .map(
+          (o) =>
+            `<tr><td>${escapePrintHtml(OCORRENCIA_TIPO_LABEL[o.tipo] ?? o.tipo)}</td><td>${escapePrintHtml(o.descricao)}</td><td>${escapePrintHtml(o.hora ?? "")}</td></tr>`,
+        )
+        .join("");
+      const sigResp = rdo.assinatura_responsavel
+        ? (() => {
+            try {
+              return JSON.parse(rdo.assinatura_responsavel!);
+            } catch {
+              return null;
+            }
+          })()
+        : null;
+      const sigEng = rdo.assinatura_engenheiro
+        ? (() => {
+            try {
+              return JSON.parse(rdo.assinatura_engenheiro!);
+            } catch {
+              return null;
+            }
+          })()
+        : null;
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
 <title>RDO ${escapePrintHtml(rdo.numero)}</title>
 <style>
   body{font-family:Arial,sans-serif;font-size:12px;color:#111;margin:24px}
@@ -592,10 +657,70 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
   <div class="sig-item">${sigEng ? `Engenheiro: ${escapePrintHtml(sigEng.nome)}<br/>CPF: ${escapePrintHtml(sigEng.cpf)}<br/>Assinado em: ${escapePrintHtml(new Date(sigEng.signed_at).toLocaleString("pt-BR"))}` : "Engenheiro Responsável"}</div>
 </div>
 </body></html>`);
-    win.document.close();
-    win.focus();
-    win.print();
+      win.document.close();
+      win.focus();
+      win.print();
+    };
+
+    void (async () => {
+      try {
+        const shouldUseGovernedPdf =
+          Boolean(rdo.pdf_file_key) || rdo.status === "aprovado";
+
+        if (shouldUseGovernedPdf) {
+          const access = await ensureGovernedPdf(rdo);
+          if (access?.url) {
+            openPdfForPrint(access.url, () => {
+              toast.info(
+                "Pop-up bloqueado. Abrimos o PDF final do RDO na mesma aba para impressão.",
+              );
+            });
+            return;
+          }
+
+          if (access) {
+            toast.warning(
+              "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora.",
+            );
+            return;
+          }
+        }
+
+        printPreview();
+      } catch (error) {
+        console.error("Erro ao imprimir RDO:", error);
+        toast.error("Não foi possível preparar a impressão do RDO.");
+      }
+    })();
   };
+
+  const handleOpenGovernedPdf = useCallback(
+    async (rdo: Rdo) => {
+      try {
+        toast.info("Preparando PDF final governado...");
+        const access = await ensureGovernedPdf(rdo);
+        if (!access) {
+          toast.error(
+            "O RDO precisa estar aprovado e assinado pelo responsável e engenheiro antes da emissão final.",
+          );
+          return;
+        }
+
+        if (!access.url) {
+          toast.success(
+            "PDF final emitido, mas a URL segura não está disponível no momento.",
+          );
+          return;
+        }
+
+        openUrlInNewTab(access.url);
+      } catch (error) {
+        console.error("Erro ao emitir/abrir PDF final do RDO:", error);
+        toast.error("Não foi possível emitir ou abrir o PDF final do RDO.");
+      }
+    },
+    [ensureGovernedPdf],
+  );
 
   const handleSign = async () => {
     if (!signModal) return;
@@ -961,8 +1086,15 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                           </button>
                           <button
                             onClick={() => handleOpenEdit(rdo)}
-                            className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]"
-                            title="Editar"
+                            className={cn(
+                              "rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]",
+                              rdo.pdf_file_key && "opacity-40",
+                            )}
+                            title={
+                              rdo.pdf_file_key
+                                ? "RDO com PDF final: edição bloqueada"
+                                : "Editar"
+                            }
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
@@ -990,6 +1122,14 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
           )}
         </CardContent>
       </Card>
+
+      <StoredFilesPanel
+        title="Storage semanal de RDO"
+        description="Acompanhe os PDFs finais governados dos RDOs emitidos por semana e baixe o pacote consolidado quando precisar."
+        listStoredFiles={rdosService.listFiles}
+        getPdfAccess={rdosService.getPdfAccess}
+        downloadWeeklyBundle={rdosService.downloadWeeklyBundle}
+      />
 
       {/* ── Modal de criação/edição ────────────────────────────────── */}
       {showModal && (
@@ -2286,7 +2426,21 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 </button>
                 <button
                   type="button"
+                  onClick={() => handleOpenGovernedPdf(viewRdo)}
+                  className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
+                >
+                  <Download className="h-3.5 w-3.5" />{" "}
+                  {viewRdo.pdf_file_key ? "Abrir PDF final" : "Emitir PDF final"}
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
+                    if (viewRdo.pdf_file_key) {
+                      toast.error(
+                        "RDO com PDF final emitido esta bloqueado para novas assinaturas.",
+                      );
+                      return;
+                    }
                     setSignModal({ rdo: viewRdo, tipo: "responsavel" });
                     setSignForm({ nome: "", cpf: "", tipo: "responsavel" });
                   }}
