@@ -41,6 +41,25 @@ type SemanticTableOptions = {
   overrides?: Record<string, unknown>;
 };
 
+const APR_NORMATIVE_COLORS = {
+  acceptable: {
+    fill: [27, 94, 32] as [number, number, number], // #1B5E20
+    text: [255, 255, 255] as [number, number, number],
+  },
+  attention: {
+    fill: [251, 192, 45] as [number, number, number], // #FBC02D
+    text: [17, 24, 39] as [number, number, number],
+  },
+  substantial: {
+    fill: [245, 124, 0] as [number, number, number], // #F57C00
+    text: [17, 24, 39] as [number, number, number],
+  },
+  critical: {
+    fill: [198, 40, 40] as [number, number, number], // #C62828
+    text: [255, 255, 255] as [number, number, number],
+  },
+};
+
 function paletteForTone(ctx: PdfContext, tone: SemanticTableTone) {
   if (tone === "risk") {
     return { header: ctx.theme.tone.brandStrong, accent: ctx.theme.tone.warning };
@@ -244,6 +263,34 @@ function semanticCellStyle(
   const v = normalize(value);
   const header = normalize(headerValue);
 
+  const aprBadgeStyle = (
+    kind: "acceptable" | "attention" | "substantial" | "critical",
+  ) => ({
+    textColor: APR_NORMATIVE_COLORS[kind].text,
+    fillColor: APR_NORMATIVE_COLORS[kind].fill,
+    fontStyle: "bold" as const,
+  });
+
+  if (config.profile === "apr") {
+    if (
+      v.includes("critico") ||
+      v.includes("crítico") ||
+      v.includes("intoleravel") ||
+      v.includes("intolerável")
+    ) {
+      return aprBadgeStyle("critical");
+    }
+    if (v.includes("substancial") || v.includes("substantial")) {
+      return aprBadgeStyle("substantial");
+    }
+    if (v.includes("atencao") || v.includes("atenção")) {
+      return aprBadgeStyle("attention");
+    }
+    if (v.includes("aceitavel") || v.includes("aceitável")) {
+      return aprBadgeStyle("acceptable");
+    }
+  }
+
   if (header.includes("prazo") || header.includes("vencimento")) {
     const parsed = parseDateValue(value);
     if (parsed) {
@@ -279,6 +326,12 @@ function semanticCellStyle(
 
   if (header.includes("risco") && /^\d+$/.test(v)) {
     const score = Number(v);
+    if (config.profile === "apr") {
+      if (score >= config.thresholds.critical) return aprBadgeStyle("critical");
+      if (score >= config.thresholds.high) return aprBadgeStyle("substantial");
+      if (score >= config.thresholds.moderate) return aprBadgeStyle("attention");
+      return aprBadgeStyle("acceptable");
+    }
     if (score >= config.thresholds.critical) {
       return { textColor: ctx.theme.tone.danger, fillColor: [254, 242, 242] as [number, number, number], fontStyle: "bold" as const };
     }

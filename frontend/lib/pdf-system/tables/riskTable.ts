@@ -36,8 +36,16 @@ export function drawRiskTable(
     ]),
     semanticRules: options?.semanticRules,
     overrides: {
-      styles: { fontSize: 7.5, cellPadding: 2.2 },
-      columnStyles: { 2: { cellWidth: 9 }, 3: { cellWidth: 9 }, 4: { cellWidth: 11 } },
+      styles: { fontSize: 8.1, cellPadding: 2.3 },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 32 },
+        2: { cellWidth: 9 },
+        3: { cellWidth: 9 },
+        4: { cellWidth: 11 },
+        5: { cellWidth: 16 },
+        6: { cellWidth: 69 },
+      },
     },
   });
 }

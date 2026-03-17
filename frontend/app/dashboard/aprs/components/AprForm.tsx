@@ -10,7 +10,7 @@ import { machinesService, Machine } from '@/services/machinesService';
 import { sitesService, Site } from '@/services/sitesService';
 import { companiesService, Company } from '@/services/companiesService';
 import { usersService, User } from '@/services/usersService';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
@@ -81,35 +81,6 @@ const aprSchema = z.object({
   data_auditoria: z.string().optional(),
   resultado_auditoria: z.string().optional(),
   notas_auditoria: z.string().optional(),
-}).superRefine((data, ctx) => {
-  if (!data.activities || data.activities.length < 1) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['activities'],
-      message: 'Selecione pelo menos uma atividade',
-    });
-  }
-  if (!data.risks || data.risks.length < 1) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['risks'],
-      message: 'Selecione pelo menos um risco',
-    });
-  }
-  if (!data.epis || data.epis.length < 1) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['epis'],
-      message: 'Selecione pelo menos um EPI',
-    });
-  }
-  if (!data.itens_risco || data.itens_risco.length < 1) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['itens_risco'],
-      message: 'Adicione pelo menos um risco',
-    });
-  }
 });
 
 type AprFormData = z.infer<typeof aprSchema>;
@@ -134,8 +105,8 @@ const APR_STEPS = [
   },
   {
     id: 3,
-    title: 'Governança',
-    description: 'Auditoria, revisão final e persistência da análise.',
+    title: 'Revisão final',
+    description: 'Validação final, assinaturas e encaminhamento para emissão governada.',
     icon: ShieldCheck,
   },
 ] as const;
@@ -146,11 +117,9 @@ const aprHeadingClass = 'text-2xl font-bold text-[var(--color-text)]';
 const aprSubheadingClass = 'text-sm text-[var(--color-text-muted)]';
 const aprSectionTitleClass = 'mb-3 text-sm font-bold text-[var(--color-text)]';
 const aprLabelClass = 'mb-1 block text-sm font-semibold text-[var(--color-text-secondary)]';
-const aprLabelCompactClass = 'mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]';
+const aprLabelCompactClass = 'mb-1 block text-sm font-semibold text-[var(--color-text-secondary)]';
 const aprFieldClass =
   'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-3 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
-const aprFieldCompactClass =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-2 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
 const aprFileFieldClass =
   'block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-3 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)] file:mr-4 file:rounded-[var(--ds-radius-sm)] file:border-0 file:bg-[color:var(--color-card-muted)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--color-text-secondary)] hover:file:bg-[color:var(--ds-color-primary-subtle)]';
 const aprFieldErrorClass = 'border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]';
@@ -168,12 +137,10 @@ const aprNeutralButtonClass =
   'rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-secondary-active)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-secondary-foreground)] shadow-[var(--ds-shadow-sm)] transition-colors hover:bg-[var(--ds-color-action-secondary-hover)] disabled:opacity-60';
 const aprSoftPrimaryButtonClass =
   'rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60';
-const aprSoftSuccessButtonClass =
-  'rounded-[var(--ds-radius-md)] border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-success)] transition-colors hover:bg-[color:var(--ds-color-success-subtle)]/78 disabled:opacity-60';
 const aprInteractivePanelClass =
   'rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[image:var(--component-card-bg)] p-6 shadow-[var(--component-card-shadow)] transition-shadow hover:shadow-[var(--component-card-shadow-elevated)]';
 const aprSubtleMetaCardClass =
-  'flex flex-col gap-1 rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-3 text-xs text-[var(--color-text-secondary)]';
+  'flex flex-col gap-1 rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-3 text-sm text-[var(--color-text-secondary)]';
 const aprWarningInlineClass =
   'rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-2 text-xs text-[var(--color-warning)]';
 const aprDangerInlineClass =
@@ -351,13 +318,13 @@ export function AprForm({ id }: AprFormProps) {
     [id, user?.company_id],
   );
   
-  const selectedActivityIds = watch('activities') || [];
-  const selectedRiskIds = watch('risks') || [];
-  const selectedEpiIds = watch('epis') || [];
-  const selectedToolIds = watch('tools') || [];
-  const selectedMachineIds = watch('machines') || [];
-  const selectedParticipantIds = watch('participants') || [];
-  const watchedRiskItems = watch('itens_risco') || [];
+  const selectedActivityIds = useWatch({ control, name: 'activities', defaultValue: [] });
+  const selectedRiskIds = useWatch({ control, name: 'risks', defaultValue: [] });
+  const selectedEpiIds = useWatch({ control, name: 'epis', defaultValue: [] });
+  const selectedToolIds = useWatch({ control, name: 'tools', defaultValue: [] });
+  const selectedMachineIds = useWatch({ control, name: 'machines', defaultValue: [] });
+  const selectedParticipantIds = useWatch({ control, name: 'participants', defaultValue: [] });
+  const watchedRiskItems = useWatch({ control, name: 'itens_risco', defaultValue: [] });
   const isModelo = watch('is_modelo');
   const isApproved = currentApr?.status === 'Aprovada';
   const hasFinalPdf = Boolean(currentApr?.pdf_file_key);
@@ -1287,7 +1254,7 @@ export function AprForm({ id }: AprFormProps) {
     if (currentStep === 1) {
       fields = ['numero', 'titulo', 'company_id', 'site_id', 'elaborador_id', 'data_inicio', 'data_fim'];
     } else if (currentStep === 2) {
-      fields = ['activities', 'risks', 'epis', 'participants', 'itens_risco'];
+      fields = ['participants'];
     }
 
     const isValid = await trigger(fields);
@@ -1644,7 +1611,7 @@ export function AprForm({ id }: AprFormProps) {
                 Conduza a análise por etapas com foco em preenchimento técnico, revisão e emissão governada.
               </p>
             </div>
-            <div className="grid gap-3 px-4 py-4 md:grid-cols-3">
+            <div className="grid gap-4 px-5 py-5 lg:grid-cols-3">
               {APR_STEPS.map((step) => {
                 const Icon = step.icon;
                 const isActive = currentStep === step.id;
@@ -1660,7 +1627,7 @@ export function AprForm({ id }: AprFormProps) {
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }
                     }}
-                    className={`w-full rounded-[var(--ds-radius-lg)] border px-4 py-3 text-left transition-all ${
+                    className={`w-full rounded-[var(--ds-radius-lg)] border px-4 py-4 text-left transition-all ${
                       isActive
                         ? 'border-[var(--ds-color-action-primary)] bg-[var(--ds-color-action-primary)]/12 shadow-[var(--ds-shadow-sm)]'
                         : isCompleted
@@ -1682,7 +1649,7 @@ export function AprForm({ id }: AprFormProps) {
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{step.title}</p>
-                        <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">{step.description}</p>
+                        <p className="mt-1 text-sm leading-relaxed text-[var(--ds-color-text-muted)]">{step.description}</p>
                       </div>
                     </div>
                   </button>
@@ -1730,7 +1697,7 @@ export function AprForm({ id }: AprFormProps) {
                     return (
                       <span
                         key={participantId}
-                        className="rounded-full border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/20 px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)]"
+                        className="rounded-full border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/20 px-2.5 py-1 text-xs font-semibold text-[var(--color-text-secondary)]"
                       >
                         {participant?.nome || 'Participante'}
                       </span>
@@ -2173,8 +2140,9 @@ export function AprForm({ id }: AprFormProps) {
             ) : null}
 
             {riskFields.map((field, index) => {
-              const p = watch(`itens_risco.${index}.probabilidade`);
-              const s = watch(`itens_risco.${index}.severidade`);
+              const watchedItem = watchedRiskItems?.[index];
+              const p = String(watchedItem?.probabilidade || '');
+              const s = String(watchedItem?.severidade || '');
               const calc = calculateRiskCategory(p, s);
 
               return (
@@ -2260,7 +2228,7 @@ export function AprForm({ id }: AprFormProps) {
                             onChange={(event) => {
                               const value = event.target.value;
                               setValue(`itens_risco.${index}.probabilidade`, value, { shouldDirty: true, shouldValidate: true });
-                              const severidade = watch(`itens_risco.${index}.severidade`);
+                              const severidade = String(watchedRiskItems?.[index]?.severidade || '');
                               const result = calculateRiskCategory(value, severidade);
                               setValue(`itens_risco.${index}.categoria_risco`, result.categoria, { shouldDirty: true, shouldValidate: true });
                             }}
@@ -2279,7 +2247,7 @@ export function AprForm({ id }: AprFormProps) {
                             onChange={(event) => {
                               const value = event.target.value;
                               setValue(`itens_risco.${index}.severidade`, value, { shouldDirty: true, shouldValidate: true });
-                              const probabilidade = watch(`itens_risco.${index}.probabilidade`);
+                              const probabilidade = String(watchedRiskItems?.[index]?.probabilidade || '');
                               const result = calculateRiskCategory(probabilidade, value);
                               setValue(`itens_risco.${index}.categoria_risco`, result.categoria, { shouldDirty: true, shouldValidate: true });
                             }}
@@ -2327,8 +2295,8 @@ export function AprForm({ id }: AprFormProps) {
           </div>
 
           <div className="mt-4 space-y-3">
-            <div className="overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
-              <table className="apr-tech-table w-full table-fixed text-[11px]">
+            <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
+              <table className="apr-tech-table w-full min-w-[760px] table-auto text-xs">
                 <thead>
                   <tr>
                     <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)] w-[170px]">Severidade</th>
@@ -2348,8 +2316,8 @@ export function AprForm({ id }: AprFormProps) {
               </table>
             </div>
 
-            <div className="overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
-              <table className="apr-tech-table w-full table-fixed text-[11px]">
+            <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
+              <table className="apr-tech-table w-full min-w-[760px] table-auto text-xs">
                 <thead>
                   <tr>
                     <th colSpan={2} className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">
@@ -2386,8 +2354,8 @@ export function AprForm({ id }: AprFormProps) {
               </table>
             </div>
 
-            <div className="overflow-hidden rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
-              <table className="apr-tech-table w-full table-fixed text-[11px]">
+            <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
+              <table className="apr-tech-table w-full min-w-[860px] table-auto text-xs">
                 <thead>
                   <tr>
                     <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)] w-[170px]">Categoria</th>
@@ -2468,10 +2436,20 @@ export function AprForm({ id }: AprFormProps) {
                 </div>
               </div>
 
-              <AuditSection
-                register={register}
-                auditors={filteredUsers}
-              />
+              <details className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+                <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  Auditoria avançada (opcional)
+                </summary>
+                <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                  Utilize este bloco apenas quando o processo exigir registro formal de auditoria interna.
+                </p>
+                <div className="mt-4">
+                  <AuditSection
+                    register={register}
+                    auditors={filteredUsers}
+                  />
+                </div>
+              </details>
             </>
           )}
 
@@ -2503,26 +2481,37 @@ export function AprForm({ id }: AprFormProps) {
               isFieldMode && "grid grid-cols-2 gap-3 sm:flex-none sm:space-x-0",
             )}>
               {currentStep >= 3 ? (
-                <button
-                  type="submit"
-                  disabled={loading || hasFinalPdf || isApproved}
-                  className={cn(aprPrimarySubmitActionClass, isFieldMode && "min-h-12")}
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
+                hasFinalPdf ? (
+                  <button
+                    type="button"
+                    disabled
+                    className={cn(aprPrimarySubmitActionClass, isFieldMode && "min-h-12")}
+                  >
                     <Save className="h-4 w-4" />
-                  )}
-                  <span>
-                    {hasFinalPdf
-                      ? 'APR bloqueada (PDF final emitido)'
-                      : isApproved
-                        ? 'Emitir PDF final na listagem'
-                        : id
-                          ? 'Atualizar APR'
-                          : 'Salvar APR'}
-                  </span>
-                </button>
+                    <span>APR bloqueada (PDF final emitido)</span>
+                  </button>
+                ) : isApproved ? (
+                  <Link
+                    href="/dashboard/aprs"
+                    className={cn(aprPrimarySubmitActionClass, "inline-flex", isFieldMode && "min-h-12")}
+                  >
+                    <span>Ir para listagem e emitir PDF final</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className={cn(aprPrimarySubmitActionClass, isFieldMode && "min-h-12")}
+                  >
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    <span>{id ? 'Atualizar APR' : 'Salvar APR'}</span>
+                  </button>
+                )
               ) : (
                 <button
                   type="button"
@@ -2550,8 +2539,8 @@ export function AprForm({ id }: AprFormProps) {
 
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/26 p-2">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+    <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/26 p-2.5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
         {label}
       </p>
       <p className="text-lg font-bold text-[var(--color-text)]">{value}</p>
@@ -2562,10 +2551,10 @@ function MiniStat({ label, value }: { label: string; value: number }) {
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+      <span className="text-sm font-semibold uppercase tracking-[0.11em] text-[var(--ds-color-text-muted)]">
         {label}
       </span>
-      <span className="max-w-[13rem] truncate text-right text-sm font-medium text-[var(--ds-color-text-primary)]">
+      <span className="max-w-[15rem] truncate text-right text-sm font-semibold text-[var(--ds-color-text-primary)]">
         {value}
       </span>
     </div>
@@ -2575,7 +2564,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 function SummaryMetaCard({ label, value }: { label: string; value: string }) {
   return (
     <div className={aprSubtleMetaCardClass}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">
         {label}
       </p>
       <p className="text-sm font-semibold text-[var(--color-text)]">{value}</p>
@@ -2601,7 +2590,7 @@ function WizardMetric({
 
   return (
     <div className={`rounded-[var(--ds-radius-lg)] px-3 py-3 ${tones[tone]}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] opacity-80">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] opacity-80">{label}</p>
       <p className="mt-2 text-lg font-semibold">{value}</p>
     </div>
   );
@@ -2660,7 +2649,7 @@ function SectionGrid({ title, items, selectedIds, onToggle, error, signatures, c
         <span className={cn('h-2 w-2 rounded-full', accentDotClasses[color])}></span>
       </h2>
       {error && <p className="mb-4 flex items-center gap-1 text-xs text-[var(--color-danger)]"><AlertTriangle className="h-3 w-3" /> {error}</p>}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {items.map((item) => {
           const isSelected = selectedIds.includes(item.id);
           const hasSignature = signatures && signatures[item.id];
@@ -2671,7 +2660,7 @@ function SectionGrid({ title, items, selectedIds, onToggle, error, signatures, c
               type="button"
               onClick={() => onToggle(item.id)}
               className={cn(
-                'relative flex flex-col items-center justify-center rounded-xl border p-3 text-center text-xs font-bold transition-all hover:scale-[1.02] active:scale-[0.98]',
+                'relative flex min-h-[64px] flex-col items-center justify-center rounded-xl border p-3.5 text-center text-sm font-semibold leading-snug transition-all hover:scale-[1.01] active:scale-[0.99]',
                 isSelected ? selectedColorClasses[color] : colorClasses[color]
               )}
             >

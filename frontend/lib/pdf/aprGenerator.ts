@@ -82,12 +82,20 @@ export async function generateAprPdf(
     buildValidationUrl(code),
     options?.evidences,
     async (item) => {
-      const source = item.url || item.watermarked_url;
-      if (!source) return null;
-      const response = await fetch(source);
-      if (!response.ok) return null;
-      const blob = await response.blob();
-      return toDataUrlFromBlob(blob);
+      const sources = [item.watermarked_url, item.url].filter(
+        (source): source is string => Boolean(source),
+      );
+      for (const source of sources) {
+        try {
+          const response = await fetch(source);
+          if (!response.ok) continue;
+          const blob = await response.blob();
+          return toDataUrlFromBlob(blob);
+        } catch {
+          continue;
+        }
+      }
+      return null;
     },
   );
 

@@ -26,6 +26,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ActionMenu } from '@/components/ActionMenu';
 
 interface AprCardProps {
   apr: Apr;
@@ -125,7 +126,7 @@ export const AprCard = React.memo(
             </div>
             <span
               className={cn(
-                'flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider',
+                'flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider',
                 getStatusClass(apr.status),
               )}
             >
@@ -143,14 +144,14 @@ export const AprCard = React.memo(
             </p>
           </div>
 
-          <div className="inline-flex w-fit items-center rounded-full bg-[color:var(--ds-color-surface-muted)]/45 px-2.5 py-1 text-[11px] font-semibold text-[var(--ds-color-text-secondary)]">
+          <div className="inline-flex w-fit items-center rounded-full bg-[color:var(--ds-color-surface-muted)]/45 px-2.5 py-1 text-xs font-semibold text-[var(--ds-color-text-secondary)]">
             <GitBranch className="mr-1.5 h-3.5 w-3.5" />
             <span>Versão {apr.versao || 1}</span>
           </div>
         </CardHeader>
 
         <CardContent className="mt-0 flex flex-1 flex-col">
-          <div className="mb-5 space-y-2 border-t border-[var(--ds-color-border-subtle)] pt-4 text-xs text-[var(--ds-color-text-muted)]">
+          <div className="mb-5 space-y-2 border-t border-[var(--ds-color-border-subtle)] pt-4 text-sm text-[var(--ds-color-text-muted)]">
             <div className="flex items-center">
               <Calendar className="mr-2 h-3.5 w-3.5 text-[var(--ds-color-text-muted)]" />
               <span className="font-medium">Emissão:</span>
@@ -169,7 +170,7 @@ export const AprCard = React.memo(
             ) : null}
           </div>
 
-          <div className="mt-auto flex flex-wrap justify-end gap-1.5 border-t border-[var(--ds-color-border-subtle)] pt-3">
+          <div className="mt-auto flex flex-wrap items-center justify-end gap-1.5 border-t border-[var(--ds-color-border-subtle)] pt-3">
             {isApproved ? (
               <Button
                 type="button"
@@ -221,19 +222,6 @@ export const AprCard = React.memo(
               type="button"
               size="icon"
               variant="ghost"
-              onClick={() => onSendEmail(apr.id)}
-              title={
-                hasGovernedPdf
-                  ? 'Enviar PDF final governado por e-mail'
-                  : 'Enviar pré-visualização por e-mail'
-              }
-            >
-              <Mail className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
               onClick={() => onDownloadPdf(apr.id)}
               title={
                 hasGovernedPdf
@@ -255,34 +243,33 @@ export const AprCard = React.memo(
             >
               <Pencil className="h-4 w-4" />
             </Link>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => onDelete(apr.id)}
-              className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-              title="Excluir APR"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => setShowSignModal(true)}
-              title="Assinar APR"
-            >
-              <PenLine className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              onClick={() => setShowSignaturesPanel(true)}
-              title="Ver assinaturas"
-            >
-              <Users className="h-4 w-4" />
-            </Button>
+            <ActionMenu
+              items={[
+                {
+                  label: hasGovernedPdf
+                    ? 'Enviar PDF governado por e-mail'
+                    : 'Enviar pré-visualização por e-mail',
+                  icon: <Mail className="h-4 w-4" />,
+                  onClick: () => onSendEmail(apr.id),
+                },
+                {
+                  label: 'Assinar APR',
+                  icon: <PenLine className="h-4 w-4" />,
+                  onClick: () => setShowSignModal(true),
+                },
+                {
+                  label: 'Ver assinaturas',
+                  icon: <Users className="h-4 w-4" />,
+                  onClick: () => setShowSignaturesPanel(true),
+                },
+                {
+                  label: 'Excluir APR',
+                  icon: <Trash2 className="h-4 w-4" />,
+                  onClick: () => onDelete(apr.id),
+                  variant: 'danger',
+                },
+              ]}
+            />
           </div>
         </CardContent>
 

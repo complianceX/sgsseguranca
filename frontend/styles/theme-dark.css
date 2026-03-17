@@ -76,11 +76,12 @@
   --ds-color-focus: var(--ds-color-action-primary);
   --ds-color-focus-ring: color-mix(in srgb, var(--ds-color-action-primary) 34%, transparent);
 
-  --risk-negligible: var(--ds-color-success);
-  --risk-acceptable: color-mix(in srgb, var(--ds-color-success) 74%, white 26%);
-  --risk-attention: var(--ds-color-warning);
-  --risk-substantial: color-mix(in srgb, var(--ds-color-warning) 62%, var(--ds-color-danger) 38%);
-  --risk-critical: var(--ds-color-danger);
+  /* APR/NR-26 safety palette: green -> yellow -> orange -> red */
+  --risk-negligible: #2e7d32;
+  --risk-acceptable: #1b5e20;
+  --risk-attention: #fbc02d;
+  --risk-substantial: #f57c00;
+  --risk-critical: #c62828;
 
   --ds-color-overlay: rgba(2, 4, 14, 0.80);
   --ds-shell-backdrop: radial-gradient(ellipse at top left, color-mix(in srgb, var(--brand-primary) 14%, transparent), transparent 30%),
