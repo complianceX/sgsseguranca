@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   type LucideIcon,
+  CalendarClock,
   Shield,
   FileText,
   ClipboardCheck,
@@ -15,6 +16,8 @@ import {
   ArrowUpRight,
   MessageSquare,
   CheckCheck,
+  LayoutDashboard,
+  PlusCircle,
 } from "lucide-react";
 import {
   dashboardService,
@@ -25,12 +28,20 @@ import { useAuth } from "@/context/AuthContext";
 import { format, isBefore } from "date-fns";
 import { StatusPill } from "@/components/ui/status-pill";
 import { cn } from "@/lib/utils";
+import { SophieSupportHub } from "@/components/SophieSupportHub";
 import {
   isTemporarilyHiddenDashboardRoute,
   isTemporarilyVisibleDashboardRoute,
 } from "@/lib/temporarilyHiddenModules";
 
 type QueueFilter = "all" | "critical" | "documents" | "health" | "actions";
+
+type QuickAction = {
+  href: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+};
 
 const QUEUE_FILTERS: Array<{ id: QueueFilter; label: string }> = [
   { id: "all", label: "Tudo" },
@@ -100,8 +111,14 @@ function buildPendingQueueSophieHref(item: PendingQueueEntry) {
   return `/dashboard/sst-agent?${params.toString()}`;
 }
 
+function resolveGreeting(hour: number) {
+  if (hour < 12) return "Bom dia";
+  if (hour < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
 export default function DashboardPage() {
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
   const [loading, setLoading] = useState(true);
   const [expiringEpis, setExpiringEpis] = useState<
     DashboardSummaryResponse["expiringEpis"]
@@ -130,6 +147,59 @@ export default function DashboardPage() {
   const showEpiModule = isTemporarilyVisibleDashboardRoute("/dashboard/epis");
   const showTrainingModule = isTemporarilyVisibleDashboardRoute(
     "/dashboard/trainings",
+  );
+  const firstName = useMemo(() => {
+    const fullName = String(user?.nome || "").trim();
+    return fullName ? fullName.split(" ")[0] : "time";
+  }, [user?.nome]);
+
+  const nowLabel = useMemo(() => {
+    return format(new Date(), "dd/MM/yyyy 'às' HH:mm");
+  }, []);
+
+  const quickActions = useMemo<QuickAction[]>(
+    () =>
+      [
+        {
+          href: "/dashboard/aprs/new",
+          label: "Nova APR",
+          description: "Análise preliminar de risco",
+          icon: Shield,
+        },
+        {
+          href: "/dashboard/pts/new",
+          label: "Nova PT",
+          description: "Permissão de trabalho",
+          icon: FileText,
+        },
+        {
+          href: "/dashboard/checklists/new",
+          label: "Novo Checklist",
+          description: "Inspeção operacional",
+          icon: ClipboardCheck,
+        },
+        {
+          href: "/dashboard/dds/new",
+          label: "Novo DDS",
+          description: "Diálogo diário de segurança",
+          icon: PlusCircle,
+        },
+        {
+          href: "/dashboard/inspections/new",
+          label: "Nova Inspeção",
+          description: "Relatório de inspeção",
+          icon: AlertTriangle,
+        },
+        {
+          href: "/dashboard/nonconformities/new",
+          label: "Nova NC",
+          description: "Não conformidade",
+          icon: AlertCircle,
+        },
+      ].filter((action) =>
+        isTemporarilyVisibleDashboardRoute(action.href),
+      ),
+    [],
   );
 
   const filteredPendingQueueItems = useMemo(() => {
@@ -223,6 +293,81 @@ export default function DashboardPage() {
 
   return (
     <div className="ds-dashboard-shell">
+      {/* ── Hero Operacional ── */}
+      <section className="ds-hero-panel rounded-2xl p-5 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-3xl">
+            <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              Centro Operacional SST
+            </p>
+            <h1 className="mt-2 text-xl font-bold text-[var(--ds-color-text-primary)] sm:text-2xl">
+              {resolveGreeting(new Date().getHours())}, {firstName}
+            </h1>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Priorize pendências críticas, mantenha documentos em conformidade e acelere emissões com rastreabilidade.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:w-auto">
+            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                Agora
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                {nowLabel}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                Pendências
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                {loading ? "—" : pendingQueue.summary.total}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                Críticas
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                {loading ? "—" : pendingQueue.summary.critical}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 border-t border-[var(--ds-color-border-subtle)] pt-4">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+            <CalendarClock className="h-3.5 w-3.5" />
+            Ações rápidas
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {quickActions.map((action) => {
+              const ActionIcon = action.icon;
+              return (
+                <Link
+                  key={action.href}
+                  href={action.href}
+                  className="group rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 transition-all hover:-translate-y-px hover:border-[var(--ds-color-action-primary)]/35 hover:bg-[var(--ds-color-primary-subtle)]"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                        {action.label}
+                      </p>
+                      <p className="truncate text-xs text-[var(--ds-color-text-muted)]">
+                        {action.description}
+                      </p>
+                    </div>
+                    <ActionIcon className="h-4 w-4 shrink-0 text-[var(--ds-color-action-primary)]" />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* ── KPIs ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {kpis.map((kpi) => (
@@ -240,6 +385,8 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {canUseAi ? <SophieSupportHub /> : null}
 
       {/* ── Fila de pendências ── */}
       <div className="ds-dashboard-panel p-5">

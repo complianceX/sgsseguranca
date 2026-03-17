@@ -1,13 +1,13 @@
 :root[data-theme='light'],
 .theme-light {
-  --ds-color-bg-canvas: #f7f8fa;
-  --ds-color-bg-subtle: #eef1f4;
+  --ds-color-bg-canvas: #ffffff;
+  --ds-color-bg-subtle: #ffffff;
   --ds-color-surface-base: #ffffff;
-  --ds-color-surface-elevated: #fbfbfc;
+  --ds-color-surface-elevated: #ffffff;
   --ds-color-surface-overlay: #ffffff;
-  --ds-color-surface-muted: #eef1f4;
-  --ds-color-surface-sunken: #e6eaef;
-  --ds-color-surface-muted-hover: #e3e8ee;
+  --ds-color-surface-muted: #f3f6fb;
+  --ds-color-surface-sunken: #edf2f8;
+  --ds-color-surface-muted-hover: #e8eef7;
 
   --ds-color-border-subtle: #d8dee6;
   --ds-color-border-default: #cfd6de;
@@ -22,12 +22,12 @@
   --ds-color-text-inverse: #ffffff;
   --ds-color-text-link: #274c77;
 
-  --ds-color-sidebar-bg: #172f27;
-  --ds-color-sidebar-bg-soft: #1c372d;
-  --ds-color-sidebar-surface: #203d32;
-  --ds-color-sidebar-text: #f5f7f6;
-  --ds-color-sidebar-muted: #b8c4be;
-  --ds-color-sidebar-border: #2f4a3f;
+  --ds-color-sidebar-bg: #0f3154;
+  --ds-color-sidebar-bg-soft: #18446f;
+  --ds-color-sidebar-surface: #215889;
+  --ds-color-sidebar-text: #f3f8ff;
+  --ds-color-sidebar-muted: #c4d9ee;
+  --ds-color-sidebar-border: #356795;
 
   --ds-color-action-primary: var(--brand-primary);
   --ds-color-action-primary-hover: color-mix(in srgb, var(--brand-primary) 86%, #0f172a 14%);
@@ -83,7 +83,7 @@
   --risk-critical: #c62828;
 
   --ds-color-overlay: rgba(4, 8, 20, 0.56);
-  --ds-shell-backdrop: linear-gradient(180deg, #f7f8fa 0%, #f3f5f7 100%);
+  --ds-shell-backdrop: linear-gradient(180deg, #ffffff 0%, #ffffff 100%);
   --ds-color-command-surface: #ffffff;
   --ds-color-command-border: color-mix(in srgb, var(--brand-primary) 10%, white 90%);
 

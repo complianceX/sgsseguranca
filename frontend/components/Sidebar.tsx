@@ -370,10 +370,10 @@ export function Sidebar({
                             href={item.href!}
                             onClick={onClose}
                             className={cn(
-                              'flex items-center gap-2.5 border-l-2 px-4 py-2 text-[13px] font-medium transition-colors',
+                              'mx-2 flex items-center gap-2.5 rounded-lg border-l-2 px-3 py-2 text-[13px] font-medium transition-colors',
                               active
-                                ? 'border-[color:var(--ds-color-action-primary)] bg-[color:var(--ds-color-action-primary)]/10 text-[color:var(--ds-color-action-primary)]'
-                                : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:bg-[color:var(--ds-color-sidebar-surface)] hover:text-[var(--ds-color-sidebar-text)]',
+                                ? 'border-[color:var(--ds-color-sidebar-text)] bg-[color:var(--ds-color-sidebar-surface)] text-[var(--ds-color-sidebar-text)]'
+                                : 'border-transparent bg-[color:var(--ds-color-sidebar-bg-soft)]/72 text-[var(--ds-color-sidebar-muted)] hover:bg-[color:var(--ds-color-sidebar-surface)] hover:text-[var(--ds-color-sidebar-text)]',
                             )}
                           >
                             <Icon
@@ -405,7 +405,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={logout}
-            className="flex w-full items-center gap-2.5 border-l-2 border-transparent px-4 py-2 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-colors hover:border-[color:var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
+            className="mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2.5 rounded-lg border-l-2 border-transparent bg-[color:var(--ds-color-sidebar-bg-soft)]/72 px-3 py-2 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-colors hover:border-[color:var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
           >
             <LogOut className="h-4 w-4 shrink-0" />
             Sair
