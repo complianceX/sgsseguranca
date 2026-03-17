@@ -9,13 +9,19 @@ export function drawParticipantTable(
   participants: Array<{ name?: string }>,
 ) {
   if (!participants.length) return;
+  const numberColumnWidth = 12;
   drawSemanticTable(ctx, {
     title,
     tone: "attendance",
     autoTable,
     head: [["#", "Nome"]],
     body: participants.map((p, index) => [index + 1, sanitize(p.name)]),
-    overrides: { columnStyles: { 0: { cellWidth: 12 } } },
+    overrides: {
+      tableWidth: ctx.contentWidth,
+      columnStyles: {
+        0: { cellWidth: numberColumnWidth },
+        1: { cellWidth: ctx.contentWidth - numberColumnWidth },
+      },
+    },
   });
 }
-

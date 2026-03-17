@@ -74,4 +74,26 @@ describe("drawMetadataGrid", () => {
     expect(doc.addPage).toHaveBeenCalled();
     expect(ctx.y).toBeGreaterThanOrEqual(22);
   });
+
+  it("aplica quebra suave em tokens longos para evitar estouro horizontal da celula", () => {
+    const { ctx, doc } = createMockContext();
+    const veryLongToken =
+      "CHAVESEMESPACO1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ9876543210TOKENFINAL";
+
+    drawMetadataGrid(ctx, {
+      title: "Quebra suave",
+      columns: 2,
+      fields: [
+        { label: "Campo tecnico", value: veryLongToken },
+        { label: "Apoio", value: "Valor curto" },
+      ],
+    });
+
+    const calls = doc.splitTextToSize.mock.calls
+      .map((call) => String(call[0]))
+      .filter((value) => value.includes("CHAVESEMESPACO1234567890"));
+
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.some((value) => value.includes(" "))).toBe(true);
+  });
 });

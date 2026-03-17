@@ -20,15 +20,63 @@ type MetadataGridOptions = {
   columns?: 2 | 3;
 };
 
+const LABEL_LINE_HEIGHT = 3.6;
+const VALUE_LINE_HEIGHT = 4.8;
+const LABEL_TO_VALUE_GAP = 1.8;
+const ROW_TOP_PADDING = 4.8;
+const ROW_BOTTOM_PADDING = 4.8;
+const MAX_LABEL_LINES = 4;
+const MAX_VALUE_LINES = 16;
+
+function softWrapLongTokens(value: string, maxTokenLength = 26): string {
+  return value
+    .split("\n")
+    .map((line) =>
+      line
+        .split(/(\s+)/)
+        .map((segment) => {
+          if (!segment || /^\s+$/.test(segment) || segment.length <= maxTokenLength) {
+            return segment;
+          }
+          const chunks = segment.match(new RegExp(`.{1,${maxTokenLength}}`, "g"));
+          return chunks ? chunks.join(" ") : segment;
+        })
+        .join(""),
+    )
+    .join("\n");
+}
+
+function clampLines(lines: string[], maxLines: number): string[] {
+  if (lines.length <= maxLines) {
+    return lines;
+  }
+  const limited = lines.slice(0, Math.max(1, maxLines));
+  const lastIndex = limited.length - 1;
+  limited[lastIndex] = `${limited[lastIndex]}...`;
+  return limited;
+}
+
 export function drawMetadataGrid(ctx: PdfContext, options: MetadataGridOptions) {
   const { doc, margin, contentWidth, theme } = ctx;
   const columns = options.columns || 2;
   const colWidth = contentWidth / columns;
   const rowMetrics = options.fields.map((field) => {
-    const safeValue = sanitize(field.value);
-    const labelLines = doc.splitTextToSize(field.label.toUpperCase(), colWidth - 10);
-    const valueLines = doc.splitTextToSize(safeValue, colWidth - 10);
-    const rowHeight = 4 + labelLines.length * 3 + valueLines.length * 4.3 + 3;
+    const safeLabel = softWrapLongTokens(field.label.toUpperCase());
+    const safeValue = softWrapLongTokens(sanitize(field.value));
+    const labelLines = clampLines(
+      doc.splitTextToSize(safeLabel, colWidth - 10) as string[],
+      MAX_LABEL_LINES,
+    );
+    const valueLines = clampLines(
+      doc.splitTextToSize(safeValue, colWidth - 10) as string[],
+      MAX_VALUE_LINES,
+    );
+    const rowHeight =
+      ROW_TOP_PADDING +
+      labelLines.length * LABEL_LINE_HEIGHT +
+      LABEL_TO_VALUE_GAP +
+      valueLines.length * VALUE_LINE_HEIGHT +
+      ROW_BOTTOM_PADDING;
     return { labelLines, valueLines, rowHeight };
   });
 
@@ -99,7 +147,10 @@ export function drawMetadataGrid(ctx: PdfContext, options: MetadataGridOptions) 
         doc.setFont("helvetica", "normal");
         doc.setFontSize(theme.typography.body);
         doc.setTextColor(...theme.tone.textPrimary);
-        const valueStart = baseY + data.labelLines.length * 3.2 + 1.3;
+        const valueStart =
+          baseY +
+          data.labelLines.length * LABEL_LINE_HEIGHT +
+          LABEL_TO_VALUE_GAP;
         doc.text(data.valueLines, baseX, valueStart);
       });
 
