@@ -71,4 +71,24 @@ describe("drawSemanticTable", () => {
     expect(autoTable).toHaveBeenCalled();
     expect(ctx.y).toBeGreaterThanOrEqual(22);
   });
+
+  it("aplica quebra suave em tokens longos para evitar texto vazando da celula", () => {
+    const { ctx, autoTable } = createMockContext();
+    const veryLongToken =
+      "SEMESPACO1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZTOKENFINAL";
+
+    drawSemanticTable(ctx, {
+      title: "Tabela de risco",
+      head: [["Controle"]],
+      body: [[veryLongToken]],
+      autoTable: autoTable as unknown as AutoTableFn,
+    });
+
+    const options = autoTable.mock.calls[0]?.[1] as {
+      body?: Array<Array<string | number>>;
+    };
+    const firstCell = String(options.body?.[0]?.[0] || "");
+
+    expect(firstCell).toContain(" ");
+  });
 });

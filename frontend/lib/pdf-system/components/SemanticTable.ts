@@ -81,6 +81,30 @@ function normalize(value: string): string {
     .trim();
 }
 
+function softWrapLongTokens(value: string, maxTokenLength = 26): string {
+  return value
+    .split("\n")
+    .map((line) =>
+      line
+        .split(/(\s+)/)
+        .map((segment) => {
+          if (
+            !segment ||
+            /^\s+$/.test(segment) ||
+            segment.length <= maxTokenLength
+          ) {
+            return segment;
+          }
+          const chunks = segment.match(
+            new RegExp(`.{1,${maxTokenLength}}`, "g"),
+          );
+          return chunks ? chunks.join(" ") : segment;
+        })
+        .join(""),
+    )
+    .join("\n");
+}
+
 function shouldApplySemantic(header: string, columnIndex: number, rules?: boolean | SemanticRulesConfig) {
   if (rules === false) return false;
   if (typeof rules === "object" && Array.isArray(rules.columns)) {
@@ -350,6 +374,14 @@ function semanticCellStyle(
 export function drawSemanticTable(ctx: PdfContext, options: SemanticTableOptions): number {
   const { doc, margin, contentWidth, theme } = ctx;
   const tone = paletteForTone(ctx, options.tone || "default");
+  const normalizedHead = options.head.map((row) =>
+    row.map((cell) => softWrapLongTokens(String(cell))),
+  );
+  const normalizedBody = options.body.map((row) =>
+    row.map((cell) =>
+      typeof cell === "string" ? softWrapLongTokens(cell) : cell,
+    ),
+  );
   // Keep the section title together with the table header and at least one body row.
   ensureSpace(ctx, 34);
 
@@ -372,8 +404,8 @@ export function drawSemanticTable(ctx: PdfContext, options: SemanticTableOptions
       right: margin,
       top: ctx.pageTop ?? margin,
     },
-    head: options.head,
-    body: options.body,
+    head: normalizedHead,
+    body: normalizedBody,
     theme: "grid",
     styles: {
       font: "helvetica",

@@ -10,6 +10,30 @@ function parseDocumentDate(value: string): Date | null {
   return parsed;
 }
 
+function wrapLongTokens(value: string, maxTokenLength = 32): string {
+  return value
+    .split("\n")
+    .map((line) =>
+      line
+        .split(/(\s+)/)
+        .map((segment) => {
+          if (
+            !segment ||
+            /^\s+$/.test(segment) ||
+            segment.length <= maxTokenLength
+          ) {
+            return segment;
+          }
+          const chunks = segment.match(
+            new RegExp(`.{1,${maxTokenLength}}`, "g"),
+          );
+          return chunks ? chunks.join(" ") : segment;
+        })
+        .join(""),
+    )
+    .join("\n");
+}
+
 export function sanitize(value?: string | number | boolean | null): string {
   if (value === undefined || value === null || value === "") return "-";
 
@@ -45,7 +69,8 @@ export function sanitize(value?: string | number | boolean | null): string {
     .join("\n")
     .trim();
 
-  return collapsed || "-";
+  const wrapped = wrapLongTokens(collapsed);
+  return wrapped || "-";
 }
 
 export function formatDate(value?: string | null): string {

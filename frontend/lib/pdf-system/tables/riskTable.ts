@@ -36,6 +36,7 @@ export function drawRiskTable(
     ]),
     semanticRules: options?.semanticRules,
     overrides: {
+      tableWidth: ctx.contentWidth,
       styles: { fontSize: 8.1, cellPadding: 2.3 },
       columnStyles: {
         0: { cellWidth: 30 },

@@ -37,4 +37,12 @@ describe('sanitize', () => {
   it('remove controles invisíveis sem destruir quebras de linha', () => {
     expect(sanitize('Linha 1\x13\nLinha 2')).toBe('Linha 1\nLinha 2');
   });
+
+  it('insere quebra suave em tokens longos para evitar estouro no layout do PDF', () => {
+    const longToken =
+      'SEMESPACO1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZTOKENFINAL';
+    const sanitized = sanitize(longToken);
+
+    expect(sanitized).toContain(' ');
+  });
 });
