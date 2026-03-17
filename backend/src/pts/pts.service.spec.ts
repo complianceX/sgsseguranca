@@ -469,6 +469,57 @@ describe('PtsService', () => {
     expect(ptsSaveMock).toHaveBeenCalledTimes(1);
   });
 
+  it('findPaginated: aplica filtro deleted_at IS NULL para excluir PTs removidas', async () => {
+    const andWhereMock = jest.fn().mockReturnThis();
+    const getManyAndCountMock = jest.fn().mockResolvedValue([[], 0]);
+    const whereMock = jest.fn().mockReturnValue({
+      andWhere: andWhereMock,
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getManyAndCount: getManyAndCountMock,
+    });
+    (ptsRepository as unknown as { createQueryBuilder: jest.Mock }).createQueryBuilder =
+      jest.fn().mockReturnValue({ where: whereMock, select: jest.fn().mockReturnValue({ orderBy: jest.fn().mockReturnValue({ skip: jest.fn().mockReturnValue({ take: jest.fn().mockReturnValue({ where: whereMock }) }) }) }) });
+
+    // rebuild service to pick up updated mock
+    const qbChain = {
+      select: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: andWhereMock,
+      getManyAndCount: getManyAndCountMock,
+    };
+    (ptsRepository as unknown as { createQueryBuilder: jest.Mock }).createQueryBuilder =
+      jest.fn().mockReturnValue(qbChain);
+
+    await service.findPaginated({ page: 1, limit: 10 });
+
+    const whereCall = (qbChain.where as jest.Mock).mock.calls[0] as [string];
+    expect(whereCall[0]).toContain('deleted_at IS NULL');
+  });
+
+  it('exportExcel: aplica filtro deleted_at IS NULL para excluir PTs removidas', async () => {
+    const getMany = jest.fn().mockResolvedValue([]);
+    const qbChain = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getMany,
+    };
+    (ptsRepository as unknown as { createQueryBuilder: jest.Mock }).createQueryBuilder =
+      jest.fn().mockReturnValue(qbChain);
+
+    await service.exportExcel();
+
+    const whereCall = (qbChain.where as jest.Mock).mock.calls[0] as [string];
+    expect(whereCall[0]).toContain('deleted_at IS NULL');
+  });
+
   it('getPdfAccess: lança NotFoundException quando a PT nao possui PDF armazenado', async () => {
     ptsRepository.findOne.mockResolvedValue({
       id: 'pt-1',

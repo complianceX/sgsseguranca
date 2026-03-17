@@ -195,14 +195,15 @@ export class PtsService {
       .skip(skip)
       .take(limit);
 
+    qb.where('pt.deleted_at IS NULL');
+
     if (tenantId) {
-      qb.where('pt.company_id = :tenantId', { tenantId });
+      qb.andWhere('pt.company_id = :tenantId', { tenantId });
     }
     if (opts?.search) {
-      const clause = '(pt.titulo ILIKE :search OR pt.numero ILIKE :search)';
-      tenantId
-        ? qb.andWhere(clause, { search: `%${opts.search}%` })
-        : qb.where(clause, { search: `%${opts.search}%` });
+      qb.andWhere('(pt.titulo ILIKE :search OR pt.numero ILIKE :search)', {
+        search: `%${opts.search}%`,
+      });
     }
     if (opts?.status) {
       qb.andWhere('pt.status = :status', { status: opts.status });
@@ -571,8 +572,9 @@ export class PtsService {
         'pt.data_hora_fim',
         'pt.created_at',
       ])
+      .where('pt.deleted_at IS NULL')
       .orderBy('pt.created_at', 'DESC');
-    if (tenantId) qb.where('pt.company_id = :tenantId', { tenantId });
+    if (tenantId) qb.andWhere('pt.company_id = :tenantId', { tenantId });
     const pts = await qb.getMany();
 
     const rows = pts.map((p) => ({
