@@ -7,7 +7,8 @@
 - [ ] Sem `any` types (TypeScript strict)
 - [ ] Sem secrets em código
 - [ ] Sem TODO/FIXME comentários
-- [ ] Linting passou (npm run lint)
+- [ ] Linting passou (npm run lint:ci)
+- [ ] Auto-fix executado só quando intencional (npm run lint:fix)
 - [ ] Testes passaram (npm run test)
 - [ ] Build passou (npm run build)
 - [ ] Sem warnings de build

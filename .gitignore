@@ -55,3 +55,9 @@ backend/dist/
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Cobertura e arquivos temporários locais
+backend/coverage/
+frontend/coverage/
+coverage/
+tmp/

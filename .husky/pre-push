@@ -1,0 +1,59 @@
+#!/usr/bin/env sh
+
+set -eu
+
+ZERO_HASH="0000000000000000000000000000000000000000"
+RANGES=""
+
+while read -r LOCAL_REF LOCAL_SHA REMOTE_REF REMOTE_SHA; do
+  if [ -z "${LOCAL_SHA:-}" ] || [ "$LOCAL_SHA" = "$ZERO_HASH" ]; then
+    continue
+  fi
+
+  if [ "$REMOTE_SHA" = "$ZERO_HASH" ]; then
+    RANGE="$LOCAL_SHA"
+  else
+    RANGE="$REMOTE_SHA..$LOCAL_SHA"
+  fi
+
+  RANGES="$RANGES $RANGE"
+done
+
+if [ -z "$RANGES" ]; then
+  CHANGED_FILES="$(git diff --name-only HEAD~1..HEAD || true)"
+else
+  CHANGED_FILES="$(git diff --name-only $RANGES || true)"
+fi
+
+if [ -z "$CHANGED_FILES" ]; then
+  echo "pre-push: nenhuma alteracao para validar."
+  exit 0
+fi
+
+if echo "$CHANGED_FILES" | grep -E "^(backend/coverage/|frontend/coverage/|coverage/|tmp/)" >/dev/null 2>&1; then
+  echo "pre-push: push bloqueado. Remova artefatos temporarios (coverage/tmp) antes de subir."
+  exit 1
+fi
+
+RUN_BACKEND_DDS=0
+RUN_FRONTEND_DDS=0
+
+if echo "$CHANGED_FILES" | grep -E "^backend/src/dds/" >/dev/null 2>&1; then
+  RUN_BACKEND_DDS=1
+fi
+
+if echo "$CHANGED_FILES" | grep -E "^frontend/(app/dashboard/dds/|components/DdsForm.tsx|services/ddsService.ts|lib/pdf-system/blueprints/ddsBlueprint(\\.test)?\\.ts)" >/dev/null 2>&1; then
+  RUN_FRONTEND_DDS=1
+fi
+
+if [ "$RUN_BACKEND_DDS" -eq 1 ]; then
+  echo "pre-push: executando smoke tests DDS backend..."
+  npm --prefix backend test -- --runTestsByPath src/dds/dds.service.spec.ts src/dds/dds.controller.spec.ts
+fi
+
+if [ "$RUN_FRONTEND_DDS" -eq 1 ]; then
+  echo "pre-push: executando smoke test DDS frontend..."
+  npm --prefix frontend test -- --runTestsByPath lib/pdf-system/blueprints/ddsBlueprint.test.ts
+fi
+
+echo "pre-push: validacoes concluidas."
