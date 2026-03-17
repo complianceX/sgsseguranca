@@ -2,6 +2,14 @@
 
 set -eu
 
+# Garantir que Node.js esteja no PATH em ambientes Windows/Git Bash
+for NODE_DIR in "/c/Program Files/nodejs" "/c/Program Files (x86)/nodejs" "$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -1)/bin" 2>/dev/null; do
+  if [ -f "$NODE_DIR/npm" ] || [ -f "$NODE_DIR/npm.cmd" ]; then
+    export PATH="$NODE_DIR:$PATH"
+    break
+  fi
+done
+
 ZERO_HASH="0000000000000000000000000000000000000000"
 RANGES=""
 
