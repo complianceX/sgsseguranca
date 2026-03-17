@@ -70,16 +70,16 @@ import { cn } from "@/lib/utils";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { StoredFilesPanel } from "@/components/StoredFilesPanel";
 import { generateRdoPdf } from "@/lib/pdf/rdoGenerator";
-import { base64ToPdfFile } from "@/lib/pdf/pdfFile";
+import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 
 const inputClassName =
-  "h-10 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
+  "h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 text-base text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
 
 const formInputClassName =
-  "w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] transition-all";
+  "w-full min-h-[2.875rem] rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-2.5 text-base leading-6 text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] transition-all";
 
 const formInputSmClassName =
-  "w-full rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2 py-1.5 text-sm text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none transition-all";
+  "w-full min-h-[2.625rem] rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-base text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-focus)] focus:outline-none transition-all";
 
 const STEPS = [
   { label: "Dados Básicos", icon: ClipboardList },
@@ -369,7 +369,53 @@ export default function RdosPage() {
     setShowModal(true);
   };
 
-  const handleSave = async () => {
+  const handlePrintAfterSave = useCallback(
+    async (rdo: Rdo) => {
+      toast.info("Preparando impressão do RDO...");
+
+      const shouldUseGovernedPdf =
+        Boolean(rdo.pdf_file_key) || rdo.status === "aprovado";
+
+      if (shouldUseGovernedPdf) {
+        const access = await ensureGovernedPdf(rdo);
+        if (access?.url) {
+          openPdfForPrint(access.url, () => {
+            toast.info(
+              "Pop-up bloqueado. Abrimos o PDF final do RDO na mesma aba para impressão.",
+            );
+          });
+          return;
+        }
+
+        if (access) {
+          toast.warning(
+            "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora.",
+          );
+          return;
+        }
+      }
+
+      const fullRdo = await rdosService.findOne(rdo.id);
+      const result = (await generateRdoPdf(fullRdo, {
+        save: false,
+        output: "base64",
+      })) as { base64: string } | undefined;
+
+      if (!result?.base64) {
+        throw new Error("Falha ao gerar PDF do RDO para impressão.");
+      }
+
+      const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+      openPdfForPrint(fileURL, () => {
+        toast.info("Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.");
+      });
+      setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+    },
+    [ensureGovernedPdf],
+  );
+
+  const handleSave = async (options?: { printAfterSave?: boolean }) => {
+    const shouldPrintAfterSave = options?.printAfterSave ?? false;
     if (!form.data) {
       toast.error("Informe a data do RDO.");
       return;
@@ -407,15 +453,27 @@ export default function RdosPage() {
       programa_servicos_amanha: form.programa_servicos_amanha || undefined,
     };
     try {
+      let savedRdo: Rdo;
       if (editingId) {
-        await rdosService.update(editingId, payload);
+        savedRdo = await rdosService.update(editingId, payload);
         toast.success("RDO atualizado com sucesso!");
       } else {
-        await rdosService.create(payload);
+        savedRdo = await rdosService.create(payload);
         toast.success("RDO criado com sucesso!");
       }
       setShowModal(false);
-      loadData();
+      await loadData();
+
+      if (shouldPrintAfterSave) {
+        try {
+          await handlePrintAfterSave(savedRdo);
+        } catch (printError) {
+          console.error("Erro ao preparar impressão automática do RDO:", printError);
+          toast.warning(
+            "RDO salvo, mas não foi possível abrir a impressão automática.",
+          );
+        }
+      }
     } catch (error) {
       console.error("Erro ao salvar RDO:", error);
       toast.error("Erro ao salvar RDO.");
@@ -1855,7 +1913,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       onChange={(e) =>
                         setForm((f) => ({ ...f, observacoes: e.target.value }))
                       }
-                      rows={3}
+                      rows={5}
                       className={formInputClassName}
                       placeholder="Observações relevantes do dia..."
                     />
@@ -1876,7 +1934,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                           programa_servicos_amanha: e.target.value,
                         }))
                       }
-                      rows={2}
+                      rows={4}
                       className={formInputClassName}
                       placeholder="Serviços planejados para o próximo dia..."
                     />
@@ -1894,7 +1952,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               >
                 Cancelar
               </button>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 {currentStep > 0 && (
                   <button
                     type="button"
@@ -1913,18 +1971,32 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     Próximo <ChevronRight className="h-4 w-4" />
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="rounded-xl bg-[var(--ds-color-action-primary)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 transition-colors"
-                  >
-                    {saving
-                      ? "Salvando..."
-                      : editingId
-                        ? "Salvar alterações"
-                        : "Criar RDO"}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleSave({ printAfterSave: true })}
+                      disabled={saving}
+                      className="rounded-xl border border-[var(--ds-color-border-subtle)] px-5 py-2 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-[color:var(--ds-color-surface-muted)] disabled:opacity-50 transition-colors"
+                    >
+                      {saving
+                        ? "Salvando..."
+                        : editingId
+                          ? "Salvar e imprimir"
+                          : "Criar e imprimir"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSave()}
+                      disabled={saving}
+                      className="rounded-xl bg-[var(--ds-color-action-primary)] px-5 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50 transition-colors"
+                    >
+                      {saving
+                        ? "Salvando..."
+                        : editingId
+                          ? "Salvar alterações"
+                          : "Criar RDO"}
+                    </button>
+                  </>
                 )}
               </div>
             </div>

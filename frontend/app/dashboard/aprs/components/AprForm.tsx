@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Apr, aprsService } from '@/services/aprsService';
 import { activitiesService, Activity } from '@/services/activitiesService';
 import { risksService, Risk } from '@/services/risksService';
@@ -26,6 +26,7 @@ import {
   ClipboardList,
   ShieldCheck,
   FileText,
+  Printer,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -37,6 +38,9 @@ import { signaturesService } from '@/services/signaturesService';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { AuditSection } from '@/components/AuditSection';
 import { cn } from '@/lib/utils';
+import { generateAprPdf } from '@/lib/pdf/aprGenerator';
+import { base64ToPdfBlob, base64ToPdfFile } from '@/lib/pdf/pdfFile';
+import { openPdfForPrint } from '@/lib/print-utils';
 import { AprLogEntry, AprTimeline } from './AprTimeline';
 import { useAuth } from '@/context/AuthContext';
 import type {
@@ -85,6 +89,10 @@ const aprSchema = z.object({
 
 type AprFormData = z.infer<typeof aprSchema>;
 type AprMutationPayload = Omit<AprFormData, 'pdf_signed'>;
+type AprSubmitResult = {
+  aprId?: string;
+  offlineQueued?: boolean;
+};
 
 interface AprFormProps {
   id?: string;
@@ -116,12 +124,12 @@ const aprBackButtonClass =
 const aprHeadingClass = 'text-2xl font-bold text-[var(--color-text)]';
 const aprSubheadingClass = 'text-sm text-[var(--color-text-muted)]';
 const aprSectionTitleClass = 'mb-3 text-sm font-bold text-[var(--color-text)]';
-const aprLabelClass = 'mb-1 block text-sm font-semibold text-[var(--color-text-secondary)]';
-const aprLabelCompactClass = 'mb-1 block text-sm font-semibold text-[var(--color-text-secondary)]';
+const aprLabelClass = 'mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]';
+const aprLabelCompactClass = 'mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]';
 const aprFieldClass =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-3 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
+  'w-full min-h-[2.875rem] rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-4 py-2.5 text-base leading-6 text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
 const aprFileFieldClass =
-  'block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-3 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)] file:mr-4 file:rounded-[var(--ds-radius-sm)] file:border-0 file:bg-[color:var(--color-card-muted)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--color-text-secondary)] hover:file:bg-[color:var(--ds-color-primary-subtle)]';
+  'block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-4 py-2.5 text-base text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)] file:mr-4 file:rounded-[var(--ds-radius-sm)] file:border-0 file:bg-[color:var(--color-card-muted)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--color-text-secondary)] hover:file:bg-[color:var(--ds-color-primary-subtle)]';
 const aprFieldErrorClass = 'border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]';
 const aprFieldDisabledClass = 'disabled:bg-[color:var(--color-card-muted)]/60 disabled:cursor-not-allowed disabled:opacity-60';
 const aprCheckboxClass =
@@ -183,12 +191,19 @@ export function AprForm({ id }: AprFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const prefillCompanyId = searchParams.get('company_id') || '';
-  const prefillSiteId = searchParams.get('site_id') || '';
-  const prefillUserId =
-    searchParams.get('elaborador_id') ||
-    searchParams.get('user_id') ||
-    '';
+  const prefillCompanyIdParam = searchParams.get('company_id');
+  const prefillSiteIdParam = searchParams.get('site_id');
+  const prefillUserIdParam =
+    searchParams.get('elaborador_id') || searchParams.get('user_id');
+  const prefillCompanyId = isUuidLike(prefillCompanyIdParam)
+    ? String(prefillCompanyIdParam)
+    : '';
+  const prefillSiteId = isUuidLike(prefillSiteIdParam)
+    ? String(prefillSiteIdParam)
+    : '';
+  const prefillUserId = isUuidLike(prefillUserIdParam)
+    ? String(prefillUserIdParam)
+    : '';
   const prefillTitle = searchParams.get('title') || '';
   const prefillDescription = searchParams.get('description') || '';
   const isFieldMode = searchParams.get('field') === '1';
@@ -262,6 +277,7 @@ export function AprForm({ id }: AprFormProps) {
   const [draftRestored, setDraftRestored] = useState(false);
   const [sophieSuggestedRisks, setSophieSuggestedRisks] = useState<SophieDraftRiskSuggestion[]>([]);
   const [sophieMandatoryChecklists, setSophieMandatoryChecklists] = useState<SophieDraftChecklistSuggestion[]>([]);
+  const submitIntentRef = useRef<'save' | 'save_and_print'>('save');
 
   const {
     register,
@@ -332,6 +348,122 @@ export function AprForm({ id }: AprFormProps) {
   const selectedCompany = companies.find((company) => company.id === selectedCompanyId);
   const selectedSite = sites.find((site) => site.id === selectedSiteId);
   const selectedElaborador = users.find((user) => user.id === selectedElaboradorId);
+
+  const buildAprFilename = useCallback(
+    (apr: Apr) =>
+      `APR_${String(apr.numero || apr.titulo || apr.id).replace(/\s+/g, '_')}.pdf`,
+    [],
+  );
+
+  const getErrorStatus = useCallback((error: unknown) => {
+    return (
+      Number(
+        (error as { response?: { status?: number } } | undefined)?.response
+          ?.status ?? 0,
+      ) || null
+    );
+  }, []);
+
+  const getGovernedPdfAccess = useCallback(
+    async (aprId: string) => {
+      try {
+        return await aprsService.getPdfAccess(aprId);
+      } catch (error) {
+        if (getErrorStatus(error) === 404) {
+          return null;
+        }
+        throw error;
+      }
+    },
+    [getErrorStatus],
+  );
+
+  const ensureGovernedPdf = useCallback(
+    async (apr: Apr) => {
+      const existingAccess = await getGovernedPdfAccess(apr.id);
+      if (existingAccess) {
+        return existingAccess;
+      }
+
+      if (apr.status !== 'Aprovada') {
+        return null;
+      }
+
+      const [fullApr, aprSignatures, evidences] = await Promise.all([
+        aprsService.findOne(apr.id),
+        signaturesService.findByDocument(apr.id, 'APR'),
+        aprsService.listAprEvidences(apr.id),
+      ]);
+
+      const result = (await generateAprPdf(fullApr, aprSignatures, {
+        save: false,
+        output: 'base64',
+        evidences,
+      })) as { base64: string; filename: string } | undefined;
+
+      if (!result?.base64) {
+        throw new Error('Falha ao gerar o PDF oficial da APR.');
+      }
+
+      const pdfFile = base64ToPdfFile(
+        result.base64,
+        result.filename || buildAprFilename(fullApr),
+      );
+
+      await aprsService.attachFile(apr.id, pdfFile);
+      toast.success('PDF final da APR emitido e registrado com sucesso.');
+      return aprsService.getPdfAccess(apr.id);
+    },
+    [buildAprFilename, getGovernedPdfAccess],
+  );
+
+  const handlePrintAfterSave = useCallback(
+    async (aprId: string) => {
+      toast.info('Preparando impressão da APR...');
+      const current = await aprsService.findOne(aprId);
+      const shouldUseGovernedPdf =
+        Boolean(current.pdf_file_key) || current.status === 'Aprovada';
+
+      if (shouldUseGovernedPdf) {
+        const access = await ensureGovernedPdf(current);
+        if (access?.url) {
+          openPdfForPrint(access.url, () => {
+            toast.info(
+              'Pop-up bloqueado. Abrimos o PDF final da APR na mesma aba para impressão.',
+            );
+          });
+          return;
+        }
+
+        toast.warning(
+          'O PDF final da APR foi emitido, mas a URL segura não está disponível agora.',
+        );
+        return;
+      }
+
+      const [fullApr, aprSignatures, evidences] = await Promise.all([
+        aprsService.findOne(aprId),
+        signaturesService.findByDocument(aprId, 'APR'),
+        aprsService.listAprEvidences(aprId),
+      ]);
+      const result = (await generateAprPdf(fullApr, aprSignatures, {
+        save: false,
+        output: 'base64',
+        evidences,
+      })) as { base64: string } | undefined;
+
+      if (!result?.base64) {
+        throw new Error('Falha ao gerar o PDF da APR para impressão.');
+      }
+
+      const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+      openPdfForPrint(fileURL, () => {
+        toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
+      });
+      setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+    },
+    [ensureGovernedPdf],
+  );
 
   const buildChecklistSuggestionHref = useCallback(
     (suggestion: SophieDraftChecklistSuggestion) => {
@@ -463,6 +595,7 @@ export function AprForm({ id }: AprFormProps) {
       }
 
       let aprId = id;
+      let offlineQueued = false;
       const payload = Object.fromEntries(
         Object.entries(data).filter(([key]) => key !== 'pdf_signed'),
       ) as AprMutationPayload;
@@ -472,12 +605,14 @@ export function AprForm({ id }: AprFormProps) {
           'APR aprovada está bloqueada para edição. Emita o PDF final na listagem ou crie uma nova versão para alterar o documento.',
         );
       }
-      
+
       if (id) {
-        await aprsService.update(id, payload);
+        const updated = await aprsService.update(id, payload);
+        offlineQueued = Boolean((updated as Apr & { offlineQueued?: boolean }).offlineQueued);
       } else {
         const newApr = await aprsService.create(payload);
         aprId = newApr.id;
+        offlineQueued = Boolean((newApr as Apr & { offlineQueued?: boolean }).offlineQueued);
       }
 
       if (aprId) {
@@ -548,19 +683,53 @@ export function AprForm({ id }: AprFormProps) {
           })),
         );
       }
+
+      return { aprId: aprId || undefined, offlineQueued } as AprSubmitResult;
     },
     {
       successMessage: () =>
         id ? 'APR atualizada com sucesso!' : 'APR cadastrada com sucesso!',
       redirectTo: '/dashboard/aprs',
+      skipRedirect: () => submitIntentRef.current === 'save_and_print',
       context: 'APR',
-      onSuccess: () => {
+      onSuccess: (result) => {
         if (draftStorageKey && typeof window !== 'undefined') {
           window.localStorage.removeItem(draftStorageKey);
         }
         if (legacyDraftStorageKey && typeof window !== 'undefined') {
           window.localStorage.removeItem(legacyDraftStorageKey);
         }
+
+        if (submitIntentRef.current !== 'save_and_print') {
+          return;
+        }
+
+        const submitResult = (result as AprSubmitResult | undefined) || {};
+        const finishRedirect = () => {
+          router.push('/dashboard/aprs');
+          router.refresh();
+        };
+
+        if (!submitResult.aprId || submitResult.offlineQueued) {
+          toast.info(
+            'APR salva em modo offline. A impressão ficará disponível após sincronização.',
+          );
+          finishRedirect();
+          return;
+        }
+
+        void (async () => {
+          try {
+            await handlePrintAfterSave(submitResult.aprId as string);
+          } catch (printError) {
+            console.error('Erro ao preparar impressão automática da APR:', printError);
+            toast.warning(
+              'APR salva, mas não foi possível abrir a impressão automática.',
+            );
+          } finally {
+            finishRedirect();
+          }
+        })();
       },
     }
   );
@@ -797,37 +966,60 @@ export function AprForm({ id }: AprFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        let companySeedId = user?.company_id || '';
+        let companySeedId = isUuidLike(user?.company_id)
+          ? String(user?.company_id)
+          : '';
 
         const loadCompanies = async (selectedCompanyId?: string) => {
           let nextCompanies: Company[] = [];
+          const scopedCompanyId = isUuidLike(selectedCompanyId)
+            ? String(selectedCompanyId)
+            : undefined;
 
-          if (user?.profile?.nome === 'Administrador Geral') {
+          try {
             const companiesPage = await companiesService.findPaginated({
               page: 1,
               limit: 100,
             });
             nextCompanies = companiesPage.data;
+          } catch (error) {
+            console.error('Erro ao carregar lista de empresas da APR:', error);
+          }
+
+          if (
+            user?.profile?.nome !== 'Administrador Geral' &&
+            nextCompanies.length === 0 &&
+            scopedCompanyId
+          ) {
+            try {
+              const selectedCompany = await companiesService.findOne(
+                scopedCompanyId,
+              );
+              nextCompanies = [selectedCompany];
+            } catch (error) {
+              console.error(
+                'Erro ao carregar empresa padrão da APR para o usuário:',
+                error,
+              );
+            }
+          }
+
+          if (
+            scopedCompanyId &&
+            !nextCompanies.some((company) => company.id === scopedCompanyId)
+          ) {
             if (
-              selectedCompanyId &&
-              !nextCompanies.some((company) => company.id === selectedCompanyId)
+              user?.profile?.nome === 'Administrador Geral' ||
+              nextCompanies.length > 0
             ) {
               try {
                 const selectedCompany = await companiesService.findOne(
-                  selectedCompanyId,
+                  scopedCompanyId,
                 );
                 nextCompanies = dedupeById([selectedCompany, ...nextCompanies]);
               } catch {
                 nextCompanies = dedupeById(nextCompanies);
               }
-            }
-          } else if (selectedCompanyId) {
-            try {
-              const selectedCompany =
-                await companiesService.findOne(selectedCompanyId);
-              nextCompanies = [selectedCompany];
-            } catch {
-              nextCompanies = [];
             }
           }
 
@@ -1163,14 +1355,14 @@ export function AprForm({ id }: AprFormProps) {
   useEffect(() => {
     if (id || selectedCompanyId) return;
     const companyId = user?.company_id;
-    if (!companyId) return;
-    setValue('company_id', companyId);
-    if (user?.site_id) {
-      setValue('site_id', user.site_id);
+    if (!isUuidLike(companyId)) return;
+    setValue('company_id', String(companyId));
+    if (isUuidLike(user?.site_id)) {
+      setValue('site_id', String(user.site_id));
     }
-    if (user?.id) {
-      setValue('elaborador_id', user.id);
-      setValue('participants', [user.id]);
+    if (isUuidLike(user?.id)) {
+      setValue('elaborador_id', String(user.id));
+      setValue('participants', [String(user.id)]);
     }
   }, [id, selectedCompanyId, setValue, user?.company_id, user?.id, user?.site_id]);
 
@@ -1597,7 +1789,13 @@ export function AprForm({ id }: AprFormProps) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form
+        onSubmit={handleSubmit((data) => {
+          submitIntentRef.current = 'save';
+          return onSubmit(data);
+        })}
+        className="space-y-6"
+      >
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <div className="ds-dashboard-panel overflow-hidden">
             <div className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/16 px-5 py-4">
@@ -2296,7 +2494,7 @@ export function AprForm({ id }: AprFormProps) {
 
           <div className="mt-4 space-y-3">
             <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
-              <table className="apr-tech-table w-full min-w-[760px] table-auto text-xs">
+              <table className="apr-tech-table w-full min-w-[760px] table-auto text-sm">
                 <thead>
                   <tr>
                     <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)] w-[170px]">Severidade</th>
@@ -2317,7 +2515,7 @@ export function AprForm({ id }: AprFormProps) {
             </div>
 
             <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
-              <table className="apr-tech-table w-full min-w-[760px] table-auto text-xs">
+              <table className="apr-tech-table w-full min-w-[760px] table-auto text-sm">
                 <thead>
                   <tr>
                     <th colSpan={2} className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">
@@ -2355,7 +2553,7 @@ export function AprForm({ id }: AprFormProps) {
             </div>
 
             <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
-              <table className="apr-tech-table w-full min-w-[860px] table-auto text-xs">
+              <table className="apr-tech-table w-full min-w-[860px] table-auto text-sm">
                 <thead>
                   <tr>
                     <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)] w-[170px]">Categoria</th>
@@ -2499,18 +2697,39 @@ export function AprForm({ id }: AprFormProps) {
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 ) : (
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className={cn(aprPrimarySubmitActionClass, isFieldMode && "min-h-12")}
-                  >
-                    {loading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    <span>{id ? 'Atualizar APR' : 'Salvar APR'}</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        submitIntentRef.current = 'save_and_print';
+                        void handleSubmit(onSubmit)();
+                      }}
+                      disabled={loading}
+                      className={cn(aprGhostActionClass, 'inline-flex items-center justify-center gap-2', isFieldMode && "min-h-12")}
+                    >
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Printer className="h-4 w-4" />
+                      )}
+                      <span>Salvar e imprimir</span>
+                    </button>
+                    <button
+                      type="submit"
+                      onClick={() => {
+                        submitIntentRef.current = 'save';
+                      }}
+                      disabled={loading}
+                      className={cn(aprPrimarySubmitActionClass, isFieldMode && "min-h-12")}
+                    >
+                      {loading ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      <span>{id ? 'Atualizar APR' : 'Salvar APR'}</span>
+                    </button>
+                  </>
                 )
               ) : (
                 <button

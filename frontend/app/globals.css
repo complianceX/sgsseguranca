@@ -1307,9 +1307,9 @@ html[data-theme="light"] {
     font-weight: 800 !important;
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    font-size: 0.8rem;
-    padding-top: 0.45rem !important;
-    padding-bottom: 0.45rem !important;
+    font-size: 0.9rem;
+    padding-top: 0.55rem !important;
+    padding-bottom: 0.55rem !important;
     overflow-wrap: anywhere;
     word-break: break-word;
   }
@@ -1318,9 +1318,9 @@ html[data-theme="light"] {
     border: 1px solid #111827 !important;
     color: #111827 !important;
     background: #ffffff !important;
-    padding: 0.45rem 0.5rem !important;
+    padding: 0.55rem 0.6rem !important;
     line-height: 1.35;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     overflow-wrap: anywhere;
     word-break: break-word;
   }

@@ -21,6 +21,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   Plus,
+  Printer,
   Save,
   ShieldAlert,
   Sparkles,
@@ -30,6 +31,9 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { inspectionsService, type Inspection } from "@/services/inspectionsService";
+import { generateInspectionPdf } from "@/lib/pdf/inspectionGenerator";
+import { base64ToPdfBlob } from "@/lib/pdf/pdfFile";
+import { openPdfForPrint } from "@/lib/print-utils";
 import { sitesService, Site } from "@/services/sitesService";
 import { usersService, User } from "@/services/usersService";
 import { getFormErrorMessage } from "@/lib/error-handler";
@@ -362,9 +366,12 @@ function SectionHeader({
 }
 
 const labelClassName =
-  "mb-1.5 block text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]";
+  "mb-2 block text-[13px] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]";
 const nativeSelectClassName =
-  "flex h-10 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 text-[13px] font-medium text-[var(--ds-color-text-primary)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60";
+  "flex h-11 w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 text-base font-medium text-[var(--ds-color-text-primary)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)] disabled:cursor-not-allowed disabled:opacity-60";
+
+const formControlsScopeClassName =
+  "[&_input:not([type='checkbox']):not([type='radio'])]:h-11 [&_input:not([type='checkbox']):not([type='radio'])]:px-4 [&_input:not([type='checkbox']):not([type='radio'])]:text-base [&_textarea]:min-h-[8rem] [&_textarea]:px-4 [&_textarea]:py-3 [&_textarea]:text-base [&_textarea]:leading-6 [&_select]:h-11 [&_select]:px-4 [&_select]:text-base";
 
 export function InspectionForm({ id }: InspectionFormProps) {
   const router = useRouter();
@@ -849,7 +856,65 @@ export function InspectionForm({ id }: InspectionFormProps) {
     toast.success("Ação adicionada ao plano a partir do risco selecionado.");
   };
 
-  const onSubmit = async (data: InspectionFormData) => {
+  const getErrorStatus = (error: unknown) =>
+    Number(
+      (error as { response?: { status?: number } } | undefined)?.response
+        ?.status ?? 0,
+    ) || null;
+
+  const getGovernedPdfAccess = async (inspectionId: string) => {
+    try {
+      return await inspectionsService.getPdfAccess(inspectionId);
+    } catch (error) {
+      if (getErrorStatus(error) === 404) {
+        return null;
+      }
+      throw error;
+    }
+  };
+
+  const handlePrintAfterSave = async (inspectionId: string) => {
+    toast.info("Preparando impressão do relatório...");
+    const access = await getGovernedPdfAccess(inspectionId);
+
+    if (access?.url) {
+      openPdfForPrint(access.url, () => {
+        toast.info(
+          "Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressão.",
+        );
+      });
+      return;
+    }
+
+    if (access) {
+      toast.warning(
+        "O PDF final da inspeção foi emitido, mas a URL segura não está disponível agora.",
+      );
+      return;
+    }
+
+    const fullInspection = await inspectionsService.findOne(inspectionId);
+    const result = (await generateInspectionPdf(fullInspection, {
+      save: false,
+      output: "base64",
+    })) as { base64: string } | undefined;
+
+    if (!result?.base64) {
+      throw new Error("Falha ao gerar o PDF da inspeção para impressão.");
+    }
+
+    const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
+    openPdfForPrint(fileURL, () => {
+      toast.info("Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.");
+    });
+    setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
+  };
+
+  const onSubmit = async (
+    data: InspectionFormData,
+    options?: { printAfterSave?: boolean },
+  ) => {
+    const shouldPrintAfterSave = options?.printAfterSave ?? false;
     try {
       setLoading(true);
       setSubmitError(null);
@@ -933,6 +998,26 @@ export function InspectionForm({ id }: InspectionFormProps) {
         setDraftSavedAt(null);
       }
 
+      if (shouldPrintAfterSave) {
+        if (offlineQueued || !inspectionId) {
+          toast.info(
+            "Relatório salvo em modo offline. A impressão ficará disponível após sincronização.",
+          );
+        } else {
+          try {
+            await handlePrintAfterSave(inspectionId);
+          } catch (printError) {
+            console.error(
+              "Erro ao preparar impressão automática da inspeção:",
+              printError,
+            );
+            toast.warning(
+              "Relatório salvo, mas não foi possível abrir a impressão automática.",
+            );
+          }
+        }
+      }
+
       router.push("/dashboard/inspections");
       router.refresh();
     } catch (error) {
@@ -997,6 +1082,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
         onSubmit={handleSubmit(onSubmit, onInvalid)}
         className={cn(
           "ds-form-page space-y-6 pb-12",
+          formControlsScopeClassName,
           isFieldMode && "mx-auto max-w-5xl space-y-4 pb-32",
         )}
       >
@@ -1088,6 +1174,22 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   size={isFieldMode ? "lg" : "md"}
                 >
                   Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    void handleSubmit(
+                      (data) => onSubmit(data, { printAfterSave: true }),
+                      onInvalid,
+                    )();
+                  }}
+                  disabled={loading || isSubmitting}
+                  size={isFieldMode ? "lg" : "md"}
+                  className={cn(isFieldMode && "col-span-1")}
+                >
+                  <Printer className="h-4 w-4" />
+                  Salvar e imprimir
                 </Button>
                 <Button
                   type="submit"
