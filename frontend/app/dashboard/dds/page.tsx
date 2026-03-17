@@ -198,6 +198,38 @@ export default function DdsPage() {
         ?.status ?? 0,
     ) || null;
 
+  const getApiErrorMessage = useCallback((error: unknown) => {
+    const message = (
+      error as
+        | { response?: { data?: { message?: string | string[] } } }
+        | undefined
+    )?.response?.data?.message;
+
+    if (Array.isArray(message)) {
+      return message.join(" ");
+    }
+    if (typeof message === "string" && message.trim()) {
+      return message;
+    }
+    return null;
+  }, []);
+
+  const getAllowedStatusTransitions = useCallback((dds: Dds): DdsStatus[] => {
+    if (dds.pdf_file_key) {
+      return [];
+    }
+
+    const currentStatus: DdsStatus = dds.status ?? "rascunho";
+    const transitions = DDS_ALLOWED_TRANSITIONS[currentStatus] ?? [];
+    if (!dds.is_modelo) {
+      return transitions;
+    }
+
+    return transitions.filter(
+      (status) => status !== "publicado" && status !== "auditado",
+    );
+  }, []);
+
   const buildDdsFilename = (dds: Dds) =>
     buildPdfFilename("DDS", dds.tema || "dds", dds.data);
 
@@ -255,6 +287,7 @@ export default function DdsPage() {
             "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
           );
         });
+        setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
       }
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
@@ -359,7 +392,9 @@ export default function DdsPage() {
       toast.success(`DDS movido para "${DDS_STATUS_LABEL[updated.status]}".`);
     } catch (error) {
       console.error("Erro ao atualizar status do DDS:", error);
-      toast.error("Não foi possível atualizar o status.");
+      toast.error(
+        getApiErrorMessage(error) || "Não foi possível atualizar o status.",
+      );
     }
   };
 
@@ -877,7 +912,8 @@ export default function DdsPage() {
               <TableBody>
                 {ddsList.map((dds) => {
                   const currentStatus: DdsStatus = dds.status ?? "rascunho";
-                  const transitions = DDS_ALLOWED_TRANSITIONS[currentStatus];
+                  const transitions = getAllowedStatusTransitions(dds);
+                  const isLockedByFinalPdf = Boolean(dds.pdf_file_key);
                   return (
                     <TableRow key={dds.id}>
                       <TableCell>
@@ -970,12 +1006,33 @@ export default function DdsPage() {
                             <Mail className="h-4 w-4" />
                           </Button>
                           <Link
-                            href={`/dashboard/dds/edit/${dds.id}`}
-                            className={buttonVariants({
-                              size: "icon",
-                              variant: "ghost",
-                            })}
-                            title="Editar DDS"
+                            href={
+                              isLockedByFinalPdf
+                                ? "#"
+                                : `/dashboard/dds/edit/${dds.id}`
+                            }
+                            className={cn(
+                              buttonVariants({
+                                size: "icon",
+                                variant: "ghost",
+                              }),
+                              isLockedByFinalPdf
+                                ? "cursor-not-allowed opacity-45"
+                                : "",
+                            )}
+                            title={
+                              isLockedByFinalPdf
+                                ? "DDS com PDF final emitido: edição bloqueada"
+                                : "Editar DDS"
+                            }
+                            onClick={(event) => {
+                              if (isLockedByFinalPdf) {
+                                event.preventDefault();
+                                toast.error(
+                                  "DDS com PDF final emitido. Gere um novo DDS para alterações.",
+                                );
+                              }
+                            }}
                           >
                             <Pencil className="h-4 w-4" />
                           </Link>

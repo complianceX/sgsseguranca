@@ -26,6 +26,8 @@ import { isAiEnabled } from "@/lib/featureFlags";
 import { SignatureModal } from "../app/dashboard/checklists/components/SignatureModal";
 import { signaturesService } from "@/services/signaturesService";
 import { getFormErrorMessage } from "@/lib/error-handler";
+import { selectedTenantStore } from "@/lib/selectedTenantStore";
+import { sessionStore } from "@/lib/sessionStore";
 
 const ddsSchema = z.object({
   tema: z.string().min(5, "O tema deve ter pelo menos 5 caracteres"),
@@ -67,11 +69,58 @@ type HistoricalPhotoReference = {
 
 const TEAM_PHOTO_SIGNATURE_PREFIX = "team_photo";
 const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = "team_photo_reuse_justification";
+const UUID_LIKE_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuidLike(value?: string | null): value is string {
+  return typeof value === "string" && UUID_LIKE_REGEX.test(value.trim());
+}
+
+function buildSignatureSnapshot(input: {
+  participantIds: string[];
+  signatures: Record<string, { data: string; type: string }>;
+  teamPhotos: TeamPhotoEvidence[];
+  photoReuseJustification: string;
+}) {
+  const participants = [...input.participantIds].sort();
+  const normalizedSignatures = participants.map((participantId) => {
+    const signature = input.signatures[participantId];
+    return {
+      participantId,
+      type: signature?.type || "",
+      data: signature?.data || "",
+    };
+  });
+  const normalizedPhotos = [...input.teamPhotos]
+    .map((photo) => ({
+      hash: photo.hash,
+      capturedAt: photo.capturedAt,
+      imageData: photo.imageData,
+      metadata: photo.metadata,
+    }))
+    .sort((first, second) => first.hash.localeCompare(second.hash));
+
+  return JSON.stringify({
+    participants,
+    normalizedSignatures,
+    normalizedPhotos,
+    photoReuseJustification: String(input.photoReuseJustification || "").trim(),
+  });
+}
 
 export function DdsForm({ id }: DdsFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const prefillCompanyId = searchParams.get("company_id") || "";
+  const prefillCompanyIdParam = searchParams.get("company_id") || "";
+  const selectedTenantCompanyId = selectedTenantStore.get()?.companyId || null;
+  const sessionCompanyId = sessionStore.get()?.companyId || null;
+  const prefillCompanyId = isUuidLike(prefillCompanyIdParam)
+    ? prefillCompanyIdParam
+    : isUuidLike(selectedTenantCompanyId)
+      ? selectedTenantCompanyId
+      : isUuidLike(sessionCompanyId)
+        ? sessionCompanyId
+        : "";
   const prefillSiteId = searchParams.get("site_id") || "";
   const prefillFacilitatorId =
     searchParams.get("facilitador_id") || searchParams.get("user_id") || "";
@@ -101,6 +150,9 @@ export function DdsForm({ id }: DdsFormProps) {
     Record<string, HistoricalPhotoReference>
   >({});
   const [photoReuseJustification, setPhotoReuseJustification] = useState("");
+  const [initialSignatureSnapshot, setInitialSignatureSnapshot] = useState<
+    string | null
+  >(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
@@ -172,6 +224,35 @@ export function DdsForm({ id }: DdsFormProps) {
         } catch {
           // sem permissão para listar empresas — seguir com lista vazia
         }
+
+        const fallbackCompanyId = isUuidLike(prefillCompanyId)
+          ? prefillCompanyId
+          : undefined;
+        if (
+          fallbackCompanyId &&
+          !companiesData.some((company) => company.id === fallbackCompanyId)
+        ) {
+          try {
+            const fallbackCompany = await companiesService.findOne(
+              fallbackCompanyId,
+            );
+            companiesData = [fallbackCompany, ...companiesData];
+          } catch {
+            // ignora fallback sem permissão
+          }
+        }
+
+        if (
+          !id &&
+          !prefillCompanyId &&
+          companiesData.length === 1 &&
+          companiesData[0]?.id
+        ) {
+          setValue("company_id", companiesData[0].id, {
+            shouldValidate: true,
+          });
+        }
+
         setCompanies(companiesData);
         setSites(siteData);
         setUsers(userData);
@@ -187,10 +268,12 @@ export function DdsForm({ id }: DdsFormProps) {
             { data: string; type: string }
           > = {};
           const loadedTeamPhotos: TeamPhotoEvidence[] = [];
+          let loadedPhotoReuseJustification = "";
 
           existingSignatures.forEach((sig) => {
             if (sig.type === TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE) {
-              setPhotoReuseJustification(sig.signature_data || "");
+              loadedPhotoReuseJustification = sig.signature_data || "";
+              setPhotoReuseJustification(loadedPhotoReuseJustification);
               return;
             }
 
@@ -232,6 +315,17 @@ export function DdsForm({ id }: DdsFormProps) {
             facilitador_id: dds.facilitador_id,
             participants: dds.participants.map((p) => p.id),
           });
+
+          setInitialSignatureSnapshot(
+            buildSignatureSnapshot({
+              participantIds: dds.participants.map((participant) => participant.id),
+              signatures: participantSignatures,
+              teamPhotos: loadedTeamPhotos,
+              photoReuseJustification: loadedPhotoReuseJustification,
+            }),
+          );
+        } else {
+          setInitialSignatureSnapshot(null);
         }
       } catch (error) {
         console.error("Erro ao carregar dados:", error);
@@ -241,7 +335,7 @@ export function DdsForm({ id }: DdsFormProps) {
       }
     }
     loadData();
-  }, [id, reset]);
+  }, [id, reset, prefillCompanyId, setValue]);
 
   useEffect(() => {
     async function loadHistoricalPhotoHashes() {
@@ -275,7 +369,7 @@ export function DdsForm({ id }: DdsFormProps) {
       }
     }
 
-    if (selectedCompanyId) {
+    if (isUuidLike(selectedCompanyId)) {
       loadHistoricalPhotoHashes();
     } else {
       setHistoricalPhotoHashes({});
@@ -456,24 +550,59 @@ export function DdsForm({ id }: DdsFormProps) {
         ddsId = newDds.id;
       }
 
-      if (ddsId) {
-        await ddsService.replaceSignatures(ddsId, {
-          participant_signatures: data.participants.map((participantId) => {
+      const currentSignatureSnapshot = buildSignatureSnapshot({
+        participantIds: data.participants,
+        signatures,
+        teamPhotos,
+        photoReuseJustification,
+      });
+      const shouldReplaceSignatures =
+        !id ||
+        !initialSignatureSnapshot ||
+        currentSignatureSnapshot !== initialSignatureSnapshot;
+
+      if (ddsId && shouldReplaceSignatures) {
+        const participantSignaturesPayload = data.participants.map(
+          (participantId) => {
             const signature = signatures[participantId];
+            if (signature.type === "hmac") {
+              const pin = String(signature.data || "").trim();
+              if (!/^\d{4,6}$/.test(pin)) {
+                const participantName =
+                  users.find((user) => user.id === participantId)?.nome ||
+                  "Participante";
+                throw new Error(
+                  `${participantName} precisa confirmar novamente a assinatura por PIN para concluir esta alteração.`,
+                );
+              }
+              return {
+                user_id: participantId,
+                type: signature.type,
+                signature_data: "HMAC_PENDING",
+                pin,
+              };
+            }
+
             return {
               user_id: participantId,
               type: signature.type || "digital",
-              signature_data:
-                signature.type === "hmac" ? "HMAC_PENDING" : signature.data,
-              pin: signature.type === "hmac" ? signature.data : undefined,
+              signature_data: signature.data,
             };
-          }),
+          },
+        );
+
+        await ddsService.replaceSignatures(ddsId, {
+          participant_signatures: participantSignaturesPayload,
           team_photos: teamPhotos,
           photo_reuse_justification:
             Object.keys(photoReuseWarnings).length > 0
               ? photoReuseJustification.trim()
               : undefined,
         });
+
+        if (id) {
+          setInitialSignatureSnapshot(currentSignatureSnapshot);
+        }
       }
 
       toast.success(
@@ -492,7 +621,7 @@ export function DdsForm({ id }: DdsFormProps) {
         fallback: "Erro ao salvar DDS. Tente novamente.",
       });
       setSubmitError(errorMessage);
-      toast.error("Erro ao salvar DDS. Verifique os dados e tente novamente.");
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
