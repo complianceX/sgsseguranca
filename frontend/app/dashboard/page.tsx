@@ -43,6 +43,14 @@ type QuickAction = {
   icon: LucideIcon;
 };
 
+type CriticalAlert = {
+  id: string;
+  title: string;
+  message: string;
+  href: string;
+  tone: "danger" | "warning" | "info";
+};
+
 const QUEUE_FILTERS: Array<{ id: QueueFilter; label: string }> = [
   { id: "all", label: "Tudo" },
   { id: "critical", label: "Críticas" },
@@ -115,6 +123,10 @@ function resolveGreeting(hour: number) {
   if (hour < 12) return "Bom dia";
   if (hour < 18) return "Boa tarde";
   return "Boa noite";
+}
+
+function clampScore(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
 }
 
 export default function DashboardPage() {
@@ -251,6 +263,181 @@ export default function DashboardPage() {
     isBefore(new Date(t.data_vencimento), new Date()),
   ).length;
 
+  const criticalDocumentsCount = useMemo(
+    () =>
+      pendingQueue.items.filter(
+        (item) => item.category === "documents" && item.priority === "critical",
+      ).length,
+    [pendingQueue.items],
+  );
+
+  const criticalActionsCount = useMemo(
+    () =>
+      pendingQueue.items.filter(
+        (item) => item.category === "actions" && item.priority === "critical",
+      ).length,
+    [pendingQueue.items],
+  );
+
+  const complianceScore = useMemo(() => {
+    if (loading) {
+      return null;
+    }
+
+    const criticalPenalty = Math.min(40, pendingQueue.summary.critical * 8);
+    const highPenalty = Math.min(18, pendingQueue.summary.high * 2.5);
+    const totalPenalty = Math.min(
+      14,
+      Math.max(0, pendingQueue.summary.total - 5) * 1.2,
+    );
+    const epiPenalty = showEpiModule
+      ? Math.min(14, expiredEpisCount * 3.5)
+      : 0;
+    const trainingPenalty = showTrainingModule
+      ? Math.min(14, expiredTrainingsCount * 3.5)
+      : 0;
+
+    return clampScore(
+      100 -
+        criticalPenalty -
+        highPenalty -
+        totalPenalty -
+        epiPenalty -
+        trainingPenalty,
+    );
+  }, [
+    expiredEpisCount,
+    expiredTrainingsCount,
+    loading,
+    pendingQueue.summary.critical,
+    pendingQueue.summary.high,
+    pendingQueue.summary.total,
+    showEpiModule,
+    showTrainingModule,
+  ]);
+
+  const complianceLabel = useMemo(() => {
+    if (complianceScore == null) return "Calculando";
+    if (complianceScore >= 85) return "Excelente";
+    if (complianceScore >= 70) return "Controlado";
+    if (complianceScore >= 50) return "Atenção";
+    return "Crítico";
+  }, [complianceScore]);
+
+  const complianceToneClasses = useMemo(() => {
+    if (complianceScore == null) {
+      return "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)]";
+    }
+    if (complianceScore >= 85) {
+      return "border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]";
+    }
+    if (complianceScore >= 70) {
+      return "border-[var(--ds-color-info-border)] bg-[var(--ds-color-info-subtle)] text-[var(--ds-color-info)]";
+    }
+    if (complianceScore >= 50) {
+      return "border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]";
+    }
+    return "border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]";
+  }, [complianceScore]);
+
+  const compliancePillars = useMemo(() => {
+    const documentsScore = clampScore(
+      100 - pendingQueue.summary.documents * 3 - criticalDocumentsCount * 8,
+    );
+    const queueScore = clampScore(
+      100 - pendingQueue.summary.critical * 9 - pendingQueue.summary.high * 4,
+    );
+    const healthRawPenalty =
+      (showEpiModule ? expiredEpisCount * 6 : 0) +
+      (showTrainingModule ? expiredTrainingsCount * 6 : 0);
+    const healthScore = clampScore(100 - healthRawPenalty);
+    const actionsScore = clampScore(
+      100 - pendingQueue.summary.actions * 3 - criticalActionsCount * 8,
+    );
+
+    return [
+      { id: "documents", label: "Documentos", value: documentsScore },
+      { id: "queue", label: "Pendências", value: queueScore },
+      { id: "health", label: "Saúde ocupacional", value: healthScore },
+      { id: "actions", label: "Ações corretivas", value: actionsScore },
+    ];
+  }, [
+    criticalActionsCount,
+    criticalDocumentsCount,
+    expiredEpisCount,
+    expiredTrainingsCount,
+    pendingQueue.summary.actions,
+    pendingQueue.summary.critical,
+    pendingQueue.summary.documents,
+    pendingQueue.summary.high,
+    showEpiModule,
+    showTrainingModule,
+  ]);
+
+  const criticalAlerts = useMemo<CriticalAlert[]>(() => {
+    const alerts: CriticalAlert[] = [];
+
+    if (pendingQueue.summary.critical > 0) {
+      alerts.push({
+        id: "critical-pending",
+        title: "Pendências críticas ativas",
+        message: `${pendingQueue.summary.critical} item(ns) exigem tratativa imediata.`,
+        href: "/dashboard",
+        tone: "danger",
+      });
+    }
+
+    if (showTrainingModule && expiredTrainingsCount > 0) {
+      alerts.push({
+        id: "expired-trainings",
+        title: "Treinamentos vencidos",
+        message: `${expiredTrainingsCount} colaborador(es) podem estar com bloqueio operacional.`,
+        href: "/dashboard/trainings",
+        tone: "warning",
+      });
+    }
+
+    if (showEpiModule && expiredEpisCount > 0) {
+      alerts.push({
+        id: "expired-epi",
+        title: "EPIs com CA vencido",
+        message: `${expiredEpisCount} registro(s) precisam de regularização.`,
+        href: "/dashboard/epis",
+        tone: "warning",
+      });
+    }
+
+    if (pendingQueue.summary.actions > 0) {
+      alerts.push({
+        id: "pending-actions",
+        title: "Ações corretivas em aberto",
+        message: `${pendingQueue.summary.actions} ação(ões) aguardam conclusão e evidência.`,
+        href: "/dashboard/corrective-actions",
+        tone: "info",
+      });
+    }
+
+    if (pendingQueue.degraded) {
+      alerts.push({
+        id: "degraded-data",
+        title: "Dashboard em leitura parcial",
+        message: "Uma ou mais fontes não responderam e exigem verificação.",
+        href: "/dashboard",
+        tone: "warning",
+      });
+    }
+
+    return alerts.slice(0, 4);
+  }, [
+    expiredEpisCount,
+    expiredTrainingsCount,
+    pendingQueue.degraded,
+    pendingQueue.summary.actions,
+    pendingQueue.summary.critical,
+    showEpiModule,
+    showTrainingModule,
+  ]);
+
   const kpis = [
     {
       label: "Pendências críticas",
@@ -365,6 +552,117 @@ export default function DashboardPage() {
               );
             })}
           </div>
+        </div>
+      </section>
+
+      {/* ── Score + Alertas Críticos ── */}
+      <section className="grid grid-cols-1 gap-3 xl:grid-cols-12">
+        <div className="ds-dashboard-panel p-5 xl:col-span-5">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                Score de conformidade
+              </p>
+              <h2 className="mt-1 text-base font-bold text-[var(--ds-color-text-primary)]">
+                Índice SST da operação
+              </h2>
+            </div>
+            <StatusPill
+              tone={
+                complianceScore != null && complianceScore < 50
+                  ? "danger"
+                  : complianceScore != null && complianceScore < 70
+                    ? "warning"
+                    : complianceScore != null && complianceScore < 85
+                      ? "info"
+                      : "success"
+              }
+            >
+              {complianceLabel}
+            </StatusPill>
+          </div>
+
+          <div
+            className={cn(
+              "rounded-xl border px-4 py-3",
+              complianceToneClasses,
+            )}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] opacity-80">
+              Score geral
+            </p>
+            <p className="mt-1 text-3xl font-bold">
+              {complianceScore == null ? "—" : `${complianceScore}/100`}
+            </p>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {compliancePillars.map((pillar) => (
+              <div
+                key={pillar.id}
+                className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2"
+              >
+                <p className="text-[10px] uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                  {pillar.label}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                  {pillar.value}/100
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="ds-dashboard-panel p-5 xl:col-span-7">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                Alertas críticos
+              </p>
+              <h2 className="mt-1 text-base font-bold text-[var(--ds-color-text-primary)]">
+                Itens que exigem ação imediata
+              </h2>
+            </div>
+            <StatusPill tone={criticalAlerts.length > 0 ? "warning" : "success"}>
+              {criticalAlerts.length > 0
+                ? `${criticalAlerts.length} ativo(s)`
+                : "Sem alertas"}
+            </StatusPill>
+          </div>
+
+          {criticalAlerts.length === 0 ? (
+            <div className="flex h-[7.5rem] items-center justify-center rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-success-subtle)] text-sm font-medium text-[var(--ds-color-success)]">
+              Nenhum alerta crítico no momento.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {criticalAlerts.map((alert) => (
+                <Link
+                  key={alert.id}
+                  href={alert.href}
+                  className={cn(
+                    "flex items-start justify-between gap-3 rounded-xl border px-4 py-3 transition-colors",
+                    alert.tone === "danger" &&
+                      "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] hover:brightness-[0.98]",
+                    alert.tone === "warning" &&
+                      "border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] hover:brightness-[0.98]",
+                    alert.tone === "info" &&
+                      "border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] hover:brightness-[0.98]",
+                  )}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      {alert.title}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                      {alert.message}
+                    </p>
+                  </div>
+                  <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ds-color-text-secondary)]" />
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
