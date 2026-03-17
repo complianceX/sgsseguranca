@@ -910,7 +910,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
     setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
   };
 
-  const onSubmit = async (
+  const submitInspection = async (
     data: InspectionFormData,
     options?: { printAfterSave?: boolean },
   ) => {
@@ -1037,6 +1037,10 @@ export function InspectionForm({ id }: InspectionFormProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onSubmit = async (data: InspectionFormData) => {
+    await submitInspection(data);
   };
 
   const onInvalid = (formErrors: FieldErrors<InspectionFormData>) => {
@@ -1180,7 +1184,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                   variant="secondary"
                   onClick={() => {
                     void handleSubmit(
-                      (data) => onSubmit(data, { printAfterSave: true }),
+                      (data) => submitInspection(data, { printAfterSave: true }),
                       onInvalid,
                     )();
                   }}

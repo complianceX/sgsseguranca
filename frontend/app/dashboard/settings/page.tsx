@@ -5,7 +5,18 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { toast } from 'sonner';
 import axios from 'axios';
-import { Settings, ShieldCheck, Users, Building2, Map, HardHat, AlertTriangle, Wrench, Construction } from 'lucide-react';
+import {
+  Settings,
+  ShieldCheck,
+  Users,
+  Building2,
+  Map,
+  HardHat,
+  AlertTriangle,
+  Wrench,
+  Construction,
+  Paintbrush,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { companiesService, Company } from '@/services/companiesService';
@@ -14,8 +25,8 @@ import { SophieStatusCard } from '@/components/SophieStatusCard';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
 
 export default function SettingsPage() {
-  const { user, hasPermission } = useAuth();
-  const isAdmin = user?.profile?.nome === 'Administrador Geral';
+  const { user, hasPermission, isAdminGeral } = useAuth();
+  const isAdmin = isAdminGeral;
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -41,6 +52,7 @@ export default function SettingsPage() {
     { label: 'EPIs', href: '/dashboard/epis', icon: ShieldCheck, adminOnly: true },
     { label: 'Ferramentas', href: '/dashboard/tools', icon: Wrench, adminOnly: true },
     { label: 'Máquinas', href: '/dashboard/machines', icon: Construction, adminOnly: true },
+    { label: 'Tema do sistema', href: '/dashboard/system/settings/theme', icon: Paintbrush, adminOnly: true },
   ];
 
   useEffect(() => {

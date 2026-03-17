@@ -5,6 +5,7 @@ export interface FormErrorMessages {
   badRequest?: string;
   unauthorized?: string;
   forbidden?: string;
+  notFound?: string;
   server?: string;
   fallback?: string;
 }
@@ -113,6 +114,8 @@ export function getFormErrorMessage(
       return messages.unauthorized || messages.fallback || 'Sessão expirada.';
     case 403:
       return messages.forbidden || messages.fallback || 'Sem permissão para esta operação.';
+    case 404:
+      return messages.notFound || messages.fallback || 'Registro não encontrado.';
     case 500:
       return messages.server || messages.fallback || 'Erro interno do servidor.';
     default:

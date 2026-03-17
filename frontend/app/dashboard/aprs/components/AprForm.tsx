@@ -329,10 +329,28 @@ export function AprForm({ id }: AprFormProps) {
     [id, user?.company_id],
   );
   
-  const selectedRiskIds = useWatch({ control, name: 'risks', defaultValue: [] });
-  const selectedEpiIds = useWatch({ control, name: 'epis', defaultValue: [] });
-  const selectedParticipantIds = useWatch({ control, name: 'participants', defaultValue: [] });
-  const watchedRiskItems = useWatch({ control, name: 'itens_risco', defaultValue: [] });
+  const selectedRiskIdsRaw = useWatch({ control, name: 'risks', defaultValue: [] });
+  const selectedEpiIdsRaw = useWatch({ control, name: 'epis', defaultValue: [] });
+  const selectedParticipantIdsRaw = useWatch({
+    control,
+    name: 'participants',
+    defaultValue: [],
+  });
+  const watchedRiskItemsRaw = useWatch({
+    control,
+    name: 'itens_risco',
+    defaultValue: [],
+  });
+  const selectedRiskIds = useMemo(() => selectedRiskIdsRaw ?? [], [selectedRiskIdsRaw]);
+  const selectedEpiIds = useMemo(() => selectedEpiIdsRaw ?? [], [selectedEpiIdsRaw]);
+  const selectedParticipantIds = useMemo(
+    () => selectedParticipantIdsRaw ?? [],
+    [selectedParticipantIdsRaw],
+  );
+  const watchedRiskItems = useMemo(
+    () => watchedRiskItemsRaw ?? [],
+    [watchedRiskItemsRaw],
+  );
   const isModelo = watch('is_modelo');
   const isApproved = currentApr?.status === 'Aprovada';
   const hasFinalPdf = Boolean(currentApr?.pdf_file_key);
@@ -486,7 +504,7 @@ export function AprForm({ id }: AprFormProps) {
 
   const hasSuggestedRiskInMatrix = useCallback(
     (suggestion: SophieDraftRiskSuggestion) =>
-      watchedRiskItems.some((item) =>
+      (watchedRiskItems ?? []).some((item) =>
         String(item?.condicao_perigosa || '')
           .trim()
           .toLowerCase() === suggestion.label.trim().toLowerCase(),
@@ -982,7 +1000,9 @@ export function AprForm({ id }: AprFormProps) {
           } else {
             const fallbackCompanyId =
               scopedCompanyId ||
-              (isUuidLike(user?.company_id) ? String(user.company_id) : undefined);
+              (isUuidLike(user?.company_id)
+                ? String(user?.company_id)
+                : undefined);
             if (fallbackCompanyId) {
               try {
                 const selectedCompany = await companiesService.findOne(
@@ -1348,11 +1368,11 @@ export function AprForm({ id }: AprFormProps) {
     if (!isUuidLike(companyId)) return;
     setValue('company_id', String(companyId));
     if (isUuidLike(user?.site_id)) {
-      setValue('site_id', String(user.site_id));
+      setValue('site_id', String(user?.site_id));
     }
     if (isUuidLike(user?.id)) {
-      setValue('elaborador_id', String(user.id));
-      setValue('participants', [String(user.id)]);
+      setValue('elaborador_id', String(user?.id));
+      setValue('participants', [String(user?.id)]);
     }
   }, [id, selectedCompanyId, setValue, user?.company_id, user?.id, user?.site_id]);
 

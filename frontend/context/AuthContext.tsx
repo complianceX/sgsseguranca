@@ -29,6 +29,29 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
+function normalizeRoleToken(value?: string | null): string {
+  if (!value) return '';
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function isAdminGeralAccount(
+  profileName?: string | null,
+  roleNames: string[] = [],
+): boolean {
+  const adminTokens = new Set(['administradorgeral', 'admingeral']);
+
+  const normalizedProfile = normalizeRoleToken(profileName);
+  if (adminTokens.has(normalizedProfile)) {
+    return true;
+  }
+
+  return roleNames.some((role) => adminTokens.has(normalizeRoleToken(role)));
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,6 +78,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const response = await api.get<AuthMeResponse>('/auth/me');
         const data = response.data;
+        const isAdminGeralDetected = isAdminGeralAccount(
+          data.user?.profile?.nome,
+          data.roles || [],
+        );
         if (mounted) {
           setUser(data.user || null);
           setRoles(data.roles || []);
@@ -66,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               profileName: data.user.profile?.nome ?? null,
             });
             if (
-              data.user.profile?.nome === 'Administrador Geral' &&
+              isAdminGeralDetected &&
               data.user.company_id &&
               !selectedTenantStore.get()
             ) {
@@ -139,12 +166,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!authenticatedUser) {
         throw new Error('Resposta de login invalida do servidor.');
       }
+      const resolvedRoles = meData?.roles || data.roles || [];
+      const isAdminGeralDetected = isAdminGeralAccount(
+        authenticatedUser.profile?.nome,
+        resolvedRoles,
+      );
       sessionStore.set({
         userId: authenticatedUser.id,
         companyId: authenticatedUser.company_id,
         profileName: authenticatedUser.profile?.nome ?? null,
       });
-      if (authenticatedUser.profile?.nome === 'Administrador Geral') {
+      if (isAdminGeralDetected) {
         if (authenticatedUser.company_id) {
           selectedTenantStore.set({
             companyId: authenticatedUser.company_id,
@@ -158,7 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       setUser(authenticatedUser);
-      setRoles(meData?.roles || data.roles || []);
+      setRoles(resolvedRoles);
       setPermissions(meData?.permissions || data.permissions || []);
       router.push('/dashboard');
     } catch (error) {
@@ -184,9 +216,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     router.push('/login');
   };
 
-  const isAdminGeral =
-    roles.includes('Administrador Geral') || user?.profile?.nome === 'Administrador Geral';
-  const hasPermission = (permission: string) => permissions.includes(permission);
+  const isAdminGeral = isAdminGeralAccount(user?.profile?.nome, roles);
+  const hasPermission = (permission: string) =>
+    isAdminGeral || permissions.includes(permission);
 
   return (
     <AuthContext.Provider

@@ -240,8 +240,7 @@ export function Sidebar({
   onClose?: () => void;
 }) {
   const pathname = usePathname();
-  const { logout, user, roles, hasPermission } = useAuth();
-  const isAdmin = user?.profile?.nome === 'Administrador Geral';
+  const { logout, user, roles, hasPermission, isAdminGeral } = useAuth();
   const sidebarContext = useMemo(() => resolveSidebarContext(user, roles), [roles, user]);
   const defaultOpenSections = useMemo(() => getDefaultOpenSections(sidebarContext), [sidebarContext]);
 
@@ -252,8 +251,8 @@ export function Sidebar({
         ...section,
         items: (section.id === 'essenciais' ? buildQuickAccessItems(sidebarContext) : section.items).filter((item) => {
           if (!isTemporarilyVisibleDashboardRoute(item.href)) return false;
-          if (item.adminOnly && !isAdmin) return false;
-          if (item.superAdminOnly && !isAdmin) return false;
+          if (item.adminOnly && !isAdminGeral) return false;
+          if (item.superAdminOnly && !isAdminGeral) return false;
 
           const href = item.href || '';
           const needsDashboardPermission = [
@@ -278,7 +277,7 @@ export function Sidebar({
         }),
       }))
       .filter((section) => section.items.length > 0);
-  }, [hasPermission, isAdmin, pathname, sidebarContext]);
+  }, [hasPermission, isAdminGeral, pathname, sidebarContext]);
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(defaultOpenSections);
 

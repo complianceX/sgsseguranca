@@ -20,6 +20,11 @@ jest.mock('@/components/GandraInsights', () => ({
   GandraInsights: () => <div>Gandra Insights Mock</div>,
 }));
 
+jest.mock('@/lib/temporarilyHiddenModules', () => ({
+  isTemporarilyHiddenDashboardRoute: () => false,
+  isTemporarilyVisibleDashboardRoute: () => true,
+}));
+
 jest.mock('recharts', () => {
   const MockChart = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
 
@@ -145,11 +150,17 @@ describe('DashboardPage', () => {
   it('renders the editorial dashboard with queue and critical expirations', async () => {
     render(<DashboardPage />);
 
+    expect(await screen.findByText(/centro operacional sst/i)).toBeInTheDocument();
+    expect(screen.getByText(/score de conformidade/i)).toBeInTheDocument();
+    expect(screen.getByText(/alertas críticos/i)).toBeInTheDocument();
     expect(await screen.findByText(/vencimentos críticos/i)).toBeInTheDocument();
     expect(screen.getByText(/fila central de pendências/i)).toBeInTheDocument();
     expect(screen.getByText(/o que exige ação agora/i)).toBeInTheDocument();
     expect(screen.getByText(/^epis$/i)).toBeInTheDocument();
     expect(screen.getByText(/^treinamentos$/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /^sophie$/i }),
+    ).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.queryByText(/síntese executiva/i)).not.toBeInTheDocument();
