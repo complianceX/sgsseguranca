@@ -7,12 +7,6 @@ import { selectedTenantStore } from './selectedTenantStore';
 const RAILWAY_DEFAULT_API_URL =
   'https://keen-smile-production.up.railway.app';
 
-const UUID_LIKE_REGEX =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-const isUuidLike = (value?: string | null): value is string =>
-  typeof value === 'string' && UUID_LIKE_REGEX.test(value.trim());
-
 const resolveBaseUrl = () => {
   const explicitApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
   const fallbackApiUrl = process.env.NEXT_PUBLIC_API_FALLBACK_URL?.trim();
@@ -118,9 +112,7 @@ api.interceptors.request.use((config) => {
   }
   const token = tokenStore.get();
   const session = sessionStore.get();
-  const companyId = isUuidLike(session?.companyId ?? null)
-    ? session!.companyId!.trim()
-    : null;
+  const companyId = session?.companyId || null;
   const userProfileName = session?.profileName;
 
   if (token) {
@@ -130,30 +122,11 @@ api.interceptors.request.use((config) => {
   const existingCompanyId =
     config.headers?.get?.('x-company-id') ||
     config.headers?.['x-company-id'];
-  const normalizedExistingCompanyId =
-    typeof existingCompanyId === 'string' ? existingCompanyId.trim() : '';
-
-  if (normalizedExistingCompanyId && !isUuidLike(normalizedExistingCompanyId)) {
-    if (typeof config.headers?.delete === 'function') {
-      config.headers.delete('x-company-id');
-    } else if (config.headers) {
-      delete config.headers['x-company-id'];
-    }
-  }
-
-  if (!normalizedExistingCompanyId || !isUuidLike(normalizedExistingCompanyId)) {
+  if (!existingCompanyId) {
     if (userProfileName === 'Administrador Geral') {
       const selectedTenant = selectedTenantStore.get();
-      const selectedTenantCompanyId = isUuidLike(selectedTenant?.companyId ?? null)
-        ? selectedTenant!.companyId.trim()
-        : null;
-
-      if (!selectedTenantCompanyId && selectedTenant) {
-        selectedTenantStore.clear();
-      }
-
-      if (selectedTenantCompanyId) {
-        config.headers['x-company-id'] = selectedTenantCompanyId;
+      if (selectedTenant?.companyId) {
+        config.headers['x-company-id'] = selectedTenant.companyId;
       } else if (companyId) {
         config.headers['x-company-id'] = companyId;
       }
