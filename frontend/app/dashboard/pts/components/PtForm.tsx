@@ -1033,11 +1033,15 @@ export function PtForm({ id }: PtFormProps) {
           let nextCompanies: Company[] = [];
 
           if (user?.profile?.nome === 'Administrador Geral') {
-            const companiesPage = await companiesService.findPaginated({
-              page: 1,
-              limit: 100,
-            });
-            nextCompanies = companiesPage.data;
+            try {
+              const companiesPage = await companiesService.findPaginated({
+                page: 1,
+                limit: 100,
+              });
+              nextCompanies = companiesPage.data;
+            } catch {
+              // sem permissão para listar todas as empresas — seguir com lista vazia
+            }
 
             if (
               currentCompanyId &&

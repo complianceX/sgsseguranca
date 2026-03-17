@@ -95,11 +95,16 @@ export function RiskForm({ id }: RiskFormProps) {
           });
         }
 
-        const companiesPage = await companiesService.findPaginated({
-          page: 1,
-          limit: 100,
-        });
-        let nextCompanies = companiesPage.data;
+        let nextCompanies: Company[] = [];
+        try {
+          const companiesPage = await companiesService.findPaginated({
+            page: 1,
+            limit: 100,
+          });
+          nextCompanies = companiesPage.data;
+        } catch {
+          // sem permissão para listar todas as empresas
+        }
 
         if (
           selectedCompanyId &&

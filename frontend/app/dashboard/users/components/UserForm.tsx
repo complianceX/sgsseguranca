@@ -132,11 +132,15 @@ export function UserForm({ id }: UserFormProps) {
         let companiesData: Company[] = [];
 
         if (isAdminGeneral) {
-          const companiesPage = await companiesService.findPaginated({
-            page: 1,
-            limit: 100,
-          });
-          companiesData = companiesPage.data;
+          try {
+            const companiesPage = await companiesService.findPaginated({
+              page: 1,
+              limit: 100,
+            });
+            companiesData = companiesPage.data;
+          } catch {
+            // sem permissão para listar todas as empresas — seguir com lista vazia
+          }
           if (
             selectedCompanyId &&
             !companiesData.some((company) => company.id === selectedCompanyId)

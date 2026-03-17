@@ -162,11 +162,16 @@ export function DdsForm({ id }: DdsFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const [companiesData, siteData, userData] = await Promise.all([
-          companiesService.findAll(),
+        const [siteData, userData] = await Promise.all([
           sitesService.findAll(),
           usersService.findAll(),
         ]);
+        let companiesData: Company[] = [];
+        try {
+          companiesData = await companiesService.findAll();
+        } catch {
+          // sem permissão para listar empresas — seguir com lista vazia
+        }
         setCompanies(companiesData);
         setSites(siteData);
         setUsers(userData);

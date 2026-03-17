@@ -52,7 +52,12 @@ export function ActivityForm({ id }: ActivityFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const companiesData = await companiesService.findAll();
+        let companiesData: Company[] = [];
+        try {
+          companiesData = await companiesService.findAll();
+        } catch {
+          // sem permissão para listar empresas — seguir com lista vazia
+        }
         setCompanies(companiesData);
 
         if (id) {
