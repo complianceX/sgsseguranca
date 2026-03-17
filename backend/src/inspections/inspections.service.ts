@@ -353,8 +353,13 @@ export class InspectionsService {
 
   async countPendingActionItems(companyId?: string): Promise<number> {
     const resolvedCompanyId = companyId || this.tenantService.getTenantId();
-    const params = resolvedCompanyId ? [resolvedCompanyId] : [];
-    const where = resolvedCompanyId ? 'WHERE i.company_id = $1' : '';
+    if (!resolvedCompanyId) {
+      throw new BadRequestException(
+        'Contexto de empresa obrigatório para contabilizar ações pendentes.',
+      );
+    }
+    const params = [resolvedCompanyId];
+    const where = 'WHERE i.company_id = $1';
 
     const rows: unknown = await this.inspectionsRepository.query(
       `
@@ -516,7 +521,7 @@ export class InspectionsService {
     });
 
     if (!inspection) {
-      throw new NotFoundException(`Inspection with ID ${id} not found`);
+      throw new NotFoundException(`Inspeção com ID ${id} não encontrada`);
     }
 
     return inspection;

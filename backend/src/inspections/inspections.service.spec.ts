@@ -155,6 +155,112 @@ describe('InspectionsService', () => {
     expect(inspectionsRepository.save).not.toHaveBeenCalled();
   });
 
+  it('lanca NotFoundException quando inspeção não existe', async () => {
+    tenantRepo.findOne.mockResolvedValue(null);
+    await expect(
+      service.findOneEntity('inexistente', 'company-1'),
+    ).rejects.toThrow('Inspeção com ID inexistente não encontrada');
+  });
+
+  it('remove inspeção chamando removeFinalDocumentReference e hard-delete', async () => {
+    const inspection = {
+      id: 'insp-1',
+      company_id: 'company-1',
+      setor_area: 'Almoxarifado',
+      tipo_inspecao: 'Rotina',
+    } as Inspection;
+    tenantRepo.findOne.mockResolvedValue(inspection);
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(null);
+    const deleteInEntity = jest.fn().mockResolvedValue(undefined);
+    (documentGovernanceService.removeFinalDocumentReference as jest.Mock)
+      .mockImplementationOnce(async (input: { removeEntityState: (m: unknown) => Promise<void> }) => {
+        await input.removeEntityState({ getRepository: jest.fn(() => ({ delete: deleteInEntity })) });
+      });
+
+    await expect(service.remove('insp-1', 'company-1')).resolves.toBeUndefined();
+    expect(documentGovernanceService.removeFinalDocumentReference).toHaveBeenCalledWith(
+      expect.objectContaining({ module: 'inspection', entityId: 'insp-1' }),
+    );
+    expect(deleteInEntity).toHaveBeenCalledWith({ id: 'insp-1' });
+  });
+
+  it('attachEvidence: adiciona evidência à lista existente', async () => {
+    const inspection = {
+      id: 'insp-1',
+      company_id: 'company-1',
+      evidencias: [{ descricao: 'Foto 1', url: 'data:image/jpeg;base64,aaa' }],
+    } as unknown as Inspection;
+    tenantRepo.findOne.mockResolvedValue(inspection);
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(null);
+
+    const s3Service = (service as unknown as { s3Service: { generateDocumentKey: jest.Mock; uploadFile: jest.Mock } }).s3Service;
+    s3Service.generateDocumentKey = jest.fn(() => 'inspections/company-1/insp-1/foto.jpg');
+    s3Service.uploadFile = jest.fn().mockResolvedValue(undefined);
+
+    const file = {
+      originalname: 'foto.jpg',
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from('fake-image'),
+    } as Express.Multer.File;
+
+    const result = await service.attachEvidence('insp-1', file, 'Nova foto', 'company-1');
+    expect(result.evidencias).toHaveLength(2);
+    expect(result.evidencias[1]).toMatchObject({
+      descricao: 'Nova foto',
+      original_name: 'foto.jpg',
+    });
+    expect(inspectionsRepository.update).toHaveBeenCalledWith('insp-1', {
+      evidencias: expect.arrayContaining([
+        expect.objectContaining({ descricao: 'Nova foto' }),
+      ]),
+    });
+  });
+
+  it('savePdf: faz cleanup do arquivo quando governança falha', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: '11111111-1111-4111-8111-111111111111',
+      company_id: 'company-1',
+      setor_area: 'Área Teste',
+      tipo_inspecao: 'Especial',
+      data_inspecao: new Date('2026-03-15T00:00:00.000Z'),
+      created_at: new Date(),
+    } as Inspection);
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(null);
+    (documentGovernanceService.registerFinalDocument as jest.Mock)
+      .mockRejectedValue(new Error('governance failure'));
+
+    const file = {
+      originalname: 'insp.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-inspection'),
+    } as Express.Multer.File;
+
+    await expect(
+      service.savePdf('11111111-1111-4111-8111-111111111111', file, 'company-1'),
+    ).rejects.toThrow('governance failure');
+
+    expect(documentStorageService.deleteFile).toHaveBeenCalled();
+  });
+
+  it('countPendingActionItems: lança BadRequestException sem tenant', async () => {
+    const serviceWithNoTenant = new (InspectionsService as unknown as new (...args: unknown[]) => InspectionsService)(
+      inspectionsRepository,
+      {},
+      {},
+      { sendToCompany: jest.fn() },
+      { getTenantId: jest.fn(() => null) },
+      { wrap: jest.fn(() => tenantRepo) },
+      {},
+      documentStorageService,
+      documentGovernanceService,
+      documentRegistryService,
+    );
+
+    await expect(
+      serviceWithNoTenant.countPendingActionItems(undefined),
+    ).rejects.toThrow('Contexto de empresa obrigatório');
+  });
+
   it('valida código público de inspeção somente quando o documento final existe no registry', async () => {
     (documentRegistryService.findByCode as jest.Mock)
       .mockResolvedValueOnce(null)

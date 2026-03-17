@@ -90,6 +90,10 @@ class EvidenciaDto {
   @IsString()
   @IsOptional()
   url?: string;
+
+  @IsString()
+  @IsOptional()
+  original_name?: string;
 }
 
 export class CreateInspectionDto {

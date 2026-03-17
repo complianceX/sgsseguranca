@@ -132,7 +132,7 @@ export class InspectionsController {
   ) {
     const tenantId = this.getTenantIdOrThrow();
     const numericIndex = Number(index);
-    if (!Number.isFinite(numericIndex) || numericIndex < 0) {
+    if (!Number.isInteger(numericIndex) || numericIndex < 0) {
       throw new BadRequestException('Índice de evidência inválido.');
     }
 
