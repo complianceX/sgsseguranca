@@ -108,7 +108,7 @@ const APR_STEPS = [
   {
     id: 2,
     title: 'Riscos e controles',
-    description: 'Atividades, riscos, EPIs, participantes e planilha técnica da APR.',
+    description: 'Participantes, assinaturas e planilha técnica da APR.',
     icon: ClipboardList,
   },
   {
@@ -257,14 +257,14 @@ export function AprForm({ id }: AprFormProps) {
   } | null>(null);
   const [suggestingControls, setSuggestingControls] = useState(false);
   
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [risks, setRisks] = useState<Risk[]>([]);
-  const [epis, setEpis] = useState<Epi[]>([]);
+  const [, setActivities] = useState<Activity[]>([]);
+  const [, setRisks] = useState<Risk[]>([]);
+  const [, setEpis] = useState<Epi[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [tools, setTools] = useState<Tool[]>([]);
-  const [machines, setMachines] = useState<Machine[]>([]);
+  const [, setTools] = useState<Tool[]>([]);
+  const [, setMachines] = useState<Machine[]>([]);
 
   // Signature States
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
@@ -320,11 +320,6 @@ export function AprForm({ id }: AprFormProps) {
   const dataInicioApr = watch('data_inicio');
   const filteredSites = sites.filter(site => site.company_id === selectedCompanyId);
   const filteredUsers = users.filter(user => user.company_id === selectedCompanyId);
-  const filteredActivities = activities.filter(activity => activity.company_id === selectedCompanyId);
-  const filteredRisks = risks.filter(risk => risk.company_id === selectedCompanyId);
-  const filteredEpis = epis.filter(epi => epi.company_id === selectedCompanyId);
-  const filteredTools = tools.filter(tool => tool.company_id === selectedCompanyId);
-  const filteredMachines = machines.filter(machine => machine.company_id === selectedCompanyId);
   const draftStorageKey = useMemo(
     () => (id ? null : `gst.apr.wizard.draft.${user?.company_id || 'default'}`),
     [id, user?.company_id],
@@ -334,11 +329,8 @@ export function AprForm({ id }: AprFormProps) {
     [id, user?.company_id],
   );
   
-  const selectedActivityIds = useWatch({ control, name: 'activities', defaultValue: [] });
   const selectedRiskIds = useWatch({ control, name: 'risks', defaultValue: [] });
   const selectedEpiIds = useWatch({ control, name: 'epis', defaultValue: [] });
-  const selectedToolIds = useWatch({ control, name: 'tools', defaultValue: [] });
-  const selectedMachineIds = useWatch({ control, name: 'machines', defaultValue: [] });
   const selectedParticipantIds = useWatch({ control, name: 'participants', defaultValue: [] });
   const watchedRiskItems = useWatch({ control, name: 'itens_risco', defaultValue: [] });
   const isModelo = watch('is_modelo');
@@ -1882,10 +1874,10 @@ export function AprForm({ id }: AprFormProps) {
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <WizardMetric label="Atividades" value={String(selectedActivityIds.length)} tone="info" />
-                <WizardMetric label="Riscos" value={String(selectedRiskIds.length)} tone="warning" />
                 <WizardMetric label="Linhas APR" value={String(totalRiskLines)} tone="default" />
+                <WizardMetric label="Participantes" value={String(selectedParticipantIds.length)} tone="info" />
                 <WizardMetric label="Assinaturas" value={String(completedSignatures)} tone="success" />
+                <WizardMetric label="Evidências" value={String(aprEvidences.length)} tone="warning" />
               </div>
 
               {selectedParticipantIds.length > 0 ? (
@@ -2222,44 +2214,6 @@ export function AprForm({ id }: AprFormProps) {
               ) : null}
             </div>
           )}
-          <SectionGrid
-            title="Atividades"
-            items={filteredActivities}
-            selectedIds={selectedActivityIds}
-            onToggle={(id) => toggleSelection('activities', id)}
-            error={errors.activities?.message}
-            color="blue"
-          />
-          <SectionGrid
-            title="Riscos"
-            items={filteredRisks}
-            selectedIds={selectedRiskIds}
-            onToggle={(id) => toggleSelection('risks', id)}
-            error={errors.risks?.message}
-            color="red"
-          />
-          <SectionGrid
-            title="EPIs"
-            items={filteredEpis}
-            selectedIds={selectedEpiIds}
-            onToggle={(id) => toggleSelection('epis', id)}
-            error={errors.epis?.message}
-            color="emerald"
-          />
-          <SectionGrid
-            title="Ferramentas"
-            items={filteredTools}
-            selectedIds={selectedToolIds}
-            onToggle={(id) => toggleSelection('tools', id)}
-            color="slate"
-          />
-          <SectionGrid
-            title="Máquinas"
-            items={filteredMachines}
-            selectedIds={selectedMachineIds}
-            onToggle={(id) => toggleSelection('machines', id)}
-            color="indigo"
-          />
           <SectionGrid
             title="Participantes e Assinaturas"
             items={filteredUsers}
