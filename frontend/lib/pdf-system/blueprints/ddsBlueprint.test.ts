@@ -65,6 +65,12 @@ describe("drawDdsBlueprint", () => {
         },
         {
           user_id: "user-1",
+          type: "team_photo_2",
+          signature_data: "data:image/jpeg;base64,LEGACY",
+          created_at: "2026-03-16T09:10:00.000Z",
+        },
+        {
+          user_id: "user-1",
           type: "team_photo_reuse_justification",
           signature_data: "Justificativa",
         },
@@ -85,6 +91,9 @@ describe("drawDdsBlueprint", () => {
         items: [
           expect.objectContaining({
             source: "data:image/jpeg;base64,AAA",
+          }),
+          expect.objectContaining({
+            source: "data:image/jpeg;base64,LEGACY",
           }),
         ],
       }),

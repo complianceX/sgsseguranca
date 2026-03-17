@@ -12,10 +12,13 @@ export const DDS_STATUS_LABEL: Record<DdsStatus, string> = {
 };
 
 export const DDS_STATUS_COLORS: Record<DdsStatus, string> = {
-  rascunho: "bg-yellow-500/12 text-yellow-300 border-yellow-500/25",
-  publicado: "bg-blue-500/12 text-blue-300 border-blue-500/25",
-  auditado: "bg-green-500/12 text-green-300 border-green-500/25",
-  arquivado: "bg-zinc-500/12 text-zinc-400 border-zinc-500/25",
+  rascunho:
+    "border-amber-500/35 bg-amber-500/15 text-amber-800 dark:text-amber-200",
+  publicado: "border-sky-500/35 bg-sky-500/15 text-sky-800 dark:text-sky-200",
+  auditado:
+    "border-emerald-500/35 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200",
+  arquivado:
+    "border-slate-500/30 bg-slate-500/12 text-slate-700 dark:text-slate-300",
 };
 
 export const DDS_ALLOWED_TRANSITIONS: Record<DdsStatus, DdsStatus[]> = {
@@ -164,10 +167,17 @@ export const ddsService = {
   getHistoricalPhotoHashes: async (
     limit = 100,
     excludeId?: string,
+    companyId?: string,
   ): Promise<HistoricalPhotoHashReference[]> => {
     const response = await api.get<HistoricalPhotoHashReference[]>(
       "/dds/historical-photo-hashes",
-      { params: { limit, ...(excludeId ? { exclude_id: excludeId } : {}) } },
+      {
+        params: {
+          limit,
+          ...(excludeId ? { exclude_id: excludeId } : {}),
+          ...(companyId ? { company_id: companyId } : {}),
+        },
+      },
     );
     return response.data;
   },

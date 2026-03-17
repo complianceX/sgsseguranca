@@ -350,9 +350,7 @@ describe('DdsService', () => {
 
     await expect(
       service.updateStatus('dds-1', DdsStatus.PUBLICADO),
-    ).rejects.toThrow(
-      'Modelos de DDS não podem ser publicados ou auditados.',
-    );
+    ).rejects.toThrow('Modelos de DDS não podem ser publicados ou auditados.');
     expect(repository.save).not.toHaveBeenCalled();
   });
 
@@ -446,9 +444,11 @@ describe('DdsService', () => {
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
-      getRawMany: jest.fn().mockResolvedValue([
-        { id: 'dds-old', tema: 'DDS antigo', data: '2026-03-10' },
-      ]),
+      getRawMany: jest
+        .fn()
+        .mockResolvedValue([
+          { id: 'dds-old', tema: 'DDS antigo', data: '2026-03-10' },
+        ]),
     }));
     repository.findOne.mockResolvedValue({
       id: 'dds-1',
@@ -489,9 +489,7 @@ describe('DdsService', () => {
         },
         'operador-1',
       ),
-    ).rejects.toThrow(
-      'Detectamos reuso potencial de foto.',
-    );
+    ).rejects.toThrow('Detectamos reuso potencial de foto.');
     expect(signaturesService.replaceDocumentSignatures).not.toHaveBeenCalled();
   });
 
@@ -533,7 +531,9 @@ describe('DdsService', () => {
     expect(result.participantSignatures).toBe(1);
     expect(result.teamPhotos).toBe(1);
     expect(result.duplicatePhotoWarnings).toHaveLength(0);
-    expect(signaturesService.replaceDocumentSignatures).toHaveBeenCalledTimes(1);
+    expect(signaturesService.replaceDocumentSignatures).toHaveBeenCalledTimes(
+      1,
+    );
   });
 
   it('persiste assinaturas do DDS com o participante correto e justificativa de reuso quando necessario', async () => {
@@ -653,6 +653,66 @@ describe('DdsService', () => {
           type: 'team_photo_reuse_justification',
         }),
       ]),
+    );
+  });
+
+  it('getHistoricalPhotoHashes: aplica company_id informado quando nao existe tenant', async () => {
+    const queryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    };
+    repository.createQueryBuilder.mockReturnValue(queryBuilder);
+
+    const serviceWithoutTenant = new DdsService(
+      repository as unknown as Repository<Dds>,
+      { getTenantId: jest.fn(() => null) } as unknown as TenantService,
+      documentStorageService as DocumentStorageService,
+      documentGovernanceService as DocumentGovernanceService,
+      signaturesService as SignaturesService,
+    );
+
+    await serviceWithoutTenant.getHistoricalPhotoHashes(
+      50,
+      undefined,
+      'company-99',
+    );
+
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      'dds.company_id = :companyScopeId',
+      { companyScopeId: 'company-99' },
+    );
+    expect(signaturesService.findManyByDocuments).toHaveBeenCalledWith(
+      [],
+      'DDS',
+      expect.objectContaining({ companyId: 'company-99' }),
+    );
+  });
+
+  it('getHistoricalPhotoHashes: prioriza tenant sobre company_id informado', async () => {
+    const queryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    };
+    repository.createQueryBuilder.mockReturnValue(queryBuilder);
+
+    await service.getHistoricalPhotoHashes(50, undefined, 'company-externa');
+
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      'dds.company_id = :companyScopeId',
+      { companyScopeId: 'company-1' },
+    );
+    expect(signaturesService.findManyByDocuments).toHaveBeenCalledWith(
+      [],
+      'DDS',
+      expect.objectContaining({ companyId: 'company-1' }),
     );
   });
 });

@@ -310,13 +310,17 @@ export class DdsService {
   async getHistoricalPhotoHashes(
     limit = 100,
     excludeDocumentId?: string,
+    companyId?: string,
   ): Promise<HistoricalPhotoHashes[]> {
     const tenantId = this.tenantService.getTenantId();
+    const companyScopeId = tenantId || companyId;
 
     const recent = await this.ddsRepository
       .createQueryBuilder('dds')
       .select(['dds.id AS id', 'dds.tema AS tema', 'dds.data AS data'])
-      .where(tenantId ? 'dds.company_id = :tenantId' : '1=1', { tenantId })
+      .where(companyScopeId ? 'dds.company_id = :companyScopeId' : '1=1', {
+        companyScopeId,
+      })
       .andWhere('dds.deleted_at IS NULL')
       .andWhere(excludeDocumentId ? 'dds.id != :excludeDocumentId' : '1=1', {
         excludeDocumentId,
@@ -330,7 +334,7 @@ export class DdsService {
       documentIds,
       'DDS',
       {
-        companyId: tenantId || undefined,
+        companyId: companyScopeId || undefined,
         typePrefix: TEAM_PHOTO_SIGNATURE_PREFIX,
       },
     );

@@ -12,8 +12,8 @@ import {
 } from "../components";
 import { drawParticipantTable } from "../tables";
 
-const TEAM_PHOTO_SIGNATURE_PREFIX = "team_photo";
 const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = "team_photo_reuse_justification";
+const TEAM_PHOTO_SIGNATURE_PATTERN = /^team_photo_\d+$/i;
 
 type TeamPhotoEvidence = {
   imageData?: string;
@@ -22,17 +22,47 @@ type TeamPhotoEvidence = {
 };
 
 function isTeamPhotoSignature(type?: string): boolean {
-  return Boolean(type && new RegExp(`^${TEAM_PHOTO_SIGNATURE_PREFIX}_\\d+$`, "i").test(type));
+  return Boolean(type && TEAM_PHOTO_SIGNATURE_PATTERN.test(type));
 }
 
 function parseTeamPhoto(signature: Signature): TeamPhotoEvidence | null {
+  const payload = String(signature.signature_data || "").trim();
+  if (!payload) {
+    return null;
+  }
+
   try {
-    const parsed = JSON.parse(signature.signature_data) as TeamPhotoEvidence;
-    if (!parsed?.imageData) {
+    const parsed = JSON.parse(payload) as
+      | (TeamPhotoEvidence & { image_data?: string; captured_at?: string })
+      | null;
+    if (!parsed) {
       return null;
     }
-    return parsed;
+
+    const imageData = String(
+      parsed.imageData || parsed.image_data || "",
+    ).trim();
+    if (!imageData) {
+      return null;
+    }
+
+    return {
+      imageData,
+      capturedAt:
+        typeof parsed.capturedAt === "string"
+          ? parsed.capturedAt
+          : typeof parsed.captured_at === "string"
+            ? parsed.captured_at
+            : signature.created_at,
+      hash: typeof parsed.hash === "string" ? parsed.hash : undefined,
+    };
   } catch {
+    if (payload.startsWith("data:image/")) {
+      return {
+        imageData: payload,
+        capturedAt: signature.created_at,
+      };
+    }
     return null;
   }
 }

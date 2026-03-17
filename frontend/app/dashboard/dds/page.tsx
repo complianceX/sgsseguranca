@@ -69,6 +69,7 @@ import {
 } from "@/components/ui/table";
 import { PaginationControls } from "@/components/PaginationControls";
 import { cn } from "@/lib/utils";
+import { getFormErrorMessage } from "@/lib/error-handler";
 
 type StoredFile = {
   ddsId: string;
@@ -316,7 +317,18 @@ export default function DdsPage() {
       openUrlInNewTab(access.url);
     } catch (error) {
       console.error("Erro ao emitir/abrir PDF final do DDS:", error);
-      toast.error("Não foi possível emitir ou abrir o PDF final do DDS.");
+      const message = getFormErrorMessage(error, {
+        badRequest:
+          "Não foi possível emitir o PDF final. Verifique status, participantes e assinaturas do DDS.",
+        unauthorized: "Sessão expirada. Faça login novamente.",
+        forbidden:
+          "Você não tem permissão para emitir o PDF final deste DDS.",
+        notFound:
+          "DDS não encontrado ou sem dados válidos para emissão do PDF final.",
+        server: "Erro interno ao emitir o PDF final do DDS.",
+        fallback: "Não foi possível emitir ou abrir o PDF final do DDS.",
+      });
+      toast.error(message);
     }
   };
 

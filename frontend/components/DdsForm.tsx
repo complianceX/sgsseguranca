@@ -243,7 +243,11 @@ export function DdsForm({ id }: DdsFormProps) {
       try {
         const nextHashes: Record<string, HistoricalPhotoReference> = {};
         const historicalReferences =
-          await ddsService.getHistoricalPhotoHashes(100, id);
+          await ddsService.getHistoricalPhotoHashes(
+            100,
+            id,
+            selectedCompanyId,
+          );
         historicalReferences
           .forEach((item) => {
             item.hashes.forEach((hash) => {
@@ -530,7 +534,9 @@ export function DdsForm({ id }: DdsFormProps) {
         [currentSigningUser.id]: { data: signatureData, type },
       }));
 
-      const updated = [...selectedParticipantIds, currentSigningUser.id];
+      const updated = Array.from(
+        new Set([...selectedParticipantIds, currentSigningUser.id]),
+      );
       setValue("participants", updated, { shouldValidate: true });
       toast.success(`Assinatura de ${currentSigningUser.nome} capturada!`);
     }
@@ -662,6 +668,10 @@ export function DdsForm({ id }: DdsFormProps) {
                   setValue("site_id", "");
                   setValue("facilitador_id", "");
                   setValue("participants", []);
+                  setSignatures({});
+                  setTeamPhotos([]);
+                  setPhotoReuseWarnings({});
+                  setPhotoReuseJustification("");
                 }}
                 className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
                   errors.company_id

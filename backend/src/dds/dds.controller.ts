@@ -165,10 +165,12 @@ export class DdsController {
   getHistoricalPhotoHashes(
     @Query('limit') limit?: string,
     @Query('exclude_id') excludeId?: string,
+    @Query('company_id') companyId?: string,
   ) {
     return this.ddsService.getHistoricalPhotoHashes(
       limit ? Number(limit) : 100,
       excludeId,
+      companyId,
     );
   }
 
