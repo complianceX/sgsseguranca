@@ -46,10 +46,10 @@
   --ds-color-action-secondary-foreground: var(--ds-color-text-primary);
   --ds-color-action-secondary-border: color-mix(in srgb, var(--brand-secondary) 18%, var(--ds-color-border-default) 82%);
 
-  --ds-color-accent: #2f6ee6;
-  --ds-color-accent-hover: #255dc8;
-  --ds-color-accent-subtle: color-mix(in srgb, #2f6ee6 12%, white 88%);
-  --ds-color-accent-border: color-mix(in srgb, #2f6ee6 26%, white 74%);
+  --ds-color-accent: #1E63D6;
+  --ds-color-accent-hover: #1755C7;
+  --ds-color-accent-subtle: color-mix(in srgb, #1E63D6 12%, white 88%);
+  --ds-color-accent-border: color-mix(in srgb, #1E63D6 26%, white 74%);
 
   --ds-color-success: color-mix(in srgb, var(--brand-success) 92%, #052e16 8%);
   --ds-color-success-hover: color-mix(in srgb, var(--brand-success) 82%, #052e16 18%);
@@ -94,7 +94,7 @@
   --ds-gradient-surface: var(--ds-color-surface-base);
 
   --ds-kpi-blue: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 88%, white 12%), color-mix(in srgb, var(--brand-primary) 66%, var(--brand-secondary) 34%));
-  --ds-kpi-violet: linear-gradient(135deg, #2f6ee6, #1f5fe0);
+  --ds-kpi-violet: linear-gradient(135deg, #1E63D6, #1755C7);
   --ds-kpi-emerald: linear-gradient(135deg, color-mix(in srgb, var(--brand-success) 90%, white 10%), color-mix(in srgb, var(--brand-success) 76%, var(--brand-secondary) 24%));
   --ds-kpi-amber: linear-gradient(135deg, color-mix(in srgb, var(--brand-warning) 92%, white 8%), color-mix(in srgb, var(--brand-warning) 72%, var(--risk-substantial) 28%));
   --ds-kpi-danger: linear-gradient(135deg, color-mix(in srgb, var(--brand-danger) 92%, white 8%), color-mix(in srgb, var(--brand-danger) 76%, #7f1d1d 24%));
@@ -111,9 +111,9 @@
   --ds-kpi-red-bg: color-mix(in srgb, var(--brand-danger) 10%, white 90%);
   --ds-kpi-red-fg: color-mix(in srgb, var(--brand-danger) 76%, #450a0a 24%);
   --ds-kpi-red-border: color-mix(in srgb, var(--brand-danger) 24%, white 76%);
-  --ds-kpi-violet-bg: color-mix(in srgb, #2f6ee6 10%, white 90%);
-  --ds-kpi-violet-fg: #1f5fe0;
-  --ds-kpi-violet-border: color-mix(in srgb, #2f6ee6 24%, white 76%);
+  --ds-kpi-violet-bg: color-mix(in srgb, #1E63D6 10%, white 90%);
+  --ds-kpi-violet-fg: #1755C7;
+  --ds-kpi-violet-border: color-mix(in srgb, #1E63D6 24%, white 76%);
   --ds-kpi-teal-bg: color-mix(in srgb, var(--brand-secondary) 10%, white 90%);
   --ds-kpi-teal-fg: color-mix(in srgb, var(--brand-secondary) 78%, #1f3d5d 22%);
   --ds-kpi-teal-border: color-mix(in srgb, var(--brand-secondary) 24%, white 76%);

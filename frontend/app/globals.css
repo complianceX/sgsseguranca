@@ -422,14 +422,14 @@ html[data-theme="light"] {
 
   .risk-badge-attention {
     background: var(--risk-attention);
-    color: #111827;
+    color: #0F1923;
     border: 1px solid #a16207;
     font-weight: 700;
   }
 
   .risk-badge-substantial {
     background: var(--risk-substantial);
-    color: #111827;
+    color: #0F1923;
     border: 1px solid #9a3412;
     font-weight: 700;
   }
@@ -1277,7 +1277,7 @@ html[data-theme="light"] {
 
   /* APR/PT print tables — manter fundo branco para impressão */
   .apr-sheet thead th {
-    border: 1px solid #111827 !important;
+    border: 1px solid #0F1923 !important;
     font-size: 0.78rem;
     letter-spacing: 0.02em;
     padding-top: 0.55rem !important;
@@ -1301,9 +1301,9 @@ html[data-theme="light"] {
   }
 
   .apr-tech-table thead th {
-    border: 1px solid #111827 !important;
+    border: 1px solid #0F1923 !important;
     background: #e5e7eb !important;
-    color: #111827 !important;
+    color: #0F1923 !important;
     font-weight: 800 !important;
     text-transform: uppercase;
     letter-spacing: 0.02em;
@@ -1315,8 +1315,8 @@ html[data-theme="light"] {
   }
 
   .apr-tech-table tbody td {
-    border: 1px solid #111827 !important;
-    color: #111827 !important;
+    border: 1px solid #0F1923 !important;
+    color: #0F1923 !important;
     background: #ffffff !important;
     padding: 0.55rem 0.6rem !important;
     line-height: 1.35;

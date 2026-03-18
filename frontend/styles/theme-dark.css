@@ -35,8 +35,8 @@
   --ds-color-sidebar-border: #2A4D6A;
 
   --ds-color-action-primary: #1F69E8; /* Ligeiramente mais luminoso no dark — mantém ratio sobre cards brancos */
-  --ds-color-action-primary-hover: #1b52c4;
-  --ds-color-action-primary-active: #1845a8;
+  --ds-color-action-primary-hover: #1A5BD0;
+  --ds-color-action-primary-active: #144AAE;
   --ds-color-action-primary-foreground: #ffffff;
   --ds-color-primary-subtle: #e5edff;
   --ds-color-primary-subtle-hover: #d6e3ff;
@@ -48,10 +48,10 @@
   --ds-color-action-secondary-foreground: var(--ds-color-text-primary);
   --ds-color-action-secondary-border: #b4cae8;
 
-  --ds-color-accent: #2f6ee6;
-  --ds-color-accent-hover: #1f5fe0;
-  --ds-color-accent-subtle: #e6eeff;
-  --ds-color-accent-border: #a8c2f6;
+  --ds-color-accent: #1E63D6;
+  --ds-color-accent-hover: #1755C7;
+  --ds-color-accent-subtle: #E5EDFA;
+  --ds-color-accent-border: #A4BDE8;
 
   --ds-color-success: color-mix(in srgb, var(--brand-success) 82%, white 18%);
   --ds-color-success-hover: color-mix(in srgb, var(--brand-success) 70%, white 30%);
@@ -102,7 +102,7 @@
   --ds-color-command-surface: #f8fbff;
   --ds-color-command-border: #b7cae8;
 
-  --ds-gradient-brand: linear-gradient(135deg, #1f5fe0 0%, #2f6ee6 55%, #1845a8 100%);
+  --ds-gradient-brand: linear-gradient(135deg, #1755C7 0%, #1E63D6 55%, #123F8A 100%);
   --ds-gradient-surface: linear-gradient(180deg, #ffffff, #f5f8ff);
 
   --ds-kpi-blue: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 82%, white 18%), color-mix(in srgb, var(--brand-primary) 68%, var(--brand-secondary) 32%));

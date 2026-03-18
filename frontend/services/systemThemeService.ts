@@ -26,30 +26,30 @@ export interface SystemThemePreset {
   tokens: Omit<SystemThemeTokens, 'id' | 'updatedAt'>;
 }
 
-// Tema padrão (claro): fundo branco + cards azuis
+// Tema padrão (claro): Industrial Precision — ANSI Z535 / WCAG AAA
 export const DEFAULT_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
   backgroundColor: '#ffffff',
-  sidebarColor: '#0e2a4a',
-  cardColor: '#f4f8ff',
-  primaryColor: '#1f5fe0',
-  secondaryColor: '#2f5e99',
-  textPrimary: '#111827',
-  textSecondary: '#5f6b79',
-  successColor: '#2e7d32',
-  warningColor: '#b7791f',
-  dangerColor: '#c0392b',
-  infoColor: '#3b6b93',
+  sidebarColor: '#0A2035',
+  cardColor: '#F3F6FA',
+  primaryColor: '#1755C7',
+  secondaryColor: '#1E3A58',
+  textPrimary: '#0F1923',
+  textSecondary: '#5A6B7A',
+  successColor: '#1A7A35',
+  warningColor: '#C97B00',
+  dangerColor: '#C42626',
+  infoColor: '#1565A8',
 };
 
-// Tema escuro: base azul + cards brancos
+// Tema escuro: shell profundo + cards brancos para leitura de documentos
 export const DARK_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#0f2745',
-  sidebarColor: '#081d39',
+  backgroundColor: '#0D1F35',
+  sidebarColor: '#071828',
   cardColor: '#ffffff',
-  primaryColor: '#1f5fe0',
-  secondaryColor: '#2f5e99',
-  textPrimary: '#0f172a',
-  textSecondary: '#334155',
+  primaryColor: '#1F69E8',
+  secondaryColor: '#1E3A58',
+  textPrimary: '#0F1923',
+  textSecondary: '#374151',
   successColor: '#22c55e',
   warningColor: '#fbbf24',
   dangerColor: '#f87171',
