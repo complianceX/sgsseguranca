@@ -1,17 +1,17 @@
 :root[data-theme='light'],
 .theme-light {
   --ds-color-bg-canvas: #ffffff;
-  --ds-color-bg-subtle: #ffffff;
-  --ds-color-surface-base: #ffffff;
-  --ds-color-surface-elevated: #ffffff;
-  --ds-color-surface-overlay: #ffffff;
-  --ds-color-surface-muted: #f3f6fb;
-  --ds-color-surface-sunken: #edf2f8;
-  --ds-color-surface-muted-hover: #e8eef7;
+  --ds-color-bg-subtle: #f7faff;
+  --ds-color-surface-base: #e7f0ff;
+  --ds-color-surface-elevated: #dbe8ff;
+  --ds-color-surface-overlay: #f3f8ff;
+  --ds-color-surface-muted: #d3e3ff;
+  --ds-color-surface-sunken: #c8dbff;
+  --ds-color-surface-muted-hover: #c1d6ff;
 
-  --ds-color-border-subtle: #d8dee6;
-  --ds-color-border-default: #cfd6de;
-  --ds-color-border-strong: #b5c0cb;
+  --ds-color-border-subtle: #c4d4ec;
+  --ds-color-border-default: #b4c9e6;
+  --ds-color-border-strong: #97b2d9;
   --ds-color-border-focus: color-mix(in srgb, var(--brand-primary) 82%, #0f172a 18%);
 
   /* Text ramp — WCAG AA mínimo 4.5:1 em todos os fundos do sistema */

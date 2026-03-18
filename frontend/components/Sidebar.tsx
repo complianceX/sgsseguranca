@@ -25,6 +25,8 @@ import {
   Map,
   MapPin,
   MessageSquare,
+  Paintbrush,
+  Settings,
   Shield,
   Upload,
   Users,
@@ -86,6 +88,15 @@ const menuSections: MenuSection[] = [
       { icon: Upload, label: 'Importar com IA', href: '/dashboard/documentos/importar' },
       { icon: BarChart3, label: 'Indicadores', href: '/dashboard/kpis' },
       { icon: LineChart, label: 'Executivo', href: '/dashboard/executive' },
+    ],
+  },
+  {
+    id: 'sistema',
+    label: 'Sistema',
+    defaultOpen: false,
+    items: [
+      { icon: Settings, label: 'Configurações', href: '/dashboard/settings' },
+      { icon: Paintbrush, label: 'Temas', href: '/dashboard/system/settings/theme', adminOnly: true },
     ],
   },
 ];

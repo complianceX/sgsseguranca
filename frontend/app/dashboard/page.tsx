@@ -129,6 +129,14 @@ function clampScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
+function resolveComplianceStrokeColor(score: number | null) {
+  if (score == null) return "var(--ds-color-border-default)";
+  if (score >= 85) return "var(--ds-color-success)";
+  if (score >= 70) return "var(--ds-color-info)";
+  if (score >= 50) return "var(--ds-color-warning)";
+  return "var(--ds-color-danger)";
+}
+
 export default function DashboardPage() {
   const { user, hasPermission } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -338,6 +346,26 @@ export default function DashboardPage() {
       return "border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]";
     }
     return "border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]";
+  }, [complianceScore]);
+
+  const complianceCircle = useMemo(() => {
+    const size = 136;
+    const strokeWidth = 10;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const score = complianceScore ?? 0;
+    const progress = score / 100;
+    const strokeDashoffset = circumference * (1 - progress);
+
+    return {
+      size,
+      strokeWidth,
+      radius,
+      circumference,
+      strokeDashoffset,
+      stroke: resolveComplianceStrokeColor(complianceScore),
+      score,
+    };
   }, [complianceScore]);
 
   const compliancePillars = useMemo(() => {
@@ -588,12 +616,63 @@ export default function DashboardPage() {
               complianceToneClasses,
             )}
           >
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] opacity-80">
-              Score geral
-            </p>
-            <p className="mt-1 text-3xl font-bold">
-              {complianceScore == null ? "—" : `${complianceScore}/100`}
-            </p>
+            <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] opacity-80">
+                  Score geral
+                </p>
+                <p className="mt-1 text-3xl font-bold">
+                  {complianceScore == null ? "—" : `${complianceScore}/100`}
+                </p>
+                <p className="mt-1 text-xs opacity-80">
+                  Índice visual de conformidade da empresa
+                </p>
+              </div>
+
+              <div
+                className="relative mx-auto h-[8.5rem] w-[8.5rem] sm:mx-0"
+                role="img"
+                aria-label={
+                  complianceScore == null
+                    ? "Conformidade em cálculo"
+                    : `Conformidade da empresa em ${complianceScore}%`
+                }
+              >
+                <svg
+                  viewBox={`0 0 ${complianceCircle.size} ${complianceCircle.size}`}
+                  className="h-full w-full -rotate-90"
+                >
+                  <circle
+                    cx={complianceCircle.size / 2}
+                    cy={complianceCircle.size / 2}
+                    r={complianceCircle.radius}
+                    fill="none"
+                    stroke="var(--ds-color-border-subtle)"
+                    strokeWidth={complianceCircle.strokeWidth}
+                  />
+                  <circle
+                    cx={complianceCircle.size / 2}
+                    cy={complianceCircle.size / 2}
+                    r={complianceCircle.radius}
+                    fill="none"
+                    stroke={complianceCircle.stroke}
+                    strokeWidth={complianceCircle.strokeWidth}
+                    strokeLinecap="round"
+                    strokeDasharray={`${complianceCircle.circumference} ${complianceCircle.circumference}`}
+                    strokeDashoffset={complianceCircle.strokeDashoffset}
+                    style={{ transition: "stroke-dashoffset 420ms ease" }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <p className="text-[1.35rem] font-bold leading-none text-[var(--ds-color-text-primary)]">
+                    {complianceScore == null ? "—" : `${complianceCircle.score}%`}
+                  </p>
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                    Conformidade
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">

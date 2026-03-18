@@ -26,14 +26,13 @@ export interface SystemThemePreset {
   tokens: Omit<SystemThemeTokens, 'id' | 'updatedAt'>;
 }
 
-// SST Enterprise "Safety Green" — clean, sober, professional
-// Referências: ANSI Z535 · ISO 3864 · ABNT NBR ISO 3864 · ISO 45001
+// Tema padrão (claro): fundo branco + cards azuis
 export const DEFAULT_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#f7f8fa',
-  sidebarColor: '#183a2c',
-  cardColor: '#ffffff',
-  primaryColor: '#1e6b43',
-  secondaryColor: '#274c77',
+  backgroundColor: '#ffffff',
+  sidebarColor: '#0f3154',
+  cardColor: '#e7f0ff',
+  primaryColor: '#1d4ed8',
+  secondaryColor: '#1e3a8a',
   textPrimary: '#111827',
   textSecondary: '#5f6b79',
   successColor: '#2e7d32',
@@ -42,15 +41,15 @@ export const DEFAULT_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
   infoColor: '#3b6b93',
 };
 
-// SST Dark — high contrast for field/low-light/tablet use
+// Tema escuro: base azul + cards brancos
 export const DARK_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#0e1a13',
-  sidebarColor: '#091209',
-  cardColor: '#132018',
-  primaryColor: '#4ade80',
-  secondaryColor: '#60a5fa',
-  textPrimary: '#f0f4f8',
-  textSecondary: '#b8c8be',
+  backgroundColor: '#0a2f6b',
+  sidebarColor: '#061f4a',
+  cardColor: '#ffffff',
+  primaryColor: '#1d4ed8',
+  secondaryColor: '#2563eb',
+  textPrimary: '#0f172a',
+  textSecondary: '#334155',
   successColor: '#22c55e',
   warningColor: '#fbbf24',
   dangerColor: '#f87171',
