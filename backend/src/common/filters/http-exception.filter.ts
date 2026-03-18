@@ -19,6 +19,7 @@ interface ExceptionResponse {
 
 interface AuthenticatedRequest extends Request {
   requestId?: string;
+  requestStartAt?: number;
   user?: {
     id?: string;
     userId?: string;
@@ -116,17 +117,26 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // Log proporcional à gravidade: 4xx → warn, 5xx → error
     const user = request.user;
+    const responseTime =
+      typeof request.requestStartAt === 'number'
+        ? `${Date.now() - request.requestStartAt}ms`
+        : undefined;
     const logMeta = {
+      type: 'HTTP_EXCEPTION',
       ...errorResponse.error,
       method: request.method,
+      responseTime,
       userId: user?.id || user?.userId,
-      stack: exception instanceof Error ? exception.stack : undefined,
+      stack:
+        status >= HttpStatus.INTERNAL_SERVER_ERROR && exception instanceof Error
+          ? exception.stack
+          : undefined,
     };
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      this.logger.error(logMeta);
+      this.logger.error(this.serializeLog(logMeta));
     } else {
-      this.logger.warn(logMeta);
+      this.logger.warn(this.serializeLog(logMeta));
     }
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
@@ -144,5 +154,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     response.status(status).json(errorResponse);
+  }
+
+  private serializeLog(payload: Record<string, unknown>): string {
+    return JSON.stringify(payload);
   }
 }

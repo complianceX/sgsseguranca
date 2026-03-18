@@ -15,6 +15,7 @@ interface RequestWithUser extends Request {
     company_id?: string;
   };
   requestId?: string;
+  requestStartAt?: number;
 }
 
 @Injectable()
@@ -37,8 +38,7 @@ export class LoggingInterceptor implements NestInterceptor {
 
     // Reforça o mesmo requestId no request para uso em filtros/logs.
     request.requestId = requestId;
-
-    const now = Date.now();
+    request.requestStartAt = Date.now();
 
     // Log de entrada
     const baseLog = {
@@ -57,15 +57,15 @@ export class LoggingInterceptor implements NestInterceptor {
       baseLog.body = this.sanitizeBody(body as Record<string, unknown>);
     }
 
-    this.logger.log(baseLog);
+    this.writeLog('log', baseLog);
 
     return next.handle().pipe(
       tap({
         next: () => {
-          const responseTime = Date.now() - now;
+          const responseTime = Date.now() - request.requestStartAt!;
           const response = context.switchToHttp().getResponse<Response>();
 
-          this.logger.log({
+          this.writeLog('log', {
             type: 'RESPONSE',
             requestId,
             method,
@@ -75,22 +75,27 @@ export class LoggingInterceptor implements NestInterceptor {
             userId: request.user?.userId,
           });
         },
-        error: (error: Error) => {
-          const responseTime = Date.now() - now;
-
-          this.logger.error({
-            type: 'ERROR',
-            requestId,
-            method,
-            url,
-            responseTime: `${responseTime}ms`,
-            error: error.message,
-            stack: error.stack,
-            userId: request.user?.userId,
-          });
-        },
       }),
     );
+  }
+
+  private writeLog(
+    level: 'log' | 'warn' | 'error',
+    payload: Record<string, unknown>,
+  ): void {
+    const serialized = JSON.stringify(payload);
+
+    if (level === 'error') {
+      this.logger.error(serialized);
+      return;
+    }
+
+    if (level === 'warn') {
+      this.logger.warn(serialized);
+      return;
+    }
+
+    this.logger.log(serialized);
   }
 
   private sanitizeBody(

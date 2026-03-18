@@ -13,46 +13,74 @@ export interface SystemThemePreset {
   tokens: Required<UpdateSystemThemeDto>;
 }
 
+export const LEGACY_DEFAULT_THEME: Required<UpdateSystemThemeDto> = {
+  backgroundColor: '#F4F7FB',
+  sidebarColor: '#0E1F33',
+  cardColor: '#FFFFFF',
+  primaryColor: '#2563EB',
+  secondaryColor: '#355372',
+  textPrimary: '#102033',
+  textSecondary: '#5A6C82',
+  successColor: '#1E8A52',
+  warningColor: '#B7791F',
+  dangerColor: '#C43D3D',
+  infoColor: '#1B6F94',
+};
+
+export const LEGACY_DARK_THEME: Required<UpdateSystemThemeDto> = {
+  backgroundColor: '#071423',
+  sidebarColor: '#06111D',
+  cardColor: '#102235',
+  primaryColor: '#4C8DFF',
+  secondaryColor: '#355372',
+  textPrimary: '#E8F1FC',
+  textSecondary: '#C3D3E8',
+  successColor: '#2FB36B',
+  warningColor: '#D39A33',
+  dangerColor: '#E16666',
+  infoColor: '#53A4D0',
+};
+
 export const SYSTEM_THEME_PRESETS: Record<
   SystemThemePresetId,
   SystemThemePreset
 > = {
   default: {
     id: 'default',
-    label: 'Claro Corporativo',
+    label: 'Atlas Command',
     description:
-      'Tema principal com azul executivo, superfícies claras suaves e contraste mais elegante para uso diário.',
+      'Tema principal com graphite institucional, cobalt executivo e superfícies claras premium para operação diária.',
     tokens: {
-      backgroundColor: '#F4F7FB',
-      sidebarColor: '#0E1F33',
+      backgroundColor: '#EEF3F8',
+      sidebarColor: '#081523',
       cardColor: '#FFFFFF',
-      primaryColor: '#2563EB',
-      secondaryColor: '#355372',
-      textPrimary: '#102033',
-      textSecondary: '#5A6C82',
-      successColor: '#1E8A52',
-      warningColor: '#B7791F',
-      dangerColor: '#C43D3D',
-      infoColor: '#1B6F94',
+      primaryColor: '#1E5EFF',
+      secondaryColor: '#4D647B',
+      textPrimary: '#11253B',
+      textSecondary: '#66788B',
+      successColor: '#18895B',
+      warningColor: '#B9771E',
+      dangerColor: '#C84A4A',
+      infoColor: '#0F738E',
     },
   },
   dark: {
     id: 'dark',
-    label: 'Escuro',
+    label: 'Graphite Ops',
     description:
-      'Tema escuro mais equilibrado, com superfícies azul-petróleo e leitura confortável para operação contínua.',
+      'Tema escuro enterprise com superfícies graphite, acento cobalt e leitura estável para operação contínua.',
     tokens: {
-      backgroundColor: '#071423',
-      sidebarColor: '#06111D',
-      cardColor: '#102235',
-      primaryColor: '#4C8DFF',
-      secondaryColor: '#355372',
-      textPrimary: '#E8F1FC',
-      textSecondary: '#C3D3E8',
-      successColor: '#2FB36B',
-      warningColor: '#D39A33',
-      dangerColor: '#E16666',
-      infoColor: '#53A4D0',
+      backgroundColor: '#08121B',
+      sidebarColor: '#05101A',
+      cardColor: '#122435',
+      primaryColor: '#5A8BFF',
+      secondaryColor: '#445B72',
+      textPrimary: '#EDF3FA',
+      textSecondary: '#B9C6D8',
+      successColor: '#31A56E',
+      warningColor: '#D39B36',
+      dangerColor: '#E56C6C',
+      infoColor: '#4AA8C6',
     },
   },
   industrial: {

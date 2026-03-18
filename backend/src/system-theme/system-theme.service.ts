@@ -7,6 +7,8 @@ import { SystemTheme } from './entities/system-theme.entity';
 import { UpdateSystemThemeDto } from './dto/update-system-theme.dto';
 import {
   DEFAULT_THEME,
+  LEGACY_DARK_THEME,
+  LEGACY_DEFAULT_THEME,
   SYSTEM_THEME_PRESETS,
   type SystemThemePresetId,
 } from './system-theme.presets';
@@ -35,6 +37,31 @@ export class SystemThemeService {
     this.themeUpdates$.next(theme);
   }
 
+  private matchesTokens(
+    theme: SystemTheme,
+    tokens: UpdateSystemThemeDto,
+  ): boolean {
+    return Object.entries(tokens).every(([key, value]) => {
+      return theme[key as keyof UpdateSystemThemeDto] === value;
+    });
+  }
+
+  private async upgradeLegacyThemeIfNeeded(
+    theme: SystemTheme,
+  ): Promise<SystemTheme> {
+    if (this.matchesTokens(theme, LEGACY_DEFAULT_THEME)) {
+      Object.assign(theme, DEFAULT_THEME);
+      return this.repo.save(theme);
+    }
+
+    if (this.matchesTokens(theme, LEGACY_DARK_THEME)) {
+      Object.assign(theme, SYSTEM_THEME_PRESETS.dark.tokens);
+      return this.repo.save(theme);
+    }
+
+    return theme;
+  }
+
   private toThemeMessage(theme: SystemTheme): MessageEvent {
     return {
       type: 'theme',
@@ -55,7 +82,8 @@ export class SystemThemeService {
     const theme = await this.repo.findOne({ where: {} });
 
     if (theme) {
-      return this.updateCache(theme, now);
+      const upgradedTheme = await this.upgradeLegacyThemeIfNeeded(theme);
+      return this.updateCache(upgradedTheme, now);
     }
 
     const created = await this.repo.save(this.repo.create(DEFAULT_THEME));

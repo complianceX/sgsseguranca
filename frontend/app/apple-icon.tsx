@@ -13,7 +13,7 @@ export default function AppleIcon() {
         alignItems: 'center',
         justifyContent: 'center',
         borderRadius: '36px',
-        background: 'linear-gradient(135deg, #2563EB 0%, #0E1F33 100%)',
+        background: 'linear-gradient(135deg, #1E5EFF 0%, #081523 100%)',
       }}
     >
       <div
@@ -22,7 +22,7 @@ export default function AppleIcon() {
           height: '68%',
           borderRadius: '36% 36% 42% 42% / 30% 30% 52% 52%',
           border: '4px solid rgba(255, 255, 255, 0.6)',
-          background: 'linear-gradient(180deg, #2563EB 0%, #163A73 100%)',
+          background: 'linear-gradient(180deg, #1E5EFF 0%, #0F3F86 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

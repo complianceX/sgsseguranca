@@ -13,6 +13,7 @@ body {
   font-family: var(--font-sans), "Inter", "Segoe UI", "Noto Sans", sans-serif;
   font-size: var(--ds-text-md);
   line-height: var(--ds-line-base);
+  background-attachment: fixed;
   transition:
     background-color var(--ds-motion-slow),
     color var(--ds-motion-base);
@@ -66,10 +67,10 @@ html[data-theme="light"] {
   }
 
   table thead th {
-    color: var(--ds-color-text-muted) !important;
+    color: var(--component-table-header-text) !important;
     font-weight: 600 !important;
-    background: var(--ds-color-surface-elevated) !important;
-    border-bottom: 1px solid var(--ds-color-border-subtle) !important;
+    background: var(--component-table-header-bg) !important;
+    border-bottom: 1px solid var(--component-table-row-border) !important;
     text-transform: uppercase;
     font-size: var(--ds-text-2xs);
     letter-spacing: 0.07em;
@@ -80,8 +81,8 @@ html[data-theme="light"] {
 
   table tbody td {
     color: var(--ds-color-text-secondary) !important;
-    border-bottom: 1px solid var(--ds-color-border-subtle);
-    background-color: var(--ds-color-surface-base);
+    border-bottom: 1px solid var(--component-table-row-border);
+    background-color: var(--component-table-bg);
     font-size: var(--ds-text-sm);
     line-height: 1.35;
     padding-top: 0.75rem;
@@ -89,26 +90,18 @@ html[data-theme="light"] {
   }
 
   table tbody tr:nth-child(even) td {
-    background-color: color-mix(
-      in srgb,
-      var(--ds-color-surface-base) 96%,
-      var(--ds-color-bg-canvas) 4%
-    );
+    background-color: color-mix(in srgb, var(--component-table-bg) 92%, var(--ds-color-bg-canvas) 8%);
   }
 
   table tbody tr:hover td {
-    background-color: color-mix(
-      in srgb,
-      var(--ds-color-surface-base) 88%,
-      var(--ds-color-action-primary) 12%
-    ) !important;
+    background-color: var(--component-table-row-hover) !important;
   }
 
   input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea {
-    border-color: var(--ds-color-border-subtle) !important;
-    background: var(--ds-color-surface-base) !important;
+    border-color: var(--component-field-border-subtle) !important;
+    background: var(--component-field-bg) !important;
     color: var(--ds-color-text-primary) !important;
     font-weight: 500 !important;
     font-size: var(--ds-text-sm);
@@ -120,7 +113,7 @@ html[data-theme="light"] {
       background-color var(--ds-motion-base);
     padding-top: 0.625rem !important;
     padding-bottom: 0.625rem !important;
-    box-shadow: none;
+    box-shadow: inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
   }
 
   input::placeholder,
@@ -132,20 +125,17 @@ html[data-theme="light"] {
   input:not([type="checkbox"]):not([type="radio"]):focus,
   select:focus,
   textarea:focus {
-    border-color: var(--ds-color-focus) !important;
+    border-color: var(--component-field-border-focus) !important;
     background: var(--ds-color-surface-base) !important;
-    box-shadow: 0 0 0 4px var(--ds-color-focus-ring) !important;
+    box-shadow: inset 0 1px 0 color-mix(in srgb, white 10%, transparent), 0 0 0 4px var(--ds-color-focus-ring) !important;
     outline: none !important;
   }
 
   input:not([type="checkbox"]):not([type="radio"]):hover,
   select:hover,
   textarea:hover {
-    border-color: color-mix(
-      in srgb,
-      var(--ds-color-border-strong) 72%,
-      white
-    ) !important;
+    border-color: color-mix(in srgb, var(--ds-color-border-strong) 84%, transparent) !important;
+    background: var(--component-field-bg-subtle) !important;
   }
 
   input[type="checkbox"],
@@ -1375,6 +1365,7 @@ html[data-theme="light"] {
   .ds-shell-backdrop {
     position: relative;
     background: var(--component-shell-backdrop);
+    isolation: isolate;
   }
 
   .ds-topbar {
@@ -1382,10 +1373,16 @@ html[data-theme="light"] {
     top: 0;
     z-index: 30;
     border-bottom: 1px solid var(--component-navbar-border);
-    background: var(--component-navbar-bg);
-    backdrop-filter: blur(16px);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, white 5%, transparent),
+        transparent
+      ),
+      var(--component-navbar-bg);
+    backdrop-filter: blur(18px) saturate(135%);
     padding: 0.625rem 1.25rem;
-    box-shadow: var(--ds-shadow-xs);
+    box-shadow: 0 10px 28px rgba(8, 16, 29, 0.08);
   }
 
   .ds-topbar-search {
@@ -1398,7 +1395,18 @@ html[data-theme="light"] {
     border-radius: var(--ds-radius-lg);
     background: var(--component-navbar-chip-bg);
     padding: 0 0.875rem;
-    box-shadow: inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
+      0 1px 0 color-mix(in srgb, black 10%, transparent);
+    transition:
+      border-color var(--ds-motion-base),
+      background-color var(--ds-motion-base),
+      box-shadow var(--ds-motion-base);
+  }
+
+  .ds-topbar-search:hover {
+    border-color: color-mix(in srgb, var(--ds-color-border-strong) 78%, transparent);
+    background: var(--component-navbar-chip-hover-bg);
   }
 
   .ds-topbar-chip {
@@ -1413,6 +1421,18 @@ html[data-theme="light"] {
     font-weight: 600;
     color: var(--component-navbar-chip-text);
     letter-spacing: 0.01em;
+    transition:
+      background-color var(--ds-motion-base),
+      border-color var(--ds-motion-base),
+      color var(--ds-motion-base),
+      box-shadow var(--ds-motion-base);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
+  }
+
+  .ds-topbar-chip:hover {
+    background: var(--component-navbar-chip-hover-bg);
+    border-color: color-mix(in srgb, var(--ds-color-border-strong) 78%, transparent);
+    color: var(--ds-color-text-primary);
   }
 
   .ds-topbar-action {
@@ -1539,14 +1559,18 @@ html[data-theme="light"] {
     padding: 1.1rem 1.15rem;
     border: 1px solid var(--ds-color-border-subtle);
     color: var(--ds-color-text-primary);
-    box-shadow: var(--ds-shadow-xs);
+    box-shadow:
+      var(--ds-shadow-xs),
+      inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
     transition:
       border-color var(--ds-motion-base),
-      box-shadow var(--ds-motion-base);
+      box-shadow var(--ds-motion-base),
+      transform var(--ds-motion-base);
   }
 
   .ds-kpi-card:hover {
     box-shadow: var(--ds-shadow-sm);
+    transform: translateY(-1px);
   }
 
   .ds-kpi-card--primary {
@@ -1844,23 +1868,25 @@ html[data-theme="light"] {
     border-radius: var(--ds-radius-lg);
     background: linear-gradient(
       180deg,
-      color-mix(in srgb, var(--ds-color-surface-elevated) 74%, var(--ds-color-surface-base) 26%),
+      color-mix(in srgb, var(--ds-color-surface-elevated) 82%, var(--ds-color-surface-base) 18%),
       var(--ds-color-surface-base)
     );
     padding: 1rem;
-    box-shadow: var(--ds-shadow-xs);
+    box-shadow:
+      var(--ds-shadow-xs),
+      inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
   }
 
   .ds-crud-stat--primary,
   .ds-metric-item--primary {
     background: color-mix(
       in srgb,
-      var(--ds-color-primary-subtle) 38%,
-      var(--ds-color-surface-base) 62%
+      var(--ds-color-primary-subtle) 56%,
+      var(--ds-color-surface-base) 44%
     );
     border-color: color-mix(
       in srgb,
-      var(--ds-color-action-primary) 18%,
+      var(--ds-color-action-primary) 30%,
       var(--ds-color-border-default)
     );
   }
@@ -1869,12 +1895,12 @@ html[data-theme="light"] {
   .ds-metric-item--success {
     background: color-mix(
       in srgb,
-      var(--ds-color-success-subtle) 42%,
-      var(--ds-color-surface-base) 58%
+      var(--ds-color-success-subtle) 58%,
+      var(--ds-color-surface-base) 42%
     );
     border-color: color-mix(
       in srgb,
-      var(--ds-color-success) 18%,
+      var(--ds-color-success) 30%,
       var(--ds-color-border-default)
     );
   }
@@ -1883,12 +1909,12 @@ html[data-theme="light"] {
   .ds-metric-item--warning {
     background: color-mix(
       in srgb,
-      var(--ds-color-warning-subtle) 44%,
-      var(--ds-color-surface-base) 56%
+      var(--ds-color-warning-subtle) 60%,
+      var(--ds-color-surface-base) 40%
     );
     border-color: color-mix(
       in srgb,
-      var(--ds-color-warning) 18%,
+      var(--ds-color-warning) 30%,
       var(--ds-color-border-default)
     );
   }
@@ -1897,12 +1923,12 @@ html[data-theme="light"] {
   .ds-metric-item--danger {
     background: color-mix(
       in srgb,
-      var(--ds-color-danger-subtle) 44%,
-      var(--ds-color-surface-base) 56%
+      var(--ds-color-danger-subtle) 58%,
+      var(--ds-color-surface-base) 42%
     );
     border-color: color-mix(
       in srgb,
-      var(--ds-color-danger) 18%,
+      var(--ds-color-danger) 30%,
       var(--ds-color-border-default)
     );
   }
@@ -1940,10 +1966,12 @@ html[data-theme="light"] {
     border-radius: var(--ds-radius-xl);
     background: linear-gradient(
       180deg,
-      color-mix(in srgb, var(--ds-color-surface-elevated) 72%, var(--ds-color-surface-base) 28%),
+      color-mix(in srgb, var(--ds-color-surface-elevated) 82%, var(--ds-color-surface-base) 18%),
       var(--ds-color-surface-base)
     );
-    box-shadow: var(--ds-shadow-sm);
+    box-shadow:
+      var(--ds-shadow-sm),
+      inset 0 1px 0 color-mix(in srgb, white 6%, transparent);
   }
 
   .ds-list-toolbar,
@@ -1955,8 +1983,8 @@ html[data-theme="light"] {
     padding: 1rem 1.1rem;
     background: color-mix(
       in srgb,
-      var(--ds-color-surface-muted) 58%,
-      var(--ds-color-surface-base) 42%
+      var(--ds-color-surface-muted) 64%,
+      var(--ds-color-surface-base) 36%
     );
   }
 
