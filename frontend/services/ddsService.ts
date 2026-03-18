@@ -13,12 +13,13 @@ export const DDS_STATUS_LABEL: Record<DdsStatus, string> = {
 
 export const DDS_STATUS_COLORS: Record<DdsStatus, string> = {
   rascunho:
-    "border-amber-500/35 bg-amber-500/15 text-amber-800 dark:text-amber-200",
-  publicado: "border-sky-500/35 bg-sky-500/15 text-sky-800 dark:text-sky-200",
+    "border-[color:var(--ds-color-warning)]/35 bg-[color:var(--ds-color-warning)]/15 text-[var(--ds-color-warning)]",
+  publicado:
+    "border-[color:var(--ds-color-info)]/35 bg-[color:var(--ds-color-info)]/15 text-[var(--ds-color-info)]",
   auditado:
-    "border-emerald-500/35 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200",
+    "border-[color:var(--ds-color-success)]/35 bg-[color:var(--ds-color-success)]/15 text-[var(--ds-color-success)]",
   arquivado:
-    "border-slate-500/30 bg-slate-500/12 text-slate-700 dark:text-slate-300",
+    "border-[color:var(--ds-color-text-muted)]/30 bg-[color:var(--ds-color-text-muted)]/12 text-[var(--ds-color-text-muted)]",
 };
 
 export const DDS_ALLOWED_TRANSITIONS: Record<DdsStatus, DdsStatus[]> = {

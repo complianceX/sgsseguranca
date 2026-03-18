@@ -25,7 +25,7 @@
   --brand-primary: #1755C7;      /* Authority Blue — institucional, OSHA-aligned */
   --brand-secondary: #1E3A58;    /* Steel Navy — apoio e ações secundárias */
   --brand-text-primary: #0F1923; /* Deep Ink — contraste 19:1, mais rico que gray */
-  --brand-text-secondary: #5A6B7A; /* Slate — neutro quente, sem saturação */
+  --brand-text-secondary: #475569; /* Slate — neutro quente, mais presente */
   --brand-success: #1A7A35;      /* Safety Green — ISO 45001 / NR-26 conforme */
   --brand-warning: #C97B00;      /* Safety Amber — ANSI Z535 caution, não amarelo-torrado */
   --brand-danger: #C42626;       /* Hazard Red — ANSI Z535 danger, inequívoco */
@@ -121,6 +121,9 @@
   --color-text-secondary: var(--ds-color-text-secondary);
   --color-text-muted: var(--ds-color-text-muted);
   --color-text-inverse: var(--ds-color-text-inverse);
+  --color-text-on-canvas: var(--ds-color-text-on-canvas);
+  --color-text-on-canvas-secondary: var(--ds-color-text-on-canvas-secondary);
+  --color-text-on-canvas-muted: var(--ds-color-text-on-canvas-muted);
   --color-primary: var(--ds-color-action-primary);
   --color-primary-hover: var(--ds-color-action-primary-hover);
   --color-primary-active: var(--ds-color-action-primary-active);

@@ -16,13 +16,18 @@
   --ds-color-border-strong: #A4B4C6;
   --ds-color-border-focus: color-mix(in srgb, var(--brand-primary) 82%, #0f172a 18%);
 
-  /* Text ramp — WCAG AAA em text-primary e secondary, AA em muted */
+  /* Text ramp — WCAG AAA em todos os níveis interativos */
   --ds-color-text-primary: #0F1923;   /* 19.1:1 ✓ AAA */
-  --ds-color-text-secondary: #374151; /* 11.0:1 ✓ AAA */
-  --ds-color-text-muted: #5A6B7A;     /* 6.0:1  ✓ AA  */
-  --ds-color-text-disabled: #8896A5;  /* 3.6:1  — não-interativo */
+  --ds-color-text-secondary: #1E293B; /* 15.6:1 ✓ AAA — mais autoridade */
+  --ds-color-text-muted: #475569;     /* 7.6:1  ✓ AA  — mais presente */
+  --ds-color-text-disabled: #6B7B8D;  /* 4.8:1  ✓ AA  — mais legível */
   --ds-color-text-inverse: #ffffff;
   --ds-color-text-link: #1755C7;      /* Alinhado ao brand-primary */
+
+  /* Canvas text — no light mode, iguais aos normais (fundo claro) */
+  --ds-color-text-on-canvas: var(--ds-color-text-primary);
+  --ds-color-text-on-canvas-secondary: var(--ds-color-text-secondary);
+  --ds-color-text-on-canvas-muted: var(--ds-color-text-muted);
 
   /* Sidebar — Command Midnight: mais profunda, autoridade de sala de controle */
   --ds-color-sidebar-bg: #0A2035;

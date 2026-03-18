@@ -679,7 +679,7 @@ export function DdsForm({ id }: DdsFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-800 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
       </div>
     );
   }
@@ -690,11 +690,11 @@ export function DdsForm({ id }: DdsFormProps) {
         <div className="flex items-center space-x-4">
           <Link
             href="/dashboard/dds"
-            className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-full p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-secondary)]"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
             {id ? "Editar DDS" : "Novo DDS"}
           </h1>
         </div>
@@ -702,13 +702,13 @@ export function DdsForm({ id }: DdsFormProps) {
 
       <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-8">
         {submitError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-lg border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-4 py-3 text-sm text-[var(--ds-color-danger)]">
             {submitError}
           </div>
         )}
         <div className="sst-card p-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900">
+            <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
               Informações Básicas
             </h2>
             {isAiEnabled() && (
@@ -716,7 +716,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 type="button"
                 onClick={handleAiSuggestion}
                 disabled={suggesting}
-                className="flex items-center space-x-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-slate-800 disabled:opacity-50"
+                className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:brightness-110 disabled:opacity-50"
               >
                 {suggesting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -731,7 +731,7 @@ export function DdsForm({ id }: DdsFormProps) {
             <div className="md:col-span-2">
               <label
                 htmlFor="dds-tema"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
               >
                 Tema do DDS
               </label>
@@ -739,16 +739,16 @@ export function DdsForm({ id }: DdsFormProps) {
                 id="dds-tema"
                 type="text"
                 {...register("tema")}
-                className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
+                className={`mt-1 block w-full rounded-md border bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:outline-none ${
                   errors.tema
-                    ? "border-red-500 focus:border-red-500"
-                    : "border-gray-300 focus:border-blue-500"
+                    ? "border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]"
+                    : "border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-action-primary)]"
                 }`}
                 aria-invalid={errors.tema ? "true" : undefined}
                 placeholder="Ex: Importância do uso de EPIs"
               />
               {errors.tema && (
-                <p className="mt-1 text-xs text-red-500">
+                <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                   {errors.tema.message}
                 </p>
               )}
@@ -757,7 +757,7 @@ export function DdsForm({ id }: DdsFormProps) {
             <div className="md:col-span-2">
               <label
                 htmlFor="dds-conteudo"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
               >
                 Conteúdo / Resumo
               </label>
@@ -766,7 +766,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 {...register("conteudo")}
                 rows={5}
                 aria-label="Conteúdo do DDS"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="mt-1 block w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm focus:border-[var(--ds-color-action-primary)] focus:outline-none"
                 placeholder="Descreva brevemente os pontos abordados no DDS..."
               />
             </div>
@@ -774,7 +774,7 @@ export function DdsForm({ id }: DdsFormProps) {
             <div>
               <label
                 htmlFor="dds-data"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
               >
                 Data
               </label>
@@ -783,14 +783,14 @@ export function DdsForm({ id }: DdsFormProps) {
                 type="date"
                 {...register("data")}
                 aria-label="Data do DDS"
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="mt-1 block w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm focus:border-[var(--ds-color-action-primary)] focus:outline-none"
               />
             </div>
 
             <div>
               <label
                 htmlFor="dds-company-id"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
               >
                 Empresa
               </label>
@@ -807,10 +807,10 @@ export function DdsForm({ id }: DdsFormProps) {
                   setPhotoReuseWarnings({});
                   setPhotoReuseJustification("");
                 }}
-                className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
+                className={`mt-1 block w-full rounded-md border bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:outline-none ${
                   errors.company_id
-                    ? "border-red-500 focus:border-red-500"
-                    : "border-gray-300 focus:border-blue-500"
+                    ? "border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]"
+                    : "border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-action-primary)]"
                 }`}
                 aria-invalid={errors.company_id ? "true" : undefined}
               >
@@ -822,7 +822,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 ))}
               </select>
               {errors.company_id && (
-                <p className="mt-1 text-xs text-red-500">
+                <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                   {errors.company_id.message}
                 </p>
               )}
@@ -831,7 +831,7 @@ export function DdsForm({ id }: DdsFormProps) {
             <div>
               <label
                 htmlFor="dds-site-id"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
               >
                 Site/Unidade
               </label>
@@ -840,12 +840,12 @@ export function DdsForm({ id }: DdsFormProps) {
                 {...register("site_id")}
                 disabled={!selectedCompanyId}
                 aria-label="Site ou unidade do DDS"
-                className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
+                className={`mt-1 block w-full rounded-md border bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:outline-none ${
                   !selectedCompanyId
-                    ? "bg-gray-100 cursor-not-allowed border-gray-300"
+                    ? "bg-[var(--ds-color-surface-muted)] cursor-not-allowed border-[var(--ds-color-border-default)]"
                     : errors.site_id
-                      ? "border-red-500 focus:border-red-500"
-                      : "border-gray-300 focus:border-blue-500"
+                      ? "border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]"
+                      : "border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-action-primary)]"
                 }`}
                 aria-invalid={errors.site_id ? "true" : undefined}
               >
@@ -861,7 +861,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 ))}
               </select>
               {errors.site_id && (
-                <p className="mt-1 text-xs text-red-500">
+                <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                   {errors.site_id.message}
                 </p>
               )}
@@ -870,7 +870,7 @@ export function DdsForm({ id }: DdsFormProps) {
             <div>
               <label
                 htmlFor="dds-facilitador-id"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-[var(--ds-color-text-secondary)]"
               >
                 Facilitador
               </label>
@@ -879,12 +879,12 @@ export function DdsForm({ id }: DdsFormProps) {
                 {...register("facilitador_id")}
                 disabled={!selectedCompanyId}
                 aria-label="Facilitador do DDS"
-                className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
+                className={`mt-1 block w-full rounded-md border bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] focus:outline-none ${
                   !selectedCompanyId
-                    ? "bg-gray-100 cursor-not-allowed border-gray-300"
+                    ? "bg-[var(--ds-color-surface-muted)] cursor-not-allowed border-[var(--ds-color-border-default)]"
                     : errors.facilitador_id
-                      ? "border-red-500 focus:border-red-500"
-                      : "border-gray-300 focus:border-blue-500"
+                      ? "border-[var(--ds-color-danger)] focus:border-[var(--ds-color-danger)]"
+                      : "border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-action-primary)]"
                 }`}
                 aria-invalid={errors.facilitador_id ? "true" : undefined}
               >
@@ -900,7 +900,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 ))}
               </select>
               {errors.facilitador_id && (
-                <p className="mt-1 text-xs text-red-500">
+                <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                   {errors.facilitador_id.message}
                 </p>
               )}
@@ -909,18 +909,18 @@ export function DdsForm({ id }: DdsFormProps) {
         </div>
 
         <div className="sst-card p-6">
-          <h2 className="mb-4 flex items-center justify-between text-lg font-bold text-gray-900">
+          <h2 className="mb-4 flex items-center justify-between text-lg font-bold text-[var(--ds-color-text-primary)]">
             Participantes
-            <span className="text-xs font-normal text-gray-500">
+            <span className="text-xs font-normal text-[var(--ds-color-text-muted)]">
               {selectedParticipantIds.length} selecionados
             </span>
           </h2>
           {!selectedCompanyId ? (
-            <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 py-8 text-center text-sm text-gray-500">
+            <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
               Selecione uma empresa para listar os participantes
             </div>
           ) : filteredUsers.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 py-8 text-center text-sm text-gray-500">
+            <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-8 text-center text-sm text-[var(--ds-color-text-muted)]">
               Nenhum usuário encontrado para esta empresa
             </div>
           ) : (
@@ -932,20 +932,20 @@ export function DdsForm({ id }: DdsFormProps) {
                   onClick={() => toggleParticipant(user.id)}
                   className={`flex items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors ${
                     selectedParticipantIds.includes(user.id)
-                      ? "border-slate-800 bg-blue-50 text-slate-800"
-                      : "border-gray-200 hover:bg-gray-50"
+                      ? "border-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-action-primary)]/8 text-[var(--ds-color-action-primary)]"
+                      : "border-[var(--ds-color-border-subtle)] hover:bg-[var(--ds-color-surface-muted)]"
                   }`}
                 >
                   <span>{user.nome}</span>
                   {selectedParticipantIds.includes(user.id) && (
-                    <div className="h-2 w-2 rounded-full bg-slate-900" />
+                    <div className="h-2 w-2 rounded-full bg-[var(--ds-color-action-primary)]" />
                   )}
                 </button>
               ))}
             </div>
           )}
           {errors.participants && (
-            <p className="mt-1 text-xs text-red-500">
+            <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
               {errors.participants.message}
             </p>
           )}
@@ -954,15 +954,15 @@ export function DdsForm({ id }: DdsFormProps) {
         <div className="sst-card p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">
+              <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
                 Registro Fotográfico da Equipe
               </h2>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-[var(--ds-color-text-muted)]">
                 Use a câmera do celular para registrar presença e evidência do
                 DDS.
               </p>
             </div>
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-white hover:brightness-110">
               <Camera className="h-4 w-4" />
               Adicionar Foto
               <input
@@ -977,7 +977,7 @@ export function DdsForm({ id }: DdsFormProps) {
           </div>
 
           {teamPhotos.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 py-6 text-center text-sm text-gray-500">
+            <div className="rounded-lg border border-dashed border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] py-6 text-center text-sm text-[var(--ds-color-text-muted)]">
               Nenhuma foto adicionada. Recomendado: anexar pelo menos 1 foto da
               equipe.
             </div>
@@ -1005,7 +1005,7 @@ export function DdsForm({ id }: DdsFormProps) {
                         prev.filter((_, i) => i !== index),
                       )
                     }
-                    className="absolute right-2 top-2 rounded-md bg-white/90 p-1 text-red-600 hover:bg-white"
+                    className="absolute right-2 top-2 rounded-md bg-[var(--ds-color-surface-base)]/90 p-1 text-[var(--ds-color-danger)] hover:bg-[var(--ds-color-surface-base)]"
                     title="Remover foto"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -1015,7 +1015,7 @@ export function DdsForm({ id }: DdsFormProps) {
             </div>
           )}
           {Object.keys(photoReuseWarnings).length > 0 && (
-            <div className="mt-4 space-y-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+            <div className="mt-4 space-y-2 rounded-lg border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/8 px-4 py-3 text-xs text-[var(--ds-color-warning)]">
               <p className="font-semibold">
                 Alerta de possível reuso de imagem:
               </p>
@@ -1027,7 +1027,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 </p>
               ))}
               <div className="pt-2">
-                <label className="mb-1 block text-xs font-semibold text-amber-900">
+                <label className="mb-1 block text-xs font-semibold text-[var(--ds-color-text-primary)]">
                   Justificativa de exceção (obrigatória para salvar)
                 </label>
                 <textarea
@@ -1035,7 +1035,7 @@ export function DdsForm({ id }: DdsFormProps) {
                   onChange={(event) =>
                     setPhotoReuseJustification(event.target.value)
                   }
-                  className="w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-xs text-gray-900 focus:border-amber-500 focus:outline-none"
+                  className="w-full rounded-md border border-[color:var(--ds-color-warning)]/35 bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs text-[var(--ds-color-text-primary)] focus:border-[var(--ds-color-warning)] focus:outline-none"
                   rows={3}
                   placeholder="Explique por que a mesma foto está sendo reutilizada neste DDS."
                 />
@@ -1048,14 +1048,14 @@ export function DdsForm({ id }: DdsFormProps) {
           <button
             type="button"
             onClick={() => router.back()}
-            className="rounded-lg border border-[var(--color-border-subtle)] px-6 py-2 text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[color:var(--color-card-muted)]"
+            className="rounded-lg border border-[var(--ds-color-border-default)] px-6 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center space-x-2 rounded-lg bg-slate-900 px-6 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+            className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-6 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             <span>{loading ? "Salvando..." : "Salvar DDS"}</span>

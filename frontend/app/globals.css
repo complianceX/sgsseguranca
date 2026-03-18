@@ -1803,7 +1803,7 @@ html[data-theme="light"] {
     font-weight: 600;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--ds-color-text-muted);
+    color: var(--ds-color-text-on-canvas-muted);
   }
 
   .ds-page-header__actions,
@@ -2322,4 +2322,32 @@ html[data-theme="light"] {
 .theme-light .text-slate-800,
 .theme-light .text-slate-900 {
   color: var(--ds-color-text-primary);
+}
+
+/* ============================================================
+   Dark Theme — Canvas-level text overrides
+   Elementos fora de cards (headers, eyebrows, descriptions)
+   precisam de texto claro sobre o fundo escuro do canvas.
+   ============================================================ */
+
+:root[data-theme="dark"] .ds-page-header h1,
+.theme-dark .ds-page-header h1 {
+  color: var(--ds-color-text-on-canvas);
+}
+
+:root[data-theme="dark"] .ds-page-header p,
+.theme-dark .ds-page-header p {
+  color: var(--ds-color-text-on-canvas-secondary);
+}
+
+:root[data-theme="dark"] .ds-page-header__eyebrow,
+.theme-dark .ds-page-header__eyebrow {
+  color: var(--ds-color-text-on-canvas-muted);
+}
+
+:root[data-theme="dark"] .ds-page-header__icon,
+.theme-dark .ds-page-header__icon {
+  background: color-mix(in srgb, var(--ds-color-action-primary) 22%, transparent);
+  border-color: color-mix(in srgb, var(--ds-color-action-primary) 35%, transparent);
+  color: #93B8F0;
 }

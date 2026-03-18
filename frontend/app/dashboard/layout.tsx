@@ -124,11 +124,11 @@ export default function DashboardLayout({
         {/* Badge da empresa selecionada para Admin Geral */}
         {isAdminGeral && (
           <div className="flex items-center justify-between border-b border-[color:var(--ds-color-info)]/18 bg-[color:var(--ds-color-info)]/10 px-5 py-2.5 backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-sm text-[var(--ds-color-text-secondary)]">
+            <div className="flex items-center gap-2 text-sm text-[var(--ds-color-text-on-canvas-secondary)]">
               <Building2 className="h-4 w-4 text-[var(--ds-color-info)]" />
               {selectedTenant ? (
                 <span>
-                  Operando em: <span className="font-semibold text-[var(--ds-color-text-primary)]">{selectedTenant.companyName}</span>
+                  Operando em: <span className="font-semibold text-[var(--ds-color-text-on-canvas)]">{selectedTenant.companyName}</span>
                 </span>
               ) : (
                 <span className="text-[var(--ds-color-warning)]">Nenhuma empresa selecionada</span>

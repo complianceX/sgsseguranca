@@ -27,11 +27,11 @@ export function PageHeader({
           {icon ? <div className="ds-page-header__icon">{icon}</div> : null}
           <div className={cn('ds-page-header__copy', contentClassName)}>
             {eyebrow ? <span className="ds-page-header__eyebrow">{eyebrow}</span> : null}
-            <h1 className="text-[clamp(1.5rem,1.2rem+0.7vw,2rem)] font-semibold tracking-[-0.03em] text-[var(--ds-color-text-primary)]">
+            <h1 className="text-[clamp(1.5rem,1.2rem+0.7vw,2rem)] font-semibold tracking-[-0.03em] text-[var(--ds-color-text-on-canvas)]">
               {title}
             </h1>
             {description ? (
-              <p className="max-w-3xl text-sm leading-6 text-[var(--ds-color-text-secondary)]">
+              <p className="max-w-3xl text-sm leading-6 text-[var(--ds-color-text-on-canvas-secondary)]">
                 {description}
               </p>
             ) : null}

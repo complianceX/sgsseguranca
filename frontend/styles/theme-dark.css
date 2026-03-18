@@ -20,9 +20,14 @@
 
   /* Text ramp — alto contraste sobre cards brancos (padrão dark mode deste sistema) */
   --ds-color-text-primary: #0F1923;   /* 19.1:1 ✓ AAA sobre branco */
-  --ds-color-text-secondary: #374151; /* 11.0:1 ✓ AAA */
-  --ds-color-text-muted: #5A6B7A;     /* 6.0:1  ✓ AA  */
-  --ds-color-text-disabled: #8896A5;
+  --ds-color-text-secondary: #1E293B; /* 15.6:1 ✓ AAA — mais autoridade */
+  --ds-color-text-muted: #475569;     /* 7.6:1  ✓ AA  — mais presente */
+  --ds-color-text-disabled: #6B7B8D;
+
+  /* Canvas text — leitura sobre fundo escuro (página, headers, fora de cards) */
+  --ds-color-text-on-canvas: #EDF3FC;
+  --ds-color-text-on-canvas-secondary: #B8CCDF;
+  --ds-color-text-on-canvas-muted: #8FAEC8;
   --ds-color-text-inverse: #ffffff;
   --ds-color-text-link: #1755C7;
 
