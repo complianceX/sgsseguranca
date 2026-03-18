@@ -7,9 +7,9 @@ import axios from 'axios';
 
 const AUTH_SHELL_STYLE = {
   background: [
-    'radial-gradient(circle at top left, rgba(37, 99, 235, 0.24), transparent 24%)',
-    'radial-gradient(circle at bottom right, rgba(15, 118, 110, 0.18), transparent 30%)',
-    'linear-gradient(135deg, #0B1220 0%, #0F1923 46%, #0D1F35 100%)',
+    'radial-gradient(circle at top left, color-mix(in srgb, var(--ds-color-action-primary) 24%, transparent), transparent 24%)',
+    'radial-gradient(circle at bottom right, color-mix(in srgb, var(--ds-color-accent) 18%, transparent), transparent 30%)',
+    'linear-gradient(135deg, color-mix(in srgb, var(--ds-color-bg-canvas) 22%, #08111f 78%) 0%, color-mix(in srgb, var(--ds-color-bg-canvas) 14%, #0d1728 86%) 46%, color-mix(in srgb, var(--ds-color-bg-canvas) 20%, #102235 80%) 100%)',
   ].join(', '),
 };
 

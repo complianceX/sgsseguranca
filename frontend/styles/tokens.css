@@ -179,6 +179,7 @@
   --component-field-placeholder: var(--ds-color-text-muted);
 
   --component-button-primary-bg: var(--ds-color-action-primary);
+  --component-button-primary-hover-bg: var(--ds-color-action-primary-hover);
   --component-button-primary-text: var(--ds-color-action-primary-foreground);
   --component-button-secondary-bg: var(--ds-color-surface-elevated);
   --component-button-secondary-bg-hover: var(--ds-color-action-secondary-hover);

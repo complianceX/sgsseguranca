@@ -15,7 +15,7 @@ export default function DashboardError({
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[color:var(--color-background)] px-6 text-center text-[var(--color-text)]">
-      <div className="max-w-md rounded-2xl border border-[var(--color-border-subtle)] bg-[image:var(--component-card-bg-elevated)] p-6 shadow-[var(--ds-shadow-lg)]">
+      <div className="max-w-md rounded-2xl border border-[var(--color-border-subtle)] bg-[color:var(--component-card-bg-elevated)] p-6 shadow-[var(--ds-shadow-lg)]">
         <h2 className="text-lg font-bold text-[var(--color-text)]">Erro ao carregar o Dashboard</h2>
         <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
           Recarregue a página. Se continuar, abra o console (F12) e envie o erro para correção.
@@ -31,7 +31,7 @@ export default function DashboardError({
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="flex-1 rounded-xl bg-[image:var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--component-button-primary-text)] hover:brightness-105"
+            className="flex-1 rounded-xl bg-[color:var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--component-button-primary-text)] hover:bg-[color:var(--component-button-primary-hover-bg)]"
           >
             Recarregar
           </button>

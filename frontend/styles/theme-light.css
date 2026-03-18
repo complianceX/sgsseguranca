@@ -3,9 +3,9 @@
   /* Superfícies — mais leves e executivas, com separação por temperatura e não por choque */
   --ds-color-bg-canvas: var(--brand-background);
   --ds-color-bg-subtle: color-mix(in srgb, var(--brand-background) 82%, #ffffff 18%);
-  --ds-color-surface-base: #FFFFFF;
-  --ds-color-surface-elevated: color-mix(in srgb, var(--brand-card) 76%, var(--brand-background) 24%);
-  --ds-color-surface-overlay: color-mix(in srgb, #FFFFFF 90%, var(--brand-background) 10%);
+  --ds-color-surface-base: var(--brand-card);
+  --ds-color-surface-elevated: color-mix(in srgb, var(--brand-card) 82%, var(--brand-background) 18%);
+  --ds-color-surface-overlay: color-mix(in srgb, var(--brand-card) 92%, var(--brand-background) 8%);
   --ds-color-surface-muted: color-mix(in srgb, var(--brand-background) 94%, var(--brand-secondary) 6%);
   --ds-color-surface-sunken: color-mix(in srgb, var(--brand-background) 88%, var(--brand-secondary) 12%);
   --ds-color-surface-muted-hover: color-mix(in srgb, var(--brand-background) 82%, var(--brand-secondary) 18%);
@@ -98,7 +98,7 @@
       transparent 34%
     ),
     linear-gradient(180deg, var(--brand-background) 0%, #ffffff 62%);
-  --ds-color-command-surface: #ffffff;
+  --ds-color-command-surface: var(--brand-card);
   --ds-color-command-border: color-mix(in srgb, var(--brand-primary) 10%, white 90%);
 
   --ds-gradient-brand: linear-gradient(

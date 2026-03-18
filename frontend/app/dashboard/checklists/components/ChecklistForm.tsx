@@ -36,9 +36,9 @@ interface ChecklistSignatureState {
 }
 
 const panelClassName =
-  'rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[image:var(--component-card-bg)] shadow-[var(--component-card-shadow)]';
+  'rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] shadow-[var(--component-card-shadow)]';
 const fieldClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-4 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-4 py-2 text-sm text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
 const labelClassName = 'mb-1 block text-sm font-medium text-[var(--color-text-secondary)]';
 const conditionalToggleClassName =
   'flex items-center justify-center rounded-[var(--ds-radius-md)] border px-3 py-2 text-sm font-medium transition-all focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';

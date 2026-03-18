@@ -127,9 +127,9 @@ const aprSectionTitleClass = 'mb-3 text-sm font-bold text-[var(--color-text)]';
 const aprLabelClass = 'mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]';
 const aprLabelCompactClass = 'mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]';
 const aprFieldClass =
-  'w-full min-h-[2.875rem] rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-4 py-2.5 text-base leading-6 text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
+  'w-full min-h-[2.875rem] rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-4 py-2.5 text-base leading-6 text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]';
 const aprFileFieldClass =
-  'block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[image:var(--component-field-bg)] px-4 py-2.5 text-base text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)] file:mr-4 file:rounded-[var(--ds-radius-sm)] file:border-0 file:bg-[color:var(--color-card-muted)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--color-text-secondary)] hover:file:bg-[color:var(--ds-color-primary-subtle)]';
+  'block w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-4 py-2.5 text-base text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)] file:mr-4 file:rounded-[var(--ds-radius-sm)] file:border-0 file:bg-[color:var(--color-card-muted)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--color-text-secondary)] hover:file:bg-[color:var(--ds-color-primary-subtle)]';
 const aprFieldErrorClass = 'border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]';
 const aprFieldDisabledClass = 'disabled:bg-[color:var(--color-card-muted)]/60 disabled:cursor-not-allowed disabled:opacity-60';
 const aprCheckboxClass =
@@ -146,7 +146,7 @@ const aprNeutralButtonClass =
 const aprSoftPrimaryButtonClass =
   'rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60';
 const aprInteractivePanelClass =
-  'rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[image:var(--component-card-bg)] p-6 shadow-[var(--component-card-shadow)] transition-shadow hover:shadow-[var(--component-card-shadow-elevated)]';
+  'rounded-[var(--ds-radius-xl)] border border-[var(--component-card-border)] bg-[color:var(--component-card-bg)] p-6 shadow-[var(--component-card-shadow)] transition-shadow hover:shadow-[var(--component-card-shadow-elevated)]';
 const aprSubtleMetaCardClass =
   'flex flex-col gap-1 rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-3 text-sm text-[var(--color-text-secondary)]';
 const aprWarningInlineClass =

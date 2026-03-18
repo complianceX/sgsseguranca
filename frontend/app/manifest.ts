@@ -8,15 +8,21 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/login',
     scope: '/',
     display: 'standalone',
-    background_color: '#ffffff',
-    theme_color: '#1755C7',
+    background_color: '#F4F7FB',
+    theme_color: '#2563EB',
     orientation: 'portrait',
     icons: [
       {
-        src: '/logo-gst.svg',
+        src: '/icon-512.svg',
         sizes: 'any',
         type: 'image/svg+xml',
         purpose: 'any',
+      },
+      {
+        src: '/icon-maskable.svg',
+        sizes: '512x512',
+        type: 'image/svg+xml',
+        purpose: 'maskable',
       },
     ],
   };

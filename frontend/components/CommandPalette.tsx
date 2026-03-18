@@ -168,7 +168,7 @@ export function CommandPalette() {
 
   return (
     <div className="fixed inset-0 z-[70] flex items-start justify-center bg-[color:var(--component-command-overlay)] px-4 pt-[10vh] backdrop-blur-md">
-      <div className="w-full max-w-[42rem] overflow-hidden rounded-[1.5rem] border border-[var(--component-command-border)] bg-[image:var(--component-command-bg)] shadow-[var(--ds-shadow-xl)]">
+      <div className="w-full max-w-[42rem] overflow-hidden rounded-[1.5rem] border border-[var(--component-command-border)] bg-[color:var(--component-command-bg)] shadow-[var(--ds-shadow-xl)]">
         <div className="flex items-center gap-3 border-b border-[var(--color-border-subtle)] px-4 py-3.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--component-command-icon-bg)] text-[var(--component-command-muted)]">
             <Search className="h-4.5 w-4.5" />

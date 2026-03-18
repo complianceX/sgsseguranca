@@ -1,48 +1,27 @@
-<!-- GST Mark — Engrenagem preta + capacete âmbar + swoosh verde (sem texto) -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" fill="none">
   <defs>
-    <mask id="hub">
-      <rect width="500" height="500" fill="white"/>
-      <circle cx="250" cy="245" r="107" fill="black"/>
-    </mask>
-    <clipPath id="front">
-      <rect x="210" y="0" width="290" height="258"/>
-    </clipPath>
+    <linearGradient id="bg" x1="0" y1="0" x2="500" y2="500" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#0E1F33"/>
+    </linearGradient>
+    <linearGradient id="core" x1="250" y1="96" x2="250" y2="404" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#163A73"/>
+    </linearGradient>
   </defs>
 
-  <!-- Swoosh ATRÁS -->
-  <path d="M 52,428 C 118,348 190,302 250,288 C 310,274 372,224 458,142"
-    stroke="#1e6b43" stroke-width="46" fill="none" stroke-linecap="round"/>
-
-  <!-- Engrenagem preta — 12 dentes -->
-  <polygon
-    points="
-      227.8,119 236.5,90.5 263.5,90.5 272.2,119
-      293.7,124.8 315.5,104.5 338.9,118 332.2,147
-      347.9,162.8 377,156.1 390.5,179.5 370.2,201.3
-      376,222.8 404.5,231.5 404.5,258.5 376,267.2
-      370.2,288.7 390.5,310.5 377,333.9 347.9,327.2
-      332.2,343 338.9,372 315.5,385.5 293.7,365.2
-      272.2,371 263.5,399.5 236.5,399.5 227.8,371
-      206.3,365.2 184.5,385.5 161.1,372 167.8,343
-      152.1,327.2 123,333.9 109.5,310.5 129.8,288.7
-      124,267.2 95.5,258.5 95.5,231.5 124,222.8
-      129.8,201.3 109.5,179.5 123,156.1 152.1,162.8
-      167.8,147 161.1,118 184.5,104.5 206.3,124.8"
-    fill="#111827"
-    mask="url(#hub)"
-  />
-
-  <!-- Capacete: cúpula -->
-  <path d="M 192,260 Q 186,172 250,163 Q 314,172 308,260 Z" fill="#F59E0B"/>
-  <path d="M 221,187 Q 219,222 219,260" stroke="rgba(255,255,255,0.28)" stroke-width="5" fill="none" stroke-linecap="round"/>
-  <path d="M 274,176 Q 272,217 272,260" stroke="rgba(255,255,255,0.16)" stroke-width="4" fill="none" stroke-linecap="round"/>
-  <!-- Capacete: aba -->
-  <path d="M 156,260 L 344,260 L 339,280 Q 250,289 161,280 Z" fill="#F59E0B"/>
-  <line x1="156" y1="260" x2="344" y2="260" stroke="rgba(0,0,0,0.18)" stroke-width="3"/>
-
-  <!-- Swoosh NA FRENTE (quadrante superior-direito) -->
-  <path d="M 52,428 C 118,348 190,302 250,288 C 310,274 372,224 458,142"
-    stroke="#1e6b43" stroke-width="46" fill="none" stroke-linecap="round"
-    clip-path="url(#front)"/>
+  <rect width="500" height="500" rx="120" fill="url(#bg)"/>
+  <rect x="104" y="104" width="292" height="292" rx="90" fill="url(#core)" stroke="#FFFFFF" stroke-opacity="0.72" stroke-width="12"/>
+  <text
+    x="250"
+    y="304"
+    text-anchor="middle"
+    font-family="Inter, Segoe UI, Roboto, Arial, sans-serif"
+    font-size="176"
+    font-weight="800"
+    letter-spacing="2"
+    fill="#F6C453"
+  >
+    G
+  </text>
 </svg>
