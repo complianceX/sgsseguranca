@@ -5,8 +5,10 @@ import {
   Command,
   Info,
   Menu,
+  Moon,
   RefreshCw,
   Search,
+  Sun,
   User,
   WifiOff,
   X,
@@ -14,6 +16,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/components/ThemeProvider';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { notificationsService, AppNotification } from '@/services/notificationsService';
 import { flushOfflineQueue, getOfflineQueueCount } from '@/lib/offline-sync';
@@ -26,6 +29,7 @@ export function Header({
   onOpenMobileNav?: () => void;
 }) {
   const { user } = useAuth();
+  const { resolvedTheme, toggleTheme } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -291,6 +295,15 @@ export function Header({
               </div>
             ) : null}
           </div>
+
+          <button
+            type="button"
+            title={resolvedTheme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+            onClick={toggleTheme}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
+          >
+            {resolvedTheme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+          </button>
 
           <button
             type="button"
