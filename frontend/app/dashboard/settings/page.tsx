@@ -252,7 +252,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="ds-system-scope space-y-8">
       <div className="flex items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-white">
           <Settings className="h-6 w-6" />

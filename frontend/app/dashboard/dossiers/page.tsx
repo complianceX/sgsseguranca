@@ -123,7 +123,7 @@ export default function DossiersPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="ds-system-scope space-y-6">
       <div className="rounded-xl border bg-white p-4 shadow-sm">
         <h1 className="text-2xl font-bold text-gray-900">Dossies de SST</h1>
         <p className="text-gray-500">

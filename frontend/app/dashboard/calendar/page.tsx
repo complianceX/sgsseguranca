@@ -128,7 +128,7 @@ export default function CalendarPage() {
                   : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-muted)]'
               }`}
             >
-              <span className={`h-2 w-2 rounded-full ${active ? color.dot : 'bg-gray-300'}`} />
+              <span className={`h-2 w-2 rounded-full ${active ? color.dot : 'bg-[var(--ds-color-border-default)]'}`} />
               {EVENT_TYPE_LABEL[type]}
             </button>
           );
