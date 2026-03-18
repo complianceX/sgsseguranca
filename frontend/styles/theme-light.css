@@ -1,17 +1,17 @@
 :root[data-theme='light'],
 .theme-light {
   --ds-color-bg-canvas: #ffffff;
-  --ds-color-bg-subtle: #f7faff;
-  --ds-color-surface-base: #e7f0ff;
-  --ds-color-surface-elevated: #dbe8ff;
-  --ds-color-surface-overlay: #f3f8ff;
-  --ds-color-surface-muted: #d3e3ff;
-  --ds-color-surface-sunken: #c8dbff;
-  --ds-color-surface-muted-hover: #c1d6ff;
+  --ds-color-bg-subtle: #f6f9ff;
+  --ds-color-surface-base: #f3f8ff;
+  --ds-color-surface-elevated: #e9f1ff;
+  --ds-color-surface-overlay: #f7fbff;
+  --ds-color-surface-muted: #e1ebff;
+  --ds-color-surface-sunken: #d6e4ff;
+  --ds-color-surface-muted-hover: #d0e0ff;
 
-  --ds-color-border-subtle: #c4d4ec;
-  --ds-color-border-default: #b4c9e6;
-  --ds-color-border-strong: #97b2d9;
+  --ds-color-border-subtle: #cfdcf1;
+  --ds-color-border-default: #c0d1eb;
+  --ds-color-border-strong: #9eb7db;
   --ds-color-border-focus: color-mix(in srgb, var(--brand-primary) 82%, #0f172a 18%);
 
   /* Text ramp — WCAG AA mínimo 4.5:1 em todos os fundos do sistema */
@@ -22,12 +22,12 @@
   --ds-color-text-inverse: #ffffff;
   --ds-color-text-link: #274c77;
 
-  --ds-color-sidebar-bg: #0f3154;
-  --ds-color-sidebar-bg-soft: #18446f;
-  --ds-color-sidebar-surface: #215889;
+  --ds-color-sidebar-bg: #0c2d52;
+  --ds-color-sidebar-bg-soft: #153f6d;
+  --ds-color-sidebar-surface: #1f5486;
   --ds-color-sidebar-text: #f3f8ff;
-  --ds-color-sidebar-muted: #c4d9ee;
-  --ds-color-sidebar-border: #356795;
+  --ds-color-sidebar-muted: #d4e4f7;
+  --ds-color-sidebar-border: #3a6794;
 
   --ds-color-action-primary: var(--brand-primary);
   --ds-color-action-primary-hover: color-mix(in srgb, var(--brand-primary) 86%, #0f172a 14%);
