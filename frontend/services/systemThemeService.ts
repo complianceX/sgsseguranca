@@ -28,32 +28,32 @@ export interface SystemThemePreset {
 
 // Tema padrão (claro): Industrial Precision — ANSI Z535 / WCAG AAA
 export const DEFAULT_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#ffffff',
-  sidebarColor: '#0A2035',
-  cardColor: '#F3F6FA',
-  primaryColor: '#1755C7',
-  secondaryColor: '#1E3A58',
-  textPrimary: '#0F1923',
-  textSecondary: '#475569',
-  successColor: '#1A7A35',
-  warningColor: '#C97B00',
-  dangerColor: '#C42626',
-  infoColor: '#1565A8',
+  backgroundColor: '#F4F7FB',
+  sidebarColor: '#0E1F33',
+  cardColor: '#FFFFFF',
+  primaryColor: '#2563EB',
+  secondaryColor: '#355372',
+  textPrimary: '#102033',
+  textSecondary: '#5A6C82',
+  successColor: '#1E8A52',
+  warningColor: '#B7791F',
+  dangerColor: '#C43D3D',
+  infoColor: '#1B6F94',
 };
 
-// Tema escuro: shell profundo + cards brancos para leitura de documentos
+// Tema escuro: shell mais coeso, superfícies escuras e contraste confortável
 export const DARK_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#0D1F35',
-  sidebarColor: '#071828',
-  cardColor: '#ffffff',
-  primaryColor: '#1F69E8',
-  secondaryColor: '#1E3A58',
-  textPrimary: '#0F1923',
-  textSecondary: '#1E293B',
-  successColor: '#22c55e',
-  warningColor: '#fbbf24',
-  dangerColor: '#f87171',
-  infoColor: '#38bdf8',
+  backgroundColor: '#071423',
+  sidebarColor: '#06111D',
+  cardColor: '#102235',
+  primaryColor: '#4C8DFF',
+  secondaryColor: '#355372',
+  textPrimary: '#E8F1FC',
+  textSecondary: '#C3D3E8',
+  successColor: '#2FB36B',
+  warningColor: '#D39A33',
+  dangerColor: '#E16666',
+  infoColor: '#53A4D0',
 };
 
 export const ADAPTIVE_THEME_PRESETS = {

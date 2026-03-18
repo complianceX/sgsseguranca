@@ -9,27 +9,27 @@
        · ISO 45001    — Occupational health and safety management
        · SafetyCulture · Intelex · Cority visual language
 
-     SIDEBAR   #0A2035  Command Midnight — authority, command center
-     PRIMARY   #1755C7  Authority Blue — institutional, OSHA-aligned
-     SECONDARY #1E3A58  Steel Navy — support actions
-     BACKGROUND #F7F9FC  Neutral Ash — sem tint azul, sem fadiga visual
+     SIDEBAR   #0E1F33  Atlantic Command — authority, command center
+     PRIMARY   #2563EB  Executive Blue — institutional, precise
+     SECONDARY #355372  Slate Navy — support actions
+     BACKGROUND #F4F7FB  Soft Ledger — sem brilho frio e sem fadiga visual
      ─── Status — ANSI Z535 / ABNT NBR 7195 / ISO 3864-1 ─────────
-     SUCCESS   #1A7A35  Safety Green — ISO 45001 / NR-26 conforme
-     WARNING   #C97B00  Safety Amber — ANSI Z535 caution (não amarelo-torrado)
-     DANGER    #C42626  Hazard Red — ANSI Z535 danger (inequívoco)
-     INFO      #1565A8  Notice Blue — regulatório, profundo
+     SUCCESS   #1E8A52  Safety Green — ISO 45001 / NR-26 conforme
+     WARNING   #B7791F  Safety Amber — ANSI Z535 caution (menos agressivo)
+     DANGER    #C43D3D  Hazard Red — ANSI Z535 danger (inequívoco)
+     INFO      #1B6F94  Notice Teal — regulatório, profundo
   ══════════════════════════════════════════════════════════════ */
-  --brand-background: #ffffff;
-  --brand-sidebar: #0A2035;      /* Command Midnight — mais profundo, sala de controle */
-  --brand-card: #F3F6FA;         /* Neutral Ash — sem tint azul, descansa a visão */
-  --brand-primary: #1755C7;      /* Authority Blue — institucional, OSHA-aligned */
-  --brand-secondary: #1E3A58;    /* Steel Navy — apoio e ações secundárias */
-  --brand-text-primary: #0F1923; /* Deep Ink — contraste 19:1, mais rico que gray */
-  --brand-text-secondary: #475569; /* Slate — neutro quente, mais presente */
-  --brand-success: #1A7A35;      /* Safety Green — ISO 45001 / NR-26 conforme */
-  --brand-warning: #C97B00;      /* Safety Amber — ANSI Z535 caution, não amarelo-torrado */
-  --brand-danger: #C42626;       /* Hazard Red — ANSI Z535 danger, inequívoco */
-  --brand-info: #1565A8;         /* Notice Blue — regulatório, profundo */
+  --brand-background: #F4F7FB;
+  --brand-sidebar: #0E1F33;      /* Atlantic Command — mais sóbrio e corporativo */
+  --brand-card: #FFFFFF;         /* Superfície limpa com menos brilho frio */
+  --brand-primary: #2563EB;      /* Executive Blue — forte sem ficar neon */
+  --brand-secondary: #355372;    /* Slate Navy — apoio e navegação secundária */
+  --brand-text-primary: #102033; /* Deep Ledger — contraste alto com menos dureza */
+  --brand-text-secondary: #5A6C82; /* Steel Slate — apoio, labels e contexto */
+  --brand-success: #1E8A52;      /* Safety Green — leitura mais nobre */
+  --brand-warning: #B7791F;      /* Amber Brass — alerta menos agressivo */
+  --brand-danger: #C43D3D;       /* Signal Red — erro claro sem berrar */
+  --brand-info: #1B6F94;         /* Notice Teal — informativo com mais personalidade */
 
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;
@@ -144,14 +144,14 @@
   --component-shell-backdrop: var(--ds-shell-backdrop);
   --component-navbar-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-elevated) 84%,
-    transparent
+    var(--ds-color-surface-elevated) 88%,
+    var(--ds-color-bg-canvas) 12%
   );
   --component-navbar-border: var(--ds-color-border-subtle);
   --component-navbar-chip-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-base) 84%,
-    transparent
+    var(--ds-color-surface-base) 72%,
+    var(--ds-color-surface-elevated) 28%
   );
   --component-navbar-chip-text: var(--ds-color-text-secondary);
   --component-navbar-chip-hover-bg: var(--ds-color-surface-muted);
@@ -160,8 +160,8 @@
   --component-card-bg-elevated: var(--ds-color-surface-elevated);
   --component-card-bg-muted: color-mix(
     in srgb,
-    var(--ds-color-surface-muted) 42%,
-    transparent
+    var(--ds-color-surface-muted) 68%,
+    var(--ds-color-surface-base) 32%
   );
   --component-card-border: var(--ds-color-border-subtle);
   --component-card-border-strong: var(--ds-color-border-strong);
@@ -200,31 +200,43 @@
   );
   --component-badge-neutral-text: var(--ds-color-text-secondary);
 
-  --component-table-bg: var(--ds-color-surface-base);
-  --component-table-header-bg: var(--ds-color-surface-elevated);
+  --component-table-bg: color-mix(
+    in srgb,
+    var(--ds-color-surface-base) 92%,
+    var(--ds-color-surface-elevated) 8%
+  );
+  --component-table-header-bg: color-mix(
+    in srgb,
+    var(--ds-color-surface-elevated) 72%,
+    var(--ds-color-surface-muted) 28%
+  );
   --component-table-header-text: var(--ds-color-text-muted);
   --component-table-footer-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-muted) 28%,
-    transparent
+    var(--ds-color-surface-muted) 48%,
+    var(--ds-color-surface-base) 52%
   );
   --component-table-row-border: var(--ds-color-border-subtle);
   --component-table-row-hover: color-mix(
     in srgb,
-    var(--ds-color-primary-subtle) 92%,
-    transparent
+    var(--ds-color-action-primary) 10%,
+    var(--component-table-bg) 90%
   );
   --component-table-row-selected: color-mix(
     in srgb,
-    var(--ds-color-primary-subtle) 86%,
-    var(--ds-color-surface-elevated) 14%
+    var(--ds-color-action-primary) 14%,
+    var(--component-table-bg) 86%
   );
 
   --component-command-overlay: var(--ds-color-overlay);
   --component-command-bg: var(--ds-color-command-surface);
   --component-command-border: var(--ds-color-command-border);
   --component-command-muted: var(--ds-color-text-muted);
-  --component-command-icon-bg: color-mix(in srgb, white 8%, transparent);
+  --component-command-icon-bg: color-mix(
+    in srgb,
+    var(--ds-color-surface-elevated) 82%,
+    var(--ds-color-action-primary) 18%
+  );
 
   --component-focus-ring: var(--ds-color-focus-ring);
   --component-scrollbar-thumb: color-mix(
