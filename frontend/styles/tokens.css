@@ -9,27 +9,27 @@
        · ISO 45001    — Occupational health and safety management
        · SafetyCulture · Intelex · Cority visual language
 
-     SIDEBAR   #0D3D1F  Deep forest green — safety, authority, trust
-     PRIMARY   #16A34A  Safety green — safe, compliant, operational
-     SECONDARY #0052B4  OSHA/ISO blue — regulatory, informational
-     BACKGROUND #F4F7FA Clinical neutral — institutional, clean
-     ─── Status — ANSI Z535 standard ──────────────────────────────
-     SUCCESS   #15803D  Forest green — confirmed safe
-     WARNING   #D97706  ANSI Z535 caution amber/orange
-     DANGER    #D92D20  ANSI Z535 danger red
-     INFO      #0369A1  Information / notice blue
+     SIDEBAR   #0A2035  Command Midnight — authority, command center
+     PRIMARY   #1755C7  Authority Blue — institutional, OSHA-aligned
+     SECONDARY #1E3A58  Steel Navy — support actions
+     BACKGROUND #F7F9FC  Neutral Ash — sem tint azul, sem fadiga visual
+     ─── Status — ANSI Z535 / ABNT NBR 7195 / ISO 3864-1 ─────────
+     SUCCESS   #1A7A35  Safety Green — ISO 45001 / NR-26 conforme
+     WARNING   #C97B00  Safety Amber — ANSI Z535 caution (não amarelo-torrado)
+     DANGER    #C42626  Hazard Red — ANSI Z535 danger (inequívoco)
+     INFO      #1565A8  Notice Blue — regulatório, profundo
   ══════════════════════════════════════════════════════════════ */
   --brand-background: #ffffff;
-  --brand-sidebar: #0e2a4a;
-  --brand-card: #f4f8ff;
-  --brand-primary: #1f5fe0;
-  --brand-secondary: #2f5e99;
-  --brand-text-primary: #111827;
-  --brand-text-secondary: #6b7785;
-  --brand-success: #2e7d32;
-  --brand-warning: #b7791f;
-  --brand-danger: #c0392b;
-  --brand-info: #3b6b93;
+  --brand-sidebar: #0A2035;      /* Command Midnight — mais profundo, sala de controle */
+  --brand-card: #F3F6FA;         /* Neutral Ash — sem tint azul, descansa a visão */
+  --brand-primary: #1755C7;      /* Authority Blue — institucional, OSHA-aligned */
+  --brand-secondary: #1E3A58;    /* Steel Navy — apoio e ações secundárias */
+  --brand-text-primary: #0F1923; /* Deep Ink — contraste 19:1, mais rico que gray */
+  --brand-text-secondary: #5A6B7A; /* Slate — neutro quente, sem saturação */
+  --brand-success: #1A7A35;      /* Safety Green — ISO 45001 / NR-26 conforme */
+  --brand-warning: #C97B00;      /* Safety Amber — ANSI Z535 caution, não amarelo-torrado */
+  --brand-danger: #C42626;       /* Hazard Red — ANSI Z535 danger, inequívoco */
+  --brand-info: #1565A8;         /* Notice Blue — regulatório, profundo */
 
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;

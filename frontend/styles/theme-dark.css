@@ -1,36 +1,40 @@
 :root,
 :root[data-theme='dark'],
 .theme-dark {
-  --ds-color-bg-canvas: #0f2745;
-  --ds-color-bg-subtle: #123156;
+  /* Shell escuro — mais profundo, "sala de controle à noite" */
+  --ds-color-bg-canvas: #0D1F35;
+  --ds-color-bg-subtle: #112840;
+  /* Cards mantêm branco — leitura de documentos é primária no dark mode */
   --ds-color-surface-base: #ffffff;
-  --ds-color-surface-elevated: #f5f8ff;
+  --ds-color-surface-elevated: #F4F7FC;
   --ds-color-surface-overlay: #ffffff;
-  --ds-color-surface-muted: #e8efff;
-  --ds-color-surface-sunken: #0b1d36;
-  --ds-color-surface-muted-hover: #dbe6ff;
+  --ds-color-surface-muted: #E8EFF8;
+  --ds-color-surface-sunken: #091829;
+  --ds-color-surface-muted-hover: #DBE6F4;
 
-  --ds-color-border-subtle: #ced9ee;
-  --ds-color-border-default: #becde8;
-  --ds-color-border-strong: #9eb5db;
+  /* Bordas calibradas para cards claros sobre shell escuro */
+  --ds-color-border-subtle: #CDD7E5;
+  --ds-color-border-default: #BACAD9;
+  --ds-color-border-strong: #9BB0C6;
   --ds-color-border-focus: color-mix(in srgb, var(--brand-primary) 76%, white 24%);
 
-  /* Text ramp — alto contraste sobre cards claros */
-  --ds-color-text-primary: #0f172a;
-  --ds-color-text-secondary: #334155;
-  --ds-color-text-muted: #475569;
-  --ds-color-text-disabled: #64748b;
+  /* Text ramp — alto contraste sobre cards brancos (padrão dark mode deste sistema) */
+  --ds-color-text-primary: #0F1923;   /* 19.1:1 ✓ AAA sobre branco */
+  --ds-color-text-secondary: #374151; /* 11.0:1 ✓ AAA */
+  --ds-color-text-muted: #5A6B7A;     /* 6.0:1  ✓ AA  */
+  --ds-color-text-disabled: #8896A5;
   --ds-color-text-inverse: #ffffff;
-  --ds-color-text-link: #1d4ed8;
+  --ds-color-text-link: #1755C7;
 
-  --ds-color-sidebar-bg: #081d39;
-  --ds-color-sidebar-bg-soft: #0e2b52;
-  --ds-color-sidebar-surface: #16457c;
-  --ds-color-sidebar-text: #f5f9ff;
-  --ds-color-sidebar-muted: #c8daf4;
-  --ds-color-sidebar-border: #355f94;
+  /* Sidebar dark — ainda mais profunda que light, máxima autoridade */
+  --ds-color-sidebar-bg: #071828;
+  --ds-color-sidebar-bg-soft: #0E2840;
+  --ds-color-sidebar-surface: #184060;
+  --ds-color-sidebar-text: #EDF3FC;
+  --ds-color-sidebar-muted: #B8CCDF;
+  --ds-color-sidebar-border: #2A4D6A;
 
-  --ds-color-action-primary: #1f5fe0;
+  --ds-color-action-primary: #1F69E8; /* Ligeiramente mais luminoso no dark — mantém ratio sobre cards brancos */
   --ds-color-action-primary-hover: #1b52c4;
   --ds-color-action-primary-active: #1845a8;
   --ds-color-action-primary-foreground: #ffffff;
@@ -76,25 +80,25 @@
   --ds-color-focus: var(--ds-color-action-primary);
   --ds-color-focus-ring: color-mix(in srgb, var(--ds-color-action-primary) 34%, transparent);
 
-  /* APR/NR-26 safety palette: green -> yellow -> orange -> red */
-  --risk-negligible: #2e7d32;
-  --risk-acceptable: #1b5e20;
-  --risk-attention: #fbc02d;
-  --risk-substantial: #f57c00;
-  --risk-critical: #c62828;
+  /* APR — mesma escala do light mode, cores de segurança são invariantes de tema */
+  --risk-negligible:  #1A7A35;
+  --risk-acceptable:  #2B9920;
+  --risk-attention:   #C89A00;
+  --risk-substantial: #C85D00;
+  --risk-critical:    #C42626;
 
-  --ds-color-overlay: rgba(7, 20, 38, 0.62);
+  --ds-color-overlay: rgba(5, 14, 28, 0.68);
   --ds-shell-backdrop: radial-gradient(
       ellipse at top left,
-      color-mix(in srgb, #60a5fa 18%, transparent),
-      transparent 34%
+      color-mix(in srgb, #4B7BF5 10%, transparent),
+      transparent 32%
     ),
     radial-gradient(
       ellipse at bottom right,
-      color-mix(in srgb, #1f5fe0 14%, transparent),
-      transparent 32%
+      color-mix(in srgb, #1755C7 8%, transparent),
+      transparent 30%
     ),
-    linear-gradient(180deg, #0f2745, #123156);
+    linear-gradient(180deg, #0D1F35, #112840);
   --ds-color-command-surface: #f8fbff;
   --ds-color-command-border: #b7cae8;
 

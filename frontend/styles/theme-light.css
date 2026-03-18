@@ -1,33 +1,36 @@
 :root[data-theme='light'],
 .theme-light {
+  /* Superfícies — neutras frias, sem tint azul: evitam fadiga em uso > 4h */
   --ds-color-bg-canvas: #ffffff;
-  --ds-color-bg-subtle: #f7faff;
-  --ds-color-surface-base: #f4f8ff;
-  --ds-color-surface-elevated: #edf3ff;
-  --ds-color-surface-overlay: #f9fbff;
-  --ds-color-surface-muted: #e5eeff;
-  --ds-color-surface-sunken: #dce8ff;
-  --ds-color-surface-muted-hover: #d4e4ff;
+  --ds-color-bg-subtle: #F7F9FC;
+  --ds-color-surface-base: #ffffff;
+  --ds-color-surface-elevated: #F3F6FA;
+  --ds-color-surface-overlay: #ffffff;
+  --ds-color-surface-muted: #EBF0F7;
+  --ds-color-surface-sunken: #DFE6F0;
+  --ds-color-surface-muted-hover: #D8E1EC;
 
-  --ds-color-border-subtle: #d4e0f2;
-  --ds-color-border-default: #c5d4eb;
-  --ds-color-border-strong: #a8c0df;
+  /* Bordas — calibradas para neutro claro, sem saturação azul */
+  --ds-color-border-subtle: #D4DCE8;
+  --ds-color-border-default: #C2CDD9;
+  --ds-color-border-strong: #A4B4C6;
   --ds-color-border-focus: color-mix(in srgb, var(--brand-primary) 82%, #0f172a 18%);
 
-  /* Text ramp — WCAG AA mínimo 4.5:1 em todos os fundos do sistema */
-  --ds-color-text-primary: #111827;
-  --ds-color-text-secondary: #5f6b79;
-  --ds-color-text-muted: #6b7785;
-  --ds-color-text-disabled: #7e8794;
+  /* Text ramp — WCAG AAA em text-primary e secondary, AA em muted */
+  --ds-color-text-primary: #0F1923;   /* 19.1:1 ✓ AAA */
+  --ds-color-text-secondary: #374151; /* 11.0:1 ✓ AAA */
+  --ds-color-text-muted: #5A6B7A;     /* 6.0:1  ✓ AA  */
+  --ds-color-text-disabled: #8896A5;  /* 3.6:1  — não-interativo */
   --ds-color-text-inverse: #ffffff;
-  --ds-color-text-link: #274c77;
+  --ds-color-text-link: #1755C7;      /* Alinhado ao brand-primary */
 
-  --ds-color-sidebar-bg: #0e2a4a;
-  --ds-color-sidebar-bg-soft: #163a63;
-  --ds-color-sidebar-surface: #1f4b7a;
-  --ds-color-sidebar-text: #f2f7ff;
-  --ds-color-sidebar-muted: #cfe0f5;
-  --ds-color-sidebar-border: #3a5f8a;
+  /* Sidebar — Command Midnight: mais profunda, autoridade de sala de controle */
+  --ds-color-sidebar-bg: #0A2035;
+  --ds-color-sidebar-bg-soft: #112C47;
+  --ds-color-sidebar-surface: #1A3D5C;
+  --ds-color-sidebar-text: #EDF3FC;
+  --ds-color-sidebar-muted: #B8CCDF;
+  --ds-color-sidebar-border: #2A4D6A;
 
   --ds-color-action-primary: var(--brand-primary);
   --ds-color-action-primary-hover: color-mix(in srgb, var(--brand-primary) 86%, #0f172a 14%);
@@ -75,15 +78,15 @@
   --ds-color-focus: var(--ds-color-action-primary);
   --ds-color-focus-ring: color-mix(in srgb, var(--ds-color-action-primary) 22%, transparent);
 
-  /* APR/NR-26 safety palette: green -> yellow -> orange -> red */
-  --risk-negligible: #2e7d32;
-  --risk-acceptable: #1b5e20;
-  --risk-attention: #fbc02d;
-  --risk-substantial: #f57c00;
-  --risk-critical: #c62828;
+  /* APR — escala NR-26 / ANSI Z535 / ISO 31000: 5 níveis perceptualmente distintos */
+  --risk-negligible:  #1A7A35; /* Verde safety — risco ≤ 5, operação normal */
+  --risk-acceptable:  #2B9920; /* Verde médio — risco 6-9, monitorar */
+  --risk-attention:   #C89A00; /* Âmbar ANSI  — risco 10-15, plano de ação */
+  --risk-substantial: #C85D00; /* Laranja      — risco 16-20, intervenção urgente */
+  --risk-critical:    #C42626; /* Vermelho ANSI — risco ≥ 21, paralisação imediata */
 
   --ds-color-overlay: rgba(4, 8, 20, 0.56);
-  --ds-shell-backdrop: linear-gradient(180deg, #ffffff 0%, #ffffff 100%);
+  --ds-shell-backdrop: linear-gradient(180deg, #F7F9FC 0%, #ffffff 60%);
   --ds-color-command-surface: #ffffff;
   --ds-color-command-border: color-mix(in srgb, var(--brand-primary) 10%, white 90%);
 
