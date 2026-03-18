@@ -87,8 +87,8 @@ export function BasicInfoSection({
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label htmlFor="pt-numero" className="block text-sm font-semibold text-gray-700 mb-1">
-            Número <span className="text-red-500">*</span>
+          <label htmlFor="pt-numero" className="block text-sm font-semibold text-[var(--ds-color-text-secondary)] mb-1">
+            Número <span className="text-[var(--ds-color-danger)]">*</span>
           </label>
           <input
             id="pt-numero"
@@ -96,26 +96,26 @@ export function BasicInfoSection({
             aria-invalid={errors.numero ? 'true' : undefined}
             placeholder="Ex: PT-001"
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
-              errors.numero ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
+              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              errors.numero ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-subtle)] focus:border-[var(--ds-color-focus)]',
             )}
           />
           {errors.numero && (
-            <p className="mt-1 text-xs text-red-500">{getErrorMessage('numero')}</p>
+            <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{getErrorMessage('numero')}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="pt-status" className="block text-sm font-semibold text-gray-700 mb-1">
-            Status <span className="text-red-500">*</span>
+          <label htmlFor="pt-status" className="block text-sm font-semibold text-[var(--ds-color-text-secondary)] mb-1">
+            Status <span className="text-[var(--ds-color-danger)]">*</span>
           </label>
           <select
             id="pt-status"
             {...register('status')}
             aria-invalid={errors.status ? 'true' : undefined}
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
-              errors.status ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
+              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              errors.status ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-subtle)] focus:border-[var(--ds-color-focus)]',
             )}
           >
             {statusOptions.map((status) => (
@@ -124,14 +124,14 @@ export function BasicInfoSection({
               </option>
             ))}
           </select>
-          <p className="mt-1 text-[11px] text-gray-500">
+          <p className="mt-1 text-[11px] text-[var(--ds-color-text-muted)]">
             Aprovação e cancelamento usam o fluxo operacional dedicado da PT. Aqui o status é apenas informativo.
           </p>
         </div>
 
         <div className="md:col-span-2">
-          <label htmlFor="pt-titulo" className="block text-sm font-semibold text-gray-700 mb-1">
-            Título <span className="text-red-500">*</span>
+          <label htmlFor="pt-titulo" className="block text-sm font-semibold text-[var(--ds-color-text-secondary)] mb-1">
+            Título <span className="text-[var(--ds-color-danger)]">*</span>
           </label>
           <input
             id="pt-titulo"
@@ -139,17 +139,17 @@ export function BasicInfoSection({
             aria-invalid={errors.titulo ? 'true' : undefined}
             placeholder="Descreva o trabalho a ser executado"
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
-              errors.titulo ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
+              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              errors.titulo ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-subtle)] focus:border-[var(--ds-color-focus)]',
             )}
           />
           {errors.titulo && (
-            <p className="mt-1 text-xs text-red-500">{getErrorMessage('titulo')}</p>
+            <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{getErrorMessage('titulo')}</p>
           )}
         </div>
 
         <div className="md:col-span-2">
-          <label htmlFor="pt-descricao" className="block text-sm font-semibold text-gray-700 mb-1">
+          <label htmlFor="pt-descricao" className="block text-sm font-semibold text-[var(--ds-color-text-secondary)] mb-1">
             Descrição
           </label>
           <textarea
@@ -159,15 +159,15 @@ export function BasicInfoSection({
             rows={3}
             placeholder="Detalhe a atividade, riscos e controles"
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
-              errors.descricao ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
+              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              errors.descricao ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-subtle)] focus:border-[var(--ds-color-focus)]',
             )}
           />
         </div>
 
         <div>
-          <label htmlFor="pt-data-hora-inicio" className="block text-sm font-semibold text-gray-700 mb-1">
-            Início <span className="text-red-500">*</span>
+          <label htmlFor="pt-data-hora-inicio" className="block text-sm font-semibold text-[var(--ds-color-text-secondary)] mb-1">
+            Início <span className="text-[var(--ds-color-danger)]">*</span>
           </label>
           <input
             id="pt-data-hora-inicio"
@@ -175,15 +175,15 @@ export function BasicInfoSection({
             {...register('data_hora_inicio')}
             aria-invalid={errors.data_hora_inicio ? 'true' : undefined}
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
-              errors.data_hora_inicio ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
+              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              errors.data_hora_inicio ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-subtle)] focus:border-[var(--ds-color-focus)]',
             )}
           />
         </div>
 
         <div>
-          <label htmlFor="pt-data-hora-fim" className="block text-sm font-semibold text-gray-700 mb-1">
-            Fim <span className="text-red-500">*</span>
+          <label htmlFor="pt-data-hora-fim" className="block text-sm font-semibold text-[var(--ds-color-text-secondary)] mb-1">
+            Fim <span className="text-[var(--ds-color-danger)]">*</span>
           </label>
           <input
             id="pt-data-hora-fim"
@@ -191,15 +191,15 @@ export function BasicInfoSection({
             {...register('data_hora_fim')}
             aria-invalid={errors.data_hora_fim ? 'true' : undefined}
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
-              errors.data_hora_fim ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
+              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              errors.data_hora_fim ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-subtle)] focus:border-[var(--ds-color-focus)]',
             )}
           />
         </div>
 
         <div>
-          <label htmlFor="pt-company-id" className="block text-sm font-semibold text-gray-700 mb-1">
-            Empresa <span className="text-red-500">*</span>
+          <label htmlFor="pt-company-id" className="block text-sm font-semibold text-[var(--ds-color-text-secondary)] mb-1">
+            Empresa <span className="text-[var(--ds-color-danger)]">*</span>
           </label>
           <select
             id="pt-company-id"
@@ -213,8 +213,8 @@ export function BasicInfoSection({
             }}
             aria-invalid={errors.company_id ? 'true' : undefined}
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
-              errors.company_id ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
+              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
+              errors.company_id ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-subtle)] focus:border-[var(--ds-color-focus)]',
             )}
           >
             <option value="">Selecione...</option>
@@ -227,8 +227,8 @@ export function BasicInfoSection({
         </div>
 
         <div>
-          <label htmlFor="pt-site-id" className="block text-sm font-semibold text-gray-700 mb-1">
-            Obra / Site <span className="text-red-500">*</span>
+          <label htmlFor="pt-site-id" className="block text-sm font-semibold text-[var(--ds-color-text-secondary)] mb-1">
+            Obra / Site <span className="text-[var(--ds-color-danger)]">*</span>
           </label>
           <select
             id="pt-site-id"
@@ -236,8 +236,8 @@ export function BasicInfoSection({
             disabled={!companyId}
             aria-invalid={errors.site_id ? 'true' : undefined}
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:bg-gray-100',
-              errors.site_id ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
+              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none disabled:bg-[color:var(--ds-color-surface-muted)]',
+              errors.site_id ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-subtle)] focus:border-[var(--ds-color-focus)]',
             )}
           >
             <option value="">{companyId ? 'Selecione...' : 'Selecione a empresa'}</option>
@@ -250,7 +250,7 @@ export function BasicInfoSection({
         </div>
 
         <div>
-          <label htmlFor="pt-apr-id" className="block text-sm font-semibold text-gray-700 mb-1">
+          <label htmlFor="pt-apr-id" className="block text-sm font-semibold text-[var(--ds-color-text-secondary)] mb-1">
             APR (opcional)
           </label>
           <select
@@ -262,7 +262,7 @@ export function BasicInfoSection({
             }}
             disabled={!companyId}
             aria-label="APR vinculada"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:bg-gray-100"
+            className="w-full rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2 text-sm transition-all focus:border-[var(--ds-color-focus)] focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none disabled:bg-[color:var(--ds-color-surface-muted)]"
           >
             <option value="">{companyId ? 'Selecione...' : 'Selecione a empresa'}</option>
             {filteredAprs.map((a) => (
@@ -271,14 +271,14 @@ export function BasicInfoSection({
               </option>
             ))}
           </select>
-          <p className="mt-1 text-[11px] text-gray-500">
+          <p className="mt-1 text-[11px] text-[var(--ds-color-text-muted)]">
             Ao vincular uma APR, a PT pode herdar contexto operacional e sugestões de grupos críticos.
           </p>
         </div>
 
         <div>
-          <label htmlFor="pt-responsavel-id" className="block text-sm font-semibold text-gray-700 mb-1">
-            Responsável <span className="text-red-500">*</span>
+          <label htmlFor="pt-responsavel-id" className="block text-sm font-semibold text-[var(--ds-color-text-secondary)] mb-1">
+            Responsável <span className="text-[var(--ds-color-danger)]">*</span>
           </label>
           <select
             id="pt-responsavel-id"
@@ -286,8 +286,8 @@ export function BasicInfoSection({
             disabled={!companyId}
             aria-invalid={errors.responsavel_id ? 'true' : undefined}
             className={cn(
-              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:bg-gray-100',
-              errors.responsavel_id ? 'border-red-500 bg-red-50' : 'border-gray-300 focus:border-blue-500',
+              'w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none disabled:bg-[color:var(--ds-color-surface-muted)]',
+              errors.responsavel_id ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]' : 'border-[var(--ds-color-border-subtle)] focus:border-[var(--ds-color-focus)]',
             )}
           >
             <option value="">{companyId ? 'Selecione...' : 'Selecione a empresa'}</option>
@@ -298,25 +298,25 @@ export function BasicInfoSection({
             ))}
           </select>
           {errors.responsavel_id && (
-            <p className="mt-1 text-xs text-red-500">{getErrorMessage('responsavel_id')}</p>
+            <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{getErrorMessage('responsavel_id')}</p>
           )}
         </div>
       </div>
 
-      <div className="mt-6 rounded-xl border border-gray-200 p-4">
+      <div className="mt-6 rounded-xl border border-[var(--ds-color-border-subtle)] p-4">
         <div className="flex items-start gap-3">
-          <div className="rounded-lg bg-blue-50 p-2 text-blue-700">
+          <div className="rounded-lg bg-[color:var(--ds-color-info)]/12 p-2 text-[var(--ds-color-info)]">
             <FileLock2 className="h-4 w-4" />
           </div>
           <div>
-            <p className="text-sm font-bold text-gray-900">PDF final governado</p>
-            <p className="mt-1 text-xs text-gray-600">
+            <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">PDF final governado</p>
+            <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
               O formulário salva os dados operacionais da PT. O PDF final oficial
               é emitido somente depois da aprovação, pelo fluxo documental da lista
               de PTs e do storage semanal.
             </p>
             {siteId ? (
-              <p className="mt-2 text-[11px] text-gray-500">
+              <p className="mt-2 text-[11px] text-[var(--ds-color-text-muted)]">
                 Site selecionado: {String(siteId).slice(0, 8)}…
               </p>
             ) : null}

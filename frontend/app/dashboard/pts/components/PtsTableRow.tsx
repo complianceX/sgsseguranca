@@ -323,10 +323,10 @@ export const PtsTableRow = React.memo(
         {approvalIssue ? (
           <TableRow>
             <TableCell colSpan={5} className="bg-[color:var(--ds-color-warning-subtle)]/20">
-              <div className="rounded-[var(--ds-radius-lg)] border border-amber-300/30 bg-amber-500/10 p-4">
+              <div className="rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-warning)]/30 bg-[color:var(--ds-color-warning)]/10 p-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-200">
+                    <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-warning)]">
                       <AlertTriangle className="h-4 w-4" />
                       Bloqueio de aprovação
                     </div>
@@ -351,7 +351,7 @@ export const PtsTableRow = React.memo(
                   {approvalIssue.reasons.map((reason) => (
                     <div
                       key={reason}
-                      className="rounded-[var(--ds-radius-md)] border border-white/10 bg-black/10 px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
                     >
                       {reason}
                     </div>

@@ -90,7 +90,7 @@ export const RapidRiskAnalysisSection = () => {
                     className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/14 p-4"
                   >
                     <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                      {item.pergunta} <span className="text-red-500">*</span>
+                      {item.pergunta} <span className="text-[var(--ds-color-danger)]">*</span>
                     </p>
 
                     <div className="mt-3 flex flex-wrap gap-4">
@@ -116,7 +116,7 @@ export const RapidRiskAnalysisSection = () => {
                     </div>
 
                     {answerError && (
-                      <p className="mt-2 text-xs text-red-500">
+                      <p className="mt-2 text-xs text-[var(--ds-color-danger)]">
                         {String(answerError)}
                       </p>
                     )}
@@ -131,7 +131,7 @@ export const RapidRiskAnalysisSection = () => {
       <div className="mt-6">
         <label className="mb-1 block text-sm font-semibold text-[var(--ds-color-text-secondary)]">
           Observações e evidências
-          {hasRapidRiskBasicNo && <span className="text-red-500"> *</span>}
+          {hasRapidRiskBasicNo && <span className="text-[var(--ds-color-danger)]"> *</span>}
         </label>
         <textarea
           value={rapidRiskObservacoes || ''}
@@ -145,14 +145,14 @@ export const RapidRiskAnalysisSection = () => {
           rows={4}
           placeholder="Descreva ações adicionais, medidas corretivas e evidências adotadas."
           className={cn(
-            'block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-blue-500/20 focus:outline-none',
+            'block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
             rapidRiskObservacoesErrorMessage
-              ? 'border-red-500 bg-red-50'
-              : 'border-gray-300 focus:border-blue-500',
+              ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]'
+              : 'border-[var(--ds-color-border-subtle)] focus:border-[var(--ds-color-focus)]',
           )}
         />
         {rapidRiskObservacoesErrorMessage && (
-          <p className="mt-1 text-xs text-red-500">
+          <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
             {rapidRiskObservacoesErrorMessage}
           </p>
         )}

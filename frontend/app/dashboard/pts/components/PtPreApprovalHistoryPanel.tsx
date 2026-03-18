@@ -42,13 +42,13 @@ export function PtPreApprovalHistoryPanel({
 
       <CardContent className="mt-0 space-y-3">
         {loading ? (
-          <div className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-black/10 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
             Carregando histórico de pré-liberação...
           </div>
         ) : null}
 
         {!loading && entries.length === 0 ? (
-          <div className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-black/10 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
             Nenhuma pré-liberação auditável foi registrada para esta PT ainda.
           </div>
         ) : null}
@@ -62,7 +62,7 @@ export function PtPreApprovalHistoryPanel({
             return (
               <div
                 key={entry.id}
-                className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-black/10 px-4 py-4"
+                className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-4"
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="space-y-2">
@@ -102,14 +102,14 @@ export function PtPreApprovalHistoryPanel({
                     {entry.blockers.map((blocker) => (
                       <div
                         key={blocker}
-                        className="rounded-[var(--ds-radius-md)] border border-white/10 bg-white/5 px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
                       >
                         {blocker}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="mt-4 rounded-[var(--ds-radius-md)] border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
+                  <div className="mt-4 rounded-[var(--ds-radius-md)] border border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success)]/10 px-3 py-2 text-sm text-[var(--ds-color-success)]">
                     Nenhum bloqueio crítico registrado nesta revisão.
                   </div>
                 )}
@@ -137,7 +137,7 @@ export function PtPreApprovalHistoryPanel({
                 ) : null}
 
                 {entry.warnings.length > 0 ? (
-                  <div className="mt-4 rounded-[var(--ds-radius-md)] border border-amber-300/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                  <div className="mt-4 rounded-[var(--ds-radius-md)] border border-[color:var(--ds-color-warning)]/30 bg-[color:var(--ds-color-warning)]/10 px-3 py-2 text-sm text-[var(--ds-color-warning)]">
                     {entry.warnings.map((warning) => (
                       <p key={warning}>{warning}</p>
                     ))}
@@ -153,7 +153,7 @@ export function PtPreApprovalHistoryPanel({
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-[var(--ds-radius-md)] border border-white/10 bg-white/5 px-3 py-2 text-[var(--ds-color-text-primary)]">
+    <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-2 text-[var(--ds-color-text-primary)]">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
         {label}
       </p>

@@ -124,7 +124,7 @@ export function PtApprovalReviewPanel({
                 <Link
                   key={blocker}
                   href={buildPtEditFocusHref(ptId, blocker)}
-                  className="rounded-[var(--ds-radius-md)] border border-white/10 bg-black/10 px-3 py-3 text-sm text-[var(--ds-color-text-primary)] transition-all hover:border-[var(--ds-color-action-primary)]/40 hover:bg-white/8"
+                  className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-3 py-3 text-sm text-[var(--ds-color-text-primary)] transition-all hover:border-[var(--ds-color-action-primary)]/40 hover:bg-[color:var(--ds-color-surface-muted)]/60"
                 >
                   <span className="block font-medium">{blocker}</span>
                   <span className="mt-2 block text-xs uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
@@ -161,7 +161,7 @@ export function PtApprovalReviewPanel({
               {review.workerStatuses.map((worker) => (
                 <div
                   key={`${worker.roleLabel}-${worker.userId}`}
-                  className="rounded-[var(--ds-radius-lg)] border border-white/10 bg-black/10 px-4 py-3"
+                  className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -198,14 +198,14 @@ export function PtApprovalReviewPanel({
         ) : null}
 
         {review.warnings.length > 0 ? (
-          <div className="rounded-[var(--ds-radius-lg)] border border-amber-300/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <div className="rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-warning)]/30 bg-[color:var(--ds-color-warning)]/10 px-4 py-3 text-sm text-[var(--ds-color-warning)]">
             {review.warnings.map((warning) => (
               <p key={warning}>{warning}</p>
             ))}
           </div>
         ) : null}
 
-        <div className="space-y-3 rounded-[var(--ds-radius-lg)] border border-white/10 bg-black/10 p-4">
+        <div className="space-y-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 p-4">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
             <ShieldAlert className="h-4 w-4" />
             Checklist final do aprovador
@@ -215,7 +215,7 @@ export function PtApprovalReviewPanel({
             {approvalChecklistLabels.map((item) => (
               <label
                 key={item.key}
-                className="flex items-start gap-3 rounded-[var(--ds-radius-md)] border border-white/10 bg-white/5 px-3 py-3 text-sm text-[var(--ds-color-text-primary)]"
+                className="flex items-start gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-3 text-sm text-[var(--ds-color-text-primary)]"
               >
                 <input
                   type="checkbox"
@@ -223,7 +223,7 @@ export function PtApprovalReviewPanel({
                   onChange={(event) =>
                     onChecklistChange(item.key, event.target.checked)
                   }
-                  className="mt-0.5 h-4 w-4 rounded border-white/20 bg-transparent"
+                  className="mt-0.5 h-4 w-4 rounded border-[var(--ds-color-border-default)] bg-transparent"
                 />
                 <span>{item.label}</span>
               </label>
