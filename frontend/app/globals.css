@@ -699,6 +699,26 @@ html[data-theme="light"] {
     );
   }
 
+  .ds-form-page .hover\:text-red-600:hover,
+  .ds-form-page .hover\:text-red-700:hover {
+    color: var(--ds-color-danger-hover);
+  }
+
+  .ds-form-page .hover\:text-green-700:hover,
+  .ds-form-page .hover\:text-green-600:hover {
+    color: var(--ds-color-success-hover);
+  }
+
+  .ds-form-page .hover\:text-yellow-700:hover,
+  .ds-form-page .hover\:text-yellow-600:hover {
+    color: var(--ds-color-warning-hover);
+  }
+
+  .ds-form-page .hover\:text-amber-700:hover,
+  .ds-form-page .hover\:text-amber-800:hover {
+    color: var(--ds-color-warning-hover);
+  }
+
   .ds-form-page .bg-green-50,
   .ds-form-page .bg-green-100,
   .ds-form-page .bg-green-50\/30,

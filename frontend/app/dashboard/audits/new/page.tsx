@@ -10,13 +10,13 @@ export default function NewAuditPage() {
       <div className="flex items-center space-x-4">
         <Link
           href="/dashboard/audits"
-          className="rounded-lg border border-gray-300 p-2 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+          className="rounded-lg border border-[var(--ds-color-border-default)] p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-surface-elevated)] hover:text-[var(--ds-color-text-secondary)]"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Novo Relatório de Auditoria HSE</h1>
-          <p className="text-sm text-gray-500">Preencha os dados abaixo para criar um novo relatório de conformidade.</p>
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Novo Relatório de Auditoria HSE</h1>
+          <p className="text-sm text-[var(--ds-color-text-muted)]">Preencha os dados abaixo para criar um novo relatório de conformidade.</p>
         </div>
       </div>
 

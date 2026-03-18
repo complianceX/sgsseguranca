@@ -14,13 +14,13 @@ export default function EditAuditPage() {
       <div className="flex items-center space-x-4">
         <Link
           href="/dashboard/audits"
-          className="rounded-lg border border-gray-300 p-2 text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+          className="rounded-lg border border-[var(--ds-color-border-default)] p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-surface-elevated)] hover:text-[var(--ds-color-text-secondary)]"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Editar Relatório de Auditoria</h1>
-          <p className="text-sm text-gray-500">Atualize as informações do relatório de auditoria.</p>
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Editar Relatório de Auditoria</h1>
+          <p className="text-sm text-[var(--ds-color-text-muted)]">Atualize as informações do relatório de auditoria.</p>
         </div>
       </div>
 
