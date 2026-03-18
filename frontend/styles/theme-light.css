@@ -1,17 +1,17 @@
 :root[data-theme='light'],
 .theme-light {
   --ds-color-bg-canvas: #ffffff;
-  --ds-color-bg-subtle: #f6f9ff;
-  --ds-color-surface-base: #f3f8ff;
-  --ds-color-surface-elevated: #e9f1ff;
-  --ds-color-surface-overlay: #f7fbff;
-  --ds-color-surface-muted: #e1ebff;
-  --ds-color-surface-sunken: #d6e4ff;
-  --ds-color-surface-muted-hover: #d0e0ff;
+  --ds-color-bg-subtle: #f7faff;
+  --ds-color-surface-base: #f4f8ff;
+  --ds-color-surface-elevated: #edf3ff;
+  --ds-color-surface-overlay: #f9fbff;
+  --ds-color-surface-muted: #e5eeff;
+  --ds-color-surface-sunken: #dce8ff;
+  --ds-color-surface-muted-hover: #d4e4ff;
 
-  --ds-color-border-subtle: #cfdcf1;
-  --ds-color-border-default: #c0d1eb;
-  --ds-color-border-strong: #9eb7db;
+  --ds-color-border-subtle: #d4e0f2;
+  --ds-color-border-default: #c5d4eb;
+  --ds-color-border-strong: #a8c0df;
   --ds-color-border-focus: color-mix(in srgb, var(--brand-primary) 82%, #0f172a 18%);
 
   /* Text ramp — WCAG AA mínimo 4.5:1 em todos os fundos do sistema */
@@ -22,12 +22,12 @@
   --ds-color-text-inverse: #ffffff;
   --ds-color-text-link: #274c77;
 
-  --ds-color-sidebar-bg: #0c2d52;
-  --ds-color-sidebar-bg-soft: #153f6d;
-  --ds-color-sidebar-surface: #1f5486;
-  --ds-color-sidebar-text: #f3f8ff;
-  --ds-color-sidebar-muted: #d4e4f7;
-  --ds-color-sidebar-border: #3a6794;
+  --ds-color-sidebar-bg: #0e2a4a;
+  --ds-color-sidebar-bg-soft: #163a63;
+  --ds-color-sidebar-surface: #1f4b7a;
+  --ds-color-sidebar-text: #f2f7ff;
+  --ds-color-sidebar-muted: #cfe0f5;
+  --ds-color-sidebar-border: #3a5f8a;
 
   --ds-color-action-primary: var(--brand-primary);
   --ds-color-action-primary-hover: color-mix(in srgb, var(--brand-primary) 86%, #0f172a 14%);
@@ -43,10 +43,10 @@
   --ds-color-action-secondary-foreground: var(--ds-color-text-primary);
   --ds-color-action-secondary-border: color-mix(in srgb, var(--brand-secondary) 18%, var(--ds-color-border-default) 82%);
 
-  --ds-color-accent: #c58a2b;
-  --ds-color-accent-hover: #af7820;
-  --ds-color-accent-subtle: color-mix(in srgb, #c58a2b 12%, white 88%);
-  --ds-color-accent-border: color-mix(in srgb, var(--brand-secondary) 24%, white 76%);
+  --ds-color-accent: #2f6ee6;
+  --ds-color-accent-hover: #255dc8;
+  --ds-color-accent-subtle: color-mix(in srgb, #2f6ee6 12%, white 88%);
+  --ds-color-accent-border: color-mix(in srgb, #2f6ee6 26%, white 74%);
 
   --ds-color-success: color-mix(in srgb, var(--brand-success) 92%, #052e16 8%);
   --ds-color-success-hover: color-mix(in srgb, var(--brand-success) 82%, #052e16 18%);
@@ -91,7 +91,7 @@
   --ds-gradient-surface: var(--ds-color-surface-base);
 
   --ds-kpi-blue: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 88%, white 12%), color-mix(in srgb, var(--brand-primary) 66%, var(--brand-secondary) 34%));
-  --ds-kpi-violet: linear-gradient(135deg, #6d28d9, #4c1d95);
+  --ds-kpi-violet: linear-gradient(135deg, #2f6ee6, #1f5fe0);
   --ds-kpi-emerald: linear-gradient(135deg, color-mix(in srgb, var(--brand-success) 90%, white 10%), color-mix(in srgb, var(--brand-success) 76%, var(--brand-secondary) 24%));
   --ds-kpi-amber: linear-gradient(135deg, color-mix(in srgb, var(--brand-warning) 92%, white 8%), color-mix(in srgb, var(--brand-warning) 72%, var(--risk-substantial) 28%));
   --ds-kpi-danger: linear-gradient(135deg, color-mix(in srgb, var(--brand-danger) 92%, white 8%), color-mix(in srgb, var(--brand-danger) 76%, #7f1d1d 24%));
@@ -108,9 +108,9 @@
   --ds-kpi-red-bg: color-mix(in srgb, var(--brand-danger) 10%, white 90%);
   --ds-kpi-red-fg: color-mix(in srgb, var(--brand-danger) 76%, #450a0a 24%);
   --ds-kpi-red-border: color-mix(in srgb, var(--brand-danger) 24%, white 76%);
-  --ds-kpi-violet-bg: #fff5e8;
-  --ds-kpi-violet-fg: #c58a2b;
-  --ds-kpi-violet-border: #ecd6b5;
+  --ds-kpi-violet-bg: color-mix(in srgb, #2f6ee6 10%, white 90%);
+  --ds-kpi-violet-fg: #1f5fe0;
+  --ds-kpi-violet-border: color-mix(in srgb, #2f6ee6 24%, white 76%);
   --ds-kpi-teal-bg: color-mix(in srgb, var(--brand-secondary) 10%, white 90%);
   --ds-kpi-teal-fg: color-mix(in srgb, var(--brand-secondary) 78%, #1f3d5d 22%);
   --ds-kpi-teal-border: color-mix(in srgb, var(--brand-secondary) 24%, white 76%);

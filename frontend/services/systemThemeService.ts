@@ -29,10 +29,10 @@ export interface SystemThemePreset {
 // Tema padrão (claro): fundo branco + cards azuis
 export const DEFAULT_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
   backgroundColor: '#ffffff',
-  sidebarColor: '#0c2d52',
-  cardColor: '#f3f8ff',
-  primaryColor: '#2458dd',
-  secondaryColor: '#1f4d97',
+  sidebarColor: '#0e2a4a',
+  cardColor: '#f4f8ff',
+  primaryColor: '#1f5fe0',
+  secondaryColor: '#2f5e99',
   textPrimary: '#111827',
   textSecondary: '#5f6b79',
   successColor: '#2e7d32',
@@ -43,11 +43,11 @@ export const DEFAULT_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
 
 // Tema escuro: base azul + cards brancos
 export const DARK_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#11294b',
-  sidebarColor: '#071d3f',
-  cardColor: '#f8fbff',
-  primaryColor: '#2458dd',
-  secondaryColor: '#1f4d97',
+  backgroundColor: '#0f2745',
+  sidebarColor: '#081d39',
+  cardColor: '#ffffff',
+  primaryColor: '#1f5fe0',
+  secondaryColor: '#2f5e99',
   textPrimary: '#0f172a',
   textSecondary: '#334155',
   successColor: '#22c55e',

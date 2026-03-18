@@ -39,20 +39,12 @@ function resolveComplianceLabel(score: number | null) {
   return "Crítico";
 }
 
-function resolveComplianceTone(score: number | null) {
-  if (score == null) return "info";
-  if (score >= 85) return "success";
-  if (score >= 70) return "info";
-  if (score >= 50) return "warning";
-  return "danger";
-}
-
 function resolveComplianceStroke(score: number | null) {
   if (score == null) return "var(--ds-color-border-default)";
-  if (score >= 85) return "var(--ds-color-success)";
-  if (score >= 70) return "var(--ds-color-info)";
-  if (score >= 50) return "var(--ds-color-warning)";
-  return "var(--ds-color-danger)";
+  if (score >= 85) return "#1f5fe0";
+  if (score >= 70) return "#2f6ee6";
+  if (score >= 50) return "#4a85ee";
+  return "#6aa1f6";
 }
 
 function resolveComplianceMessage(score: number | null) {
@@ -66,20 +58,8 @@ function resolveComplianceMessage(score: number | null) {
   return "Cenário crítico. Recomendado plano de ação imediato e acompanhamento diário.";
 }
 
-function resolveToneClasses(score: number | null) {
-  if (score == null) {
-    return "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]";
-  }
-  if (score >= 85) {
-    return "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)]";
-  }
-  if (score >= 70) {
-    return "border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)]";
-  }
-  if (score >= 50) {
-    return "border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)]";
-  }
-  return "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]";
+function resolveToneClasses() {
+  return "border-[var(--ds-color-primary-border)] bg-[var(--ds-color-surface-elevated)]";
 }
 
 export default function DashboardPage() {
@@ -206,11 +186,6 @@ export default function DashboardPage() {
     [complianceScore],
   );
 
-  const complianceTone = useMemo(
-    () => resolveComplianceTone(complianceScore),
-    [complianceScore],
-  );
-
   const complianceCircle = useMemo(() => {
     const size = 240;
     const strokeWidth = 16;
@@ -254,7 +229,7 @@ export default function DashboardPage() {
               empresa.
             </p>
           </div>
-          <StatusPill tone={complianceTone}>{complianceLabel}</StatusPill>
+          <StatusPill tone="info">{complianceLabel}</StatusPill>
         </div>
 
         {loadError ? (
@@ -266,7 +241,7 @@ export default function DashboardPage() {
         <div
           className={cn(
             "mt-6 rounded-2xl border p-5 sm:p-6",
-            resolveToneClasses(complianceScore),
+            resolveToneClasses(),
           )}
         >
           <div className="grid gap-8 lg:grid-cols-[auto_1fr] lg:items-center">
