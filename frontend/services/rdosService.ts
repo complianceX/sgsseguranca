@@ -77,9 +77,9 @@ export const RDO_STATUS_LABEL: Record<string, string> = {
 };
 
 export const RDO_STATUS_COLORS: Record<string, string> = {
-  rascunho: 'bg-gray-100 text-gray-700 border-gray-200',
-  enviado: 'bg-blue-100 text-blue-700 border-blue-200',
-  aprovado: 'bg-green-100 text-green-700 border-green-200',
+  rascunho: 'border-[color:var(--ds-color-text-muted)]/30 bg-[color:var(--ds-color-text-muted)]/12 text-[var(--ds-color-text-muted)]',
+  enviado: 'border-[color:var(--ds-color-info)]/35 bg-[color:var(--ds-color-info)]/15 text-[var(--ds-color-info)]',
+  aprovado: 'border-[color:var(--ds-color-success)]/35 bg-[color:var(--ds-color-success)]/15 text-[var(--ds-color-success)]',
 };
 
 export const RDO_ALLOWED_TRANSITIONS: Record<string, string[]> = {

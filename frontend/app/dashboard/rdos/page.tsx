@@ -1118,7 +1118,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <span
-                            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${RDO_STATUS_COLORS[rdo.status] ?? "bg-gray-100 text-gray-600"}`}
+                            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${RDO_STATUS_COLORS[rdo.status] ?? "border-[color:var(--ds-color-text-muted)]/30 bg-[color:var(--ds-color-text-muted)]/12 text-[var(--ds-color-text-muted)]"}`}
                           >
                             {RDO_STATUS_LABEL[rdo.status] ?? rdo.status}
                           </span>
@@ -2452,20 +2452,20 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       : null;
                     return (
                       <div
-                        className={`rounded-xl border px-4 py-3 ${sig ? "border-green-200 bg-green-50" : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20"}`}
+                        className={`rounded-xl border px-4 py-3 ${sig ? "border-[color:var(--ds-color-success)]/30 bg-[color:var(--ds-color-success)]/8" : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20"}`}
                       >
                         <p className="text-xs font-semibold text-[var(--ds-color-text-muted)]">
                           Responsável pela Obra
                         </p>
                         {sig ? (
                           <>
-                            <p className="mt-1 text-sm font-medium text-green-800">
+                            <p className="mt-1 text-sm font-medium text-[var(--ds-color-success)]">
                               {sig.nome}
                             </p>
-                            <p className="text-xs text-green-600">
+                            <p className="text-xs text-[color:var(--ds-color-success)]/80">
                               CPF: {sig.cpf}
                             </p>
-                            <p className="text-xs text-green-600">
+                            <p className="text-xs text-[color:var(--ds-color-success)]/80">
                               {new Date(sig.signed_at).toLocaleString("pt-BR")}
                             </p>
                           </>
@@ -2489,20 +2489,20 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       : null;
                     return (
                       <div
-                        className={`rounded-xl border px-4 py-3 ${sig ? "border-green-200 bg-green-50" : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20"}`}
+                        className={`rounded-xl border px-4 py-3 ${sig ? "border-[color:var(--ds-color-success)]/30 bg-[color:var(--ds-color-success)]/8" : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20"}`}
                       >
                         <p className="text-xs font-semibold text-[var(--ds-color-text-muted)]">
                           Engenheiro Responsável
                         </p>
                         {sig ? (
                           <>
-                            <p className="mt-1 text-sm font-medium text-green-800">
+                            <p className="mt-1 text-sm font-medium text-[var(--ds-color-success)]">
                               {sig.nome}
                             </p>
-                            <p className="text-xs text-green-600">
+                            <p className="text-xs text-[color:var(--ds-color-success)]/80">
                               CPF: {sig.cpf}
                             </p>
-                            <p className="text-xs text-green-600">
+                            <p className="text-xs text-[color:var(--ds-color-success)]/80">
                               {new Date(sig.signed_at).toLocaleString("pt-BR")}
                             </p>
                           </>

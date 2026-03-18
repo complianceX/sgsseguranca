@@ -221,12 +221,12 @@ export function Sidebar({
                     onClick={() => toggleSection(section.id)}
                     className="flex w-full items-center justify-between px-4 pb-1.5 text-left"
                   >
-                    <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--ds-color-sidebar-muted)]/70">
+                    <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--ds-color-sidebar-muted)]">
                       {section.label}
                     </span>
                     <ChevronDown
                       className={cn(
-                        'h-3.5 w-3.5 text-[var(--ds-color-sidebar-muted)]/50 transition-transform',
+                        'h-3.5 w-3.5 text-[var(--ds-color-sidebar-muted)]/70 transition-transform',
                         isOpenSection ? 'rotate-180' : '',
                       )}
                     />
@@ -247,7 +247,7 @@ export function Sidebar({
                               'mx-2 flex items-center gap-2.5 rounded-lg border-l-2 px-3 py-2 text-[13px] font-medium transition-colors',
                               active
                                 ? 'border-[color:var(--ds-color-sidebar-text)] bg-[color:var(--ds-color-sidebar-surface)] text-[var(--ds-color-sidebar-text)]'
-                                : 'border-transparent bg-[color:var(--ds-color-sidebar-bg-soft)]/72 text-[var(--ds-color-sidebar-muted)] hover:bg-[color:var(--ds-color-sidebar-surface)] hover:text-[var(--ds-color-sidebar-text)]',
+                                : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:bg-[color:var(--ds-color-sidebar-surface)] hover:text-[var(--ds-color-sidebar-text)]',
                             )}
                           >
                             <Icon
@@ -279,7 +279,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={logout}
-            className="mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2.5 rounded-lg border-l-2 border-transparent bg-[color:var(--ds-color-sidebar-bg-soft)]/72 px-3 py-2 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-colors hover:border-[color:var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
+            className="mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2.5 rounded-lg border-l-2 border-transparent px-3 py-2 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-colors hover:border-[color:var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
           >
             <LogOut className="h-4 w-4 shrink-0" />
             Sair
