@@ -1523,11 +1523,11 @@ export function AprForm({ id }: AprFormProps) {
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 text-center md:w-[260px]">
-              <div className="rounded-[var(--ds-radius-md)] border border-white/10 bg-white/5 px-3 py-2">
+              <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-2">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">Rascunho</p>
                 <p className="mt-1 text-sm font-semibold text-white">Automático</p>
               </div>
-              <div className="rounded-[var(--ds-radius-md)] border border-white/10 bg-white/5 px-3 py-2">
+              <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-2">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">Uso</p>
                 <p className="mt-1 text-sm font-semibold text-white">Obra / celular</p>
               </div>
