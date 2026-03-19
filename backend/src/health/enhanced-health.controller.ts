@@ -8,6 +8,9 @@ import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 
+const getErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : 'Unknown error';
+
 /**
  * Enhanced Health Check Controller
  *
@@ -31,7 +34,7 @@ export class EnhancedHealthController {
    */
   @Get()
   @Authorize('can_view_system_health')
-  async healthCheck() {
+  healthCheck() {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
@@ -46,10 +49,8 @@ export class EnhancedHealthController {
   @Get('detailed')
   @Authorize('can_view_system_health')
   async detailedHealthCheck() {
-    const [dbStatus, memoryUsage] = await Promise.all([
-      this.checkDatabase(),
-      this.getMemoryUsage(),
-    ]);
+    const dbStatus = await this.checkDatabase();
+    const memoryUsage = this.getMemoryUsage();
 
     return {
       status: dbStatus.healthy ? 'healthy' : 'unhealthy',
@@ -79,11 +80,11 @@ export class EnhancedHealthController {
         healthy: true,
         responseTime: Date.now() - startTime,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         healthy: false,
         responseTime: Date.now() - startTime,
-        error: error?.message || 'Unknown error',
+        error: getErrorMessage(error),
       };
     }
   }
@@ -128,7 +129,7 @@ export class EnhancedHealthController {
    */
   @Get('live')
   @Authorize('can_view_system_health')
-  async liveness() {
+  liveness() {
     return {
       status: 'alive',
       timestamp: new Date().toISOString(),

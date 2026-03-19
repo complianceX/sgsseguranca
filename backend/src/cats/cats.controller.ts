@@ -15,14 +15,17 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import * as fs from 'fs/promises';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { Role } from '../auth/enums/roles.enum';
-import { validateFileMagicBytes } from '../common/interceptors/file-upload.interceptor';
-import { fileUploadOptions } from '../common/interceptors/file-upload.interceptor';
+import {
+  cleanupUploadedTempFile,
+  fileUploadOptions,
+  readUploadedFileBuffer,
+  validateFileMagicBytes,
+} from '../common/interceptors/file-upload.interceptor';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CatsService } from './cats.service';
@@ -144,25 +147,24 @@ export class CatsController {
       );
     }
 
-    const buffer =
-      file.buffer && file.buffer.length > 0 ? file.buffer : undefined;
+    const buffer = await readUploadedFileBuffer(file);
 
-    if (!buffer) {
-      throw new BadRequestException('Falha ao ler o arquivo enviado.');
+    try {
+      validateFileMagicBytes(buffer);
+
+      return await this.catsService.addAttachment(
+        id,
+        {
+          fileBuffer: buffer,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          category,
+        },
+        req.user?.id,
+      );
+    } finally {
+      await cleanupUploadedTempFile(file);
     }
-
-    await validateFileMagicBytes(buffer);
-
-    return this.catsService.addAttachment(
-      id,
-      {
-        fileBuffer: buffer,
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        category,
-      },
-      req.user?.id,
-    );
   }
 
   @Delete(':id/attachments/:attachmentId')

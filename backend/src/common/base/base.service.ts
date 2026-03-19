@@ -7,6 +7,16 @@ import {
 } from 'typeorm';
 import { TenantService } from '../tenant/tenant.service';
 
+type SensitiveWriteFields = {
+  company_id?: unknown;
+  empresa_id?: unknown;
+  profile_id?: unknown;
+  role?: unknown;
+  roles?: unknown;
+  permissions?: unknown;
+  permissoes?: unknown;
+};
+
 export abstract class BaseService<T extends ObjectLiteral> {
   constructor(
     protected readonly repository: Repository<T>,
@@ -42,6 +52,23 @@ export abstract class BaseService<T extends ObjectLiteral> {
     return date;
   }
 
+  private sanitizeWritePayload(data: DeepPartial<T>): DeepPartial<T> {
+    const next = Object.assign(
+      {} as DeepPartial<T> & SensitiveWriteFields,
+      data,
+    );
+
+    delete next.company_id;
+    delete next.empresa_id;
+    delete next.profile_id;
+    delete next.role;
+    delete next.roles;
+    delete next.permissions;
+    delete next.permissoes;
+
+    return next;
+  }
+
   async findAll(where: FindOptionsWhere<T> = {}): Promise<T[]> {
     return this.repository.find({
       where: this.applyTenantFilter(where),
@@ -71,19 +98,12 @@ export abstract class BaseService<T extends ObjectLiteral> {
 
   async create(data: DeepPartial<T>): Promise<T> {
     // Defesa em profundidade: nunca confiar em company_id vindo do client.
-    const next = { ...(data as any) };
-    delete next.company_id;
-    delete next.empresa_id;
-    delete next.profile_id;
-    delete next.role;
-    delete next.roles;
-    delete next.permissions;
-    delete next.permissoes;
+    const next = this.sanitizeWritePayload(data);
 
     const entity = this.repository.create({
       ...next,
       company_id: this.getTenantId(),
-    } as DeepPartial<T>);
+    } as DeepPartial<T> & { company_id: string });
     return this.repository.save(entity);
   }
 
@@ -91,14 +111,7 @@ export abstract class BaseService<T extends ObjectLiteral> {
     const entity = await this.findOne(id);
 
     // Bloqueio de mass assignment: impedir alteração de campos sensíveis via payload.
-    const next = { ...(data as any) };
-    delete next.company_id;
-    delete next.empresa_id;
-    delete next.profile_id;
-    delete next.role;
-    delete next.roles;
-    delete next.permissions;
-    delete next.permissoes;
+    const next = this.sanitizeWritePayload(data);
 
     this.repository.merge(entity, next);
     return this.repository.save(entity);

@@ -28,6 +28,7 @@ import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import {
   assertUploadedPdf,
+  cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
 } from '../common/interceptors/file-upload.interceptor';
 
@@ -133,14 +134,18 @@ export class AuditsController {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ) {
-    const pdfFile = assertUploadedPdf(file);
+    const pdfFile = await assertUploadedPdf(file);
 
-    return this.auditsService.attachPdf(
-      id,
-      this.getTenantIdOrThrow(),
-      pdfFile,
-      this.getRequestUserId(req),
-    );
+    try {
+      return await this.auditsService.attachPdf(
+        id,
+        this.getTenantIdOrThrow(),
+        pdfFile,
+        this.getRequestUserId(req),
+      );
+    } finally {
+      await cleanupUploadedTempFile(pdfFile);
+    }
   }
 
   @Patch(':id')

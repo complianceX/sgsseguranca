@@ -6,6 +6,12 @@ import {
 } from '@nestjs/common';
 import * as puppeteer from 'puppeteer';
 import { Browser, Page } from 'puppeteer';
+import {
+  getPdfBrowserAcquireTimeoutMs,
+  getPdfBrowserMaxUses,
+  getPdfBrowserPoolSize,
+  getPdfPageTimeoutMs,
+} from './pdf-runtime-config';
 
 interface PooledBrowser {
   id: number;
@@ -19,17 +25,20 @@ interface PooledBrowser {
 export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PuppeteerPoolService.name);
   private browserPool: PooledBrowser[] = [];
-  private readonly poolSize = 3;
-  private readonly maxPageTimeout = 30000; // 30 segundos
-  private readonly maxUsesPerBrowser = 50; // Limite de usos antes de reciclar (evita memory leaks)
+  private readonly poolSize = getPdfBrowserPoolSize();
+  private readonly maxPageTimeout = getPdfPageTimeoutMs();
+  private readonly acquireTimeoutMs = getPdfBrowserAcquireTimeoutMs();
+  private readonly maxUsesPerBrowser = getPdfBrowserMaxUses();
   private cleanupInterval?: NodeJS.Timeout;
 
-  async onModuleInit() {
-    this.logger.log(`Inicializando pool de Puppeteer em modo lazy`);
+  onModuleInit() {
+    this.logger.log(
+      `Inicializando pool de Puppeteer em modo lazy (poolSize=${this.poolSize}, pageTimeoutMs=${this.maxPageTimeout}, acquireTimeoutMs=${this.acquireTimeoutMs}, maxUsesPerBrowser=${this.maxUsesPerBrowser})`,
+    );
 
     // Cleanup e manutenção a cada 1 minuto
     this.cleanupInterval = setInterval(() => {
-      this.maintenance();
+      void this.maintenance();
     }, 60 * 1000);
   }
 
@@ -48,6 +57,8 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
   }
 
   async getPage(): Promise<Page> {
+    const requestStartedAt = Date.now();
+
     // Tentar obter um browser disponível
     let pooledBrowser = this.browserPool.find((b) => !b.inUse);
 
@@ -61,14 +72,19 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
         pooledBrowser = this.browserPool.find((b) => !b.inUse);
       }
       if (!pooledBrowser) {
-        for (let i = 0; i < 10; i++) {
+        while (
+          !pooledBrowser &&
+          Date.now() - requestStartedAt < this.acquireTimeoutMs
+        ) {
           await new Promise((resolve) => setTimeout(resolve, 500));
           pooledBrowser = this.browserPool.find((b) => !b.inUse);
-          if (pooledBrowser) break;
         }
       }
       if (!pooledBrowser) {
-        throw new Error('Timeout aguardando browser disponível no pool');
+        const stats = this.getPoolStats();
+        throw new Error(
+          `Timeout aguardando browser disponível no pool (timeoutMs=${this.acquireTimeoutMs}, total=${stats.total}, inUse=${stats.inUse}, available=${stats.available})`,
+        );
       }
     }
 
@@ -91,6 +107,13 @@ export class PuppeteerPoolService implements OnModuleInit, OnModuleDestroy {
     pooledBrowser.inUse = true;
     pooledBrowser.lastUsed = new Date();
     pooledBrowser.useCount++;
+
+    const waitMs = Date.now() - requestStartedAt;
+    if (waitMs >= 2000) {
+      this.logger.warn(
+        `Browser ${pooledBrowser.id} liberado após espera de ${waitMs}ms (poolSize=${this.poolSize})`,
+      );
+    }
 
     try {
       const page = await pooledBrowser.browser.newPage();

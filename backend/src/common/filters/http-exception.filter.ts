@@ -23,13 +23,14 @@ interface AuthenticatedRequest extends Request {
   user?: {
     id?: string;
     userId?: string;
+    company_id?: string;
     [key: string]: unknown;
   };
 }
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger(AllExceptionsFilter.name);
+  private readonly logger = new Logger('HTTP');
 
   catch(exception: unknown, host: ArgumentsHost) {
     const isProduction = process.env.NODE_ENV === 'production';
@@ -117,16 +118,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     // Log proporcional à gravidade: 4xx → warn, 5xx → error
     const user = request.user;
-    const responseTime =
-      typeof request.requestStartAt === 'number'
-        ? `${Date.now() - request.requestStartAt}ms`
-        : undefined;
     const logMeta = {
       type: 'HTTP_EXCEPTION',
+      statusCode: status,
       ...errorResponse.error,
       method: request.method,
-      responseTime,
+      responseTimeMs:
+        typeof request.requestStartAt === 'number'
+          ? Date.now() - request.requestStartAt
+          : undefined,
       userId: user?.id || user?.userId,
+      companyId: user?.company_id,
       stack:
         status >= HttpStatus.INTERNAL_SERVER_ERROR && exception instanceof Error
           ? exception.stack
@@ -134,9 +136,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     };
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      this.logger.error(this.serializeLog(logMeta));
+      this.logger.error(logMeta);
     } else {
-      this.logger.warn(this.serializeLog(logMeta));
+      this.logger.warn(logMeta);
     }
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
@@ -154,9 +156,5 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     response.status(status).json(errorResponse);
-  }
-
-  private serializeLog(payload: Record<string, unknown>): string {
-    return JSON.stringify(payload);
   }
 }

@@ -16,7 +16,7 @@ export class MetricsExampleService {
   /**
    * Exemplo 1: Registrar geração de PDF com sucesso
    */
-  async generatePdf(companyId: string, data: any): Promise<Buffer> {
+  async generatePdf(companyId: string, _data: unknown): Promise<Buffer> {
     const startTime = Date.now();
 
     try {
@@ -31,9 +31,10 @@ export class MetricsExampleService {
       this.metricsService.recordPdfGeneration(companyId, duration);
 
       return pdf;
-    } catch (error) {
+    } catch (error: unknown) {
       // Registrar métrica de erro
-      this.metricsService.recordPdfError(companyId, error.message);
+      const errorType = error instanceof Error ? error.message : String(error);
+      this.metricsService.recordPdfError(companyId, errorType);
       throw error;
     }
   }
@@ -43,7 +44,6 @@ export class MetricsExampleService {
    */
   async executeQuery(query: string): Promise<any[]> {
     const startTime = Date.now();
-    let success = false;
 
     try {
       // Simular query
@@ -51,11 +51,8 @@ export class MetricsExampleService {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       const results = [{ id: 1, name: 'Example' }];
-      success = true;
 
       return results;
-    } catch (error) {
-      throw error;
     } finally {
       const duration = Date.now() - startTime;
       this.metricsService.recordDbQuery('SELECT', 'users', duration);

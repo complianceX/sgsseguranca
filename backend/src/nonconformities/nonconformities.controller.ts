@@ -25,10 +25,11 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  cleanupUploadedTempFile,
   fileUploadOptions,
+  readUploadedFileBuffer,
   validatePdfMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
-import * as fs from 'fs/promises';
 import { Authorize } from '../auth/authorize.decorator';
 
 @Controller('nonconformities')
@@ -136,26 +137,21 @@ export class NonConformitiesController {
     if (!file) {
       throw new BadRequestException('Arquivo PDF não enviado');
     }
-    const buffer =
-      file.buffer && file.buffer.length > 0
-        ? file.buffer
-        : file.path
-          ? await fs.readFile(file.path)
-          : undefined;
+    const buffer = await readUploadedFileBuffer(file);
 
-    if (!buffer) {
-      throw new BadRequestException('Falha ao ler o arquivo enviado');
+    try {
+      // Segurança: valida PDF por magic bytes (não confiar apenas em mimetype)
+      validatePdfMagicBytes(buffer);
+
+      return await this.nonConformitiesService.attachPdf(
+        id,
+        buffer,
+        file.originalname,
+        file.mimetype,
+      );
+    } finally {
+      await cleanupUploadedTempFile(file);
     }
-
-    // Segurança: valida PDF por magic bytes (não confiar apenas em mimetype)
-    await validatePdfMagicBytes(buffer);
-
-    return this.nonConformitiesService.attachPdf(
-      id,
-      buffer,
-      file.originalname,
-      file.mimetype,
-    );
   }
 
   @Patch(':id/status')

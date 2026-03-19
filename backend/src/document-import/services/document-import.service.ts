@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, FindOptionsWhere } from 'typeorm';
 import { DocumentImport } from '../entities/document-import.entity';
 import { DocumentImportStatus } from '../entities/document-import-status.enum';
 import {
@@ -267,10 +267,11 @@ export class DocumentImportService {
       // Sem tenant no contexto → fail closed
       throw new ForbiddenException('Contexto de empresa não definido.');
     }
+    const where: FindOptionsWhere<DocumentImport> = tenantId
+      ? { status, empresaId: tenantId }
+      : { status };
     return await this.documentImportRepository.find({
-      where: tenantId
-        ? ({ status: status, empresaId: tenantId } as any)
-        : ({ status: status } as any),
+      where,
       order: { createdAt: 'DESC' },
     });
   }

@@ -64,9 +64,10 @@ import type {
   GenerateDdsDto,
 } from './dto/generate-dds.dto';
 import type { GenerateSophieReportDto } from './dto/generate-sophie-report.dto';
-import { defaultJobOptions } from '../queue/default-job-options';
+import { withDefaultJobOptions } from '../queue/default-job-options';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { requestOpenAiChatCompletionResponse } from './openai-request.util';
+import { getPdfQueueJobTimeoutMs } from '../common/services/pdf-runtime-config';
 
 const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
 const DEFAULT_OPENAI_FALLBACK_MODEL = 'gpt-4o-mini';
@@ -74,6 +75,46 @@ const DEFAULT_OPENAI_REASONING_EFFORT = 'medium';
 const MAX_JSON_TOKENS = 1600;
 const PHASE2_DEFAULT_NC_THRESHOLD = 3;
 const MAX_IMPORTED_EVIDENCE_ATTACHMENTS = 6;
+const pdfJobOptions = withDefaultJobOptions({
+  timeout: getPdfQueueJobTimeoutMs(),
+});
+
+type LooseRecord = Record<string, unknown>;
+type ChecklistLike = {
+  id?: unknown;
+  titulo?: unknown;
+  descricao?: unknown;
+  equipamento?: unknown;
+  maquina?: unknown;
+  status?: unknown;
+  site_id?: unknown;
+  site?: LooseRecord | null;
+  itens?: unknown;
+  foto_equipamento?: unknown;
+  inspetor_id?: unknown;
+};
+type InspectionLike = {
+  evidencias?: unknown;
+};
+type DraftContextOption = {
+  id: string;
+  label: string;
+};
+type DraftChecklistTemplateOption = DraftContextOption & {
+  descricao: string;
+  categoria: string;
+  periodicidade: string;
+};
+type DraftContext = {
+  activities: DraftContextOption[];
+  tools: DraftContextOption[];
+  machines: DraftContextOption[];
+  participants: DraftContextOption[];
+  checklistTemplates: DraftChecklistTemplateOption[];
+};
+
+const isLooseRecord = (value: unknown): value is LooseRecord =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 type SophieActivityProfile = {
   key: string;
@@ -533,10 +574,159 @@ export class AiService {
     return Math.max(0, Math.min(100, Math.round(safe)));
   }
 
+  private toSafeString(value: unknown): string {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value).trim();
+    }
+
+    return '';
+  }
+
+  private toLooseRecord(value: unknown): LooseRecord | null {
+    return isLooseRecord(value) ? value : null;
+  }
+
+  private toLooseRecordArray(value: unknown): LooseRecord[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.filter(isLooseRecord);
+  }
+
+  private sliceUnknownArray(value: unknown, maxItems: number): unknown[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.slice(0, maxItems);
+  }
+
+  private toInteractionResponse(
+    value: unknown,
+  ): Record<string, unknown> | null {
+    return this.toLooseRecord(value);
+  }
+
+  private toChecklistLike(value: unknown): ChecklistLike | null {
+    const record = this.toLooseRecord(value);
+    if (!record) {
+      return null;
+    }
+
+    return {
+      id: record.id,
+      titulo: record.titulo,
+      descricao: record.descricao,
+      equipamento: record.equipamento,
+      maquina: record.maquina,
+      status: record.status,
+      site_id: record.site_id,
+      site: isLooseRecord(record.site) ? record.site : null,
+      itens: record.itens,
+      foto_equipamento: record.foto_equipamento,
+      inspetor_id: record.inspetor_id,
+    };
+  }
+
+  private toInspectionLike(value: unknown): InspectionLike | null {
+    const record = this.toLooseRecord(value);
+    if (!record) {
+      return null;
+    }
+
+    return {
+      evidencias: record.evidencias,
+    };
+  }
+
+  private getPageData(page: unknown): LooseRecord[] {
+    if (!isLooseRecord(page) || !Array.isArray(page.data)) {
+      return [];
+    }
+
+    return this.toLooseRecordArray(page.data);
+  }
+
+  private getChecklistItems(
+    checklist: ChecklistLike | null,
+    maxItems: number,
+  ): unknown[] {
+    if (!checklist || !Array.isArray(checklist.itens)) {
+      return [];
+    }
+
+    return checklist.itens.slice(0, maxItems);
+  }
+
+  private buildDraftContextOption(
+    item: LooseRecord,
+    config?: {
+      nameKey?: string;
+      functionKey?: string;
+      descriptionKey?: string;
+      descriptionFallbackKey?: string;
+    },
+  ): DraftContextOption | null {
+    const id = this.toSafeString(item.id).trim();
+    if (!id) {
+      return null;
+    }
+
+    const name = this.toSafeString(item[config?.nameKey ?? 'nome']).trim();
+    const funcao = this.toSafeString(
+      config?.functionKey ? item[config.functionKey] : undefined,
+    ).trim();
+    const description =
+      this.toSafeString(
+        config?.descriptionKey ? item[config.descriptionKey] : undefined,
+      ).trim() ||
+      this.toSafeString(
+        config?.descriptionFallbackKey
+          ? item[config.descriptionFallbackKey]
+          : undefined,
+      ).trim();
+
+    const label = this.formatSelectionLabel({
+      nome: name,
+      funcao,
+      descricao: description,
+    });
+
+    return label ? { id, label } : null;
+  }
+
+  private buildChecklistTemplateOption(
+    item: LooseRecord,
+  ): DraftChecklistTemplateOption | null {
+    const baseOption = this.buildDraftContextOption(item, {
+      nameKey: 'titulo',
+      descriptionKey: 'descricao',
+      descriptionFallbackKey: 'categoria',
+    });
+
+    if (!baseOption) {
+      return null;
+    }
+
+    return {
+      ...baseOption,
+      descricao: this.toSafeString(item.descricao).trim(),
+      categoria: this.toSafeString(item.categoria).trim(),
+      periodicidade: this.toSafeString(item.periodicidade).trim(),
+    };
+  }
+
+  private buildAllowedIdSet(options: DraftContextOption[]): Set<string> {
+    return new Set(options.map((item) => item.id));
+  }
+
   private normalizeConfidence(value: unknown): SophieConfidence | undefined {
-    const normalized = String(value || '')
-      .trim()
-      .toLowerCase();
+    const normalized = this.toSafeString(value).toLowerCase();
     if (
       normalized === 'low' ||
       normalized === 'medium' ||
@@ -553,7 +743,7 @@ export class AiService {
   ): string[] | undefined {
     if (!Array.isArray(value)) return undefined;
     const result = value
-      .map((item) => String(item || '').trim())
+      .map((item) => this.toSafeString(item))
       .filter(Boolean)
       .slice(0, Math.max(1, maxItems));
     return result.length ? result : undefined;
@@ -590,7 +780,7 @@ export class AiService {
   private normalizeRiskLevel(
     value: unknown,
   ): 'Baixo' | 'Médio' | 'Alto' | 'Crítico' {
-    const normalized = String(value || '')
+    const normalized = this.toSafeString(value)
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
@@ -666,8 +856,9 @@ export class AiService {
 
   private countChecklistNonConformities(items: unknown[]): number {
     if (!Array.isArray(items)) return 0;
-    return items.filter((item: any) => {
-      const raw = String(item?.status ?? '')
+    return items.filter((item) => {
+      const status = isLooseRecord(item) ? item.status : undefined;
+      const raw = this.toSafeString(status)
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase();
@@ -681,7 +872,7 @@ export class AiService {
   }
 
   private async tryAutoOpenNcFromChecklist(params: {
-    checklist: any;
+    checklist: ChecklistLike | null;
     summary: string;
     suggestions: string[];
     confidence?: SophieConfidence;
@@ -705,16 +896,13 @@ export class AiService {
       };
     }
 
-    const checklistId = String(params.checklist?.id || '');
+    const checklistId = this.toSafeString(params.checklist?.id);
     const code = `NC-AUTO-CHK-${checklistId.slice(0, 8).toUpperCase()}`;
 
     try {
       const existing = await this.nonConformitiesService.findAll();
-      const alreadyExists = existing.some(
-        (nc: any) =>
-          String(nc?.codigo_nc || '')
-            .trim()
-            .toUpperCase() === code,
+      const alreadyExists = this.toLooseRecordArray(existing).some(
+        (nc) => this.toSafeString(nc.codigo_nc).toUpperCase() === code,
       );
       if (alreadyExists) {
         return {
@@ -732,19 +920,19 @@ export class AiService {
         codigo_nc: code,
         tipo: 'CHECKLIST_AUTOMATIZADO',
         data_identificacao: isoDate,
-        site_id: params.checklist?.site_id || undefined,
-        local_setor_area: String(
-          params.checklist?.site?.nome ||
-            params.checklist?.maquina ||
-            'Área operacional',
-        ),
-        atividade_envolvida: String(
-          params.checklist?.titulo || 'Checklist SST',
-        ),
+        site_id: this.toSafeString(params.checklist?.site_id) || undefined,
+        local_setor_area:
+          this.toSafeString(params.checklist?.site?.nome) ||
+          this.toSafeString(params.checklist?.maquina) ||
+          'Área operacional',
+        atividade_envolvida:
+          this.toSafeString(params.checklist?.titulo) || 'Checklist SST',
         responsavel_area: 'Responsável operacional',
         auditor_responsavel: 'SOPHIE',
         classificacao: ['AUTOMATICA', 'CHECKLIST', 'FASE2'],
-        descricao: `NC aberta automaticamente pela SOPHIE Fase 2. ${params.summary || 'Checklist com não conformidades relevantes.'}`,
+        descricao: `NC aberta automaticamente pela SOPHIE Fase 2. ${
+          params.summary || 'Checklist com não conformidades relevantes.'
+        }`,
         evidencia_observada: `Foram identificadas ${params.nonConformCount} não conformidades no checklist.`,
         condicao_insegura: 'Desvios operacionais identificados no checklist.',
         requisito_nr: 'NR-01',
@@ -842,8 +1030,7 @@ export class AiService {
         {
           type: 'warning',
           title: 'Nao Conformidades',
-          message:
-            'Priorize NCs abertas e em andamento com maior criticidade.',
+          message: 'Priorize NCs abertas e em andamento com maior criticidade.',
           action: '/dashboard/nonconformities',
         },
       ],
@@ -919,7 +1106,7 @@ export class AiService {
           trainings,
         )}\n- Exames (PCMSO/ASO): ${JSON.stringify(exams)}\n- Nao conformidades (por status): ${JSON.stringify(
           ncs,
-        )}\n\nRegras:\n- insights[].type deve ser um de: info|warning|success\n- insights[].action deve ser uma rota interna (ex.: /dashboard/trainings)\n- Mensagens curtas e objetivas, sem alarmismo.\n\nRetorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.\n\nFormato JSON:\n{\n  \"summary\": string,\n  \"insights\": [{\"type\":\"info|warning|success\",\"title\":string,\"message\":string,\"action\":string}],\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}`,
+        )}\n\nRegras:\n- insights[].type deve ser um de: info|warning|success\n- insights[].action deve ser uma rota interna (ex.: /dashboard/trainings)\n- Mensagens curtas e objetivas, sem alarmismo.\n\nRetorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.\n\nFormato JSON:\n{\n  "summary": string,\n  "insights": [{"type":"info|warning|success","title":string,"message":string,"action":string}],\n  "confidence": "low|medium|high",\n  "notes": string[]\n}`,
         maxTokens: 900,
       });
       const confidence = this.normalizeConfidence(data.confidence);
@@ -936,7 +1123,7 @@ export class AiService {
         notes,
       };
 
-      interaction.response = response as any;
+      interaction.response = this.toInteractionResponse(response);
       interaction.latency_ms = Date.now() - startTime;
       interaction.token_usage_input = inputTokens;
       interaction.token_usage_output = outputTokens;
@@ -973,15 +1160,21 @@ export class AiService {
       this.episService.findAll(),
     ]);
 
-    const riskOptions = risks
-      .map((risk: any) => ({
-        id: risk.id,
-        nome: risk.nome,
-        categoria: risk.categoria ?? null,
+    const riskOptions = this.toLooseRecordArray(risks)
+      .map((risk) => ({
+        id: this.toSafeString(risk.id),
+        nome: this.toSafeString(risk.nome),
+        categoria: this.toSafeString(risk.categoria) || null,
       }))
+      .filter((risk) => risk.id && risk.nome)
       .slice(0, 300);
-    const epiOptions = epis
-      .map((epi: any) => ({ id: epi.id, nome: epi.nome, ca: epi.ca ?? null }))
+    const epiOptions = this.toLooseRecordArray(epis)
+      .map((epi) => ({
+        id: this.toSafeString(epi.id),
+        nome: this.toSafeString(epi.nome),
+        ca: this.toSafeString(epi.ca) || null,
+      }))
+      .filter((epi) => epi.id && epi.nome)
       .slice(0, 300);
 
     const startTime = Date.now();
@@ -1002,7 +1195,7 @@ export class AiService {
             riskOptions,
           )}\n\nLista de EPIs disponiveis (escolha por id):\n${JSON.stringify(
             epiOptions,
-          )}\n\nFormato JSON:\n{\n  \"risks\": [\"riskId\"],\n  \"epis\": [\"epiId\"],\n  \"explanation\": \"string curta explicando a escolha\",\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}\n\nRegras:\n- Retorne apenas IDs presentes nas listas.\n- Maximo: 8 risks e 8 epis.\n- Priorize riscos de acidentes, fisicos e quimicos mais provaveis pela descricao.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
+          )}\n\nFormato JSON:\n{\n  "risks": ["riskId"],\n  "epis": ["epiId"],\n  "explanation": "string curta explicando a escolha",\n  "confidence": "low|medium|high",\n  "notes": string[]\n}\n\nRegras:\n- Retorne apenas IDs presentes nas listas.\n- Maximo: 8 risks e 8 epis.\n- Priorize riscos de acidentes, fisicos e quimicos mais provaveis pela descricao.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
           maxTokens: 800,
         });
       const confidence = this.normalizeConfidence(data.confidence);
@@ -1022,7 +1215,7 @@ export class AiService {
         notes,
       };
 
-      interaction.response = response as any;
+      interaction.response = this.toInteractionResponse(response);
       interaction.latency_ms = Date.now() - startTime;
       interaction.token_usage_input = inputTokens;
       interaction.token_usage_output = outputTokens;
@@ -1093,7 +1286,7 @@ export class AiService {
         task: 'pt',
         user: `Analise de Permissao de Trabalho (PT).\n\nTitulo: ${data.titulo}\nDescricao: ${data.descricao}\nSinais/flags: ${JSON.stringify(
           flags,
-        )}\n\nGere um resumo e sugestoes tecnicas de controle.\n\nFormato JSON:\n{\n  \"summary\": string,\n  \"riskLevel\": \"Baixo|Médio|Alto|Crítico\",\n  \"suggestions\": string[],\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}\n\nRegras:\n- suggestions: 4 a 10 itens curtos.\n- Priorize hierarquia de controle.\n- Cite NRs relevantes quando pertinente (NR-10/12/20/33/35/06/01).\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
+        )}\n\nGere um resumo e sugestoes tecnicas de controle.\n\nFormato JSON:\n{\n  "summary": string,\n  "riskLevel": "Baixo|Médio|Alto|Crítico",\n  "suggestions": string[],\n  "confidence": "low|medium|high",\n  "notes": string[]\n}\n\nRegras:\n- suggestions: 4 a 10 itens curtos.\n- Priorize hierarquia de controle.\n- Cite NRs relevantes quando pertinente (NR-10/12/20/33/35/06/01).\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
         maxTokens: 900,
       });
       const confidence = this.normalizeConfidence(response.confidence);
@@ -1115,7 +1308,7 @@ export class AiService {
         automation: this.buildPtAutomationDecision(normalizedRiskLevel, flags),
       };
 
-      interaction.response = normalized as any;
+      interaction.response = this.toInteractionResponse(normalized);
       interaction.latency_ms = Date.now() - startTime;
       interaction.token_usage_input = inputTokens;
       interaction.token_usage_output = outputTokens;
@@ -1169,6 +1362,7 @@ export class AiService {
     });
 
     try {
+      const checklistRecord = this.toChecklistLike(checklist);
       const checklistSnapshot = {
         id: checklist.id,
         titulo: checklist.titulo,
@@ -1176,9 +1370,7 @@ export class AiService {
         equipamento: checklist.equipamento,
         maquina: checklist.maquina,
         status: checklist.status,
-        itens: Array.isArray((checklist as any).itens)
-          ? (checklist as any).itens.slice(0, 80)
-          : [],
+        itens: this.getChecklistItems(checklistRecord, 80),
       };
 
       const { data, inputTokens, outputTokens } =
@@ -1186,7 +1378,7 @@ export class AiService {
           task: 'checklist',
           user: `Analise este checklist de SST e aponte pontos de atencao e melhorias.\n\nChecklist:\n${JSON.stringify(
             checklistSnapshot,
-          )}\n\nFormato JSON:\n{\n  \"summary\": string,\n  \"suggestions\": string[],\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}\n\nRegras:\n- suggestions: 4 a 12 itens curtos.\n- Se houver muitos \"nao\"/\"nok\", priorize acoes imediatas.\n- Cite NRs quando pertinente.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
+          )}\n\nFormato JSON:\n{\n  "summary": string,\n  "suggestions": string[],\n  "confidence": "low|medium|high",\n  "notes": string[]\n}\n\nRegras:\n- suggestions: 4 a 12 itens curtos.\n- Se houver muitos "nao"/"nok", priorize acoes imediatas.\n- Cite NRs quando pertinente.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
           maxTokens: 1000,
         });
       const confidence = this.normalizeConfidence(data.confidence);
@@ -1195,7 +1387,7 @@ export class AiService {
         checklistSnapshot.itens || [],
       );
       const automation = await this.tryAutoOpenNcFromChecklist({
-        checklist: checklist,
+        checklist: checklistRecord,
         summary: String(data.summary || '').trim(),
         suggestions: Array.isArray(data.suggestions)
           ? data.suggestions
@@ -1220,7 +1412,7 @@ export class AiService {
         automation,
       };
 
-      interaction.response = response as any;
+      interaction.response = this.toInteractionResponse(response);
       interaction.latency_ms = Date.now() - startTime;
       interaction.token_usage_input = inputTokens;
       interaction.token_usage_output = outputTokens;
@@ -1279,7 +1471,7 @@ export class AiService {
       const { data, inputTokens, outputTokens } =
         await this.callOpenAiJson<GenerateDdsResponse>({
           task: 'dds',
-          user: `Gere um DDS (Diálogo Diario de Seguranca) pronto para uso.\n\nTema base: ${temaBase || 'definir automaticamente'}\nContexto operacional: ${contexto || 'nao informado'}\n\nFormato JSON:\n{\n  \"tema\": string,\n  \"conteudo\": string,\n  \"explanation\": string,\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}\n\nRegras:\n- conteudo em portugues, pratico, com 6 a 10 bullets.\n- incluir: objetivo, perigos, controles (hierarquia), EPIs, NRs relevantes.\n- evite jargoes e mantenha linguagem de campo.\n- Se houver tema base, respeite-o.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
+          user: `Gere um DDS (Diálogo Diario de Seguranca) pronto para uso.\n\nTema base: ${temaBase || 'definir automaticamente'}\nContexto operacional: ${contexto || 'nao informado'}\n\nFormato JSON:\n{\n  "tema": string,\n  "conteudo": string,\n  "explanation": string,\n  "confidence": "low|medium|high",\n  "notes": string[]\n}\n\nRegras:\n- conteudo em portugues, pratico, com 6 a 10 bullets.\n- incluir: objetivo, perigos, controles (hierarquia), EPIs, NRs relevantes.\n- evite jargoes e mantenha linguagem de campo.\n- Se houver tema base, respeite-o.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
           maxTokens: 1200,
         });
       const confidence = this.normalizeConfidence(data.confidence);
@@ -1294,7 +1486,7 @@ export class AiService {
         notes,
       };
 
-      interaction.response = response as any;
+      interaction.response = this.toInteractionResponse(response);
       interaction.latency_ms = Date.now() - startTime;
       interaction.token_usage_input = inputTokens;
       interaction.token_usage_output = outputTokens;
@@ -1328,7 +1520,9 @@ export class AiService {
     }
   }
 
-  async generateChecklist(params: any): Promise<GenerateChecklistResponse> {
+  async generateChecklist(
+    params: GenerateChecklistDto,
+  ): Promise<GenerateChecklistResponse> {
     const tenantId = this.getTenantIdOrThrow();
     await this.enforceRateLimit(tenantId);
 
@@ -1342,7 +1536,7 @@ export class AiService {
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
-      user_id: String(params?.inspetor_id || 'unknown'),
+      user_id: String(params.inspetor_id || 'unknown'),
       question: `GENERATE_CHECKLIST: ${subject}`,
       model: this.openaiModel,
       provider: 'openai',
@@ -1357,7 +1551,7 @@ export class AiService {
         notes?: string[];
       }>({
         task: 'generic',
-        user: `Gere um checklist de inspecao SST para: ${subject}.\nDescricao: ${descricao || '(sem descricao)'}\n\nFormato JSON:\n{\n  \"titulo\": string,\n  \"itens\": [{\"item\": string}],\n  \"confidence\": \"low|medium|high\",\n  \"notes\": string[]\n}\n\nRegras:\n- 12 a 20 itens curtos e verificaveis.\n- Misture controles de engenharia, administrativos e EPI.\n- Se tema envolver NR-10/12/20/33/35, inclua verificacoes tipicas.\n- Nao incluir IDs, apenas texto.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
+        user: `Gere um checklist de inspecao SST para: ${subject}.\nDescricao: ${descricao || '(sem descricao)'}\n\nFormato JSON:\n{\n  "titulo": string,\n  "itens": [{"item": string}],\n  "confidence": "low|medium|high",\n  "notes": string[]\n}\n\nRegras:\n- 12 a 20 itens curtos e verificaveis.\n- Misture controles de engenharia, administrativos e EPI.\n- Se tema envolver NR-10/12/20/33/35, inclua verificacoes tipicas.\n- Nao incluir IDs, apenas texto.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
         maxTokens: 1200,
       });
       const confidence = this.normalizeConfidence(data.confidence);
@@ -1379,7 +1573,7 @@ export class AiService {
         notes,
       };
 
-      interaction.response = response as any;
+      interaction.response = this.toInteractionResponse(response);
       interaction.latency_ms = Date.now() - startTime;
       interaction.token_usage_input = inputTokens;
       interaction.token_usage_output = outputTokens;
@@ -1476,9 +1670,7 @@ export class AiService {
 
   private normalizeBoolean(value: unknown): boolean | undefined {
     if (typeof value === 'boolean') return value;
-    const normalized = String(value || '')
-      .trim()
-      .toLowerCase();
+    const normalized = this.toSafeString(value).toLowerCase();
     if (['true', '1', 'sim', 'yes'].includes(normalized)) return true;
     if (['false', '0', 'nao', 'não', 'no'].includes(normalized)) return false;
     return undefined;
@@ -1489,19 +1681,17 @@ export class AiService {
 
     return value
       .map((entry) => {
-        const item = (entry ?? {}) as Record<string, unknown>;
+        const item = this.toLooseRecord(entry) ?? {};
         return {
-          atividade_processo: String(item.atividade_processo || '').trim(),
-          agente_ambiental: String(item.agente_ambiental || '').trim(),
-          condicao_perigosa: String(item.condicao_perigosa || '').trim(),
-          fontes_circunstancias: String(
-            item.fontes_circunstancias || '',
-          ).trim(),
-          possiveis_lesoes: String(item.possiveis_lesoes || '').trim(),
-          probabilidade: String(item.probabilidade || '').trim(),
-          severidade: String(item.severidade || '').trim(),
-          categoria_risco: String(item.categoria_risco || '').trim(),
-          medidas_prevencao: String(item.medidas_prevencao || '').trim(),
+          atividade_processo: this.toSafeString(item.atividade_processo),
+          agente_ambiental: this.toSafeString(item.agente_ambiental),
+          condicao_perigosa: this.toSafeString(item.condicao_perigosa),
+          fontes_circunstancias: this.toSafeString(item.fontes_circunstancias),
+          possiveis_lesoes: this.toSafeString(item.possiveis_lesoes),
+          probabilidade: this.toSafeString(item.probabilidade),
+          severidade: this.toSafeString(item.severidade),
+          categoria_risco: this.toSafeString(item.categoria_risco),
+          medidas_prevencao: this.toSafeString(item.medidas_prevencao),
         };
       })
       .filter(
@@ -1535,14 +1725,17 @@ export class AiService {
     descricao?: string | null;
   }): string {
     const parts = [
-      String(entry.nome || '').trim(),
-      String(entry.funcao || '').trim(),
-      String(entry.descricao || '').trim(),
+      this.toSafeString(entry.nome),
+      this.toSafeString(entry.funcao),
+      this.toSafeString(entry.descricao),
     ].filter(Boolean);
     return parts.join(' • ');
   }
 
-  private async loadAssistedDraftContext(companyId: string, siteId: string) {
+  private async loadAssistedDraftContext(
+    companyId: string,
+    siteId: string,
+  ): Promise<DraftContext> {
     const [
       activitiesPage,
       toolsPage,
@@ -1557,55 +1750,68 @@ export class AiService {
       this.checklistsService.findAll({ onlyTemplates: true }).catch(() => []),
     ]);
 
-    const participants = (usersPage.data || [])
-      .filter(
-        (user: any) => !siteId || !user.site_id || user.site_id === siteId,
-      )
+    const participants = this.getPageData(usersPage)
+      .filter((user) => {
+        const userSiteId = this.toSafeString(user.site_id);
+        return !siteId || !userSiteId || userSiteId === siteId;
+      })
       .slice(0, 40)
-      .map((user: any) => ({
-        id: user.id,
-        label: this.formatSelectionLabel({
-          nome: user.nome,
-          funcao: user.funcao,
-          descricao: user.site_id ? `site:${user.site_id}` : '',
-        }),
-      }));
+      .map((user) => {
+        const id = this.toSafeString(user.id).trim();
+        if (!id) {
+          return null;
+        }
+
+        return {
+          id,
+          label: this.formatSelectionLabel({
+            nome: this.toSafeString(user.nome),
+            funcao: this.toSafeString(user.funcao),
+            descricao: this.toSafeString(user.site_id)
+              ? `site:${this.toSafeString(user.site_id)}`
+              : '',
+          }),
+        };
+      })
+      .filter((user): user is DraftContextOption =>
+        Boolean(user && user.id && user.label),
+      );
 
     return {
-      activities: (activitiesPage.data || []).map((activity: any) => ({
-        id: activity.id,
-        label: this.formatSelectionLabel({
-          nome: activity.nome,
-          descricao: activity.descricao,
-        }),
-      })),
-      tools: (toolsPage.data || []).map((tool: any) => ({
-        id: tool.id,
-        label: this.formatSelectionLabel({
-          nome: tool.nome,
-          descricao: tool.descricao,
-        }),
-      })),
-      machines: (machinesPage.data || []).map((machine: any) => ({
-        id: machine.id,
-        label: this.formatSelectionLabel({
-          nome: machine.nome,
-          descricao: machine.descricao,
-        }),
-      })),
-      participants,
-      checklistTemplates: (checklistTemplates || [])
-        .slice(0, 40)
-        .map((template: any) => ({
-          id: template.id,
-          label: this.formatSelectionLabel({
-            nome: template.titulo,
-            descricao: template.descricao || template.categoria,
+      activities: this.getPageData(activitiesPage)
+        .map((activity) =>
+          this.buildDraftContextOption(activity, {
+            descriptionKey: 'descricao',
           }),
-          descricao: String(template.descricao || '').trim(),
-          categoria: String(template.categoria || '').trim(),
-          periodicidade: String(template.periodicidade || '').trim(),
-        })),
+        )
+        .filter((activity): activity is DraftContextOption =>
+          Boolean(activity && activity.id && activity.label),
+        ),
+      tools: this.getPageData(toolsPage)
+        .map((tool) =>
+          this.buildDraftContextOption(tool, {
+            descriptionKey: 'descricao',
+          }),
+        )
+        .filter((tool): tool is DraftContextOption =>
+          Boolean(tool && tool.id && tool.label),
+        ),
+      machines: this.getPageData(machinesPage)
+        .map((machine) =>
+          this.buildDraftContextOption(machine, {
+            descriptionKey: 'descricao',
+          }),
+        )
+        .filter((machine): machine is DraftContextOption =>
+          Boolean(machine && machine.id && machine.label),
+        ),
+      participants,
+      checklistTemplates: this.toLooseRecordArray(checklistTemplates)
+        .slice(0, 40)
+        .map((template) => this.buildChecklistTemplateOption(template))
+        .filter((template): template is DraftChecklistTemplateOption =>
+          Boolean(template && template.id && template.label),
+        ),
     };
   }
 
@@ -1830,29 +2036,30 @@ export class AiService {
   }
 
   private collectChecklistEvidenceAttachments(
-    checklist: any,
+    checklist: ChecklistLike | null,
   ): Array<{ url: string; label: string }> {
     const evidence: Array<{ url: string; label: string }> = [];
 
-    if (
-      typeof checklist?.foto_equipamento === 'string' &&
-      checklist.foto_equipamento.trim()
-    ) {
+    const equipmentPhoto = this.toSafeString(checklist?.foto_equipamento);
+    if (equipmentPhoto) {
       evidence.push({
-        url: checklist.foto_equipamento.trim(),
+        url: equipmentPhoto,
         label: 'Foto do equipamento do checklist',
       });
     }
 
-    const items = Array.isArray(checklist?.itens) ? checklist.itens : [];
+    const items = this.getChecklistItems(checklist, 80);
     for (const item of items) {
-      const photos = Array.isArray(item?.fotos) ? item.fotos : [];
+      const record = this.toLooseRecord(item);
+      const photos = Array.isArray(record?.fotos) ? record.fotos : [];
       for (const photo of photos.slice(0, 1)) {
-        const normalized = String(photo || '').trim();
+        const normalized = this.toSafeString(photo);
         if (!normalized) continue;
         evidence.push({
           url: normalized,
-          label: `Foto do item: ${String(item?.item || 'Checklist').trim() || 'Checklist'}`,
+          label: `Foto do item: ${
+            this.toSafeString(record?.item) || 'Checklist'
+          }`,
         });
         if (evidence.length >= MAX_IMPORTED_EVIDENCE_ATTACHMENTS) {
           return evidence;
@@ -1864,15 +2071,15 @@ export class AiService {
   }
 
   private collectInspectionEvidenceAttachments(
-    inspection: any,
+    inspection: InspectionLike | null,
   ): Array<{ url: string; label: string }> {
-    return (Array.isArray(inspection?.evidencias) ? inspection.evidencias : [])
-      .map((item: any) => ({
-        url: String(item?.url || '').trim(),
+    return this.toLooseRecordArray(inspection?.evidencias)
+      .map((item) => ({
+        url: this.toSafeString(item.url),
         label:
-          String(
-            item?.descricao || item?.original_name || 'Evidência da inspeção',
-          ).trim() || 'Evidência da inspeção',
+          this.toSafeString(item.descricao) ||
+          this.toSafeString(item.original_name) ||
+          'Evidência da inspeção',
       }))
       .filter((item) => item.url)
       .slice(0, MAX_IMPORTED_EVIDENCE_ATTACHMENTS);
@@ -1887,23 +2094,29 @@ export class AiService {
       .map((entry, index) => {
         const item = (entry ?? {}) as Record<string, unknown>;
         const fallback = defaults?.[index] || {};
-        const priority = String(item.priority || fallback.priority || 'medium')
+        const priority = this.toSafeString(
+          item.priority ?? fallback.priority ?? 'medium',
+        )
           .trim()
           .toLowerCase();
-        const type = String(item.type || fallback.type || 'corrective')
+        const type = this.toSafeString(
+          item.type ?? fallback.type ?? 'corrective',
+        )
           .trim()
           .toLowerCase();
 
         return {
-          title: String(item.title || fallback.title || '').trim(),
-          owner: String(item.owner || fallback.owner || 'Gestão SST').trim(),
+          title: this.toSafeString(item.title ?? fallback.title),
+          owner: this.toSafeString(
+            item.owner ?? fallback.owner ?? 'Gestão SST',
+          ),
           priority:
             priority === 'critical' || priority === 'high' || priority === 'low'
               ? priority
               : 'medium',
-          timeline: String(
-            item.timeline || fallback.timeline || 'Curto prazo',
-          ).trim(),
+          timeline: this.toSafeString(
+            item.timeline ?? fallback.timeline ?? 'Curto prazo',
+          ),
           type:
             type === 'immediate' || type === 'preventive' ? type : 'corrective',
         } as SophieActionPlanItem;
@@ -2042,13 +2255,12 @@ export class AiService {
             maquina: checklist.maquina,
             status: checklist.status,
             site: checklist.site?.nome,
-            itens: Array.isArray((checklist as any).itens)
-              ? (checklist as any).itens.slice(0, 20)
-              : [],
+            itens: this.getChecklistItems(this.toChecklistLike(checklist), 20),
           })}`,
         );
-        evidenceAttachments =
-          this.collectChecklistEvidenceAttachments(checklist);
+        evidenceAttachments = this.collectChecklistEvidenceAttachments(
+          this.toChecklistLike(checklist),
+        );
         if (evidenceAttachments.length) {
           promptSections.push(
             `Evidencias visuais disponiveis no checklist: ${evidenceAttachments
@@ -2145,15 +2357,21 @@ export class AiService {
       this.loadAssistedDraftContext(companyId, params.site_id),
     ]);
 
-    const riskOptions = risks
-      .map((risk: any) => ({
-        id: risk.id,
-        nome: risk.nome,
-        categoria: risk.categoria ?? null,
+    const riskOptions = this.toLooseRecordArray(risks)
+      .map((risk) => ({
+        id: this.toSafeString(risk.id),
+        nome: this.toSafeString(risk.nome),
+        categoria: this.toSafeString(risk.categoria) || null,
       }))
+      .filter((risk) => risk.id && risk.nome)
       .slice(0, 300);
-    const epiOptions = epis
-      .map((epi: any) => ({ id: epi.id, nome: epi.nome, ca: epi.ca ?? null }))
+    const epiOptions = this.toLooseRecordArray(epis)
+      .map((epi) => ({
+        id: this.toSafeString(epi.id),
+        nome: this.toSafeString(epi.nome),
+        ca: this.toSafeString(epi.ca) || null,
+      }))
+      .filter((epi) => epi.id && epi.nome)
       .slice(0, 300);
     const contextText = this.buildAssistedContextText([
       params.title,
@@ -2247,17 +2465,13 @@ export class AiService {
         `- Retorne somente JSON válido.`,
     });
 
-    const allowedRiskIds = new Set(riskOptions.map((item) => item.id));
-    const allowedEpiIds = new Set(epiOptions.map((item) => item.id));
-    const allowedActivityIds = new Set(
-      draftContext.activities.map((item) => item.id),
-    );
-    const allowedToolIds = new Set(draftContext.tools.map((item) => item.id));
-    const allowedMachineIds = new Set(
-      draftContext.machines.map((item) => item.id),
-    );
-    const allowedParticipantIds = new Set(
-      draftContext.participants.map((item) => item.id),
+    const allowedRiskIds = new Set<string>(riskOptions.map((item) => item.id));
+    const allowedEpiIds = new Set<string>(epiOptions.map((item) => item.id));
+    const allowedActivityIds = this.buildAllowedIdSet(draftContext.activities);
+    const allowedToolIds = this.buildAllowedIdSet(draftContext.tools);
+    const allowedMachineIds = this.buildAllowedIdSet(draftContext.machines);
+    const allowedParticipantIds = this.buildAllowedIdSet(
+      draftContext.participants,
     );
     const riskItems = this.normalizeAprRiskItems(generated.risk_items);
     const suggestedActions =
@@ -2506,13 +2720,11 @@ export class AiService {
       this.normalizeStringArray(generated.suggestions, 8) || [];
     const mandatoryDocuments =
       this.normalizeStringArray(generated.mandatory_documents, 6) || [];
-    const allowedParticipantIds = new Set(
-      draftContext.participants.map((item) => item.id),
+    const allowedParticipantIds = this.buildAllowedIdSet(
+      draftContext.participants,
     );
-    const allowedToolIds = new Set(draftContext.tools.map((item) => item.id));
-    const allowedMachineIds = new Set(
-      draftContext.machines.map((item) => item.id),
-    );
+    const allowedToolIds = this.buildAllowedIdSet(draftContext.tools);
+    const allowedMachineIds = this.buildAllowedIdSet(draftContext.machines);
     const selectedParticipants = Array.from(
       new Set([
         params.responsavel_id,
@@ -2973,7 +3185,7 @@ export class AiService {
         userId,
         companyId,
       },
-      defaultJobOptions,
+      pdfJobOptions,
     );
 
     return {
@@ -3018,7 +3230,7 @@ export class AiService {
         maxTokens,
       });
 
-      interaction.response = data as unknown as any;
+      interaction.response = this.toInteractionResponse(data);
       interaction.latency_ms = Date.now() - startTime;
       interaction.token_usage_input = inputTokens;
       interaction.token_usage_output = outputTokens;

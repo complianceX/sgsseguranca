@@ -12,6 +12,9 @@ import { DataSource } from 'typeorm';
 import { TenantService } from './tenant.service';
 import { withTenant, WithTenantOptions } from './with-tenant';
 
+type TenantScopedEntity<TEntity extends object> = DeepPartial<TEntity> &
+  Record<string, unknown>;
+
 export type TenantRepositoryOptions = WithTenantOptions & {
   tenantColumn?: string;
 };
@@ -24,7 +27,7 @@ export type TenantRepositoryOptions = WithTenantOptions & {
  * - Padronizar acesso por ID e queries baseadas em where
  * - Defesa em profundidade (além de RLS no Postgres)
  */
-export class TenantRepository<TEntity extends Record<string, any>> {
+export class TenantRepository<TEntity extends object> {
   constructor(
     private readonly repo: Repository<TEntity>,
     private readonly tenantService: TenantService,
@@ -37,6 +40,24 @@ export class TenantRepository<TEntity extends Record<string, any>> {
 
   private tenantColumn(): string {
     return this.options.tenantColumn || 'company_id';
+  }
+
+  private scopeWhere<
+    TWhere extends FindOptionsWhere<TEntity> | FindOptionsWhere<TEntity>[],
+  >(where: TWhere, companyId: string | undefined): TWhere {
+    return withTenant(where as never, companyId, {
+      tenantColumn: this.tenantColumn(),
+      allowMissingTenant: this.options.allowMissingTenant,
+    }) as TWhere;
+  }
+
+  private ensureTenantContext(companyId: string | undefined): void {
+    if (!companyId && !this.options.allowMissingTenant) {
+      withTenant({}, companyId, {
+        tenantColumn: this.tenantColumn(),
+        allowMissingTenant: this.options.allowMissingTenant,
+      });
+    }
   }
 
   /**
@@ -52,12 +73,13 @@ export class TenantRepository<TEntity extends Record<string, any>> {
     options?: Omit<FindOneOptions<TEntity>, 'where'>,
   ): Promise<TEntity | null> {
     const companyId = this.effectiveTenantId(tenantId);
+    const where = this.scopeWhere(
+      { id } as unknown as FindOptionsWhere<TEntity>,
+      companyId,
+    );
     return this.repo.findOne({
       ...(options || {}),
-      where: withTenant({ id } as any, companyId, {
-        tenantColumn: this.tenantColumn(),
-        allowMissingTenant: this.options.allowMissingTenant,
-      }),
+      where,
     });
   }
 
@@ -73,10 +95,7 @@ export class TenantRepository<TEntity extends Record<string, any>> {
     const companyId = this.effectiveTenantId(tenantId);
     return this.repo.findOne({
       ...(options || {}),
-      where: withTenant(where as any, companyId, {
-        tenantColumn: this.tenantColumn(),
-        allowMissingTenant: this.options.allowMissingTenant,
-      }),
+      where: this.scopeWhere(where, companyId),
     });
   }
 
@@ -90,14 +109,15 @@ export class TenantRepository<TEntity extends Record<string, any>> {
     },
   ): Promise<TEntity[]> {
     const companyId = this.effectiveTenantId(tenantId);
-    const where = options?.where;
+    const where =
+      options?.where ??
+      ({} as unknown as
+        | FindOptionsWhere<TEntity>
+        | FindOptionsWhere<TEntity>[]);
 
     return this.repo.find({
       ...(options || {}),
-      where: withTenant((where || {}) as any, companyId, {
-        tenantColumn: this.tenantColumn(),
-        allowMissingTenant: this.options.allowMissingTenant,
-      }),
+      where: this.scopeWhere(where, companyId),
     });
   }
 
@@ -110,13 +130,7 @@ export class TenantRepository<TEntity extends Record<string, any>> {
   ): SelectQueryBuilder<TEntity> {
     const qb = this.repo.createQueryBuilder(alias);
     const companyId = this.effectiveTenantId(tenantId);
-    if (!companyId && !this.options.allowMissingTenant) {
-      // Mantém fail-closed consistente com withTenant()
-      withTenant({} as any, companyId, {
-        tenantColumn: this.tenantColumn(),
-        allowMissingTenant: this.options.allowMissingTenant,
-      });
-    }
+    this.ensureTenantContext(companyId);
     if (companyId) {
       qb.andWhere(`${alias}.${this.tenantColumn()} = :tenantId`, {
         tenantId: companyId,
@@ -132,21 +146,18 @@ export class TenantRepository<TEntity extends Record<string, any>> {
   save(entity: DeepPartial<TEntity>, tenantId?: string): Promise<TEntity> {
     const companyId = this.effectiveTenantId(tenantId);
     const tenantColumn = this.tenantColumn();
-    const next = { ...(entity as any) };
+    const next = {
+      ...(entity as object),
+    } as TenantScopedEntity<TEntity>;
 
     if (companyId && next[tenantColumn] == null) {
       next[tenantColumn] = companyId;
     }
 
     // Fail-closed: se o modelo é multi-tenant, não permitir salvar sem tenant.
-    if (!companyId && !this.options.allowMissingTenant) {
-      withTenant({} as any, companyId, {
-        tenantColumn,
-        allowMissingTenant: this.options.allowMissingTenant,
-      });
-    }
+    this.ensureTenantContext(companyId);
 
-    return this.repo.save(next);
+    return this.repo.save(next as DeepPartial<TEntity>);
   }
 
   /**
@@ -164,7 +175,7 @@ export class TenantRepositoryFactory {
     private readonly tenantService: TenantService,
   ) {}
 
-  forEntity<TEntity extends Record<string, any>>(
+  forEntity<TEntity extends object>(
     entity: EntityTarget<TEntity>,
     options?: TenantRepositoryOptions,
   ): TenantRepository<TEntity> {
@@ -172,7 +183,7 @@ export class TenantRepositoryFactory {
     return new TenantRepository(repo, this.tenantService, options);
   }
 
-  wrap<TEntity extends Record<string, any>>(
+  wrap<TEntity extends object>(
     repo: Repository<TEntity>,
     options?: TenantRepositoryOptions,
   ): TenantRepository<TEntity> {

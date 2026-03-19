@@ -1,20 +1,36 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { FileSpreadsheet, FileText, Plus } from 'lucide-react';
 import { downloadExcel } from '@/lib/download-excel';
 import Link from 'next/link';
-import { SendMailModal } from '@/components/SendMailModal';
 import { useAprs } from './hooks/useAprs';
 import { AprCard } from './components/AprCard';
 import { AprInsights } from './components/AprInsights';
 import { AprFilters } from './components/AprFilters';
-import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { aprsService } from '@/services/aprsService';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+
+const SendMailModal = dynamic(
+  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  { ssr: false },
+);
+const StoredFilesPanel = dynamic(
+  () =>
+    import('@/components/StoredFilesPanel').then(
+      (module) => module.StoredFilesPanel,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mt-6 h-40 animate-pulse rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/60" />
+    ),
+  },
+);
 
 export default function AprsPage() {
   const {

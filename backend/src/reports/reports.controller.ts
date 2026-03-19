@@ -24,10 +24,11 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
-import { defaultJobOptions } from '../queue/default-job-options';
+import { withDefaultJobOptions } from '../queue/default-job-options';
 import { ReportsService } from './reports.service';
 import { Authorize } from '../auth/authorize.decorator';
 import { GenerateReportDto } from './dto/generate-report.dto';
+import { getPdfQueueJobTimeoutMs } from '../common/services/pdf-runtime-config';
 
 type ReportQueueJobParams = {
   month?: number;
@@ -40,6 +41,10 @@ type ReportQueueJobData = {
   reportType?: string;
   params?: ReportQueueJobParams;
 };
+
+const pdfJobOptions = withDefaultJobOptions({
+  timeout: getPdfQueueJobTimeoutMs(),
+});
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -120,7 +125,7 @@ export class ReportsController {
         userId,
         companyId,
       },
-      defaultJobOptions,
+      pdfJobOptions,
     );
     return { jobId: job.id, statusUrl: `/reports/status/${job.id}` };
   }

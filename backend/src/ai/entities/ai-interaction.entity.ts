@@ -9,9 +9,10 @@ import {
   AiInteractionStatus,
   ConfidenceLevel,
   HumanReviewReason,
-  ImageRiskAnalysis,
-  SstAgentResponse,
 } from '../sst-agent/sst-agent.types';
+
+type JsonPrimitive = string | number | boolean | null;
+type JsonValue = JsonPrimitive | object;
 
 /**
  * Histórico de interações com o Agente SST.
@@ -55,7 +56,7 @@ export class AiInteraction {
    * Armazenada como JSON para permitir consultas e auditoria futura.
    */
   @Column({ type: 'json', nullable: true })
-  response: SstAgentResponse | ImageRiskAnalysis | null;
+  response: JsonValue;
 
   /** Nomes das ferramentas chamadas durante a geração da resposta. */
   @Column({ type: 'json', nullable: true })

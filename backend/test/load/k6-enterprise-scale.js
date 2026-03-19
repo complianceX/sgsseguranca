@@ -1,198 +1,565 @@
+import exec from 'k6/execution';
 import http from 'k6/http';
-import { check, group, sleep } from 'k6';
-import { Rate, Trend, Counter, Gauge } from 'k6/metrics';
+import { check, fail, group, sleep } from 'k6';
+import { Counter, Rate, Trend } from 'k6/metrics';
 
-// Métricas customizadas
-const errorRate = new Rate('errors');
-const apiDuration = new Trend('api_duration');
-const pdfGenerationDuration = new Trend('pdf_generation_duration');
-const concurrentUsers = new Gauge('concurrent_users');
-const successfulRequests = new Counter('successful_requests');
+const BASE_URL = String(__ENV.BASE_URL || 'http://localhost:3001').replace(
+  /\/+$/,
+  '',
+);
+const LOGIN_CPF = String(__ENV.K6_LOGIN_CPF || '').replace(/\D/g, '');
+const LOGIN_PASSWORD = String(__ENV.K6_LOGIN_PASSWORD || '');
+const COMPANY_ID = String(__ENV.K6_COMPANY_ID || '').trim();
+const PDF_POLL_ATTEMPTS = Number(__ENV.K6_PDF_POLL_ATTEMPTS || 12);
+const PDF_POLL_INTERVAL_MS = Number(__ENV.K6_PDF_POLL_INTERVAL_MS || 3000);
+const DASHBOARD_SLEEP_MS = Number(__ENV.K6_DASHBOARD_SLEEP_MS || 750);
+const PROFILE = String(__ENV.K6_SCENARIO_PROFILE || 'baseline').toLowerCase();
+const ENABLE_UPLOAD_SCENARIO = String(
+  __ENV.K6_ENABLE_UPLOAD_SCENARIO || 'true',
+).toLowerCase() !== 'false';
+const ENABLE_PDF_SCENARIO = String(
+  __ENV.K6_ENABLE_PDF_SCENARIO || 'true',
+).toLowerCase() !== 'false';
 
-// Configuração de teste
-export const options = {
-  stages: [
-    { duration: '2m', target: 100 }, // Ramp-up: 0 → 100 usuários
-    { duration: '5m', target: 100 }, // Sustain: 100 usuários
-    { duration: '2m', target: 500 }, // Spike: 100 → 500 usuários
-    { duration: '5m', target: 500 }, // Sustain: 500 usuários
-    { duration: '2m', target: 1000 }, // Stress: 500 → 1000 usuários
-    { duration: '5m', target: 1000 }, // Sustain: 1000 usuários
-    { duration: '2m', target: 0 }, // Ramp-down: 1000 → 0 usuários
-  ],
-  thresholds: {
-    'http_req_duration': ['p(95)<500', 'p(99)<1000'], // 95% das requisições < 500ms
-    'errors': ['rate<0.1'], // Taxa de erro < 10%
-    'api_duration': ['p(95)<500'],
-  },
-};
+const uploadFixture = open('./fixtures/sample-upload.txt', 'b');
 
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:3001';
-const API_TOKEN = __ENV.API_TOKEN || 'test-token';
+const authLoginDuration = new Trend('auth_login_duration');
+const dashboardSummaryDuration = new Trend('dashboard_summary_duration');
+const dashboardKpisDuration = new Trend('dashboard_kpis_duration');
+const dashboardPendingQueueDuration = new Trend(
+  'dashboard_pending_queue_duration',
+);
+const dashboardThroughput = new Counter('dashboard_successful_requests');
+const uploadDocumentDuration = new Trend('upload_document_duration');
+const uploadDocumentSuccess = new Rate('upload_document_success');
+const pdfEnqueueDuration = new Trend('pdf_enqueue_duration');
+const pdfStatusPollDuration = new Trend('pdf_status_poll_duration');
+const pdfJobCompletionDuration = new Trend('pdf_job_completion_duration');
+const pdfJobSuccess = new Rate('pdf_job_success');
+const authSuccess = new Rate('auth_login_success');
+const flowErrors = new Rate('flow_errors');
 
-// Dados de teste
-const companies = Array.from({ length: 50 }, (_, i) => ({
-  id: `company-${i + 1}`,
-  name: `Company ${i + 1}`,
-}));
-
-const users = Array.from({ length: 100 }, (_, i) => ({
-  id: `user-${i + 1}`,
-  email: `user${i + 1}@test.com`,
-  password: 'Test@1234',
-}));
-
-export default function () {
-  const company = companies[Math.floor(Math.random() * companies.length)];
-  const user = users[Math.floor(Math.random() * users.length)];
-
-  concurrentUsers.add(__VU);
-
-  group('Authentication', () => {
-    const loginRes = http.post(`${BASE_URL}/auth/login`, {
-      email: user.email,
-      password: user.password,
-    });
-
-    check(loginRes, {
-      'login status is 200': (r) => r.status === 200,
-      'login response has token': (r) => r.json('access_token') !== undefined,
-    }) || errorRate.add(1);
-
-    if (loginRes.status === 200) {
-      successfulRequests.add(1);
-    }
-
-    sleep(1);
-  });
-
-  group('API Requests', () => {
-    const headers = {
-      Authorization: `Bearer ${API_TOKEN}`,
-      'x-company-id': company.id,
+function buildScenarioOptions(profile) {
+  if (profile === 'smoke') {
+    return {
+      auth_login: {
+        executor: 'shared-iterations',
+        exec: 'authScenario',
+        vus: 1,
+        iterations: 3,
+        maxDuration: '2m',
+      },
+      dashboard_read: {
+        executor: 'shared-iterations',
+        exec: 'dashboardScenario',
+        vus: 2,
+        iterations: 8,
+        maxDuration: '3m',
+      },
+      ...(ENABLE_UPLOAD_SCENARIO
+        ? {
+            document_import: {
+              executor: 'shared-iterations',
+              exec: 'documentImportScenario',
+              vus: 1,
+              iterations: 2,
+              maxDuration: '3m',
+            },
+          }
+        : {}),
+      ...(ENABLE_PDF_SCENARIO
+        ? {
+            reports_pdf_queue: {
+              executor: 'shared-iterations',
+              exec: 'pdfQueueScenario',
+              vus: 1,
+              iterations: 2,
+              maxDuration: '8m',
+            },
+          }
+        : {}),
     };
+  }
 
-    // GET /api/companies/:id
-    const companyRes = http.get(`${BASE_URL}/api/companies/${company.id}`, {
-      headers,
-    });
-
-    apiDuration.add(companyRes.timings.duration);
-    check(companyRes, {
-      'get company status is 200': (r) => r.status === 200,
-    }) || errorRate.add(1);
-
-    if (companyRes.status === 200) {
-      successfulRequests.add(1);
-    }
-
-    sleep(0.5);
-
-    // GET /api/users
-    const usersRes = http.get(`${BASE_URL}/api/users`, { headers });
-
-    apiDuration.add(usersRes.timings.duration);
-    check(usersRes, {
-      'list users status is 200': (r) => r.status === 200,
-      'list users has data': (r) => r.json('data.length') > 0,
-    }) || errorRate.add(1);
-
-    if (usersRes.status === 200) {
-      successfulRequests.add(1);
-    }
-
-    sleep(0.5);
-  });
-
-  group('Heavy Operations', () => {
-    const headers = {
-      Authorization: `Bearer ${API_TOKEN}`,
-      'x-company-id': company.id,
+  if (profile === 'stress') {
+    return {
+      auth_login: {
+        executor: 'ramping-arrival-rate',
+        exec: 'authScenario',
+        startRate: 1,
+        timeUnit: '1s',
+        preAllocatedVUs: 8,
+        maxVUs: 60,
+        stages: [
+          { duration: '2m', target: 4 },
+          { duration: '5m', target: 8 },
+          { duration: '2m', target: 0 },
+        ],
+      },
+      dashboard_read: {
+        executor: 'ramping-vus',
+        exec: 'dashboardScenario',
+        startVUs: 2,
+        stages: [
+          { duration: '2m', target: 15 },
+          { duration: '5m', target: 30 },
+          { duration: '2m', target: 0 },
+        ],
+        gracefulRampDown: '30s',
+      },
+      ...(ENABLE_UPLOAD_SCENARIO
+        ? {
+            document_import: {
+              executor: 'shared-iterations',
+              exec: 'documentImportScenario',
+              vus: 4,
+              iterations: 16,
+              maxDuration: '8m',
+            },
+          }
+        : {}),
+      ...(ENABLE_PDF_SCENARIO
+        ? {
+            reports_pdf_queue: {
+              executor: 'shared-iterations',
+              exec: 'pdfQueueScenario',
+              vus: 2,
+              iterations: 10,
+              maxDuration: '15m',
+            },
+          }
+        : {}),
     };
+  }
 
-    // POST /api/compliance/generate-report (PDF generation)
-    const reportRes = http.post(
-      `${BASE_URL}/api/compliance/generate-report`,
-      JSON.stringify({
-        format: 'pdf',
-        includeCharts: true,
-      }),
-      { headers },
-    );
-
-    pdfGenerationDuration.add(reportRes.timings.duration);
-    check(reportRes, {
-      'generate report status is 200': (r) => r.status === 200,
-      'report has content': (r) => r.body.length > 1000,
-    }) || errorRate.add(1);
-
-    if (reportRes.status === 200) {
-      successfulRequests.add(1);
-    }
-
-    sleep(2);
-  });
-
-  group('Database Stress', () => {
-    const headers = {
-      Authorization: `Bearer ${API_TOKEN}`,
-      'x-company-id': company.id,
-    };
-
-    // GET /api/compliance/security-score (SQL aggregation test)
-    const scoreRes = http.get(`${BASE_URL}/api/compliance/security-score`, {
-      headers,
-    });
-
-    apiDuration.add(scoreRes.timings.duration);
-    check(scoreRes, {
-      'security score status is 200': (r) => r.status === 200,
-      'security score has value': (r) => r.json('score') !== undefined,
-    }) || errorRate.add(1);
-
-    if (scoreRes.status === 200) {
-      successfulRequests.add(1);
-    }
-
-    sleep(1);
-  });
-
-  group('Rate Limiting Test', () => {
-    const headers = {
-      Authorization: `Bearer ${API_TOKEN}`,
-      'x-company-id': company.id,
-    };
-
-    // Fazer múltiplas requisições rápidas para testar rate limiting
-    for (let i = 0; i < 20; i++) {
-      const res = http.get(`${BASE_URL}/api/health`, { headers });
-      check(res, {
-        'rate limit not exceeded': (r) => r.status !== 429,
-      }) || errorRate.add(1);
-    }
-
-    sleep(1);
-  });
-
-  sleep(Math.random() * 3);
-}
-
-export function handleSummary(data) {
   return {
-    'stdout': textSummary(data, { indent: ' ', enableColors: true }),
-    'summary.json': JSON.stringify(data),
+    auth_login: {
+      executor: 'ramping-arrival-rate',
+      exec: 'authScenario',
+      startRate: 1,
+      timeUnit: '1s',
+      preAllocatedVUs: 4,
+      maxVUs: 30,
+      stages: [
+        { duration: '1m', target: 2 },
+        { duration: '4m', target: 5 },
+        { duration: '1m', target: 0 },
+      ],
+    },
+    dashboard_read: {
+      executor: 'ramping-vus',
+      exec: 'dashboardScenario',
+      startVUs: 1,
+      stages: [
+        { duration: '1m', target: 8 },
+        { duration: '4m', target: 12 },
+        { duration: '1m', target: 0 },
+      ],
+      gracefulRampDown: '30s',
+    },
+    ...(ENABLE_UPLOAD_SCENARIO
+      ? {
+          document_import: {
+            executor: 'shared-iterations',
+            exec: 'documentImportScenario',
+            vus: 2,
+            iterations: 6,
+            maxDuration: '5m',
+          },
+        }
+      : {}),
+    ...(ENABLE_PDF_SCENARIO
+      ? {
+          reports_pdf_queue: {
+            executor: 'shared-iterations',
+            exec: 'pdfQueueScenario',
+            vus: 1,
+            iterations: 4,
+            maxDuration: '10m',
+          },
+        }
+      : {}),
   };
 }
 
-function textSummary(data, options) {
-  const { indent = '', enableColors = false } = options;
-  let summary = '\n=== Load Test Summary ===\n';
+export const options = {
+  scenarios: buildScenarioOptions(PROFILE),
+  thresholds: {
+    checks: ['rate>0.95'],
+    http_req_failed: ['rate<0.05'],
+    flow_errors: ['rate<0.1'],
+    auth_login_success: ['rate>0.95'],
+    auth_login_duration: ['p(95)<1500', 'p(99)<3000'],
+    dashboard_summary_duration: ['p(95)<1200'],
+    dashboard_kpis_duration: ['p(95)<1800'],
+    dashboard_pending_queue_duration: ['p(95)<2200'],
+    upload_document_success: ['rate>0.8'],
+    upload_document_duration: ['p(95)<6000'],
+    pdf_enqueue_duration: ['p(95)<2500'],
+    pdf_status_poll_duration: ['p(95)<1500'],
+  },
+};
 
-  summary += `${indent}Total Requests: ${data.metrics.http_reqs?.value || 0}\n`;
-  summary += `${indent}Successful Requests: ${data.metrics.successful_requests?.value || 0}\n`;
-  summary += `${indent}Error Rate: ${((data.metrics.errors?.value || 0) * 100).toFixed(2)}%\n`;
-  summary += `${indent}API Duration (p95): ${data.metrics.api_duration?.values?.['p(95)'] || 'N/A'}ms\n`;
-  summary += `${indent}PDF Generation (p95): ${data.metrics.pdf_generation_duration?.values?.['p(95)'] || 'N/A'}ms\n`;
+function ensureRequiredEnv() {
+  if (!LOGIN_CPF || !LOGIN_PASSWORD) {
+    fail(
+      'Defina K6_LOGIN_CPF e K6_LOGIN_PASSWORD com credenciais reais antes de executar o teste.',
+    );
+  }
+}
 
-  return summary;
+function createJsonHeaders(token) {
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  };
+
+  if (COMPANY_ID) {
+    headers['x-company-id'] = COMPANY_ID;
+  }
+
+  return headers;
+}
+
+function createTenantHeaders(token) {
+  const headers = {
+    Authorization: `Bearer ${token}`,
+  };
+
+  if (COMPANY_ID) {
+    headers['x-company-id'] = COMPANY_ID;
+  }
+
+  return headers;
+}
+
+function authenticate() {
+  const response = http.post(
+    `${BASE_URL}/auth/login`,
+    JSON.stringify({
+      cpf: LOGIN_CPF,
+      password: LOGIN_PASSWORD,
+    }),
+    {
+      headers: { 'Content-Type': 'application/json' },
+      tags: { name: 'auth.login' },
+    },
+  );
+
+  authLoginDuration.add(response.timings.duration);
+
+  const success = check(response, {
+    'auth.login status 200': (res) => res.status === 200,
+    'auth.login accessToken presente': (res) =>
+      Boolean(res.json('accessToken')),
+  });
+
+  authSuccess.add(success);
+  flowErrors.add(!success);
+
+  if (!success) {
+    return null;
+  }
+
+  return {
+    accessToken: response.json('accessToken'),
+    userId: response.json('user.id') || null,
+    companyId: response.json('user.company_id') || COMPANY_ID || null,
+  };
+}
+
+function performGet(url, metric, token, description) {
+  const response = http.get(`${BASE_URL}${url}`, {
+    headers: createTenantHeaders(token),
+    tags: { name: description },
+  });
+
+  metric.add(response.timings.duration);
+  const success = check(response, {
+    [`${description} status 200`]: (res) => res.status === 200,
+  });
+
+  flowErrors.add(!success);
+  if (success) {
+    dashboardThroughput.add(1);
+  }
+
+  return response;
+}
+
+function currentReportWindow() {
+  const now = new Date();
+  return {
+    mes: now.getMonth() + 1,
+    ano: now.getFullYear(),
+  };
+}
+
+export function setup() {
+  ensureRequiredEnv();
+  const session = authenticate();
+  if (!session?.accessToken) {
+    fail('Falha ao autenticar no setup. Verifique CPF/senha e permissões.');
+  }
+  return session;
+}
+
+export function authScenario() {
+  group('auth.login', () => {
+    const session = authenticate();
+    if (!session?.accessToken) {
+      return;
+    }
+  });
+
+  sleep(1);
+}
+
+export function dashboardScenario(session) {
+  group('dashboard.read', () => {
+    performGet(
+      '/dashboard/summary',
+      dashboardSummaryDuration,
+      session.accessToken,
+      'dashboard.summary',
+    );
+    sleep(DASHBOARD_SLEEP_MS / 1000);
+
+    performGet(
+      '/dashboard/kpis',
+      dashboardKpisDuration,
+      session.accessToken,
+      'dashboard.kpis',
+    );
+    sleep(DASHBOARD_SLEEP_MS / 1000);
+
+    performGet(
+      '/dashboard/pending-queue',
+      dashboardPendingQueueDuration,
+      session.accessToken,
+      'dashboard.pending_queue',
+    );
+    sleep(DASHBOARD_SLEEP_MS / 1000);
+
+    performGet(
+      '/reports/queue/stats',
+      dashboardPendingQueueDuration,
+      session.accessToken,
+      'reports.queue_stats',
+    );
+  });
+
+  sleep(1);
+}
+
+export function documentImportScenario(session) {
+  group('documents.import', () => {
+    const file = http.file(uploadFixture, 'sample-upload.txt', 'text/plain');
+    const payload = {
+      file,
+      tipoDocumento: 'performance-load-test',
+    };
+
+    const response = http.post(`${BASE_URL}/documents/import`, payload, {
+      headers: createTenantHeaders(session.accessToken),
+      tags: { name: 'documents.import' },
+    });
+
+    uploadDocumentDuration.add(response.timings.duration);
+    const success = check(response, {
+      'documents.import status 201': (res) => res.status === 201,
+    });
+
+    uploadDocumentSuccess.add(success);
+    flowErrors.add(!success);
+  });
+
+  sleep(1);
+}
+
+export function pdfQueueScenario(session) {
+  group('reports.generate', () => {
+    const window = currentReportWindow();
+    const enqueueResponse = http.post(
+      `${BASE_URL}/reports/generate`,
+      JSON.stringify(window),
+      {
+        headers: createJsonHeaders(session.accessToken),
+        tags: { name: 'reports.generate' },
+      },
+    );
+
+    pdfEnqueueDuration.add(enqueueResponse.timings.duration);
+    const enqueued = check(enqueueResponse, {
+      'reports.generate status 201/200': (res) =>
+        res.status === 201 || res.status === 200,
+      'reports.generate jobId presente': (res) => Boolean(res.json('jobId')),
+    });
+
+    flowErrors.add(!enqueued);
+    if (!enqueued) {
+      pdfJobSuccess.add(false);
+      return;
+    }
+
+    const jobId = String(enqueueResponse.json('jobId'));
+    const startedAt = Date.now();
+    let completed = false;
+
+    for (let attempt = 0; attempt < PDF_POLL_ATTEMPTS; attempt += 1) {
+      sleep(PDF_POLL_INTERVAL_MS / 1000);
+
+      const statusResponse = http.get(
+        `${BASE_URL}/reports/status/${jobId}`,
+        {
+          headers: createTenantHeaders(session.accessToken),
+          tags: { name: 'reports.status' },
+        },
+      );
+
+      pdfStatusPollDuration.add(statusResponse.timings.duration);
+      const statusOk = check(statusResponse, {
+        'reports.status status 200': (res) => res.status === 200,
+      });
+      flowErrors.add(!statusOk);
+
+      if (!statusOk) {
+        continue;
+      }
+
+      const state = String(statusResponse.json('state') || '');
+      if (state === 'completed') {
+        completed = true;
+        pdfJobCompletionDuration.add(Date.now() - startedAt);
+        break;
+      }
+
+      if (state === 'failed') {
+        break;
+      }
+    }
+
+    pdfJobSuccess.add(completed);
+
+    const queueStatsResponse = http.get(`${BASE_URL}/reports/queue/stats`, {
+      headers: createTenantHeaders(session.accessToken),
+      tags: { name: 'reports.queue_stats' },
+    });
+
+    check(queueStatsResponse, {
+      'reports.queue_stats status 200': (res) => res.status === 200,
+    });
+  });
+
+  sleep(1);
+}
+
+export function handleSummary(data) {
+  const profileLabel = PROFILE.toUpperCase();
+  const summary = {
+    generatedAt: new Date().toISOString(),
+    profile: profileLabel,
+    baseUrl: BASE_URL,
+    scenarios: Object.keys(options.scenarios),
+    metrics: {
+      httpReqDuration: data.metrics.http_req_duration,
+      httpReqFailed: data.metrics.http_req_failed,
+      authLoginDuration: data.metrics.auth_login_duration,
+      dashboardSummaryDuration: data.metrics.dashboard_summary_duration,
+      dashboardKpisDuration: data.metrics.dashboard_kpis_duration,
+      dashboardPendingQueueDuration:
+        data.metrics.dashboard_pending_queue_duration,
+      uploadDocumentDuration: data.metrics.upload_document_duration,
+      pdfEnqueueDuration: data.metrics.pdf_enqueue_duration,
+      pdfStatusPollDuration: data.metrics.pdf_status_poll_duration,
+      pdfJobCompletionDuration: data.metrics.pdf_job_completion_duration,
+      pdfJobSuccess: data.metrics.pdf_job_success,
+      uploadDocumentSuccess: data.metrics.upload_document_success,
+      flowErrors: data.metrics.flow_errors,
+      dashboardSuccessfulRequests: data.metrics.dashboard_successful_requests,
+    },
+  };
+
+  return {
+    stdout: [
+      '',
+      `=== GST Load Test (${profileLabel}) ===`,
+      `Cenarios: ${summary.scenarios.join(', ')}`,
+      `HTTP p95: ${formatTrendValue(
+        data.metrics.http_req_duration?.values?.['p(95)'],
+      )}`,
+      `Auth p95: ${formatTrendValue(
+        data.metrics.auth_login_duration?.values?.['p(95)'],
+      )}`,
+      `Dashboard summary p95: ${formatTrendValue(
+        data.metrics.dashboard_summary_duration?.values?.['p(95)'],
+      )}`,
+      `Dashboard KPIs p95: ${formatTrendValue(
+        data.metrics.dashboard_kpis_duration?.values?.['p(95)'],
+      )}`,
+      `Dashboard fila p95: ${formatTrendValue(
+        data.metrics.dashboard_pending_queue_duration?.values?.['p(95)'],
+      )}`,
+      `Upload p95: ${formatTrendValue(
+        data.metrics.upload_document_duration?.values?.['p(95)'],
+      )}`,
+      `PDF enqueue p95: ${formatTrendValue(
+        data.metrics.pdf_enqueue_duration?.values?.['p(95)'],
+      )}`,
+      `PDF poll p95: ${formatTrendValue(
+        data.metrics.pdf_status_poll_duration?.values?.['p(95)'],
+      )}`,
+      `PDF job avg: ${formatTrendValue(
+        data.metrics.pdf_job_completion_duration?.values?.avg,
+      )}`,
+      `Erro de fluxo: ${formatRateValue(data.metrics.flow_errors?.values?.rate)}`,
+      `Falha HTTP: ${formatRateValue(
+        data.metrics.http_req_failed?.values?.rate,
+      )}`,
+      '',
+    ].join('\n'),
+    'summary.json': JSON.stringify(summary, null, 2),
+  };
+}
+
+function formatTrendValue(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return 'N/A';
+  }
+
+  return `${value.toFixed(2)}ms`;
+}
+
+function formatRateValue(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return 'N/A';
+  }
+
+  return `${(value * 100).toFixed(2)}%`;
+}
+
+export default function fallbackScenario(data) {
+  const scenarioName = exec.scenario.name || 'default';
+
+  if (scenarioName === 'auth_login') {
+    authScenario(data);
+    return;
+  }
+
+  if (scenarioName === 'dashboard_read') {
+    dashboardScenario(data);
+    return;
+  }
+
+  if (scenarioName === 'document_import') {
+    documentImportScenario(data);
+    return;
+  }
+
+  if (scenarioName === 'reports_pdf_queue') {
+    pdfQueueScenario(data);
+    return;
+  }
+
+  fail(`Cenário não mapeado: ${scenarioName}`);
 }

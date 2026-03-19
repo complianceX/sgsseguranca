@@ -36,7 +36,7 @@ export class AiController {
   @Get('status')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
-  async getStatus() {
+  getStatus() {
     return this.sophieFacade.getStatus();
   }
 

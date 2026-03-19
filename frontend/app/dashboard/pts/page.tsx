@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import { FileLock2, FileSpreadsheet, Plus } from 'lucide-react';
 import Link from 'next/link';
@@ -9,14 +10,29 @@ import { PtsFilters } from './components/PtsFilters';
 import { PtsTable } from './components/PtsTable';
 import { PtsInsights } from './components/PtsInsights';
 import { PtApprovalRulesPanel } from './components/PtApprovalRulesPanel';
-import { SendMailModal } from '@/components/SendMailModal';
-import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { ptsService } from '@/services/ptsService';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { ErrorState, PageLoadingState } from '@/components/ui/state';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+
+const SendMailModal = dynamic(
+  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  { ssr: false },
+);
+const StoredFilesPanel = dynamic(
+  () =>
+    import('@/components/StoredFilesPanel').then(
+      (module) => module.StoredFilesPanel,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mt-6 h-40 animate-pulse rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/60" />
+    ),
+  },
+);
 
 export default function PtsPage() {
   const [hasDraft, setHasDraft] = useState(false);

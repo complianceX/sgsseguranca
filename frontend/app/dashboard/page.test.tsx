@@ -82,8 +82,10 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
 
     expect(await screen.findByText(/score de conformidade/i)).toBeInTheDocument();
-    expect(await screen.findByText(/índice geral/i)).toBeInTheDocument();
-    expect(await screen.findByText("83/100")).toBeInTheDocument();
+    expect(await screen.findByText(/conformidade geral/i)).toBeInTheDocument();
+    const complianceLabels = await screen.findAllByText(/controlado/i);
+    expect(complianceLabels.length).toBeGreaterThan(0);
+    expect(await screen.findByText("83%")).toBeInTheDocument();
 
     expect(screen.queryByText(/centro operacional sst/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/fila central de pendências/i)).not.toBeInTheDocument();

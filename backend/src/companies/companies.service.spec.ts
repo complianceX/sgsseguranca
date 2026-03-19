@@ -45,11 +45,11 @@ describe('CompaniesService', () => {
       (repo.save as jest.Mock).mockResolvedValue(company);
 
       const result = await service.create(dto);
-      const saveMock = repo.save as jest.Mock;
-      const cacheDelMock = cacheManager.del as jest.Mock;
 
-      expect(saveMock).toHaveBeenCalled();
-      expect(cacheDelMock).toHaveBeenCalledWith('companies:all');
+      expect((repo.save as jest.Mock).mock.calls).toHaveLength(1);
+      expect((cacheManager.del as jest.Mock).mock.calls).toContainEqual([
+        'companies:all',
+      ]);
 
       // As propriedades retornadas podem não estar vindo corretamente devido ao plainToClass
       // ou a configuração do mock do TypeORM. Vamos verificar se o objeto retornado contém o ID esperado pelo menos.
@@ -63,9 +63,8 @@ describe('CompaniesService', () => {
       (cacheManager.get as jest.Mock).mockResolvedValue(cached);
 
       const result = await service.findAll();
-      const repoFindMock = repo.find as jest.Mock;
       expect(result).toEqual(cached);
-      expect(repoFindMock).not.toHaveBeenCalled();
+      expect((repo.find as jest.Mock).mock.calls).toHaveLength(0);
     });
 
     it('should fetch from repo and cache if not in cache', async () => {
@@ -74,12 +73,10 @@ describe('CompaniesService', () => {
       (repo.find as jest.Mock).mockResolvedValue(companies);
 
       const result = await service.findAll();
-      const repoFindMock = repo.find as jest.Mock;
-      const cacheSetMock = cacheManager.set as jest.Mock;
-      expect(repoFindMock).toHaveBeenCalled();
+      expect((repo.find as jest.Mock).mock.calls).toHaveLength(1);
       expect(result).toHaveLength(1);
       expect((result[0] as Company).id).toBe(companies[0].id);
-      expect(cacheSetMock).toHaveBeenCalled();
+      expect((cacheManager.set as jest.Mock).mock.calls).toHaveLength(1);
     });
   });
 

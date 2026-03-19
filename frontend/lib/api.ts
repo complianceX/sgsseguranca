@@ -4,31 +4,17 @@ import { sessionStore } from './sessionStore';
 import { authRefreshHint } from './authRefreshHint';
 import { selectedTenantStore } from './selectedTenantStore';
 
-const RAILWAY_DEFAULT_API_URL =
-  'https://keen-smile-production.up.railway.app';
-
 const resolveBaseUrl = () => {
   const explicitApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
-  const fallbackApiUrl = process.env.NEXT_PUBLIC_API_FALLBACK_URL?.trim();
 
   if (explicitApiUrl) {
     return explicitApiUrl;
-  }
-
-  if (fallbackApiUrl) {
-    return fallbackApiUrl;
   }
 
   if (typeof window !== 'undefined') {
     const { protocol, hostname } = window.location;
     const isLocalHost =
       hostname === 'localhost' || hostname === '127.0.0.1';
-    const isRailwayHost = hostname.endsWith('.up.railway.app');
-
-    if (isRailwayHost) {
-      // Fallback legado para deploys Railway sem NEXT_PUBLIC_API_URL configurada.
-      return RAILWAY_DEFAULT_API_URL;
-    }
 
     if (isLocalHost) {
       // Padrão local: backend roda em 3011 (run-local.ps1 / LOCAL_SETUP.md)
@@ -41,7 +27,7 @@ const resolveBaseUrl = () => {
 
 const API_BASE_URL = resolveBaseUrl();
 const API_BASE_URL_ERROR_MESSAGE =
-  'API não configurada para este ambiente. Defina NEXT_PUBLIC_API_URL (ou NEXT_PUBLIC_API_FALLBACK_URL) no serviço Frontend.';
+  'API não configurada para este ambiente. Defina NEXT_PUBLIC_API_URL de forma explícita no frontend. O único fallback automático permitido é localhost em desenvolvimento.';
 
 export function getApiBaseUrl(): string | null {
   return API_BASE_URL;

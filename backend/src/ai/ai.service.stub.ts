@@ -10,11 +10,11 @@ export class AiService {
     );
   }
 
-  async generateChecklist(params: any) {
-    throw new Error('AI Service temporarily disabled');
+  generateChecklist(_params: unknown): Promise<never> {
+    return Promise.reject(new Error('AI Service temporarily disabled'));
   }
 
-  async generateDds() {
-    throw new Error('AI Service temporarily disabled');
+  generateDds(): Promise<never> {
+    return Promise.reject(new Error('AI Service temporarily disabled'));
   }
 }

@@ -62,7 +62,7 @@ export class SophieFacadeService {
   }
 
   analyzePt(payload: AnalyzePtDto) {
-    return this.aiService.analyzePt(payload as any);
+    return this.aiService.analyzePt(payload);
   }
 
   analyzeChecklist(id: string) {
@@ -74,7 +74,7 @@ export class SophieFacadeService {
   }
 
   generateChecklist(payload: GenerateChecklistDto) {
-    return this.aiService.generateChecklist(payload as any);
+    return this.aiService.generateChecklist(payload);
   }
 
   generateAprDraft(payload: CreateAssistedAprDto) {

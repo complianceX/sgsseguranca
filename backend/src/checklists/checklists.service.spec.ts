@@ -50,7 +50,10 @@ describe('ChecklistsService', () => {
     | 'listFinalDocuments'
     | 'getModuleWeeklyBundle'
   >;
-  let documentRegistryService: Pick<DocumentRegistryService, 'validatePublicCode'>;
+  let documentRegistryService: Pick<
+    DocumentRegistryService,
+    'validatePublicCode'
+  >;
   let notificationsGateway: Pick<NotificationsGateway, 'sendToCompany'>;
   let signaturesService: Pick<SignaturesService, 'findByDocument'>;
 

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { Sidebar } from './Sidebar';
 
 const usePathname = jest.fn();
@@ -17,7 +17,7 @@ describe('Sidebar', () => {
     usePathname.mockReturnValue('/dashboard/tst');
   });
 
-  it('shows contextual quick access for TST users', () => {
+  it('shows operational navigation for TST users without admin-only links', () => {
     useAuth.mockReturnValue({
       logout: jest.fn(),
       user: {
@@ -25,21 +25,24 @@ describe('Sidebar', () => {
         profile: { nome: 'Técnico de Segurança' },
       },
       roles: ['Técnico de Segurança'],
+      isAdminGeral: false,
       hasPermission: () => true,
     });
 
     render(<Sidebar />);
 
-    const quickAccessSection = screen.getByText('Acesso rápido').closest('section');
-    expect(quickAccessSection).toBeTruthy();
-    expect(within(quickAccessSection as HTMLElement).getByRole('link', { name: /Campo/i })).toBeInTheDocument();
-    expect(within(quickAccessSection as HTMLElement).getByRole('link', { name: /PTs/i })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Empresas/i })).not.toBeInTheDocument();
-    expect(screen.queryByText('Leitura e gestão')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Indicadores/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Estrutura')).toBeInTheDocument();
+    expect(screen.getByText('Campo e Operação')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Funcionários/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /DDS/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /PTs/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^Empresas$/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /Usuários e acesso/i }),
+    ).not.toBeInTheDocument();
   });
 
-  it('shows executive quick access for admin users', () => {
+  it('shows administrative links for admin users', () => {
     usePathname.mockReturnValue('/dashboard/companies');
     useAuth.mockReturnValue({
       logout: jest.fn(),
@@ -48,14 +51,29 @@ describe('Sidebar', () => {
         profile: { nome: 'Administrador Geral' },
       },
       roles: ['Administrador Geral'],
+      isAdminGeral: true,
       hasPermission: () => true,
     });
 
     render(<Sidebar />);
 
-    const quickAccessSection = screen.getByText('Acesso rápido').closest('section');
-    expect(quickAccessSection).toBeTruthy();
-    expect(within(quickAccessSection as HTMLElement).getByRole('link', { name: /^Empresas$/i })).toBeInTheDocument();
-    expect(within(quickAccessSection as HTMLElement).getByRole('link', { name: /^Usuários$/i })).toBeInTheDocument();
+    const estruturaSection = screen.getByText('Estrutura').closest('section');
+    expect(estruturaSection).toBeTruthy();
+    expect(
+      within(estruturaSection as HTMLElement).getByRole('link', {
+        name: /^Empresas$/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(estruturaSection as HTMLElement).getByRole('link', {
+        name: /Usuários e acesso/i,
+      }),
+    ).toBeInTheDocument();
+    const leituraEGestaoToggle = screen.getByRole('button', {
+      name: /Leitura e Gestão/i,
+    });
+    expect(leituraEGestaoToggle).toBeInTheDocument();
+    fireEvent.click(leituraEGestaoToggle);
+    expect(screen.getByRole('link', { name: /Indicadores/i })).toBeInTheDocument();
   });
 });

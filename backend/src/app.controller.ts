@@ -3,8 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { AppService } from './app.service';
 import { Public } from './common/decorators/public.decorator';
+import { shouldRequireNoPendingMigrations } from './common/database/migration-startup.guard';
 import { RedisService } from './common/redis/redis.service';
-import { WorkerHeartbeatService } from './common/redis/worker-heartbeat.service';
 
 @Controller()
 export class AppController {
@@ -13,7 +13,6 @@ export class AppController {
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
     private readonly redisService: RedisService,
-    private readonly workerHeartbeatService: WorkerHeartbeatService,
   ) {}
 
   @Public()
@@ -38,13 +37,11 @@ export class AppController {
     const database = await this.checkDatabase();
     const redis = await this.checkRedis();
     const migrations = await this.checkMigrations();
-    const worker = await this.workerHeartbeatService.getStatus();
 
     const ready =
       database.status === 'up' &&
       redis.status !== 'down' &&
-      migrations.status !== 'down' &&
-      (!worker.required || worker.status !== 'down');
+      migrations.status !== 'down';
 
     const payload = {
       status: ready ? 'ok' : 'degraded',
@@ -54,7 +51,6 @@ export class AppController {
         database,
         redis,
         migrations,
-        worker,
       },
     };
 
@@ -136,9 +132,16 @@ export class AppController {
   }
 
   private async checkMigrations() {
-    const requireNoPendingMigrations =
-      this.configService.get<string>('REQUIRE_NO_PENDING_MIGRATIONS') ===
-      'true';
+    const nodeEnv =
+      this.configService.get<string>('NODE_ENV') || process.env.NODE_ENV;
+    const pendingMigrationPolicy =
+      this.configService.get<string>('REQUIRE_NO_PENDING_MIGRATIONS') ||
+      process.env.REQUIRE_NO_PENDING_MIGRATIONS;
+    const requireNoPendingMigrations = shouldRequireNoPendingMigrations({
+      ...process.env,
+      NODE_ENV: nodeEnv,
+      REQUIRE_NO_PENDING_MIGRATIONS: pendingMigrationPolicy,
+    });
 
     if (!requireNoPendingMigrations) {
       return { status: 'skipped' as const };

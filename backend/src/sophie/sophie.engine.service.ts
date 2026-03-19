@@ -4,20 +4,11 @@ import * as path from 'path';
 import {
   SophieAnalyzeInput,
   SophieAnalyzeResult,
-  SophieControls,
   SophieKnowledgeBase,
   SophieRule,
 } from './sophie.types';
 
 type SynonymsMap = Record<string, string>;
-
-const DEFAULT_CONTROLS: SophieControls = {
-  eliminacao: [],
-  substituicao: [],
-  engenharia: [],
-  administrativas: [],
-  epi: [],
-};
 
 @Injectable()
 export class SophieEngineService {
@@ -63,7 +54,7 @@ export class SophieEngineService {
     );
     const normas = this.unique(matched.flatMap((r) => r.outputs.normas || []));
 
-    const controles: SophieControls = {
+    const controles: SophieAnalyzeResult['controles'] = {
       eliminacao: [],
       substituicao: [],
       engenharia: [],

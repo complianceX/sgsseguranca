@@ -132,6 +132,11 @@ type OpenAiToolDefinition = {
   };
 };
 
+type LooseRecord = Record<string, unknown>;
+
+const isLooseRecord = (value: unknown): value is LooseRecord =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
 export const OPENAI_TOOL_DEFINITIONS: OpenAiToolDefinition[] =
   SST_TOOL_DEFINITIONS.map((tool) => ({
     type: 'function',
@@ -167,6 +172,26 @@ export class SstToolsExecutor {
     private readonly aprsService: AprsService,
     private readonly episService: EpisService,
   ) {}
+
+  private toLooseRecordArray(value: unknown): LooseRecord[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.filter(isLooseRecord);
+  }
+
+  private toSafeString(value: unknown): string {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value).trim();
+    }
+
+    return '';
+  }
 
   /**
    * Executa uma ferramenta pelo nome.
@@ -348,18 +373,21 @@ export class SstToolsExecutor {
 
   private async buscarRiscos(setorId?: string): Promise<SstToolResult> {
     const { matrix } = await this.aprsService.getRiskMatrix(setorId);
-    const total = matrix.reduce(
-      (acc: number, r: any) => acc + Number(r.count),
+    const normalizedMatrix = this.toLooseRecordArray(matrix);
+    const total = normalizedMatrix.reduce(
+      (acc, risk) => acc + Number(risk.count ?? 0),
       0,
     );
-    const alto = matrix.filter((r: any) => r.prob * r.sev >= 10);
+    const alto = normalizedMatrix.filter(
+      (risk) => Number(risk.prob ?? 0) * Number(risk.sev ?? 0) >= 10,
+    );
     return {
       success: true,
       is_stub: false,
       data: {
         total_riscos: total,
         riscos_alto_nivel: alto.length,
-        matrix,
+        matrix: normalizedMatrix,
         setor_id: setorId ?? null,
         link: '/dashboard/risk-map',
         referencia:
@@ -373,18 +401,26 @@ export class SstToolsExecutor {
       status: 'ativo',
       limit: 50,
     });
+    const orders = this.toLooseRecordArray(page.data).map((serviceOrder) => {
+      const site = isLooseRecord(serviceOrder.site) ? serviceOrder.site : null;
+      const responsavel = isLooseRecord(serviceOrder.responsavel)
+        ? serviceOrder.responsavel
+        : null;
+
+      return {
+        numero: this.toSafeString(serviceOrder.numero),
+        titulo: this.toSafeString(serviceOrder.titulo),
+        data_emissao: serviceOrder.data_emissao,
+        site: this.toSafeString(site?.nome) || null,
+        responsavel: this.toSafeString(responsavel?.nome) || null,
+      };
+    });
     return {
       success: true,
       is_stub: false,
       data: {
         total_ativas: page.total,
-        ordens: page.data.map((os: any) => ({
-          numero: os.numero,
-          titulo: os.titulo,
-          data_emissao: os.data_emissao,
-          site: os.site?.nome ?? null,
-          responsavel: os.responsavel?.nome ?? null,
-        })),
+        ordens: orders,
         link: '/dashboard/service-orders',
         referencia:
           'NR-1, item 1.5.4: OS obrigatoria para orientar trabalhadores sobre riscos.',

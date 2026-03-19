@@ -14,12 +14,26 @@ import { UsersService } from '../../src/users/users.service';
 import { TestHelper } from './test.helper';
 import { AllExceptionsFilter } from '../../src/common/filters/http-exception.filter';
 
-function canConnect(host: string, port: number, timeoutMs = 2000): Promise<boolean> {
+function canConnect(
+  host: string,
+  port: number,
+  timeoutMs = 2000,
+): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = new net.Socket();
-    const timer = setTimeout(() => { socket.destroy(); resolve(false); }, timeoutMs);
-    socket.connect(port, host, () => { clearTimeout(timer); socket.destroy(); resolve(true); });
-    socket.on('error', () => { clearTimeout(timer); resolve(false); });
+    const timer = setTimeout(() => {
+      socket.destroy();
+      resolve(false);
+    }, timeoutMs);
+    socket.connect(port, host, () => {
+      clearTimeout(timer);
+      socket.destroy();
+      resolve(true);
+    });
+    socket.on('error', () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
   });
 }
 

@@ -4,6 +4,7 @@ import {
   ExecutionContext,
   CallHandler,
 } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { Observable } from 'rxjs';
 import { finalize, tap } from 'rxjs/operators';
 import { MetricsService } from '../observability/metrics.service';
@@ -12,16 +13,18 @@ import { MetricsService } from '../observability/metrics.service';
 export class MetricsInterceptor implements NestInterceptor {
   constructor(private readonly metricsService: MetricsService) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const request = context.switchToHttp().getRequest();
-    const response = context.switchToHttp().getResponse();
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const http = context.switchToHttp();
+    const request = http.getRequest<Request>();
+    const response = http.getResponse<Response>();
     const startTime = Date.now();
+    const route = request.route as { path?: string } | undefined;
 
     const method = request.method;
     const routePath =
-      typeof request.baseUrl === 'string' && request.route?.path
-        ? `${request.baseUrl}${request.route.path}`
-        : request.route?.path || request.path || request.url;
+      typeof request.baseUrl === 'string' && typeof route?.path === 'string'
+        ? `${request.baseUrl}${route.path}`
+        : (route?.path ?? request.path ?? request.url);
     const path = typeof routePath === 'string' ? routePath.split('?')[0] : '';
 
     this.metricsService.incrementHttpRequestsInFlight();
@@ -38,7 +41,7 @@ export class MetricsInterceptor implements NestInterceptor {
             duration,
           );
         },
-        error: (error) => {
+        error: (_error) => {
           const duration = Date.now() - startTime;
           const statusCode = response.statusCode || 500;
           this.metricsService.recordHttpRequest(

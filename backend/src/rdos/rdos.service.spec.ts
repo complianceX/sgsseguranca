@@ -2,6 +2,8 @@ import { Repository } from 'typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { RdosService } from './rdos.service';
 import { Rdo } from './entities/rdo.entity';
+import { CreateRdoDto } from './dto/create-rdo.dto';
+import { UpdateRdoDto } from './dto/update-rdo.dto';
 import type { TenantService } from '../common/tenant/tenant.service';
 import type { MailService } from '../mail/mail.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
@@ -26,6 +28,18 @@ function makeRdo(overrides: Partial<Rdo> = {}): Rdo {
   } as Rdo;
 }
 
+const getFirstCreateArg = (
+  createMock: jest.Mock,
+): Partial<Rdo> & { company_id?: string } => {
+  const firstCall = createMock.mock.calls[0] as [Partial<Rdo>] | undefined;
+
+  if (!firstCall) {
+    throw new Error('repository.create não foi chamado.');
+  }
+
+  return firstCall[0];
+};
+
 describe('RdosService', () => {
   let service: RdosService;
   let repository: {
@@ -41,7 +55,11 @@ describe('RdosService', () => {
   let mailService: Pick<MailService, 'sendMail' | 'sendMailSimple'>;
   let documentStorageService: Pick<
     DocumentStorageService,
-    'uploadFile' | 'getSignedUrl' | 'downloadFileBuffer' | 'deleteFile' | 'generateDocumentKey'
+    | 'uploadFile'
+    | 'getSignedUrl'
+    | 'downloadFileBuffer'
+    | 'deleteFile'
+    | 'generateDocumentKey'
   >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
@@ -73,7 +91,7 @@ describe('RdosService', () => {
       find: jest.fn(),
       save: jest.fn((input) => Promise.resolve(input as Rdo)),
       count: jest.fn().mockResolvedValue(0),
-      create: jest.fn((input) => ({ ...input } as Rdo)),
+      create: jest.fn((input) => ({ ...input }) as Rdo),
       remove: jest.fn().mockResolvedValue(undefined),
       createQueryBuilder: jest.fn().mockReturnValue(defaultQb),
     };
@@ -94,7 +112,9 @@ describe('RdosService', () => {
         ),
     };
     documentGovernanceService = {
-      syncFinalDocumentMetadata: jest.fn().mockResolvedValue({ id: 'registry-1' }),
+      syncFinalDocumentMetadata: jest
+        .fn()
+        .mockResolvedValue({ id: 'registry-1' }),
       registerFinalDocument: jest.fn().mockResolvedValue({
         hash: 'hash-rdo',
         registryEntry: { id: 'registry-1' },
@@ -125,23 +145,27 @@ describe('RdosService', () => {
   // ─── create ──────────────────────────────────────────────────────────────────
 
   it('cria RDO com numero gerado automaticamente', async () => {
-    (repository.createQueryBuilder as jest.Mock).mockReturnValueOnce({
+    repository.createQueryBuilder.mockReturnValueOnce({
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       getRawOne: jest.fn().mockResolvedValue({ max: 'RDO-202603-002' }),
     });
-    const dto = { company_id: COMPANY_ID, data: new Date('2026-03-16'), status: 'rascunho' };
-    const result = await service.create(dto as any);
+    const dto: CreateRdoDto = {
+      company_id: COMPANY_ID,
+      data: '2026-03-16',
+      status: 'rascunho',
+    };
+    const result = await service.create(dto);
     expect(result.numero).toMatch(/^RDO-\d{6}-003$/);
     expect(repository.save).toHaveBeenCalled();
   });
 
   it('usa company_id do tenant quando o DTO nao fornece', async () => {
     repository.count.mockResolvedValue(0);
-    const dto = { data: new Date('2026-03-16') };
-    await service.create(dto as any);
-    const createdArg = (repository.create as jest.Mock).mock.calls[0][0] as { company_id: string };
+    const dto: CreateRdoDto = { data: '2026-03-16' };
+    await service.create(dto);
+    const createdArg = getFirstCreateArg(repository.create);
     expect(createdArg.company_id).toBe(COMPANY_ID);
   });
 
@@ -155,7 +179,9 @@ describe('RdosService', () => {
 
   it('lanca NotFoundException quando RDO nao existe', async () => {
     repository.findOne.mockResolvedValue(null);
-    await expect(service.findOne('inexistente')).rejects.toThrow(NotFoundException);
+    await expect(service.findOne('inexistente')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   // ─── update ──────────────────────────────────────────────────────────────────
@@ -163,8 +189,11 @@ describe('RdosService', () => {
   it('atualiza campos do RDO', async () => {
     const rdo = makeRdo();
     repository.findOne.mockResolvedValue(rdo);
-    const result = await service.update(RDO_ID, { observacoes: 'Atualizado' } as any);
-    expect((result as any).observacoes).toBe('Atualizado');
+    const dto: UpdateRdoDto = {
+      observacoes: 'Atualizado',
+    };
+    const result = await service.update(RDO_ID, dto);
+    expect(result.observacoes).toBe('Atualizado');
     expect(repository.save).toHaveBeenCalled();
   });
 
@@ -185,12 +214,16 @@ describe('RdosService', () => {
 
   it('bloqueia transicao de status invalida', async () => {
     repository.findOne.mockResolvedValue(makeRdo({ status: 'aprovado' }));
-    await expect(service.updateStatus(RDO_ID, 'rascunho')).rejects.toThrow(BadRequestException);
+    await expect(service.updateStatus(RDO_ID, 'rascunho')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('bloqueia transicao direta de rascunho para aprovado', async () => {
     repository.findOne.mockResolvedValue(makeRdo({ status: 'rascunho' }));
-    await expect(service.updateStatus(RDO_ID, 'aprovado')).rejects.toThrow(BadRequestException);
+    await expect(service.updateStatus(RDO_ID, 'aprovado')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   // ─── sign ────────────────────────────────────────────────────────────────────
@@ -227,7 +260,9 @@ describe('RdosService', () => {
       timestamp: '2026-03-16T14:00:00.000Z',
     });
     expect(result.assinatura_engenheiro).toBeDefined();
-    const parsed = JSON.parse(result.assinatura_engenheiro!) as { nome: string };
+    const parsed = JSON.parse(result.assinatura_engenheiro!) as {
+      nome: string;
+    };
     expect(parsed.nome).toBe('Ana Engenheira');
   });
 
@@ -240,7 +275,9 @@ describe('RdosService', () => {
       assinatura_engenheiro: '{"nome":"Eng"}',
     });
     repository.findOne.mockResolvedValue(rdo);
-    const result = await service.markPdfSaved(RDO_ID, { filename: 'rdo-2026.pdf' });
+    const result = await service.markPdfSaved(RDO_ID, {
+      filename: 'rdo-2026.pdf',
+    });
     expect(result.pdf_file_key).toContain('rdo-2026.pdf');
     expect(result.pdf_original_name).toBe('rdo-2026.pdf');
     expect(result.pdf_folder_path).toContain(RDO_ID);
@@ -261,10 +298,11 @@ describe('RdosService', () => {
     (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue({
       id: 'registry-1',
     });
+    const dto: UpdateRdoDto = { observacoes: 'Nao deveria editar' };
 
-    await expect(
-      service.update(RDO_ID, { observacoes: 'Nao deveria editar' } as any),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.update(RDO_ID, dto)).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   // ─── sendEmail ───────────────────────────────────────────────────────────────
@@ -272,9 +310,20 @@ describe('RdosService', () => {
   it('envia e-mail com dados do RDO para cada destinatario', async () => {
     const rdo = makeRdo({
       numero: 'RDO-202603-001',
-      mao_de_obra: [{ funcao: 'Pedreiro', quantidade: 3, turno: 'manha', horas: 8 }],
-      equipamentos: [{ nome: 'Escavadeira', quantidade: 1, horas_trabalhadas: 4, horas_ociosas: 0 }],
-      servicos_executados: [{ descricao: 'Escavação', percentual_concluido: 50 }],
+      mao_de_obra: [
+        { funcao: 'Pedreiro', quantidade: 3, turno: 'manha', horas: 8 },
+      ],
+      equipamentos: [
+        {
+          nome: 'Escavadeira',
+          quantidade: 1,
+          horas_trabalhadas: 4,
+          horas_ociosas: 0,
+        },
+      ],
+      servicos_executados: [
+        { descricao: 'Escavação', percentual_concluido: 50 },
+      ],
       ocorrencias: [],
     });
     repository.findOne.mockResolvedValue(rdo);
@@ -282,7 +331,8 @@ describe('RdosService', () => {
     await service.sendEmail(RDO_ID, ['gestor@empresa.com', 'eng@empresa.com']);
 
     expect(mailService.sendMail).toHaveBeenCalledTimes(2);
-    const [to, subject, , html] = (mailService.sendMail as jest.Mock).mock.calls[0] as [string, string, string, string];
+    const [to, subject, , html] = (mailService.sendMail as jest.Mock).mock
+      .calls[0] as [string, string, string, string];
     expect(to).toBe('gestor@empresa.com');
     expect(subject).toContain('RDO-202603-001');
     expect(html).toContain('Relatório Diário de Obra');
@@ -295,7 +345,9 @@ describe('RdosService', () => {
   });
 
   it('envia PDF final governado em anexo quando o RDO ja foi emitido', async () => {
-    repository.findOne.mockResolvedValue(makeRdo({ pdf_file_key: 'documents/rdo.pdf' }));
+    repository.findOne.mockResolvedValue(
+      makeRdo({ pdf_file_key: 'documents/rdo.pdf' }),
+    );
     (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue({
       file_key: 'documents/rdo.pdf',
       original_name: 'rdo.pdf',
@@ -312,7 +364,9 @@ describe('RdosService', () => {
   // ─── listFiles ───────────────────────────────────────────────────────────────
 
   it('lista arquivos governados pelo document registry', async () => {
-    (documentGovernanceService.listFinalDocuments as jest.Mock).mockResolvedValue([
+    (
+      documentGovernanceService.listFinalDocuments as jest.Mock
+    ).mockResolvedValue([
       {
         entityId: RDO_ID,
         id: RDO_ID,
@@ -347,27 +401,35 @@ describe('RdosService', () => {
 
   it('lanca NotFoundException ao remover RDO inexistente', async () => {
     repository.findOne.mockResolvedValue(null);
-    await expect(service.remove('inexistente')).rejects.toThrow(NotFoundException);
+    await expect(service.remove('inexistente')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   // ─── generateNumero (via create) ─────────────────────────────────────────────
 
   it('gera numero sequencial por mes (nao por total da empresa)', async () => {
-    (repository.createQueryBuilder as jest.Mock).mockReturnValueOnce({
+    repository.createQueryBuilder.mockReturnValueOnce({
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       getRawOne: jest.fn().mockResolvedValue({ max: 'RDO-202603-005' }),
     });
-    const dto = { company_id: COMPANY_ID, data: new Date('2026-03-16') };
-    const result = await service.create(dto as any);
+    const dto: CreateRdoDto = {
+      company_id: COMPANY_ID,
+      data: '2026-03-16',
+    };
+    const result = await service.create(dto);
     expect(result.numero).toMatch(/^RDO-\d{6}-006$/);
   });
 
   it('inicia sequencia em 001 quando nao ha RDOs no mes', async () => {
     // default mock already returns { max: null } — no override needed
-    const dto = { company_id: COMPANY_ID, data: new Date('2026-04-01') };
-    const result = await service.create(dto as any);
+    const dto: CreateRdoDto = {
+      company_id: COMPANY_ID,
+      data: '2026-04-01',
+    };
+    const result = await service.create(dto);
     expect(result.numero).toMatch(/^RDO-\d{6}-001$/);
   });
 
@@ -375,9 +437,10 @@ describe('RdosService', () => {
 
   it('bloqueia alteracao de status pelo endpoint generico de update', async () => {
     repository.findOne.mockResolvedValue(makeRdo());
-    await expect(
-      service.update(RDO_ID, { status: 'aprovado' } as any),
-    ).rejects.toThrow('Use PATCH /rdos/:id/status para alterar o status do RDO.');
+    const dto: UpdateRdoDto = { status: 'aprovado' };
+    await expect(service.update(RDO_ID, dto)).rejects.toThrow(
+      'Use PATCH /rdos/:id/status para alterar o status do RDO.',
+    );
     expect(repository.save).not.toHaveBeenCalled();
   });
 
@@ -410,8 +473,12 @@ describe('RdosService', () => {
     );
     await expect(
       service.markPdfSaved(RDO_ID, { filename: 'rdo.pdf' }),
-    ).rejects.toThrow('Assinaturas do responsável e do engenheiro são obrigatórias');
-    expect(documentGovernanceService.syncFinalDocumentMetadata).not.toHaveBeenCalled();
+    ).rejects.toThrow(
+      'Assinaturas do responsável e do engenheiro são obrigatórias',
+    );
+    expect(
+      documentGovernanceService.syncFinalDocumentMetadata,
+    ).not.toHaveBeenCalled();
   });
 
   it('bloqueia markPdfSaved quando RDO nao esta aprovado', async () => {
@@ -425,7 +492,9 @@ describe('RdosService', () => {
     await expect(
       service.markPdfSaved(RDO_ID, { filename: 'rdo.pdf' }),
     ).rejects.toThrow('Somente RDO aprovado pode receber PDF final');
-    expect(documentGovernanceService.syncFinalDocumentMetadata).not.toHaveBeenCalled();
+    expect(
+      documentGovernanceService.syncFinalDocumentMetadata,
+    ).not.toHaveBeenCalled();
   });
 
   // ─── savePdf (cleanup on governance failure) ──────────────────────────────────
@@ -438,9 +507,9 @@ describe('RdosService', () => {
         assinatura_engenheiro: '{"nome":"Eng"}',
       }),
     );
-    (documentGovernanceService.registerFinalDocument as jest.Mock).mockRejectedValue(
-      new Error('governance failure'),
-    );
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockRejectedValue(new Error('governance failure'));
 
     const file = {
       originalname: 'rdo.pdf',
@@ -448,7 +517,9 @@ describe('RdosService', () => {
       buffer: Buffer.from('%PDF-rdo'),
     } as Express.Multer.File;
 
-    await expect(service.savePdf(RDO_ID, file)).rejects.toThrow('governance failure');
+    await expect(service.savePdf(RDO_ID, file)).rejects.toThrow(
+      'governance failure',
+    );
     expect(documentStorageService.deleteFile).toHaveBeenCalled();
   });
 
@@ -461,8 +532,17 @@ describe('RdosService', () => {
       orderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([
         makeRdo({
-          mao_de_obra: [{ funcao: 'Pedreiro', quantidade: 5, turno: 'manha', horas: 8 }],
-          equipamentos: [{ nome: 'Trator', quantidade: 1, horas_trabalhadas: 6, horas_ociosas: 2 }],
+          mao_de_obra: [
+            { funcao: 'Pedreiro', quantidade: 5, turno: 'manha', horas: 8 },
+          ],
+          equipamentos: [
+            {
+              nome: 'Trator',
+              quantidade: 1,
+              horas_trabalhadas: 6,
+              horas_ociosas: 2,
+            },
+          ],
           clima_manha: 'ensolarado',
         }),
       ]),

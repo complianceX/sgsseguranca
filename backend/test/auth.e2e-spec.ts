@@ -8,6 +8,8 @@ const describeE2E =
 
 describeE2E('Authentication (e2e)', () => {
   let app: INestApplication;
+  const getHttpServer = (): Parameters<typeof request>[0] =>
+    app.getHttpServer() as Parameters<typeof request>[0];
 
   beforeAll(async () => {
     app = await E2EHelper.createTestApp();
@@ -21,7 +23,7 @@ describeE2E('Authentication (e2e)', () => {
 
   describe('/auth/login (POST)', () => {
     it('should login with valid credentials', () => {
-      return request(app.getHttpServer())
+      return request(getHttpServer())
         .post('/auth/login')
         .send({ cpf: '12345678900', password: 'password123' })
         .expect(200)
@@ -34,7 +36,7 @@ describeE2E('Authentication (e2e)', () => {
     });
 
     it('should reject invalid credentials', () => {
-      return request(app.getHttpServer())
+      return request(getHttpServer())
         .post('/auth/login')
         .send({ cpf: '12345678900', password: 'wrongpassword' })
         .expect(401)
@@ -45,7 +47,7 @@ describeE2E('Authentication (e2e)', () => {
     });
 
     it('should validate input format', () => {
-      return request(app.getHttpServer())
+      return request(getHttpServer())
         .post('/auth/login')
         .send({ cpf: 'invalid', password: '' })
         .expect(400);
@@ -53,13 +55,13 @@ describeE2E('Authentication (e2e)', () => {
 
     it('should apply rate limiting', async () => {
       const promises = Array.from({ length: 10 }, () =>
-        request(app.getHttpServer())
+        request(getHttpServer())
           .post('/auth/login')
           .send({ cpf: '12345678900', password: 'wrong' }),
       );
       await Promise.all(promises);
 
-      return request(app.getHttpServer())
+      return request(getHttpServer())
         .post('/auth/login')
         .send({ cpf: '12345678900', password: 'wrong' })
         .expect(429);
@@ -68,13 +70,13 @@ describeE2E('Authentication (e2e)', () => {
 
   describe('/auth/refresh (POST)', () => {
     it('should refresh access token', async () => {
-      const loginRes = await request(app.getHttpServer())
+      const loginRes = await request(getHttpServer())
         .post('/auth/login')
         .send({ cpf: '12345678900', password: 'password123' });
 
       const cookies = loginRes.headers['set-cookie'] as string[];
 
-      return request(app.getHttpServer())
+      return request(getHttpServer())
         .post('/auth/refresh')
         .set('Cookie', cookies)
         .expect(200)
@@ -86,13 +88,13 @@ describeE2E('Authentication (e2e)', () => {
 
   describe('/auth/change-password (POST)', () => {
     it('should change password when authenticated', async () => {
-      const loginRes = await request(app.getHttpServer())
+      const loginRes = await request(getHttpServer())
         .post('/auth/login')
         .send({ cpf: '12345678900', password: 'password123' });
 
       const cookies = loginRes.headers['set-cookie'] as string[];
 
-      return request(app.getHttpServer())
+      return request(getHttpServer())
         .post('/auth/change-password')
         .set('Cookie', cookies)
         .send({ currentPassword: 'password123', newPassword: 'newpassword123' })
@@ -100,7 +102,7 @@ describeE2E('Authentication (e2e)', () => {
     });
 
     it('should reject unauthenticated request', () => {
-      return request(app.getHttpServer())
+      return request(getHttpServer())
         .post('/auth/change-password')
         .send({ currentPassword: 'password123', newPassword: 'newpassword123' })
         .expect(401);

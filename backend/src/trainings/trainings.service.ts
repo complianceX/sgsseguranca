@@ -1,6 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, LessThan, Repository } from 'typeorm';
+import {
+  Between,
+  LessThan,
+  type FindManyOptions,
+  type FindOptionsSelect,
+  type FindOptionsWhere,
+  Repository,
+} from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Training } from './entities/training.entity';
 import { CreateTrainingDto } from './dto/create-training.dto';
@@ -11,6 +18,31 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+
+export interface BlockingTrainingUser {
+  user: Training['user'];
+  blockingTrainings: Training[];
+}
+
+const TRAINING_LIST_SELECT: FindOptionsSelect<Training> = {
+  id: true,
+  nome: true,
+  nr_codigo: true,
+  carga_horaria: true,
+  obrigatorio_para_funcao: true,
+  bloqueia_operacao_quando_vencido: true,
+  data_conclusao: true,
+  data_vencimento: true,
+  certificado_url: true,
+  user_id: true,
+  company_id: true,
+  auditado_por_id: true,
+  data_auditoria: true,
+  resultado_auditoria: true,
+  notas_auditoria: true,
+  created_at: true,
+  updated_at: true,
+};
 
 @Injectable()
 export class TrainingsService {
@@ -47,25 +79,7 @@ export class TrainingsService {
       where: tenantId ? { company_id: tenantId } : {},
       // LISTING: manter apenas user (para nome) e evitar relations adicionais.
       relations: ['user'],
-      select: {
-        id: true,
-        nome: true,
-        nr_codigo: true,
-        carga_horaria: true,
-        obrigatorio_para_funcao: true,
-        bloqueia_operacao_quando_vencido: true,
-        data_conclusao: true,
-        data_vencimento: true,
-        certificado_url: true,
-        user_id: true,
-        company_id: true,
-        auditado_por_id: true,
-        data_auditoria: true,
-        resultado_auditoria: true,
-        notas_auditoria: true,
-        created_at: true,
-        updated_at: true,
-      } as any,
+      select: TRAINING_LIST_SELECT,
       order: { data_vencimento: 'ASC' },
       skip,
       take: limit,
@@ -180,7 +194,7 @@ export class TrainingsService {
     }
 
     const trainings = await qb.getMany();
-    const usersMap = new Map();
+    const usersMap = new Map<string, BlockingTrainingUser>();
     trainings.forEach((t) => {
       if (!usersMap.has(t.user_id)) {
         usersMap.set(t.user_id, {
@@ -188,7 +202,11 @@ export class TrainingsService {
           blockingTrainings: [],
         });
       }
-      usersMap.get(t.user_id).blockingTrainings.push(t);
+
+      const userEntry = usersMap.get(t.user_id);
+      if (userEntry) {
+        userEntry.blockingTrainings.push(t);
+      }
     });
 
     return Array.from(usersMap.values());
@@ -208,14 +226,28 @@ export class TrainingsService {
     };
   }
 
-  async count(options?: any): Promise<number> {
+  async count(options?: FindManyOptions<Training>): Promise<number> {
     const tenantId = this.tenantService.getTenantId();
-    if (tenantId) {
-      options = options || {};
-      options.where = options.where || {};
-      options.where.company_id = tenantId;
+
+    if (!tenantId) {
+      return this.trainingsRepository.count(options);
     }
-    return this.trainingsRepository.count(options);
+
+    const scopedWhere = options?.where;
+    const where = Array.isArray(scopedWhere)
+      ? scopedWhere.map((clause) => ({
+          ...clause,
+          company_id: tenantId,
+        }))
+      : ({
+          ...(scopedWhere ?? {}),
+          company_id: tenantId,
+        } satisfies FindOptionsWhere<Training>);
+
+    return this.trainingsRepository.count({
+      ...(options ?? {}),
+      where,
+    });
   }
 
   async exportExcel(): Promise<Buffer> {

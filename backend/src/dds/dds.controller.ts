@@ -19,7 +19,6 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { DdsService } from './dds.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -35,7 +34,9 @@ import { Authorize } from '../auth/authorize.decorator';
 import { DdsStatus } from './entities/dds.entity';
 import {
   assertUploadedPdf,
+  cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
+  createTemporaryUploadOptions,
 } from '../common/interceptors/file-upload.interceptor';
 
 @Controller('dds')
@@ -103,10 +104,12 @@ export class DdsController {
   )
   @Authorize('can_manage_dds')
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: memoryStorage(),
-      limits: { fileSize: 20 * 1024 * 1024 },
-    }),
+    FileInterceptor(
+      'file',
+      createTemporaryUploadOptions({
+        maxFileSize: 20 * 1024 * 1024,
+      }),
+    ),
   )
   async createWithFile(
     @Body() body: Record<string, string>,
@@ -273,8 +276,12 @@ export class DdsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const pdfFile = assertUploadedPdf(file);
-    return this.ddsService.attachPdf(id, pdfFile);
+    const pdfFile = await assertUploadedPdf(file);
+    try {
+      return await this.ddsService.attachPdf(id, pdfFile);
+    } finally {
+      await cleanupUploadedTempFile(pdfFile);
+    }
   }
 
   /** Avança o status do DDS no workflow (rascunho → publicado → auditado → arquivado) */

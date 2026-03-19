@@ -4,6 +4,11 @@ import { Logger } from '@nestjs/common';
 export class DatabaseLogger implements TypeOrmLogger {
   private readonly logger = new Logger('DatabaseLogger');
 
+  private truncateQuery(query: string): string {
+    const trimmed = query.trim();
+    return trimmed.length > 2000 ? `${trimmed.slice(0, 2000)}…` : trimmed;
+  }
+
   private maskValue(raw: unknown): unknown {
     if (typeof raw !== 'string') return raw;
 
@@ -24,54 +29,80 @@ export class DatabaseLogger implements TypeOrmLogger {
     return trimmed.length > 200 ? `${trimmed.slice(0, 200)}…` : trimmed;
   }
 
-  private sanitizeParameters(parameters?: any[]): any[] | undefined {
+  private sanitizeParameters(parameters?: unknown[]): unknown[] | undefined {
     if (!parameters) return parameters;
     return parameters.map((p) => this.maskValue(p));
   }
 
-  logQuery(_query: string, _parameters?: any[], _queryRunner?: QueryRunner) {
+  private serializeError(error: string | Error): Record<string, unknown> {
+    if (typeof error === 'string') {
+      return { message: error };
+    }
+
+    const payload: Record<string, unknown> = {
+      message: error.message,
+      errorName: error.name,
+    };
+
+    const maybeCode = (error as Error & { code?: unknown }).code;
+    if (typeof maybeCode === 'string' || typeof maybeCode === 'number') {
+      payload.code = maybeCode;
+    }
+
+    if (error.stack) {
+      payload.stack = error.stack;
+    }
+
+    return payload;
+  }
+
+  logQuery(
+    _query: string,
+    _parameters?: unknown[],
+    _queryRunner?: QueryRunner,
+  ) {
     // Optional: debug level logging
   }
 
   logQueryError(
     error: string | Error,
     query: string,
-    parameters?: any[],
+    parameters?: unknown[],
     _queryRunner?: QueryRunner,
   ) {
     this.logger.error({
-      message: 'Query Failed',
-      query,
+      event: 'db_query_failed',
+      query: this.truncateQuery(query),
       parameters: this.sanitizeParameters(parameters),
-      error,
+      error: this.serializeError(error),
     });
   }
 
   logQuerySlow(
     time: number,
     query: string,
-    parameters?: any[],
+    parameters?: unknown[],
     _queryRunner?: QueryRunner,
   ) {
     this.logger.warn({
-      type: 'SLOW_QUERY',
-      query,
-      duration: `${time}ms`,
+      event: 'db_slow_query',
+      query: this.truncateQuery(query),
+      durationMs: time,
       parameters: this.sanitizeParameters(parameters),
     });
   }
 
   logSchemaBuild(message: string, _queryRunner?: QueryRunner) {
-    this.logger.debug(message);
+    this.logger.debug({ event: 'db_schema_build', message });
   }
 
   logMigration(message: string, _queryRunner?: QueryRunner) {
-    this.logger.log(message);
+    this.logger.log({ event: 'db_migration', message });
   }
 
   log(
     level: 'log' | 'info' | 'warn',
-    message: any,
+    message: unknown,
     _queryRunner?: QueryRunner,
   ) {
     switch (level) {

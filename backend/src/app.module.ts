@@ -283,6 +283,10 @@ const validationSchema = Joi.object({
   DB_IDLE_TIMEOUT_MS: Joi.number().default(30000),
   DB_CONNECTION_TIMEOUT_MS: Joi.number().default(10000),
   DB_TIMINGS_ENABLED: Joi.boolean().default(false),
+  LOG_LEVEL: Joi.string()
+    .valid('error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly')
+    .optional()
+    .allow(''),
   OTEL_ENABLED: Joi.boolean().default(false),
   OTEL_SERVICE_NAME: Joi.string().optional(),
   OTEL_SERVICE_VERSION: Joi.string().optional(),
@@ -308,6 +312,25 @@ const validationSchema = Joi.object({
   S3_SOCKET_TIMEOUT_MS: Joi.number().default(10000),
   S3_CONNECTION_TIMEOUT_MS: Joi.number().default(2000),
   S3_MAX_ATTEMPTS: Joi.number().default(3),
+  PDF_GENERATION_CONCURRENCY: Joi.number().integer().min(1).max(4).optional(),
+  PDF_BROWSER_POOL_SIZE: Joi.number().integer().min(1).max(4).optional(),
+  PDF_PAGE_TIMEOUT_MS: Joi.number().integer().min(15000).max(180000).optional(),
+  PDF_BROWSER_ACQUIRE_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(5000)
+    .max(180000)
+    .optional(),
+  PDF_BROWSER_MAX_USES: Joi.number().integer().min(5).max(500).optional(),
+  PDF_QUEUE_JOB_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(60000)
+    .max(900000)
+    .optional(),
+  INSPECTION_INLINE_EVIDENCE_MAX_BYTES: Joi.number()
+    .integer()
+    .min(131072)
+    .max(10485760)
+    .optional(),
 
   // Worker quota por tenant (também validado aqui para manter consistência de envs)
   WORKER_TENANT_QUOTA_DELAY_MS: Joi.number().default(10000),
@@ -328,6 +351,10 @@ const validationSchema = Joi.object({
   JAEGER_AGENT_HOST: Joi.string().optional(),
   JAEGER_AGENT_PORT: Joi.number().optional(),
   PROMETHEUS_PORT: Joi.number().optional(),
+  SENTRY_DSN: Joi.string().uri().optional().allow(''),
+  SENTRY_ENVIRONMENT: Joi.string().optional().allow(''),
+  SENTRY_TRACES_SAMPLE_RATE: Joi.number().min(0).max(1).optional(),
+  NEW_RELIC_ENABLED: Joi.boolean().default(false),
   AI_PROVIDER: Joi.string()
     .valid('openai', 'anthropic', 'gemini', 'stub', 'local')
     .default('openai'),

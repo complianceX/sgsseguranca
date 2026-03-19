@@ -229,7 +229,9 @@ export class DocumentValidationService {
     }
 
     if (!analysis.riscos || analysis.riscos.length === 0) {
-      pendencias.push('Desvio ou risco relacionado à não conformidade não identificado');
+      pendencias.push(
+        'Desvio ou risco relacionado à não conformidade não identificado',
+      );
     }
 
     return pendencias;

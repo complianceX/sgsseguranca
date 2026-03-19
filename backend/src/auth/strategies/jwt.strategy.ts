@@ -41,7 +41,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // Checar blacklist: tokens revogados via logout são rejeitados imediatamente,
     // sem esperar o TTL natural expirar.
-    if (payload.jti && (await this.tokenRevocationService.isRevoked(payload.jti))) {
+    if (
+      payload.jti &&
+      (await this.tokenRevocationService.isRevoked(payload.jti))
+    ) {
       throw new UnauthorizedException('Token revogado');
     }
 

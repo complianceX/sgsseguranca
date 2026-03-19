@@ -2,9 +2,20 @@ import { LoggingInterceptor } from './logging.interceptor';
 import { ExecutionContext, CallHandler } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
 
+type MockLogger = {
+  log: jest.Mock;
+  warn: jest.Mock;
+  error: jest.Mock;
+};
+
+const getLogArgumentAt = <T>(mockFn: jest.Mock, index: number): T => {
+  const [firstArg] = (mockFn.mock.calls[index] ?? []) as [T?];
+  return firstArg as T;
+};
+
 describe('LoggingInterceptor', () => {
   let interceptor: LoggingInterceptor;
-  let mockLogger: { log: jest.Mock; warn: jest.Mock; error: jest.Mock };
+  let mockLogger: MockLogger;
 
   beforeEach(() => {
     // Mock the Logger instance used inside the interceptor
@@ -43,14 +54,28 @@ describe('LoggingInterceptor', () => {
     interceptor.intercept(mockContext, mockCallHandler).subscribe({
       next: () => {
         expect(mockLogger.log).toHaveBeenCalledTimes(2);
-        const requestPayload = JSON.parse(mockLogger.log.mock.calls[0][0]);
-        const responsePayload = JSON.parse(mockLogger.log.mock.calls[1][0]);
+        const requestPayload = getLogArgumentAt<Record<string, unknown>>(
+          mockLogger.log,
+          0,
+        );
+        const responsePayload = getLogArgumentAt<Record<string, unknown>>(
+          mockLogger.log,
+          1,
+        );
 
         expect(requestPayload).toEqual(
-          expect.objectContaining({ type: 'REQUEST', method: 'GET', url: '/test' }),
+          expect.objectContaining({
+            type: 'REQUEST',
+            method: 'GET',
+            url: '/test',
+          }),
         );
         expect(responsePayload).toEqual(
-          expect.objectContaining({ type: 'RESPONSE', method: 'GET', url: '/test' }),
+          expect.objectContaining({
+            type: 'RESPONSE',
+            method: 'GET',
+            url: '/test',
+          }),
         );
         done();
       },

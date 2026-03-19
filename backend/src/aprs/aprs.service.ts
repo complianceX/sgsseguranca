@@ -62,12 +62,24 @@ export class AprsService {
     }
   }
 
+  private ensureAprStatus(status: string): AprStatus {
+    const knownStatuses = Object.values(AprStatus);
+    if (knownStatuses.includes(status as AprStatus)) {
+      return status as AprStatus;
+    }
+
+    throw new BadRequestException(`Status de APR inválido: ${status}`);
+  }
+
   private async assertAprReadyForFinalPdf(
-    apr: Pick<Apr, 'id' | 'status' | 'pdf_file_key' | 'is_modelo' | 'participants'>,
+    apr: Pick<
+      Apr,
+      'id' | 'status' | 'pdf_file_key' | 'is_modelo' | 'participants'
+    >,
   ) {
     this.assertAprDocumentMutable(apr);
 
-    if (apr.status !== AprStatus.APROVADA) {
+    if (this.ensureAprStatus(apr.status) !== AprStatus.APROVADA) {
       throw new BadRequestException(
         'A APR precisa estar aprovada antes do anexo do PDF final.',
       );
@@ -93,7 +105,10 @@ export class AprsService {
       );
     }
 
-    const signatures = await this.signaturesService.findByDocument(apr.id, 'APR');
+    const signatures = await this.signaturesService.findByDocument(
+      apr.id,
+      'APR',
+    );
     const participantSigners = new Set(
       signatures
         .map((signature) => signature.user_id)
@@ -187,7 +202,7 @@ export class AprsService {
       participants: participants?.map((id) => ({ id }) as unknown as User),
     });
 
-    const saved = await this.aprsRepository.save(apr);
+    const saved: Apr = await this.aprsRepository.save(apr);
     if (saved.is_modelo_padrao) {
       await this.aprsRepository.update(
         { company_id: saved.company_id },
@@ -411,10 +426,11 @@ export class AprsService {
 
   async approve(id: string, userId: string, reason?: string): Promise<Apr> {
     const apr = await this.findOneForWrite(id);
-    const allowed = APR_ALLOWED_TRANSITIONS[apr.status as AprStatus];
+    const currentStatus = this.ensureAprStatus(apr.status);
+    const allowed = APR_ALLOWED_TRANSITIONS[currentStatus];
     if (!allowed?.includes(AprStatus.APROVADA)) {
       throw new BadRequestException(
-        `Transição inválida: ${apr.status} → Aprovada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
+        `Transição inválida: ${currentStatus} → Aprovada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
       );
     }
     apr.status = AprStatus.APROVADA;
@@ -429,10 +445,11 @@ export class AprsService {
 
   async reject(id: string, userId: string, reason: string): Promise<Apr> {
     const apr = await this.findOneForWrite(id);
-    const allowed = APR_ALLOWED_TRANSITIONS[apr.status as AprStatus];
+    const currentStatus = this.ensureAprStatus(apr.status);
+    const allowed = APR_ALLOWED_TRANSITIONS[currentStatus];
     if (!allowed?.includes(AprStatus.CANCELADA)) {
       throw new BadRequestException(
-        `Transição inválida: ${apr.status} → Cancelada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
+        `Transição inválida: ${currentStatus} → Cancelada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
       );
     }
     apr.status = AprStatus.CANCELADA;
@@ -447,10 +464,11 @@ export class AprsService {
 
   async finalize(id: string, userId: string): Promise<Apr> {
     const apr = await this.findOneForWrite(id);
-    const allowed = APR_ALLOWED_TRANSITIONS[apr.status as AprStatus];
+    const currentStatus = this.ensureAprStatus(apr.status);
+    const allowed = APR_ALLOWED_TRANSITIONS[currentStatus];
     if (!allowed?.includes(AprStatus.ENCERRADA)) {
       throw new BadRequestException(
-        `Transição inválida: ${apr.status} → Encerrada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
+        `Transição inválida: ${currentStatus} → Encerrada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
       );
     }
     apr.status = AprStatus.ENCERRADA;
@@ -462,7 +480,7 @@ export class AprsService {
 
   async createNewVersion(id: string, userId: string): Promise<Apr> {
     const original = await this.findOneForWrite(id);
-    if (original.status !== AprStatus.APROVADA) {
+    if (this.ensureAprStatus(original.status) !== AprStatus.APROVADA) {
       throw new BadRequestException(
         `Somente APRs Aprovadas podem gerar nova versão. Status atual: ${original.status}`,
       );

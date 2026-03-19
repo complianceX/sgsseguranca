@@ -3,6 +3,18 @@ import { DataSource } from 'typeorm';
 import { ProfilesService } from '../../profiles/profiles.service';
 import { CompaniesService } from '../../companies/companies.service';
 
+interface InformationSchemaTableRow {
+  table_name: string;
+}
+
+const isInformationSchemaTableRow = (
+  value: unknown,
+): value is InformationSchemaTableRow =>
+  typeof value === 'object' &&
+  value !== null &&
+  'table_name' in value &&
+  typeof value.table_name === 'string';
+
 @Injectable()
 export class CacheWarmingService implements OnApplicationBootstrap {
   private readonly logger = new Logger(CacheWarmingService.name);
@@ -13,7 +25,7 @@ export class CacheWarmingService implements OnApplicationBootstrap {
     private companiesService: CompaniesService,
   ) {}
 
-  async onApplicationBootstrap() {
+  onApplicationBootstrap(): void {
     // Não bloquear o `app.listen()` (Railway considera "down" se não abrir porta a tempo).
     // Warm-up é best-effort e pode depender de Redis/DB; portanto roda em background.
     setImmediate(() => {
@@ -61,7 +73,7 @@ export class CacheWarmingService implements OnApplicationBootstrap {
     }
 
     const requiredTables = ['profiles', 'companies'];
-    const rows = await this.dataSource.query(
+    const rows: unknown = await this.dataSource.query(
       `
         SELECT table_name
         FROM information_schema.tables
@@ -71,7 +83,10 @@ export class CacheWarmingService implements OnApplicationBootstrap {
       [requiredTables],
     );
 
-    const existing = new Set(rows.map((row) => row.table_name));
+    const tableRows = Array.isArray(rows)
+      ? rows.filter(isInformationSchemaTableRow)
+      : [];
+    const existing = new Set(tableRows.map((row) => row.table_name));
     return requiredTables.every((table) => existing.has(table));
   }
 }
@@ -79,7 +94,7 @@ export class CacheWarmingService implements OnApplicationBootstrap {
 async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
-  label: string,
+  _label: string,
 ): Promise<T | undefined> {
   const ms = Math.max(100, Math.floor(timeoutMs || 0));
   let timeout: NodeJS.Timeout | undefined;

@@ -1,5 +1,20 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+type InformationSchemaTableRow = {
+  table_name: string;
+};
+
+function isInformationSchemaTableRow(
+  value: unknown,
+): value is InformationSchemaTableRow {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'table_name' in value &&
+    typeof (value as { table_name?: unknown }).table_name === 'string'
+  );
+}
+
 /**
  * Índices de performance para escala multi-tenant.
  *
@@ -20,13 +35,16 @@ export class PerformanceIndexes1709000000023 implements MigrationInterface {
     // -----------------------------------------------------------------------
     // FASE 1 — company_id em TODAS as tabelas (dinâmico)
     // -----------------------------------------------------------------------
-    const rows: Array<{ table_name: string }> = await queryRunner.query(`
+    const rowsResult: unknown = await queryRunner.query(`
       SELECT DISTINCT table_name
       FROM information_schema.columns
       WHERE column_name = 'company_id'
         AND table_schema = 'public'
       ORDER BY table_name
     `);
+    const rows = Array.isArray(rowsResult)
+      ? rowsResult.filter(isInformationSchemaTableRow)
+      : [];
 
     for (const { table_name } of rows) {
       const exists = await queryRunner.hasTable(table_name);
@@ -306,11 +324,14 @@ export class PerformanceIndexes1709000000023 implements MigrationInterface {
     }
 
     // Fase 1 — company_id dinâmicos
-    const rows: Array<{ table_name: string }> = await queryRunner.query(`
+    const rowsResult: unknown = await queryRunner.query(`
       SELECT DISTINCT table_name
       FROM information_schema.columns
       WHERE column_name = 'company_id' AND table_schema = 'public'
     `);
+    const rows = Array.isArray(rowsResult)
+      ? rowsResult.filter(isInformationSchemaTableRow)
+      : [];
     for (const { table_name } of rows) {
       await queryRunner.query(
         `DROP INDEX IF EXISTS "idx_${table_name}_company_id"`,

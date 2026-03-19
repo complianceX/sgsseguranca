@@ -1,11 +1,32 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DatabaseConnectionManager } from './database-connection.manager';
 import { getDataSourceToken } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, QueryRunner } from 'typeorm';
+
+type QueryRunnerMock = Pick<
+  QueryRunner,
+  'connect' | 'query' | 'release' | 'startTransaction' | 'rollbackTransaction'
+> & {
+  commitTransaction?: QueryRunner['commitTransaction'];
+  isTransactionActive?: boolean;
+};
+
+type MockDataSource = Pick<DataSource, 'createQueryRunner' | 'query'> & {
+  driver: {
+    pool: {
+      totalCount: number;
+      idleCount: number;
+      waitingCount: number;
+    };
+  };
+};
+
+const asQueryRunner = (queryRunner: QueryRunnerMock): QueryRunner =>
+  queryRunner as unknown as QueryRunner;
 
 describe('DatabaseConnectionManager', () => {
   let service: DatabaseConnectionManager;
-  let mockDataSource: jest.Mocked<DataSource>;
+  let mockDataSource: MockDataSource;
 
   beforeEach(async () => {
     // Create a mock DataSource
@@ -19,14 +40,14 @@ describe('DatabaseConnectionManager', () => {
           waitingCount: 0,
         },
       },
-    } as any;
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DatabaseConnectionManager,
         {
           provide: getDataSourceToken(),
-          useValue: mockDataSource,
+          useValue: mockDataSource as unknown as DataSource,
         },
       ],
     }).compile();
@@ -39,13 +60,17 @@ describe('DatabaseConnectionManager', () => {
   });
 
   it('should safely execute queries with timeout and retries', async () => {
-    const mockQueryRunner = {
+    const mockQueryRunner: QueryRunnerMock = {
       connect: jest.fn().mockResolvedValue(undefined),
       query: jest.fn().mockResolvedValue([{ id: 1, name: 'test' }]),
       release: jest.fn().mockResolvedValue(undefined),
     };
 
-    mockDataSource.createQueryRunner.mockReturnValue(mockQueryRunner as any);
+    (
+      mockDataSource.createQueryRunner as jest.MockedFunction<
+        DataSource['createQueryRunner']
+      >
+    ).mockReturnValue(asQueryRunner(mockQueryRunner));
 
     const result = await service.safeRawQuery('SELECT * FROM test');
 
@@ -58,8 +83,8 @@ describe('DatabaseConnectionManager', () => {
     expect(result).toEqual([{ id: 1, name: 'test' }]);
   });
 
-  it('should handle connection pool status', async () => {
-    const status = await service.getConnectionPoolStatus();
+  it('should handle connection pool status', () => {
+    const status = service.getConnectionPoolStatus();
 
     expect(status).toEqual({
       totalConnections: 5,
@@ -70,7 +95,7 @@ describe('DatabaseConnectionManager', () => {
   });
 
   it('should safely execute transactions with rollback on error', async () => {
-    const mockQueryRunner = {
+    const mockQueryRunner: QueryRunnerMock = {
       connect: jest.fn().mockResolvedValue(undefined),
       startTransaction: jest.fn().mockResolvedValue(undefined),
       query: jest.fn().mockRejectedValue(new Error('Query failed')),
@@ -79,12 +104,14 @@ describe('DatabaseConnectionManager', () => {
       isTransactionActive: true,
     };
 
-    mockDataSource.createQueryRunner.mockReturnValue(mockQueryRunner as any);
+    (
+      mockDataSource.createQueryRunner as jest.MockedFunction<
+        DataSource['createQueryRunner']
+      >
+    ).mockReturnValue(asQueryRunner(mockQueryRunner));
 
     await expect(
-      service.safeTransaction(async (qr) => {
-        await qr.query('INSERT INTO test VALUES (1)');
-      }),
+      service.safeTransaction((qr) => qr.query('INSERT INTO test VALUES (1)')),
     ).rejects.toThrow('Query failed');
 
     expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
@@ -92,13 +119,17 @@ describe('DatabaseConnectionManager', () => {
   });
 
   it('should handle connection release errors gracefully', async () => {
-    const mockQueryRunner = {
+    const mockQueryRunner: QueryRunnerMock = {
       connect: jest.fn().mockResolvedValue(undefined),
       query: jest.fn().mockResolvedValue([{ id: 1 }]),
       release: jest.fn().mockRejectedValue(new Error('Release failed')),
     };
 
-    mockDataSource.createQueryRunner.mockReturnValue(mockQueryRunner as any);
+    (
+      mockDataSource.createQueryRunner as jest.MockedFunction<
+        DataSource['createQueryRunner']
+      >
+    ).mockReturnValue(asQueryRunner(mockQueryRunner));
 
     // Should not throw even if release fails
     const result = await service.safeRawQuery('SELECT 1');

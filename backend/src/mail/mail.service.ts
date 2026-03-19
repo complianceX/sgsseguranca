@@ -10,7 +10,7 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import nodemailer, { SentMessageInfo, Transporter } from 'nodemailer';
+import nodemailer, { Transporter } from 'nodemailer';
 import { Resend } from 'resend';
 import { Repository, Between, LessThan, Not, In } from 'typeorm';
 import { MailLog } from './entities/mail-log.entity';
@@ -38,6 +38,19 @@ import {
 type MailContext = { companyId?: string; userId?: string };
 
 type MailProvider = 'smtp' | 'resend';
+type LooseRecord = Record<string, unknown>;
+type MailAttachment = {
+  filename: string;
+  content: Buffer | string;
+  contentType?: string;
+};
+type ResendAttachment = Omit<MailAttachment, 'content'> & {
+  content: string;
+};
+type ResendSendResponse = {
+  data?: { id?: string } | null;
+  error?: { message?: string } | null;
+};
 
 type MailDeliveryResult = {
   provider: MailProvider;
@@ -52,6 +65,9 @@ type SendMailMetadata = {
   html?: string;
   filename?: string;
 };
+
+const isLooseRecord = (value: unknown): value is LooseRecord =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 @Injectable()
 export class MailService {
@@ -234,9 +250,8 @@ export class MailService {
       );
     }
 
-    const pdfBuffer = await this.documentStorageService.downloadFileBuffer(
-      fileKey,
-    );
+    const pdfBuffer =
+      await this.documentStorageService.downloadFileBuffer(fileKey);
     const attachmentFilename = this.buildAttachmentFilename(docName, fileKey);
 
     const html = `
@@ -287,9 +302,8 @@ export class MailService {
 
     const docName = options?.docName?.trim() || 'Documento';
     const subject = options?.subject?.trim() || 'Documento Compartilhado - GST';
-    const pdfBuffer = await this.documentStorageService.downloadFileBuffer(
-      fileKey,
-    );
+    const pdfBuffer =
+      await this.documentStorageService.downloadFileBuffer(fileKey);
     const attachmentFilename = this.buildAttachmentFilename(docName, fileKey);
 
     const html = `
@@ -344,14 +358,14 @@ export class MailService {
     subject: string,
     text: string,
     context?: MailContext,
-    attachments?: any[],
+    attachments?: MailAttachment[],
     metadata?: SendMailMetadata,
   ): Promise<{
-    info: any;
+    info: unknown;
     previewUrl?: string;
     usingTestAccount: boolean;
   }> {
-    const { fromName, fromEmail } = this.resolveFromAddress();
+    const { fromEmail } = this.resolveFromAddress();
     const html = metadata?.html
       ? metadata.html
       : text
@@ -453,7 +467,7 @@ export class MailService {
     subject: string;
     text: string;
     html?: string;
-    attachments?: any[];
+    attachments?: MailAttachment[];
   }): Promise<MailDeliveryResult> {
     const { fromName, fromEmail } = this.resolveFromAddress();
     const recipients = this.normalizeRecipients(options.to);
@@ -464,7 +478,7 @@ export class MailService {
     }
 
     if (this.transporter) {
-      const info = await this.integration.execute<SentMessageInfo>(
+      const rawInfo = await this.integration.execute<unknown>(
         'smtp_email',
         () =>
           this.transporter!.sendMail({
@@ -480,41 +494,38 @@ export class MailService {
           retry: { attempts: 2, mode: 'safe' },
         },
       );
+      const info = this.toSmtpInfo(rawInfo);
 
       return {
         provider: 'smtp',
-        messageId: info?.messageId,
-        accepted: this.toAddressList(info?.accepted, recipients),
-        rejected: this.toAddressList(info?.rejected, []),
-        providerResponse:
-          typeof info?.response === 'string' ? info.response : undefined,
-        raw: info,
+        messageId: info.messageId,
+        accepted: this.toAddressList(info.accepted, recipients),
+        rejected: this.toAddressList(info.rejected, []),
+        providerResponse: info.response,
+        raw: rawInfo,
       };
     }
 
     if (this.resend) {
-      type ResendResponse = {
-        data?: { id?: string } | null;
-        error?: { message?: string } | null;
-      };
-
-      const data = await this.integration.execute<ResendResponse>(
-        'resend_email',
-        () =>
-          this.resend!.emails.send({
-            from: `${fromName} <${fromEmail}>`,
-            to: recipients.length === 1 ? recipients[0] : recipients,
-            subject: options.subject,
-            text: options.text,
-            html: options.html || options.text,
-            attachments: this.normalizeAttachmentsForResend(
-              options.attachments,
-            ),
-          }),
-        {
-          timeoutMs: 10_000,
-          retry: { attempts: 2, mode: 'safe' },
-        },
+      const data = this.toResendSendResponse(
+        await this.integration.execute<unknown>(
+          'resend_email',
+          () =>
+            this.resend!.emails.send({
+              from: `${fromName} <${fromEmail}>`,
+              to: recipients.length === 1 ? recipients[0] : recipients,
+              subject: options.subject,
+              text: options.text,
+              html: options.html || options.text,
+              attachments: this.normalizeAttachmentsForResend(
+                options.attachments,
+              ),
+            }),
+          {
+            timeoutMs: 10_000,
+            retry: { attempts: 2, mode: 'safe' },
+          },
+        ),
       );
 
       if (data?.error?.message) {
@@ -556,17 +567,60 @@ export class MailService {
     return fallback;
   }
 
-  private normalizeAttachmentsForResend(attachments?: any[]) {
+  private toSmtpInfo(value: unknown): {
+    messageId?: string;
+    accepted?: unknown;
+    rejected?: unknown;
+    response?: string;
+  } {
+    const record = isLooseRecord(value) ? value : null;
+
+    return {
+      messageId:
+        typeof record?.messageId === 'string' ? record.messageId : undefined,
+      accepted: record?.accepted,
+      rejected: record?.rejected,
+      response:
+        typeof record?.response === 'string' ? record.response : undefined,
+    };
+  }
+
+  private toResendSendResponse(value: unknown): ResendSendResponse {
+    const record = isLooseRecord(value) ? value : null;
+    const data = isLooseRecord(record?.data) ? record.data : null;
+    const error = isLooseRecord(record?.error) ? record.error : null;
+
+    return {
+      data: data
+        ? {
+            id: typeof data.id === 'string' ? data.id : undefined,
+          }
+        : null,
+      error: error
+        ? {
+            message:
+              typeof error.message === 'string' ? error.message : undefined,
+          }
+        : null,
+    };
+  }
+
+  private normalizeAttachmentsForResend(
+    attachments?: MailAttachment[],
+  ): ResendAttachment[] | undefined {
     if (!attachments?.length) {
       return undefined;
     }
 
     return attachments.map((attachment) => {
-      const normalized = { ...attachment };
-      if (Buffer.isBuffer(normalized.content)) {
-        normalized.content = normalized.content.toString('base64');
-      }
-      return normalized;
+      const content = Buffer.isBuffer(attachment.content)
+        ? attachment.content.toString('base64')
+        : attachment.content;
+
+      return {
+        ...attachment,
+        content,
+      };
     });
   }
 

@@ -15,7 +15,6 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { ChecklistsService } from './checklists.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -26,10 +25,14 @@ import { CreateChecklistDto } from './dto/create-checklist.dto';
 import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
+import {
+  cleanupUploadedTempFile,
+  createTemporaryUploadOptions,
+  readUploadedFileBuffer,
+} from '../common/interceptors/file-upload.interceptor';
 
-const wordUploadOptions = {
-  storage: memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 },
+const wordUploadOptions = createTemporaryUploadOptions({
+  maxFileSize: 20 * 1024 * 1024,
   fileFilter: (
     _req: unknown,
     file: Express.Multer.File,
@@ -57,7 +60,7 @@ const wordUploadOptions = {
       );
     }
   },
-};
+});
 
 @Controller('checklists')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -83,15 +86,21 @@ export class ChecklistsController {
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_checklists')
   @UseInterceptors(FileInterceptor('file', wordUploadOptions))
-  importWord(@UploadedFile() file: Express.Multer.File) {
+  async importWord(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('Nenhum arquivo enviado.');
     }
-    return this.checklistsService.importFromWord(
-      file.buffer,
-      file.mimetype,
-      file.originalname,
-    );
+
+    const buffer = await readUploadedFileBuffer(file);
+    try {
+      return await this.checklistsService.importFromWord(
+        buffer,
+        file.mimetype,
+        file.originalname,
+      );
+    } finally {
+      await cleanupUploadedTempFile(file);
+    }
   }
 
   @Post()

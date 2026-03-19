@@ -1,6 +1,14 @@
 import { AuditService } from '../../audit/audit.service';
 import { AuditAction } from '../../audit/enums/audit-action.enum';
 import { RequestContext } from '../middleware/request-context.middleware';
+import { Logger } from '@nestjs/common';
+
+const auditLogger = new Logger('AuditDecorator');
+const getRequestContextString = (key: 'ip' | 'userAgent'): string | undefined =>
+  RequestContext.get<string>(key);
+
+const isAuditPayload = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
 
 export function Audit(entity: string, action: AuditAction) {
   return function (
@@ -34,19 +42,32 @@ export function Audit(entity: string, action: AuditAction) {
               action,
               entity,
               entityId: resultObj?.id || 'unknown',
-              changes: args[0] as object, // Assuming DTO/payload is first arg
-              ip: (RequestContext.get('ip') as string) || 'unknown',
-              userAgent: RequestContext.get('userAgent') as string,
+              changes: isAuditPayload(args[0]) ? args[0] : null,
+              ip: getRequestContextString('ip') ?? 'unknown',
+              userAgent: getRequestContextString('userAgent'),
               companyId,
             });
           }
         } catch (error) {
-          console.error('Failed to log audit:', error);
+          auditLogger.error({
+            event: 'audit_log_failed',
+            entity,
+            action,
+            error:
+              error instanceof Error
+                ? { message: error.message, stack: error.stack }
+                : { message: String(error) },
+          });
         }
       } else {
-        console.warn(
-          `AuditService not found in ${target.constructor.name}. Ensure it is injected as 'auditService'.`,
-        );
+        auditLogger.warn({
+          event: 'audit_service_missing',
+          target: target.constructor.name,
+          entity,
+          action,
+          message:
+            "AuditService not found. Ensure it is injected as 'auditService'.",
+        });
       }
 
       return result;

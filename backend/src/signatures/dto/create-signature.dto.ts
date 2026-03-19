@@ -1,4 +1,10 @@
-import { IsOptional, IsString, IsNotEmpty, IsUUID, Matches } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsNotEmpty,
+  IsUUID,
+  Matches,
+} from 'class-validator';
 
 export class CreateSignatureDto {
   // Ignorado no backend por segurança; user_id efetivo vem do JWT.

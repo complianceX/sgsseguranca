@@ -58,6 +58,8 @@ backend/dist/
 
 # Cobertura e arquivos temporários locais
 backend/coverage/
+backend/lint-report-*.json
 frontend/coverage/
 coverage/
 tmp/
+temp/

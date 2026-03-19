@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class BackfillRdoDocumentRegistry1709000000052
-  implements MigrationInterface
-{
+export class BackfillRdoDocumentRegistry1709000000052 implements MigrationInterface {
   name = 'BackfillRdoDocumentRegistry1709000000052';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

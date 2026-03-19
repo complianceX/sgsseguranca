@@ -17,6 +17,7 @@ import { Training } from '../trainings/entities/training.entity';
 import { User } from '../users/entities/user.entity';
 import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
 import { DashboardController } from './dashboard.controller';
+import { DashboardPendingQueueService } from './dashboard-pending-queue.service';
 import { DashboardService } from './dashboard.service';
 import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
 
@@ -43,7 +44,7 @@ import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
     ]),
   ],
   controllers: [DashboardController],
-  providers: [DashboardService],
+  providers: [DashboardService, DashboardPendingQueueService],
   exports: [DashboardService],
 })
 export class DashboardModule {}

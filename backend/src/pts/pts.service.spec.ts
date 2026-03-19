@@ -472,18 +472,6 @@ describe('PtsService', () => {
   it('findPaginated: aplica filtro deleted_at IS NULL para excluir PTs removidas', async () => {
     const andWhereMock = jest.fn().mockReturnThis();
     const getManyAndCountMock = jest.fn().mockResolvedValue([[], 0]);
-    const whereMock = jest.fn().mockReturnValue({
-      andWhere: andWhereMock,
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      getManyAndCount: getManyAndCountMock,
-    });
-    (ptsRepository as unknown as { createQueryBuilder: jest.Mock }).createQueryBuilder =
-      jest.fn().mockReturnValue({ where: whereMock, select: jest.fn().mockReturnValue({ orderBy: jest.fn().mockReturnValue({ skip: jest.fn().mockReturnValue({ take: jest.fn().mockReturnValue({ where: whereMock }) }) }) }) });
-
-    // rebuild service to pick up updated mock
     const qbChain = {
       select: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
@@ -493,12 +481,13 @@ describe('PtsService', () => {
       andWhere: andWhereMock,
       getManyAndCount: getManyAndCountMock,
     };
-    (ptsRepository as unknown as { createQueryBuilder: jest.Mock }).createQueryBuilder =
-      jest.fn().mockReturnValue(qbChain);
+    (
+      ptsRepository as unknown as { createQueryBuilder: jest.Mock }
+    ).createQueryBuilder = jest.fn().mockReturnValue(qbChain);
 
     await service.findPaginated({ page: 1, limit: 10 });
 
-    const whereCall = (qbChain.where as jest.Mock).mock.calls[0] as [string];
+    const whereCall = qbChain.where.mock.calls[0] as [string];
     expect(whereCall[0]).toContain('deleted_at IS NULL');
   });
 
@@ -511,12 +500,13 @@ describe('PtsService', () => {
       orderBy: jest.fn().mockReturnThis(),
       getMany,
     };
-    (ptsRepository as unknown as { createQueryBuilder: jest.Mock }).createQueryBuilder =
-      jest.fn().mockReturnValue(qbChain);
+    (
+      ptsRepository as unknown as { createQueryBuilder: jest.Mock }
+    ).createQueryBuilder = jest.fn().mockReturnValue(qbChain);
 
     await service.exportExcel();
 
-    const whereCall = (qbChain.where as jest.Mock).mock.calls[0] as [string];
+    const whereCall = qbChain.where.mock.calls[0] as [string];
     expect(whereCall[0]).toContain('deleted_at IS NULL');
   });
 
@@ -566,7 +556,9 @@ describe('PtsService', () => {
         requireAtLeastOneExecutante: false,
       },
     });
-    (workerOperationalStatusService.getByUserIds as jest.Mock).mockResolvedValue([]);
+    (
+      workerOperationalStatusService.getByUserIds as jest.Mock
+    ).mockResolvedValue([]);
 
     await expect(service.approve('pt-1', 'approver-1')).rejects.toThrow(
       BadRequestException,
@@ -593,7 +585,9 @@ describe('PtsService', () => {
         requireAtLeastOneExecutante: false,
       },
     });
-    (workerOperationalStatusService.getByUserIds as jest.Mock).mockResolvedValue([
+    (
+      workerOperationalStatusService.getByUserIds as jest.Mock
+    ).mockResolvedValue([
       {
         user: { nome: 'Responsável' },
         medicalExam: { status: 'VALIDO' },
@@ -601,14 +595,36 @@ describe('PtsService', () => {
       },
     ]);
 
-    await expect(service.approve('pt-1', 'approver-1')).rejects.toMatchObject({
-      response: expect.objectContaining({
-        code: 'PT_APPROVAL_BLOCKED',
-        reasons: expect.arrayContaining([
-          expect.stringContaining('NR-35 Trabalho em Altura'),
-        ]),
-      }),
-    });
+    let approvalError: unknown;
+
+    try {
+      await service.approve('pt-1', 'approver-1');
+    } catch (error) {
+      approvalError = error;
+    }
+
+    expect(approvalError).toBeInstanceOf(BadRequestException);
+
+    if (!(approvalError instanceof BadRequestException)) {
+      return;
+    }
+
+    const response = approvalError.getResponse();
+
+    if (
+      typeof response !== 'object' ||
+      response === null ||
+      response.code !== 'PT_APPROVAL_BLOCKED' ||
+      !Array.isArray(response.reasons)
+    ) {
+      throw new Error('Expected PT approval block response payload');
+    }
+
+    expect(response.reasons).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('NR-35 Trabalho em Altura'),
+      ]),
+    );
   });
 
   it('bloqueia aprovacao quando ainda existem executantes sem assinatura unica valida', async () => {
@@ -634,7 +650,9 @@ describe('PtsService', () => {
         requireAtLeastOneExecutante: true,
       },
     });
-    (workerOperationalStatusService.getByUserIds as jest.Mock).mockResolvedValue([
+    (
+      workerOperationalStatusService.getByUserIds as jest.Mock
+    ).mockResolvedValue([
       {
         user: { nome: 'Responsável' },
         medicalExam: { status: 'VALIDO' },

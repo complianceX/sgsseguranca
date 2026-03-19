@@ -170,15 +170,26 @@ describe('InspectionsService', () => {
       tipo_inspecao: 'Rotina',
     } as Inspection;
     tenantRepo.findOne.mockResolvedValue(inspection);
-    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(null);
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(
+      null,
+    );
     const deleteInEntity = jest.fn().mockResolvedValue(undefined);
-    (documentGovernanceService.removeFinalDocumentReference as jest.Mock)
-      .mockImplementationOnce(async (input: { removeEntityState: (m: unknown) => Promise<void> }) => {
-        await input.removeEntityState({ getRepository: jest.fn(() => ({ delete: deleteInEntity })) });
-      });
+    (
+      documentGovernanceService.removeFinalDocumentReference as jest.Mock
+    ).mockImplementationOnce(
+      async (input: { removeEntityState: (m: unknown) => Promise<void> }) => {
+        await input.removeEntityState({
+          getRepository: jest.fn(() => ({ delete: deleteInEntity })),
+        });
+      },
+    );
 
-    await expect(service.remove('insp-1', 'company-1')).resolves.toBeUndefined();
-    expect(documentGovernanceService.removeFinalDocumentReference).toHaveBeenCalledWith(
+    await expect(
+      service.remove('insp-1', 'company-1'),
+    ).resolves.toBeUndefined();
+    expect(
+      documentGovernanceService.removeFinalDocumentReference,
+    ).toHaveBeenCalledWith(
       expect.objectContaining({ module: 'inspection', entityId: 'insp-1' }),
     );
     expect(deleteInEntity).toHaveBeenCalledWith({ id: 'insp-1' });
@@ -191,10 +202,18 @@ describe('InspectionsService', () => {
       evidencias: [{ descricao: 'Foto 1', url: 'data:image/jpeg;base64,aaa' }],
     } as unknown as Inspection;
     tenantRepo.findOne.mockResolvedValue(inspection);
-    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(null);
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(
+      null,
+    );
 
-    const s3Service = (service as unknown as { s3Service: { generateDocumentKey: jest.Mock; uploadFile: jest.Mock } }).s3Service;
-    s3Service.generateDocumentKey = jest.fn(() => 'inspections/company-1/insp-1/foto.jpg');
+    const s3Service = (
+      service as unknown as {
+        s3Service: { generateDocumentKey: jest.Mock; uploadFile: jest.Mock };
+      }
+    ).s3Service;
+    s3Service.generateDocumentKey = jest.fn(
+      () => 'inspections/company-1/insp-1/foto.jpg',
+    );
     s3Service.uploadFile = jest.fn().mockResolvedValue(undefined);
 
     const file = {
@@ -203,17 +222,30 @@ describe('InspectionsService', () => {
       buffer: Buffer.from('fake-image'),
     } as Express.Multer.File;
 
-    const result = await service.attachEvidence('insp-1', file, 'Nova foto', 'company-1');
+    const result = await service.attachEvidence(
+      'insp-1',
+      file,
+      'Nova foto',
+      'company-1',
+    );
     expect(result.evidencias).toHaveLength(2);
     expect(result.evidencias[1]).toMatchObject({
       descricao: 'Nova foto',
       original_name: 'foto.jpg',
     });
-    expect(inspectionsRepository.update).toHaveBeenCalledWith('insp-1', {
-      evidencias: expect.arrayContaining([
-        expect.objectContaining({ descricao: 'Nova foto' }),
-      ]),
-    });
+    expect(inspectionsRepository.update).toHaveBeenCalledWith(
+      'insp-1',
+      expect.any(Object),
+    );
+    const updateCalls = inspectionsRepository.update.mock.calls as Array<
+      [string, { evidencias?: Array<{ descricao?: string }> }]
+    >;
+    const updatePayload = updateCalls[0]?.[1];
+    expect(
+      updatePayload.evidencias?.some(
+        (evidencia) => evidencia.descricao === 'Nova foto',
+      ),
+    ).toBe(true);
   });
 
   it('savePdf: faz cleanup do arquivo quando governança falha', async () => {
@@ -225,9 +257,12 @@ describe('InspectionsService', () => {
       data_inspecao: new Date('2026-03-15T00:00:00.000Z'),
       created_at: new Date(),
     } as Inspection);
-    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(null);
-    (documentGovernanceService.registerFinalDocument as jest.Mock)
-      .mockRejectedValue(new Error('governance failure'));
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(
+      null,
+    );
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockRejectedValue(new Error('governance failure'));
 
     const file = {
       originalname: 'insp.pdf',
@@ -236,14 +271,20 @@ describe('InspectionsService', () => {
     } as Express.Multer.File;
 
     await expect(
-      service.savePdf('11111111-1111-4111-8111-111111111111', file, 'company-1'),
+      service.savePdf(
+        '11111111-1111-4111-8111-111111111111',
+        file,
+        'company-1',
+      ),
     ).rejects.toThrow('governance failure');
 
     expect(documentStorageService.deleteFile).toHaveBeenCalled();
   });
 
   it('countPendingActionItems: lança BadRequestException sem tenant', async () => {
-    const serviceWithNoTenant = new (InspectionsService as unknown as new (...args: unknown[]) => InspectionsService)(
+    const serviceWithNoTenant = new (InspectionsService as unknown as new (
+      ...args: unknown[]
+    ) => InspectionsService)(
       inspectionsRepository,
       {},
       {},

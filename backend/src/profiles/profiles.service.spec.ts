@@ -41,14 +41,14 @@ describe('ProfilesService', () => {
       (cacheManager.get as jest.Mock).mockResolvedValue([{ id: 1 }]);
       const result = await service.findAll();
       expect(result).toHaveLength(1);
-      expect(repo.find as jest.Mock).not.toHaveBeenCalled();
+      expect((repo.find as jest.Mock).mock.calls).toHaveLength(0);
     });
 
     it('should cache results after fetching', async () => {
       (cacheManager.get as jest.Mock).mockResolvedValue(null);
       (repo.find as jest.Mock).mockResolvedValue([{ id: 1 }]);
       await service.findAll();
-      expect(cacheManager.set as jest.Mock).toHaveBeenCalled();
+      expect((cacheManager.set as jest.Mock).mock.calls).toHaveLength(1);
     });
   });
 });

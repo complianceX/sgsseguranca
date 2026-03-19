@@ -110,8 +110,29 @@ export function buildDocumentCode(
 }
 
 export function buildValidationUrl(code: string): string {
-  const envUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL;
-  const origin = typeof window !== "undefined" ? window.location.origin : envUrl || "https://gst-sst.app";
+  if (typeof window !== "undefined") {
+    return `${window.location.origin.replace(/\/$/, "")}/validar/${code}`;
+  }
+
+  const envUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+  if (!envUrl) {
+    throw new Error(
+      "NEXT_PUBLIC_APP_URL é obrigatória fora do navegador para gerar URLs absolutas de validação.",
+    );
+  }
+
+  let origin: string;
+  try {
+    origin = new URL(envUrl).origin;
+  } catch {
+    throw new Error(
+      "NEXT_PUBLIC_APP_URL deve ser uma URL absoluta válida para gerar URLs de validação.",
+    );
+  }
+
   return `${origin.replace(/\/$/, "")}/validar/${code}`;
 }
 

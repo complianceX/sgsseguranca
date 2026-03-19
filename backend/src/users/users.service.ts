@@ -146,9 +146,11 @@ export class UsersService {
 
     if (opts?.search) {
       const clause = '(user.nome ILIKE :search OR user.cpf LIKE :search)';
-      tenantId || opts?.companyId
-        ? qb.andWhere(clause, { search: `%${opts.search}%` })
-        : qb.where(clause, { search: `%${opts.search}%` });
+      if (tenantId || opts.companyId) {
+        qb.andWhere(clause, { search: `%${opts.search}%` });
+      } else {
+        qb.where(clause, { search: `%${opts.search}%` });
+      }
     }
 
     const [users, total] = await qb.getManyAndCount();
@@ -215,21 +217,24 @@ export class UsersService {
       throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
     }
 
-    const { password, ...rest } = updateUserData;
+    const {
+      password,
+      company_id: attemptedCompanyId,
+      ...rest
+    } = updateUserData;
 
     // Bloqueio de mass assignment: não permitir alteração de company_id via payload.
     // Se for necessário "mover usuário de empresa", crie um endpoint admin dedicado com
     // auditoria e validações adicionais.
-    if (rest.company_id) {
+    if (attemptedCompanyId) {
       this.logger.warn({
         event: 'mass_assignment_blocked',
         action: 'users.update',
         actorId: RequestContext.getUserId(),
         tenantId,
         targetUserId: id,
-        attemptedCompanyId: rest.company_id,
+        attemptedCompanyId,
       });
-      delete (rest as any).company_id;
       if (!isSuperAdmin) {
         throw new ForbiddenException(
           'Alteração de empresa do usuário não é permitida por este endpoint.',
@@ -257,12 +262,12 @@ export class UsersService {
       }
     }
 
-    if (rest.profile_id && rest.profile_id !== (user as any).profile_id) {
+    if (rest.profile_id && rest.profile_id !== user.profile_id) {
       this.logger.warn({
         event: 'role_change',
         actorId: RequestContext.getUserId(),
         targetUserId: id,
-        fromProfileId: (user as any).profile_id,
+        fromProfileId: user.profile_id,
         toProfileId: rest.profile_id,
       });
     }
@@ -338,7 +343,11 @@ export class UsersService {
     return Boolean(user?.signature_pin_hash);
   }
 
-  async setSignaturePin(userId: string, pin: string, currentPassword?: string): Promise<void> {
+  async setSignaturePin(
+    userId: string,
+    pin: string,
+    currentPassword?: string,
+  ): Promise<void> {
     const user = await this.usersRepository.findOne({
       where: { id: userId },
       select: ['id', 'password', 'signature_pin_hash'],
@@ -356,7 +365,8 @@ export class UsersService {
         currentPassword,
         user.password ?? '',
       );
-      if (!passwordOk) throw new UnauthorizedException('Senha atual incorreta.');
+      if (!passwordOk)
+        throw new UnauthorizedException('Senha atual incorreta.');
     }
 
     const pbkdf2Salt = randomBytes(32).toString('hex');
@@ -365,7 +375,7 @@ export class UsersService {
     await this.usersRepository.update(userId, {
       signature_pin_hash: pinBcryptHash,
       signature_pin_salt: pbkdf2Salt,
-    } as any);
+    });
   }
 
   async verifySignaturePin(userId: string, pin: string): Promise<boolean> {
@@ -385,7 +395,10 @@ export class UsersService {
     if (!user?.signature_pin_hash || !user.signature_pin_salt) {
       throw new BadRequestException('PIN de assinatura não configurado.');
     }
-    const pinOk = await this.passwordService.compare(pin, user.signature_pin_hash);
+    const pinOk = await this.passwordService.compare(
+      pin,
+      user.signature_pin_hash,
+    );
     if (!pinOk) throw new UnauthorizedException('PIN inválido.');
 
     return pbkdf2Sync(pin, user.signature_pin_salt, 100_000, 32, 'sha256');

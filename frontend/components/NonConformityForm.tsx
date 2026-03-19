@@ -471,6 +471,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                     className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-white/80"
                   >
                     {isImageAttachment(item.url) ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- Evidence previews accept arbitrary external/data URLs and cannot rely on Next image optimization.
                       <img
                         src={item.url}
                         alt={item.label}
@@ -1290,6 +1291,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                       className="overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
                     >
                       {isImageAttachment(url) ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- Attachment previews accept arbitrary external/data URLs and must render without image optimization constraints.
                         <img
                           src={url}
                           alt={previewLabel}

@@ -1,5 +1,11 @@
 import { jsPDF } from 'jspdf';
 
+type PdfWithAutoTable = jsPDF & {
+  lastAutoTable?: {
+    finalY?: number;
+  };
+};
+
 export const backendPdfTheme = {
   navy: [16, 32, 51] as [number, number, number],
   blue: [31, 78, 121] as [number, number, number],
@@ -121,5 +127,8 @@ export function applyBackendPdfFooter(
 }
 
 export function getBackendLastTableY(doc: jsPDF, fallback = 120): number {
-  return (doc as any).lastAutoTable?.finalY || fallback;
+  const pdfWithAutoTable = doc as PdfWithAutoTable;
+  return typeof pdfWithAutoTable.lastAutoTable?.finalY === 'number'
+    ? pdfWithAutoTable.lastAutoTable.finalY
+    : fallback;
 }

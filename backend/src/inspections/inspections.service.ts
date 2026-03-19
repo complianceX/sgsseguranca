@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
@@ -35,6 +36,9 @@ import { DocumentGovernanceService } from '../document-registry/document-governa
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import { getIsoWeekNumber } from '../common/utils/document-calendar.util';
+import { createReadStream } from 'fs';
+import { readFile } from 'fs/promises';
+import { getInspectionInlineEvidenceMaxBytes } from '../common/services/pdf-runtime-config';
 
 @Injectable()
 export class InspectionsService {
@@ -573,7 +577,12 @@ export class InspectionsService {
         id,
         file.originalname,
       );
-      await this.s3Service.uploadFile(key, file.buffer, file.mimetype);
+      const uploadBody =
+        file.path && (!file.buffer || file.buffer.length === 0)
+          ? createReadStream(file.path)
+          : file.buffer;
+
+      await this.s3Service.uploadFile(key, uploadBody, file.mimetype);
       entry = {
         descricao: this.normalizeRequiredText(
           descricao || file.originalname || 'Evidência sem descrição',
@@ -587,7 +596,29 @@ export class InspectionsService {
           err instanceof Error ? err.message : String(err)
         }`,
       );
-      const dataUrl = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+      const maxInlineEvidenceBytes = getInspectionInlineEvidenceMaxBytes();
+      const fileSizeBytes = file.size || file.buffer?.length || 0;
+
+      if (fileSizeBytes > maxInlineEvidenceBytes) {
+        throw new ServiceUnavailableException(
+          `Storage indisponível para evidência com ${(fileSizeBytes / 1024 / 1024).toFixed(2)}MB. Tente novamente quando o storage estiver disponível.`,
+        );
+      }
+
+      const inlineBuffer =
+        file.buffer && file.buffer.length > 0
+          ? file.buffer
+          : file.path
+            ? await readFile(file.path)
+            : undefined;
+
+      if (!inlineBuffer || inlineBuffer.length === 0) {
+        throw new BadRequestException(
+          'Falha ao ler a evidência enviada para fallback inline.',
+        );
+      }
+
+      const dataUrl = `data:${file.mimetype};base64,${inlineBuffer.toString('base64')}`;
       entry = {
         descricao: this.normalizeRequiredText(
           descricao || file.originalname || 'Evidência sem descrição',

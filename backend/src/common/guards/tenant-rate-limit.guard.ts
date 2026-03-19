@@ -11,6 +11,29 @@ import { TenantService } from '../tenant/tenant.service';
 import { TenantRateLimitService } from '../rate-limit/tenant-rate-limit.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
+type TenantRateLimitPlan = Parameters<TenantRateLimitService['checkLimit']>[1];
+type TenantRateLimitRequest = {
+  user?: {
+    plan?: string;
+  };
+};
+
+const RATE_LIMIT_PLANS = new Set<TenantRateLimitPlan>([
+  'FREE',
+  'STARTER',
+  'PROFESSIONAL',
+  'ENTERPRISE',
+]);
+
+const getTenantPlan = (
+  request: TenantRateLimitRequest,
+): TenantRateLimitPlan => {
+  const plan = request.user?.plan;
+  return plan && RATE_LIMIT_PLANS.has(plan as TenantRateLimitPlan)
+    ? (plan as TenantRateLimitPlan)
+    : 'PROFESSIONAL';
+};
+
 /**
  * Guard global de rate limiting por tenant (company_id).
  *
@@ -42,14 +65,10 @@ export class TenantRateLimitGuard implements CanActivate {
     // Sem tenant no contexto — deixa TenantGuard tratar
     if (!companyId) return true;
 
-    const request = context.switchToHttp().getRequest();
-    // Plano vem do JWT se disponível; fallback para 'PROFESSIONAL'
-    const plan = (request.user?.plan as string) || 'PROFESSIONAL';
+    const request = context.switchToHttp().getRequest<TenantRateLimitRequest>();
+    const plan = getTenantPlan(request);
 
-    const result = await this.rateLimitService.checkLimit(
-      companyId,
-      plan as any,
-    );
+    const result = await this.rateLimitService.checkLimit(companyId, plan);
 
     const response = context.switchToHttp().getResponse<Response>();
     response.setHeader('X-RateLimit-Remaining', String(result.remaining));

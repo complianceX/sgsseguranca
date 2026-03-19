@@ -14,6 +14,8 @@ type RegisterFinalDocumentInput = Parameters<
 type RemoveFinalDocumentReferenceInput = Parameters<
   DocumentGovernanceService['removeFinalDocumentReference']
 >[0];
+type EvidenceRepositoryInput = Record<string, unknown>;
+type RepositoryEntityName = { name?: string };
 
 describe('AprsService', () => {
   let service: AprsService;
@@ -365,16 +367,18 @@ describe('AprsService', () => {
         ordem: 0,
       }),
     };
-    const save = jest.fn(async (input) => ({
-      ...input,
-      id: 'evidence-1',
-    }));
+    const save = jest.fn((input: EvidenceRepositoryInput) =>
+      Promise.resolve({
+        ...input,
+        id: 'evidence-1',
+      }),
+    );
     const evidenceRepository = {
-      create: jest.fn((input) => input),
+      create: jest.fn((input: EvidenceRepositoryInput) => input),
       save,
     };
     (aprRepository as unknown as { manager: unknown }).manager = {
-      getRepository: jest.fn((entity) => {
+      getRepository: jest.fn((entity: RepositoryEntityName) => {
         if (entity.name === 'AprRiskItem') return riskItemRepository;
         return evidenceRepository;
       }),
@@ -387,29 +391,28 @@ describe('AprsService', () => {
       size: 5,
     } as Express.Multer.File;
 
-    await expect(
-      service.uploadRiskEvidence(
-        'apr-1',
-        'risk-1',
-        file,
-        {
-          captured_at: '2026-03-16T10:00:00.000Z',
-          latitude: -23.55,
-          longitude: -46.63,
-          accuracy_m: 4.2,
-          device_id: 'pixel',
-        },
-        'user-1',
-        '127.0.0.1',
-      ),
-    ).resolves.toEqual(
-      expect.objectContaining({
-        id: 'evidence-1',
-        fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
-        originalName: 'evidence.jpg',
-        hashSha256: expect.any(String),
-      }),
+    const result = await service.uploadRiskEvidence(
+      'apr-1',
+      'risk-1',
+      file,
+      {
+        captured_at: '2026-03-16T10:00:00.000Z',
+        latitude: -23.55,
+        longitude: -46.63,
+        accuracy_m: 4.2,
+        device_id: 'pixel',
+      },
+      'user-1',
+      '127.0.0.1',
     );
+
+    expect(result).toMatchObject({
+      id: 'evidence-1',
+      fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
+      originalName: 'evidence.jpg',
+    });
+    expect(typeof result.hashSha256).toBe('string');
+    expect(result.hashSha256).toBeTruthy();
 
     expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
       'documents/company-1/aprs/apr-1/apr-final.pdf',

@@ -71,7 +71,8 @@ export class BruteForceService {
       throw new HttpException(
         {
           statusCode: HttpStatus.SERVICE_UNAVAILABLE,
-          message: 'Serviço temporariamente indisponível. Tente novamente em instantes.',
+          message:
+            'Serviço temporariamente indisponível. Tente novamente em instantes.',
         },
         HttpStatus.SERVICE_UNAVAILABLE,
       );

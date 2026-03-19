@@ -1,5 +1,20 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+type InformationSchemaTableRow = {
+  table_name: string;
+};
+
+function isInformationSchemaTableRow(
+  value: unknown,
+): value is InformationSchemaTableRow {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'table_name' in value &&
+    typeof (value as { table_name?: unknown }).table_name === 'string'
+  );
+}
+
 /**
  * Adiciona WITH CHECK às políticas RLS existentes.
  *
@@ -14,13 +29,16 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  */
 export class RlsAddWithCheck1709000000033 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    const rows: Array<{ table_name: string }> = await queryRunner.query(`
+    const rowsResult: unknown = await queryRunner.query(`
       SELECT DISTINCT table_name
       FROM information_schema.columns
       WHERE column_name = 'company_id'
         AND table_schema = 'public'
       ORDER BY table_name
     `);
+    const rows = Array.isArray(rowsResult)
+      ? rowsResult.filter(isInformationSchemaTableRow)
+      : [];
 
     for (const { table_name } of rows) {
       const exists = await queryRunner.hasTable(table_name);
@@ -47,13 +65,16 @@ export class RlsAddWithCheck1709000000033 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const rows: Array<{ table_name: string }> = await queryRunner.query(`
+    const rowsResult: unknown = await queryRunner.query(`
       SELECT DISTINCT table_name
       FROM information_schema.columns
       WHERE column_name = 'company_id'
         AND table_schema = 'public'
       ORDER BY table_name
     `);
+    const rows = Array.isArray(rowsResult)
+      ? rowsResult.filter(isInformationSchemaTableRow)
+      : [];
 
     for (const { table_name } of rows) {
       const exists = await queryRunner.hasTable(table_name);

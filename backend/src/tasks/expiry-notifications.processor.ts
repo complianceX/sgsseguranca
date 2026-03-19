@@ -5,6 +5,11 @@ import { TrainingsService } from '../trainings/trainings.service';
 import { MedicalExamsService } from '../medical-exams/medical-exams.service';
 import { TenantService } from '../common/tenant/tenant.service';
 
+type ExpiryNotificationJobData = {
+  tenantId: string;
+  type: 'training-check' | 'epi-check' | 'medical-exam-check';
+};
+
 @Processor('expiry-notifications', { concurrency: 1 })
 export class ExpiryNotificationsProcessor extends WorkerHost {
   private readonly logger = new Logger(ExpiryNotificationsProcessor.name);
@@ -17,12 +22,7 @@ export class ExpiryNotificationsProcessor extends WorkerHost {
     super();
   }
 
-  async process(
-    job: Job<{
-      tenantId: string;
-      type: 'training-check' | 'epi-check' | 'medical-exam-check';
-    }>,
-  ): Promise<void> {
+  async process(job: Job<ExpiryNotificationJobData>): Promise<void> {
     const { tenantId, type } = job.data;
 
     await this.tenantService.run(
@@ -52,10 +52,10 @@ export class ExpiryNotificationsProcessor extends WorkerHost {
   }
 
   @OnWorkerEvent('failed')
-  onFailed(job: Job | undefined, error: Error) {
+  onFailed(job: Job<ExpiryNotificationJobData> | undefined, error: Error) {
     if (!job) return;
     this.logger.error(
-      `[Job ${job.id}] type=${job.data?.type} tenant=${job.data?.tenantId} falhou: ${error.message}`,
+      `[Job ${job.id}] type=${job.data.type} tenant=${job.data.tenantId} falhou: ${error.message}`,
       error.stack,
     );
   }

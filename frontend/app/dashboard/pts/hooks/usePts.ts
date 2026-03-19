@@ -11,7 +11,6 @@ import {
 import { aiService } from '@/services/aiService';
 import { signaturesService } from '@/services/signaturesService';
 import { usersService } from '@/services/usersService';
-import { generatePtPdf } from '@/lib/pdf/ptGenerator';
 import { toast } from 'sonner';
 import { handleApiError } from '@/lib/error-handler';
 import {
@@ -77,6 +76,10 @@ function buildPreApprovalAuditPayload(
     rules: review.rules || undefined,
     checklist,
   };
+}
+
+async function loadPtPdfGenerator() {
+  return import('@/lib/pdf/ptGenerator');
 }
 
 export function usePts() {
@@ -516,6 +519,7 @@ export function usePts() {
         ptsService.findOne(pt.id),
         signaturesService.findByDocument(pt.id, 'PT'),
       ]);
+      const { generatePtPdf } = await loadPtPdfGenerator();
       const result = (await generatePtPdf(fullPt, signatures, {
         save: false,
         output: 'base64',
@@ -557,6 +561,7 @@ export function usePts() {
 
       toast.info('Gerando PDF...');
       const signatures = await signaturesService.findByDocument(id, 'PT');
+      const { generatePtPdf } = await loadPtPdfGenerator();
       await generatePtPdf(pt, signatures);
       toast.success('PDF gerado com sucesso!');
     } catch (error) {
@@ -597,6 +602,7 @@ export function usePts() {
       }
 
       const signatures = await signaturesService.findByDocument(id, 'PT');
+      const { generatePtPdf } = await loadPtPdfGenerator();
       const result = (await generatePtPdf(pt, signatures, {
         save: false,
         output: 'base64',
@@ -637,6 +643,7 @@ export function usePts() {
       }
 
       const signatures = await signaturesService.findByDocument(id, 'PT');
+      const { generatePtPdf } = await loadPtPdfGenerator();
       const result = (await generatePtPdf(pt, signatures, {
         save: false,
         output: 'base64',

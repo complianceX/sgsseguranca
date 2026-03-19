@@ -30,7 +30,7 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts
 
-# Entrypoint (sem migrations no boot)
+# Entrypoint genérico para repassar o comando final do serviço
 COPY entrypoint.sh ./entrypoint.sh
 RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
@@ -38,3 +38,4 @@ RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 EXPOSE 8080
 
 ENTRYPOINT ["./entrypoint.sh"]
+CMD ["node", "dist/main.js"]

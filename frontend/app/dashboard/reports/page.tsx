@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -25,16 +26,18 @@ import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { reportsService, type Report, type ReportQueueJob, type ReportQueueStats } from '@/services/reportsService';
 import { mailLogsService, type MailLogItem } from '@/services/mailLogsService';
-import { SendMailModal } from '@/components/SendMailModal';
 import { openPdfForPrint } from '@/lib/print-utils';
 import { PaginationControls } from '@/components/PaginationControls';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { generateMonthlyReportPdf } from '@/lib/pdf/monthlyReportGenerator';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const SendMailModal = dynamic(
+  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  { ssr: false },
+);
 
 function enrichReportForPdf(report: Report, companyName?: string | null) {
   return {
@@ -155,6 +158,21 @@ const EMPTY_QUEUE_STATS: ReportQueueStats = {
   delayed: 0,
   total: 0,
 };
+
+async function generateMonthlyReportArtifact(
+  report: Report,
+  companyName?: string | null,
+  options: { save?: boolean; output?: 'base64' } = { save: true },
+) {
+  const { generateMonthlyReportPdf } = await import(
+    '@/lib/pdf/monthlyReportGenerator'
+  );
+
+  return generateMonthlyReportPdf(
+    enrichReportForPdf(report, companyName),
+    options,
+  );
+}
 
 export default function ReportsPage() {
   const { hasPermission, user } = useAuth();
@@ -369,11 +387,12 @@ export default function ReportsPage() {
     }
   }
 
-  function handleDownloadPdf(report: Report) {
+  async function handleDownloadPdf(report: Report) {
     try {
       const selectedTenant = selectedTenantStore.get();
-      generateMonthlyReportPdf(
-        enrichReportForPdf(report, selectedTenant?.companyName || user?.company?.razao_social),
+      await generateMonthlyReportArtifact(
+        report,
+        selectedTenant?.companyName || user?.company?.razao_social,
       );
       toast.success('PDF gerado com sucesso.');
     } catch (error) {
@@ -382,13 +401,14 @@ export default function ReportsPage() {
     }
   }
 
-  function handlePrint(report: Report) {
+  async function handlePrint(report: Report) {
     try {
       const selectedTenant = selectedTenantStore.get();
-      const result = generateMonthlyReportPdf(
-        enrichReportForPdf(report, selectedTenant?.companyName || user?.company?.razao_social),
+      const result = (await generateMonthlyReportArtifact(
+        report,
+        selectedTenant?.companyName || user?.company?.razao_social,
         { save: false, output: 'base64' },
-      ) as { base64: string } | null;
+      )) as { base64: string } | null;
 
       if (!result?.base64) {
         toast.error('Não foi possível preparar o PDF para impressão.');
@@ -412,13 +432,14 @@ export default function ReportsPage() {
     }
   }
 
-  function handleSendEmail(report: Report) {
+  async function handleSendEmail(report: Report) {
     try {
       const selectedTenant = selectedTenantStore.get();
-      const result = generateMonthlyReportPdf(
-        enrichReportForPdf(report, selectedTenant?.companyName || user?.company?.razao_social),
+      const result = (await generateMonthlyReportArtifact(
+        report,
+        selectedTenant?.companyName || user?.company?.razao_social,
         { save: false, output: 'base64' },
-      ) as { filename: string; base64: string } | null;
+      )) as { filename: string; base64: string } | null;
 
       if (!result?.base64) {
         toast.error('Não foi possível preparar o PDF para envio.');
@@ -823,9 +844,9 @@ export default function ReportsPage() {
               <div className="flex items-center justify-between border-t border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/12 px-3.5 py-3">
                 <span className="text-[10px] text-[var(--color-text-muted)]">Exportar, imprimir ou compartilhar</span>
                 <div className="flex gap-1.5">
-                  <ActionIcon onClick={() => handlePrint(report)} title="Imprimir relatório" icon={<Printer className="h-4 w-4" />} />
-                  <ActionIcon onClick={() => handleSendEmail(report)} title="Enviar relatório" icon={<Mail className="h-4 w-4" />} />
-                  <ActionIcon onClick={() => handleDownloadPdf(report)} title="Baixar relatório" icon={<Download className="h-4 w-4" />} />
+                  <ActionIcon onClick={() => void handlePrint(report)} title="Imprimir relatório" icon={<Printer className="h-4 w-4" />} />
+                  <ActionIcon onClick={() => void handleSendEmail(report)} title="Enviar relatório" icon={<Mail className="h-4 w-4" />} />
+                  <ActionIcon onClick={() => void handleDownloadPdf(report)} title="Baixar relatório" icon={<Download className="h-4 w-4" />} />
                   <ActionIcon title="Ver estatísticas" icon={<BarChart3 className="h-4 w-4" />} />
                 </div>
               </div>

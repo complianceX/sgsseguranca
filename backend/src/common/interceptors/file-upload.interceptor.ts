@@ -1,7 +1,31 @@
 import { BadRequestException } from '@nestjs/common';
-import { memoryStorage } from 'multer';
-import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
-import { open } from 'fs/promises';
+import { diskStorage } from 'multer';
+import type { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
+import { mkdirSync } from 'fs';
+import { open, readFile, unlink } from 'fs/promises';
+import * as path from 'path';
+import { randomUUID } from 'crypto';
+
+const TEMP_UPLOAD_DIR = path.join(process.cwd(), 'temp');
+
+type UploadLogger = {
+  warn: (message: string) => void;
+};
+
+function ensureTempUploadDir(): string {
+  mkdirSync(TEMP_UPLOAD_DIR, { recursive: true });
+  return TEMP_UPLOAD_DIR;
+}
+
+function sanitizeExtension(originalName?: string): string {
+  const extension = path.extname(String(originalName || '')).toLowerCase();
+  return extension.replace(/[^a-z0-9._-]/g, '').slice(0, 12);
+}
+
+function createTempFilename(originalName?: string): string {
+  const extension = sanitizeExtension(originalName);
+  return `${Date.now()}-${randomUUID()}${extension}`;
+}
 
 function detectMimeFromMagicBytes(buffer: Buffer): string | null {
   if (
@@ -34,19 +58,39 @@ function detectMimeFromMagicBytes(buffer: Buffer): string | null {
     return 'image/png';
   }
 
+  if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+  ) {
+    return 'image/webp';
+  }
+
   return null;
 }
 
-export const fileUploadOptions: MulterOptions = {
-  storage: memoryStorage(),
-  fileFilter: (req, file, cb) => {
-    // A validação real será feita após upload usando magic bytes.
-    cb(null, true);
-  },
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
-  },
-};
+export function createTemporaryUploadOptions(options?: {
+  maxFileSize?: number;
+  fileFilter?: MulterOptions['fileFilter'];
+}): MulterOptions {
+  return {
+    storage: diskStorage({
+      destination: (_req, _file, cb) => cb(null, ensureTempUploadDir()),
+      filename: (_req, file, cb) =>
+        cb(null, createTempFilename(file.originalname)),
+    }),
+    fileFilter:
+      options?.fileFilter ||
+      ((_req, _file, cb) => {
+        cb(null, true);
+      }),
+    limits: {
+      fileSize: options?.maxFileSize ?? 10 * 1024 * 1024,
+    },
+  };
+}
+
+export const fileUploadOptions: MulterOptions = createTemporaryUploadOptions();
 
 export function validateFileMagicBytes(
   buffer: Buffer,
@@ -66,11 +110,8 @@ export function validatePdfMagicBytes(buffer: Buffer): void {
 export function createGovernedPdfUploadOptions(
   maxFileSize = 20 * 1024 * 1024,
 ): MulterOptions {
-  return {
-    storage: memoryStorage(),
-    limits: {
-      fileSize: maxFileSize,
-    },
+  return createTemporaryUploadOptions({
+    maxFileSize,
     fileFilter: (_req, file, cb) => {
       if (file.mimetype !== 'application/pdf') {
         return cb(null, false);
@@ -78,13 +119,38 @@ export function createGovernedPdfUploadOptions(
 
       cb(null, true);
     },
-  };
+  });
 }
 
-export function assertUploadedPdf(
+export async function readUploadedFileBuffer(
   file: Express.Multer.File | undefined,
   missingFileMessage = 'Nenhum arquivo enviado',
-): Express.Multer.File {
+): Promise<Buffer> {
+  if (!file) {
+    throw new BadRequestException(missingFileMessage);
+  }
+
+  if (file.buffer && file.buffer.length > 0) {
+    return file.buffer;
+  }
+
+  if (file.path) {
+    const buffer = await readFile(file.path);
+    if (buffer.length === 0) {
+      throw new BadRequestException('Falha ao ler o arquivo enviado.');
+    }
+
+    file.buffer = buffer;
+    return buffer;
+  }
+
+  throw new BadRequestException('Falha ao ler o arquivo enviado.');
+}
+
+export async function assertUploadedPdf(
+  file: Express.Multer.File | undefined,
+  missingFileMessage = 'Nenhum arquivo enviado',
+): Promise<Express.Multer.File> {
   if (!file) {
     throw new BadRequestException(missingFileMessage);
   }
@@ -93,12 +159,26 @@ export function assertUploadedPdf(
     throw new BadRequestException('Apenas arquivos PDF são permitidos');
   }
 
-  if (!file.buffer || file.buffer.length === 0) {
-    throw new BadRequestException('Falha ao ler o arquivo enviado.');
+  const buffer = await readUploadedFileBuffer(file, missingFileMessage);
+  validatePdfMagicBytes(buffer);
+  return file;
+}
+
+export async function cleanupUploadedTempFile(
+  file: Express.Multer.File | undefined,
+  logger?: UploadLogger,
+): Promise<void> {
+  if (!file?.path) {
+    return;
   }
 
-  validatePdfMagicBytes(file.buffer);
-  return file;
+  await unlink(file.path).catch((error) => {
+    logger?.warn(
+      `Falha ao remover arquivo temporário ${file.path}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  });
 }
 
 export async function validatePdfMagicBytesFromPath(filePath: string) {

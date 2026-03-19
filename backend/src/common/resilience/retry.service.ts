@@ -1,4 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import {
+  extractResilienceErrorCode,
+  extractResilienceErrorMessage,
+  extractResilienceErrorStatus,
+} from './resilience-error.util';
 
 export interface RetryOptions {
   attempts: number;
@@ -76,27 +81,13 @@ export class RetryService {
   }
 
   private isTransientError(error: unknown): boolean {
-    const anyErr = error as any;
-
-    const status =
-      typeof anyErr?.status === 'number'
-        ? anyErr.status
-        : typeof anyErr?.statusCode === 'number'
-          ? anyErr.statusCode
-          : typeof anyErr?.response?.status === 'number'
-            ? anyErr.response.status
-            : undefined;
+    const status = extractResilienceErrorStatus(error);
     if (typeof status === 'number') {
       if (status === 408 || status === 425 || status === 429) return true;
       if (status >= 500 && status <= 599) return true;
     }
 
-    const code =
-      typeof anyErr?.code === 'string'
-        ? anyErr.code
-        : typeof anyErr?.cause?.code === 'string'
-          ? anyErr.cause.code
-          : undefined;
+    const code = extractResilienceErrorCode(error);
     if (code) {
       const transientCodes = new Set([
         'ETIMEDOUT',
@@ -113,7 +104,7 @@ export class RetryService {
       if (transientCodes.has(code)) return true;
     }
 
-    const msg = typeof anyErr?.message === 'string' ? anyErr.message : '';
+    const msg = extractResilienceErrorMessage(error) ?? '';
     if (/timeout|timed out|socket hang up|connection reset/i.test(msg)) {
       return true;
     }
@@ -122,8 +113,8 @@ export class RetryService {
   }
 
   private errorSummary(error: unknown): string {
-    if (error instanceof Error) return error.message;
-    if (typeof error === 'string') return error;
+    const message = extractResilienceErrorMessage(error);
+    if (message) return message;
     try {
       return JSON.stringify(error);
     } catch {

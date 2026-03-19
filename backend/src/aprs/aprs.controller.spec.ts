@@ -154,7 +154,9 @@ describe('AprsController (http)', () => {
     });
 
     await request(httpServer)
-      .post(`/aprs/${aprId}/risk-items/22222222-2222-4222-8222-222222222222/evidence`)
+      .post(
+        `/aprs/${aprId}/risk-items/22222222-2222-4222-8222-222222222222/evidence`,
+      )
       .field('captured_at', '2026-03-16T10:00:00.000Z')
       .field('latitude', '-23.5505')
       .field('longitude', '-46.6333')

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddSoftDeleteToAuditsChecklistsNonconformities1709000000051
-  implements MigrationInterface
-{
+export class AddSoftDeleteToAuditsChecklistsNonconformities1709000000051 implements MigrationInterface {
   name = 'AddSoftDeleteToAuditsChecklistsNonconformities1709000000051';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

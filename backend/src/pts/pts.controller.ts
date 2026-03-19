@@ -36,6 +36,7 @@ import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Authorize } from '../auth/authorize.decorator';
 import {
   assertUploadedPdf,
+  cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
 } from '../common/interceptors/file-upload.interceptor';
 
@@ -249,15 +250,21 @@ export class PtsController {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ) {
-    const pdfFile = assertUploadedPdf(file);
-    return this.ptsService.attachPdf(id, pdfFile, this.getRequestUserId(req));
+    const pdfFile = await assertUploadedPdf(file);
+    try {
+      return await this.ptsService.attachPdf(
+        id,
+        pdfFile,
+        this.getRequestUserId(req),
+      );
+    } finally {
+      await cleanupUploadedTempFile(pdfFile);
+    }
   }
 
   @Get(':id')
   @Authorize('can_view_pt')
-  async findOne(
-    @Param('id', new ParseUUIDPipe()) id: string,
-  ) {
+  async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.ptsService.findOne(id);
   }
 

@@ -17,7 +17,6 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 import { InspectionsService } from './inspections.service';
 import {
   CreateInspectionDto,
@@ -33,7 +32,9 @@ import { Authorize } from '../auth/authorize.decorator';
 import type { Response } from 'express';
 import {
   assertUploadedPdf,
+  cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
+  createTemporaryUploadOptions,
 } from '../common/interceptors/file-upload.interceptor';
 
 @Controller('inspections')
@@ -176,10 +177,12 @@ export class InspectionsController {
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_inspections')
   @UseInterceptors(
-    FileInterceptor('file', {
-      storage: memoryStorage(),
-      limits: { fileSize: 15 * 1024 * 1024 },
-    }),
+    FileInterceptor(
+      'file',
+      createTemporaryUploadOptions({
+        maxFileSize: 15 * 1024 * 1024,
+      }),
+    ),
   )
   async attachEvidence(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -187,12 +190,16 @@ export class InspectionsController {
     @Body('descricao') descricao?: string,
   ) {
     if (!file) throw new BadRequestException('Nenhum arquivo enviado.');
-    return this.inspectionsService.attachEvidence(
-      id,
-      file,
-      descricao,
-      this.getTenantIdOrThrow(),
-    );
+    try {
+      return await this.inspectionsService.attachEvidence(
+        id,
+        file,
+        descricao,
+        this.getTenantIdOrThrow(),
+      );
+    } finally {
+      await cleanupUploadedTempFile(file);
+    }
   }
 
   @Post(':id/file')
@@ -203,11 +210,19 @@ export class InspectionsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const pdfFile = assertUploadedPdf(file);
-    return this.inspectionsService.savePdf(
-      id,
-      pdfFile,
-      this.getTenantIdOrThrow(),
-    );
+    return this.handlePdfUpload(id, file);
+  }
+
+  private async handlePdfUpload(id: string, file?: Express.Multer.File) {
+    const pdfFile = await assertUploadedPdf(file);
+    try {
+      return await this.inspectionsService.savePdf(
+        id,
+        pdfFile,
+        this.getTenantIdOrThrow(),
+      );
+    } finally {
+      await cleanupUploadedTempFile(pdfFile);
+    }
   }
 }

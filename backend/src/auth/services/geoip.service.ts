@@ -33,8 +33,10 @@ export class GeoIpService {
         city: geo.city,
         ll: geo.ll,
       };
-    } catch (error) {
-      this.logger.error(`Error looking up IP ${ip}: ${error.message}`);
+    } catch (error: unknown) {
+      this.logger.error(
+        `Error looking up IP ${ip}: ${error instanceof Error ? error.message : String(error)}`,
+      );
       return null;
     }
   }

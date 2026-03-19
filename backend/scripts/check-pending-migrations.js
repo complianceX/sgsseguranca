@@ -21,7 +21,7 @@ function buildDataSource() {
     entities: ['src/**/*.entity.ts', 'dist/**/*.entity.js'],
     migrations: [
       'src/database/migrations/*.ts',
-      'dist/src/database/migrations/*.js',
+      'dist/database/migrations/*.js',
     ],
   });
 }

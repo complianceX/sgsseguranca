@@ -9,50 +9,49 @@ import { Observable } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { Request } from 'express';
 
+type HttpResponseLike = {
+  statusCode?: number;
+};
+
 @Injectable()
 export class StructuredLoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger(StructuredLoggingInterceptor.name);
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<Request>();
     const { method, url, ip } = request;
     const startTime = Date.now();
     const requestId = request.headers['x-request-id'] || 'unknown';
 
     return next.handle().pipe(
-      tap((response) => {
+      tap(() => {
         const duration = Date.now() - startTime;
-        const statusCode = context.switchToHttp().getResponse().statusCode;
+        const response = context.switchToHttp().getResponse<HttpResponseLike>();
+        const statusCode = response.statusCode ?? 200;
 
-        this.logger.log(
-          JSON.stringify({
-            timestamp: new Date().toISOString(),
-            requestId,
-            method,
-            url,
-            statusCode,
-            duration: `${duration}ms`,
-            ip,
-            type: 'HTTP_REQUEST',
-          }),
-        );
+        this.logger.log({
+          requestId,
+          method,
+          url,
+          statusCode,
+          responseTimeMs: duration,
+          ip,
+          type: 'HTTP_REQUEST',
+        });
       }),
-      catchError((error) => {
+      catchError((error: unknown) => {
         const duration = Date.now() - startTime;
 
-        this.logger.error(
-          JSON.stringify({
-            timestamp: new Date().toISOString(),
-            requestId,
-            method,
-            url,
-            duration: `${duration}ms`,
-            ip,
-            error: error.message,
-            stack: error.stack,
-            type: 'HTTP_ERROR',
-          }),
-        );
+        this.logger.error({
+          requestId,
+          method,
+          url,
+          responseTimeMs: duration,
+          ip,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          type: 'HTTP_ERROR',
+        });
 
         throw error;
       }),

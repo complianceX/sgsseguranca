@@ -1,5 +1,17 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+type InformationSchemaColumnRow = {
+  table_name: string;
+};
+
+const isInformationSchemaColumnRow = (
+  value: unknown,
+): value is InformationSchemaColumnRow =>
+  typeof value === 'object' &&
+  value !== null &&
+  'table_name' in value &&
+  typeof value.table_name === 'string';
+
 /**
  * Índices estratégicos por tabela multi-tenant:
  *  - (company_id, created_at DESC) para listagens paginadas
@@ -50,7 +62,7 @@ export class StrategicTenantIndexes1709000000024 implements MigrationInterface {
     // -----------------------------------------------------------------------
     // (company_id, created_at DESC) em todas as tabelas que possuem as colunas
     // -----------------------------------------------------------------------
-    const createdRows: Array<{ table_name: string }> = await queryRunner.query(`
+    const createdRowsResult: unknown = await queryRunner.query(`
       SELECT c.table_name
       FROM information_schema.columns c
       WHERE c.table_schema = 'public'
@@ -64,6 +76,9 @@ export class StrategicTenantIndexes1709000000024 implements MigrationInterface {
         )
       ORDER BY c.table_name
     `);
+    const createdRows = Array.isArray(createdRowsResult)
+      ? createdRowsResult.filter(isInformationSchemaColumnRow)
+      : [];
 
     for (const { table_name } of createdRows) {
       const exists = await queryRunner.hasTable(table_name);
@@ -78,7 +93,7 @@ export class StrategicTenantIndexes1709000000024 implements MigrationInterface {
     // -----------------------------------------------------------------------
     // (company_id, status) em todas as tabelas que possuem as colunas
     // -----------------------------------------------------------------------
-    const statusRows: Array<{ table_name: string }> = await queryRunner.query(`
+    const statusRowsResult: unknown = await queryRunner.query(`
       SELECT c.table_name
       FROM information_schema.columns c
       WHERE c.table_schema = 'public'
@@ -92,6 +107,9 @@ export class StrategicTenantIndexes1709000000024 implements MigrationInterface {
         )
       ORDER BY c.table_name
     `);
+    const statusRows = Array.isArray(statusRowsResult)
+      ? statusRowsResult.filter(isInformationSchemaColumnRow)
+      : [];
 
     for (const { table_name } of statusRows) {
       const exists = await queryRunner.hasTable(table_name);
@@ -105,7 +123,7 @@ export class StrategicTenantIndexes1709000000024 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const createdRows: Array<{ table_name: string }> = await queryRunner.query(`
+    const createdRowsResult: unknown = await queryRunner.query(`
       SELECT c.table_name
       FROM information_schema.columns c
       WHERE c.table_schema = 'public'
@@ -118,6 +136,9 @@ export class StrategicTenantIndexes1709000000024 implements MigrationInterface {
             AND c2.column_name = 'created_at'
         )
     `);
+    const createdRows = Array.isArray(createdRowsResult)
+      ? createdRowsResult.filter(isInformationSchemaColumnRow)
+      : [];
 
     for (const { table_name } of createdRows) {
       if (this.preexistingCompanyCreated.has(table_name)) continue;
@@ -126,7 +147,7 @@ export class StrategicTenantIndexes1709000000024 implements MigrationInterface {
       );
     }
 
-    const statusRows: Array<{ table_name: string }> = await queryRunner.query(`
+    const statusRowsResult: unknown = await queryRunner.query(`
       SELECT c.table_name
       FROM information_schema.columns c
       WHERE c.table_schema = 'public'
@@ -139,6 +160,9 @@ export class StrategicTenantIndexes1709000000024 implements MigrationInterface {
             AND c2.column_name = 'status'
         )
     `);
+    const statusRows = Array.isArray(statusRowsResult)
+      ? statusRowsResult.filter(isInformationSchemaColumnRow)
+      : [];
 
     for (const { table_name } of statusRows) {
       if (this.preexistingCompanyStatus.has(table_name)) continue;

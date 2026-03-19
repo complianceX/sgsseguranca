@@ -43,11 +43,8 @@ npm run test:cov
 ```bash
 npm run migration:run
 npm run migration:revert
-npm run migration:show
-npm run migration:check:pending
-npm run migration:run:safe
-npm run ops:dr:check
-npm run ops:dr:check:strict
+npm run release:migrate
+npm run ci:migration:check
 ```
 
 ## Variáveis de ambiente
@@ -65,7 +62,7 @@ Variáveis críticas de produção:
 - `ACCESS_TOKEN_TTL` e `REFRESH_TOKEN_TTL_DAYS`
 - `MAX_ACTIVE_SESSIONS_PER_USER`
 - `PASSWORD_MIN_LENGTH` e `BCRYPT_SALT_ROUNDS`
-- `DB_POOL_MAX`, `DB_IDLE_TIMEOUT_MS`, `DB_CONNECT_TIMEOUT_MS`
+- `DB_POOL_MAX`, `DB_IDLE_TIMEOUT_MS`, `DB_CONNECTION_TIMEOUT_MS`
 - `CACHE_TTL_SECONDS`
 - `BACKUP_SECRET_KEY`
 
@@ -80,30 +77,36 @@ Variáveis críticas de produção:
 - Sessões simultâneas são limitadas por `MAX_ACTIVE_SESSIONS_PER_USER` (tokens antigos são revogados automaticamente).
 - Endpoint de backup (`POST /compliance/backup-log`) aceita `x-backup-secret` e faz comparação em tempo constante.
 
-## Observabilidade (Etapa 2)
+## Observabilidade
 
-- Health checks:
-  - `GET /health/live` (processo vivo)
-  - `GET /health/ready` (dependências prontas; retorna `503` se banco/redis indisponível)
-  - `GET /health` (estado detalhado; retorna `503` se degradado)
-- `x-request-id` é retornado nas respostas para correlação de logs.
+- Health checks reais:
+  - `GET /health/public` para liveness do web
+  - `GET /health` para prontidão do web
+- `x-request-id` é retornado nas respostas para correlação.
+- Logs do backend saem em JSON estruturado no stdout/stderr.
+- OpenTelemetry é opcional:
+  - habilitar com `OTEL_ENABLED=true`
+  - exporter Prometheus usa `PROMETHEUS_PORT`
+  - tracing usa `JAEGER_ENDPOINT`
 - Sentry é opcional:
-  - instalar: `npm i @sentry/node`
+  - instalar manualmente: `npm i @sentry/node`
   - configurar: `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `SENTRY_TRACES_SAMPLE_RATE`
-- `x-response-time` é retornado nas respostas HTTP.
+- Sem `OTEL_ENABLED=true`, o sistema continua funcional, mas não exporta métricas/traces.
 
 ## Deploy Seguro (Migrations)
 
 Fluxo recomendado em produção:
 
 1. Aplicar migration antes de subir nova versão:
-`npm run migration:run:safe`
+`npm run release:migrate`
 2. Subir aplicação:
-`npm run start:prod`
-3. Habilitar proteção de startup:
+`npm run start:web`
+3. Subir worker separadamente:
+`npm run start:worker`
+4. Habilitar proteção de startup:
 `REQUIRE_NO_PENDING_MIGRATIONS=true`
 
-No Railway, configure `npm run migration:run:safe` como pre-deploy step.
+No Railway, configure `npm run release:migrate` como pre-deploy step.
 
 ## Etapas 5, 6 e 7
 

@@ -200,7 +200,8 @@ describe('PtsController (http)', () => {
       .get(`/pts/${ptId}/pdf`)
       .expect(200)
       .expect(({ body }) => {
-        expect(body.url).toBe('https://storage.example/pt-final.pdf');
+        const payload = body as { url?: string };
+        expect(payload.url).toBe('https://storage.example/pt-final.pdf');
       });
 
     expect(pdfRateLimitService.checkDownloadLimit).toHaveBeenCalledWith(

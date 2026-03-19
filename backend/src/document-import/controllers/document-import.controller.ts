@@ -16,10 +16,11 @@ import { UploadDocumentDto } from '../dto/upload-document.dto';
 import { DocumentImportResponseDto } from '../dto/document-analysis.dto';
 import { DocumentImportService } from '../services/document-import.service';
 import {
+  cleanupUploadedTempFile,
   fileUploadOptions,
+  readUploadedFileBuffer,
   validateFileMagicBytes,
 } from '../../common/interceptors/file-upload.interceptor';
-import * as fs from 'fs/promises';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
@@ -108,14 +109,7 @@ export class DocumentImportController {
     }
 
     try {
-      // Se usar diskStorage, file.buffer é undefined, precisa ler do disco
-      const buffer = file.buffer || Buffer.from(await fs.readFile(file.path));
-
-      if (!buffer) {
-        throw new InternalServerErrorException(
-          'Falha ao ler o arquivo enviado',
-        );
-      }
+      const buffer = await readUploadedFileBuffer(file);
 
       // Segurança de upload: valida MIME real por magic bytes quando aplicável.
       // Observação: file-type não detecta com precisão arquivos text/plain; para textos, aceitamos apenas se o mimetype indicar text/* ou .txt.
@@ -124,7 +118,7 @@ export class DocumentImportController {
         String(file.mimetype || '').startsWith('text/') ||
         lowerName.endsWith('.txt');
       if (!isTextUpload) {
-        await validateFileMagicBytes(buffer, [
+        validateFileMagicBytes(buffer, [
           'application/pdf',
           'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -174,15 +168,7 @@ export class DocumentImportController {
         'Erro interno ao processar documento',
       );
     } finally {
-      // RISCO: Se os arquivos em disco não forem limpos, o servidor pode ficar sem espaço (DoS).
-      // CORREÇÃO: Garante que o arquivo temporário seja sempre removido após o processamento.
-      if (file && file.path) {
-        fs.unlink(file.path).catch((err) =>
-          this.logger.warn(
-            `Falha ao deletar arquivo temporário: ${file.path}. Erro: ${err}`,
-          ),
-        );
-      }
+      await cleanupUploadedTempFile(file, this.logger);
     }
   }
 }

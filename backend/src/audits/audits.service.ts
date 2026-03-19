@@ -18,9 +18,7 @@ import {
   TenantRepository,
   TenantRepositoryFactory,
 } from '../common/tenant/tenant-repository';
-import {
-  WeeklyBundleFilters,
-} from '../common/services/document-bundle.service';
+import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import {

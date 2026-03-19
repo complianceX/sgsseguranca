@@ -1,5 +1,20 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+type InformationSchemaTableRow = {
+  table_name: string;
+};
+
+function isInformationSchemaTableRow(
+  value: unknown,
+): value is InformationSchemaTableRow {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'table_name' in value &&
+    typeof (value as { table_name?: unknown }).table_name === 'string'
+  );
+}
+
 /**
  * Unified RLS migration — replaces 020-prepare-rls-policies and
  * 021-update-rls-policies-super-admin.
@@ -63,13 +78,16 @@ export class RlsAllTenantTables1709000000021 implements MigrationInterface {
     // -----------------------------------------------------------------
     // 2. Discover all public tables that have a company_id column
     // -----------------------------------------------------------------
-    const rows: Array<{ table_name: string }> = await queryRunner.query(`
+    const rowsResult: unknown = await queryRunner.query(`
       SELECT DISTINCT table_name
       FROM information_schema.columns
       WHERE column_name = 'company_id'
         AND table_schema = 'public'
       ORDER BY table_name
     `);
+    const rows = Array.isArray(rowsResult)
+      ? rowsResult.filter(isInformationSchemaTableRow)
+      : [];
 
     // -----------------------------------------------------------------
     // 3. Enable RLS + create unified tenant-isolation policy
@@ -113,13 +131,16 @@ export class RlsAllTenantTables1709000000021 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const rows: Array<{ table_name: string }> = await queryRunner.query(`
+    const rowsResult: unknown = await queryRunner.query(`
       SELECT DISTINCT table_name
       FROM information_schema.columns
       WHERE column_name = 'company_id'
         AND table_schema = 'public'
       ORDER BY table_name
     `);
+    const rows = Array.isArray(rowsResult)
+      ? rowsResult.filter(isInformationSchemaTableRow)
+      : [];
 
     for (const { table_name } of rows) {
       const exists = await queryRunner.hasTable(table_name);

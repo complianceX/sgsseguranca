@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useMemo, useDeferredValue } from 'rea
 import { aprsService, Apr } from '@/services/aprsService';
 import { aiService } from '@/services/aiService';
 import { signaturesService } from '@/services/signaturesService';
-import { generateAprPdf } from '@/lib/pdf/aprGenerator';
 import { toast } from 'sonner';
 import { handleApiError } from '@/lib/error-handler';
 import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
@@ -29,6 +28,10 @@ type AprOverviewMetrics = {
   riscosCriticos: number;
   mediaScoreRisco: number;
 };
+
+async function loadAprPdfGenerator() {
+  return import('@/lib/pdf/aprGenerator');
+}
 
 export function useAprs() {
   const [aprs, setAprs] = useState<Apr[]>([]);
@@ -149,6 +152,7 @@ export function useAprs() {
         signaturesService.findByDocument(apr.id, 'APR'),
         aprsService.listAprEvidences(apr.id),
       ]);
+      const { generateAprPdf } = await loadAprPdfGenerator();
       const result = (await generateAprPdf(fullApr, signatures, {
         save: false,
         output: 'base64',
@@ -207,6 +211,7 @@ export function useAprs() {
         signaturesService.findByDocument(id, 'APR'),
         aprsService.listAprEvidences(id),
       ]);
+      const { generateAprPdf } = await loadAprPdfGenerator();
       await generateAprPdf(fullApr, signatures, { evidences });
       toast.success('PDF gerado com sucesso!');
     } catch (error) {
@@ -244,6 +249,7 @@ export function useAprs() {
         signaturesService.findByDocument(apr.id, 'APR'),
         aprsService.listAprEvidences(apr.id),
       ]);
+      const { generateAprPdf } = await loadAprPdfGenerator();
       const result = (await generateAprPdf(fullApr, signatures, {
         save: false,
         output: 'base64',
@@ -298,6 +304,7 @@ export function useAprs() {
         signaturesService.findByDocument(id, 'APR'),
         aprsService.listAprEvidences(id),
       ]);
+      const { generateAprPdf } = await loadAprPdfGenerator();
       const result = (await generateAprPdf(fullApr, signatures, {
         save: false,
         output: 'base64',

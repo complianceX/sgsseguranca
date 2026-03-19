@@ -1,5 +1,10 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
+type PaginationQueryValue = string | string[] | undefined;
+type PaginationRequest = {
+  query?: Record<string, PaginationQueryValue>;
+};
+
 export interface PaginationParams {
   page: number;
   limit: number;
@@ -27,16 +32,29 @@ export interface PaginatedResult<T> {
  * }
  */
 export const Paginate = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext): PaginationParams => {
-    const request = ctx.switchToHttp().getRequest();
-    const query = request.query;
+  (_data: unknown, ctx: ExecutionContext): PaginationParams => {
+    const request = ctx.switchToHttp().getRequest<PaginationRequest>();
+    const query = request.query ?? {};
+
+    const parseQueryNumber = (
+      value: PaginationQueryValue,
+      defaultValue: number,
+    ): number => {
+      const raw = Array.isArray(value) ? value[0] : value;
+      if (raw == null) {
+        return defaultValue;
+      }
+
+      const parsed = Number.parseInt(raw, 10);
+      return Number.isNaN(parsed) ? defaultValue : parsed;
+    };
 
     // Parse page (default: 1, min: 1)
-    let page = parseInt(query.page) || 1;
+    let page = parseQueryNumber(query.page, 1);
     if (page < 1) page = 1;
 
     // Parse limit (default: 50, min: 1, max: 100)
-    let limit = parseInt(query.limit) || 50;
+    let limit = parseQueryNumber(query.limit, 50);
     if (limit < 1) limit = 1;
     if (limit > 100) limit = 100; // Nunca retornar mais que 100 itens
 

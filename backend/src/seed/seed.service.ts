@@ -9,6 +9,18 @@ import { Profile } from '../profiles/entities/profile.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { PasswordService } from '../common/services/password.service';
 
+type InformationSchemaTableRow = {
+  table_name: string;
+};
+
+const isInformationSchemaTableRow = (
+  value: unknown,
+): value is InformationSchemaTableRow =>
+  typeof value === 'object' &&
+  value !== null &&
+  'table_name' in value &&
+  typeof value.table_name === 'string';
+
 @Injectable()
 export class SeedService implements OnApplicationBootstrap {
   private readonly logger = new Logger(SeedService.name);
@@ -74,7 +86,7 @@ export class SeedService implements OnApplicationBootstrap {
     }
 
     const requiredTables = ['profiles', 'companies', 'users'];
-    const rows = await this.dataSource.query(
+    const rows: unknown = await this.dataSource.query(
       `
         SELECT table_name
         FROM information_schema.tables
@@ -84,7 +96,11 @@ export class SeedService implements OnApplicationBootstrap {
       [requiredTables],
     );
 
-    const existing = new Set(rows.map((row) => row.table_name));
+    const existing = new Set(
+      Array.isArray(rows)
+        ? rows.filter(isInformationSchemaTableRow).map((row) => row.table_name)
+        : [],
+    );
     return requiredTables.every((table) => existing.has(table));
   }
 

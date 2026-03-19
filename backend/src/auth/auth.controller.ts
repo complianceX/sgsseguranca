@@ -10,17 +10,6 @@ import {
   Res,
   Req,
 } from '@nestjs/common';
-import { IsString, IsOptional, Matches } from 'class-validator';
-
-class SetSignaturePinDto {
-  @IsString()
-  @Matches(/^\d{4,6}$/, { message: 'PIN deve ter 4 a 6 dígitos numéricos.' })
-  pin: string;
-
-  @IsOptional()
-  @IsString()
-  current_password?: string;
-}
 import type { Response, Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
 import type { User } from '../users/entities/user.entity';
@@ -40,6 +29,14 @@ import {
   getRefreshTokenClearCookieOptions,
   getRefreshTokenCookieOptions,
 } from './auth-security.config';
+import { SetSignaturePinDto } from './dto/set-signature-pin.dto';
+import type {
+  AuthMeResponseDto,
+  AuthSessionResponseDto,
+  RefreshAccessTokenResponseDto,
+  SignaturePinConfiguredResponseDto,
+  SignaturePinStatusResponseDto,
+} from './dto/auth-response.dto';
 
 const isProd = process.env.NODE_ENV === 'production';
 const LOGIN_THROTTLE_LIMIT = Number(
@@ -52,6 +49,11 @@ const CHANGE_PASSWORD_THROTTLE_LIMIT = Number(
 const CHANGE_PASSWORD_THROTTLE_TTL = Number(
   process.env.CHANGE_PASSWORD_THROTTLE_TTL || 60000,
 );
+type AuthenticatedRequest = ExpressRequest & {
+  user?: {
+    userId?: string;
+  };
+};
 
 @Controller('auth')
 export class AuthController {
@@ -73,7 +75,7 @@ export class AuthController {
     @Req() req: ExpressRequest,
     @Body() body: LoginDto,
     @Res({ passthrough: true }) response: Response,
-  ) {
+  ): Promise<AuthSessionResponseDto> {
     const tracker = getRequestIp(req);
     await this.bruteForceService.assertAllowed(tracker);
     const user = (await this.authService.validateUser(
@@ -115,7 +117,7 @@ export class AuthController {
   async refresh(
     @Req() req: ExpressRequest,
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<RefreshAccessTokenResponseDto> {
     const refreshToken = (req.cookies as Record<string, string>)[
       'refresh_token'
     ];
@@ -205,7 +207,9 @@ export class AuthController {
   @TenantOptional()
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  async me(@Request() req: { user?: { userId?: string } }) {
+  async me(
+    @Request() req: { user?: { userId?: string } },
+  ): Promise<AuthMeResponseDto> {
     if (!req.user?.userId) {
       throw new UnauthorizedException('Usuário não autenticado');
     }
@@ -220,7 +224,12 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('signature-pin/status')
-  async getSignaturePinStatus(@Request() req: any) {
+  async getSignaturePinStatus(
+    @Request() req: AuthenticatedRequest,
+  ): Promise<SignaturePinStatusResponseDto> {
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('Usuário não autenticado');
+    }
     const hasPin = await this.usersService.hasSignaturePin(req.user.userId);
     return { has_pin: hasPin };
   }
@@ -228,9 +237,12 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('signature-pin')
   async setSignaturePin(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body() dto: SetSignaturePinDto,
-  ) {
+  ): Promise<SignaturePinConfiguredResponseDto> {
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('Usuário não autenticado');
+    }
     await this.usersService.setSignaturePin(
       req.user.userId,
       dto.pin,

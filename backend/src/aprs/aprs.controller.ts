@@ -33,8 +33,10 @@ import { AprListItemDto } from './dto/apr-list-item.dto';
 import { Authorize } from '../auth/authorize.decorator';
 import {
   assertUploadedPdf,
+  cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
   fileUploadOptions,
+  readUploadedFileBuffer,
   validateFileMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
 
@@ -227,7 +229,7 @@ export class AprsController {
   @Post(':id/risk-items/:riskItemId/evidence')
   @Authorize('can_create_apr')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
-  uploadRiskEvidence(
+  async uploadRiskEvidence(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('riskItemId', new ParseUUIDPipe()) riskItemId: string,
     @UploadedFile() file: Express.Multer.File,
@@ -245,11 +247,12 @@ export class AprsController {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ) {
-    if (!file || !file.buffer || file.buffer.length === 0) {
+    if (!file) {
       throw new BadRequestException('Nenhuma imagem enviada.');
     }
 
-    validateFileMagicBytes(file.buffer, ['image/jpeg', 'image/png']);
+    const buffer = await readUploadedFileBuffer(file);
+    validateFileMagicBytes(buffer, ['image/jpeg', 'image/png']);
 
     const toOptionalNumber = (value?: string): number | undefined => {
       if (!value?.trim()) return undefined;
@@ -257,21 +260,25 @@ export class AprsController {
       return Number.isFinite(parsed) ? parsed : undefined;
     };
 
-    return this.aprsService.uploadRiskEvidence(
-      id,
-      riskItemId,
-      file,
-      {
-        captured_at: body.captured_at,
-        latitude: toOptionalNumber(body.latitude),
-        longitude: toOptionalNumber(body.longitude),
-        accuracy_m: toOptionalNumber(body.accuracy_m),
-        device_id: body.device_id,
-        exif_datetime: body.exif_datetime,
-      },
-      this.getRequestUserId(req),
-      this.getRequestIp(req),
-    );
+    try {
+      return await this.aprsService.uploadRiskEvidence(
+        id,
+        riskItemId,
+        file,
+        {
+          captured_at: body.captured_at,
+          latitude: toOptionalNumber(body.latitude),
+          longitude: toOptionalNumber(body.longitude),
+          accuracy_m: toOptionalNumber(body.accuracy_m),
+          device_id: body.device_id,
+          exif_datetime: body.exif_datetime,
+        },
+        this.getRequestUserId(req),
+        this.getRequestIp(req),
+      );
+    } finally {
+      await cleanupUploadedTempFile(file);
+    }
   }
 
   /** Anexa PDF a uma APR existente */
@@ -293,9 +300,13 @@ export class AprsController {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ) {
-    const pdfFile = assertUploadedPdf(file);
+    const pdfFile = await assertUploadedPdf(file);
     const userId = this.getRequestUserId(req);
-    return this.aprsService.attachPdf(id, pdfFile, userId);
+    try {
+      return await this.aprsService.attachPdf(id, pdfFile, userId);
+    } finally {
+      await cleanupUploadedTempFile(pdfFile);
+    }
   }
 
   /** Aprova a APR — Pendente → Aprovada */

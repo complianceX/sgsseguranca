@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DeepPartial } from 'typeorm';
+import { Repository, DeepPartial, FindManyOptions } from 'typeorm';
 import { Activity } from './entities/activity.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import {
@@ -99,7 +99,7 @@ export class ActivitiesService {
     await this.activitiesRepository.remove(activity);
   }
 
-  async count(options?: any): Promise<number> {
+  async count(options?: FindManyOptions<Activity>): Promise<number> {
     return this.activitiesRepository.count(options);
   }
 }

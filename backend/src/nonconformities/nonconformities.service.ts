@@ -533,10 +533,9 @@ export class NonConformitiesService {
       );
 
     if (tenantId) {
-      query.where('nc.deleted_at IS NULL').andWhere(
-        'nc.company_id = :tenantId',
-        { tenantId },
-      );
+      query
+        .where('nc.deleted_at IS NULL')
+        .andWhere('nc.company_id = :tenantId', { tenantId });
     } else {
       query.where('nc.deleted_at IS NULL');
     }

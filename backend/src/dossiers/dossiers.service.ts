@@ -32,6 +32,13 @@ interface DossierAttachmentLine {
   url: string;
 }
 
+interface EmployeeDossierPdfData {
+  user: User;
+  trainings: Training[];
+  assignments: EpiAssignment[];
+  attachmentLines: DossierAttachmentLine[];
+}
+
 const DOSSIER_RECORD_LIMIT = 500; // Safety limit to prevent memory exhaustion
 
 @Injectable()
@@ -121,8 +128,6 @@ export class DossiersService {
       user,
       trainings,
       assignments,
-      pts,
-      cats,
       attachmentLines,
     });
 
@@ -135,8 +140,8 @@ export class DossiersService {
   // would need similar refactoring (adding `take` limits) but are omitted here for brevity
   // following the same correction pattern.
 
-  private buildPdf(doc: jsPDF, data: any) {
-    const { user, trainings, assignments, pts, cats, attachmentLines } = data;
+  private buildPdf(doc: jsPDF, data: EmployeeDossierPdfData): void {
+    const { user, trainings, assignments, attachmentLines } = data;
     const marginX = 40;
     const tableTheme = createBackendPdfTableTheme();
 

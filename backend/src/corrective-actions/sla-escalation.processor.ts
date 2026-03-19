@@ -4,6 +4,10 @@ import { type Job } from 'bullmq';
 import { CorrectiveActionsService } from './corrective-actions.service';
 import { TenantService } from '../common/tenant/tenant.service';
 
+type SlaEscalationJobData = {
+  tenantId: string;
+};
+
 @Processor('sla-escalation', { concurrency: 2 })
 export class SlaEscalationProcessor extends WorkerHost {
   private readonly logger = new Logger(SlaEscalationProcessor.name);
@@ -15,7 +19,7 @@ export class SlaEscalationProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<{ tenantId: string }>): Promise<void> {
+  async process(job: Job<SlaEscalationJobData>): Promise<void> {
     const { tenantId } = job.data;
     const result = await this.tenantService.run(
       { companyId: tenantId, isSuperAdmin: false },
@@ -29,10 +33,10 @@ export class SlaEscalationProcessor extends WorkerHost {
   }
 
   @OnWorkerEvent('failed')
-  onFailed(job: Job | undefined, error: Error) {
+  onFailed(job: Job<SlaEscalationJobData> | undefined, error: Error) {
     if (!job) return;
     this.logger.error(
-      `[Job ${job.id}] tenant=${job.data?.tenantId} falhou: ${error.message}`,
+      `[Job ${job.id}] tenant=${job.data.tenantId} falhou: ${error.message}`,
       error.stack,
     );
   }

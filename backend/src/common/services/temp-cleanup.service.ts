@@ -9,7 +9,7 @@ export class TempCleanupService implements OnModuleInit {
   private readonly tempDir = path.join(process.cwd(), 'temp');
   private readonly maxAge = 24 * 60 * 60 * 1000; // 24 horas
 
-  async onModuleInit() {
+  onModuleInit() {
     this.logger.log('🧹 Iniciando serviço de limpeza de arquivos temporários');
 
     // Criar diretório temp se não existir
@@ -19,18 +19,18 @@ export class TempCleanupService implements OnModuleInit {
     }
 
     // Executar limpeza inicial
-    await this.cleanupOldFiles();
+    this.cleanupOldFiles();
 
     // Execução periódica será feita via @Cron
   }
 
   // SECURITY: execução agendada e controlada para limpeza segura de arquivos temporários
   @Cron(CronExpression.EVERY_6_HOURS)
-  private async runCleanup() {
-    await this.cleanupOldFiles();
+  private runCleanup() {
+    this.cleanupOldFiles();
   }
 
-  private async cleanupOldFiles() {
+  private cleanupOldFiles() {
     try {
       const now = Date.now();
       let deletedCount = 0;
@@ -71,7 +71,7 @@ export class TempCleanupService implements OnModuleInit {
     }
   }
 
-  async getTempDirStats() {
+  getTempDirStats() {
     try {
       if (!fs.existsSync(this.tempDir)) {
         return {

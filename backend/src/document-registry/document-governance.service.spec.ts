@@ -9,7 +9,10 @@ describe('DocumentGovernanceService', () => {
   let dataSource: Pick<DataSource, 'transaction'>;
   let manager: EntityManager;
   let pdfService: Pick<PdfService, 'computeHash' | 'registerHashIntegrity'>;
-  let documentBundleService: Pick<DocumentBundleService, 'buildWeeklyPdfBundle'>;
+  let documentBundleService: Pick<
+    DocumentBundleService,
+    'buildWeeklyPdfBundle'
+  >;
   let documentRegistryService: Pick<
     DocumentRegistryService,
     'upsertWithManager' | 'removeWithManager' | 'findByDocument' | 'list'
@@ -252,10 +255,12 @@ describe('DocumentGovernanceService', () => {
         original_name: 'audit-final.pdf',
       },
     ]);
-    (documentBundleService.buildWeeklyPdfBundle as jest.Mock).mockResolvedValue({
-      buffer: Buffer.from('%PDF-bundle'),
-      fileName: 'auditoria-semana-2026-12.pdf',
-    });
+    (documentBundleService.buildWeeklyPdfBundle as jest.Mock).mockResolvedValue(
+      {
+        buffer: Buffer.from('%PDF-bundle'),
+        fileName: 'auditoria-semana-2026-12.pdf',
+      },
+    );
 
     await expect(
       service.getModuleWeeklyBundle('audit', 'Auditoria', {

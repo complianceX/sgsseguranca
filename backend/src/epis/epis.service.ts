@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindManyOptions, FindOptionsWhere, Repository } from 'typeorm';
 import { Epi } from './entities/epi.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { BaseService } from '../common/base/base.service';
@@ -63,10 +63,12 @@ export class EpisService extends BaseService<Epi> {
     return toOffsetPage(data, total, page, limit);
   }
 
-  async count(options?: any): Promise<number> {
+  async count(options?: FindManyOptions<Epi>): Promise<number> {
     const tenantId = this.tenantService.getTenantId();
-    const where = options?.where || {};
+    const where =
+      options?.where ?? ({} as FindOptionsWhere<Epi> | FindOptionsWhere<Epi>[]);
     return this.episRepository.count({
+      ...(options ?? {}),
       where: tenantId ? { ...where, company_id: tenantId } : where,
     });
   }

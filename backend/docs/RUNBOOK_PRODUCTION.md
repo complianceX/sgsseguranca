@@ -340,13 +340,20 @@ docker-compose exec db psql -U sst_user -d sst -c "SELECT * FROM security_incide
 
 ### 8.1 Testes de Carga
 ```bash
-# Smoke test (50 usuários)
+# Credenciais reais obrigatórias para fluxos autenticados
+export K6_LOGIN_CPF=00000000000
+export K6_LOGIN_PASSWORD='senha-real'
+
+# Opcional para admin geral / troca explicita de tenant
+export K6_COMPANY_ID=00000000-0000-0000-0000-000000000000
+
+# Smoke test (auth + dashboard + upload/PDF opcionais)
 npm run loadtest:smoke
 
-# Baseline (100 usuários)
+# Baseline (fluxos reais do dashboard e fila de PDF)
 npm run loadtest:baseline
 
-# Stress test (1000 usuários)
+# Stress test (aumenta carga mantendo contrato real da API)
 npm run loadtest:stress
 ```
 

@@ -7,12 +7,14 @@
   },
   "scripts": {
     "dev": "next dev",
-    "predev": "node scripts/check-node.js",
-    "build": "node scripts/run-next-build.js",
-    "prebuild": "node scripts/check-node.js",
+    "predev": "node scripts/check-node.js && node scripts/check-required-env.mjs dev",
+    "build": "node scripts/run-next-build.cjs",
+    "prebuild": "node scripts/check-node.js && node scripts/check-required-env.mjs build",
+    "prestart": "node scripts/check-required-env.mjs start",
     "start": "next start",
-    "lint": "eslint",
-    "test": "jest"
+    "lint": "eslint . --max-warnings=0",
+    "test": "jest --config jest.config.cjs",
+    "test:ci": "jest --ci --runInBand --config jest.config.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

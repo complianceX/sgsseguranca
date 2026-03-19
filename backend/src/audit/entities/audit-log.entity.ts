@@ -5,6 +5,8 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 
+type AuditJsonValue = string | Record<string, unknown>;
+
 @Entity('audit_logs')
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
@@ -32,13 +34,13 @@ export class AuditLog {
   entity_id?: string;
 
   @Column('simple-json', { nullable: true })
-  changes: Record<string, any>; // { before: {}, after: {} }
+  changes?: AuditJsonValue; // { before: {}, after: {} }
 
   @Column('simple-json', { nullable: true })
-  before?: Record<string, any>;
+  before?: AuditJsonValue;
 
   @Column('simple-json', { nullable: true })
-  after?: Record<string, any>;
+  after?: AuditJsonValue;
 
   @Column()
   ip: string;

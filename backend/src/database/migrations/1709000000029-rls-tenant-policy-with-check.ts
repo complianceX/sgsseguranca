@@ -1,5 +1,17 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+type InformationSchemaColumnRow = {
+  table_name: string;
+};
+
+const isInformationSchemaColumnRow = (
+  value: unknown,
+): value is InformationSchemaColumnRow =>
+  typeof value === 'object' &&
+  value !== null &&
+  'table_name' in value &&
+  typeof value.table_name === 'string';
+
 /**
  * Hardening de RLS multi-tenant:
  * - Garante WITH CHECK para INSERT/UPDATE (impede gravar/alterar company_id de outro tenant)
@@ -54,13 +66,16 @@ export class RlsTenantPolicyWithCheck1709000000029 implements MigrationInterface
     // -----------------------------------------------------------------
     // 2) Tabelas multi-tenant com coluna company_id
     // -----------------------------------------------------------------
-    const companyRows: Array<{ table_name: string }> = await queryRunner.query(`
+    const companyRowsResult: unknown = await queryRunner.query(`
       SELECT DISTINCT table_name
       FROM information_schema.columns
       WHERE column_name = 'company_id'
         AND table_schema = 'public'
       ORDER BY table_name
     `);
+    const companyRows = Array.isArray(companyRowsResult)
+      ? companyRowsResult.filter(isInformationSchemaColumnRow)
+      : [];
 
     for (const { table_name } of companyRows) {
       const exists = await queryRunner.hasTable(table_name);
@@ -94,7 +109,7 @@ export class RlsTenantPolicyWithCheck1709000000029 implements MigrationInterface
     // -----------------------------------------------------------------
     // 3) Tabelas multi-tenant legadas com coluna empresa_id (sem company_id)
     // -----------------------------------------------------------------
-    const legacyRows: Array<{ table_name: string }> = await queryRunner.query(`
+    const legacyRowsResult: unknown = await queryRunner.query(`
       SELECT DISTINCT c.table_name
       FROM information_schema.columns c
       WHERE c.table_schema = 'public'
@@ -108,6 +123,9 @@ export class RlsTenantPolicyWithCheck1709000000029 implements MigrationInterface
         )
       ORDER BY c.table_name
     `);
+    const legacyRows = Array.isArray(legacyRowsResult)
+      ? legacyRowsResult.filter(isInformationSchemaColumnRow)
+      : [];
 
     for (const { table_name } of legacyRows) {
       const exists = await queryRunner.hasTable(table_name);
@@ -141,13 +159,16 @@ export class RlsTenantPolicyWithCheck1709000000029 implements MigrationInterface
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Mantém compatível com rollback: remove apenas a policy; não desabilita RLS.
-    const rows: Array<{ table_name: string }> = await queryRunner.query(`
+    const rowsResult: unknown = await queryRunner.query(`
       SELECT DISTINCT table_name
       FROM information_schema.columns
       WHERE table_schema = 'public'
         AND column_name IN ('company_id', 'empresa_id')
       ORDER BY table_name
     `);
+    const rows = Array.isArray(rowsResult)
+      ? rowsResult.filter(isInformationSchemaColumnRow)
+      : [];
 
     for (const { table_name } of rows) {
       const exists = await queryRunner.hasTable(table_name);

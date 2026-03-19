@@ -36,7 +36,7 @@ export class TimeoutInterceptor implements NestInterceptor {
     );
   }
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     // Permite sobrescrever o timeout por rota/controller via metadado
     const routeTimeout = this.reflector.getAllAndOverride<number>(
       REQUEST_TIMEOUT_KEY,
@@ -47,7 +47,7 @@ export class TimeoutInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       timeout(ms),
-      catchError((err) => {
+      catchError((err: unknown) => {
         if (err instanceof TimeoutError) {
           return throwError(
             () =>

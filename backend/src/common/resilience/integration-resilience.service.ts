@@ -2,6 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CircuitBreakerService } from './circuit-breaker.service';
 import { RetryService } from './retry.service';
+import {
+  extractResilienceErrorCode,
+  extractResilienceErrorMessage,
+  extractResilienceErrorStatus,
+} from './resilience-error.util';
 
 export interface IntegrationResilienceOptions {
   timeoutMs?: number;
@@ -139,22 +144,9 @@ function normalizeIntegrationName(name: string): string {
 }
 
 function summarizeError(error: unknown): string {
-  const anyErr = error as any;
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === 'string'
-        ? error
-        : undefined;
-  const code = typeof anyErr?.code === 'string' ? anyErr.code : undefined;
-  const status =
-    typeof anyErr?.status === 'number'
-      ? anyErr.status
-      : typeof anyErr?.statusCode === 'number'
-        ? anyErr.statusCode
-        : typeof anyErr?.response?.status === 'number'
-          ? anyErr.response.status
-          : undefined;
+  const message = extractResilienceErrorMessage(error);
+  const code = extractResilienceErrorCode(error);
+  const status = extractResilienceErrorStatus(error);
   return [
     message,
     code ? `code=${code}` : null,
@@ -169,13 +161,7 @@ function summarizeError(error: unknown): string {
  * Só retenta em erros de transporte/timeout, evitando retentar em 5xx genérico.
  */
 function isSafeToRetry(error: unknown): boolean {
-  const anyErr = error as any;
-  const code =
-    typeof anyErr?.code === 'string'
-      ? anyErr.code
-      : typeof anyErr?.cause?.code === 'string'
-        ? anyErr.cause.code
-        : undefined;
+  const code = extractResilienceErrorCode(error);
   if (code) {
     const safeCodes = new Set([
       'ETIMEDOUT',
@@ -191,6 +177,6 @@ function isSafeToRetry(error: unknown): boolean {
     ]);
     if (safeCodes.has(code)) return true;
   }
-  const msg = typeof anyErr?.message === 'string' ? anyErr.message : '';
+  const msg = extractResilienceErrorMessage(error) ?? '';
   return /timeout|timed out|socket hang up|connection reset/i.test(msg);
 }

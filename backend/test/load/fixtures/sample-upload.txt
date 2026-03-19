@@ -1,0 +1,2 @@
+Este arquivo existe apenas para validar o fluxo real de upload no k6.
+Nao contem dados sensiveis e pode ser reutilizado em smoke, baseline e stress.

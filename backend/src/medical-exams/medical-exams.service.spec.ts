@@ -2,6 +2,8 @@ import { Repository } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { MedicalExamsService } from './medical-exams.service';
 import { MedicalExam } from './entities/medical-exam.entity';
+import { CreateMedicalExamDto } from './dto/create-medical-exam.dto';
+import { UpdateMedicalExamDto } from './dto/update-medical-exam.dto';
 import type { TenantService } from '../common/tenant/tenant.service';
 
 const COMPANY_ID = 'company-1';
@@ -20,6 +22,37 @@ function makeExam(overrides: Partial<MedicalExam> = {}): MedicalExam {
     ...overrides,
   } as MedicalExam;
 }
+
+const makeExamUser = (nome: string): MedicalExam['user'] =>
+  ({ nome }) as MedicalExam['user'];
+
+const getFirstCreateArg = (
+  createMock: jest.Mock,
+): Partial<MedicalExam> & { company_id?: string } => {
+  const firstCall = createMock.mock.calls[0] as
+    | [Partial<MedicalExam>]
+    | undefined;
+
+  if (!firstCall) {
+    throw new Error('repository.create não foi chamado.');
+  }
+
+  return firstCall[0];
+};
+
+const getFirstFindArg = (
+  findMock: jest.Mock,
+): { where?: { company_id?: string } } => {
+  const firstCall = findMock.mock.calls[0] as
+    | [{ where?: { company_id?: string } }]
+    | undefined;
+
+  if (!firstCall) {
+    throw new Error('repository.find não foi chamado.');
+  }
+
+  return firstCall[0];
+};
 
 function makeQueryBuilder(results: MedicalExam[] = []) {
   return {
@@ -51,7 +84,7 @@ describe('MedicalExamsService', () => {
       findOne: jest.fn(),
       find: jest.fn().mockResolvedValue([]),
       save: jest.fn((input) => Promise.resolve(input as MedicalExam)),
-      create: jest.fn((input) => ({ ...input } as MedicalExam)),
+      create: jest.fn((input) => ({ ...input }) as MedicalExam),
       remove: jest.fn().mockResolvedValue(undefined),
       createQueryBuilder: jest.fn(() => makeQueryBuilder()),
     };
@@ -68,15 +101,14 @@ describe('MedicalExamsService', () => {
   // ─── create ──────────────────────────────────────────────────────────────────
 
   it('cria exame medico com company_id do tenant', async () => {
-    const dto = {
+    const dto: CreateMedicalExamDto = {
       tipo_exame: 'admissional',
       resultado: 'apto',
-      data_exame: new Date('2026-03-01'),
+      data_realizacao: '2026-03-01',
+      user_id: '11111111-1111-1111-1111-111111111111',
     };
-    await service.create(dto as any);
-    const createdArg = (repository.create as jest.Mock).mock.calls[0][0] as {
-      company_id: string;
-    };
+    await service.create(dto);
+    const createdArg = getFirstCreateArg(repository.create);
     expect(createdArg.company_id).toBe(COMPANY_ID);
     expect(repository.save).toHaveBeenCalled();
   });
@@ -91,7 +123,9 @@ describe('MedicalExamsService', () => {
 
   it('lanca NotFoundException quando exame nao existe', async () => {
     repository.findOne.mockResolvedValue(null);
-    await expect(service.findOne('inexistente')).rejects.toThrow(NotFoundException);
+    await expect(service.findOne('inexistente')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   // ─── update ──────────────────────────────────────────────────────────────────
@@ -99,8 +133,11 @@ describe('MedicalExamsService', () => {
   it('atualiza campos do exame medico', async () => {
     const exam = makeExam();
     repository.findOne.mockResolvedValue(exam);
-    const result = await service.update(EXAM_ID, { resultado: 'inapto' } as any);
-    expect((result as any).resultado).toBe('inapto');
+    const dto: UpdateMedicalExamDto = {
+      resultado: 'inapto',
+    };
+    const result = await service.update(EXAM_ID, dto);
+    expect(result.resultado).toBe('inapto');
     expect(repository.save).toHaveBeenCalled();
   });
 
@@ -131,10 +168,15 @@ describe('MedicalExamsService', () => {
     });
     const semVencimento = makeExam({
       id: 'exam-4',
-      data_vencimento: null as any,
+      data_vencimento: null,
     });
 
-    repository.find.mockResolvedValue([vencido, vencendoEm20Dias, emDia, semVencimento]);
+    repository.find.mockResolvedValue([
+      vencido,
+      vencendoEm20Dias,
+      emDia,
+      semVencimento,
+    ]);
 
     const summary = await service.findExpirySummary();
     expect(summary.total).toBe(4);
@@ -146,15 +188,18 @@ describe('MedicalExamsService', () => {
   it('retorna zeros quando nao ha exames', async () => {
     repository.find.mockResolvedValue([]);
     const summary = await service.findExpirySummary();
-    expect(summary).toEqual({ total: 0, expired: 0, expiringSoon: 0, valid: 0 });
+    expect(summary).toEqual({
+      total: 0,
+      expired: 0,
+      expiringSoon: 0,
+      valid: 0,
+    });
   });
 
   it('aplica filtro de tenant no findExpirySummary', async () => {
     repository.find.mockResolvedValue([]);
     await service.findExpirySummary();
-    const findCall = (repository.find as jest.Mock).mock.calls[0][0] as {
-      where: { company_id: string };
-    };
+    const findCall = getFirstFindArg(repository.find);
     expect(findCall.where).toEqual({ company_id: COMPANY_ID });
   });
 
@@ -178,7 +223,7 @@ describe('MedicalExamsService', () => {
         tipo_exame: 'periodico',
         resultado: 'apto',
         data_vencimento: new Date(now.getTime() + 60 * 86_400_000),
-        user: { nome: 'Colaborador A' } as any,
+        user: makeExamUser('Colaborador A'),
       }),
     ]);
     repository.createQueryBuilder.mockReturnValue(qb);

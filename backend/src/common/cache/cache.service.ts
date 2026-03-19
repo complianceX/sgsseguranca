@@ -3,6 +3,11 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { RedisService } from '../redis/redis.service';
 
+type ResettableCache = Cache & {
+  clear?: () => Promise<void> | void;
+  reset?: () => Promise<void> | void;
+};
+
 @Injectable()
 export class CacheService {
   constructor(
@@ -20,7 +25,7 @@ export class CacheService {
   /**
    * Set value in cache with TTL
    */
-  async set(key: string, value: any, ttl?: number): Promise<void> {
+  async set<T>(key: string, value: T, ttl?: number): Promise<void> {
     await this.cacheManager.set(key, value, ttl);
   }
 
@@ -35,10 +40,11 @@ export class CacheService {
    * Clear all cache
    */
   async reset(): Promise<void> {
-    if (typeof (this.cacheManager as any).clear === 'function') {
-      await (this.cacheManager as any).clear();
-    } else if (typeof (this.cacheManager as any).reset === 'function') {
-      await (this.cacheManager as any).reset();
+    const resettableCache = this.cacheManager as ResettableCache;
+    if (typeof resettableCache.clear === 'function') {
+      await Promise.resolve(resettableCache.clear());
+    } else if (typeof resettableCache.reset === 'function') {
+      await Promise.resolve(resettableCache.reset());
     }
   }
 
@@ -70,15 +76,15 @@ export class CacheService {
   /**
    * Cache user profile
    */
-  async cacheUserProfile(userId: string, profile: any): Promise<void> {
+  async cacheUserProfile<T>(userId: string, profile: T): Promise<void> {
     await this.set(`user:profile:${userId}`, profile, 300); // 5 min
   }
 
   /**
    * Get cached user profile
    */
-  async getUserProfile(userId: string): Promise<any> {
-    return this.get(`user:profile:${userId}`);
+  async getUserProfile<T>(userId: string): Promise<T | undefined> {
+    return this.get<T>(`user:profile:${userId}`);
   }
 
   /**
@@ -92,15 +98,15 @@ export class CacheService {
   /**
    * Cache company data
    */
-  async cacheCompany(companyId: string, company: any): Promise<void> {
+  async cacheCompany<T>(companyId: string, company: T): Promise<void> {
     await this.set(`company:${companyId}`, company, 900); // 15 min
   }
 
   /**
    * Get cached company
    */
-  async getCompany(companyId: string): Promise<any> {
-    return this.get(`company:${companyId}`);
+  async getCompany<T>(companyId: string): Promise<T | undefined> {
+    return this.get<T>(`company:${companyId}`);
   }
 
   /**

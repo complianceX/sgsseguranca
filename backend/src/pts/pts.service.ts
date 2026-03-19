@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindManyOptions, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Pt, PtStatus, PT_ALLOWED_TRANSITIONS } from './entities/pt.entity';
 import {
@@ -34,6 +34,25 @@ import { WeeklyBundleFilters } from '../common/services/document-bundle.service'
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { SignaturesService } from '../signatures/signatures.service';
+
+type PreApprovalChecklist = Record<string, unknown>;
+type PreApprovalReviewPayload = {
+  stage?: string;
+  readyForRelease?: boolean;
+  blockers?: unknown;
+  unansweredChecklistItems?: number;
+  adverseChecklistItems?: number;
+  pendingSignatures?: number;
+  hasRapidRiskBlocker?: boolean;
+  warnings?: unknown;
+  checklist?: unknown;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
 
 @Injectable()
 export class PtsService {
@@ -72,7 +91,7 @@ export class PtsService {
   private assertPtReadyForFinalPdf(pt: Pick<Pt, 'status' | 'pdf_file_key'>) {
     this.assertPtDocumentMutable(pt);
 
-    if (pt.status !== PtStatus.APROVADA) {
+    if (pt.status !== PtStatus.APROVADA.toString()) {
       throw new BadRequestException(
         'A PT precisa estar aprovada antes do anexo do PDF final.',
       );
@@ -80,7 +99,10 @@ export class PtsService {
   }
 
   private buildPtDocumentCode(
-    pt: Pick<Pt, 'id' | 'numero' | 'titulo' | 'data_hora_inicio' | 'created_at'>,
+    pt: Pick<
+      Pt,
+      'id' | 'numero' | 'titulo' | 'data_hora_inicio' | 'created_at'
+    >,
   ): string {
     const candidateDate = pt.data_hora_inicio
       ? new Date(pt.data_hora_inicio)
@@ -101,7 +123,7 @@ export class PtsService {
   private resolveStatusForGenericCreate(
     requestedStatus?: string | null,
   ): PtStatus {
-    if (!requestedStatus || requestedStatus === PtStatus.PENDENTE) {
+    if (!requestedStatus || requestedStatus === PtStatus.PENDENTE.toString()) {
       return PtStatus.PENDENTE;
     }
 
@@ -318,11 +340,8 @@ export class PtsService {
       });
     } catch (error) {
       if (uploadedToStorage) {
-        await cleanupUploadedFile(
-          this.logger,
-          `pt:${pt.id}`,
-          key,
-          (fileKey) => this.documentStorageService.deleteFile(fileKey),
+        await cleanupUploadedFile(this.logger, `pt:${pt.id}`, key, (fileKey) =>
+          this.documentStorageService.deleteFile(fileKey),
         );
       }
       throw error;
@@ -491,19 +510,26 @@ export class PtsService {
     });
 
     return records.map((record) => {
-      const review = (record.after as Record<string, any> | null)?.review ?? {};
+      const after = isRecord(record.after) ? record.after : null;
+      const reviewSource = after?.review;
+      const review: PreApprovalReviewPayload = isRecord(reviewSource)
+        ? reviewSource
+        : {};
+      const checklist: PreApprovalChecklist | null = isRecord(review.checklist)
+        ? review.checklist
+        : null;
 
       return {
         id: record.id,
         action: record.action,
         userId: record.userId || record.user_id || null,
         createdAt: record.created_at || record.timestamp,
-        stage: review.stage || null,
+        stage: typeof review.stage === 'string' ? review.stage : null,
         readyForRelease:
           typeof review.readyForRelease === 'boolean'
             ? review.readyForRelease
             : null,
-        blockers: Array.isArray(review.blockers) ? review.blockers : [],
+        blockers: isStringArray(review.blockers) ? review.blockers : [],
         unansweredChecklistItems:
           typeof review.unansweredChecklistItems === 'number'
             ? review.unansweredChecklistItems
@@ -520,11 +546,8 @@ export class PtsService {
           typeof review.hasRapidRiskBlocker === 'boolean'
             ? review.hasRapidRiskBlocker
             : false,
-        warnings: Array.isArray(review.warnings) ? review.warnings : [],
-        checklist:
-          review.checklist && typeof review.checklist === 'object'
-            ? review.checklist
-            : null,
+        warnings: isStringArray(review.warnings) ? review.warnings : [],
+        checklist,
       };
     });
   }
@@ -544,7 +567,7 @@ export class PtsService {
     this.logger.log({ event: 'pt_soft_deleted', ptId: id });
   }
 
-  async count(options?: any): Promise<number> {
+  async count(options?: FindManyOptions<Pt>): Promise<number> {
     return this.ptsRepository.count(options);
   }
 
@@ -633,7 +656,10 @@ export class PtsService {
 
     const executantes = Array.isArray(pt.executantes) ? pt.executantes : [];
     if (executantes.length > 0) {
-      const signatures = await this.signaturesService.findByDocument(pt.id, 'PT');
+      const signatures = await this.signaturesService.findByDocument(
+        pt.id,
+        'PT',
+      );
       const signedExecutanteIds = new Set(
         signatures
           .map((signature) => signature.user_id)

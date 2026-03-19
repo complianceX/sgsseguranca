@@ -34,7 +34,6 @@ export function drawExecutiveSummaryStrip(ctx: PdfContext, options: ExecutiveSum
     return { metric, labelLines, valueLines, blockHeight };
   });
 
-  const metricsRows = Math.ceil(metricBlocks.length / 3);
   let metricsHeight = 0;
   for (let i = 0; i < metricBlocks.length; i += 3) {
     const rowHeight = Math.max(...metricBlocks.slice(i, i + 3).map((x) => x.blockHeight), 11);

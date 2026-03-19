@@ -1,24 +1,38 @@
+import { readFrontendEnvironment } from './scripts/public-env.mjs';
+
 /** @type {import('next').NextConfig} */
 const isProd = process.env.NODE_ENV === 'production';
+const frontendEnv = readFrontendEnvironment({
+  requireExplicitApiUrl: isProd,
+  requireExplicitAppUrl: isProd,
+});
+const resolvedBuildId = [
+  process.env.NEXT_PUBLIC_BUILD_ID,
+  process.env.RAILWAY_GIT_COMMIT_SHA,
+  process.env.RAILWAY_DEPLOYMENT_ID,
+  process.env.GITHUB_SHA,
+  process.env.VERCEL_GIT_COMMIT_SHA,
+  process.env.npm_package_version,
+  'local-dev',
+]
+  .find((value) => typeof value === 'string' && value.trim().length > 0)
+  ?.trim()
+  .replace(/[^a-zA-Z0-9._-]/g, '-')
+  .slice(0, 32);
+const serviceWorkerBuildId = resolvedBuildId || 'local-dev';
 
 function buildCsp() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  const connectSrc = [
+  const connectSrc = new Set([
     "'self'",
-    // Em builds Docker no Railway, vars públicas podem não estar disponíveis no build stage.
-    // Mantemos fallback explícito + wildcard de domínios Railway para evitar bloqueio por CSP.
-    apiUrl || 'https://keen-smile-production.up.railway.app',
-    isProd ? 'https://*.up.railway.app' : null,
+    frontendEnv.apiOrigin,
+    frontendEnv.apiWebSocketOrigin,
     // Dev local
     !isProd ? 'http://localhost:3011' : null,
     !isProd ? 'ws://localhost:3000' : null,
     !isProd ? 'ws://localhost:3011' : null,
-    'https://unpkg.com',
     'https://api.elevenlabs.io',
     'wss://api.elevenlabs.io',
-    'https://*.elevenlabs.io',
-    'wss://*.elevenlabs.io',
-  ].filter(Boolean);
+  ].filter(Boolean));
   const scriptSrc = [
     "'self'",
     "'unsafe-inline'",
@@ -38,7 +52,7 @@ function buildCsp() {
     `font-src 'self' data:`,
     `style-src 'self' 'unsafe-inline'`,
     `script-src ${scriptSrc.join(' ')}`,
-    `connect-src ${connectSrc.join(' ')}`,
+    `connect-src ${Array.from(connectSrc).join(' ')}`,
     `media-src 'self' blob: data: https:`,
     `worker-src 'self' blob:`,
     `form-action 'self'`,
@@ -49,11 +63,12 @@ function buildCsp() {
 }
 
 const nextConfig = {
+  generateBuildId: async () => serviceWorkerBuildId,
+  env: {
+    NEXT_PUBLIC_BUILD_ID: serviceWorkerBuildId,
+  },
   turbopack: {
     root: process.cwd(),
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
   async headers() {
     const csp = buildCsp();

@@ -10,6 +10,19 @@ import { tap, catchError } from 'rxjs/operators';
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 
+type UnifiedRequest = Request & {
+  id?: string;
+  tenantId?: string;
+  user?: {
+    id?: string;
+    userId?: string;
+    company_id?: string;
+  };
+};
+
+const getErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
 /**
  * Interceptador unificado que consolida:
  * 1. RequestContext (tenant, user, request ID)
@@ -24,19 +37,19 @@ import { v4 as uuidv4 } from 'uuid';
 export class UnifiedInterceptor implements NestInterceptor {
   private readonly logger = new Logger(UnifiedInterceptor.name);
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const request = context.switchToHttp().getRequest<Request>();
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
+    const request = context.switchToHttp().getRequest<UnifiedRequest>();
     const response = context.switchToHttp().getResponse<Response>();
 
     // 1. Gerar Request ID se não existir
     const requestId = (request.headers['x-request-id'] as string) || uuidv4();
-    (request as any).id = requestId;
+    request.id = requestId;
     response.setHeader('x-request-id', requestId);
 
     // 2. Extrair informações do contexto
     const { method, url, ip } = request;
-    const user = (request as any).user;
-    const tenantId = (request as any).tenantId || user?.company_id;
+    const user = request.user;
+    const tenantId = request.tenantId ?? user?.company_id;
 
     // 3. Iniciar cronômetro
     const startTime = Date.now();
@@ -47,7 +60,7 @@ export class UnifiedInterceptor implements NestInterceptor {
     );
 
     return next.handle().pipe(
-      tap((data) => {
+      tap(() => {
         // 5. Calcular tempo de execução
         const duration = Date.now() - startTime;
 
@@ -58,14 +71,12 @@ export class UnifiedInterceptor implements NestInterceptor {
 
         // 7. Adicionar headers de performance
         response.setHeader('x-response-time', `${duration}ms`);
-
-        return data;
       }),
-      catchError((error) => {
+      catchError((error: unknown) => {
         // 8. Log de erro
         const duration = Date.now() - startTime;
         this.logger.error(
-          `[${requestId}] ${method} ${url} - ERROR - ${duration}ms - ${error.message}`,
+          `[${requestId}] ${method} ${url} - ERROR - ${duration}ms - ${getErrorMessage(error)}`,
         );
 
         throw error;

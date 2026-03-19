@@ -11,15 +11,21 @@ describe('UsersService.gdprErasure', () => {
   let service: UsersService;
   let repo: jest.Mocked<Repository<User>>;
   let profilesRepo: jest.Mocked<Repository<Profile>>;
+  let updateMock: jest.Mock;
+  let softDeleteMock: jest.Mock;
+  let auditLogMock: jest.Mock;
   let tenantService: Partial<TenantService>;
   let passwordService: Partial<PasswordService>;
   let auditService: Partial<AuditService>;
 
   beforeEach(() => {
+    updateMock = jest.fn();
+    softDeleteMock = jest.fn();
+    auditLogMock = jest.fn();
     repo = {
       findOne: jest.fn(),
-      update: jest.fn(),
-      softDelete: jest.fn(),
+      update: updateMock,
+      softDelete: softDeleteMock,
     } as unknown as jest.Mocked<Repository<User>>;
     profilesRepo = {
       findOne: jest.fn(),
@@ -30,7 +36,7 @@ describe('UsersService.gdprErasure', () => {
     };
     passwordService = {};
     auditService = {
-      log: jest.fn(),
+      log: auditLogMock,
     };
 
     service = new UsersService(
@@ -61,15 +67,15 @@ describe('UsersService.gdprErasure', () => {
 
     await service.gdprErasure(user.id);
 
-    expect(repo.update).toHaveBeenCalledWith(user.id, {
+    expect(updateMock).toHaveBeenCalledWith(user.id, {
       email: `deleted_${user.id}@anon.invalid`,
       nome: 'Usuário Removido',
       cpf: null,
       funcao: null,
       status: false,
     });
-    expect(repo.softDelete).toHaveBeenCalledWith(user.id);
-    expect(auditService.log).toHaveBeenCalledWith(
+    expect(softDeleteMock).toHaveBeenCalledWith(user.id);
+    expect(auditLogMock).toHaveBeenCalledWith(
       expect.objectContaining({
         action: AuditAction.GDPR_ERASURE,
         entity: 'USER',

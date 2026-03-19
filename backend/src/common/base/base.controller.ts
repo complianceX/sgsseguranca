@@ -19,12 +19,7 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import {
-  Repository,
-  FindOptionsWhere,
-  DeepPartial,
-  ObjectLiteral,
-} from 'typeorm';
+import { FindOptionsWhere, DeepPartial, ObjectLiteral } from 'typeorm';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { Authorize } from '../../auth/authorize.decorator';
 import { RolesGuard } from '../../auth/roles.guard';
@@ -103,7 +98,7 @@ export abstract class BaseController<
     status: 200,
     description: 'Lista de registros',
   })
-  async findAll(@Query() pagination: PaginationDto): Promise<any> {
+  async findAll(@Query() _pagination: PaginationDto): Promise<unknown> {
     const where = {} as FindOptionsWhere<T>;
     return this.service.findAll(where);
   }

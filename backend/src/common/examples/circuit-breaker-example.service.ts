@@ -21,11 +21,11 @@ export class CircuitBreakerExampleService {
   /**
    * Exemplo 1: Chamada a API externa com Circuit Breaker
    */
-  async callExternalApi(url: string): Promise<any> {
+  async callExternalApi<T = unknown>(url: string): Promise<T> {
     return this.circuitBreaker.execute(
       'external-api',
       async () => {
-        const response = await firstValueFrom(this.httpService.get(url));
+        const response = await firstValueFrom(this.httpService.get<T>(url));
         return response.data;
       },
       {
@@ -39,12 +39,12 @@ export class CircuitBreakerExampleService {
   /**
    * Exemplo 2: Autenticação OAuth com Circuit Breaker
    */
-  async authenticateWithGoogle(token: string): Promise<any> {
+  async authenticateWithGoogle<T = unknown>(token: string): Promise<T> {
     return this.circuitBreaker.execute(
       'google-oauth',
       async () => {
         const response = await firstValueFrom(
-          this.httpService.post('https://oauth2.googleapis.com/tokeninfo', {
+          this.httpService.post<T>('https://oauth2.googleapis.com/tokeninfo', {
             id_token: token,
           }),
         );
@@ -85,7 +85,7 @@ export class CircuitBreakerExampleService {
   /**
    * Exemplo 4: Envio de email com Circuit Breaker
    */
-  async sendEmail(to: string, subject: string, body: string): Promise<void> {
+  async sendEmail(to: string, _subject: string, _body: string): Promise<void> {
     return this.circuitBreaker.execute(
       'email-service',
       async () => {

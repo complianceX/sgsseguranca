@@ -2,11 +2,18 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { use, useEffect } from "react";
 
-export default function ValidarPage(props: any) {
+type ValidarPageProps = {
+  params: Promise<{
+    code?: string;
+  }>;
+};
+
+export default function ValidarPage({ params }: ValidarPageProps) {
   const router = useRouter();
-  const code = decodeURIComponent(props?.params?.code || "").trim();
+  const { code: routeCode } = use(params);
+  const code = decodeURIComponent(routeCode || "").trim();
 
   useEffect(() => {
     // Redireciona para a página pública de verificação já existente,

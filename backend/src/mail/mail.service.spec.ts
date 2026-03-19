@@ -21,7 +21,7 @@ import { IntegrationResilienceService } from '../common/resilience/integration-r
 import { DistributedLockService } from '../common/redis/distributed-lock.service';
 
 // Mock do Resend
-const mockResendSend = jest.fn();
+const mockResendSend = jest.fn<(payload: unknown) => Promise<unknown>>();
 jest.mock('resend', () => {
   return {
     Resend: jest.fn().mockImplementation(() => ({
@@ -32,6 +32,32 @@ jest.mock('resend', () => {
   };
 });
 
+type MailLogRepositoryMock = {
+  create: jest.Mock<Partial<MailLog>, [Partial<MailLog>]>;
+  save: jest.Mock<Promise<MailLog & { id: string }>, [Partial<MailLog>]>;
+  createQueryBuilder: jest.Mock;
+};
+
+type PtDocument = Awaited<ReturnType<PtsService['findOne']>>;
+type InspectionDocument = Awaited<ReturnType<InspectionsService['findOne']>>;
+type InspectionPdfAccess = Awaited<
+  ReturnType<InspectionsService['getPdfAccess']>
+>;
+type AuditDocument = Awaited<ReturnType<AuditsService['findOne']>>;
+type AuditPdfAccess = Awaited<ReturnType<AuditsService['getPdfAccess']>>;
+type MailServiceWithScheduledAlerts = {
+  runScheduledAlerts(): Promise<void>;
+};
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+const isUnknownArray = (value: unknown): value is unknown[] =>
+  Array.isArray(value);
+const getFirstMockArgument = (mockFn: jest.Mock): unknown => {
+  const calls = mockFn.mock.calls as unknown[][];
+  const firstCall = calls[0];
+  return isUnknownArray(firstCall) ? firstCall[0] : undefined;
+};
+
 describe('MailService', () => {
   const originalApiCronsDisabled = process.env.API_CRONS_DISABLED;
   let service: MailService;
@@ -39,11 +65,13 @@ describe('MailService', () => {
   let ptsService: PtsService;
   let inspectionsService: InspectionsService;
   let auditsService: AuditsService;
-  let mailLogRepository: any;
+  let mailLogRepository: MailLogRepositoryMock;
 
-  const mockMailLogRepository = {
-    create: jest.fn((dto) => dto),
-    save: jest.fn((log) => Promise.resolve({ id: 'log-123', ...log })),
+  const mockMailLogRepository: MailLogRepositoryMock = {
+    create: jest.fn((dto: Partial<MailLog>) => dto),
+    save: jest.fn((log: Partial<MailLog>) =>
+      Promise.resolve({ id: 'log-123', ...(log as MailLog) }),
+    ),
     createQueryBuilder: jest.fn(),
   };
 
@@ -69,18 +97,20 @@ describe('MailService', () => {
   };
 
   const mockTenantService = {
-    run: jest.fn((id, cb) => cb()),
-    getTenantId: jest.fn(() => 'company-1'),
+    run: jest.fn((_id: string, cb: () => unknown) => cb()),
+    getTenantId: jest.fn((): string => 'company-1'),
   };
   const mockIntegrationResilienceService = {
-    execute: jest.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
+    execute: jest.fn((_name: string, fn: () => Promise<unknown>) => fn()),
   };
   const mockDistributedLockService = {
-    tryAcquire: jest.fn(async () => ({
-      key: 'lock:mail:scheduled-alerts',
-      token: 'token-1',
-    })),
-    release: jest.fn(async () => true),
+    tryAcquire: jest.fn(() =>
+      Promise.resolve({
+        key: 'lock:mail:scheduled-alerts',
+        token: 'token-1',
+      }),
+    ),
+    release: jest.fn(() => Promise.resolve(true)),
   };
 
   beforeEach(async () => {
@@ -126,7 +156,9 @@ describe('MailService', () => {
     ptsService = module.get<PtsService>(PtsService);
     inspectionsService = module.get<InspectionsService>(InspectionsService);
     auditsService = module.get<AuditsService>(AuditsService);
-    mailLogRepository = module.get(getRepositoryToken(MailLog));
+    mailLogRepository = module.get<MailLogRepositoryMock>(
+      getRepositoryToken(MailLog),
+    );
   });
 
   afterEach(() => {
@@ -152,19 +184,26 @@ describe('MailService', () => {
         { companyId: 'comp-1', userId: 'user-1' },
       );
 
-      expect(mockResendSend).toHaveBeenCalledWith(
-        expect.objectContaining({
-          to: 'user@example.com',
-          subject: 'Assunto Teste',
-        }),
-      );
-      expect(mailLogRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: 'success',
-          message_id: 'msg-123',
-        }),
-      );
+      const sendPayload = getFirstMockArgument(mockResendSend);
+      if (!isRecord(sendPayload)) {
+        throw new Error('Payload do Resend não foi registrado corretamente.');
+      }
+
+      const createdLog = mailLogRepository.create.mock.calls[0]?.[0];
+      if (!isRecord(createdLog)) {
+        throw new Error('Log de e-mail não foi criado corretamente.');
+      }
+
+      expect(sendPayload.to).toBe('user@example.com');
+      expect(sendPayload.subject).toBe('Assunto Teste');
+      expect(createdLog.status).toBe('success');
+      expect(createdLog.message_id).toBe('msg-123');
       expect(mailLogRepository.save).toHaveBeenCalled();
+
+      if (!isRecord(result.info) || !isRecord(result.info.data)) {
+        throw new Error('Resposta do envio não retornou o payload esperado.');
+      }
+
       expect(result.info.data.id).toBe('msg-123');
     });
 
@@ -179,11 +218,14 @@ describe('MailService', () => {
         service.sendMailSimple('user@example.com', 'Assunto', 'Texto'),
       ).rejects.toThrow(ServiceUnavailableException);
 
-      expect(mailLogRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: 'error',
-          error_message: expect.stringContaining(errorMsg),
-        }),
+      const createdLog = mailLogRepository.create.mock.calls[0]?.[0];
+      if (!isRecord(createdLog)) {
+        throw new Error('Log de erro do Resend não foi criado.');
+      }
+
+      expect(createdLog.status).toBe('error');
+      expect(createdLog.error_message).toEqual(
+        expect.stringContaining(errorMsg),
       );
       expect(mailLogRepository.save).toHaveBeenCalled();
     });
@@ -195,24 +237,27 @@ describe('MailService', () => {
         service.sendMailSimple('user@example.com', 'Assunto', 'Texto'),
       ).rejects.toThrow(ServiceUnavailableException);
 
-      expect(mailLogRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: 'error',
-          error_message: 'Erro de rede',
-        }),
-      );
+      const createdLog = mailLogRepository.create.mock.calls[0]?.[0];
+      if (!isRecord(createdLog)) {
+        throw new Error('Log de exceção de envio não foi criado.');
+      }
+
+      expect(createdLog.status).toBe('error');
+      expect(createdLog.error_message).toBe('Erro de rede');
     });
   });
 
   describe('sendStoredDocument', () => {
     it('deve enviar um documento PT corretamente', async () => {
-      const mockPt = {
+      const mockPt: PtDocument = {
         id: 'pt-1',
         numero: '123',
         pdf_file_key: 'pts/arquivo.pdf',
-      };
-      jest.spyOn(ptsService, 'findOne').mockResolvedValue(mockPt as any);
-      jest
+      } as PtDocument;
+      const findPtSpy = jest
+        .spyOn(ptsService, 'findOne')
+        .mockResolvedValue(mockPt);
+      const downloadBufferSpy = jest
         .spyOn(documentStorageService, 'downloadFileBuffer')
         .mockResolvedValue(Buffer.from('pdf-content'));
       mockResendSend.mockResolvedValue({ data: { id: 'msg-1' }, error: null });
@@ -223,21 +268,22 @@ describe('MailService', () => {
         'destinatario@example.com',
       );
 
-      expect(ptsService.findOne).toHaveBeenCalledWith('pt-1');
-      expect(documentStorageService.downloadFileBuffer).toHaveBeenCalledWith(
-        'pts/arquivo.pdf',
+      expect(findPtSpy).toHaveBeenCalledWith('pt-1');
+      expect(downloadBufferSpy).toHaveBeenCalledWith('pts/arquivo.pdf');
+      const sendPayload = getFirstMockArgument(mockResendSend);
+      if (!isRecord(sendPayload) || !isUnknownArray(sendPayload.attachments)) {
+        throw new Error('Payload do Resend para PT não contém anexos válidos.');
+      }
+
+      expect(sendPayload.to).toBe('destinatario@example.com');
+      expect(String(sendPayload.subject)).toContain(
+        'Permissão de Trabalho #123',
       );
-      expect(mockResendSend).toHaveBeenCalledWith(
-        expect.objectContaining({
-          to: 'destinatario@example.com',
-          subject: expect.stringContaining('Permissão de Trabalho #123'),
-          attachments: expect.arrayContaining([
-            expect.objectContaining({
-              filename: expect.stringContaining('.pdf'),
-            }),
-          ]),
-        }),
-      );
+      const firstAttachment = sendPayload.attachments[0];
+      if (!isRecord(firstAttachment)) {
+        throw new Error('Anexo do PT não foi serializado corretamente.');
+      }
+      expect(String(firstAttachment.filename)).toContain('.pdf');
       expect(mailLogRepository.save).toHaveBeenCalled();
     });
 
@@ -252,14 +298,12 @@ describe('MailService', () => {
     });
 
     it('deve lançar NotFoundException se o documento não tiver chave de arquivo (pdf_file_key)', async () => {
-      const mockPtSemArquivo = {
+      const mockPtSemArquivo: PtDocument = {
         id: 'pt-1',
         numero: '123',
         pdf_file_key: null,
-      };
-      jest
-        .spyOn(ptsService, 'findOne')
-        .mockResolvedValue(mockPtSemArquivo as any);
+      } as PtDocument;
+      jest.spyOn(ptsService, 'findOne').mockResolvedValue(mockPtSemArquivo);
 
       await expect(
         service.sendStoredDocument('pt-1', 'PT', 'email@test.com'),
@@ -273,19 +317,25 @@ describe('MailService', () => {
     });
 
     it('deve enviar um relatório de inspeção governado corretamente', async () => {
-      jest.spyOn(inspectionsService, 'findOne').mockResolvedValue({
+      const inspection: InspectionDocument = {
         id: 'inspection-1',
         tipo_inspecao: 'Rotina',
         setor_area: 'Subestação',
-      } as any);
-      jest.spyOn(inspectionsService, 'getPdfAccess').mockResolvedValue({
+      } as InspectionDocument;
+      const inspectionPdfAccess: InspectionPdfAccess = {
         entityId: 'inspection-1',
         fileKey: 'inspections/final.pdf',
         folderPath: 'inspections/company-1/2026/week-11',
         originalName: 'inspection-final.pdf',
         url: 'https://signed.example.com/inspection-final.pdf',
-      });
-      jest
+      };
+      const findInspectionSpy = jest
+        .spyOn(inspectionsService, 'findOne')
+        .mockResolvedValue(inspection);
+      const inspectionPdfAccessSpy = jest
+        .spyOn(inspectionsService, 'getPdfAccess')
+        .mockResolvedValue(inspectionPdfAccess);
+      const downloadBufferSpy = jest
         .spyOn(documentStorageService, 'downloadFileBuffer')
         .mockResolvedValue(Buffer.from('inspection-pdf'));
       mockResendSend.mockResolvedValue({ data: { id: 'msg-2' }, error: null });
@@ -297,32 +347,36 @@ describe('MailService', () => {
         'company-1',
       );
 
-      expect(inspectionsService.findOne).toHaveBeenCalledWith(
+      expect(findInspectionSpy).toHaveBeenCalledWith(
         'inspection-1',
         'company-1',
       );
-      expect(inspectionsService.getPdfAccess).toHaveBeenCalledWith(
+      expect(inspectionPdfAccessSpy).toHaveBeenCalledWith(
         'inspection-1',
         'company-1',
       );
-      expect(documentStorageService.downloadFileBuffer).toHaveBeenCalledWith(
-        'inspections/final.pdf',
-      );
+      expect(downloadBufferSpy).toHaveBeenCalledWith('inspections/final.pdf');
     });
 
     it('deve enviar uma auditoria governada corretamente', async () => {
-      jest.spyOn(auditsService, 'findOne').mockResolvedValue({
+      const audit: AuditDocument = {
         id: 'audit-1',
         titulo: 'Auditoria HSE',
-      } as any);
-      jest.spyOn(auditsService, 'getPdfAccess').mockResolvedValue({
+      } as AuditDocument;
+      const auditPdfAccess: AuditPdfAccess = {
         entityId: 'audit-1',
         fileKey: 'audits/final.pdf',
         folderPath: 'audits/company-1',
         originalName: 'audit-final.pdf',
         url: 'https://signed.example.com/audit-final.pdf',
-      });
-      jest
+      };
+      const findAuditSpy = jest
+        .spyOn(auditsService, 'findOne')
+        .mockResolvedValue(audit);
+      const auditPdfAccessSpy = jest
+        .spyOn(auditsService, 'getPdfAccess')
+        .mockResolvedValue(auditPdfAccess);
+      const downloadBufferSpy = jest
         .spyOn(documentStorageService, 'downloadFileBuffer')
         .mockResolvedValue(Buffer.from('audit-pdf'));
       mockResendSend.mockResolvedValue({ data: { id: 'msg-3' }, error: null });
@@ -334,14 +388,9 @@ describe('MailService', () => {
         'company-1',
       );
 
-      expect(auditsService.findOne).toHaveBeenCalledWith('audit-1', 'company-1');
-      expect(auditsService.getPdfAccess).toHaveBeenCalledWith(
-        'audit-1',
-        'company-1',
-      );
-      expect(documentStorageService.downloadFileBuffer).toHaveBeenCalledWith(
-        'audits/final.pdf',
-      );
+      expect(findAuditSpy).toHaveBeenCalledWith('audit-1', 'company-1');
+      expect(auditPdfAccessSpy).toHaveBeenCalledWith('audit-1', 'company-1');
+      expect(downloadBufferSpy).toHaveBeenCalledWith('audits/final.pdf');
     });
   });
 
@@ -368,9 +417,7 @@ describe('MailService', () => {
       process.env.API_CRONS_DISABLED = 'true';
 
       await (
-        service as unknown as {
-          runScheduledAlerts: () => Promise<void>;
-        }
+        service as unknown as MailServiceWithScheduledAlerts
       ).runScheduledAlerts();
 
       expect(mockDomainService.findAllActive).not.toHaveBeenCalled();
@@ -382,9 +429,7 @@ describe('MailService', () => {
       mockDistributedLockService.tryAcquire.mockResolvedValueOnce(null);
 
       await (
-        service as unknown as {
-          runScheduledAlerts: () => Promise<void>;
-        }
+        service as unknown as MailServiceWithScheduledAlerts
       ).runScheduledAlerts();
 
       expect(mockDistributedLockService.tryAcquire).toHaveBeenCalledWith(

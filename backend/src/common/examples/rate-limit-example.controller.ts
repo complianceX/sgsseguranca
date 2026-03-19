@@ -40,7 +40,10 @@ export class RateLimitExampleController {
    */
   @Post('reports')
   @Authorize('can_view_system_health')
-  async createReport(@Request() req: AuthenticatedRequest, @Body() data: any) {
+  async createReport(
+    @Request() req: AuthenticatedRequest,
+    @Body() _data: unknown,
+  ) {
     // Verificar limite do tenant
     const limit = await this.rateLimitService.checkLimit(
       req.user.companyId,
@@ -72,7 +75,10 @@ export class RateLimitExampleController {
    */
   @Post('pdf/generate')
   @Authorize('can_view_system_health')
-  async generatePdf(@Request() req: AuthenticatedRequest, @Body() data: any) {
+  async generatePdf(
+    @Request() req: AuthenticatedRequest,
+    @Body() _data: unknown,
+  ) {
     const limit = await this.rateLimitService.checkLimit(
       req.user.companyId,
       'STARTER',

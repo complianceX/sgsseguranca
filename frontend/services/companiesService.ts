@@ -1,5 +1,6 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
+import { authService } from './authService';
 
 export interface Company {
   id: string;
@@ -42,10 +43,8 @@ export const companiesService = {
       }
     }
     try {
-      const meResponse = await api.get<{ user?: { company_id?: string } }>(
-        '/auth/me',
-      );
-      const companyId = meResponse.data?.user?.company_id;
+      const meResponse = await authService.getCurrentSession();
+      const companyId = meResponse.user?.company_id;
       if (companyId) {
         const companyResponse = await api.get<Company>(`/companies/${companyId}`);
         return [companyResponse.data];

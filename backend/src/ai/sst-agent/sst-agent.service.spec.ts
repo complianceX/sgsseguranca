@@ -16,7 +16,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, HttpException } from '@nestjs/common';
-import { Repository } from 'typeorm';
 
 import { SstAgentService } from './sst-agent.service';
 import { SstToolsExecutor } from './sst-agent.tools';
@@ -60,7 +59,7 @@ const mockSophieLocalChatService = () => ({
 });
 
 const mockIntegrationResilienceService = () => ({
-  execute: jest.fn(async (_name: string, fn: () => Promise<unknown>) => fn()),
+  execute: jest.fn((_name: string, fn: () => Promise<unknown>) => fn()),
 });
 
 const mockConfigService = (apiKey?: string) => ({
@@ -80,6 +79,13 @@ const mockConfigService = (apiKey?: string) => ({
 
 const TENANT_ID = 'tenant-abc-123';
 const USER_ID = 'user-xyz-456';
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+const getFirstMockArgument = (mockFn: jest.Mock): unknown => {
+  const calls = mockFn.mock.calls as unknown[][];
+  const firstCall = calls[0];
+  return Array.isArray(firstCall) ? firstCall[0] : undefined;
+};
 
 const makeService = async (options?: {
   apiKey?: string;
@@ -87,9 +93,9 @@ const makeService = async (options?: {
   rateLimitAllowed?: boolean;
 }): Promise<{
   service: SstAgentService;
-  repo: jest.Mocked<Repository<AiInteraction>>;
-  tenantService: jest.Mocked<TenantService>;
-  rateLimitService: jest.Mocked<SstRateLimitService>;
+  repo: ReturnType<typeof mockRepo>;
+  tenantService: ReturnType<typeof mockTenantService>;
+  rateLimitService: ReturnType<typeof mockRateLimitService>;
 }> => {
   const tenantId =
     options && 'tenantId' in options ? options.tenantId : TENANT_ID;
@@ -109,11 +115,13 @@ const makeService = async (options?: {
     remaining: { perMinute: rateLimitAllowed ? 9 : 0, perDay: 99 },
   });
   rlMock.recordTokenUsage.mockResolvedValue(undefined);
-  repoMock.create.mockImplementation((data: any) => ({
+  repoMock.create.mockImplementation((data: Partial<AiInteraction>) => ({
     ...data,
     id: 'interaction-id-1',
   }));
-  repoMock.save.mockImplementation((entity: any) => Promise.resolve(entity));
+  repoMock.save.mockImplementation((entity: AiInteraction) =>
+    Promise.resolve(entity),
+  );
 
   const module: TestingModule = await Test.createTestingModule({
     providers: [
@@ -133,9 +141,9 @@ const makeService = async (options?: {
 
   return {
     service: module.get<SstAgentService>(SstAgentService),
-    repo: repoMock as any,
-    tenantService: tenantMock as any,
-    rateLimitService: rlMock as any,
+    repo: repoMock,
+    tenantService: tenantMock,
+    rateLimitService: rlMock,
   };
 };
 
@@ -171,7 +179,12 @@ describe('SstAgentService', () => {
 
       await service.getHistory(USER_ID);
 
-      const args = repo.find.mock.calls[0][0] as any;
+      const args = getFirstMockArgument(repo.find);
+      if (!isRecord(args) || !isRecord(args.where)) {
+        throw new Error(
+          'Consulta de histórico não foi registrada corretamente.',
+        );
+      }
 
       expect(args.where.tenant_id).toBe(TENANT_ID);
       expect(args.where.user_id).toBe(USER_ID);
@@ -189,10 +202,11 @@ describe('SstAgentService', () => {
     it('getInteraction() deve incluir tenant_id na clausula WHERE (anti cross-tenant)', async () => {
       const { service, repo } = await makeService();
       repo.findOne.mockResolvedValue(null);
+      const findOneMock = repo.findOne;
 
       await service.getInteraction('some-id');
 
-      expect(repo.findOne).toHaveBeenCalledWith(
+      expect(findOneMock).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'some-id', tenant_id: TENANT_ID },
         }),
@@ -255,10 +269,11 @@ describe('SstAgentService', () => {
 
     it('deve persistir interacao em modo stub', async () => {
       const { service, repo } = await makeService({ apiKey: undefined });
+      const saveMock = repo.save;
 
       await service.chat('pergunta', USER_ID);
 
-      expect(repo.save).toHaveBeenCalledWith(
+      expect(saveMock).toHaveBeenCalledWith(
         expect.objectContaining({
           tenant_id: TENANT_ID,
           user_id: USER_ID,
@@ -340,15 +355,17 @@ describe('SstAgentService', () => {
       });
 
       // Forca erro no save para simular falha depois do create
-      const capturedInteraction: any = {};
-      repo.create.mockImplementation((data: any) => {
+      const capturedInteraction: Partial<AiInteraction> = {};
+      repo.create.mockImplementation((data: Partial<AiInteraction>) => {
         Object.assign(capturedInteraction, data);
         capturedInteraction.id = 'err-interaction-id';
-        return capturedInteraction;
+        return capturedInteraction as AiInteraction;
       });
 
       // Primeiro save (no catch) deve ter status ERROR
-      repo.save.mockImplementation((entity: any) => Promise.resolve(entity));
+      repo.save.mockImplementation((entity: AiInteraction) =>
+        Promise.resolve(entity),
+      );
 
       // Como nao temos Anthropic real, o servico vai tentar criar o cliente
       // e falhar ao chamar. Para simular corretamente precisariamos de mock
@@ -427,10 +444,11 @@ describe('SstAgentService', () => {
     it('deve limitar resultados ao maximo de 100', async () => {
       const { service, repo } = await makeService();
       repo.find.mockResolvedValue([]);
+      const findMock = repo.find;
 
       await service.getHistory(USER_ID, 999);
 
-      expect(repo.find).toHaveBeenCalledWith(
+      expect(findMock).toHaveBeenCalledWith(
         expect.objectContaining({ take: 100 }),
       );
     });
@@ -438,10 +456,11 @@ describe('SstAgentService', () => {
     it('deve usar limit padrao de 20', async () => {
       const { service, repo } = await makeService();
       repo.find.mockResolvedValue([]);
+      const findMock = repo.find;
 
       await service.getHistory(USER_ID);
 
-      expect(repo.find).toHaveBeenCalledWith(
+      expect(findMock).toHaveBeenCalledWith(
         expect.objectContaining({ take: 20 }),
       );
     });
@@ -452,7 +471,15 @@ describe('SstAgentService', () => {
 
       await service.getHistory(USER_ID);
 
-      const args = repo.find.mock.calls[0][0] as any;
+      const args = getFirstMockArgument(repo.find);
+      if (
+        !isRecord(args) ||
+        !isRecord(args.where) ||
+        !isRecord(args.where.created_at)
+      ) {
+        throw new Error('Filtro temporal do histórico não foi aplicado.');
+      }
+
       expect(args.where.created_at).toBeDefined();
       expect(args.where.created_at._type).toBe('moreThanOrEqual');
     });
@@ -463,7 +490,16 @@ describe('SstAgentService', () => {
 
       await service.getHistory(USER_ID, 999, 365);
 
-      const args = repo.find.mock.calls[0][0] as any;
+      const args = getFirstMockArgument(repo.find);
+      if (
+        !isRecord(args) ||
+        !isRecord(args.where) ||
+        !isRecord(args.where.created_at)
+      ) {
+        throw new Error(
+          'Consulta de histórico com override de dias não foi registrada corretamente.',
+        );
+      }
       expect(args.take).toBe(100);
       expect(args.where.created_at._type).toBe('moreThanOrEqual');
     });
@@ -471,10 +507,11 @@ describe('SstAgentService', () => {
     it('deve ordenar por created_at DESC', async () => {
       const { service, repo } = await makeService();
       repo.find.mockResolvedValue([]);
+      const findMock = repo.find;
 
       await service.getHistory(USER_ID);
 
-      expect(repo.find).toHaveBeenCalledWith(
+      expect(findMock).toHaveBeenCalledWith(
         expect.objectContaining({ order: { created_at: 'DESC' } }),
       );
     });

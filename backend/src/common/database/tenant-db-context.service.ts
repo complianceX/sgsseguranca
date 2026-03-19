@@ -71,9 +71,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
 
     // TypeORM's PostgresDriver expõe o pg.Pool como `.master`
     const driver = this.dataSource.driver as unknown as {
-      master?: {
-        connect: () => Promise<PgClient>;
-      };
+      master?: PgPool;
     };
 
     const pool = driver.master;
@@ -89,8 +87,28 @@ export class TenantDbContextService implements OnApplicationBootstrap {
 
     const tenantService = this.tenantService;
     const logger = this.logger;
-    const originalConnect = pool.connect.bind(pool);
-    const self = this;
+    const rawConnect = pool.connect;
+
+    const originalConnect = (): Promise<PgClient> =>
+      new Promise((resolve, reject) => {
+        rawConnect.call(pool, (err, client) => {
+          if (err) {
+            reject(err instanceof Error ? err : new Error(String(err)));
+            return;
+          }
+
+          if (!isPgClient(client)) {
+            reject(
+              new Error(
+                'TenantDbContextService: pool.connect não retornou client.',
+              ),
+            );
+            return;
+          }
+
+          resolve(client);
+        });
+      });
 
     /**
      * Injeta o contexto RLS em uma conexão adquirida do pool (lógica comum
@@ -100,7 +118,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
       const client = await originalConnect();
       const borrowMs =
         Number(process.hrtime.bigint() - borrowStart) / 1_000_000;
-      self.dbTimings.recordBorrowWait(borrowMs);
+      this.dbTimings.recordBorrowWait(borrowMs);
       const ctx = tenantService.getContext();
 
       try {
@@ -123,7 +141,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
           [ctx?.companyId ?? '', String(ctx?.isSuperAdmin ?? false)],
         );
         const setMs = Number(process.hrtime.bigint() - setStart) / 1_000_000;
-        self.dbTimings.recordRlsContextSet(setMs);
+        this.dbTimings.recordRlsContextSet(setMs);
       } catch (err) {
         // Fail-closed: se não conseguir setar o contexto, zera o tenant para
         // evitar vazamento cross-tenant em conexões reaproveitadas do pool.
@@ -149,7 +167,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
         }
       }
 
-      self.patchClientQuery(client);
+      this.patchClientQuery(client);
       return client;
     };
 
@@ -161,13 +179,9 @@ export class TenantDbContextService implements OnApplicationBootstrap {
      *  - Callback: pool.connect(fn) → chama fn(null, client, release)
      *  - Promise:  pool.connect()   → retorna Promise<PgClient>
      */
-    (pool as unknown as Record<string, unknown>).connect = function (
-      callback?: (
-        err: Error | null,
-        client?: PgClient,
-        release?: (err?: Error) => void,
-      ) => void,
-    ): Promise<PgClient> | void {
+    pool.connect = (
+      callback?: PgPoolConnectCallback,
+    ): Promise<PgClient> | void => {
       const borrowStart = process.hrtime.bigint();
 
       if (typeof callback === 'function') {
@@ -200,7 +214,7 @@ export class TenantDbContextService implements OnApplicationBootstrap {
     if (anyClient[this.patchedQuerySymbol]) return;
     anyClient[this.patchedQuerySymbol] = true;
 
-    const originalQuery = client.query.bind(client);
+    const originalQuery = client.query.bind(client) as PgClient['query'];
     client.query = (async (sql: string, params?: unknown[]) => {
       const start = process.hrtime.bigint();
       try {
@@ -217,4 +231,26 @@ export class TenantDbContextService implements OnApplicationBootstrap {
 interface PgClient {
   query: (sql: string, params?: unknown[]) => Promise<unknown>;
   release: (err?: boolean | Error) => void;
+}
+
+const isPgClient = (value: unknown): value is PgClient =>
+  typeof value === 'object' &&
+  value !== null &&
+  'query' in value &&
+  typeof value.query === 'function' &&
+  'release' in value &&
+  typeof value.release === 'function';
+
+type PgPoolConnectCallback = (
+  err: Error | null,
+  client?: PgClient,
+  release?: (err?: Error) => void,
+) => void;
+
+type PgPoolConnect = (
+  callback?: PgPoolConnectCallback,
+) => Promise<PgClient> | void;
+
+interface PgPool {
+  connect: PgPoolConnect;
 }

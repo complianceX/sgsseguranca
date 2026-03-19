@@ -52,7 +52,9 @@ describe('NonConformitiesService', () => {
         ) =>
           `documents/${companyId}/${documentType}/${documentId}/${originalName}`,
       ),
-      getSignedUrl: jest.fn(() => Promise.resolve('https://example.com/nc.pdf')),
+      getSignedUrl: jest.fn(() =>
+        Promise.resolve('https://example.com/nc.pdf'),
+      ),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),

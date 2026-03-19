@@ -1,16 +1,29 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import * as crypto from 'crypto';
-import pdfParse from 'pdf-parse';
 
 interface PDFData {
   text: string;
   numpages: number;
-  info: any;
-  metadata: any;
+  info: unknown;
+  metadata: unknown;
   version: string;
 }
 import * as mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
+
+type PdfParseFn = (data: Buffer) => Promise<PDFData>;
+let pdfParseLoader: Promise<PdfParseFn> | null = null;
+
+async function loadPdfParse(): Promise<PdfParseFn> {
+  if (!pdfParseLoader) {
+    pdfParseLoader = import('pdf-parse').then((module) => {
+      const candidate = module.default;
+      return candidate as unknown as PdfParseFn;
+    });
+  }
+
+  return pdfParseLoader;
+}
 
 @Injectable()
 export class FileParserService {
@@ -63,10 +76,7 @@ export class FileParserService {
   async extractTextFromPdf(buffer: Buffer): Promise<string> {
     try {
       this.logger.log('Iniciando extração de texto do PDF com pdf-parse...');
-
-      const parsePdf: (data: Buffer) => Promise<PDFData> =
-        pdfParse as unknown as (data: Buffer) => Promise<PDFData>;
-
+      const parsePdf = await loadPdfParse();
       const result: PDFData = await parsePdf(buffer);
       const fullText = typeof result.text === 'string' ? result.text : '';
 

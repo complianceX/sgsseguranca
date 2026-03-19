@@ -4,16 +4,18 @@ import { HttpStatus } from '@nestjs/common';
  * Resposta padrão de API
  * Garante consistência em todas as respostas
  */
-export class ApiResponse<T = any> {
+type ApiResponseError = {
+  code: string;
+  message: string;
+  details?: unknown;
+};
+
+export class ApiResponse<T = unknown> {
   success: boolean;
   statusCode: number;
   message: string;
   data?: T;
-  error?: {
-    code: string;
-    message: string;
-    details?: any;
-  };
+  error?: ApiResponseError;
   meta?: {
     timestamp: string;
     requestId?: string;
@@ -25,7 +27,7 @@ export class ApiResponse<T = any> {
     statusCode: number,
     message: string,
     data?: T,
-    error?: any,
+    error?: ApiResponseError,
     requestId?: string,
     path?: string,
   ) {
@@ -69,7 +71,7 @@ export class ApiResponse<T = any> {
     message: string,
     code: string = 'INTERNAL_ERROR',
     statusCode: number = HttpStatus.INTERNAL_SERVER_ERROR,
-    details?: any,
+    details?: unknown,
     requestId?: string,
     path?: string,
   ): ApiResponse {
@@ -89,7 +91,7 @@ export class ApiResponse<T = any> {
    */
   static validation(
     message: string = 'Erro de validação',
-    details?: any,
+    details?: unknown,
     requestId?: string,
     path?: string,
   ): ApiResponse {

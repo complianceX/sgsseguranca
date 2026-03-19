@@ -71,8 +71,9 @@ export class LoggingInterceptor implements NestInterceptor {
             method,
             url,
             statusCode: response.statusCode,
-            responseTime: `${responseTime}ms`,
+            responseTimeMs: responseTime,
             userId: request.user?.userId,
+            companyId: request.user?.company_id,
           });
         },
       }),
@@ -83,19 +84,17 @@ export class LoggingInterceptor implements NestInterceptor {
     level: 'log' | 'warn' | 'error',
     payload: Record<string, unknown>,
   ): void {
-    const serialized = JSON.stringify(payload);
-
     if (level === 'error') {
-      this.logger.error(serialized);
+      this.logger.error(payload);
       return;
     }
 
     if (level === 'warn') {
-      this.logger.warn(serialized);
+      this.logger.warn(payload);
       return;
     }
 
-    this.logger.log(serialized);
+    this.logger.log(payload);
   }
 
   private sanitizeBody(

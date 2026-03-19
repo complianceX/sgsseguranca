@@ -29,6 +29,7 @@ import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import {
   assertUploadedPdf,
+  cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
 } from '../common/interceptors/file-upload.interceptor';
 import { SignRdoDto } from './dto/sign-rdo.dto';
@@ -144,10 +145,7 @@ export class RdosController {
 
   @Patch(':id/sign')
   @Authorize('can_manage_rdos')
-  sign(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() body: SignRdoDto,
-  ) {
+  sign(@Param('id', new ParseUUIDPipe()) id: string, @Body() body: SignRdoDto) {
     return this.rdosService.sign(id, body);
   }
 
@@ -168,8 +166,16 @@ export class RdosController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const pdfFile = assertUploadedPdf(file);
-    return this.rdosService.savePdf(id, pdfFile);
+    return this.handlePdfUpload(id, file);
+  }
+
+  private async handlePdfUpload(id: string, file?: Express.Multer.File) {
+    const pdfFile = await assertUploadedPdf(file);
+    try {
+      return await this.rdosService.savePdf(id, pdfFile);
+    } finally {
+      await cleanupUploadedTempFile(pdfFile);
+    }
   }
 
   @Post(':id/send-email')

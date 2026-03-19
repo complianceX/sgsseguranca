@@ -1,8 +1,57 @@
-const CACHE_NAME = 'gst-shell-v1';
-const APP_SHELL = ['/', '/login', '/manifest.webmanifest'];
+const SW_URL = new URL(self.location.href);
+const BUILD_ID = SW_URL.searchParams.get('build') || 'local-dev';
+const CACHE_PREFIX = 'gst-shell';
+const CACHE_NAME = `${CACHE_PREFIX}-${BUILD_ID}`;
+const APP_SHELL = [
+  '/offline.html',
+  '/manifest.webmanifest',
+  '/icon-192.svg',
+  '/icon-512.svg',
+  '/icon-maskable.svg',
+  '/logo-gst-mark.svg',
+];
+const SAFE_PUBLIC_ASSETS = new Set(APP_SHELL);
+
+function isHttpRequest(requestUrl) {
+  return (
+    requestUrl.protocol === 'http:' || requestUrl.protocol === 'https:'
+  );
+}
+
+function isImmutableNextAsset(pathname) {
+  return pathname.startsWith('/_next/static/');
+}
+
+function isSafeStaticAsset(pathname) {
+  return SAFE_PUBLIC_ASSETS.has(pathname);
+}
+
+function isSensitivePath(pathname) {
+  return (
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next/data') ||
+    pathname.startsWith('/_next/image')
+  );
+}
+
+async function putInCache(request, response) {
+  if (!response || response.status !== 200 || response.type !== 'basic') {
+    return response;
+  }
+
+  const cache = await caches.open(CACHE_NAME);
+  await cache.put(request, response.clone());
+  return response;
+}
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
+  event.waitUntil(
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(APP_SHELL))
+      .catch(() => undefined),
+  );
   self.skipWaiting();
 });
 
@@ -11,7 +60,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => key !== CACHE_NAME)
+          .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
           .map((key) => caches.delete(key)),
       ),
     ),
@@ -31,58 +80,26 @@ self.addEventListener('fetch', (event) => {
   }
 
   const requestUrl = new URL(event.request.url);
-  const isHttpProtocol =
-    requestUrl.protocol === 'http:' || requestUrl.protocol === 'https:';
-  if (!isHttpProtocol) {
+
+  if (!isHttpRequest(requestUrl) || requestUrl.origin !== self.location.origin) {
     return;
   }
 
-  const isSameOrigin = requestUrl.origin === self.location.origin;
-  if (!isSameOrigin) {
-    // Requests externos (CDNs, extensões, APIs de terceiros) não devem ser
-    // interceptados/cached pelo nosso SW para evitar erros de CSP e cache.
-    return;
-  }
-
-  const isNavigation = event.request.mode === 'navigate';
-  const isStaticAsset =
-    requestUrl.pathname.startsWith('/_next/') ||
-    /\.(?:js|css|png|jpg|jpeg|svg|webp|ico|woff2?)$/i.test(
-      requestUrl.pathname,
-    );
-
-  if (isNavigation) {
+  if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const cloned = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, cloned);
-          });
-          return response;
-        })
-        .catch(async () => {
-          const cached = await caches.match(event.request);
-          return cached || (await caches.match('/login'));
-        }),
+      fetch(event.request).catch(async () => {
+        return (await caches.match('/offline.html')) || Response.error();
+      }),
     );
     return;
   }
 
-  if (!isStaticAsset) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200 && response.type === 'basic') {
-            const cloned = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, cloned);
-            });
-          }
-          return response;
-        })
-        .catch(() => caches.match(event.request)),
-    );
+  if (
+    requestUrl.search ||
+    isSensitivePath(requestUrl.pathname) ||
+    (!isImmutableNextAsset(requestUrl.pathname) &&
+      !isSafeStaticAsset(requestUrl.pathname))
+  ) {
     return;
   }
 
@@ -93,18 +110,8 @@ self.addEventListener('fetch', (event) => {
       }
 
       return fetch(event.request)
-        .then((response) => {
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-
-          const cloned = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, cloned);
-          });
-          return response;
-        })
-        .catch(() => caches.match('/login'));
+        .then((response) => putInCache(event.request, response))
+        .catch(() => Response.error());
     }),
   );
 });

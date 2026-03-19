@@ -60,9 +60,7 @@ export class RdosService {
       .where('rdo.company_id = :companyId', { companyId })
       .andWhere('rdo.numero LIKE :prefix', { prefix: `${prefix}%` })
       .getRawOne<{ max: string | null }>();
-    const lastSeq = last?.max
-      ? Number(last.max.slice(prefix.length)) || 0
-      : 0;
+    const lastSeq = last?.max ? Number(last.max.slice(prefix.length)) || 0 : 0;
     return `${prefix}${String(lastSeq + 1).padStart(3, '0')}`;
   }
 
@@ -188,10 +186,7 @@ export class RdosService {
     return this.rdosRepository.save(rdo);
   }
 
-  async markPdfSaved(
-    id: string,
-    body: { filename: string },
-  ): Promise<Rdo> {
+  async markPdfSaved(id: string, body: { filename: string }): Promise<Rdo> {
     const rdo = await this.findOne(id);
     await this.assertRdoDocumentMutable(rdo);
     this.assertRdoReadyForFinalDocument(rdo);
@@ -271,11 +266,8 @@ export class RdosService {
         },
       });
     } catch (error) {
-      await cleanupUploadedFile(
-        this.logger,
-        `rdo:${rdo.id}`,
-        fileKey,
-        (key) => this.documentStorageService.deleteFile(key),
+      await cleanupUploadedFile(this.logger, `rdo:${rdo.id}`, fileKey, (key) =>
+        this.documentStorageService.deleteFile(key),
       );
       throw error;
     }
@@ -303,9 +295,7 @@ export class RdosService {
     );
 
     if (!registryEntry) {
-      throw new NotFoundException(
-        `RDO ${id} não possui PDF final armazenado`,
-      );
+      throw new NotFoundException(`RDO ${id} não possui PDF final armazenado`);
     }
 
     let url: string | null = null;
@@ -344,8 +334,12 @@ export class RdosService {
     const totalServicos = (rdo.servicos_executados ?? []).length;
     const totalOcorrencias = (rdo.ocorrencias ?? []).length;
 
-    const climaManha = rdo.clima_manha ? CLIMA_LABEL[rdo.clima_manha] ?? rdo.clima_manha : '-';
-    const climaTarde = rdo.clima_tarde ? CLIMA_LABEL[rdo.clima_tarde] ?? rdo.clima_tarde : '-';
+    const climaManha = rdo.clima_manha
+      ? (CLIMA_LABEL[rdo.clima_manha] ?? rdo.clima_manha)
+      : '-';
+    const climaTarde = rdo.clima_tarde
+      ? (CLIMA_LABEL[rdo.clima_tarde] ?? rdo.clima_tarde)
+      : '-';
     const registryEntry = await this.documentRegistryService.findByDocument(
       'rdo',
       rdo.id,
@@ -468,7 +462,8 @@ export class RdosService {
           },
         );
       },
-      cleanupStoredFile: (fileKey) => this.documentStorageService.deleteFile(fileKey),
+      cleanupStoredFile: (fileKey) =>
+        this.documentStorageService.deleteFile(fileKey),
     });
     await this.rdosRepository.remove(rdo);
   }
@@ -488,20 +483,27 @@ export class RdosService {
     const rdos = await qb.getMany();
 
     const rows = rdos.map((r) => {
-      const totalTrab = (r.mao_de_obra ?? []).reduce((s, m) => s + (m.quantidade ?? 0), 0);
+      const totalTrab = (r.mao_de_obra ?? []).reduce(
+        (s, m) => s + (m.quantidade ?? 0),
+        0,
+      );
       return {
-        'Número': r.numero,
-        'Data': new Date(r.data).toLocaleDateString('pt-BR'),
+        Número: r.numero,
+        Data: new Date(r.data).toLocaleDateString('pt-BR'),
         'Obra/Setor': r.site?.nome ?? '',
-        'Responsável': r.responsavel?.nome ?? '',
-        'Status': r.status,
+        Responsável: r.responsavel?.nome ?? '',
+        Status: r.status,
         'Total Trabalhadores': totalTrab,
-        'Equipamentos': (r.equipamentos ?? []).length,
-        'Materiais': (r.materiais_recebidos ?? []).length,
+        Equipamentos: (r.equipamentos ?? []).length,
+        Materiais: (r.materiais_recebidos ?? []).length,
         'Serviços Exec.': (r.servicos_executados ?? []).length,
-        'Ocorrências': (r.ocorrencias ?? []).length,
-        'Clima Manhã': r.clima_manha ? CLIMA_LABEL[r.clima_manha] ?? r.clima_manha : '',
-        'Clima Tarde': r.clima_tarde ? CLIMA_LABEL[r.clima_tarde] ?? r.clima_tarde : '',
+        Ocorrências: (r.ocorrencias ?? []).length,
+        'Clima Manhã': r.clima_manha
+          ? (CLIMA_LABEL[r.clima_manha] ?? r.clima_manha)
+          : '',
+        'Clima Tarde': r.clima_tarde
+          ? (CLIMA_LABEL[r.clima_tarde] ?? r.clima_tarde)
+          : '',
         'Temp. Mín (°C)': r.temperatura_min ?? '',
         'Temp. Máx (°C)': r.temperatura_max ?? '',
         'Condição Terreno': r.condicao_terreno ?? '',
@@ -511,7 +513,7 @@ export class RdosService {
         'Tem PDF': r.pdf_file_key ? 'Sim' : 'Não',
         'Assinado Responsável': r.assinatura_responsavel ? 'Sim' : 'Não',
         'Assinado Engenheiro': r.assinatura_engenheiro ? 'Sim' : 'Não',
-        'Observações': r.observacoes ?? '',
+        Observações: r.observacoes ?? '',
         'Programa Amanhã': r.programa_servicos_amanha ?? '',
       };
     });

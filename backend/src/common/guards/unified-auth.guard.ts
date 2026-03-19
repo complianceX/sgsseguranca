@@ -9,6 +9,15 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id?: string;
+    roles?: string[];
+    permissions?: string[];
+    company_id?: string | null;
+  };
+}
+
 /**
  * Guard unificado que consolida:
  * 1. Autenticação (JWT + Sessions)
@@ -22,14 +31,14 @@ import { Request } from 'express';
 export class UnifiedAuthGuard implements CanActivate {
   private readonly logger = new Logger(UnifiedAuthGuard.name);
 
-  constructor(private reflector: Reflector) {}
+  constructor(private readonly reflector: Reflector) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request>();
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const handler = context.getHandler();
 
     // 1. Validar autenticação
-    const user = (request as any).user;
+    const user = request.user;
     if (!user) {
       this.logger.warn(
         `Acesso não autenticado: ${request.method} ${request.url}`,
@@ -40,12 +49,12 @@ export class UnifiedAuthGuard implements CanActivate {
     // 2. Validar roles (se definido)
     const requiredRoles = this.reflector.get<string[]>('roles', handler);
     if (requiredRoles && requiredRoles.length > 0) {
-      const userRoles = user.roles || [];
+      const userRoles = Array.isArray(user.roles) ? user.roles : [];
       const hasRole = requiredRoles.some((role) => userRoles.includes(role));
 
       if (!hasRole) {
         this.logger.warn(
-          `Acesso negado por role: ${user.id} - Roles necessárias: ${requiredRoles.join(', ')}`,
+          `Acesso negado por role: ${user.id ?? 'unknown-user'} - Roles necessárias: ${requiredRoles.join(', ')}`,
         );
         throw new ForbiddenException('Permissão insuficiente');
       }
@@ -57,14 +66,16 @@ export class UnifiedAuthGuard implements CanActivate {
       handler,
     );
     if (requiredPermissions && requiredPermissions.length > 0) {
-      const userPermissions = user.permissions || [];
+      const userPermissions = Array.isArray(user.permissions)
+        ? user.permissions
+        : [];
       const hasPermission = requiredPermissions.some((perm) =>
         userPermissions.includes(perm),
       );
 
       if (!hasPermission) {
         this.logger.warn(
-          `Acesso negado por permissão: ${user.id} - Permissões necessárias: ${requiredPermissions.join(', ')}`,
+          `Acesso negado por permissão: ${user.id ?? 'unknown-user'} - Permissões necessárias: ${requiredPermissions.join(', ')}`,
         );
         throw new ForbiddenException('Permissão insuficiente');
       }
@@ -81,7 +92,9 @@ export class UnifiedAuthGuard implements CanActivate {
     // 5. Validar tenant (se definido)
     const requireTenant = this.reflector.get<boolean>('requireTenant', handler);
     if (requireTenant && !user.company_id) {
-      this.logger.warn(`Acesso negado: tenant não definido para ${user.id}`);
+      this.logger.warn(
+        `Acesso negado: tenant não definido para ${user.id ?? 'unknown-user'}`,
+      );
       throw new ForbiddenException('Tenant não definido');
     }
 

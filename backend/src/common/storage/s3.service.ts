@@ -10,6 +10,40 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
 
+const getErrorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+const getErrorStack = (error: unknown): string | undefined =>
+  error instanceof Error ? error.stack : undefined;
+
+const hasAsyncIterator = (value: unknown): value is AsyncIterable<unknown> => {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const asyncIterableCandidate = value as {
+    [Symbol.asyncIterator]?: unknown;
+  };
+  const asyncIterator = asyncIterableCandidate[Symbol.asyncIterator];
+  return typeof asyncIterator === 'function';
+};
+
+const toBufferChunk = (chunk: unknown): Buffer => {
+  if (Buffer.isBuffer(chunk)) {
+    return chunk;
+  }
+
+  if (chunk instanceof Uint8Array) {
+    return Buffer.from(chunk);
+  }
+
+  if (typeof chunk === 'string') {
+    return Buffer.from(chunk);
+  }
+
+  throw new Error('Chunk inválido recebido do stream S3.');
+};
+
 @Injectable()
 export class S3Service {
   private readonly logger = new Logger(S3Service.name);
@@ -71,8 +105,8 @@ export class S3Service {
       return url;
     } catch (error) {
       this.logger.error(
-        `Failed to upload file to S3: ${error.message}`,
-        error.stack,
+        `Failed to upload file to S3: ${getErrorMessage(error)}`,
+        getErrorStack(error),
       );
       throw error;
     }
@@ -96,8 +130,8 @@ export class S3Service {
       return url;
     } catch (error) {
       this.logger.error(
-        `Failed to generate signed URL: ${error.message}`,
-        error.stack,
+        `Failed to generate signed URL: ${getErrorMessage(error)}`,
+        getErrorStack(error),
       );
       throw error;
     }
@@ -118,18 +152,22 @@ export class S3Service {
       });
 
       const response = await this.s3Client.send(command);
-      const stream = response.Body as Readable;
+      const stream = response.Body;
+
+      if (!hasAsyncIterator(stream)) {
+        throw new Error('S3 response body não é um stream async iterável.');
+      }
 
       const chunks: Buffer[] = [];
       for await (const chunk of stream) {
-        chunks.push(chunk);
+        chunks.push(toBufferChunk(chunk));
       }
 
       return Buffer.concat(chunks);
     } catch (error) {
       this.logger.error(
-        `Failed to download file from S3: ${error.message}`,
-        error.stack,
+        `Failed to download file from S3: ${getErrorMessage(error)}`,
+        getErrorStack(error),
       );
       throw error;
     }
@@ -153,8 +191,8 @@ export class S3Service {
       this.logger.log(`File deleted successfully: ${key}`);
     } catch (error) {
       this.logger.error(
-        `Failed to delete file from S3: ${error.message}`,
-        error.stack,
+        `Failed to delete file from S3: ${getErrorMessage(error)}`,
+        getErrorStack(error),
       );
       throw error;
     }
@@ -177,7 +215,7 @@ export class S3Service {
       await this.s3Client.send(command);
       return true;
     } catch (error) {
-      if (error.name === 'NotFound') {
+      if (error instanceof Error && error.name === 'NotFound') {
         return false;
       }
       throw error;

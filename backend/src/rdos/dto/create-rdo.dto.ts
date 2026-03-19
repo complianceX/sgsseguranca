@@ -185,5 +185,4 @@ export class CreateRdoDto {
   @IsString()
   @IsOptional()
   programa_servicos_amanha?: string;
-
 }

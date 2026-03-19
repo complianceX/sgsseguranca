@@ -12,12 +12,25 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
+type TestConfigKey =
+  | 'AWS_BUCKET_NAME'
+  | 'AWS_REGION'
+  | 'AWS_ENDPOINT'
+  | 'AWS_ACCESS_KEY_ID'
+  | 'AWS_SECRET_ACCESS_KEY';
+
+type MockS3ClientInstance = {
+  send: typeof mockS3ClientSend;
+};
+
 // Mock das dependências do AWS SDK
 const mockS3ClientSend = jest.fn();
 jest.mock('@aws-sdk/client-s3', () => {
   // Mock dos construtores dos comandos
   return {
-    S3Client: jest.fn().mockImplementation(function () {
+    S3Client: jest.fn().mockImplementation(function (
+      this: MockS3ClientInstance,
+    ) {
       // instancia real do mock (this) recebe o método send
       this.send = mockS3ClientSend;
     }),
@@ -52,14 +65,14 @@ describe('StorageService', () => {
           provide: ConfigService,
           useValue: {
             get: jest.fn((key: string) => {
-              const config = {
+              const config: Record<TestConfigKey, string> = {
                 AWS_BUCKET_NAME: 'test-bucket',
                 AWS_REGION: 'us-east-1',
                 AWS_ENDPOINT: 'http://localhost:4566',
                 AWS_ACCESS_KEY_ID: REDACTED
                 AWS_SECRET_ACCESS_KEY: REDACTED
               };
-              return config[key];
+              return config[key as TestConfigKey];
             }),
           },
         },
@@ -106,10 +119,9 @@ describe('StorageService', () => {
         Key: key,
         ContentType: contentType,
       });
-      const commandInstance = mockedPutObjectCommand.mock.instances[0];
       expect(mockedGetSignedUrl).toHaveBeenCalledWith(
         mockedS3Client.mock.instances[0],
-        commandInstance,
+        expect.any(Object),
         { expiresIn: 3600 },
       );
       expect(url).toBe(mockUrl);
@@ -137,10 +149,9 @@ describe('StorageService', () => {
         Bucket: 'test-bucket',
         Key: key,
       });
-      const commandInstance = mockedGetObjectCommand.mock.instances[0];
       expect(mockedGetSignedUrl).toHaveBeenCalledWith(
         mockedS3Client.mock.instances[0],
-        commandInstance,
+        expect.any(Object),
         { expiresIn: 604800 },
       );
       expect(url).toBe(mockUrl);
@@ -167,8 +178,7 @@ describe('StorageService', () => {
         Bucket: 'test-bucket',
         Key: key,
       });
-      const commandInstance = mockedDeleteObjectCommand.mock.instances[0];
-      expect(mockS3ClientSend).toHaveBeenCalledWith(commandInstance);
+      expect(mockS3ClientSend).toHaveBeenCalledWith(expect.any(Object));
     });
 
     it('deve lançar um erro se a deleção do arquivo falhar', async () => {

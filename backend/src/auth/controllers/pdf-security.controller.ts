@@ -9,7 +9,6 @@ import {
   Get,
   Param,
   UnauthorizedException,
-  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../jwt-auth.guard';
@@ -17,8 +16,38 @@ import { PdfService } from '../../common/services/pdf.service';
 import { PdfRateLimitService } from '../services/pdf-rate-limit.service';
 import { Request } from 'express';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
-import { validatePdfMagicBytes } from '../../common/interceptors/file-upload.interceptor';
+import {
+  assertUploadedPdf,
+  cleanupUploadedTempFile,
+  createGovernedPdfUploadOptions,
+} from '../../common/interceptors/file-upload.interceptor';
 import { Authorize } from '../authorize.decorator';
+
+interface PdfSecurityRequestUser {
+  id?: string;
+  userId?: string;
+  company_id?: string;
+  companyId?: string;
+}
+
+type PdfSecurityRequest = Request & {
+  user: PdfSecurityRequestUser;
+};
+
+const resolvePdfSecurityActor = (
+  req: PdfSecurityRequest,
+): { userId: string; companyId: string | null } => {
+  const userId = req.user.id ?? req.user.userId;
+
+  if (!userId) {
+    throw new UnauthorizedException('Usuário autenticado inválido.');
+  }
+
+  return {
+    userId,
+    companyId: req.user.company_id ?? req.user.companyId ?? null,
+  };
+};
 
 @ApiTags('PDF Security')
 @Controller('pdf-security')
@@ -32,17 +61,7 @@ export class PdfSecurityController {
   @Post('sign')
   @Authorize('can_manage_signatures')
   @UseInterceptors(
-    FileInterceptor('file', {
-      limits: {
-        fileSize: 25 * 1024 * 1024,
-      },
-      fileFilter: (_req, file, cb) => {
-        if (file.mimetype !== 'application/pdf') {
-          return cb(null, false);
-        }
-        cb(null, true);
-      },
-    }),
+    FileInterceptor('file', createGovernedPdfUploadOptions(25 * 1024 * 1024)),
   )
   @ApiOperation({
     summary: 'Sign a PDF file and register it for security tracking',
@@ -65,22 +84,14 @@ export class PdfSecurityController {
   async signPdf(
     @UploadedFile() file: Express.Multer.File,
     @Body('originalName') originalName: string,
-    @Req() req: any,
+    @Req() req: PdfSecurityRequest,
   ) {
-    if (!file) {
-      throw new BadRequestException('File is required');
-    }
-
-    if (file.mimetype !== 'application/pdf') {
-      throw new BadRequestException('Only PDF files are allowed');
-    }
-    if (!file.buffer || file.buffer.length === 0) {
-      throw new BadRequestException('Falha ao ler o arquivo enviado.');
-    }
-    await validatePdfMagicBytes(file.buffer);
-
-    const userId = req.user.id;
-    const ip = req.ip;
+    const pdfFile = await assertUploadedPdf(file, 'File is required');
+    const { userId, companyId } = resolvePdfSecurityActor(req);
+    const ip =
+      typeof req.ip === 'string' && req.ip.trim().length > 0
+        ? req.ip
+        : 'unknown';
 
     // Check rate limit (Mass Download Detection)
     try {
@@ -92,17 +103,21 @@ export class PdfSecurityController {
     }
 
     // Sign and save hash
-    const hash = await this.pdfService.signAndSave(file.buffer, {
-      originalName: originalName || file.originalname,
-      signedByUserId: req.user?.id ?? req.user?.userId ?? null,
-      companyId: req.user?.company_id ?? req.user?.companyId ?? null,
-    });
+    try {
+      const hash = await this.pdfService.signAndSave(pdfFile.buffer, {
+        originalName: originalName || pdfFile.originalname,
+        signedByUserId: userId,
+        companyId,
+      });
 
-    return {
-      status: 'success',
-      hash,
-      message: 'PDF signed and registered successfully',
-    };
+      return {
+        status: 'success',
+        hash,
+        message: 'PDF signed and registered successfully',
+      };
+    } finally {
+      await cleanupUploadedTempFile(pdfFile);
+    }
   }
 
   @Get('verify/:hash')

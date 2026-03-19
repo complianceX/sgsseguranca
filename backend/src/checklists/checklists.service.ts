@@ -1358,7 +1358,8 @@ Regras:
       return {
         valid: false,
         code: normalized,
-        message: validation.message || 'Checklist não encontrado para este código.',
+        message:
+          validation.message || 'Checklist não encontrado para este código.',
       };
     }
 

@@ -45,8 +45,12 @@ jobs:
         run: npm run ci:migration:check
 
   frontend:
-    name: Frontend Lint/Build
+    name: Frontend Lint/Test/Build
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_API_URL: https://api.example.test
+      NEXT_PUBLIC_APP_URL: https://app.example.test
+      NEXT_PUBLIC_SITE_URL: https://app.example.test
     defaults:
       run:
         working-directory: frontend
@@ -67,6 +71,9 @@ jobs:
 
       - name: Lint frontend
         run: npm run lint
+
+      - name: Test frontend
+        run: npm run test:ci
 
       - name: Build frontend
         run: npm run build

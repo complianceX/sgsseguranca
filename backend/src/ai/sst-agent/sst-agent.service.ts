@@ -60,7 +60,6 @@ import {
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 const ANTHROPIC_PROVIDER = 'anthropic';
 const OPENAI_PROVIDER = 'openai';
-const LOCAL_PROVIDER = 'local';
 const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
 const DEFAULT_OPENAI_VISION_MODEL = 'gpt-5-mini';
 const DEFAULT_OPENAI_FALLBACK_MODEL = 'gpt-4o-mini';
@@ -83,7 +82,7 @@ const ALLOWED_IMAGE_MIME_TYPES = [
 type SupportedAiProvider =
   | typeof OPENAI_PROVIDER
   | typeof ANTHROPIC_PROVIDER
-  | typeof LOCAL_PROVIDER
+  | 'local'
   | 'stub';
 
 // ---------------------------------------------------------------------------

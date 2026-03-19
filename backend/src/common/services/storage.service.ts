@@ -12,6 +12,34 @@ import { IntegrationResilienceService } from '../resilience/integration-resilien
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { Readable } from 'stream';
 
+type ByteArrayTransformable = {
+  transformToByteArray: () => Promise<Uint8Array>;
+};
+
+const isByteArrayTransformable = (
+  value: unknown,
+): value is ByteArrayTransformable =>
+  typeof value === 'object' &&
+  value !== null &&
+  'transformToByteArray' in value &&
+  typeof value.transformToByteArray === 'function';
+
+const isAsyncIterableBody = (
+  value: unknown,
+): value is AsyncIterable<Buffer | Uint8Array | string> =>
+  typeof value === 'object' &&
+  value !== null &&
+  Symbol.asyncIterator in value &&
+  typeof value[Symbol.asyncIterator] === 'function';
+
+const isReadableBody = (
+  value: unknown,
+): value is Readable & AsyncIterable<Buffer | Uint8Array | string> =>
+  value instanceof Readable;
+
+const toBufferChunk = (chunk: Buffer | Uint8Array | string): Buffer =>
+  Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+
 @Injectable()
 export class StorageService {
   private s3Client: S3Client;
@@ -137,26 +165,29 @@ export class StorageService {
       { timeoutMs: 30_000 },
     );
 
-    const body = response.Body;
+    const body: unknown = response.Body;
 
     if (!body) {
       throw new Error(`Arquivo não encontrado no storage: ${key}`);
     }
 
-    if (typeof (body as any).transformToByteArray === 'function') {
-      const bytes = await (body as any).transformToByteArray();
+    if (isByteArrayTransformable(body)) {
+      const bytes = await body.transformToByteArray();
       return Buffer.from(bytes);
     }
 
-    if (
-      body instanceof Readable ||
-      typeof (body as any)[Symbol.asyncIterator] === 'function'
-    ) {
+    if (isReadableBody(body)) {
       const chunks: Buffer[] = [];
-      for await (const chunk of body as AsyncIterable<
-        Buffer | Uint8Array | string
-      >) {
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      for await (const chunk of body) {
+        chunks.push(toBufferChunk(chunk));
+      }
+      return Buffer.concat(chunks);
+    }
+
+    if (isAsyncIterableBody(body)) {
+      const chunks: Buffer[] = [];
+      for await (const chunk of body) {
+        chunks.push(toBufferChunk(chunk));
       }
       return Buffer.concat(chunks);
     }

@@ -2,28 +2,41 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { JaegerExporter } from '@opentelemetry/exporter-jaeger';
 import { PrometheusExporter } from '@opentelemetry/exporter-prometheus';
+import { resourceFromAttributes } from '@opentelemetry/resources';
 
-// Resource is imported differently to be used as a value
-const { Resource } = require('@opentelemetry/resources');
+export type TelemetryRuntime = {
+  sdk: NodeSDK;
+  serviceName: string;
+  serviceVersion: string;
+  jaegerEndpoint: string;
+  prometheusPort: number;
+};
 
-export async function initializeTelemetry(opts?: {
+export function initializeTelemetry(opts?: {
   serviceName?: string;
   serviceVersion?: string;
   prometheusPort?: number;
-}) {
+}): Promise<TelemetryRuntime> {
+  const serviceName = opts?.serviceName ?? 'wanderson-gandra-backend';
+  const serviceVersion = opts?.serviceVersion ?? '1.0.0';
+  const jaegerEndpoint =
+    process.env.JAEGER_ENDPOINT || 'http://localhost:14268/api/traces';
+  const prometheusPort = Number(
+    opts?.prometheusPort ?? process.env.PROMETHEUS_PORT ?? 9464,
+  );
+
   const jaegerExporter = new JaegerExporter({
-    endpoint:
-      process.env.JAEGER_ENDPOINT || 'http://localhost:14268/api/traces',
+    endpoint: jaegerEndpoint,
   });
 
   const prometheusExporter = new PrometheusExporter({
-    port: Number(opts?.prometheusPort ?? process.env.PROMETHEUS_PORT ?? 9464),
+    port: prometheusPort,
   });
 
   const sdk = new NodeSDK({
-    resource: new Resource({
-      'service.name': opts?.serviceName ?? 'wanderson-gandra-backend',
-      'service.version': opts?.serviceVersion ?? '1.0.0',
+    resource: resourceFromAttributes({
+      'service.name': serviceName,
+      'service.version': serviceVersion,
     }),
     traceExporter: jaegerExporter,
     metricReader: prometheusExporter,
@@ -36,17 +49,19 @@ export async function initializeTelemetry(opts?: {
     ],
   });
 
-  await sdk.start();
+  sdk.start();
 
-  process.on('SIGTERM', () => {
-    sdk
-      .shutdown()
-      .then(() => console.log('OpenTelemetry terminated'))
-      .catch((error) => console.error('Error terminating OpenTelemetry', error))
-      .finally(() => process.exit(0));
+  process.once('SIGTERM', () => {
+    void sdk.shutdown().finally(() => process.exit(0));
   });
 
-  return sdk;
+  return Promise.resolve({
+    sdk,
+    serviceName,
+    serviceVersion,
+    jaegerEndpoint,
+    prometheusPort,
+  });
 }
 
 // Backwards-compatible alias (older code)

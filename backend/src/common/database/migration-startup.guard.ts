@@ -10,12 +10,23 @@ function hasDatabaseConfig(): boolean {
   );
 }
 
-export async function assertNoPendingMigrationsInProd(): Promise<void> {
-  const isProd = process.env.NODE_ENV === 'production';
-  const requireNoPendingMigrations =
-    process.env.REQUIRE_NO_PENDING_MIGRATIONS === 'true';
+export function shouldRequireNoPendingMigrations(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  const isProd = env.NODE_ENV === 'production';
+  const pendingMigrationPolicy = (env.REQUIRE_NO_PENDING_MIGRATIONS || '')
+    .trim()
+    .toLowerCase();
 
-  if (!isProd || !requireNoPendingMigrations) {
+  return isProd && pendingMigrationPolicy !== 'false';
+}
+
+export async function assertNoPendingMigrationsInProd(): Promise<void> {
+  const requireNoPendingMigrations = shouldRequireNoPendingMigrations(
+    process.env,
+  );
+
+  if (!requireNoPendingMigrations) {
     return;
   }
 

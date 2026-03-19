@@ -11,11 +11,11 @@ import {
   ParseUUIDPipe,
   ParseIntPipe,
   DefaultValuePipe,
-  Request,
+  Request as NestRequest,
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import * as fs from 'fs/promises';
+import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { RolesGuard } from '../../auth/roles.guard';
@@ -27,9 +27,23 @@ import { SstChatDto } from '../dto/sst-chat.dto';
 import { Authorize } from '../../auth/authorize.decorator';
 import { FeatureAiGuard } from '../../common/guards/feature-ai.guard';
 import {
+  cleanupUploadedTempFile,
   fileUploadOptions,
+  readUploadedFileBuffer,
   validateFileMagicBytes,
 } from '../../common/interceptors/file-upload.interceptor';
+
+interface SstAgentRequestUser {
+  sub?: string;
+  id?: string;
+}
+
+type SstAgentRequest = ExpressRequest & {
+  user?: SstAgentRequestUser;
+};
+
+const getSstAgentUserId = (request: SstAgentRequest): string =>
+  request.user?.sub ?? request.user?.id ?? 'unknown';
 
 /**
  * Controller do Agente SST.
@@ -64,8 +78,8 @@ export class SstAgentController {
   @Post('chat')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
-  async chat(@Body() dto: SstChatDto, @Request() req: any) {
-    const userId: string = req.user?.sub ?? req.user?.id ?? 'unknown';
+  async chat(@Body() dto: SstChatDto, @NestRequest() req: SstAgentRequest) {
+    const userId = getSstAgentUserId(req);
     return this.sstAgentService.chat(dto.question, userId, dto.history ?? []);
   }
 
@@ -76,36 +90,27 @@ export class SstAgentController {
   async analyzeImageRisk(
     @UploadedFile() file: Express.Multer.File,
     @Body('context') context: string | undefined,
-    @Request() req: any,
+    @NestRequest() req: SstAgentRequest,
   ) {
     if (!file) {
       throw new BadRequestException('Imagem nao enviada.');
     }
 
-    const buffer =
-      file.buffer && file.buffer.length > 0
-        ? file.buffer
-        : file.path
-          ? await fs.readFile(file.path)
-          : undefined;
+    const buffer = await readUploadedFileBuffer(file);
 
-    if (!buffer) {
-      throw new BadRequestException('Falha ao ler a imagem enviada.');
+    try {
+      validateFileMagicBytes(buffer, ['image/jpeg', 'image/png', 'image/webp']);
+
+      const userId = getSstAgentUserId(req);
+      return this.sstAgentService.analyzeImageRisk(
+        buffer,
+        file.mimetype,
+        userId,
+        context,
+      );
+    } finally {
+      await cleanupUploadedTempFile(file);
     }
-
-    await validateFileMagicBytes(buffer, [
-      'image/jpeg',
-      'image/png',
-      'image/webp',
-    ]);
-
-    const userId: string = req.user?.sub ?? req.user?.id ?? 'unknown';
-    return this.sstAgentService.analyzeImageRisk(
-      buffer,
-      file.mimetype,
-      userId,
-      context,
-    );
   }
 
   /**
@@ -121,12 +126,12 @@ export class SstAgentController {
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async getHistory(
-    @Request() req: any,
+    @NestRequest() req: SstAgentRequest,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
     @Query('days') days?: string,
   ) {
     const parsedDays = this.parseOptionalPositiveInt(days, 'days');
-    const userId: string = req.user?.sub ?? req.user?.id ?? 'unknown';
+    const userId = getSstAgentUserId(req);
     return this.sstAgentService.getHistory(userId, limit, parsedDays);
   }
 

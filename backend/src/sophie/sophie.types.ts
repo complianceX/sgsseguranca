@@ -6,7 +6,7 @@ export type SophieAgentType =
   | 'biologico'
   | 'ergonomico'
   | 'acidente'
-  | string;
+  | (string & {});
 
 export type SophieControls = {
   eliminacao: string[];

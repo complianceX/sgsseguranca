@@ -6,8 +6,8 @@ import {
   ConflictException,
   Logger,
 } from '@nestjs/common';
-import { Observable, from } from 'rxjs';
-import { switchMap, tap } from 'rxjs/operators';
+import { Observable, from, throwError } from 'rxjs';
+import { switchMap, mergeMap, catchError, map } from 'rxjs/operators';
 import { Request, Response } from 'express';
 import { IdempotencyService } from './idempotency.service';
 import { TenantService } from '../tenant/tenant.service';
@@ -34,7 +34,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
   constructor(private readonly idempotencyService: IdempotencyService) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<Request>();
     const response = context.switchToHttp().getResponse<Response>();
 
@@ -90,28 +90,28 @@ export class IdempotencyInterceptor implements NestInterceptor {
             }
 
             return next.handle().pipe(
-              tap({
-                next: async (body) => {
-                  // Salvar resposta de sucesso
-                  await this.idempotencyService.saveResponse(
+              mergeMap((body: unknown) =>
+                from(
+                  this.idempotencyService.saveResponse(
                     tenantId,
                     method,
                     path,
                     idempotencyKey,
                     response.statusCode,
                     body,
-                  );
-                },
-                error: async () => {
-                  // Em erro, remover a chave para permitir retry com a mesma chave
-                  await this.idempotencyService.deleteRecord(
+                  ),
+                ).pipe(map((): unknown => body)),
+              ),
+              catchError((error: unknown) =>
+                from(
+                  this.idempotencyService.deleteRecord(
                     tenantId,
                     method,
                     path,
                     idempotencyKey,
-                  );
-                },
-              }),
+                  ),
+                ).pipe(mergeMap(() => throwError(() => error))),
+              ),
             );
           }),
         );

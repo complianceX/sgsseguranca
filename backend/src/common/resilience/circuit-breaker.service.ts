@@ -55,20 +55,28 @@ export class CircuitBreakerService {
       this.logger.warn(`Circuit breaker ${name} is now HALF_OPEN`);
     }
 
+    let timeoutHandle: NodeJS.Timeout | undefined;
+
     try {
       const result = await Promise.race([
         fn(),
-        new Promise<T>((_, reject) =>
-          setTimeout(
+        new Promise<T>((_, reject) => {
+          timeoutHandle = setTimeout(
             () => reject(new Error('Circuit breaker timeout')),
             finalConfig.timeout,
-          ),
-        ),
+          );
+        }),
       ]);
 
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
       this.onSuccess(name, breaker, finalConfig);
       return result;
     } catch (error) {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
       this.onFailure(name, breaker, finalConfig);
       throw error;
     }
