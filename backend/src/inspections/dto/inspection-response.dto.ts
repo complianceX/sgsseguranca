@@ -12,6 +12,75 @@ class InspectionCompanyResponseDto {
 }
 
 @Exclude()
+class InspectionPerigoRiscoResponseDto {
+  @Expose()
+  grupo_risco: string;
+
+  @Expose()
+  perigo_fator_risco: string;
+
+  @Expose()
+  fonte_circunstancia: string;
+
+  @Expose()
+  trabalhadores_expostos: string;
+
+  @Expose()
+  tipo_exposicao: string;
+
+  @Expose()
+  medidas_existentes: string;
+
+  @Expose()
+  severidade: string;
+
+  @Expose()
+  probabilidade: string;
+
+  @Expose()
+  nivel_risco: string;
+
+  @Expose()
+  classificacao_risco: string;
+
+  @Expose()
+  acoes_necessarias: string;
+
+  @Expose()
+  prazo: string;
+
+  @Expose()
+  responsavel: string;
+}
+
+@Exclude()
+class InspectionPlanoAcaoResponseDto {
+  @Expose()
+  acao: string;
+
+  @Expose()
+  responsavel: string;
+
+  @Expose()
+  prazo: string;
+
+  @Expose()
+  status: string;
+}
+
+@Exclude()
+class InspectionEvidenceResponseDto {
+  @Expose()
+  descricao: string;
+
+  @Expose()
+  url?: string;
+
+  @Expose()
+  original_name?: string;
+}
+
+@Exclude()
 export class InspectionResponseDto {
   @Expose()
   id: string;
@@ -47,13 +116,16 @@ export class InspectionResponseDto {
   metodologia: string[];
 
   @Expose()
-  perigos_riscos: any[];
+  @Type(() => InspectionPerigoRiscoResponseDto)
+  perigos_riscos: InspectionPerigoRiscoResponseDto[];
 
   @Expose()
-  plano_acao: any[];
+  @Type(() => InspectionPlanoAcaoResponseDto)
+  plano_acao: InspectionPlanoAcaoResponseDto[];
 
   @Expose()
-  evidencias: any[];
+  @Type(() => InspectionEvidenceResponseDto)
+  evidencias: InspectionEvidenceResponseDto[];
 
   @Expose()
   conclusao: string;

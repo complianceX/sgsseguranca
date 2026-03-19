@@ -856,28 +856,14 @@ export function InspectionForm({ id }: InspectionFormProps) {
     toast.success("Ação adicionada ao plano a partir do risco selecionado.");
   };
 
-  const getErrorStatus = (error: unknown) =>
-    Number(
-      (error as { response?: { status?: number } } | undefined)?.response
-        ?.status ?? 0,
-    ) || null;
-
-  const getGovernedPdfAccess = async (inspectionId: string) => {
-    try {
-      return await inspectionsService.getPdfAccess(inspectionId);
-    } catch (error) {
-      if (getErrorStatus(error) === 404) {
-        return null;
-      }
-      throw error;
-    }
-  };
+  const getGovernedPdfAccess = async (inspectionId: string) =>
+    inspectionsService.getPdfAccess(inspectionId);
 
   const handlePrintAfterSave = async (inspectionId: string) => {
     toast.info("Preparando impressão do relatório...");
     const access = await getGovernedPdfAccess(inspectionId);
 
-    if (access?.url) {
+    if (access.hasFinalPdf && access.url) {
       openPdfForPrint(access.url, () => {
         toast.info(
           "Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressão.",
@@ -886,12 +872,18 @@ export function InspectionForm({ id }: InspectionFormProps) {
       return;
     }
 
-    if (access) {
+    if (access.hasFinalPdf) {
       toast.warning(
-        "O PDF final da inspeção foi emitido, mas a URL segura não está disponível agora.",
+        access.message ||
+          "O PDF final da inspeção foi emitido, mas a URL segura não está disponível agora.",
       );
       return;
     }
+
+    toast.info(
+      access.message ||
+        "PDF final ainda não emitido. Gerando uma versão local para impressão.",
+    );
 
     const fullInspection = await inspectionsService.findOne(inspectionId);
     const result = (await generateInspectionPdf(fullInspection, {
@@ -979,17 +971,26 @@ export function InspectionForm({ id }: InspectionFormProps) {
 
       // Upload dos arquivos de evidência (se houver)
       if (inspectionId && !offlineQueued) {
+        let inlineFallbackCount = 0;
         for (const idx of evidenciasComArquivoIndices) {
           const files = evidenceFiles[idx];
           if (!files?.length) continue;
           const descricao = data.evidencias?.[idx]?.descricao;
           for (const file of files) {
-            await inspectionsService.attachEvidence(
+            const attachResult = await inspectionsService.attachEvidence(
               inspectionId,
               file,
               descricao,
             );
+            if (attachResult.degraded) {
+              inlineFallbackCount += 1;
+            }
           }
+        }
+        if (inlineFallbackCount > 0) {
+          toast.warning(
+            `${inlineFallbackCount} evidência(s) foram armazenadas em modo degradado porque o storage externo estava indisponível.`,
+          );
         }
       }
 

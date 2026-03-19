@@ -23,10 +23,25 @@ describe('inspectionsService', () => {
 
   it('busca o PDF final governado da inspeção na rota oficial', async () => {
     (api.get as jest.Mock).mockResolvedValue({
-      data: { url: 'https://example.com/inspection.pdf' },
+      data: {
+        entityId: 'inspection-1',
+        hasFinalPdf: true,
+        availability: 'ready',
+        fileKey: 'documents/company-1/inspection.pdf',
+        folderPath: 'inspections/company-1/2026/week-11',
+        originalName: 'inspection-final.pdf',
+        url: 'https://example.com/inspection.pdf',
+        message: null,
+      },
     });
 
-    await inspectionsService.getPdfAccess('inspection-1');
+    await expect(inspectionsService.getPdfAccess('inspection-1')).resolves.toEqual(
+      expect.objectContaining({
+        hasFinalPdf: true,
+        availability: 'ready',
+        url: 'https://example.com/inspection.pdf',
+      }),
+    );
 
     expect(api.get).toHaveBeenCalledWith('/inspections/inspection-1/pdf');
   });

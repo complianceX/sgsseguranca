@@ -40,6 +40,29 @@ import { createReadStream } from 'fs';
 import { readFile } from 'fs/promises';
 import { getInspectionInlineEvidenceMaxBytes } from '../common/services/pdf-runtime-config';
 
+export type InspectionPdfAccessAvailability =
+  | 'ready'
+  | 'registered_without_signed_url'
+  | 'not_emitted';
+
+export type InspectionPdfAccessResponse = {
+  entityId: string;
+  hasFinalPdf: boolean;
+  availability: InspectionPdfAccessAvailability;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  url: string | null;
+  message: string | null;
+};
+
+export type InspectionEvidenceAttachResponse = {
+  evidencias: Inspection['evidencias'];
+  storageMode: 's3' | 'inline-fallback';
+  degraded: boolean;
+  message: string | null;
+};
+
 @Injectable()
 export class InspectionsService {
   private readonly logger = new Logger(InspectionsService.name);
@@ -76,6 +99,79 @@ export class InspectionsService {
     return Array.from(
       new Set((values ?? []).map((value) => value.trim()).filter(Boolean)),
     );
+  }
+
+  private countInlineEvidence(
+    evidencias?: Inspection['evidencias'] | CreateInspectionDto['evidencias'],
+  ): number {
+    return (evidencias ?? []).filter(
+      (item) => typeof item.url === 'string' && item.url.startsWith('data:'),
+    ).length;
+  }
+
+  private logInspectionEvent(
+    level: 'log' | 'warn' | 'debug',
+    event: string,
+    payload: Record<string, unknown>,
+  ): void {
+    const loggerPayload = {
+      event,
+      userId: RequestContext.getUserId() || undefined,
+      ...payload,
+    };
+
+    if (level === 'warn') {
+      this.logger.warn(loggerPayload);
+      return;
+    }
+
+    if (level === 'debug') {
+      this.logger.debug(loggerPayload);
+      return;
+    }
+
+    this.logger.log(loggerPayload);
+  }
+
+  private getInlineEvidencePayloadBytes(dataUrl: string): number | null {
+    const match = dataUrl.match(/^data:(.+?);base64,(.+)$/);
+    if (!match) {
+      return null;
+    }
+
+    const base64Payload = match[2].replace(/\s+/g, '');
+    if (!base64Payload) {
+      return 0;
+    }
+
+    const padding = base64Payload.endsWith('==')
+      ? 2
+      : base64Payload.endsWith('=')
+        ? 1
+        : 0;
+
+    return Math.max(0, Math.floor((base64Payload.length * 3) / 4) - padding);
+  }
+
+  private normalizeEvidenceUrl(value?: string | null): string | undefined {
+    const normalized = this.normalizeText(value) || undefined;
+    if (!normalized || !normalized.startsWith('data:')) {
+      return normalized;
+    }
+
+    const payloadBytes = this.getInlineEvidencePayloadBytes(normalized);
+    if (payloadBytes === null) {
+      throw new BadRequestException('Evidência inline inválida.');
+    }
+
+    const maxInlineEvidenceBytes = getInspectionInlineEvidenceMaxBytes();
+    if (payloadBytes > maxInlineEvidenceBytes) {
+      throw new BadRequestException(
+        `Evidência inline excede o limite de ${(maxInlineEvidenceBytes / 1024 / 1024).toFixed(2)}MB para criação ou edição.`,
+      );
+    }
+
+    return normalized;
   }
 
   private normalizePerigosRiscos(
@@ -133,7 +229,7 @@ export class InspectionsService {
         const evidenceWithOriginalName = item as { original_name?: string };
         return {
           descricao: this.normalizeRequiredText(item.descricao),
-          url: this.normalizeText(item.url) || undefined,
+          url: this.normalizeEvidenceUrl(item.url),
           original_name:
             this.normalizeText(evidenceWithOriginalName.original_name) ||
             undefined,
@@ -282,6 +378,7 @@ export class InspectionsService {
 
     const inspection = this.inspectionsRepository.create(payload);
     const saved = await this.inspectionsRepository.save(inspection);
+    const inlineEvidenceCount = this.countInlineEvidence(payload.evidencias);
 
     // Notificar em tempo real
     try {
@@ -298,6 +395,16 @@ export class InspectionsService {
     } catch (error) {
       this.logger.error('Falha ao enviar notificação de inspeção', error);
     }
+
+    this.logInspectionEvent('log', 'inspection_created', {
+      inspectionId: saved.id,
+      companyId,
+      riskCount: payload.perigos_riscos?.length || 0,
+      actionCount: payload.plano_acao?.length || 0,
+      evidenceCount: payload.evidencias?.length || 0,
+      inlineEvidenceCount,
+      degradedInlineEvidence: inlineEvidenceCount > 0,
+    });
 
     return plainToClass(InspectionResponseDto, saved);
   }
@@ -542,6 +649,16 @@ export class InspectionsService {
     await this.validateLinkedRecords(payload, companyId);
     Object.assign(inspection, payload);
     const saved = await this.inspectionsRepository.save(inspection);
+    const inlineEvidenceCount = this.countInlineEvidence(payload.evidencias);
+    this.logInspectionEvent('log', 'inspection_updated', {
+      inspectionId: saved.id,
+      companyId,
+      riskCount: payload.perigos_riscos?.length,
+      actionCount: payload.plano_acao?.length,
+      evidenceCount: payload.evidencias?.length,
+      inlineEvidenceCount,
+      degradedInlineEvidence: inlineEvidenceCount > 0,
+    });
     return plainToClass(InspectionResponseDto, saved);
   }
 
@@ -564,12 +681,14 @@ export class InspectionsService {
     file: Express.Multer.File,
     descricao: string | undefined,
     companyId: string,
-  ) {
+  ): Promise<InspectionEvidenceAttachResponse> {
     if (!file) throw new BadRequestException('Arquivo não enviado.');
     const inspection = await this.findOneEntity(id, companyId);
     await this.assertInspectionDocumentMutable(inspection);
 
     let entry;
+    let storageMode: InspectionEvidenceAttachResponse['storageMode'] = 's3';
+    let message: string | null = null;
     try {
       const key = this.s3Service.generateDocumentKey(
         inspection.company_id,
@@ -591,11 +710,17 @@ export class InspectionsService {
         original_name: file.originalname,
       };
     } catch (err) {
-      this.logger.warn(
-        `S3 indisponível, armazenando evidência inline: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
+      storageMode = 'inline-fallback';
+      message =
+        'Storage indisponível. Evidência armazenada temporariamente em modo degradado inline.';
+      this.logInspectionEvent('warn', 'inspection_evidence_storage_degraded', {
+        inspectionId: inspection.id,
+        companyId: inspection.company_id,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        fileSizeBytes: file.size || file.buffer?.length || 0,
+        error: err instanceof Error ? err.message : String(err),
+      });
       const maxInlineEvidenceBytes = getInspectionInlineEvidenceMaxBytes();
       const fileSizeBytes = file.size || file.buffer?.length || 0;
 
@@ -631,7 +756,23 @@ export class InspectionsService {
     const evidencias = [...(inspection.evidencias || []), entry];
     await this.inspectionsRepository.update(id, { evidencias });
 
-    return { evidencias };
+    this.logInspectionEvent('log', 'inspection_evidence_attached', {
+      inspectionId: inspection.id,
+      companyId: inspection.company_id,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      fileSizeBytes: file.size || file.buffer?.length || 0,
+      storageMode,
+      degraded: storageMode === 'inline-fallback',
+      evidenceCount: evidencias.length,
+    });
+
+    return {
+      evidencias,
+      storageMode,
+      degraded: storageMode === 'inline-fallback',
+      message,
+    };
   }
 
   async savePdf(
@@ -689,6 +830,17 @@ export class InspectionsService {
       throw error;
     }
 
+    this.logInspectionEvent('log', 'inspection_final_pdf_registered', {
+      inspectionId: inspection.id,
+      companyId: inspection.company_id,
+      fileKey,
+      folderPath,
+      originalName,
+      mimeType: file.mimetype,
+      fileSizeBytes: file.buffer.length,
+      documentCode: this.buildValidationCode(inspection),
+    });
+
     return {
       fileKey,
       folderPath,
@@ -699,13 +851,7 @@ export class InspectionsService {
   async getPdfAccess(
     id: string,
     companyId: string,
-  ): Promise<{
-    entityId: string;
-    fileKey: string;
-    folderPath: string;
-    originalName: string;
-    url: string | null;
-  }> {
+  ): Promise<InspectionPdfAccessResponse> {
     const inspection = await this.findOneEntity(id, companyId);
     const registryEntry = await this.documentRegistryService.findByDocument(
       'inspection',
@@ -715,30 +861,52 @@ export class InspectionsService {
     );
 
     if (!registryEntry) {
-      throw new NotFoundException(
-        `Relatório de inspeção ${id} não possui PDF final armazenado`,
-      );
+      return {
+        entityId: inspection.id,
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        url: null,
+        message:
+          'Relatório de inspeção ainda não possui PDF final emitido e governado.',
+      };
     }
 
     let url: string | null = null;
+    let availability: InspectionPdfAccessAvailability = 'ready';
+    let message: string | null = null;
     try {
       url = await this.documentStorageService.getSignedUrl(
         registryEntry.file_key,
         3600,
       );
-    } catch {
+    } catch (error) {
       url = null;
+      availability = 'registered_without_signed_url';
+      message =
+        'PDF final emitido, mas a URL segura está temporariamente indisponível.';
+      this.logInspectionEvent('warn', 'inspection_pdf_signed_url_unavailable', {
+        inspectionId: inspection.id,
+        companyId: inspection.company_id,
+        fileKey: registryEntry.file_key,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
     return {
       entityId: inspection.id,
+      hasFinalPdf: true,
+      availability,
       fileKey: registryEntry.file_key,
-      folderPath: registryEntry.folder_path || '',
+      folderPath: registryEntry.folder_path || null,
       originalName:
         registryEntry.original_name ||
         registryEntry.file_key.split('/').pop() ||
         'inspection.pdf',
       url,
+      message,
     };
   }
 

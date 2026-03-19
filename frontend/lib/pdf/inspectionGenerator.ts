@@ -1,4 +1,6 @@
 import type { Inspection } from "@/services/inspectionsService";
+import { buildApiUrl } from "@/lib/api";
+import { tokenStore } from "@/lib/tokenStore";
 import { pdfDocToBase64 } from "./pdfBase64";
 import {
   applyFooterGovernance,
@@ -52,11 +54,21 @@ export async function generateInspectionPdf(
 
       if (inspection.id) {
         try {
-          const sameOriginApi = `/api/v1/inspections/${inspection.id}/evidences/${index}/file`;
-          const response = await fetch(sameOriginApi, { credentials: "include" });
-          if (response.ok) {
-            const blob = await response.blob();
-            return toDataUrlFromBlob(blob);
+          const apiEvidenceUrl = buildApiUrl(
+            `/inspections/${inspection.id}/evidences/${index}/file`,
+          );
+          const accessToken = tokenStore.get();
+          if (apiEvidenceUrl) {
+            const response = await fetch(apiEvidenceUrl, {
+              credentials: "include",
+              headers: accessToken
+                ? { Authorization: `Bearer ${accessToken}` }
+                : undefined,
+            });
+            if (response.ok) {
+              const blob = await response.blob();
+              return toDataUrlFromBlob(blob);
+            }
           }
         } catch {
           // fallback abaixo com URL remota assinada

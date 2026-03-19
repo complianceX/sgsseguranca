@@ -228,6 +228,9 @@ describe('InspectionsService', () => {
       'Nova foto',
       'company-1',
     );
+    expect(result.storageMode).toBe('s3');
+    expect(result.degraded).toBe(false);
+    expect(result.message).toBeNull();
     expect(result.evidencias).toHaveLength(2);
     expect(result.evidencias[1]).toMatchObject({
       descricao: 'Nova foto',
@@ -246,6 +249,49 @@ describe('InspectionsService', () => {
         (evidencia) => evidencia.descricao === 'Nova foto',
       ),
     ).toBe(true);
+  });
+
+  it('attachEvidence: sinaliza modo degradado quando cai no fallback inline', async () => {
+    const inspection = {
+      id: 'insp-1',
+      company_id: 'company-1',
+      evidencias: [],
+    } as unknown as Inspection;
+    tenantRepo.findOne.mockResolvedValue(inspection);
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(
+      null,
+    );
+
+    const s3Service = (
+      service as unknown as {
+        s3Service: { generateDocumentKey: jest.Mock; uploadFile: jest.Mock };
+      }
+    ).s3Service;
+    s3Service.generateDocumentKey = jest.fn(
+      () => 'inspections/company-1/insp-1/foto.jpg',
+    );
+    s3Service.uploadFile = jest
+      .fn()
+      .mockRejectedValue(new Error('storage offline'));
+
+    const file = {
+      originalname: 'foto.jpg',
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from('fake-image'),
+      size: Buffer.byteLength('fake-image'),
+    } as Express.Multer.File;
+
+    const result = await service.attachEvidence(
+      'insp-1',
+      file,
+      'Foto degradada',
+      'company-1',
+    );
+
+    expect(result.storageMode).toBe('inline-fallback');
+    expect(result.degraded).toBe(true);
+    expect(result.message).toContain('modo degradado inline');
+    expect(result.evidencias[0]?.url).toContain('data:image/jpeg;base64,');
   });
 
   it('savePdf: faz cleanup do arquivo quando governança falha', async () => {
@@ -337,6 +383,65 @@ describe('InspectionsService', () => {
         setor_area: 'Subestação',
         tipo_inspecao: 'Rotina',
       },
+    });
+  });
+
+  it('bloqueia atualização com evidência inline acima do limite operacional', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'inspection-1',
+      company_id: 'company-1',
+      evidencias: [],
+    } as Inspection);
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(
+      null,
+    );
+
+    const oversizedInlineEvidence = `data:image/jpeg;base64,${Buffer.alloc(
+      1024 * 1024 + 1,
+      1,
+    ).toString('base64')}`;
+
+    await expect(
+      service.update(
+        'inspection-1',
+        {
+          evidencias: [
+            {
+              descricao: 'Foto offline',
+              url: oversizedInlineEvidence,
+            },
+          ],
+        },
+        'company-1',
+      ),
+    ).rejects.toThrow(
+      'Evidência inline excede o limite de 1.00MB para criação ou edição.',
+    );
+
+    expect(inspectionsRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('retorna status explícito quando o PDF final ainda não foi emitido', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'inspection-1',
+      company_id: 'company-1',
+    } as Inspection);
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(
+      null,
+    );
+
+    await expect(
+      service.getPdfAccess('inspection-1', 'company-1'),
+    ).resolves.toEqual({
+      entityId: 'inspection-1',
+      hasFinalPdf: false,
+      availability: 'not_emitted',
+      fileKey: null,
+      folderPath: null,
+      originalName: null,
+      url: null,
+      message:
+        'Relatório de inspeção ainda não possui PDF final emitido e governado.',
     });
   });
 });

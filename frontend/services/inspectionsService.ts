@@ -55,6 +55,24 @@ export interface Inspection {
   updated_at: string;
 }
 
+export interface InspectionPdfAccess {
+  entityId: string;
+  hasFinalPdf: boolean;
+  availability: "ready" | "registered_without_signed_url" | "not_emitted";
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  url: string | null;
+  message: string | null;
+}
+
+export interface InspectionEvidenceAttachResult {
+  evidencias: Inspection["evidencias"];
+  storageMode: "s3" | "inline-fallback";
+  degraded: boolean;
+  message: string | null;
+}
+
 export interface CreateInspectionDto {
   site_id: string;
   setor_area: string;
@@ -229,7 +247,7 @@ export const inspectionsService = {
     const formData = new FormData();
     formData.append('file', file);
     if (descricao) formData.append('descricao', descricao);
-    const response = await api.post<{ evidencias: Inspection['evidencias'] }>(
+    const response = await api.post<InspectionEvidenceAttachResult>(
       `/inspections/${id}/evidences`,
       formData,
       {
@@ -253,13 +271,7 @@ export const inspectionsService = {
   },
 
   getPdfAccess: async (id: string) => {
-    const response = await api.get<{
-      entityId: string;
-      fileKey: string;
-      folderPath: string;
-      originalName: string;
-      url: string | null;
-    }>(`/inspections/${id}/pdf`);
+    const response = await api.get<InspectionPdfAccess>(`/inspections/${id}/pdf`);
     return response.data;
   },
 

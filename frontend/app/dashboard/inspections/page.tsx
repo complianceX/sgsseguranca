@@ -100,12 +100,6 @@ export default function InspectionsPage() {
     }
   };
 
-  const getErrorStatus = (error: unknown) =>
-    Number(
-      (error as { response?: { status?: number } } | undefined)?.response
-        ?.status ?? 0,
-    ) || null;
-
   const buildInspectionFilename = (inspection: Inspection) =>
     buildPdfFilename(
       'INSPECAO',
@@ -113,20 +107,12 @@ export default function InspectionsPage() {
       inspection.data_inspecao,
     );
 
-  const getGovernedPdfAccess = async (inspectionId: string) => {
-    try {
-      return await inspectionsService.getPdfAccess(inspectionId);
-    } catch (error) {
-      if (getErrorStatus(error) === 404) {
-        return null;
-      }
-      throw error;
-    }
-  };
+  const getGovernedPdfAccess = async (inspectionId: string) =>
+    inspectionsService.getPdfAccess(inspectionId);
 
   const ensureGovernedPdf = async (inspection: Inspection) => {
     const existingAccess = await getGovernedPdfAccess(inspection.id);
-    if (existingAccess) {
+    if (existingAccess.hasFinalPdf) {
       return existingAccess;
     }
 
@@ -153,7 +139,7 @@ export default function InspectionsPage() {
   const handleDownloadPdf = async (inspection: Inspection) => {
     try {
       const access = await getGovernedPdfAccess(inspection.id);
-      if (access) {
+      if (access.hasFinalPdf) {
         if (!access.url) {
           throw new Error('PDF final emitido, mas indisponível no armazenamento.');
         }
@@ -161,6 +147,7 @@ export default function InspectionsPage() {
         return;
       }
 
+      toast.info(access.message || 'PDF final ainda não emitido. Gerando versão local.');
       toast.info('Gerando PDF...');
       const fullInspection = await inspectionsService.findOne(inspection.id);
       await generateInspectionPdf(fullInspection);
@@ -175,7 +162,7 @@ export default function InspectionsPage() {
     try {
       toast.info('Preparando impressão...');
       const access = await getGovernedPdfAccess(inspection.id);
-      if (access) {
+      if (access.hasFinalPdf) {
         if (!access.url) {
           throw new Error('PDF final emitido, mas indisponível no armazenamento.');
         }
@@ -185,6 +172,7 @@ export default function InspectionsPage() {
         return;
       }
 
+      toast.info(access.message || 'PDF final ainda não emitido. Gerando versão local.');
       const fullInspection = await inspectionsService.findOne(inspection.id);
       const result = (await generateInspectionPdf(fullInspection, {
         save: false,
@@ -207,7 +195,7 @@ export default function InspectionsPage() {
     try {
       toast.info('Preparando documento...');
       const access = await getGovernedPdfAccess(inspection.id);
-      if (access) {
+      if (access.hasFinalPdf) {
         setSelectedDoc({
           name: `${inspection.tipo_inspecao} - ${inspection.setor_area}`,
           filename: access.originalName || buildInspectionFilename(inspection),
@@ -220,6 +208,7 @@ export default function InspectionsPage() {
         return;
       }
 
+      toast.info(access.message || 'PDF final ainda não emitido. Gerando versão local para envio.');
       const fullInspection = await inspectionsService.findOne(inspection.id);
       const result = (await generateInspectionPdf(fullInspection, {
         save: false,

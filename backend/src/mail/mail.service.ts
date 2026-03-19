@@ -205,6 +205,11 @@ export class MailService {
             documentId,
             resolvedCompanyId,
           );
+          if (!access.hasFinalPdf || !access.fileKey) {
+            throw new NotFoundException(
+              'O relatório de inspeção ainda não possui PDF final emitido.',
+            );
+          }
           fileKey = access.fileKey;
           docName = `Inspeção: ${inspection.tipo_inspecao} - ${inspection.setor_area}`;
           subject = `${docName}`;

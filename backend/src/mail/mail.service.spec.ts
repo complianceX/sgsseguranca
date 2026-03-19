@@ -324,10 +324,13 @@ describe('MailService', () => {
       } as InspectionDocument;
       const inspectionPdfAccess: InspectionPdfAccess = {
         entityId: 'inspection-1',
+        hasFinalPdf: true,
+        availability: 'ready',
         fileKey: 'inspections/final.pdf',
         folderPath: 'inspections/company-1/2026/week-11',
         originalName: 'inspection-final.pdf',
         url: 'https://signed.example.com/inspection-final.pdf',
+        message: null,
       };
       const findInspectionSpy = jest
         .spyOn(inspectionsService, 'findOne')
