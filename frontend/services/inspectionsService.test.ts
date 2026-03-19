@@ -14,6 +14,11 @@ jest.mock('@/lib/api', () => ({
 describe('inspectionsService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('busca o PDF final governado da inspeção na rota oficial', async () => {
@@ -59,5 +64,68 @@ describe('inspectionsService', () => {
     expect(api.get).toHaveBeenCalledWith('/inspections/files/list', {
       params: { year: 2026, week: 11 },
     });
+  });
+
+  it('retorna a inspeção mesmo quando o cache offline excede a quota', async () => {
+    const inspection = {
+      id: 'inspection-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      setor_area: 'Caldeiraria',
+      tipo_inspecao: 'Rotina',
+      data_inspecao: '2026-03-18',
+      horario: '08:00',
+      responsavel_id: 'user-1',
+      created_at: '2026-03-18T10:00:00.000Z',
+      updated_at: '2026-03-18T10:00:00.000Z',
+    };
+    jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Quota exceeded', 'QuotaExceededError');
+    });
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    (api.get as jest.Mock).mockResolvedValue({ data: inspection });
+
+    await expect(inspectionsService.findOne('inspection-1')).resolves.toEqual(
+      inspection,
+    );
+  });
+
+  it('remove evidências inline grandes do payload persistido no cache offline', async () => {
+    const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
+    const inspection = {
+      id: 'inspection-1',
+      company_id: 'company-1',
+      site_id: 'site-1',
+      setor_area: 'Caldeiraria',
+      tipo_inspecao: 'Rotina',
+      data_inspecao: '2026-03-18',
+      horario: '08:00',
+      responsavel_id: 'user-1',
+      evidencias: [
+        {
+          descricao: 'Foto do achado',
+          url: 'data:image/jpeg;base64,AAAA',
+          original_name: 'achado.jpg',
+        },
+        {
+          descricao: 'Link governado',
+          url: 'https://storage.example/evidencia.jpg',
+          original_name: 'evidencia.jpg',
+        },
+      ],
+      created_at: '2026-03-18T10:00:00.000Z',
+      updated_at: '2026-03-18T10:00:00.000Z',
+    };
+
+    (api.get as jest.Mock).mockResolvedValue({ data: inspection });
+
+    await inspectionsService.findOne('inspection-1');
+
+    expect(setItemSpy).toHaveBeenCalled();
+    const storedPayload = String(setItemSpy.mock.calls[0]?.[1] ?? '');
+    expect(storedPayload).not.toContain('data:image/jpeg;base64,AAAA');
+    expect(storedPayload).toContain('"descricao":"Foto do achado"');
+    expect(storedPayload).toContain('"url":"https://storage.example/evidencia.jpg"');
   });
 });

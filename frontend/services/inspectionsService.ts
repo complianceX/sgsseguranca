@@ -96,6 +96,24 @@ export interface CreateInspectionDto {
 
 export type UpdateInspectionDto = Partial<CreateInspectionDto>;
 
+const sanitizeInspectionEvidenceForOfflineCache = (
+  evidence: NonNullable<Inspection['evidencias']>[number],
+): NonNullable<Inspection['evidencias']>[number] => {
+  if (!evidence.url || !evidence.url.startsWith('data:')) {
+    return evidence;
+  }
+
+  return {
+    descricao: evidence.descricao,
+    original_name: evidence.original_name,
+  };
+};
+
+const sanitizeInspectionForOfflineCache = (inspection: Inspection): Inspection => ({
+  ...inspection,
+  evidencias: inspection.evidencias?.map(sanitizeInspectionEvidenceForOfflineCache),
+});
+
 export const inspectionsService = {
   findPaginated: async (opts?: {
     page?: number;
@@ -141,7 +159,7 @@ export const inspectionsService = {
     const cacheKey = `inspections.one.${id}`;
     try {
       const response = await api.get<Inspection>(`/inspections/${id}`);
-      setOfflineCache(cacheKey, response.data);
+      setOfflineCache(cacheKey, sanitizeInspectionForOfflineCache(response.data));
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
