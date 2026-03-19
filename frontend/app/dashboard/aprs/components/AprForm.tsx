@@ -365,27 +365,12 @@ export function AprForm({ id }: AprFormProps) {
     [],
   );
 
-  const getErrorStatus = useCallback((error: unknown) => {
-    return (
-      Number(
-        (error as { response?: { status?: number } } | undefined)?.response
-          ?.status ?? 0,
-      ) || null
-    );
-  }, []);
-
   const getGovernedPdfAccess = useCallback(
     async (aprId: string) => {
-      try {
-        return await aprsService.getPdfAccess(aprId);
-      } catch (error) {
-        if (getErrorStatus(error) === 404) {
-          return null;
-        }
-        throw error;
-      }
+      const access = await aprsService.getPdfAccess(aprId);
+      return access.hasFinalPdf ? access : null;
     },
-    [getErrorStatus],
+    [],
   );
 
   const ensureGovernedPdf = useCallback(
@@ -446,7 +431,8 @@ export function AprForm({ id }: AprFormProps) {
         }
 
         toast.warning(
-          'O PDF final da APR foi emitido, mas a URL segura não está disponível agora.',
+          access?.message ||
+            'O PDF final da APR foi emitido, mas a URL segura não está disponível agora.',
         );
         return;
       }

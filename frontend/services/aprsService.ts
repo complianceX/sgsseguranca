@@ -151,6 +151,17 @@ export interface CreateAprDto {
   notas_auditoria?: string;
 }
 
+export interface AprPdfAccessResponse {
+  entityId: string;
+  hasFinalPdf: boolean;
+  availability: "ready" | "registered_without_signed_url" | "not_emitted";
+  message?: string;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  url: string | null;
+}
+
 export const aprsService = {
   findPaginated: async (opts?: {
     page?: number;
@@ -291,13 +302,7 @@ export const aprsService = {
   },
 
   getPdfAccess: async (id: string) => {
-    const response = await api.get<{
-      entityId: string;
-      fileKey: string;
-      folderPath: string;
-      originalName: string;
-      url: string | null;
-    }>(`/aprs/${id}/pdf`);
+    const response = await api.get<AprPdfAccessResponse>(`/aprs/${id}/pdf`);
     return response.data;
   },
 

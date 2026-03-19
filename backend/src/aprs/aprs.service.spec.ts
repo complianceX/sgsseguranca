@@ -287,6 +287,27 @@ describe('AprsService', () => {
     );
   });
 
+  it('retorna contrato explicito quando a APR ainda nao possui PDF final', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      pdf_file_key: null,
+      pdf_folder_path: null,
+      pdf_original_name: null,
+    } as Apr);
+
+    await expect(service.getPdfAccess('apr-1')).resolves.toEqual({
+      entityId: 'apr-1',
+      hasFinalPdf: false,
+      availability: 'not_emitted',
+      message: 'A APR ainda não possui PDF final emitido.',
+      fileKey: null,
+      folderPath: null,
+      originalName: null,
+      url: null,
+    });
+  });
+
   it('lista evidencias da APR com URLs assinadas quando disponiveis', async () => {
     const find = jest.fn().mockResolvedValue([
       {

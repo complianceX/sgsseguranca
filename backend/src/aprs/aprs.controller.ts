@@ -30,6 +30,7 @@ import { CreateAprDto } from './dto/create-apr.dto';
 import { UpdateAprDto } from './dto/update-apr.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { AprListItemDto } from './dto/apr-list-item.dto';
+import { AprResponseDto, toAprResponseDto } from './dto/apr-response.dto';
 import { Authorize } from '../auth/authorize.decorator';
 import {
   assertUploadedPdf,
@@ -72,8 +73,16 @@ export class AprsController {
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.COLABORADOR)
   @Authorize('can_create_apr')
-  create(@Body() createAprDto: CreateAprDto) {
-    return this.aprsService.create(createAprDto);
+  create(
+    @Body() createAprDto: CreateAprDto,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): Promise<AprResponseDto> {
+    return this.aprsService
+      .create(createAprDto, this.getRequestUserId(req))
+      .then(toAprResponseDto);
   }
 
   @Get()
@@ -176,8 +185,10 @@ export class AprsController {
 
   @Get(':id')
   @Authorize('can_view_apr')
-  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.aprsService.findOne(id);
+  async findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<AprResponseDto> {
+    return toAprResponseDto(await this.aprsService.findOne(id));
   }
 
   /** Retorna URL assinada (S3) ou null do PDF armazenado */
@@ -320,10 +331,10 @@ export class AprsController {
     req: Request & {
       user?: { id?: string; userId?: string; sub?: string };
     },
-  ) {
+  ): Promise<AprResponseDto> {
     const userId = this.getRequestUserId(req);
     if (!userId) throw new UnauthorizedException('Usuário não identificado');
-    return this.aprsService.approve(id, userId, reason);
+    return toAprResponseDto(await this.aprsService.approve(id, userId, reason));
   }
 
   /** Reprova/Cancela a APR — Pendente → Cancelada */
@@ -337,12 +348,12 @@ export class AprsController {
     req: Request & {
       user?: { id?: string; userId?: string; sub?: string };
     },
-  ) {
+  ): Promise<AprResponseDto> {
     const userId = this.getRequestUserId(req);
     if (!userId) throw new UnauthorizedException('Usuário não identificado');
     if (!reason)
       throw new BadRequestException('Motivo de reprovação obrigatório');
-    return this.aprsService.reject(id, userId, reason);
+    return toAprResponseDto(await this.aprsService.reject(id, userId, reason));
   }
 
   /** Encerra a APR — Aprovada → Encerrada */
@@ -355,10 +366,10 @@ export class AprsController {
     req: Request & {
       user?: { id?: string; userId?: string; sub?: string };
     },
-  ) {
+  ): Promise<AprResponseDto> {
     const userId = this.getRequestUserId(req);
     if (!userId) throw new UnauthorizedException('Usuário não identificado');
-    return this.aprsService.finalize(id, userId);
+    return toAprResponseDto(await this.aprsService.finalize(id, userId));
   }
 
   /** Cria nova versão a partir de APR Aprovada */
@@ -377,10 +388,12 @@ export class AprsController {
     req: Request & {
       user?: { id?: string; userId?: string; sub?: string };
     },
-  ) {
+  ): Promise<AprResponseDto> {
     const userId = this.getRequestUserId(req);
     if (!userId) throw new UnauthorizedException('Usuário não identificado');
-    return this.aprsService.createNewVersion(id, userId);
+    return toAprResponseDto(
+      await this.aprsService.createNewVersion(id, userId),
+    );
   }
 
   @Patch(':id')
@@ -395,8 +408,14 @@ export class AprsController {
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateAprDto: UpdateAprDto,
-  ) {
-    return this.aprsService.update(id, updateAprDto);
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): Promise<AprResponseDto> {
+    return this.aprsService
+      .update(id, updateAprDto, this.getRequestUserId(req))
+      .then(toAprResponseDto);
   }
 
   @Delete(':id')

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useDeferredValue } from 'react';
+import { useState, useEffect, useCallback, useDeferredValue } from 'react';
 import { aprsService, Apr } from '@/services/aprsService';
 import { aiService } from '@/services/aiService';
 import { signaturesService } from '@/services/signaturesService';
@@ -37,6 +37,8 @@ export function useAprs() {
   const [aprs, setAprs] = useState<Apr[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [overviewMetrics, setOverviewMetrics] =
+    useState<AprOverviewMetrics | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [statusFilter, setStatusFilter] = useState('');
@@ -50,15 +52,6 @@ export function useAprs() {
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
 
-  const getErrorStatus = useCallback((error: unknown) => {
-    return (
-      Number(
-        (error as { response?: { status?: number } } | undefined)?.response
-          ?.status ?? 0,
-      ) || null
-    );
-  }, []);
-
   const buildAprFilename = useCallback(
     (apr: Apr) => `APR_${String(apr.numero || apr.titulo || apr.id).replace(/\s+/g, '_')}.pdf`,
     [],
@@ -68,17 +61,22 @@ export function useAprs() {
     try {
       setLoading(true);
       setLoadError(null);
-      const res = await aprsService.findPaginated({
-        page,
-        limit,
-        search: deferredSearchTerm || undefined,
-        status: statusFilter || undefined,
-      });
+      const [res, analytics] = await Promise.all([
+        aprsService.findPaginated({
+          page,
+          limit,
+          search: deferredSearchTerm || undefined,
+          status: statusFilter || undefined,
+        }),
+        aprsService.getAnalyticsOverview(),
+      ]);
       setAprs(res.data);
       setTotal(res.total);
       setLastPage(res.lastPage);
+      setOverviewMetrics(analytics);
     } catch (error) {
       setLoadError('Nao foi possivel carregar a lista de APRs.');
+      setOverviewMetrics(null);
       handleApiError(error, 'APRs');
     } finally {
       setLoading(false);
@@ -115,7 +113,7 @@ export function useAprs() {
       }
 
       const access = await aprsService.getPdfAccess(apr.id);
-      if (!access.url) {
+      if (!access.hasFinalPdf || !access.url) {
         return null;
       }
 
@@ -135,12 +133,9 @@ export function useAprs() {
 
   const ensureGovernedPdf = useCallback(
     async (apr: Apr) => {
-      try {
-        return await aprsService.getPdfAccess(apr.id);
-      } catch (error) {
-        if (getErrorStatus(error) !== 404) {
-          throw error;
-        }
+      const access = await aprsService.getPdfAccess(apr.id);
+      if (access.hasFinalPdf) {
+        return access;
       }
 
       if (apr.status !== 'Aprovada') {
@@ -172,7 +167,7 @@ export function useAprs() {
       toast.success('PDF final da APR emitido e registrado com sucesso.');
       return aprsService.getPdfAccess(apr.id);
     },
-    [buildAprFilename, getErrorStatus, loadAprs],
+    [buildAprFilename, loadAprs],
   );
 
   const handleDelete = useCallback(async (id: string) => {
@@ -200,7 +195,8 @@ export function useAprs() {
         }
 
         toast.warning(
-          'O PDF final da APR existe, mas a URL segura não está disponível no momento.',
+          access?.message ||
+            'O PDF final da APR existe, mas a URL segura não está disponível no momento.',
         );
         return;
       }
@@ -277,16 +273,17 @@ export function useAprs() {
         const access = await ensureGovernedPdf(apr);
         if (!access?.url) {
           toast.warning(
-            'O PDF final da APR foi emitido, mas a URL segura não está disponível agora.',
+            access?.message ||
+              'O PDF final da APR foi emitido, mas a URL segura não está disponível agora.',
           );
           return;
         }
 
         const storedAttachment = await getStoredPdfAttachment({
           ...apr,
-          pdf_file_key: access.fileKey,
-          pdf_folder_path: access.folderPath,
-          pdf_original_name: access.originalName,
+          pdf_file_key: access.fileKey ?? undefined,
+          pdf_folder_path: access.folderPath ?? undefined,
+          pdf_original_name: access.originalName ?? undefined,
         });
         if (storedAttachment) {
           setSelectedDoc({
@@ -326,30 +323,6 @@ export function useAprs() {
 
   // Filtering is now server-side — aprs already contains the filtered page
   const filteredAprs = aprs;
-
-  const overviewMetrics: AprOverviewMetrics | null = useMemo(() => {
-    const list = filteredAprs;
-    if (!list) return null;
-
-    const totalAprs = total;
-    const aprovadas = list.filter((a) => a.status === 'Aprovada').length;
-    const pendentes = list.filter((a) => a.status === 'Pendente').length;
-    const riscosCriticos = list.filter((a) => (a.classificacao_resumo?.critico || 0) > 0).length;
-
-    let scoreSum = 0;
-    let scoreCount = 0;
-    list.forEach((a) => {
-      (a.risk_items || []).forEach((ri) => {
-        if (typeof ri.score_risco === 'number') {
-          scoreSum += ri.score_risco;
-          scoreCount += 1;
-        }
-      });
-    });
-
-    const mediaScoreRisco = scoreCount > 0 ? scoreSum / scoreCount : 0;
-    return { totalAprs, aprovadas, pendentes, riscosCriticos, mediaScoreRisco };
-  }, [filteredAprs, total]);
 
   const handleFinalize = useCallback(async (id: string) => {
     if (!confirm('Deseja aprovar esta APR?')) return;

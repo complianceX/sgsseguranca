@@ -24,6 +24,18 @@ const actionMap: Record<string, { label: string; icon: ReactNode }> = {
     label: 'APR criada',
     icon: <FilePlus2 className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
   },
+  APR_APROVADA: {
+    label: 'APR aprovada',
+    icon: <FileCheck2 className="h-4 w-4 text-[var(--ds-color-success)]" />,
+  },
+  APR_REPROVADA: {
+    label: 'APR reprovada/cancelada',
+    icon: <Clock3 className="h-4 w-4 text-[var(--ds-color-danger)]" />,
+  },
+  APR_ENCERRADA: {
+    label: 'APR encerrada',
+    icon: <FileCheck2 className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
+  },
   APR_ATUALIZADA: {
     label: 'APR atualizada',
     icon: <RefreshCcw className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
@@ -43,6 +55,42 @@ const actionMap: Record<string, { label: string; icon: ReactNode }> = {
   APR_CRIADA_POR_VERSAO: {
     label: 'APR criada a partir de versão',
     icon: <FilePlus2 className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
+  },
+  APR_EVIDENCIA_ENVIADA: {
+    label: 'Evidência enviada',
+    icon: <FileUp className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
+  },
+  APR_REMOVIDA: {
+    label: 'APR removida',
+    icon: <Clock3 className="h-4 w-4 text-[var(--ds-color-danger)]" />,
+  },
+  aprovado: {
+    label: 'APR aprovada',
+    icon: <FileCheck2 className="h-4 w-4 text-[var(--ds-color-success)]" />,
+  },
+  reprovado: {
+    label: 'APR reprovada/cancelada',
+    icon: <Clock3 className="h-4 w-4 text-[var(--ds-color-danger)]" />,
+  },
+  encerrado: {
+    label: 'APR encerrada',
+    icon: <FileCheck2 className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
+  },
+  pdf_anexado: {
+    label: 'PDF anexado',
+    icon: <FileUp className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
+  },
+  nova_versao_criada: {
+    label: 'Nova versão gerada',
+    icon: <RefreshCcw className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
+  },
+  evidencia_enviada: {
+    label: 'Evidência enviada',
+    icon: <FileUp className="h-4 w-4 text-[var(--ds-color-text-primary)]" />,
+  },
+  removido: {
+    label: 'APR removida',
+    icon: <Clock3 className="h-4 w-4 text-[var(--ds-color-danger)]" />,
   },
 };
 

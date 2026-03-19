@@ -49,6 +49,7 @@ interface StoredFilesPanelProps {
     week?: number;
   }) => Promise<StoredFileItem[]>;
   getPdfAccess: (id: string) => Promise<{
+    message?: string | null;
     url: string | null;
   }>;
   downloadWeeklyBundle?: (filters: {
@@ -125,7 +126,7 @@ export function StoredFilesPanel({
     try {
       const access = await getPdfAccess(entityId);
       if (!access.url) {
-        throw new Error('PDF indisponível para download.');
+        throw new Error(access.message || 'PDF indisponível para download.');
       }
       openUrlInNewTab(access.url);
     } catch (error) {
@@ -148,7 +149,9 @@ export function StoredFilesPanel({
     try {
       const access = await getPdfAccess(entityId);
       if (!access.url) {
-        throw new Error('Link indisponível para este PDF.');
+        throw new Error(
+          access.message || 'Link indisponível para este PDF.',
+        );
       }
       await navigator.clipboard.writeText(resolveSafeBrowserUrl(access.url));
       toast.success('Link do PDF copiado.');

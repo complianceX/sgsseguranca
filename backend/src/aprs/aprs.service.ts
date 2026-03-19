@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { FindOptionsWhere, In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Apr, AprStatus, APR_ALLOWED_TRANSITIONS } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
@@ -37,6 +37,41 @@ import {
 } from '../common/storage/storage-compensation.util';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { SignaturesService } from '../signatures/signatures.service';
+import { Site } from '../sites/entities/site.entity';
+
+const APR_LOG_ACTIONS = {
+  CREATED: 'APR_CRIADA',
+  UPDATED: 'APR_ATUALIZADA',
+  APPROVED: 'APR_APROVADA',
+  REJECTED: 'APR_REPROVADA',
+  FINALIZED: 'APR_ENCERRADA',
+  PDF_ATTACHED: 'APR_PDF_ANEXADO',
+  NEW_VERSION_GENERATED: 'APR_NOVA_VERSAO_GERADA',
+  CREATED_FROM_VERSION: 'APR_CRIADA_POR_VERSAO',
+  EVIDENCE_ATTACHED: 'APR_EVIDENCIA_ENVIADA',
+  REMOVED: 'APR_REMOVIDA',
+} as const;
+
+type AprLogAction = (typeof APR_LOG_ACTIONS)[keyof typeof APR_LOG_ACTIONS];
+type AprPdfAccessAvailability =
+  | 'ready'
+  | 'registered_without_signed_url'
+  | 'not_emitted';
+
+type AprRiskItemSnapshot = {
+  atividade: string | null;
+  agente_ambiental: string | null;
+  condicao_perigosa: string | null;
+  fonte_circunstancia: string | null;
+  lesao: string | null;
+  probabilidade: number | null;
+  severidade: number | null;
+  score_risco: number | null;
+  categoria_risco: string | null;
+  prioridade: string | null;
+  medidas_prevencao: string | null;
+  ordem: number;
+};
 
 @Injectable()
 export class AprsService {
@@ -153,7 +188,7 @@ export class AprsService {
   private async addLog(
     aprId: string,
     userId: string | undefined,
-    acao: string,
+    acao: AprLogAction,
     metadata?: Record<string, unknown>,
   ): Promise<void> {
     try {
@@ -169,11 +204,344 @@ export class AprsService {
     }
   }
 
+  private normalizeAprRiskText(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const sanitized = value.trim();
+    return sanitized ? sanitized : null;
+  }
+
+  private normalizeAprRiskNumber(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+
+  private mapAprRiskItems(
+    items?: Array<Record<string, string>>,
+  ): AprRiskItemSnapshot[] {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+
+    return items.map((item, index) => {
+      const probabilidade = this.normalizeAprRiskNumber(item.probabilidade);
+      const severidade = this.normalizeAprRiskNumber(item.severidade);
+      const score_risco =
+        probabilidade !== null && severidade !== null
+          ? probabilidade * severidade
+          : null;
+      const categoria_risco =
+        this.normalizeAprRiskText(item.categoria_risco) ||
+        (score_risco !== null
+          ? this.riskCalculationService.classifyByScore(score_risco)
+          : null);
+
+      return {
+        atividade: this.normalizeAprRiskText(item.atividade_processo),
+        agente_ambiental: this.normalizeAprRiskText(item.agente_ambiental),
+        condicao_perigosa: this.normalizeAprRiskText(item.condicao_perigosa),
+        fonte_circunstancia: this.normalizeAprRiskText(
+          item.fontes_circunstancias,
+        ),
+        lesao: this.normalizeAprRiskText(item.possiveis_lesoes),
+        probabilidade,
+        severidade,
+        score_risco,
+        categoria_risco,
+        prioridade: categoria_risco,
+        medidas_prevencao: this.normalizeAprRiskText(item.medidas_prevencao),
+        ordem: index,
+      };
+    });
+  }
+
+  private hasRiskItemChanged(
+    existing: AprRiskItem,
+    next: AprRiskItemSnapshot,
+  ): boolean {
+    return (
+      existing.atividade !== next.atividade ||
+      existing.agente_ambiental !== next.agente_ambiental ||
+      existing.condicao_perigosa !== next.condicao_perigosa ||
+      existing.fonte_circunstancia !== next.fonte_circunstancia ||
+      existing.lesao !== next.lesao ||
+      existing.probabilidade !== next.probabilidade ||
+      existing.severidade !== next.severidade ||
+      existing.score_risco !== next.score_risco ||
+      existing.categoria_risco !== next.categoria_risco ||
+      existing.prioridade !== next.prioridade ||
+      existing.medidas_prevencao !== next.medidas_prevencao ||
+      existing.ordem !== next.ordem
+    );
+  }
+
+  private async loadRiskItemsForSync(aprId: string): Promise<AprRiskItem[]> {
+    return this.aprsRepository.manager.getRepository(AprRiskItem).find({
+      where: { apr_id: aprId },
+      relations: ['evidences'],
+      order: { ordem: 'ASC', created_at: 'ASC' },
+    });
+  }
+
+  private async assertRiskItemSyncAllowed(
+    aprId: string,
+    items?: Array<Record<string, string>>,
+  ): Promise<void> {
+    const desired = this.mapAprRiskItems(items);
+    const existing = await this.loadRiskItemsForSync(aprId);
+
+    for (const [index, row] of existing.entries()) {
+      const hasEvidence =
+        Array.isArray(row.evidences) && row.evidences.length > 0;
+      if (!hasEvidence) {
+        continue;
+      }
+
+      const target = desired[index];
+      if (!target) {
+        throw new BadRequestException(
+          'Não é possível remover item de risco que já possui evidências anexadas. Gere uma nova versão da APR para preservar a trilha.',
+        );
+      }
+
+      if (this.hasRiskItemChanged(row, target)) {
+        throw new BadRequestException(
+          'Não é possível alterar item de risco com evidências anexadas. Gere uma nova versão da APR para preservar a trilha.',
+        );
+      }
+    }
+  }
+
+  private async syncRiskItems(
+    aprId: string,
+    items?: Array<Record<string, string>>,
+  ): Promise<void> {
+    const desired = this.mapAprRiskItems(items);
+    const riskItemsRepository =
+      this.aprsRepository.manager.getRepository(AprRiskItem);
+    const existing = await this.loadRiskItemsForSync(aprId);
+
+    const upserts: AprRiskItem[] = [];
+    desired.forEach((item, index) => {
+      const current = existing[index];
+      if (current) {
+        Object.assign(current, item);
+        upserts.push(current);
+        return;
+      }
+
+      upserts.push(
+        riskItemsRepository.create({
+          apr_id: aprId,
+          ...item,
+        }),
+      );
+    });
+
+    const extras = existing.slice(desired.length);
+    const removableExtras = extras.filter(
+      (row) => !Array.isArray(row.evidences) || row.evidences.length === 0,
+    );
+
+    if (upserts.length > 0) {
+      await riskItemsRepository.save(upserts);
+    }
+
+    if (removableExtras.length > 0) {
+      await riskItemsRepository.delete(removableExtras.map((row) => row.id));
+    }
+  }
+
+  private async materializeMissingRiskItems(apr: Apr): Promise<Apr> {
+    if (!Array.isArray(apr.itens_risco) || apr.itens_risco.length === 0) {
+      apr.risk_items = Array.isArray(apr.risk_items)
+        ? apr.risk_items.slice().sort((left, right) => left.ordem - right.ordem)
+        : [];
+      return apr;
+    }
+
+    if (!Array.isArray(apr.risk_items) || apr.risk_items.length === 0) {
+      await this.syncRiskItems(apr.id, apr.itens_risco);
+      apr.risk_items = await this.aprsRepository.manager
+        .getRepository(AprRiskItem)
+        .find({
+          where: { apr_id: apr.id },
+          order: { ordem: 'ASC', created_at: 'ASC' },
+        });
+      return apr;
+    }
+
+    apr.risk_items = apr.risk_items
+      .slice()
+      .sort((left, right) => left.ordem - right.ordem);
+    return apr;
+  }
+
+  private async assertCompanyScopedEntityId<
+    T extends { id: string; company_id: string },
+  >(
+    entity: { new (): T },
+    companyId: string,
+    id: string | null | undefined,
+    label: string,
+  ): Promise<void> {
+    if (!id) {
+      return;
+    }
+
+    const exists = await this.aprsRepository.manager
+      .getRepository(entity)
+      .exist({
+        where: { id, company_id: companyId } as never,
+      });
+
+    if (!exists) {
+      throw new BadRequestException(
+        `${label} inválido para a empresa/tenant atual.`,
+      );
+    }
+  }
+
+  private async assertCompanyScopedEntityIds<
+    T extends { id: string; company_id: string },
+  >(
+    entity: { new (): T },
+    companyId: string,
+    ids: string[] | undefined,
+    label: string,
+  ): Promise<void> {
+    const uniqueIds = Array.from(new Set((ids || []).filter(Boolean)));
+    if (uniqueIds.length === 0) {
+      return;
+    }
+
+    const count = await this.aprsRepository.manager
+      .getRepository(entity)
+      .count({
+        where: { id: In(uniqueIds), company_id: companyId } as never,
+      });
+
+    if (count !== uniqueIds.length) {
+      throw new BadRequestException(
+        `${label} contém vínculo(s) inválido(s) para a empresa/tenant atual.`,
+      );
+    }
+  }
+
+  private async validateRelatedEntityScope(input: {
+    companyId: string;
+    siteId?: string | null;
+    elaboradorId?: string | null;
+    auditadoPorId?: string | null;
+    activities?: string[];
+    risks?: string[];
+    epis?: string[];
+    tools?: string[];
+    machines?: string[];
+    participants?: string[];
+  }): Promise<void> {
+    await Promise.all([
+      this.assertCompanyScopedEntityId(
+        Site,
+        input.companyId,
+        input.siteId,
+        'Site',
+      ),
+      this.assertCompanyScopedEntityId(
+        User,
+        input.companyId,
+        input.elaboradorId,
+        'Elaborador',
+      ),
+      this.assertCompanyScopedEntityId(
+        User,
+        input.companyId,
+        input.auditadoPorId,
+        'Auditado por',
+      ),
+      this.assertCompanyScopedEntityIds(
+        Activity,
+        input.companyId,
+        input.activities,
+        'Atividades',
+      ),
+      this.assertCompanyScopedEntityIds(
+        Risk,
+        input.companyId,
+        input.risks,
+        'Riscos',
+      ),
+      this.assertCompanyScopedEntityIds(
+        Epi,
+        input.companyId,
+        input.epis,
+        'EPIs',
+      ),
+      this.assertCompanyScopedEntityIds(
+        Tool,
+        input.companyId,
+        input.tools,
+        'Ferramentas',
+      ),
+      this.assertCompanyScopedEntityIds(
+        Machine,
+        input.companyId,
+        input.machines,
+        'Máquinas',
+      ),
+      this.assertCompanyScopedEntityIds(
+        User,
+        input.companyId,
+        input.participants,
+        'Participantes',
+      ),
+    ]);
+  }
+
+  private buildAprTraceMetadata(apr: Apr): Record<string, unknown> {
+    return {
+      companyId: apr.company_id,
+      status: apr.status,
+      versao: apr.versao ?? 1,
+      siteId: apr.site_id,
+      participantCount: Array.isArray(apr.participants)
+        ? apr.participants.length
+        : 0,
+      riskItemCount: Array.isArray(apr.itens_risco)
+        ? apr.itens_risco.length
+        : 0,
+    };
+  }
+
   // ─── CRUD ────────────────────────────────────────────────────────────────────
 
-  async create(createAprDto: CreateAprDto): Promise<Apr> {
+  async create(createAprDto: CreateAprDto, userId?: string): Promise<Apr> {
     const { activities, risks, epis, tools, machines, participants, ...rest } =
       createAprDto;
+    const companyId = this.tenantService.getTenantId();
+    if (!companyId) {
+      throw new BadRequestException(
+        'Tenant/empresa não identificado para criação da APR.',
+      );
+    }
+    await this.validateRelatedEntityScope({
+      companyId,
+      siteId: createAprDto.site_id,
+      elaboradorId: createAprDto.elaborador_id,
+      auditadoPorId: createAprDto.auditado_por_id ?? null,
+      activities,
+      risks,
+      epis,
+      tools,
+      machines,
+      participants,
+    });
     const initialRisk = this.riskCalculationService.calculateScore(
       rest.probability,
       rest.severity,
@@ -193,7 +561,7 @@ export class AprsService {
       initial_risk: initialRisk,
       residual_risk: residualRisk,
       control_evidence: Boolean(rest.control_evidence),
-      company_id: this.tenantService.getTenantId(),
+      company_id: companyId,
       activities: activities?.map((id) => ({ id }) as unknown as Activity),
       risks: risks?.map((id) => ({ id }) as unknown as Risk),
       epis: epis?.map((id) => ({ id }) as unknown as Epi),
@@ -203,6 +571,7 @@ export class AprsService {
     });
 
     const saved: Apr = await this.aprsRepository.save(apr);
+    await this.syncRiskItems(saved.id, saved.itens_risco);
     if (saved.is_modelo_padrao) {
       await this.aprsRepository.update(
         { company_id: saved.company_id },
@@ -218,7 +587,13 @@ export class AprsService {
       aprId: saved.id,
       companyId: saved.company_id,
     });
-    return saved;
+    await this.addLog(
+      saved.id,
+      userId ?? saved.elaborador_id,
+      APR_LOG_ACTIONS.CREATED,
+      this.buildAprTraceMetadata(saved),
+    );
+    return this.findOne(saved.id);
   }
 
   async findAll(): Promise<Apr[]> {
@@ -317,12 +692,13 @@ export class AprsService {
         'machines',
         'participants',
         'auditado_por',
+        'risk_items',
       ],
     });
     if (!apr) {
       throw new NotFoundException(`APR com ID ${id} não encontrada`);
     }
-    return apr;
+    return this.materializeMissingRiskItems(apr);
   }
 
   /** Busca sem eager-load de relações — usar em operações de escrita (approve, reject, update...) */
@@ -337,7 +713,11 @@ export class AprsService {
     return apr;
   }
 
-  async update(id: string, updateAprDto: UpdateAprDto): Promise<Apr> {
+  async update(
+    id: string,
+    updateAprDto: UpdateAprDto,
+    userId?: string,
+  ): Promise<Apr> {
     if ('status' in updateAprDto && updateAprDto.status !== undefined) {
       throw new BadRequestException(
         'Use os endpoints /approve, /reject ou /finalize para alterar o status da APR.',
@@ -351,6 +731,24 @@ export class AprsService {
     const next = { ...rest };
     if (next.is_modelo_padrao) next.is_modelo = true;
     if (next.is_modelo === false) next.is_modelo_padrao = false;
+    await this.validateRelatedEntityScope({
+      companyId: apr.company_id,
+      siteId: next.site_id ?? apr.site_id,
+      elaboradorId: next.elaborador_id ?? apr.elaborador_id,
+      auditadoPorId:
+        next.auditado_por_id !== undefined
+          ? next.auditado_por_id
+          : apr.auditado_por_id,
+      activities,
+      risks,
+      epis,
+      tools,
+      machines,
+      participants,
+    });
+    const nextRiskItems =
+      next.itens_risco !== undefined ? next.itens_risco : apr.itens_risco;
+    await this.assertRiskItemSyncAllowed(id, nextRiskItems);
 
     const initialRisk = this.riskCalculationService.calculateScore(
       next.probability ?? apr.probability,
@@ -384,6 +782,7 @@ export class AprsService {
       apr.participants = participants.map((id) => ({ id }) as unknown as User);
 
     const saved = await this.aprsRepository.save(apr);
+    await this.syncRiskItems(saved.id, saved.itens_risco);
     if (saved.is_modelo_padrao) {
       await this.aprsRepository.update(
         { company_id: saved.company_id },
@@ -399,7 +798,13 @@ export class AprsService {
       aprId: saved.id,
       companyId: saved.company_id,
     });
-    return saved;
+    await this.addLog(
+      saved.id,
+      userId ?? saved.elaborador_id,
+      APR_LOG_ACTIONS.UPDATED,
+      this.buildAprTraceMetadata(saved),
+    );
+    return this.findOne(saved.id);
   }
 
   async remove(id: string, userId?: string): Promise<void> {
@@ -414,7 +819,9 @@ export class AprsService {
       cleanupStoredFile: (fileKey) =>
         this.documentStorageService.deleteFile(fileKey),
     });
-    await this.addLog(id, userId, 'removido', { companyId: apr.company_id });
+    await this.addLog(id, userId, APR_LOG_ACTIONS.REMOVED, {
+      companyId: apr.company_id,
+    });
     this.logger.log({
       event: 'apr_soft_deleted',
       aprId: apr.id,
@@ -438,7 +845,10 @@ export class AprsService {
     apr.aprovado_em = new Date();
     if (reason) apr.aprovado_motivo = reason;
     const saved = await this.aprsRepository.save(apr);
-    await this.addLog(id, userId, 'aprovado', { motivo: reason });
+    await this.addLog(id, userId, APR_LOG_ACTIONS.APPROVED, {
+      ...this.buildAprTraceMetadata(saved),
+      motivo: reason,
+    });
     this.logger.log({ event: 'apr_approved', aprId: id, userId });
     return saved;
   }
@@ -457,7 +867,10 @@ export class AprsService {
     apr.reprovado_em = new Date();
     apr.reprovado_motivo = reason;
     const saved = await this.aprsRepository.save(apr);
-    await this.addLog(id, userId, 'reprovado', { motivo: reason });
+    await this.addLog(id, userId, APR_LOG_ACTIONS.REJECTED, {
+      ...this.buildAprTraceMetadata(saved),
+      motivo: reason,
+    });
     this.logger.log({ event: 'apr_rejected', aprId: id, userId });
     return saved;
   }
@@ -473,13 +886,18 @@ export class AprsService {
     }
     apr.status = AprStatus.ENCERRADA;
     const saved = await this.aprsRepository.save(apr);
-    await this.addLog(id, userId, 'encerrado');
+    await this.addLog(
+      id,
+      userId,
+      APR_LOG_ACTIONS.FINALIZED,
+      this.buildAprTraceMetadata(saved),
+    );
     this.logger.log({ event: 'apr_finalized', aprId: id, userId });
     return saved;
   }
 
   async createNewVersion(id: string, userId: string): Promise<Apr> {
-    const original = await this.findOneForWrite(id);
+    const original = await this.findOne(id);
     if (this.ensureAprStatus(original.status) !== AprStatus.APROVADA) {
       throw new BadRequestException(
         `Somente APRs Aprovadas podem gerar nova versão. Status atual: ${original.status}`,
@@ -509,17 +927,35 @@ export class AprsService {
       residual_risk: original.residual_risk,
       control_description: original.control_description,
       control_evidence: original.control_evidence,
+      itens_risco: Array.isArray(original.itens_risco)
+        ? original.itens_risco
+        : [],
       company_id: original.company_id,
       site_id: original.site_id,
       elaborador_id: userId,
       versao: nextVersion,
       parent_apr_id: rootId,
       numero: `${original.numero}-v${nextVersion}`,
+      activities: (original.activities || []).map((item) => ({ id: item.id })),
+      risks: (original.risks || []).map((item) => ({ id: item.id })),
+      epis: (original.epis || []).map((item) => ({ id: item.id })),
+      tools: (original.tools || []).map((item) => ({ id: item.id })),
+      machines: (original.machines || []).map((item) => ({ id: item.id })),
+      participants: (original.participants || []).map((item) => ({
+        id: item.id,
+      })),
     });
 
     const saved = await this.aprsRepository.save(novo);
-    await this.addLog(id, userId, 'nova_versao_criada', {
+    await this.syncRiskItems(saved.id, saved.itens_risco);
+    await this.addLog(id, userId, APR_LOG_ACTIONS.NEW_VERSION_GENERATED, {
       novaAprId: saved.id,
+      versao: nextVersion,
+      sourceAprId: id,
+    });
+    await this.addLog(saved.id, userId, APR_LOG_ACTIONS.CREATED_FROM_VERSION, {
+      ...this.buildAprTraceMetadata(saved),
+      sourceAprId: id,
       versao: nextVersion,
     });
     this.logger.log({
@@ -528,7 +964,7 @@ export class AprsService {
       newId: saved.id,
       versao: nextVersion,
     });
-    return saved;
+    return this.findOne(saved.id);
   }
 
   // ─── PDF Storage ─────────────────────────────────────────────────────────────
@@ -596,7 +1032,9 @@ export class AprsService {
       }
       throw error;
     }
-    await this.addLog(id, userId, 'pdf_anexado', { fileKey: key });
+    await this.addLog(id, userId, APR_LOG_ACTIONS.PDF_ATTACHED, {
+      fileKey: key,
+    });
 
     return {
       fileKey: key,
@@ -704,7 +1142,7 @@ export class AprsService {
       });
 
       const saved = await evidenceRepository.save(evidence);
-      await this.addLog(apr.id, userId, 'evidencia_enviada', {
+      await this.addLog(apr.id, userId, APR_LOG_ACTIONS.EVIDENCE_ATTACHED, {
         evidenceId: saved.id,
         riskItemId: riskItem.id,
         fileKey,
@@ -864,17 +1302,31 @@ export class AprsService {
 
   async getPdfAccess(id: string): Promise<{
     entityId: string;
-    fileKey: string;
-    folderPath: string;
-    originalName: string;
+    hasFinalPdf: boolean;
+    availability: AprPdfAccessAvailability;
+    message?: string;
+    fileKey: string | null;
+    folderPath: string | null;
+    originalName: string | null;
     url: string | null;
   }> {
     const apr = await this.findOneForWrite(id);
     if (!apr.pdf_file_key) {
-      throw new NotFoundException(`APR ${id} não possui PDF armazenado`);
+      return {
+        entityId: apr.id,
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        message: 'A APR ainda não possui PDF final emitido.',
+        fileKey: null,
+        folderPath: apr.pdf_folder_path ?? null,
+        originalName: apr.pdf_original_name ?? null,
+        url: null,
+      };
     }
 
     let url: string | null = null;
+    let availability: AprPdfAccessAvailability = 'ready';
+    let message: string | undefined;
     try {
       url = await this.documentStorageService.getSignedUrl(
         apr.pdf_file_key,
@@ -882,13 +1334,19 @@ export class AprsService {
       );
     } catch {
       url = null;
+      availability = 'registered_without_signed_url';
+      message =
+        'O PDF final está registrado, mas a URL segura não está disponível no momento.';
     }
 
     return {
       entityId: apr.id,
+      hasFinalPdf: true,
+      availability,
+      message,
       fileKey: apr.pdf_file_key,
-      folderPath: apr.pdf_folder_path,
-      originalName: apr.pdf_original_name,
+      folderPath: apr.pdf_folder_path ?? null,
+      originalName: apr.pdf_original_name ?? null,
       url,
     };
   }

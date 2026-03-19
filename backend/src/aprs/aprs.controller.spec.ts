@@ -123,6 +123,8 @@ describe('AprsController (http)', () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
     aprsService.getPdfAccess.mockResolvedValue({
       entityId: aprId,
+      hasFinalPdf: true,
+      availability: 'ready',
       fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
       folderPath: 'aprs/company-1',
       originalName: 'apr-final.pdf',
@@ -133,8 +135,9 @@ describe('AprsController (http)', () => {
       .get(`/aprs/${aprId}/pdf`)
       .expect(200)
       .expect(({ body }) => {
-        const payload = body as { url?: string };
+        const payload = body as { url?: string; hasFinalPdf?: boolean };
         expect(payload.url).toBe('https://storage.example/apr-final.pdf');
+        expect(payload.hasFinalPdf).toBe(true);
       });
 
     expect(pdfRateLimitService.checkDownloadLimit).toHaveBeenCalledWith(
