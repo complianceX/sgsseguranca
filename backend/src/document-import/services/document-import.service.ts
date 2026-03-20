@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { Repository, FindOptionsWhere, QueryFailedError } from 'typeorm';
 import { DocumentImport } from '../entities/document-import.entity';
 import { DocumentImportStatus } from '../entities/document-import-status.enum';
 import {
@@ -39,6 +39,43 @@ export class DocumentImportService {
     }
   }
 
+  private isDuplicateImportError(error: unknown): boolean {
+    if (error instanceof QueryFailedError) {
+      const driverError = (
+        error as QueryFailedError & { driverError?: unknown }
+      ).driverError as
+        | {
+            code?: string;
+            constraint?: string;
+            detail?: string;
+          }
+        | undefined;
+      const code = driverError?.code;
+      const constraint = String(
+        driverError?.constraint || driverError?.detail || '',
+      ).toLowerCase();
+
+      if (code === '23505') {
+        return (
+          constraint.includes('uq_document_imports_empresa_hash') ||
+          constraint.includes('document_imports_hash_key')
+        );
+      }
+    }
+
+    const message =
+      error instanceof Error
+        ? error.message.toLowerCase()
+        : typeof error === 'string'
+          ? error.toLowerCase()
+          : '';
+    return (
+      message.includes('duplicate key') ||
+      message.includes('already exists') ||
+      message.includes('já foi importado anteriormente')
+    );
+  }
+
   async processDocument(
     fileBuffer: Buffer,
     empresaId: string,
@@ -67,8 +104,18 @@ export class DocumentImportService {
     documentImport.status = DocumentImportStatus.PROCESSING;
     documentImport.nomeArquivo = originalname || `upload_${Date.now()}.pdf`;
     documentImport.tipoDocumento = tipoDocumentoManual || 'DESCONHECIDO';
+    documentImport.tamanho = fileBuffer.length;
 
-    await this.documentImportRepository.save(documentImport);
+    try {
+      await this.documentImportRepository.save(documentImport);
+    } catch (error) {
+      if (this.isDuplicateImportError(error)) {
+        throw new BadRequestException(
+          'Este documento já foi importado anteriormente para esta empresa.',
+        );
+      }
+      throw error;
+    }
 
     try {
       const textoExtraido = await this.fileParserService.extractText(
@@ -233,6 +280,7 @@ export class DocumentImportService {
       { id: documentId, empresaId },
       {
         status: DocumentImportStatus.FAILED,
+        mensagemErro: errorMessage,
         metadata: {
           ...existingMetadata,
           erro: errorMessage,

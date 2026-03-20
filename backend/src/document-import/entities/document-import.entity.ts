@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { DocumentImportStatus } from './document-import-status.enum';
 
@@ -18,6 +19,9 @@ export interface DocumentImportMetadata {
 }
 
 @Entity('document_imports')
+@Index('UQ_document_imports_empresa_hash', ['empresaId', 'hash'], {
+  unique: true,
+})
 export class DocumentImport {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -31,7 +35,7 @@ export class DocumentImport {
   @Column({ name: 'nome_arquivo', length: 255, nullable: true })
   nomeArquivo!: string;
 
-  @Column({ name: 'hash', length: 64, unique: true })
+  @Column({ name: 'hash', length: 64 })
   hash!: string;
 
   @Column({ name: 'tamanho', type: 'integer', nullable: true })

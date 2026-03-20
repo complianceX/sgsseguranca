@@ -35,7 +35,7 @@ interface AnalysisResult {
     scoreConfianca: number;
   };
   validation: {
-    status: 'VALIDO' | 'COM_PENDENCIAS' | 'INVALIDO';
+    status: 'VALIDO' | 'INCOMPLETO' | 'CRITICO';
     pendencias: string[];
     scoreConfianca: number;
   };
@@ -66,7 +66,7 @@ const DOCUMENT_TYPE_UPLOAD_MAP: Record<string, string> = {
 };
 
 export default function DocumentImportPage() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const searchParams = useSearchParams();
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -77,6 +77,7 @@ export default function DocumentImportPage() {
   const progressBarRef = useRef<HTMLDivElement>(null);
   const requestedDocumentType = searchParams.get('documentType') || '';
   const requestedDocumentLabel = DOCUMENT_LABELS[requestedDocumentType] || null;
+  const canImportDocuments = hasPermission('can_import_documents');
 
   useEffect(() => {
     if (progressBarRef.current) {
@@ -95,6 +96,10 @@ export default function DocumentImportPage() {
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    if (!canImportDocuments) {
+      toast.error('Você não possui permissão para importar documentos.');
+      return;
+    }
     setIsDragging(false);
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile && droppedFile.type === 'application/pdf') {
@@ -106,6 +111,10 @@ export default function DocumentImportPage() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canImportDocuments) {
+      toast.error('Você não possui permissão para importar documentos.');
+      return;
+    }
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
@@ -114,6 +123,10 @@ export default function DocumentImportPage() {
   };
 
   const handleUpload = async () => {
+    if (!canImportDocuments) {
+      toast.error('Você não possui permissão para importar documentos.');
+      return;
+    }
     if (!file) return;
 
     setUploading(true);
@@ -122,7 +135,9 @@ export default function DocumentImportPage() {
 
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('empresaId', user?.company_id || '');
+    if (user?.company_id) {
+      formData.append('empresaId', user.company_id);
+    }
     if (requestedDocumentType && DOCUMENT_TYPE_UPLOAD_MAP[requestedDocumentType]) {
       formData.append(
         'tipoDocumento',
@@ -198,13 +213,18 @@ export default function DocumentImportPage() {
               ${isDragging ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300 bg-slate-50'}
               ${file ? 'border-green-500 bg-green-50' : ''}
             `}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              if (canImportDocuments) {
+                fileInputRef.current?.click();
+              }
+            }}
           >
             <input
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
               accept=".pdf"
+              disabled={!canImportDocuments}
               className="hidden"
               title="Upload de arquivo PDF"
               aria-label="Upload de arquivo PDF"
@@ -221,7 +241,7 @@ export default function DocumentImportPage() {
               <p className="text-[13px] text-slate-500">Apenas arquivos PDF até 10MB</p>
             </div>
 
-            {file && !uploading && !result && (
+            {file && !uploading && !result && canImportDocuments && (
               <button
                 type="button"
                 onClick={(e) => {
@@ -232,6 +252,12 @@ export default function DocumentImportPage() {
               >
                 Começar Processamento <ChevronRight size={18} />
               </button>
+            )}
+
+            {!canImportDocuments && (
+              <div className="mt-3.5 w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+                Você não possui permissão <code>can_import_documents</code> para este fluxo.
+              </div>
             )}
 
             {uploading && (
@@ -290,7 +316,7 @@ export default function DocumentImportPage() {
                 <div className="flex items-center gap-4">
                   <div className={`rounded-xl p-2.5 ${
                     result.validation.status === 'VALIDO' ? 'bg-green-100 text-green-600' :
-                    result.validation.status === 'COM_PENDENCIAS' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'
+                    result.validation.status === 'INCOMPLETO' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'
                   }`}>
                     {result.validation.status === 'VALIDO' ? <CheckCircle2 size={22} /> : <AlertCircle size={22} />}
                   </div>

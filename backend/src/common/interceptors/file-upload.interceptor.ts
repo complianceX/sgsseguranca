@@ -66,7 +66,63 @@ function detectMimeFromMagicBytes(buffer: Buffer): string | null {
     return 'image/webp';
   }
 
+  // Office OpenXML containers (docx/xlsx) are ZIP archives.
+  if (
+    buffer.length >= 4 &&
+    buffer[0] === 0x50 &&
+    buffer[1] === 0x4b &&
+    (buffer[2] === 0x03 || buffer[2] === 0x05 || buffer[2] === 0x07) &&
+    (buffer[3] === 0x04 || buffer[3] === 0x06 || buffer[3] === 0x08)
+  ) {
+    return 'application/zip';
+  }
+
+  // Legacy Office binary container (xls/doc/ppt legacy).
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0xd0 &&
+    buffer[1] === 0xcf &&
+    buffer[2] === 0x11 &&
+    buffer[3] === 0xe0 &&
+    buffer[4] === 0xa1 &&
+    buffer[5] === 0xb1 &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0xe1
+  ) {
+    return 'application/x-cfb';
+  }
+
   return null;
+}
+
+function isCompatibleDetectedMime(
+  detectedMime: string,
+  allowedMimes: string[],
+): boolean {
+  if (allowedMimes.includes(detectedMime)) {
+    return true;
+  }
+
+  if (
+    detectedMime === 'application/zip' &&
+    (allowedMimes.includes(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ) ||
+      allowedMimes.includes(
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ))
+  ) {
+    return true;
+  }
+
+  if (
+    detectedMime === 'application/x-cfb' &&
+    allowedMimes.includes('application/vnd.ms-excel')
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 export function createTemporaryUploadOptions(options?: {
@@ -98,7 +154,7 @@ export function validateFileMagicBytes(
 ): void {
   const sample = buffer.slice(0, 4100);
   const detectedMime = detectMimeFromMagicBytes(sample);
-  if (!detectedMime || !allowedMimes.includes(detectedMime)) {
+  if (!detectedMime || !isCompatibleDetectedMime(detectedMime, allowedMimes)) {
     throw new BadRequestException('Tipo de arquivo não permitido');
   }
 }
