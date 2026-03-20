@@ -1,19 +1,18 @@
 import type { NonConformity } from "@/services/nonConformitiesService";
-import { pdfDocToBase64 } from "./pdfBase64";
+import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import {
   applyFooterGovernance,
+  applyInstitutionalDocumentHeader,
   buildDocumentCode,
   buildPdfFilename,
   buildValidationUrl,
   createPdfContext,
   drawNcBlueprint,
-  drawPageBackground,
   formatDateTime,
   sanitize,
 } from "@/lib/pdf-system";
 
 type PdfOptions = { save?: boolean; output?: "base64" };
-type PdfOutputDoc = { output: (type: "datauri" | "dataurl") => string };
 
 export async function generateNonConformityPdf(
   nc: NonConformity,
@@ -23,10 +22,23 @@ export async function generateNonConformityPdf(
   const { default: autoTable } = await import("jspdf-autotable");
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const ctx = createPdfContext(doc, "operational");
-  drawPageBackground(ctx);
+  const ctx = createPdfContext(doc, "compliance");
 
   const code = buildDocumentCode("NC", nc.id || nc.codigo_nc);
+  ctx.y = applyInstitutionalDocumentHeader(ctx, {
+    title: "RELATORIO DE NAO CONFORMIDADE",
+    subtitle:
+      "Documento oficial de registro, tratativa e encerramento de desvio",
+    code,
+    date: nc.data_identificacao,
+    status: sanitize(nc.status),
+    version: "1",
+    company: sanitize(
+      (nc as NonConformity & { company?: { razao_social?: string } }).company
+        ?.razao_social || nc.company_id,
+    ),
+    site: sanitize(nc.site?.nome || nc.local_setor_area),
+  });
   await drawNcBlueprint(ctx, autoTable, nc, code, buildValidationUrl(code));
 
   applyFooterGovernance(ctx, {
@@ -40,4 +52,3 @@ export async function generateNonConformityPdf(
   }
   doc.save(filename);
 }
-

@@ -28,8 +28,10 @@ interface PtsTableProps {
   onPrepareApproval: (id: string) => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  onFinalize: (id: string) => void;
   approvingId: string | null;
   rejectingId: string | null;
+  finalizingId: string | null;
   approvalReviewLoadingId: string | null;
   approvalIssuesById: Record<string, PtApprovalBlockedPayload>;
   approvalReviewById: Record<string, PtApprovalReview>;
@@ -54,8 +56,10 @@ export const PtsTable = React.memo(
     onPrepareApproval,
     onApprove,
     onReject,
+    onFinalize,
     approvingId,
     rejectingId,
+    finalizingId,
     approvalReviewLoadingId,
     approvalIssuesById,
     approvalReviewById,
@@ -103,8 +107,10 @@ export const PtsTable = React.memo(
                   onPrepareApproval={onPrepareApproval}
                   onApprove={onApprove}
                   onReject={onReject}
+                  onFinalize={onFinalize}
                   approvingId={approvingId}
                   rejectingId={rejectingId}
+                  finalizingId={finalizingId}
                   approvalReviewLoadingId={approvalReviewLoadingId}
                   approvalIssue={approvalIssuesById[pt.id]}
                   approvalReview={approvalReviewById[pt.id]}

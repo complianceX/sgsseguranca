@@ -9,6 +9,9 @@ import type { MailService } from '../mail/mail.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { DocumentRegistryService } from '../document-registry/document-registry.service';
+import { Site } from '../sites/entities/site.entity';
+import { User } from '../users/entities/user.entity';
+import type { RdoAuditService } from './rdo-audit.service';
 
 const COMPANY_ID = 'company-1';
 const RDO_ID = '11111111-2222-3333-4444-555555555555';
@@ -50,6 +53,9 @@ describe('RdosService', () => {
     create: jest.Mock;
     remove: jest.Mock;
     createQueryBuilder: jest.Mock;
+    manager: {
+      getRepository: jest.Mock;
+    };
   };
   let tenantService: Pick<TenantService, 'getTenantId'>;
   let mailService: Pick<MailService, 'sendMail' | 'sendMailSimple'>;
@@ -70,6 +76,17 @@ describe('RdosService', () => {
     | 'removeFinalDocumentReference'
   >;
   let documentRegistryService: Pick<DocumentRegistryService, 'findByDocument'>;
+  let rdoAuditService: Pick<
+    RdoAuditService,
+    | 'recordCancellation'
+    | 'recordEvent'
+    | 'getEventsForRdo'
+    | 'recordStatusChange'
+    | 'recordPdfGenerated'
+    | 'recordSignature'
+  >;
+  let siteScopedRepository: { exist: jest.Mock };
+  let userScopedRepository: { exist: jest.Mock };
 
   beforeEach(() => {
     const defaultQb = {
@@ -94,6 +111,25 @@ describe('RdosService', () => {
       create: jest.fn((input) => ({ ...input }) as Rdo),
       remove: jest.fn().mockResolvedValue(undefined),
       createQueryBuilder: jest.fn().mockReturnValue(defaultQb),
+      manager: {
+        getRepository: jest.fn((entity) => {
+          if (entity === Site) {
+            return siteScopedRepository;
+          }
+
+          if (entity === User) {
+            return userScopedRepository;
+          }
+
+          throw new Error(`Repository não mapeado no teste: ${String(entity)}`);
+        }),
+      },
+    };
+    siteScopedRepository = {
+      exist: jest.fn().mockResolvedValue(true),
+    };
+    userScopedRepository = {
+      exist: jest.fn().mockResolvedValue(true),
     };
     tenantService = { getTenantId: jest.fn(() => COMPANY_ID) };
     mailService = {
@@ -129,6 +165,22 @@ describe('RdosService', () => {
     documentRegistryService = {
       findByDocument: jest.fn().mockResolvedValue(null),
     };
+    rdoAuditService = {
+      recordCancellation: jest.fn().mockResolvedValue(undefined),
+      recordEvent: jest.fn().mockResolvedValue(undefined),
+      getEventsForRdo: jest.fn().mockResolvedValue([
+        {
+          id: 'event-1',
+          event_type: 'SIGNED',
+          user_id: 'user-1',
+          created_at: new Date('2026-03-16T12:00:00Z'),
+          details: { signatureType: 'responsavel' },
+        },
+      ]),
+      recordStatusChange: jest.fn().mockResolvedValue(undefined),
+      recordPdfGenerated: jest.fn().mockResolvedValue(undefined),
+      recordSignature: jest.fn().mockResolvedValue(undefined),
+    };
 
     service = new RdosService(
       repository as unknown as Repository<Rdo>,
@@ -137,6 +189,7 @@ describe('RdosService', () => {
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
       documentRegistryService as DocumentRegistryService,
+      rdoAuditService as RdoAuditService,
     );
   });
 
@@ -169,6 +222,40 @@ describe('RdosService', () => {
     expect(createdArg.company_id).toBe(COMPANY_ID);
   });
 
+  it('ignora company_id divergente do payload quando o tenant atual existe', async () => {
+    const dto: CreateRdoDto = {
+      company_id: 'company-spoofed',
+      data: '2026-03-16',
+    };
+
+    await service.create(dto);
+
+    const createdArg = getFirstCreateArg(repository.create);
+    expect(createdArg.company_id).toBe(COMPANY_ID);
+  });
+
+  it('rejeita create quando o site nao pertence a empresa atual', async () => {
+    siteScopedRepository.exist.mockResolvedValue(false);
+
+    await expect(
+      service.create({
+        data: '2026-03-16',
+        site_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+      }),
+    ).rejects.toThrow('Site inválido para a empresa/tenant atual.');
+  });
+
+  it('bloqueia create com status diferente de rascunho', async () => {
+    await expect(
+      service.create({
+        data: '2026-03-16',
+        status: 'aprovado',
+      }),
+    ).rejects.toThrow(
+      'O status do RDO é controlado pelo fluxo formal de tramitação.',
+    );
+  });
+
   // ─── findOne ─────────────────────────────────────────────────────────────────
 
   it('retorna RDO existente pelo ID', async () => {
@@ -197,12 +284,63 @@ describe('RdosService', () => {
     expect(repository.save).toHaveBeenCalled();
   });
 
+  it('rejeita update quando o responsavel nao pertence a empresa atual', async () => {
+    const rdo = makeRdo({ responsavel_id: 'resp-atual' });
+    repository.findOne.mockResolvedValue(rdo);
+    userScopedRepository.exist.mockResolvedValue(false);
+
+    await expect(
+      service.update(RDO_ID, {
+        responsavel_id: 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff',
+      }),
+    ).rejects.toThrow('Responsável inválido para a empresa/tenant atual.');
+  });
+
+  it('bloqueia troca de company_id pelo endpoint generico', async () => {
+    repository.findOne.mockResolvedValue(makeRdo());
+
+    await expect(
+      service.update(RDO_ID, { company_id: 'company-2' }),
+    ).rejects.toThrow(
+      'O company_id do RDO não pode ser alterado pelo endpoint genérico.',
+    );
+  });
+
   // ─── updateStatus ────────────────────────────────────────────────────────────
 
   it('transiciona status de rascunho para enviado', async () => {
     repository.findOne.mockResolvedValue(makeRdo({ status: 'rascunho' }));
     const result = await service.updateStatus(RDO_ID, 'enviado');
     expect(result.status).toBe('enviado');
+    expect(rdoAuditService.recordStatusChange).toHaveBeenCalledWith(
+      RDO_ID,
+      'rascunho',
+      'enviado',
+    );
+  });
+
+  it('transiciona status para cancelado através do cancelamento explícito', async () => {
+    repository.findOne.mockResolvedValue(makeRdo({ status: 'enviado' }));
+    const result = await service.cancel(RDO_ID, 'Erro de preenchimento');
+    expect(result.status).toBe('cancelado');
+    expect(repository.save).toHaveBeenCalled();
+    expect(rdoAuditService.recordCancellation).toHaveBeenCalledWith(
+      RDO_ID,
+      'Erro de preenchimento',
+      'enviado',
+    );
+  });
+
+  it('bloqueia cancelamento quando o RDO ja possui PDF final governado', async () => {
+    repository.findOne.mockResolvedValue(makeRdo({ status: 'aprovado' }));
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue({
+      id: 'registry-1',
+      file_key: 'documents/rdo.pdf',
+    });
+
+    await expect(service.cancel(RDO_ID, 'Tentativa tardia')).rejects.toThrow(
+      BadRequestException,
+    );
   });
 
   it('exige assinaturas antes de aprovar o RDO', async () => {
@@ -226,69 +364,111 @@ describe('RdosService', () => {
     );
   });
 
+  // ─── getAuditTrail ──────────────────────────────────────────────────────────
+
+  it('retorna a trilha de auditoria do RDO', async () => {
+    repository.findOne.mockResolvedValue(makeRdo());
+    const result = await service.getAuditTrail(RDO_ID);
+    expect(result).toEqual([
+      {
+        id: 'event-1',
+        eventType: 'SIGNED',
+        eventLabel: 'Assinado',
+        userId: 'user-1',
+        createdAt: new Date('2026-03-16T12:00:00Z'),
+        details: { signatureType: 'responsavel' },
+      },
+    ]);
+    expect(rdoAuditService.getEventsForRdo).toHaveBeenCalledWith(RDO_ID);
+  });
+
   // ─── sign ────────────────────────────────────────────────────────────────────
 
   it('registra assinatura do responsavel', async () => {
-    const rdo = makeRdo();
+    const rdo = makeRdo({ status: 'enviado' });
     repository.findOne.mockResolvedValue(rdo);
     const result = await service.sign(RDO_ID, {
       tipo: 'responsavel',
       nome: 'João Silva',
       cpf: '12345678900',
-      hash: 'hash-abc',
-      timestamp: '2026-03-16T12:00:00.000Z',
     });
     expect(result.assinatura_responsavel).toBeDefined();
     const parsed = JSON.parse(result.assinatura_responsavel!) as {
       nome: string;
       cpf: string;
-      hash: string;
+      signed_at: string;
+      signature_mode: string;
+      document_hash: string;
     };
     expect(parsed.nome).toBe('João Silva');
     expect(parsed.cpf).toBe('12345678900');
-    expect(parsed.hash).toBe('hash-abc');
+    expect(parsed.signature_mode).toBe('operational_ack');
+    expect(parsed.document_hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(parsed.signed_at).toBeDefined();
+    expect(rdoAuditService.recordSignature).toHaveBeenCalledWith(
+      RDO_ID,
+      'responsavel',
+      'João Silva',
+    );
   });
 
   it('registra assinatura do engenheiro', async () => {
-    const rdo = makeRdo();
+    const rdo = makeRdo({ status: 'enviado' });
     repository.findOne.mockResolvedValue(rdo);
     const result = await service.sign(RDO_ID, {
       tipo: 'engenheiro',
       nome: 'Ana Engenheira',
       cpf: '98765432100',
-      hash: 'hash-eng',
-      timestamp: '2026-03-16T14:00:00.000Z',
     });
     expect(result.assinatura_engenheiro).toBeDefined();
     const parsed = JSON.parse(result.assinatura_engenheiro!) as {
       nome: string;
+      signature_mode: string;
     };
     expect(parsed.nome).toBe('Ana Engenheira');
+    expect(parsed.signature_mode).toBe('operational_ack');
+    expect(rdoAuditService.recordSignature).toHaveBeenCalledWith(
+      RDO_ID,
+      'engenheiro',
+      'Ana Engenheira',
+    );
+  });
+
+  it('bloqueia assinatura enquanto o RDO ainda esta em rascunho', async () => {
+    repository.findOne.mockResolvedValue(makeRdo({ status: 'rascunho' }));
+
+    await expect(
+      service.sign(RDO_ID, {
+        tipo: 'responsavel',
+        nome: 'João Silva',
+        cpf: '12345678900',
+      }),
+    ).rejects.toThrow('Envie o RDO para revisão antes de coletar assinaturas.');
   });
 
   // ─── markPdfSaved ────────────────────────────────────────────────────────────
 
-  it('marca PDF como salvo e preenche campos de arquivo', async () => {
+  it('despromove explicitamente o endpoint legado save-pdf', async () => {
     const rdo = makeRdo({
       status: 'aprovado',
       assinatura_responsavel: '{"nome":"Resp"}',
       assinatura_engenheiro: '{"nome":"Eng"}',
     });
     repository.findOne.mockResolvedValue(rdo);
-    const result = await service.markPdfSaved(RDO_ID, {
-      filename: 'rdo-2026.pdf',
-    });
-    expect(result.pdf_file_key).toContain('rdo-2026.pdf');
-    expect(result.pdf_original_name).toBe('rdo-2026.pdf');
-    expect(result.pdf_folder_path).toContain(RDO_ID);
-    expect(
-      documentGovernanceService.syncFinalDocumentMetadata,
-    ).toHaveBeenCalled();
-    expect(
-      documentGovernanceService.syncFinalDocumentMetadata,
-    ).toHaveBeenCalledWith(
+
+    await expect(
+      service.markPdfSaved(RDO_ID, {
+        filename: 'rdo-2026.pdf',
+      }),
+    ).rejects.toThrow(
+      'O endpoint legado POST /rdos/:id/save-pdf foi descontinuado.',
+    );
+    expect(rdoAuditService.recordEvent).toHaveBeenCalledWith(
+      RDO_ID,
+      'LEGACY_SAVE_PDF_ATTEMPT',
       expect.objectContaining({
-        documentCode: 'RDO-2026-12-11111111',
+        endpoint: 'POST /rdos/:id/save-pdf',
+        deprecated: true,
       }),
     );
   });
@@ -303,6 +483,50 @@ describe('RdosService', () => {
     await expect(service.update(RDO_ID, dto)).rejects.toThrow(
       BadRequestException,
     );
+  });
+
+  // ─── getPdfAccess ────────────────────────────────────────────────────────────
+
+  it('retorna contrato explícito quando o PDF final ainda não foi emitido', async () => {
+    repository.findOne.mockResolvedValue(makeRdo());
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(
+      null,
+    );
+
+    await expect(service.getPdfAccess(RDO_ID)).resolves.toEqual({
+      entityId: RDO_ID,
+      hasFinalPdf: false,
+      availability: 'not_emitted',
+      message: 'O PDF final do RDO ainda não foi emitido.',
+      fileKey: null,
+      folderPath: null,
+      originalName: null,
+      url: null,
+    });
+  });
+
+  it('retorna disponibilidade degradada quando a URL assinada falha', async () => {
+    repository.findOne.mockResolvedValue(makeRdo());
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue({
+      file_key: 'documents/rdo.pdf',
+      folder_path: 'rdos/company-1/2026/week-12',
+      original_name: 'rdo.pdf',
+    });
+    (documentStorageService.getSignedUrl as jest.Mock).mockRejectedValue(
+      new Error('signed-url unavailable'),
+    );
+
+    await expect(service.getPdfAccess(RDO_ID)).resolves.toEqual({
+      entityId: RDO_ID,
+      hasFinalPdf: true,
+      availability: 'registered_without_signed_url',
+      message:
+        'O PDF final do RDO foi emitido, mas a URL segura não está disponível agora.',
+      fileKey: 'documents/rdo.pdf',
+      folderPath: 'rdos/company-1/2026/week-12',
+      originalName: 'rdo.pdf',
+      url: null,
+    });
   });
 
   // ─── sendEmail ───────────────────────────────────────────────────────────────
@@ -387,6 +611,38 @@ describe('RdosService', () => {
     expect(result).toHaveLength(1);
   });
 
+  it('retorna overview analitico consolidado do tenant atual', async () => {
+    repository.count.mockImplementation(({ where }) => {
+      const status = (where as { status?: string } | undefined)?.status;
+
+      if (!status) {
+        return Promise.resolve(12);
+      }
+      if (status === 'rascunho') {
+        return Promise.resolve(5);
+      }
+      if (status === 'enviado') {
+        return Promise.resolve(4);
+      }
+      if (status === 'aprovado') {
+        return Promise.resolve(3);
+      }
+      if (status === 'cancelado') {
+        return Promise.resolve(2);
+      }
+
+      return Promise.resolve(0);
+    });
+
+    await expect(service.getAnalyticsOverview()).resolves.toEqual({
+      totalRdos: 12,
+      rascunho: 5,
+      enviado: 4,
+      aprovado: 3,
+      cancelado: 2,
+    });
+  });
+
   // ─── remove ──────────────────────────────────────────────────────────────────
 
   it('remove o RDO pelo ID', async () => {
@@ -397,6 +653,13 @@ describe('RdosService', () => {
       documentGovernanceService.removeFinalDocumentReference,
     ).toHaveBeenCalled();
     expect(repository.remove).toHaveBeenCalledWith(rdo);
+  });
+
+  it('bloqueia remocao fisica de RDO aprovado', async () => {
+    repository.findOne.mockResolvedValue(makeRdo({ status: 'aprovado' }));
+    await expect(service.remove(RDO_ID)).rejects.toThrow(
+      'RDOs aprovados ou cancelados não podem ser excluídos fisicamente',
+    );
   });
 
   it('lanca NotFoundException ao remover RDO inexistente', async () => {
@@ -458,43 +721,59 @@ describe('RdosService', () => {
         tipo: 'responsavel',
         nome: 'João',
         cpf: '12345678900',
-        hash: 'h',
-        timestamp: new Date().toISOString(),
       }),
     ).rejects.toThrow(BadRequestException);
     expect(repository.save).not.toHaveBeenCalled();
   });
 
-  // ─── markPdfSaved (validations) ──────────────────────────────────────────────
+  // ─── assinatura e lifecycle ──────────────────────────────────────────────────
 
-  it('bloqueia markPdfSaved quando falta assinatura do responsavel', async () => {
-    repository.findOne.mockResolvedValue(
-      makeRdo({ status: 'aprovado', assinatura_engenheiro: '{"nome":"Eng"}' }),
+  it('invalida assinaturas e devolve RDO aprovado para enviado quando o conteúdo muda', async () => {
+    const rdo = makeRdo({
+      status: 'aprovado',
+      observacoes: 'Versão original',
+      assinatura_responsavel:
+        '{"nome":"Resp","cpf":"123","signed_at":"2026-03-16T12:00:00.000Z"}',
+      assinatura_engenheiro:
+        '{"nome":"Eng","cpf":"456","signed_at":"2026-03-16T12:30:00.000Z"}',
+    });
+    repository.findOne.mockResolvedValue(rdo);
+
+    const result = await service.update(RDO_ID, {
+      observacoes: 'Versão alterada',
+    });
+
+    expect(result.status).toBe('enviado');
+    expect(result.assinatura_responsavel).toBeNull();
+    expect(result.assinatura_engenheiro).toBeNull();
+    expect(rdoAuditService.recordEvent).toHaveBeenCalledWith(
+      RDO_ID,
+      'SIGNATURES_RESET',
+      expect.objectContaining({ reason: 'content_changed' }),
     );
-    await expect(
-      service.markPdfSaved(RDO_ID, { filename: 'rdo.pdf' }),
-    ).rejects.toThrow(
-      'Assinaturas do responsável e do engenheiro são obrigatórias',
-    );
-    expect(
-      documentGovernanceService.syncFinalDocumentMetadata,
-    ).not.toHaveBeenCalled();
   });
 
-  it('bloqueia markPdfSaved quando RDO nao esta aprovado', async () => {
+  it('limpa assinaturas quando o RDO volta para rascunho', async () => {
     repository.findOne.mockResolvedValue(
       makeRdo({
         status: 'enviado',
-        assinatura_responsavel: '{"nome":"Resp"}',
-        assinatura_engenheiro: '{"nome":"Eng"}',
+        assinatura_responsavel:
+          '{"nome":"Resp","cpf":"123","signed_at":"2026-03-16T12:00:00.000Z"}',
+        assinatura_engenheiro:
+          '{"nome":"Eng","cpf":"456","signed_at":"2026-03-16T12:30:00.000Z"}',
       }),
     );
-    await expect(
-      service.markPdfSaved(RDO_ID, { filename: 'rdo.pdf' }),
-    ).rejects.toThrow('Somente RDO aprovado pode receber PDF final');
-    expect(
-      documentGovernanceService.syncFinalDocumentMetadata,
-    ).not.toHaveBeenCalled();
+
+    const result = await service.updateStatus(RDO_ID, 'rascunho');
+
+    expect(result.status).toBe('rascunho');
+    expect(result.assinatura_responsavel).toBeNull();
+    expect(result.assinatura_engenheiro).toBeNull();
+    expect(rdoAuditService.recordEvent).toHaveBeenCalledWith(
+      RDO_ID,
+      'SIGNATURES_RESET',
+      expect.objectContaining({ reason: 'returned_to_draft' }),
+    );
   });
 
   // ─── savePdf (cleanup on governance failure) ──────────────────────────────────

@@ -11,6 +11,8 @@ type GovernedModule =
   | 'pt'
   | 'dds'
   | 'checklist'
+  | 'cat'
+  | 'dossier'
   | 'audit'
   | 'nonconformity'
   | 'inspection'
@@ -57,6 +59,7 @@ const signatureDocumentTypeToRegistryModule = new Map<string, GovernedModule>([
   ['PT', 'pt'],
   ['DDS', 'dds'],
   ['CHECKLIST', 'checklist'],
+  ['CAT', 'cat'],
   ['AUDIT', 'audit'],
   ['AUDITORIA', 'audit'],
   ['NONCONFORMITY', 'nonconformity'],

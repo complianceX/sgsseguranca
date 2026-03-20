@@ -16,6 +16,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { ErrorState, PageLoadingState } from '@/components/ui/state';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 const SendMailModal = dynamic(
   () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
@@ -35,6 +36,7 @@ const StoredFilesPanel = dynamic(
 );
 
 export default function PtsPage() {
+  const { hasPermission } = useAuth();
   const [hasDraft, setHasDraft] = useState(false);
   const {
     loading,
@@ -55,8 +57,10 @@ export default function PtsPage() {
     filteredPts,
     approvalRules,
     approvalRulesLoading,
+    overviewMetrics,
     approvingId,
     rejectingId,
+    finalizingId,
     approvalIssuesById,
     approvalReviewLoadingId,
     approvalReviewById,
@@ -71,6 +75,7 @@ export default function PtsPage() {
     handlePrepareApproval,
     handleApprove,
     handleReject,
+    handleFinalize,
     loadPts,
   } = usePts();
 
@@ -95,12 +100,19 @@ export default function PtsPage() {
     );
   }, []);
 
-  const metrics = useMemo(() => {
-    const approved = filteredPts.filter((pt) => pt.status === 'Aprovada').length;
-    const pending = filteredPts.filter((pt) => pt.status === 'Pendente').length;
-
-    return { approved, pending };
-  }, [filteredPts]);
+  const metrics = useMemo(
+    () =>
+      overviewMetrics || {
+        totalPts: 0,
+        aprovadas: 0,
+        pendentes: 0,
+        canceladas: 0,
+        encerradas: 0,
+        expiradas: 0,
+      },
+    [overviewMetrics],
+  );
+  const canManagePt = hasPermission('can_manage_pt');
 
   if (loading) {
     return (
@@ -145,35 +157,51 @@ export default function PtsPage() {
             >
               Exportar Excel
             </Button>
-            {hasDraft ? (
+            {canManagePt && hasDraft ? (
               <Link href="/dashboard/pts/new" className={cn(buttonVariants({ variant: 'outline' }), 'inline-flex items-center')}>
                 Retomar rascunho
               </Link>
             ) : null}
-            <Link
-              href="/dashboard/pts/new?field=1"
-              className={cn(buttonVariants({ variant: 'outline' }), 'inline-flex items-center')}
-            >
-              PT em campo
-            </Link>
-            <Link href="/dashboard/pts/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova PT
-            </Link>
+            {canManagePt ? (
+              <>
+                <Link
+                  href="/dashboard/pts/new?field=1"
+                  className={cn(buttonVariants({ variant: 'outline' }), 'inline-flex items-center')}
+                >
+                  PT em campo
+                </Link>
+                <Link href="/dashboard/pts/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova PT
+                </Link>
+              </>
+            ) : null}
           </>
         }
         metrics={[
           {
             label: 'Pendentes',
-            value: metrics.pending,
-            note: 'Aguardando avanço ou aprovação.',
+            value: metrics.pendentes,
+            note: 'Base consolidada da empresa.',
             tone: 'warning',
           },
           {
             label: 'Aprovadas',
-            value: metrics.approved,
-            note: 'PTs prontas para governança final.',
+            value: metrics.aprovadas,
+            note: 'Prontas para governança final ou encerramento.',
             tone: 'success',
+          },
+          {
+            label: 'Encerradas',
+            value: metrics.encerradas,
+            note: 'Fluxo formalmente concluído.',
+            tone: 'neutral',
+          },
+          {
+            label: 'Expiradas',
+            value: metrics.expiradas,
+            note: 'Validade operacional vencida.',
+            tone: 'warning',
           },
         ]}
         toolbarContent={
@@ -214,8 +242,10 @@ export default function PtsPage() {
             onPrepareApproval={handlePrepareApproval}
             onApprove={handleApprove}
             onReject={handleReject}
+            onFinalize={handleFinalize}
             approvingId={approvingId}
             rejectingId={rejectingId}
+            finalizingId={finalizingId}
             approvalReviewLoadingId={approvalReviewLoadingId}
             approvalIssuesById={approvalIssuesById}
             approvalReviewById={approvalReviewById}

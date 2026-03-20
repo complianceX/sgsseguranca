@@ -19,6 +19,7 @@ jest.mock('@/context/AuthContext', () => ({
       company_id: 'company-1',
       profile: { nome: 'Técnico de Segurança' },
     },
+    hasPermission: () => true,
   }),
 }));
 

@@ -5,6 +5,37 @@ import { fetchAllPages, PaginatedResponse } from './pagination';
 import { enqueueOfflineMutation } from '@/lib/offline-sync';
 import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
 
+type PtOfflineSignatureErrorPayload = {
+  code: 'PT_OFFLINE_SIGNATURES_NOT_SUPPORTED';
+  message: string;
+};
+
+const PT_OFFLINE_SIGNATURE_MESSAGE =
+  'Assinaturas da PT exigem conexão ativa. Salve como rascunho e sincronize online antes de concluir.';
+
+function createPtOfflineSignatureBlockedError(): AxiosError<PtOfflineSignatureErrorPayload> {
+  const error = new Error(PT_OFFLINE_SIGNATURE_MESSAGE) as AxiosError<PtOfflineSignatureErrorPayload>;
+  error.name = 'AxiosError';
+  Object.assign(error, {
+    isAxiosError: true,
+    response: {
+      status: 400,
+      data: {
+        code: 'PT_OFFLINE_SIGNATURES_NOT_SUPPORTED',
+        message: PT_OFFLINE_SIGNATURE_MESSAGE,
+      },
+    },
+  });
+  return error;
+}
+
+export function isPtOfflineSignatureBlockedError(
+  error: unknown,
+): error is AxiosError<PtOfflineSignatureErrorPayload> {
+  const payload = (error as AxiosError<PtOfflineSignatureErrorPayload>)?.response?.data;
+  return payload?.code === 'PT_OFFLINE_SIGNATURES_NOT_SUPPORTED';
+}
+
 export interface Pt {
   id: string;
   numero: string;
@@ -106,6 +137,26 @@ export interface PtApprovalRules {
   blockWorkerWithoutValidMedicalExam: boolean;
   blockWorkerWithExpiredBlockingTraining: boolean;
   requireAtLeastOneExecutante: boolean;
+}
+
+export interface PtPdfAccessResponse {
+  entityId: string;
+  hasFinalPdf: boolean;
+  availability: 'ready' | 'registered_without_signed_url' | 'not_emitted';
+  message: string;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  url: string | null;
+}
+
+export interface PtAnalyticsOverview {
+  totalPts: number;
+  aprovadas: number;
+  pendentes: number;
+  canceladas: number;
+  encerradas: number;
+  expiradas: number;
 }
 
 export interface PtApprovalBlockedPayload {
@@ -255,7 +306,10 @@ export const ptsService = {
     }
   },
 
-  create: async (data: Omit<Partial<Pt>, 'executantes'> & { executantes?: string[] }) => {
+  create: async (
+    data: Omit<Partial<Pt>, 'executantes'> & { executantes?: string[] },
+    options?: { allowOfflineQueue?: boolean },
+  ) => {
     try {
       const response = await api.post<Pt>('/pts', data);
       return response.data;
@@ -263,6 +317,9 @@ export const ptsService = {
       const axiosError = error as AxiosError;
       if (axiosError.code !== 'ERR_NETWORK') {
         throw error;
+      }
+      if (options?.allowOfflineQueue === false) {
+        throw createPtOfflineSignatureBlockedError();
       }
 
       const queued = enqueueOfflineMutation({
@@ -283,7 +340,11 @@ export const ptsService = {
     }
   },
 
-  update: async (id: string, data: Omit<Partial<Pt>, 'executantes'> & { executantes?: string[] }) => {
+  update: async (
+    id: string,
+    data: Omit<Partial<Pt>, 'executantes'> & { executantes?: string[] },
+    options?: { allowOfflineQueue?: boolean },
+  ) => {
     try {
       const response = await api.patch<Pt>(`/pts/${id}`, data);
       return response.data;
@@ -291,6 +352,9 @@ export const ptsService = {
       const axiosError = error as AxiosError;
       if (axiosError.code !== 'ERR_NETWORK') {
         throw error;
+      }
+      if (options?.allowOfflineQueue === false) {
+        throw createPtOfflineSignatureBlockedError();
       }
 
       const queued = enqueueOfflineMutation({
@@ -338,6 +402,11 @@ export const ptsService = {
     return response.data;
   },
 
+  finalize: async (id: string) => {
+    const response = await api.post<Pt>(`/pts/${id}/finalize`);
+    return response.data;
+  },
+
   attachFile: async (id: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -348,13 +417,14 @@ export const ptsService = {
   },
 
   getPdfAccess: async (id: string) => {
-    const response = await api.get<{
-      entityId: string;
-      fileKey: string;
-      folderPath: string;
-      originalName: string;
-      url: string | null;
-    }>(`/pts/${id}/pdf`);
+    const response = await api.get<PtPdfAccessResponse>(`/pts/${id}/pdf`);
+    return response.data;
+  },
+
+  getAnalyticsOverview: async () => {
+    const response = await api.get<PtAnalyticsOverview>(
+      '/pts/analytics/overview',
+    );
     return response.data;
   },
 

@@ -277,6 +277,23 @@ export class SignaturesService {
     });
   }
 
+  async removeByDocumentSystem(
+    document_id: string,
+    document_type: string,
+  ): Promise<number> {
+    const tenantId = this.tenantService.getTenantId();
+    const deleteResult = await this.signaturesRepository.delete(
+      tenantId
+        ? [
+            { document_id, document_type, company_id: tenantId },
+            { document_id, document_type, company_id: IsNull() },
+          ]
+        : { document_id, document_type },
+    );
+
+    return deleteResult.affected ?? 0;
+  }
+
   async verifyById(signatureId: string): Promise<{
     id: string;
     valid: boolean;

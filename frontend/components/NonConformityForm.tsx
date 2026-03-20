@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import type { FieldErrors } from "react-hook-form";
@@ -13,11 +13,13 @@ import {
   NcStatus,
   nonConformitiesService,
   normalizeNcStatus,
+  parseGovernedNcAttachmentReference,
 } from "@/services/nonConformitiesService";
 import { sitesService, Site } from "@/services/sitesService";
 import { getFormErrorMessage } from "@/lib/error-handler";
 import { attachPdfIfProvided } from "@/lib/document-upload";
 import { readSophieNcPreview, SophieNcPreview } from "@/lib/sophie-draft-storage";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const nonConformitySchema = z.object({
   codigo_nc: z.string().min(1, "O código é obrigatório"),
@@ -117,6 +119,8 @@ function resolveRiskLevelClass(riskLevel?: string) {
 
 export function NonConformityForm({ id }: NonConformityFormProps) {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const canManageNc = hasPermission("can_manage_nc");
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -124,8 +128,11 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [sophiePreview, setSophiePreview] = useState<SophieNcPreview | null>(null);
+  const [uploadingGovernedAttachment, setUploadingGovernedAttachment] =
+    useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const governedAttachmentInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
     register,
@@ -157,6 +164,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     fields: anexosFields,
     append: appendAnexo,
     remove: removeAnexo,
+    replace: replaceAnexos,
   } = useFieldArray({
     control,
     name: "anexos",
@@ -201,6 +209,85 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
       }
     }
     stopCamera();
+  };
+
+  const handleGovernedAttachmentUpload = async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    if (!id) {
+      toast.info(
+        "Salve a não conformidade primeiro para anexar evidências no storage oficial.",
+      );
+      event.target.value = "";
+      return;
+    }
+
+    if (!canManageNc) {
+      toast.error("Você não tem permissão para anexar evidências nesta NC.");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      setUploadingGovernedAttachment(true);
+      const result = await nonConformitiesService.attachAttachment(id, file);
+      replaceAnexos(result.attachments.map((url) => ({ url })));
+      toast.success("Anexo governado salvo com sucesso.");
+      if (result.message) {
+        toast.info(result.message);
+      }
+    } catch (error) {
+      console.error("Erro ao anexar evidência governada:", error);
+      toast.error("Não foi possível salvar o anexo governado.");
+    } finally {
+      setUploadingGovernedAttachment(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleOpenGovernedAttachment = async (_index: number, url: string) => {
+    if (!id) {
+      toast.info(
+        "Salve a não conformidade primeiro para abrir anexos governados.",
+      );
+      return;
+    }
+
+    const metadata = parseGovernedNcAttachmentReference(url);
+    if (!metadata) {
+      toast.error("A referência do anexo governado está inválida.");
+      return;
+    }
+
+    try {
+      const savedNc = await nonConformitiesService.findOne(id);
+      const savedIndex = (savedNc.anexos || []).findIndex((item) => item === url);
+      if (savedIndex < 0) {
+        toast.warning(
+          "Esse anexo governado ainda não foi persistido no backend. Salve a NC antes de abri-lo.",
+        );
+        return;
+      }
+
+      const access = await nonConformitiesService.getAttachmentAccess(id, savedIndex);
+      if (access.url) {
+        window.open(access.url, "_blank", "noopener,noreferrer");
+        return;
+      }
+
+      toast.warning(
+        access.message ||
+          `O anexo governado ${metadata.originalName} está registrado, mas indisponível para abertura no momento.`,
+      );
+    } catch (error) {
+      console.error("Erro ao abrir anexo governado:", error);
+      toast.error("Não foi possível abrir o anexo governado.");
+    }
   };
 
   useEffect(() => {
@@ -261,6 +348,14 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
   }, [id]);
 
   const onSubmit = async (data: NonConformityFormData) => {
+    if (!canManageNc) {
+      setSubmitError(
+        "Você não tem permissão para salvar esta não conformidade.",
+      );
+      toast.error("Você não tem permissão para salvar esta não conformidade.");
+      return;
+    }
+
     setLoading(true);
     setSubmitError(null);
     try {
@@ -384,6 +479,11 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
       onSubmit={handleSubmit(onSubmit, onInvalid)}
       className="ds-form-page space-y-8 pb-12"
     >
+      {!canManageNc ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Você está em modo somente leitura para não conformidades. Edição e emissão final exigem a permissão <code>can_manage_nc</code>.
+        </div>
+      ) : null}
       {submitError && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {submitError}
@@ -1253,33 +1353,77 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             <label className="text-sm font-bold text-gray-700">
               Fotos / registros anexos
             </label>
-            <button
-              type="button"
-              onClick={() => appendAnexo({ url: "" })}
-              className="flex items-center space-x-2 text-sm font-medium text-[var(--ds-color-text-primary)] hover:text-[var(--ds-color-text-primary)]"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Adicionar anexo</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => appendAnexo({ url: "" })}
+                disabled={!canManageNc}
+                className="flex items-center space-x-2 text-sm font-medium text-[var(--ds-color-text-primary)] hover:text-[var(--ds-color-text-primary)]"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Adicionar URL</span>
+              </button>
+              <input
+                ref={governedAttachmentInputRef}
+                type="file"
+                accept=".pdf,image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={handleGovernedAttachmentUpload}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (!id) {
+                    toast.info(
+                      "Salve a não conformidade primeiro para anexar arquivos governados.",
+                    );
+                    return;
+                  }
+                  governedAttachmentInputRef.current?.click();
+                }}
+                disabled={!canManageNc || uploadingGovernedAttachment}
+                className="inline-flex items-center space-x-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-emerald-100 disabled:opacity-60"
+              >
+                {uploadingGovernedAttachment ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                <span>Upload governado</span>
+              </button>
+            </div>
           </div>
           <div className="mb-3">
             <button
               type="button"
               onClick={startCamera}
+              disabled={!canManageNc}
               className="inline-flex items-center space-x-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-blue-100"
             >
               <Camera className="h-4 w-4" />
               <span>Capturar foto</span>
             </button>
           </div>
+          <p className="mb-3 text-xs text-gray-500">
+            Para evidência oficial, prefira o upload governado no storage da plataforma. URLs manuais e fotos capturadas aqui permanecem como exceção operacional; o backend aceita anexos inline apenas dentro do limite de 1 MB por anexo.
+          </p>
+          {!id ? (
+            <p className="mb-3 text-xs text-amber-700">
+              Salve a não conformidade primeiro para anexar arquivos governados. Antes disso, apenas URL manual ou captura inline ficam disponíveis.
+            </p>
+          ) : null}
           <div className="space-y-2">
             {watchedAnexos.length > 0 ? (
               <div className="grid gap-3 md:grid-cols-3">
                 {watchedAnexos.map((item, index) => {
                   const url = String(item?.url || "");
+                  const governedAttachment =
+                    parseGovernedNcAttachmentReference(url);
                   const previewLabel =
                     sophiePreview?.evidenceAttachments?.find((entry) => entry.url === url)
-                      ?.label || `Anexo ${index + 1}`;
+                      ?.label ||
+                    governedAttachment?.originalName ||
+                    `Anexo ${index + 1}`;
 
                   if (!url) {
                     return null;
@@ -1297,6 +1441,13 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                           alt={previewLabel}
                           className="h-32 w-full object-cover"
                         />
+                      ) : governedAttachment ? (
+                        <div className="flex h-32 flex-col items-center justify-center gap-2 bg-emerald-50 px-4 text-center text-xs text-emerald-800">
+                          <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">
+                            Governado
+                          </span>
+                          <span className="font-medium">{governedAttachment.originalName}</span>
+                        </div>
                       ) : (
                         <div className="flex h-32 items-center justify-center bg-slate-100 px-4 text-center text-xs text-slate-500">
                           Arquivo anexado
@@ -1306,38 +1457,73 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                         <p className="text-xs font-semibold text-[var(--ds-color-text-primary)]">
                           {previewLabel}
                         </p>
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-2 inline-flex text-[11px] font-semibold text-[var(--ds-color-action-primary)] hover:underline"
-                        >
-                          Abrir anexo
-                        </a>
+                        {governedAttachment ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleOpenGovernedAttachment(index, url)}
+                            className="mt-2 inline-flex text-[11px] font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+                          >
+                            Abrir anexo governado
+                          </button>
+                        ) : (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-2 inline-flex text-[11px] font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+                          >
+                            Abrir anexo
+                          </a>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
             ) : null}
-            {anexosFields.map((field, index) => (
-              <div key={field.id} className="flex items-center space-x-2">
-                <input
-                  {...register(`anexos.${index}.url` as const)}
-                  className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
-                  placeholder="URL ou identificação do anexo"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeAnexo(index)}
-                  className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500"
-                  title="Remover anexo"
-                  aria-label={`Remover anexo ${index + 1}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+            {anexosFields.map((field, index) => {
+              const currentValue = String(watchedAnexos[index]?.url || "");
+              const governedAttachment =
+                parseGovernedNcAttachmentReference(currentValue);
+
+              return (
+                <div key={field.id} className="flex items-center space-x-2">
+                  {governedAttachment ? (
+                    <div className="flex flex-1 items-center justify-between rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                      <div>
+                        <p className="font-medium">{governedAttachment.originalName}</p>
+                        <p className="text-xs text-emerald-700">
+                          Anexo governado salvo no storage oficial.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void handleOpenGovernedAttachment(index, currentValue)}
+                        className="text-xs font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+                      >
+                        Abrir
+                      </button>
+                    </div>
+                  ) : (
+                    <input
+                      {...register(`anexos.${index}.url` as const)}
+                      className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      placeholder="URL ou identificação do anexo"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeAnexo(index)}
+                    disabled={!canManageNc}
+                    className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500"
+                    title="Remover anexo"
+                    aria-label={`Remover anexo ${index + 1}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1426,7 +1612,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </button>
         <button
           type="submit"
-          disabled={loading || isSubmitting || !isValid}
+          disabled={loading || isSubmitting || !isValid || !canManageNc}
           className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-60"
         >
           {loading ? (

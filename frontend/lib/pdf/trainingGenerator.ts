@@ -1,18 +1,35 @@
 import type { Training } from '@/services/trainingsService';
 import type { Signature } from '@/services/signaturesService';
-import { pdfDocToBase64 } from './pdfBase64';
+import { pdfDocToBase64, type PdfOutputDoc } from './pdfBase64';
 import {
   applyFooterGovernance,
+  applyInstitutionalDocumentHeader,
   buildDocumentCode,
   buildPdfFilename,
   buildValidationUrl,
   createPdfContext,
-  drawPageBackground,
   drawTrainingBlueprint,
+  formatDate,
   formatDateTime,
+  sanitize,
 } from '@/lib/pdf-system';
 
 type PdfOptions = { save?: boolean; output?: 'base64' };
+
+function resolveTrainingHeaderStatus(training: Training) {
+  if (!training.data_vencimento) return "Valido";
+
+  const expiryDate = new Date(training.data_vencimento);
+  if (Number.isNaN(expiryDate.getTime())) return "Valido";
+
+  const remainingDays = Math.ceil(
+    (expiryDate.getTime() - Date.now()) / 86400000,
+  );
+
+  if (remainingDays < 0) return "Vencido";
+  if (remainingDays <= 30) return `Vence em ${remainingDays} dias`;
+  return "Valido";
+}
 
 export async function generateTrainingPdf(
   training: Training,
@@ -25,13 +42,22 @@ export async function generateTrainingPdf(
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const ctx = createPdfContext(doc, 'training');
   const code = buildDocumentCode('TRN', training.id || training.nr_codigo || training.nome);
-  drawPageBackground(ctx);
+  ctx.y = applyInstitutionalDocumentHeader(ctx, {
+    title: "COMPROVANTE DE TREINAMENTO",
+    subtitle: "Documento oficial de qualificacao, validade e bloqueios operacionais",
+    code,
+    date: formatDate(training.data_conclusao),
+    status: resolveTrainingHeaderStatus(training),
+    version: "1",
+    company: sanitize(training.company_id),
+    site: "-",
+  });
   await drawTrainingBlueprint(ctx, autoTable, training, signatures, code, buildValidationUrl(code));
   applyFooterGovernance(ctx, { code, generatedAt: formatDateTime(new Date().toISOString()) });
 
   const filename = buildPdfFilename('TREINAMENTO', `${training.nome}_${training.user?.nome ?? 'colaborador'}`, training.data_conclusao);
   if (options?.save === false && options?.output === 'base64') {
-    const docOutput = doc as unknown as { output: (type: 'datauri' | 'dataurl') => string };
+    const docOutput = doc as unknown as PdfOutputDoc;
     return { base64: pdfDocToBase64(docOutput), filename };
   }
   doc.save(filename);

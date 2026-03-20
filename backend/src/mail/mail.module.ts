@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { MailService } from './mail.service';
 import { MailController } from './mail.controller';
 import { MailLog } from './entities/mail-log.entity';
+import { Cat } from '../cats/entities/cat.entity';
 import { EpisModule } from '../epis/epis.module';
 import { TrainingsModule } from '../trainings/trainings.module';
 import { PtsModule } from '../pts/pts.module';
@@ -23,7 +24,7 @@ import {
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([MailLog]),
+    TypeOrmModule.forFeature([MailLog, Cat]),
     ...(isRedisDisabled ? [] : [BullModule.registerQueue({ name: 'mail' })]),
     EpisModule,
     TrainingsModule,

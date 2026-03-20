@@ -1,20 +1,20 @@
 import type { Inspection } from "@/services/inspectionsService";
 import { buildApiUrl } from "@/lib/api";
 import { tokenStore } from "@/lib/tokenStore";
-import { pdfDocToBase64 } from "./pdfBase64";
+import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import {
   applyFooterGovernance,
+  applyInstitutionalDocumentHeader,
   buildDocumentCode,
   buildPdfFilename,
   buildValidationUrl,
   createPdfContext,
-  drawPageBackground,
   drawPhotographicReportBlueprint,
   formatDateTime,
+  sanitize,
 } from "@/lib/pdf-system";
 
 type PdfOptions = { save?: boolean; output?: "base64" };
-type PdfOutputDoc = { output: (type: "datauri" | "dataurl") => string };
 
 async function toDataUrlFromBlob(blob: Blob): Promise<string> {
   return new Promise<string>((resolve, reject) => {
@@ -34,13 +34,26 @@ export async function generateInspectionPdf(
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const ctx = createPdfContext(doc, "photographic");
-  drawPageBackground(ctx);
 
   const code = buildDocumentCode(
     "INS",
     inspection.id || inspection.tipo_inspecao,
     inspection.data_inspecao,
   );
+  ctx.y = applyInstitutionalDocumentHeader(ctx, {
+    title: "RELATORIO FOTOGRAFICO DE SST",
+    subtitle:
+      "Documento oficial de evidencias tecnicas e observacoes operacionais",
+    code,
+    date: inspection.data_inspecao,
+    status: "Emitido",
+    version: "1",
+    company: sanitize(
+      (inspection as Inspection & { company?: { razao_social?: string } })
+        .company?.razao_social || inspection.company_id,
+    ),
+    site: sanitize(inspection.site?.nome),
+  });
   await drawPhotographicReportBlueprint(
     ctx,
     autoTable,

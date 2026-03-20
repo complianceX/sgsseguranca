@@ -1,4 +1,5 @@
 export * from "./format";
+export * from "./documentLayout";
 export * from "./grid";
 export * from "./pagination";
 export * from "./pdfDocument";

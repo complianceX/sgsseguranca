@@ -5,7 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindManyOptions, Repository } from 'typeorm';
+import {
+  FindManyOptions,
+  FindOptionsWhere,
+  In,
+  IsNull,
+  LessThan,
+  Repository,
+} from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Pt, PtStatus, PT_ALLOWED_TRANSITIONS } from './entities/pt.entity';
 import {
@@ -18,6 +25,8 @@ import { UpdatePtDto } from './dto/update-pt.dto';
 import { LogPreApprovalReviewDto } from './dto/log-pre-approval-review.dto';
 import { User } from '../users/entities/user.entity';
 import { Company } from '../companies/entities/company.entity';
+import { Site } from '../sites/entities/site.entity';
+import { Apr } from '../aprs/entities/apr.entity';
 import { RiskCalculationService } from '../common/services/risk-calculation.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
@@ -36,6 +45,10 @@ import { DocumentStorageService } from '../common/services/document-storage.serv
 import { SignaturesService } from '../signatures/signatures.service';
 
 type PreApprovalChecklist = Record<string, unknown>;
+type PtPdfAccessAvailability =
+  | 'ready'
+  | 'registered_without_signed_url'
+  | 'not_emitted';
 type PreApprovalReviewPayload = {
   stage?: string;
   readyForRelease?: boolean;
@@ -53,6 +66,12 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+const PT_FINAL_PDF_ALLOWED_STATUSES = new Set<PtStatus>([
+  PtStatus.APROVADA,
+  PtStatus.ENCERRADA,
+  PtStatus.EXPIRADA,
+]);
 
 @Injectable()
 export class PtsService {
@@ -88,12 +107,20 @@ export class PtsService {
     }
   }
 
+  private assertPtEditableStatus(status: string) {
+    if (status !== PtStatus.PENDENTE.toString()) {
+      throw new BadRequestException(
+        'Somente PTs pendentes podem ser editadas pelo formulário. Use os fluxos formais de aprovação, cancelamento e encerramento.',
+      );
+    }
+  }
+
   private assertPtReadyForFinalPdf(pt: Pick<Pt, 'status' | 'pdf_file_key'>) {
     this.assertPtDocumentMutable(pt);
 
-    if (pt.status !== PtStatus.APROVADA.toString()) {
+    if (!PT_FINAL_PDF_ALLOWED_STATUSES.has(pt.status as PtStatus)) {
       throw new BadRequestException(
-        'A PT precisa estar aprovada antes do anexo do PDF final.',
+        'A PT precisa estar aprovada, encerrada ou expirada antes do anexo do PDF final.',
       );
     }
   }
@@ -145,8 +172,143 @@ export class PtsService {
     );
   }
 
+  private async assertCompanyScopedEntityId<
+    T extends { id: string; company_id: string },
+  >(
+    entity: { new (): T },
+    companyId: string,
+    id: string | null | undefined,
+    label: string,
+  ): Promise<void> {
+    if (!id) {
+      return;
+    }
+
+    const exists = await this.ptsRepository.manager
+      .getRepository(entity)
+      .exist({
+        where: { id, company_id: companyId } as never,
+      });
+
+    if (!exists) {
+      throw new BadRequestException(
+        `${label} inválido para a empresa/tenant atual.`,
+      );
+    }
+  }
+
+  private async assertCompanyScopedEntityIds<
+    T extends { id: string; company_id: string },
+  >(
+    entity: { new (): T },
+    companyId: string,
+    ids: string[] | undefined,
+    label: string,
+  ): Promise<void> {
+    const uniqueIds = Array.from(
+      new Set(
+        (ids || []).filter((id): id is string =>
+          Boolean(String(id || '').trim()),
+        ),
+      ),
+    );
+
+    if (uniqueIds.length === 0) {
+      return;
+    }
+
+    const count = await this.ptsRepository.manager.getRepository(entity).count({
+      where: { id: In(uniqueIds), company_id: companyId } as never,
+    });
+
+    if (count !== uniqueIds.length) {
+      throw new BadRequestException(
+        `${label} contém vínculo(s) inválido(s) para a empresa/tenant atual.`,
+      );
+    }
+  }
+
+  private async validateRelatedEntityScope(input: {
+    companyId: string;
+    siteId?: string | null;
+    aprId?: string | null;
+    responsavelId?: string | null;
+    auditadoPorId?: string | null;
+    executantes?: string[];
+  }): Promise<void> {
+    await Promise.all([
+      this.assertCompanyScopedEntityId(
+        Site,
+        input.companyId,
+        input.siteId,
+        'Site',
+      ),
+      this.assertCompanyScopedEntityId(
+        Apr,
+        input.companyId,
+        input.aprId,
+        'APR vinculada',
+      ),
+      this.assertCompanyScopedEntityId(
+        User,
+        input.companyId,
+        input.responsavelId,
+        'Responsável',
+      ),
+      this.assertCompanyScopedEntityId(
+        User,
+        input.companyId,
+        input.auditadoPorId,
+        'Auditado por',
+      ),
+      this.assertCompanyScopedEntityIds(
+        User,
+        input.companyId,
+        input.executantes,
+        'Executantes',
+      ),
+    ]);
+  }
+
+  private async refreshExpiredStatuses(companyId?: string): Promise<void> {
+    const where: FindOptionsWhere<Pt> = {
+      status: PtStatus.APROVADA,
+      data_hora_fim: LessThan(new Date()),
+      deleted_at: IsNull(),
+      ...(companyId ? { company_id: companyId } : {}),
+    };
+
+    const result = await this.ptsRepository.update(where, {
+      status: PtStatus.EXPIRADA,
+    });
+
+    if ((result.affected ?? 0) > 0) {
+      this.logger.log({
+        event: 'pt_auto_expired',
+        companyId: companyId || null,
+        affected: result.affected ?? 0,
+      });
+    }
+  }
+
   async create(createPtDto: CreatePtDto): Promise<Pt> {
     const { executantes, status, ...rest } = createPtDto;
+    const companyId = this.tenantService.getTenantId();
+    if (!companyId) {
+      throw new BadRequestException(
+        'Tenant/empresa não identificado para criação da PT.',
+      );
+    }
+
+    await this.validateRelatedEntityScope({
+      companyId,
+      siteId: createPtDto.site_id,
+      aprId: createPtDto.apr_id ?? null,
+      responsavelId: createPtDto.responsavel_id,
+      auditadoPorId: createPtDto.auditado_por_id ?? null,
+      executantes,
+    });
+
     const initialRisk = this.riskCalculationService.calculateScore(
       rest.probability,
       rest.severity,
@@ -163,11 +325,16 @@ export class PtsService {
       initial_risk: initialRisk,
       residual_risk: residualRisk,
       control_evidence: Boolean(rest.control_evidence),
-      company_id: this.tenantService.getTenantId(),
+      company_id: companyId,
       executantes: executantes?.map((id) => ({ id }) as unknown as User),
     });
 
     const saved = await this.ptsRepository.save(pt);
+    await this.logAudit({
+      action: AuditAction.CREATE,
+      entityId: saved.id,
+      after: saved,
+    });
     this.logger.log({
       event: 'pt_created',
       ptId: saved.id,
@@ -178,6 +345,7 @@ export class PtsService {
 
   async findAll(): Promise<Pt[]> {
     const tenantId = this.tenantService.getTenantId();
+    await this.refreshExpiredStatuses(tenantId || undefined);
     return this.ptsRepository.find({
       where: tenantId ? { company_id: tenantId } : {},
       relations: ['site', 'apr', 'responsavel', 'executantes', 'auditado_por'],
@@ -191,6 +359,7 @@ export class PtsService {
     status?: string;
   }): Promise<OffsetPage<Pt>> {
     const tenantId = this.tenantService.getTenantId();
+    await this.refreshExpiredStatuses(tenantId || undefined);
     const { page, limit, skip } = normalizeOffsetPagination(opts, {
       defaultLimit: 20,
       maxLimit: 100,
@@ -210,6 +379,7 @@ export class PtsService {
         'pt.site_id',
         'pt.apr_id',
         'pt.responsavel_id',
+        'pt.pdf_file_key',
         'pt.created_at',
         'pt.updated_at',
       ])
@@ -237,6 +407,7 @@ export class PtsService {
 
   async findOne(id: string): Promise<Pt> {
     const tenantId = this.tenantService.getTenantId();
+    await this.refreshExpiredStatuses(tenantId || undefined);
     const pt = await this.ptsRepository.findOne({
       where: tenantId ? { id, company_id: tenantId } : { id },
       relations: ['site', 'apr', 'responsavel', 'executantes', 'auditado_por'],
@@ -249,8 +420,27 @@ export class PtsService {
 
   async update(id: string, updatePtDto: UpdatePtDto): Promise<Pt> {
     const pt = await this.findOne(id);
+    this.assertPtEditableStatus(pt.status);
     this.assertPtDocumentMutable(pt);
     const { executantes, status, ...rest } = updatePtDto;
+    const before = { ...pt };
+
+    await this.validateRelatedEntityScope({
+      companyId: pt.company_id,
+      siteId: rest.site_id ?? pt.site_id,
+      aprId: rest.apr_id !== undefined ? rest.apr_id : pt.apr_id,
+      responsavelId: rest.responsavel_id ?? pt.responsavel_id,
+      auditadoPorId:
+        rest.auditado_por_id !== undefined
+          ? rest.auditado_por_id
+          : pt.auditado_por_id,
+      executantes:
+        executantes ??
+        (Array.isArray(pt.executantes)
+          ? pt.executantes.map((executante) => executante.id)
+          : []),
+    });
+
     const initialRisk = this.riskCalculationService.calculateScore(
       rest.probability ?? pt.probability,
       rest.severity ?? pt.severity,
@@ -278,6 +468,12 @@ export class PtsService {
     }
 
     const saved = await this.ptsRepository.save(pt);
+    await this.logAudit({
+      action: AuditAction.UPDATE,
+      entityId: saved.id,
+      before,
+      after: saved,
+    });
     this.logger.log({
       event: 'pt_updated',
       ptId: saved.id,
@@ -362,17 +558,30 @@ export class PtsService {
 
   async getPdfAccess(id: string): Promise<{
     entityId: string;
-    fileKey: string;
-    folderPath: string;
-    originalName: string;
+    hasFinalPdf: boolean;
+    availability: PtPdfAccessAvailability;
+    message: string;
+    fileKey: string | null;
+    folderPath: string | null;
+    originalName: string | null;
     url: string | null;
   }> {
     const pt = await this.findOne(id);
     if (!pt.pdf_file_key) {
-      throw new NotFoundException(`PT ${id} não possui PDF armazenado`);
+      return {
+        entityId: pt.id,
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        message: 'A PT ainda não possui PDF final emitido.',
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        url: null,
+      };
     }
 
     let url: string | null = null;
+    let availability: PtPdfAccessAvailability = 'ready';
     try {
       url = await this.documentStorageService.getSignedUrl(
         pt.pdf_file_key,
@@ -380,10 +589,17 @@ export class PtsService {
       );
     } catch {
       url = null;
+      availability = 'registered_without_signed_url';
     }
 
     return {
       entityId: pt.id,
+      hasFinalPdf: true,
+      availability,
+      message:
+        availability === 'ready'
+          ? 'PDF final disponível.'
+          : 'PDF final registrado, mas a URL segura não está disponível no momento.',
       fileKey: pt.pdf_file_key,
       folderPath: pt.pdf_folder_path,
       originalName: pt.pdf_original_name,
@@ -421,6 +637,12 @@ export class PtsService {
       after: saved,
       fallbackUserId: approvedByUserId,
     });
+    this.logger.log({
+      event: 'pt_approved',
+      ptId: saved.id,
+      companyId: saved.company_id,
+      userId: approvedByUserId,
+    });
     return saved;
   }
 
@@ -449,6 +671,40 @@ export class PtsService {
       before,
       after: saved,
       fallbackUserId: rejectedByUserId,
+    });
+    this.logger.log({
+      event: 'pt_rejected',
+      ptId: saved.id,
+      companyId: saved.company_id,
+      userId: rejectedByUserId,
+    });
+    return saved;
+  }
+
+  async finalize(id: string, finalizedByUserId: string): Promise<Pt> {
+    const pt = await this.findOne(id);
+    const allowed = PT_ALLOWED_TRANSITIONS[pt.status as PtStatus];
+    if (!allowed?.includes(PtStatus.ENCERRADA)) {
+      throw new BadRequestException(
+        `Transição inválida: ${pt.status} → Encerrada. Permitidas: ${allowed?.join(', ') || 'nenhuma'}`,
+      );
+    }
+
+    const before = { ...pt };
+    pt.status = PtStatus.ENCERRADA;
+    const saved = await this.ptsRepository.save(pt);
+    await this.logAudit({
+      action: AuditAction.UPDATE,
+      entityId: saved.id,
+      before,
+      after: saved,
+      fallbackUserId: finalizedByUserId,
+    });
+    this.logger.log({
+      event: 'pt_finalized',
+      ptId: saved.id,
+      companyId: saved.company_id,
+      userId: finalizedByUserId,
     });
     return saved;
   }
@@ -585,6 +841,7 @@ export class PtsService {
 
   async exportExcel(): Promise<Buffer> {
     const tenantId = this.tenantService.getTenantId();
+    await this.refreshExpiredStatuses(tenantId || undefined);
     const qb = this.ptsRepository
       .createQueryBuilder('pt')
       .select([
@@ -617,6 +874,49 @@ export class PtsService {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'PTs');
     return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  }
+
+  async getAnalyticsOverview(): Promise<{
+    totalPts: number;
+    aprovadas: number;
+    pendentes: number;
+    canceladas: number;
+    encerradas: number;
+    expiradas: number;
+  }> {
+    const tenantId = this.tenantService.getTenantId();
+    await this.refreshExpiredStatuses(tenantId || undefined);
+
+    const baseWhere: FindOptionsWhere<Pt> = tenantId
+      ? { company_id: tenantId }
+      : {};
+
+    const countByStatus = (status: PtStatus) =>
+      this.ptsRepository.count({
+        where: {
+          ...baseWhere,
+          status,
+        },
+      });
+
+    const [totalPts, aprovadas, pendentes, canceladas, encerradas, expiradas] =
+      await Promise.all([
+        this.ptsRepository.count({ where: baseWhere }),
+        countByStatus(PtStatus.APROVADA),
+        countByStatus(PtStatus.PENDENTE),
+        countByStatus(PtStatus.CANCELADA),
+        countByStatus(PtStatus.ENCERRADA),
+        countByStatus(PtStatus.EXPIRADA),
+      ]);
+
+    return {
+      totalPts,
+      aprovadas,
+      pendentes,
+      canceladas,
+      encerradas,
+      expiradas,
+    };
   }
 
   async getApprovalRules() {

@@ -1,14 +1,27 @@
-import api from '@/lib/api';
-import { AxiosError } from 'axios';
-import { fetchAllPages, PaginatedResponse } from './pagination';
-import { enqueueOfflineMutation } from '@/lib/offline-sync';
-import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
+import api from "@/lib/api";
+import { AxiosError } from "axios";
+import { fetchAllPages, PaginatedResponse } from "./pagination";
+import { enqueueOfflineMutation } from "@/lib/offline-sync";
+import {
+  getOfflineCache,
+  isOfflineRequestError,
+  setOfflineCache,
+} from "@/lib/offline-cache";
 
 export interface ChecklistItem {
   id?: string;
   item: string; // The question/label
-  status: boolean | 'ok' | 'nok' | 'na' | 'sim' | 'nao';
-  tipo_resposta?: 'sim_nao' | 'conforme' | 'texto' | 'foto' | 'sim_nao_na';
+  status:
+    | boolean
+    | "ok"
+    | "nok"
+    | "na"
+    | "sim"
+    | "nao"
+    | "Pendente"
+    | "Conforme"
+    | "Não Conforme";
+  tipo_resposta?: "sim_nao" | "conforme" | "texto" | "foto" | "sim_nao_na";
   obrigatorio?: boolean;
   peso?: number;
   resposta?: unknown;
@@ -24,7 +37,7 @@ export interface Checklist {
   maquina?: string;
   foto_equipamento?: string;
   data: string;
-  status: 'Conforme' | 'Não Conforme' | 'Pendente';
+  status: "Conforme" | "Não Conforme" | "Pendente";
   company_id: string;
   site_id: string;
   inspetor_id: string;
@@ -49,6 +62,55 @@ export interface Checklist {
   company?: { razao_social: string };
 }
 
+export interface ChecklistPdfAccess {
+  entityId: string;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  url: string | null;
+  hasFinalPdf: boolean;
+  availability: "ready" | "registered_without_signed_url" | "not_emitted";
+  message: string;
+}
+
+export interface ChecklistSavePdfResult extends ChecklistPdfAccess {
+  fileUrl?: string | null;
+}
+
+export interface ChecklistPhotoAccess {
+  entityId: string;
+  scope: "equipment" | "item";
+  itemIndex: number | null;
+  photoIndex: number | null;
+  hasGovernedPhoto: true;
+  availability: "ready" | "registered_without_signed_url";
+  fileKey: string;
+  originalName: string;
+  mimeType: string;
+  url: string | null;
+  degraded: boolean;
+  message: string | null;
+}
+
+export interface ChecklistPhotoAttachResult {
+  entityId: string;
+  scope: "equipment" | "item";
+  itemIndex: number | null;
+  photoIndex: number | null;
+  storageMode: "governed-storage";
+  degraded: false;
+  message: string;
+  photoReference: string;
+  photo: {
+    fileKey: string;
+    originalName: string;
+    mimeType: string;
+  };
+  signaturesReset: boolean;
+}
+
+export const CHECKLIST_GOVERNED_PHOTO_REF_PREFIX = "gst:checklist-photo:";
+
 export const checklistsService = {
   findPaginated: async (params?: {
     onlyTemplates?: boolean;
@@ -57,17 +119,20 @@ export const checklistsService = {
     limit?: number;
   }) => {
     const query = {
-      onlyTemplates: params?.onlyTemplates ? 'true' : undefined,
-      excludeTemplates: params?.excludeTemplates ? 'true' : undefined,
+      onlyTemplates: params?.onlyTemplates ? "true" : undefined,
+      excludeTemplates: params?.excludeTemplates ? "true" : undefined,
       page: params?.page ?? 1,
       limit: params?.limit ?? 20,
     };
     const cacheKey = `checklists.paginated.${JSON.stringify(query)}`;
 
     try {
-      const response = await api.get<PaginatedResponse<Checklist>>('/checklists', {
-        params: query,
-      });
+      const response = await api.get<PaginatedResponse<Checklist>>(
+        "/checklists",
+        {
+          params: query,
+        },
+      );
       setOfflineCache(cacheKey, response.data);
       return response.data;
     } catch (error) {
@@ -80,7 +145,10 @@ export const checklistsService = {
     }
   },
 
-  findAll: async (options?: { onlyTemplates?: boolean; excludeTemplates?: boolean }) => {
+  findAll: async (options?: {
+    onlyTemplates?: boolean;
+    excludeTemplates?: boolean;
+  }) => {
     const cacheKey = `checklists.all.${JSON.stringify(options || {})}`;
     try {
       const data = await fetchAllPages({
@@ -127,28 +195,29 @@ export const checklistsService = {
 
   create: async (data: Partial<Checklist>, companyId?: string) => {
     try {
-      const response = await api.post<Checklist>('/checklists', data, {
-        headers: companyId ? { 'x-company-id': companyId } : undefined,
+      const response = await api.post<Checklist>("/checklists", data, {
+        headers: companyId ? { "x-company-id": companyId } : undefined,
       });
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
-      if (axiosError.code !== 'ERR_NETWORK') {
+      if (axiosError.code !== "ERR_NETWORK") {
         throw error;
       }
 
       const queued = enqueueOfflineMutation({
-        url: '/checklists',
-        method: 'post',
+        url: "/checklists",
+        method: "post",
         data,
-        headers: companyId ? { 'x-company-id': companyId } : undefined,
-        label: 'Checklist',
+        headers: companyId ? { "x-company-id": companyId } : undefined,
+        label: "Checklist",
       });
 
       return {
         ...(data as Checklist),
         id: queued.id,
-        status: ((data as Checklist)?.status || 'Pendente') as Checklist['status'],
+        status: ((data as Checklist)?.status ||
+          "Pendente") as Checklist["status"],
         created_at: queued.createdAt,
         updated_at: queued.createdAt,
         offlineQueued: true,
@@ -159,21 +228,21 @@ export const checklistsService = {
   update: async (id: string, data: Partial<Checklist>, companyId?: string) => {
     try {
       const response = await api.patch<Checklist>(`/checklists/${id}`, data, {
-        headers: companyId ? { 'x-company-id': companyId } : undefined,
+        headers: companyId ? { "x-company-id": companyId } : undefined,
       });
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
-      if (axiosError.code !== 'ERR_NETWORK') {
+      if (axiosError.code !== "ERR_NETWORK") {
         throw error;
       }
 
       const queued = enqueueOfflineMutation({
         url: `/checklists/${id}`,
-        method: 'patch',
+        method: "patch",
         data,
-        headers: companyId ? { 'x-company-id': companyId } : undefined,
-        label: 'Checklist',
+        headers: companyId ? { "x-company-id": companyId } : undefined,
+        label: "Checklist",
       });
 
       return {
@@ -195,13 +264,7 @@ export const checklistsService = {
   },
 
   getPdfAccess: async (id: string) => {
-    const response = await api.get<{
-      entityId: string;
-      fileKey: string;
-      folderPath: string;
-      originalName: string;
-      url: string | null;
-    }>(`/checklists/${id}/pdf`);
+    const response = await api.get<ChecklistPdfAccess>(`/checklists/${id}/pdf`);
     return response.data;
   },
 
@@ -210,7 +273,9 @@ export const checklistsService = {
     year?: number;
     week?: number;
   }) => {
-    const response = await api.get('/checklists/files/list', { params: filters });
+    const response = await api.get("/checklists/files/list", {
+      params: filters,
+    });
     return response.data;
   },
 
@@ -219,9 +284,9 @@ export const checklistsService = {
     year: number;
     week: number;
   }) => {
-    const response = await api.get('/checklists/files/weekly-bundle', {
+    const response = await api.get("/checklists/files/weekly-bundle", {
       params: filters,
-      responseType: 'blob',
+      responseType: "blob",
     });
     return response.data as Blob;
   },
@@ -235,13 +300,107 @@ export const checklistsService = {
     return checklistsService.findAll({ excludeTemplates: true });
   },
 
-  fillFromTemplate: async (templateId: string, data: Partial<Checklist>): Promise<Checklist> => {
-    const response = await api.post<Checklist>(`/checklists/fill-from-template/${templateId}`, data);
+  fillFromTemplate: async (
+    templateId: string,
+    data: Partial<Checklist>,
+    companyId?: string,
+  ): Promise<Checklist> => {
+    try {
+      const response = await api.post<Checklist>(
+        `/checklists/fill-from-template/${templateId}`,
+        data,
+        {
+          headers: companyId ? { "x-company-id": companyId } : undefined,
+        },
+      );
+      return response.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.code !== "ERR_NETWORK") {
+        throw error;
+      }
+
+      const queued = enqueueOfflineMutation({
+        url: `/checklists/fill-from-template/${templateId}`,
+        method: "post",
+        data,
+        headers: companyId ? { "x-company-id": companyId } : undefined,
+        label: "Checklist",
+      });
+
+      return {
+        ...(data as Checklist),
+        id: queued.id,
+        status: ((data as Checklist)?.status ||
+          "Pendente") as Checklist["status"],
+        created_at: queued.createdAt,
+        updated_at: queued.createdAt,
+        offlineQueued: true,
+      } as Checklist & { offlineQueued: true };
+    }
+  },
+
+  savePdf: async (id: string): Promise<ChecklistSavePdfResult> => {
+    const response = await api.post<ChecklistSavePdfResult>(
+      `/checklists/${id}/save-pdf`,
+    );
     return response.data;
   },
 
-  savePdf: async (id: string): Promise<{ fileKey: string; folderPath: string; fileUrl: string }> => {
-    const response = await api.post<{ fileKey: string; folderPath: string; fileUrl: string }>(`/checklists/${id}/save-pdf`);
+  attachEquipmentPhoto: async (
+    id: string,
+    file: File,
+  ): Promise<ChecklistPhotoAttachResult> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<ChecklistPhotoAttachResult>(
+      `/checklists/${id}/equipment-photo`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data;
+  },
+
+  attachItemPhoto: async (
+    id: string,
+    itemIndex: number,
+    file: File,
+  ): Promise<ChecklistPhotoAttachResult> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<ChecklistPhotoAttachResult>(
+      `/checklists/${id}/items/${itemIndex}/photos`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data;
+  },
+
+  getEquipmentPhotoAccess: async (
+    id: string,
+  ): Promise<ChecklistPhotoAccess> => {
+    const response = await api.get<ChecklistPhotoAccess>(
+      `/checklists/${id}/equipment-photo/access`,
+    );
+    return response.data;
+  },
+
+  getItemPhotoAccess: async (
+    id: string,
+    itemIndex: number,
+    photoIndex: number,
+  ): Promise<ChecklistPhotoAccess> => {
+    const response = await api.get<ChecklistPhotoAccess>(
+      `/checklists/${id}/items/${itemIndex}/photos/${photoIndex}/access`,
+    );
     return response.data;
   },
 
@@ -250,16 +409,20 @@ export const checklistsService = {
       created: number;
       skipped: number;
       templates: Checklist[];
-    }>('/checklists/templates/bootstrap');
+    }>("/checklists/templates/bootstrap");
     return response.data;
   },
 
   importFromWord: async (file: File): Promise<Checklist> => {
     const formData = new FormData();
-    formData.append('file', file);
-    const response = await api.post<Checklist>('/checklists/import-word', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    formData.append("file", file);
+    const response = await api.post<Checklist>(
+      "/checklists/import-word",
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
     return response.data;
   },
 };

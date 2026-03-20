@@ -24,7 +24,7 @@ export const PT_ALLOWED_TRANSITIONS: Record<PtStatus, PtStatus[]> = {
   [PtStatus.APROVADA]: [PtStatus.ENCERRADA, PtStatus.CANCELADA],
   [PtStatus.CANCELADA]: [],
   [PtStatus.ENCERRADA]: [],
-  [PtStatus.EXPIRADA]: [],
+  [PtStatus.EXPIRADA]: [PtStatus.ENCERRADA],
 };
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';

@@ -54,11 +54,85 @@ import { RequestContext } from '../common/middleware/request-context.middleware'
 import { Company } from '../companies/entities/company.entity';
 import { getIsoWeekNumber } from '../common/utils/document-calendar.util';
 import { requestOpenAiChatCompletionResponse } from '../ai/openai-request.util';
+import { ChecklistItemValue } from './types/checklist-item.type';
+
+type ChecklistPdfAccessAvailability =
+  | 'ready'
+  | 'registered_without_signed_url'
+  | 'not_emitted';
+
+type ChecklistPdfAccessResponse = {
+  entityId: string;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  url: string | null;
+  hasFinalPdf: boolean;
+  availability: ChecklistPdfAccessAvailability;
+  message: string;
+};
+
+type ChecklistPhotoAccessAvailability =
+  | 'ready'
+  | 'registered_without_signed_url';
+
+type ChecklistPhotoAccessResponse = {
+  entityId: string;
+  scope: 'equipment' | 'item';
+  itemIndex: number | null;
+  photoIndex: number | null;
+  hasGovernedPhoto: true;
+  availability: ChecklistPhotoAccessAvailability;
+  fileKey: string;
+  originalName: string;
+  mimeType: string;
+  url: string | null;
+  degraded: boolean;
+  message: string | null;
+};
+
+type ChecklistPhotoAttachResponse = {
+  entityId: string;
+  scope: 'equipment' | 'item';
+  itemIndex: number | null;
+  photoIndex: number | null;
+  storageMode: 'governed-storage';
+  degraded: false;
+  message: string;
+  photoReference: string;
+  photo: {
+    fileKey: string;
+    originalName: string;
+    mimeType: string;
+  };
+  signaturesReset: boolean;
+};
+
+type GovernedChecklistPhotoReferencePayload = {
+  v: 1;
+  kind: 'governed-storage';
+  scope: 'equipment' | 'item';
+  fileKey: string;
+  originalName: string;
+  mimeType: string;
+  uploadedAt: string;
+  sizeBytes?: number | null;
+};
+
+const GOVERNED_CHECKLIST_PHOTO_REF_PREFIX = 'gst:checklist-photo:';
 
 @Injectable({ scope: Scope.REQUEST })
 export class ChecklistsService {
   private readonly logger = new Logger(ChecklistsService.name);
-  private readonly checklistTemplatesByActivity = [
+  private static readonly MAX_INLINE_IMAGE_BYTES = 1 * 1024 * 1024;
+  private readonly checklistTemplatesByActivity: Array<{
+    titulo: string;
+    descricao: string;
+    categoria: string;
+    periodicidade: string;
+    nivel_risco_padrao: string;
+    itens: ChecklistItemValue[];
+  }> = [
     {
       titulo: 'Checklist - Trabalho em Altura',
       descricao: 'Inspeção pré-tarefa para serviços em altura.',
@@ -347,15 +421,532 @@ export class ChecklistsService {
     }
   }
 
+  private logChecklistEvent(
+    event: string,
+    checklist: Pick<Checklist, 'id' | 'company_id'> | null,
+    extra?: Record<string, unknown>,
+  ) {
+    this.logger.log({
+      event,
+      checklistId: checklist?.id ?? null,
+      companyId: checklist?.company_id ?? this.tenantService.getTenantId(),
+      requestId: RequestContext.getRequestId(),
+      actorId: RequestContext.getUserId(),
+      ...extra,
+    });
+  }
+
+  private getInlineImageByteLength(imageData: string): number {
+    const trimmed = imageData.trim();
+    const base64 = trimmed.includes(',')
+      ? trimmed.split(',')[1] || ''
+      : trimmed;
+    const normalized = base64.replace(/\s+/g, '');
+
+    if (!normalized) {
+      return 0;
+    }
+
+    const padding = normalized.endsWith('==')
+      ? 2
+      : normalized.endsWith('=')
+        ? 1
+        : 0;
+
+    return Math.floor((normalized.length * 3) / 4) - padding;
+  }
+
+  private encodeBase64Url(value: string): string {
+    return Buffer.from(value, 'utf8').toString('base64url');
+  }
+
+  private decodeBase64Url(value: string): string {
+    return Buffer.from(value, 'base64url').toString('utf8');
+  }
+
+  private buildGovernedChecklistPhotoReference(
+    payload: GovernedChecklistPhotoReferencePayload,
+  ): string {
+    return `${GOVERNED_CHECKLIST_PHOTO_REF_PREFIX}${this.encodeBase64Url(JSON.stringify(payload))}`;
+  }
+
+  private parseGovernedChecklistPhotoReference(
+    value?: string | null,
+  ): GovernedChecklistPhotoReferencePayload | null {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (
+      !normalized ||
+      !normalized.startsWith(GOVERNED_CHECKLIST_PHOTO_REF_PREFIX)
+    ) {
+      return null;
+    }
+
+    const encodedPayload = normalized.slice(
+      GOVERNED_CHECKLIST_PHOTO_REF_PREFIX.length,
+    );
+    if (!encodedPayload) {
+      throw new BadRequestException(
+        'Referência de foto governada do checklist inválida.',
+      );
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(this.decodeBase64Url(encodedPayload));
+    } catch {
+      throw new BadRequestException(
+        'Referência de foto governada do checklist inválida.',
+      );
+    }
+
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed) ||
+      (parsed as GovernedChecklistPhotoReferencePayload).v !== 1 ||
+      (parsed as GovernedChecklistPhotoReferencePayload).kind !==
+        'governed-storage' ||
+      ((parsed as GovernedChecklistPhotoReferencePayload).scope !==
+        'equipment' &&
+        (parsed as GovernedChecklistPhotoReferencePayload).scope !== 'item') ||
+      typeof (parsed as GovernedChecklistPhotoReferencePayload).fileKey !==
+        'string' ||
+      typeof (parsed as GovernedChecklistPhotoReferencePayload).originalName !==
+        'string' ||
+      typeof (parsed as GovernedChecklistPhotoReferencePayload).mimeType !==
+        'string' ||
+      typeof (parsed as GovernedChecklistPhotoReferencePayload).uploadedAt !==
+        'string'
+    ) {
+      throw new BadRequestException(
+        'Referência de foto governada do checklist inválida.',
+      );
+    }
+
+    return parsed as GovernedChecklistPhotoReferencePayload;
+  }
+
+  private normalizeInlineImage(
+    imageData: unknown,
+    fieldLabel: string,
+  ): string | undefined {
+    if (typeof imageData !== 'string') {
+      return undefined;
+    }
+
+    const trimmed = imageData.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    if (/^javascript:/i.test(trimmed)) {
+      throw new BadRequestException(`${fieldLabel} possui URL inválida.`);
+    }
+
+    if (!trimmed.startsWith('data:image/')) {
+      return trimmed;
+    }
+
+    const matchesDataImage = /^data:image\/(png|jpeg|jpg|webp);base64,/i.test(
+      trimmed,
+    );
+    if (!matchesDataImage) {
+      throw new BadRequestException(`${fieldLabel} possui formato inválido.`);
+    }
+
+    const byteLength = this.getInlineImageByteLength(trimmed);
+    if (byteLength > ChecklistsService.MAX_INLINE_IMAGE_BYTES) {
+      throw new BadRequestException(
+        `${fieldLabel} excede o limite de ${Math.floor(
+          ChecklistsService.MAX_INLINE_IMAGE_BYTES / 1024 / 1024,
+        )} MB.`,
+      );
+    }
+
+    return trimmed;
+  }
+
+  private normalizeChecklistPhotoReference(
+    imageData: unknown,
+    fieldLabel: string,
+    options?: {
+      allowedGovernedReferences?: Set<string>;
+    },
+  ): string | undefined {
+    if (typeof imageData !== 'string') {
+      return undefined;
+    }
+
+    const normalized = imageData.trim();
+    if (!normalized) {
+      return undefined;
+    }
+
+    const governedPayload =
+      this.parseGovernedChecklistPhotoReference(normalized);
+    if (governedPayload) {
+      if (!options?.allowedGovernedReferences?.has(normalized)) {
+        throw new BadRequestException(
+          `${fieldLabel} deve ser enviado pelo endpoint governado de fotos do checklist.`,
+        );
+      }
+      return normalized;
+    }
+
+    return this.normalizeInlineImage(imageData, fieldLabel);
+  }
+
+  private getAllowedGovernedChecklistPhotoReferences(
+    checklist: Pick<Checklist, 'foto_equipamento' | 'itens'>,
+  ): Set<string> {
+    return new Set(
+      this.getGovernedChecklistPhotoEntries(checklist).map(
+        (entry) => entry.reference,
+      ),
+    );
+  }
+
+  private getGovernedChecklistPhotoEntries(
+    checklist: Pick<Checklist, 'foto_equipamento' | 'itens'>,
+  ): Array<{
+    reference: string;
+    payload: GovernedChecklistPhotoReferencePayload;
+    scope: 'equipment' | 'item';
+    itemIndex: number | null;
+    photoIndex: number | null;
+  }> {
+    const entries: Array<{
+      reference: string;
+      payload: GovernedChecklistPhotoReferencePayload;
+      scope: 'equipment' | 'item';
+      itemIndex: number | null;
+      photoIndex: number | null;
+    }> = [];
+
+    if (typeof checklist.foto_equipamento === 'string') {
+      const payload = this.parseGovernedChecklistPhotoReference(
+        checklist.foto_equipamento,
+      );
+      if (payload) {
+        entries.push({
+          reference: checklist.foto_equipamento,
+          payload,
+          scope: 'equipment',
+          itemIndex: null,
+          photoIndex: null,
+        });
+      }
+    }
+
+    (Array.isArray(checklist.itens) ? checklist.itens : []).forEach(
+      (item, itemIndex) => {
+        (Array.isArray(item?.fotos) ? item.fotos : []).forEach(
+          (photo, photoIndex) => {
+            const payload = this.parseGovernedChecklistPhotoReference(photo);
+            if (!payload) {
+              return;
+            }
+            entries.push({
+              reference: photo,
+              payload,
+              scope: 'item',
+              itemIndex,
+              photoIndex,
+            });
+          },
+        );
+      },
+    );
+
+    return entries;
+  }
+
+  private async cleanupGovernedChecklistPhotoFiles(
+    checklistId: string,
+    removedEntries: Array<{
+      payload: GovernedChecklistPhotoReferencePayload;
+    }>,
+  ): Promise<void> {
+    await Promise.all(
+      removedEntries.map(async ({ payload }) => {
+        try {
+          await this.documentStorageService.deleteFile(payload.fileKey);
+          this.logChecklistEvent('checklist_photo_removed_from_storage', null, {
+            checklistId,
+            fileKey: payload.fileKey,
+            originalName: payload.originalName,
+          });
+        } catch (error) {
+          this.logChecklistEvent(
+            'checklist_photo_storage_cleanup_failed',
+            null,
+            {
+              checklistId,
+              fileKey: payload.fileKey,
+              originalName: payload.originalName,
+              errorMessage: error instanceof Error ? error.message : 'unknown',
+            },
+          );
+        }
+      }),
+    );
+  }
+
+  private buildChecklistMaterialSnapshot(
+    checklist: Pick<
+      Checklist,
+      | 'titulo'
+      | 'descricao'
+      | 'equipamento'
+      | 'maquina'
+      | 'foto_equipamento'
+      | 'data'
+      | 'site_id'
+      | 'inspetor_id'
+      | 'itens'
+      | 'categoria'
+      | 'periodicidade'
+      | 'nivel_risco_padrao'
+      | 'auditado_por_id'
+      | 'data_auditoria'
+      | 'resultado_auditoria'
+      | 'notas_auditoria'
+    >,
+  ): string {
+    return JSON.stringify({
+      titulo: checklist.titulo ?? '',
+      descricao: checklist.descricao ?? '',
+      equipamento: checklist.equipamento ?? '',
+      maquina: checklist.maquina ?? '',
+      foto_equipamento: checklist.foto_equipamento ?? '',
+      data:
+        checklist.data instanceof Date
+          ? checklist.data.toISOString()
+          : checklist.data
+            ? new Date(checklist.data).toISOString()
+            : '',
+      site_id: checklist.site_id ?? '',
+      inspetor_id: checklist.inspetor_id ?? '',
+      itens: this.cloneChecklistItems(checklist.itens),
+      categoria: checklist.categoria ?? '',
+      periodicidade: checklist.periodicidade ?? '',
+      nivel_risco_padrao: checklist.nivel_risco_padrao ?? '',
+      auditado_por_id: checklist.auditado_por_id ?? '',
+      data_auditoria:
+        checklist.data_auditoria instanceof Date
+          ? checklist.data_auditoria.toISOString()
+          : checklist.data_auditoria
+            ? new Date(checklist.data_auditoria).toISOString()
+            : '',
+      resultado_auditoria: checklist.resultado_auditoria ?? '',
+      notas_auditoria: checklist.notas_auditoria ?? '',
+    });
+  }
+
+  private async resetChecklistSignatures(
+    checklist: Pick<Checklist, 'id' | 'company_id' | 'is_modelo'>,
+    reason: string,
+  ): Promise<boolean> {
+    if (checklist.is_modelo) {
+      return false;
+    }
+
+    const removedCount = await this.signaturesService.removeByDocumentSystem(
+      checklist.id,
+      'CHECKLIST',
+    );
+
+    if (removedCount > 0) {
+      this.logChecklistEvent('checklist_signatures_reset', checklist, {
+        reason,
+        removedCount,
+      });
+      return true;
+    }
+
+    return false;
+  }
+
+  private async buildChecklistPhotoAccessResponse(
+    checklistId: string,
+    input: {
+      scope: 'equipment' | 'item';
+      itemIndex: number | null;
+      photoIndex: number | null;
+      payload: GovernedChecklistPhotoReferencePayload;
+    },
+  ): Promise<ChecklistPhotoAccessResponse> {
+    let url: string | null = null;
+    let availability: ChecklistPhotoAccessAvailability = 'ready';
+    let message: string | null = null;
+
+    try {
+      url = await this.documentStorageService.getPresignedDownloadUrl(
+        input.payload.fileKey,
+      );
+    } catch (error) {
+      availability = 'registered_without_signed_url';
+      message =
+        'A foto governada foi localizada, mas a URL assinada não está disponível no momento.';
+      this.logChecklistEvent('checklist_photo_access_degraded', null, {
+        checklistId,
+        scope: input.scope,
+        itemIndex: input.itemIndex,
+        photoIndex: input.photoIndex,
+        fileKey: input.payload.fileKey,
+        errorMessage: error instanceof Error ? error.message : 'unknown',
+      });
+    }
+
+    this.logChecklistEvent('checklist_photo_access_checked', null, {
+      checklistId,
+      scope: input.scope,
+      itemIndex: input.itemIndex,
+      photoIndex: input.photoIndex,
+      availability,
+      fileKey: input.payload.fileKey,
+    });
+
+    return {
+      entityId: checklistId,
+      scope: input.scope,
+      itemIndex: input.itemIndex,
+      photoIndex: input.photoIndex,
+      hasGovernedPhoto: true,
+      availability,
+      fileKey: input.payload.fileKey,
+      originalName: input.payload.originalName,
+      mimeType: input.payload.mimeType,
+      url,
+      degraded: availability !== 'ready',
+      message,
+    };
+  }
+
+  private sanitizeChecklistItems(
+    items: UpdateChecklistDto['itens'],
+    options?: {
+      resetExecutionState?: boolean;
+      allowedGovernedReferences?: Set<string>;
+    },
+  ) {
+    const cloned = this.cloneChecklistItems(items, options);
+
+    return cloned.map((item, index) => ({
+      ...item,
+      fotos: Array.isArray(item.fotos)
+        ? item.fotos
+            .map((photo) =>
+              this.normalizeChecklistPhotoReference(
+                photo,
+                `Foto do item ${index + 1} do checklist`,
+                {
+                  allowedGovernedReferences: options?.allowedGovernedReferences,
+                },
+              ),
+            )
+            .filter((photo): photo is string => Boolean(photo))
+        : [],
+    }));
+  }
+
+  private deriveChecklistStatus(
+    input: Pick<Checklist, 'is_modelo'> & {
+      status?: string | null;
+      itens?: unknown;
+    },
+  ): Checklist['status'] {
+    if (input.is_modelo) {
+      if (
+        input.status === 'Conforme' ||
+        input.status === 'Não Conforme' ||
+        input.status === 'Pendente'
+      ) {
+        return input.status;
+      }
+      return 'Pendente';
+    }
+
+    const items = Array.isArray(input.itens) ? input.itens : [];
+    if (!items.length) {
+      return 'Pendente';
+    }
+
+    let hasPending = false;
+    let hasNonConformity = false;
+
+    for (const rawItem of items) {
+      const item =
+        rawItem && typeof rawItem === 'object'
+          ? (rawItem as Record<string, unknown>)
+          : {};
+      const status = item.status;
+
+      if (
+        status === 'nok' ||
+        status === 'nao' ||
+        status === false ||
+        status === 'Não Conforme'
+      ) {
+        hasNonConformity = true;
+        break;
+      }
+
+      if (
+        status === undefined ||
+        status === null ||
+        status === '' ||
+        status === 'Pendente'
+      ) {
+        hasPending = true;
+      }
+    }
+
+    if (hasNonConformity) {
+      return 'Não Conforme';
+    }
+
+    if (hasPending) {
+      return 'Pendente';
+    }
+
+    return 'Conforme';
+  }
+
+  private async validateChecklistRelations(checklist: {
+    company_id?: string | null;
+    site_id?: string | null;
+    inspetor_id?: string | null;
+    auditado_por_id?: string | null;
+  }) {
+    if (!checklist.company_id) {
+      throw new BadRequestException(
+        'Não foi possível identificar a empresa do checklist.',
+      );
+    }
+
+    if (checklist.site_id) {
+      await this.sitesService.findOne(checklist.site_id);
+    }
+
+    if (checklist.inspetor_id) {
+      await this.usersService.findOne(checklist.inspetor_id);
+    }
+
+    if (checklist.auditado_por_id) {
+      await this.usersService.findOne(checklist.auditado_por_id);
+    }
+  }
+
   private cloneChecklistItems(
-    items: Checklist['itens'],
+    items: Checklist['itens'] | undefined,
     options?: { resetExecutionState?: boolean },
   ) {
     if (!Array.isArray(items)) {
       return [];
     }
 
-    return items.map((item: Record<string, unknown>) => {
+    return items.map((item: ChecklistItemValue) => {
       const baseItem = {
         id: typeof item.id === 'string' && item.id.trim() ? item.id : undefined,
         item: typeof item.item === 'string' ? item.item : '',
@@ -375,7 +966,7 @@ export class ChecklistsService {
           ...baseItem,
           status:
             typeof item.status === 'string' || typeof item.status === 'boolean'
-              ? item.status
+              ? (item.status as ChecklistItemValue['status'])
               : 'ok',
           resposta: item.resposta ?? '',
           observacao:
@@ -390,7 +981,10 @@ export class ChecklistsService {
 
       return {
         ...baseItem,
-        status: baseItem.tipo_resposta === 'conforme' ? 'ok' : 'sim',
+        status:
+          baseItem.tipo_resposta === 'conforme'
+            ? ('ok' as ChecklistItemValue['status'])
+            : ('sim' as ChecklistItemValue['status']),
         resposta: '',
         observacao: '',
         fotos: [],
@@ -416,10 +1010,13 @@ export class ChecklistsService {
       inspetor_id: fillData.inspetor_id ?? undefined,
       itens:
         fillData.itens !== undefined
-          ? this.cloneChecklistItems(fillData.itens)
-          : this.cloneChecklistItems(template.itens, {
-              resetExecutionState: true,
-            }),
+          ? this.sanitizeChecklistItems(fillData.itens)
+          : this.sanitizeChecklistItems(
+              Array.isArray(template.itens) ? template.itens : undefined,
+              {
+                resetExecutionState: true,
+              },
+            ),
       is_modelo: false,
       template_id: template.id,
       ativo: fillData.ativo ?? true,
@@ -479,6 +1076,29 @@ export class ChecklistsService {
     };
   }
 
+  private async resolveChecklistPdfImage(imageData: string): Promise<{
+    data: string;
+    format: 'PNG' | 'JPEG';
+  }> {
+    const governedPhoto = this.parseGovernedChecklistPhotoReference(imageData);
+    if (!governedPhoto) {
+      return this.resolvePdfImage(imageData);
+    }
+
+    const buffer = await this.documentStorageService.downloadFileBuffer(
+      governedPhoto.fileKey,
+    );
+    const base64 = buffer.toString('base64');
+    const isPng =
+      governedPhoto.mimeType === 'image/png' ||
+      governedPhoto.originalName.toLowerCase().endsWith('.png');
+
+    return {
+      data: base64,
+      format: isPng ? 'PNG' : 'JPEG',
+    };
+  }
+
   async create(
     createChecklistDto: CreateChecklistDto,
   ): Promise<ChecklistResponseDto> {
@@ -488,11 +1108,21 @@ export class ChecklistsService {
     const checklist = this.checklistsRepository.create({
       ...createChecklistDto,
       company_id: tenantId || createChecklistDto.company_id,
-      itens: this.cloneChecklistItems(createChecklistDto.itens),
+      foto_equipamento: this.normalizeChecklistPhotoReference(
+        createChecklistDto.foto_equipamento,
+        'Foto do equipamento',
+      ),
+      itens: this.sanitizeChecklistItems(createChecklistDto.itens),
     });
+    checklist.status = this.deriveChecklistStatus(checklist);
     this.assertChecklistExecutionRequirements(checklist);
+    await this.validateChecklistRelations(checklist);
     const saved: Checklist = await this.checklistsRepository.save(checklist);
-    this.logger.log(`Checklist salvo: ${saved.id}`);
+    this.logChecklistEvent('checklist_created', saved, {
+      isTemplate: saved.is_modelo,
+      status: saved.status,
+      itemsCount: Array.isArray(saved.itens) ? saved.itens.length : 0,
+    });
     return plainToClass(ChecklistResponseDto, saved);
   }
 
@@ -515,7 +1145,7 @@ export class ChecklistsService {
 
     const results = await this.checklistsRepository.find({
       where: { ...filter, deleted_at: IsNull() },
-      relations: ['company', 'site', 'inspetor'],
+      relations: ['company', 'site', 'inspetor', 'auditado_por'],
       order: { created_at: 'DESC' },
     });
     return results.map((c) => plainToClass(ChecklistResponseDto, c));
@@ -572,7 +1202,7 @@ export class ChecklistsService {
       where: tenantId
         ? { id, company_id: tenantId, deleted_at: IsNull() }
         : { id, deleted_at: IsNull() },
-      relations: ['company', 'site', 'inspetor'],
+      relations: ['company', 'site', 'inspetor', 'auditado_por'],
     });
     if (!checklist) {
       throw new NotFoundException(`Checklist com ID ${id} não encontrado`);
@@ -586,6 +1216,12 @@ export class ChecklistsService {
   ): Promise<ChecklistResponseDto> {
     const checklist = await this.findOneEntity(id);
     this.assertChecklistDocumentMutable(checklist);
+    const allowedGovernedPhotoReferences =
+      this.getAllowedGovernedChecklistPhotoReferences(checklist);
+    const previousPhotoEntries =
+      this.getGovernedChecklistPhotoEntries(checklist);
+    const previousMaterialSnapshot =
+      this.buildChecklistMaterialSnapshot(checklist);
 
     if (updateChecklistDto.titulo !== undefined) {
       checklist.titulo = updateChecklistDto.titulo;
@@ -600,13 +1236,17 @@ export class ChecklistsService {
       checklist.maquina = updateChecklistDto.maquina;
     }
     if (updateChecklistDto.foto_equipamento !== undefined) {
-      checklist.foto_equipamento = updateChecklistDto.foto_equipamento;
+      checklist.foto_equipamento =
+        this.normalizeChecklistPhotoReference(
+          updateChecklistDto.foto_equipamento,
+          'Foto do equipamento',
+          {
+            allowedGovernedReferences: allowedGovernedPhotoReferences,
+          },
+        ) ?? '';
     }
     if (updateChecklistDto.data !== undefined) {
       checklist.data = new Date(updateChecklistDto.data);
-    }
-    if (updateChecklistDto.status !== undefined) {
-      checklist.status = updateChecklistDto.status;
     }
     if (updateChecklistDto.site_id !== undefined) {
       checklist.site_id = updateChecklistDto.site_id;
@@ -615,7 +1255,9 @@ export class ChecklistsService {
       checklist.inspetor_id = updateChecklistDto.inspetor_id;
     }
     if (updateChecklistDto.itens !== undefined) {
-      checklist.itens = this.cloneChecklistItems(updateChecklistDto.itens);
+      checklist.itens = this.sanitizeChecklistItems(updateChecklistDto.itens, {
+        allowedGovernedReferences: allowedGovernedPhotoReferences,
+      });
     }
     if (updateChecklistDto.is_modelo !== undefined) {
       checklist.is_modelo = updateChecklistDto.is_modelo;
@@ -639,8 +1281,31 @@ export class ChecklistsService {
       checklist.data_auditoria = new Date(updateChecklistDto.data_auditoria);
     }
 
+    checklist.status = this.deriveChecklistStatus({
+      ...checklist,
+      status: updateChecklistDto.status ?? checklist.status,
+    });
     this.assertChecklistExecutionRequirements(checklist);
+    await this.validateChecklistRelations(checklist);
     const saved: Checklist = await this.checklistsRepository.save(checklist);
+    const nextPhotoEntries = this.getGovernedChecklistPhotoEntries(saved);
+    const nextPhotoReferences = new Set(
+      nextPhotoEntries.map((entry) => entry.reference),
+    );
+    const removedPhotoEntries = previousPhotoEntries.filter(
+      (entry) => !nextPhotoReferences.has(entry.reference),
+    );
+    if (removedPhotoEntries.length > 0) {
+      await this.cleanupGovernedChecklistPhotoFiles(
+        saved.id,
+        removedPhotoEntries,
+      );
+    }
+    const materialChanged =
+      previousMaterialSnapshot !== this.buildChecklistMaterialSnapshot(saved);
+    const signaturesReset = materialChanged
+      ? await this.resetChecklistSignatures(saved, 'material_update')
+      : false;
 
     try {
       this.notificationsGateway.sendToCompany(
@@ -655,11 +1320,21 @@ export class ChecklistsService {
       );
     }
 
+    this.logChecklistEvent('checklist_updated', saved, {
+      isTemplate: saved.is_modelo,
+      status: saved.status,
+      itemsCount: Array.isArray(saved.itens) ? saved.itens.length : 0,
+      signaturesReset,
+      removedGovernedPhotos: removedPhotoEntries.length,
+    });
+
     return plainToClass(ChecklistResponseDto, saved);
   }
 
   async remove(id: string): Promise<void> {
     const checklist = await this.findOneEntity(id);
+    const governedPhotoEntries =
+      this.getGovernedChecklistPhotoEntries(checklist);
     await this.documentGovernanceService.removeFinalDocumentReference({
       companyId: checklist.company_id,
       module: 'checklist',
@@ -670,41 +1345,280 @@ export class ChecklistsService {
       cleanupStoredFile: (fileKey) =>
         this.documentStorageService.deleteFile(fileKey),
     });
+    if (governedPhotoEntries.length > 0) {
+      await this.cleanupGovernedChecklistPhotoFiles(
+        checklist.id,
+        governedPhotoEntries,
+      );
+    }
+    await this.resetChecklistSignatures(checklist, 'checklist_removed');
+  }
+
+  async attachEquipmentPhoto(
+    id: string,
+    buffer: Buffer,
+    originalName: string,
+    mimeType: string,
+  ): Promise<ChecklistPhotoAttachResponse> {
+    const checklist = await this.findOneEntity(id);
+    this.assertChecklistDocumentMutable(checklist);
+
+    const currentEquipmentPhoto =
+      typeof checklist.foto_equipamento === 'string'
+        ? checklist.foto_equipamento
+        : null;
+    const previousGovernedPhoto = currentEquipmentPhoto
+      ? this.parseGovernedChecklistPhotoReference(currentEquipmentPhoto)
+      : null;
+    const sanitizedOriginalName = originalName?.trim() || 'foto-equipamento';
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      checklist.company_id,
+      'checklist-photos',
+      checklist.id,
+      sanitizedOriginalName,
+    );
+
+    await this.documentStorageService.uploadFile(fileKey, buffer, mimeType);
+
+    try {
+      const photoReference = this.buildGovernedChecklistPhotoReference({
+        v: 1,
+        kind: 'governed-storage',
+        scope: 'equipment',
+        fileKey,
+        originalName: sanitizedOriginalName,
+        mimeType,
+        uploadedAt: new Date().toISOString(),
+        sizeBytes: buffer.byteLength,
+      });
+
+      checklist.foto_equipamento = photoReference;
+      const saved = await this.checklistsRepository.save(checklist);
+      const signaturesReset = await this.resetChecklistSignatures(
+        saved,
+        'equipment_photo_updated',
+      );
+
+      if (
+        previousGovernedPhoto &&
+        previousGovernedPhoto.fileKey !== fileKey &&
+        currentEquipmentPhoto
+      ) {
+        await this.cleanupGovernedChecklistPhotoFiles(saved.id, [
+          {
+            payload: previousGovernedPhoto,
+          },
+        ]);
+      }
+
+      this.logChecklistEvent('checklist_equipment_photo_uploaded', saved, {
+        fileKey,
+        originalName: sanitizedOriginalName,
+        mimeType,
+        signaturesReset,
+      });
+
+      return {
+        entityId: saved.id,
+        scope: 'equipment',
+        itemIndex: null,
+        photoIndex: null,
+        storageMode: 'governed-storage',
+        degraded: false,
+        message: 'Foto do equipamento anexada ao checklist com governança.',
+        photoReference,
+        photo: {
+          fileKey,
+          originalName: sanitizedOriginalName,
+          mimeType,
+        },
+        signaturesReset,
+      };
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        'checklists.attachEquipmentPhoto',
+        fileKey,
+        (key) => this.documentStorageService.deleteFile(key),
+      );
+      throw error;
+    }
+  }
+
+  async attachItemPhoto(
+    id: string,
+    itemIndex: number,
+    buffer: Buffer,
+    originalName: string,
+    mimeType: string,
+  ): Promise<ChecklistPhotoAttachResponse> {
+    const checklist = await this.findOneEntity(id);
+    this.assertChecklistDocumentMutable(checklist);
+
+    if (!Array.isArray(checklist.itens) || !checklist.itens[itemIndex]) {
+      throw new BadRequestException('Item do checklist não encontrado.');
+    }
+
+    const sanitizedOriginalName = originalName?.trim() || 'foto-item';
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      checklist.company_id,
+      'checklist-photos',
+      checklist.id,
+      sanitizedOriginalName,
+    );
+
+    await this.documentStorageService.uploadFile(fileKey, buffer, mimeType);
+
+    try {
+      const items = this.cloneChecklistItems(checklist.itens);
+      const targetItem = items[itemIndex];
+      const nextPhotos = Array.isArray(targetItem.fotos)
+        ? [...targetItem.fotos]
+        : [];
+      const photoReference = this.buildGovernedChecklistPhotoReference({
+        v: 1,
+        kind: 'governed-storage',
+        scope: 'item',
+        fileKey,
+        originalName: sanitizedOriginalName,
+        mimeType,
+        uploadedAt: new Date().toISOString(),
+        sizeBytes: buffer.byteLength,
+      });
+
+      nextPhotos.push(photoReference);
+      targetItem.fotos = nextPhotos;
+      checklist.itens = items;
+      const saved = await this.checklistsRepository.save(checklist);
+      const signaturesReset = await this.resetChecklistSignatures(
+        saved,
+        'item_photo_added',
+      );
+      const photoIndex = nextPhotos.length - 1;
+
+      this.logChecklistEvent('checklist_item_photo_uploaded', saved, {
+        itemIndex,
+        photoIndex,
+        fileKey,
+        originalName: sanitizedOriginalName,
+        mimeType,
+        signaturesReset,
+      });
+
+      return {
+        entityId: saved.id,
+        scope: 'item',
+        itemIndex,
+        photoIndex,
+        storageMode: 'governed-storage',
+        degraded: false,
+        message: 'Foto do item anexada ao checklist com governança.',
+        photoReference,
+        photo: {
+          fileKey,
+          originalName: sanitizedOriginalName,
+          mimeType,
+        },
+        signaturesReset,
+      };
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        'checklists.attachItemPhoto',
+        fileKey,
+        (key) => this.documentStorageService.deleteFile(key),
+      );
+      throw error;
+    }
+  }
+
+  async getEquipmentPhotoAccess(
+    id: string,
+  ): Promise<ChecklistPhotoAccessResponse> {
+    const checklist = await this.findOneEntity(id);
+    const governedPhoto = this.parseGovernedChecklistPhotoReference(
+      checklist.foto_equipamento,
+    );
+
+    if (!governedPhoto) {
+      throw new NotFoundException(
+        'O checklist não possui foto do equipamento em armazenamento governado.',
+      );
+    }
+
+    return this.buildChecklistPhotoAccessResponse(checklist.id, {
+      scope: 'equipment',
+      itemIndex: null,
+      photoIndex: null,
+      payload: governedPhoto,
+    });
+  }
+
+  async getItemPhotoAccess(
+    id: string,
+    itemIndex: number,
+    photoIndex: number,
+  ): Promise<ChecklistPhotoAccessResponse> {
+    const checklist = await this.findOneEntity(id);
+    const item = Array.isArray(checklist.itens)
+      ? checklist.itens[itemIndex]
+      : null;
+    const photo =
+      item && Array.isArray(item.fotos) ? item.fotos[photoIndex] : undefined;
+    const governedPhoto = this.parseGovernedChecklistPhotoReference(photo);
+
+    if (!governedPhoto) {
+      throw new NotFoundException(
+        'A foto do item não está em armazenamento governado.',
+      );
+    }
+
+    return this.buildChecklistPhotoAccessResponse(checklist.id, {
+      scope: 'item',
+      itemIndex,
+      photoIndex,
+      payload: governedPhoto,
+    });
   }
 
   async sendEmail(id: string, to: string) {
-    // CORREÇÃO: `sendMailWithAttachment` não existe. Usando `sendMailSimple` que aceita anexos.
     const checklist = await this.findOneEntity(id);
-    let pdfBuffer: Buffer;
-
-    if (checklist.pdf_file_key) {
-      try {
-        pdfBuffer = await this.documentStorageService.downloadFileBuffer(
-          checklist.pdf_file_key,
-        );
-      } catch (error) {
-        this.logger.warn(
-          `Falha ao reutilizar PDF armazenado do checklist ${checklist.id}. Gerando novamente.`,
-          error instanceof Error ? error.stack : undefined,
-        );
-        pdfBuffer = await this.generatePdf(checklist);
-      }
-    } else {
-      pdfBuffer = await this.generatePdf(checklist);
+    const access = await this.getPdfAccess(id);
+    if (!access.hasFinalPdf || !access.fileKey) {
+      this.logChecklistEvent(
+        'checklist_email_blocked_without_final_pdf',
+        checklist,
+        {
+          recipient: to,
+        },
+      );
+      throw new BadRequestException(
+        'Emita o PDF final governado antes de enviar este checklist por e-mail.',
+      );
     }
 
-    await this.mailService.sendMailSimple(
-      to,
-      `Checklist: ${checklist.titulo}`,
-      `Segue em anexo o checklist "${checklist.titulo}" realizado em ${new Date(checklist.data).toLocaleDateString('pt-BR')}.`,
-      { companyId: checklist.company_id },
-      [
+    try {
+      await this.mailService.sendStoredDocument(
+        checklist.id,
+        'CHECKLIST',
+        to,
+        checklist.company_id,
+      );
+      this.logChecklistEvent('checklist_email_sent', checklist, {
+        reusedFinalPdf: true,
+        recipient: to,
+      });
+    } catch (error) {
+      this.logChecklistEvent(
+        'checklist_email_failed_official_pdf_unavailable',
+        checklist,
         {
-          filename: `checklist-${id}.pdf`,
-          content: pdfBuffer,
+          recipient: to,
+          errorMessage: error instanceof Error ? error.message : 'unknown',
         },
-      ],
-    );
+      );
+      throw error;
+    }
 
     return { success: true };
   }
@@ -759,7 +1673,7 @@ export class ChecklistsService {
     let currentY = 74;
     if (checklist.foto_equipamento) {
       try {
-        const { data: imgData, format } = this.resolvePdfImage(
+        const { data: imgData, format } = await this.resolveChecklistPdfImage(
           checklist.foto_equipamento,
         );
         drawBackendSectionTitle(doc, currentY - 10, 'Evidência do equipamento');
@@ -856,7 +1770,7 @@ export class ChecklistsService {
       return existing;
     }
 
-    const items = [
+    const items: ChecklistItemValue[] = [
       {
         item: '1. CONDIÇÕES GERAIS: Carcaça da máquina íntegra',
         tipo_resposta: 'sim_nao_na',
@@ -976,7 +1890,14 @@ export class ChecklistsService {
     }
 
     const newChecklist = this.buildChecklistFromTemplate(template, fillData);
+    newChecklist.foto_equipamento =
+      this.normalizeChecklistPhotoReference(
+        newChecklist.foto_equipamento,
+        'Foto do equipamento',
+      ) ?? '';
+    newChecklist.status = this.deriveChecklistStatus(newChecklist);
     this.assertChecklistExecutionRequirements(newChecklist);
+    await this.validateChecklistRelations(newChecklist);
     const saved = await this.checklistsRepository.save(newChecklist);
 
     try {
@@ -989,12 +1910,26 @@ export class ChecklistsService {
       this.logger.error('Falha ao enviar notificação de checklist criado', e);
     }
 
+    this.logChecklistEvent('checklist_filled_from_template', saved, {
+      templateId: template.id,
+      status: saved.status,
+      itemsCount: Array.isArray(saved.itens) ? saved.itens.length : 0,
+    });
+
     return plainToClass(ChecklistResponseDto, saved);
   }
 
-  async savePdfToStorage(
-    id: string,
-  ): Promise<{ fileKey: string; folderPath: string; fileUrl: string }> {
+  async savePdfToStorage(id: string): Promise<{
+    fileKey: string;
+    folderPath: string;
+    fileUrl: string | null;
+    url: string | null;
+    originalName: string;
+    entityId: string;
+    hasFinalPdf: true;
+    availability: 'ready' | 'registered_without_signed_url';
+    message: string;
+  }> {
     const checklist = await this.findOneEntity(id);
     await this.assertChecklistReadyForFinalPdf(checklist);
     const pdfBuffer = await this.generatePdf(checklist);
@@ -1020,8 +1955,26 @@ export class ChecklistsService {
       'application/pdf',
     );
     try {
-      const fileUrl =
-        await this.documentStorageService.getPresignedDownloadUrl(fileKey);
+      let fileUrl: string | null = null;
+      let availability: 'ready' | 'registered_without_signed_url' = 'ready';
+      let message = 'PDF final do checklist emitido com sucesso.';
+
+      try {
+        fileUrl =
+          await this.documentStorageService.getPresignedDownloadUrl(fileKey);
+      } catch (urlError) {
+        availability = 'registered_without_signed_url';
+        message =
+          'PDF final emitido e registrado, mas a URL assinada não está disponível no momento.';
+        this.logger.warn({
+          event: 'checklist_pdf_presigned_url_unavailable',
+          checklistId: checklist.id,
+          companyId: checklist.company_id,
+          requestId: RequestContext.getRequestId(),
+          error:
+            urlError instanceof Error ? urlError.message : String(urlError),
+        });
+      }
 
       await this.documentGovernanceService.registerFinalDocument({
         companyId: checklist.company_id,
@@ -1047,7 +2000,23 @@ export class ChecklistsService {
         },
       });
 
-      return { fileKey, folderPath, fileUrl };
+      this.logChecklistEvent('checklist_pdf_finalized', checklist, {
+        fileKey,
+        folderPath,
+        availability,
+      });
+
+      return {
+        entityId: checklist.id,
+        fileKey,
+        folderPath,
+        originalName: fileName,
+        fileUrl,
+        url: fileUrl,
+        hasFinalPdf: true,
+        availability,
+        message,
+      };
     } catch (error) {
       await cleanupUploadedFile(
         this.logger,
@@ -1059,34 +2028,61 @@ export class ChecklistsService {
     }
   }
 
-  async getPdfAccess(id: string): Promise<{
-    entityId: string;
-    fileKey: string;
-    folderPath: string;
-    originalName: string;
-    url: string | null;
-  }> {
+  async getPdfAccess(id: string): Promise<ChecklistPdfAccessResponse> {
     const checklist = await this.findOneEntity(id);
     if (!checklist.pdf_file_key) {
-      throw new NotFoundException(`Checklist ${id} não possui PDF armazenado`);
+      const response: ChecklistPdfAccessResponse = {
+        entityId: checklist.id,
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        url: null,
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        message: 'O checklist ainda não possui PDF final emitido.',
+      };
+      this.logChecklistEvent('checklist_pdf_access_checked', checklist, {
+        availability: response.availability,
+      });
+      return response;
     }
 
     let url: string | null = null;
+    let availability: ChecklistPdfAccessAvailability = 'ready';
+    let message = 'PDF final do checklist disponível para acesso.';
     try {
       url = await this.documentStorageService.getSignedUrl(
         checklist.pdf_file_key,
       );
+      if (!url) {
+        availability = 'registered_without_signed_url';
+        message =
+          'PDF final registrado, mas a URL assinada não está disponível no momento.';
+      }
     } catch {
       url = null;
+      availability = 'registered_without_signed_url';
+      message =
+        'PDF final registrado, mas a URL assinada não está disponível no momento.';
     }
 
-    return {
+    const response: ChecklistPdfAccessResponse = {
       entityId: checklist.id,
       fileKey: checklist.pdf_file_key,
       folderPath: checklist.pdf_folder_path,
       originalName: checklist.pdf_original_name,
       url,
+      hasFinalPdf: true,
+      availability,
+      message,
     };
+
+    this.logChecklistEvent('checklist_pdf_access_checked', checklist, {
+      availability: response.availability,
+      hasUrl: Boolean(response.url),
+    });
+
+    return response;
   }
 
   async count(options?: { where?: Record<string, unknown> }): Promise<number> {
@@ -1307,12 +2303,13 @@ Regras:
       itens: structured.itens.map((item, idx) => ({
         id: `item-${idx + 1}`,
         item: item.item,
-        tipo_resposta: item.tipo_resposta || 'sim_nao_na',
+        tipo_resposta: (item.tipo_resposta ||
+          'sim_nao_na') as ChecklistItemValue['tipo_resposta'],
         obrigatorio: item.obrigatorio !== false,
-        status: 'ok',
+        status: 'ok' as ChecklistItemValue['status'],
         peso: 1,
         observacao: '',
-      })),
+      })) as ChecklistItemValue[],
       is_modelo: true,
       status: 'Pendente',
       data: new Date().toISOString().split('T')[0],

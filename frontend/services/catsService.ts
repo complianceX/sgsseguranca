@@ -15,6 +15,7 @@ export interface CatAttachment {
   file_name: string;
   file_key: string;
   file_type: string;
+  file_hash?: string;
   category: CatAttachmentCategory;
   uploaded_by_id?: string;
   uploaded_at: string;
@@ -24,6 +25,7 @@ export interface CatRecord {
   id: string;
   numero: string;
   company_id: string;
+  company?: { id: string; razao_social?: string };
   site_id?: string;
   contract_id?: string;
   worker_id?: string;
@@ -46,10 +48,45 @@ export interface CatRecord {
   investigated_at?: string;
   closed_at?: string;
   attachments?: CatAttachment[];
+  pdf_file_key?: string;
+  pdf_folder_path?: string;
+  pdf_original_name?: string;
+  pdf_file_hash?: string;
+  pdf_generated_at?: string;
   created_at: string;
   updated_at: string;
   worker?: { id: string; nome: string };
   site?: { id: string; nome: string };
+  opened_by?: { id: string; nome: string };
+  investigated_by?: { id: string; nome: string };
+  closed_by?: { id: string; nome: string };
+}
+
+export interface CatPdfAccess {
+  catId: string;
+  hasFinalPdf: boolean;
+  availability: "ready" | "registered_without_signed_url" | "not_emitted";
+  message: string;
+  degraded: boolean;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  fileHash: string | null;
+  documentCode: string | null;
+  url: string | null;
+}
+
+export interface CatAttachPdfResult {
+  catId: string;
+  hasFinalPdf: boolean;
+  availability: "ready" | "registered_without_signed_url" | "not_emitted";
+  message: string;
+  degraded: boolean;
+  fileKey: string;
+  folderPath: string;
+  originalName: string;
+  documentCode: string;
+  fileHash: string;
 }
 
 export const catsService = {
@@ -179,5 +216,25 @@ export const catsService = {
   }> => {
     const res = await api.get('/cats/statistics');
     return res.data;
+  },
+
+  attachFinalPdf: async (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post<CatAttachPdfResult>(`/cats/${id}/pdf/file`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  getPdfAccess: async (id: string) => {
+    const response = await api.get<CatPdfAccess>(`/cats/${id}/pdf`);
+    return response.data;
+  },
+
+  downloadPdf: async (id: string) => {
+    const cat = await catsService.findOne(id);
+    const { generateCatPdf } = await import('@/lib/pdf/catGenerator');
+    await generateCatPdf(cat, { save: true });
   },
 };

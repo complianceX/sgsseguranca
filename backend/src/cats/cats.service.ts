@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,12 +10,18 @@ import * as path from 'path';
 import { Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
+import { RequestContext } from '../common/middleware/request-context.middleware';
+import { DocumentStorageService } from '../common/services/document-storage.service';
 import { StorageService } from '../common/services/storage.service';
+import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { TenantService } from '../common/tenant/tenant.service';
+import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import {
   normalizeOffsetPagination,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import { CloseCatDto } from './dto/close-cat.dto';
 import { CreateCatDto } from './dto/create-cat.dto';
@@ -27,22 +34,40 @@ import {
   CatStatus,
 } from './entities/cat.entity';
 
+type CatPdfAvailability =
+  | 'ready'
+  | 'registered_without_signed_url'
+  | 'not_emitted';
+
 @Injectable()
 export class CatsService {
+  private readonly logger = new Logger(CatsService.name);
+
   constructor(
     @InjectRepository(Cat)
     private readonly catsRepository: Repository<Cat>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    @InjectRepository(Site)
+    private readonly sitesRepository: Repository<Site>,
     private readonly tenantService: TenantService,
     private readonly storageService: StorageService,
+    private readonly documentStorageService: DocumentStorageService,
+    private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly documentRegistryService: DocumentRegistryService,
     private readonly auditService: AuditService,
   ) {}
 
   async create(createDto: CreateCatDto, actorId?: string): Promise<Cat> {
     const companyId = this.getTenantIdOrThrow();
-    const numero =
-      createDto.numero || (await this.generateCatNumber(companyId));
+    await this.validateScopedRelations(companyId, {
+      site_id: createDto.site_id,
+      worker_id: createDto.worker_id,
+    });
+    const numero = this.normalizeCatNumber(
+      createDto.numero?.trim() || (await this.generateCatNumber(companyId)),
+    );
+    await this.ensureUniqueNumber(companyId, numero);
 
     const cat = this.catsRepository.create({
       ...createDto,
@@ -126,6 +151,7 @@ export class CatsService {
     const cat = await this.catsRepository.findOne({
       where: { id, company_id: companyId },
       relations: [
+        'company',
         'site',
         'worker',
         'opened_by',
@@ -147,14 +173,28 @@ export class CatsService {
     actorId?: string,
   ): Promise<Cat> {
     const cat = await this.findOne(id);
+    const companyId = cat.company_id;
     if (cat.status === 'fechada') {
       throw new BadRequestException(
         'CAT fechada não pode ser alterada por atualização genérica.',
       );
     }
 
+    await this.validateScopedRelations(companyId, {
+      site_id: updateDto.site_id,
+      worker_id: updateDto.worker_id,
+    });
+
+    const nextNumber = updateDto.numero
+      ? this.normalizeCatNumber(updateDto.numero)
+      : undefined;
+    if (nextNumber && nextNumber !== cat.numero) {
+      await this.ensureUniqueNumber(companyId, nextNumber, cat.id);
+    }
+
     Object.assign(cat, {
       ...updateDto,
+      ...(nextNumber ? { numero: nextNumber } : {}),
       ...(updateDto.data_ocorrencia
         ? { data_ocorrencia: new Date(updateDto.data_ocorrencia) }
         : {}),
@@ -264,19 +304,32 @@ export class CatsService {
       file_name: safeName,
       file_key: fileKey,
       file_type: input.mimeType || 'application/octet-stream',
+      file_hash: fileHash,
       category: input.category || 'geral',
       uploaded_by_id: actorId,
       uploaded_at: timestamp,
     };
 
-    cat.attachments = [...(cat.attachments || []), attachment];
-    await this.catsRepository.save(cat);
-    await this.writeAuditLog(AuditAction.UPDATE, cat, actorId, {
-      event: 'cat_attachment_added',
-      companyId: cat.company_id,
-      attachmentId: attachment.id,
-      category: attachment.category,
-    });
+    try {
+      cat.attachments = [...(cat.attachments || []), attachment];
+      await this.catsRepository.save(cat);
+      await this.writeAuditLog(AuditAction.UPDATE, cat, actorId, {
+        event: 'cat_attachment_added',
+        companyId: cat.company_id,
+        attachmentId: attachment.id,
+        category: attachment.category,
+        fileKey: attachment.file_key,
+        fileHash: attachment.file_hash,
+      });
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        'cats.addAttachment',
+        fileKey,
+        (key) => this.storageService.deleteFile(key),
+      );
+      throw error;
+    }
 
     return attachment;
   }
@@ -288,23 +341,36 @@ export class CatsService {
   ): Promise<void> {
     const cat = await this.findOne(id);
     const current = cat.attachments || [];
-    const exists = current.some((item) => item.id === attachmentId);
-    if (!exists) {
+    const attachment = current.find((item) => item.id === attachmentId);
+    if (!attachment) {
       throw new NotFoundException('Anexo não encontrado para esta CAT.');
     }
 
     cat.attachments = current.filter((item) => item.id !== attachmentId);
     await this.catsRepository.save(cat);
+    let storageCleanup: 'deleted' | 'pending_manual_cleanup' = 'deleted';
+    try {
+      await this.storageService.deleteFile(attachment.file_key);
+    } catch (error) {
+      storageCleanup = 'pending_manual_cleanup';
+      this.logger.error(
+        `Falha ao remover arquivo do storage para anexo da CAT ${attachment.id}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
     await this.writeAuditLog(AuditAction.UPDATE, cat, actorId, {
       event: 'cat_attachment_removed',
       companyId: cat.company_id,
       attachmentId,
+      fileKey: attachment.file_key,
+      storageCleanup,
     });
   }
 
   async getAttachmentAccess(
     id: string,
     attachmentId: string,
+    actorId?: string,
   ): Promise<{
     attachmentId: string;
     fileName: string;
@@ -322,12 +388,207 @@ export class CatsService {
     const url = await this.storageService.getPresignedDownloadUrl(
       attachment.file_key,
     );
+    await this.writeAuditLog(AuditAction.READ, cat, actorId, {
+      event: 'cat_attachment_accessed',
+      companyId: cat.company_id,
+      attachmentId: attachment.id,
+      category: attachment.category,
+      fileKey: attachment.file_key,
+    });
     return {
       attachmentId: attachment.id,
       fileName: attachment.file_name,
       fileType: attachment.file_type,
       url,
     };
+  }
+
+  async attachPdf(
+    id: string,
+    file: Express.Multer.File,
+    actorId?: string,
+  ): Promise<{
+    catId: string;
+    hasFinalPdf: boolean;
+    availability: CatPdfAvailability;
+    message: string;
+    degraded: boolean;
+    fileKey: string;
+    folderPath: string;
+    originalName: string;
+    documentCode: string;
+    fileHash: string;
+  }> {
+    const cat = await this.findOne(id);
+    this.assertReadyForFinalPdf(cat);
+    const originalName =
+      file.originalname?.trim() || `${cat.numero || `cat-${cat.id}`}.pdf`;
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      cat.company_id,
+      'cats',
+      cat.id,
+      originalName,
+    );
+    const folderPath = `cats/${cat.company_id}`;
+
+    await this.documentStorageService.uploadFile(
+      fileKey,
+      file.buffer,
+      file.mimetype,
+    );
+
+    try {
+      const { hash, registryEntry } =
+        await this.documentGovernanceService.registerFinalDocument({
+          companyId: cat.company_id,
+          module: 'cat',
+          entityId: cat.id,
+          title: `CAT ${cat.numero}`,
+          documentDate: cat.data_ocorrencia || cat.created_at,
+          documentCode: this.buildDocumentCode(cat),
+          fileKey,
+          folderPath,
+          originalName,
+          mimeType: file.mimetype || 'application/pdf',
+          fileBuffer: file.buffer,
+          createdBy: actorId || null,
+          persistEntityMetadata: async (manager, computedHash) => {
+            await manager.getRepository(Cat).update(cat.id, {
+              pdf_file_key: fileKey,
+              pdf_folder_path: folderPath,
+              pdf_original_name: originalName,
+              pdf_file_hash: computedHash,
+              pdf_generated_at: new Date(),
+            });
+          },
+        });
+
+      await this.writeAuditLog(AuditAction.UPDATE, cat, actorId, {
+        event: 'cat_final_pdf_emitted',
+        companyId: cat.company_id,
+        status: cat.status,
+        fileKey,
+        folderPath,
+        originalName,
+        documentCode: registryEntry.document_code,
+        fileHash: hash,
+      });
+
+      return {
+        catId: cat.id,
+        hasFinalPdf: true,
+        availability: 'ready',
+        message: 'PDF final da CAT emitido e governado com sucesso.',
+        degraded: false,
+        fileKey,
+        folderPath,
+        originalName,
+        documentCode: registryEntry.document_code || this.buildDocumentCode(cat),
+        fileHash: hash,
+      };
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `cats.attachPdf:${cat.id}`,
+        fileKey,
+        (key) => this.documentStorageService.deleteFile(key),
+      );
+      throw error;
+    }
+  }
+
+  async getPdfAccess(
+    id: string,
+    actorId?: string,
+  ): Promise<{
+    catId: string;
+    hasFinalPdf: boolean;
+    availability: CatPdfAvailability;
+    message: string;
+    degraded: boolean;
+    fileKey: string | null;
+    folderPath: string | null;
+    originalName: string | null;
+    fileHash: string | null;
+    documentCode: string | null;
+    url: string | null;
+  }> {
+    const cat = await this.findOne(id);
+    const registryEntry = await this.documentRegistryService.findByDocument(
+      'cat',
+      cat.id,
+      'pdf',
+      cat.company_id,
+    );
+
+    if (!cat.pdf_file_key) {
+      const payload = {
+        catId: cat.id,
+        hasFinalPdf: false,
+        availability: 'not_emitted' as const,
+        message:
+          'A CAT ainda não possui PDF final emitido. Gere o documento final governado para habilitar download e envio oficial.',
+        degraded: false,
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        fileHash: null,
+        documentCode:
+          registryEntry?.document_code || this.buildDocumentCode(cat),
+        url: null,
+      };
+      await this.writeAuditLog(AuditAction.READ, cat, actorId, {
+        event: 'cat_pdf_access_checked',
+        companyId: cat.company_id,
+        availability: payload.availability,
+        hasFinalPdf: payload.hasFinalPdf,
+      });
+      return payload;
+    }
+
+    let url: string | null = null;
+    let availability: CatPdfAvailability = 'ready';
+    let degraded = false;
+    let message = 'PDF final governado disponível para acesso.';
+
+    try {
+      url = await this.documentStorageService.getSignedUrl(cat.pdf_file_key);
+    } catch (error) {
+      availability = 'registered_without_signed_url';
+      degraded = true;
+      message =
+        'PDF final registrado, mas a URL segura não está disponível no momento. Tente novamente quando o storage estiver saudável.';
+      this.logger.warn(
+        `URL assinada indisponível para PDF final da CAT ${cat.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    const payload = {
+      catId: cat.id,
+      hasFinalPdf: true,
+      availability,
+      message,
+      degraded,
+      fileKey: cat.pdf_file_key,
+      folderPath: cat.pdf_folder_path || null,
+      originalName: cat.pdf_original_name || null,
+      fileHash: registryEntry?.file_hash || cat.pdf_file_hash || null,
+      documentCode: registryEntry?.document_code || this.buildDocumentCode(cat),
+      url,
+    };
+
+    await this.writeAuditLog(AuditAction.READ, cat, actorId, {
+      event: 'cat_pdf_access_checked',
+      companyId: cat.company_id,
+      availability: payload.availability,
+      hasFinalPdf: payload.hasFinalPdf,
+      degraded: payload.degraded,
+      fileKey: payload.fileKey,
+    });
+
+    return payload;
   }
 
   async getSummary() {
@@ -434,6 +695,98 @@ export class CatsService {
     return { total, fatalCount, openCount, byTipo, byGravidade, byMonth };
   }
 
+  async validateByCode(code: string): Promise<{
+    valid: boolean;
+    code: string;
+    message?: string;
+    document?: {
+      id: string;
+      module: string;
+      document_type: string;
+      title: string;
+      document_date: string | null;
+      original_name: string | null;
+      file_hash: string | null;
+      updated_at: string;
+    };
+    final_document?: {
+      has_final_pdf: boolean;
+      document_code: string | null;
+      original_name: string | null;
+      file_hash: string | null;
+      emitted_at: string | null;
+    };
+  }> {
+    const normalizedCode = String(code || '')
+      .trim()
+      .toUpperCase();
+    const match = normalizedCode.match(/^CAT-(\d{4})-([A-Z0-9]{8})$/);
+
+    if (!match) {
+      return {
+        valid: false,
+        code: normalizedCode,
+        message: 'Código de CAT inválido.',
+      };
+    }
+
+    const prefix = match[2].toLowerCase();
+    const candidate = await this.catsRepository
+      .createQueryBuilder('cat')
+      .leftJoinAndSelect('cat.worker', 'worker')
+      .leftJoinAndSelect('cat.site', 'site')
+      .where('LOWER(cat.id) LIKE :prefix', { prefix: `${prefix}%` })
+      .getOne();
+
+    if (!candidate || this.buildDocumentCode(candidate) !== normalizedCode) {
+      return {
+        valid: false,
+        code: normalizedCode,
+        message: 'CAT não encontrada para este código.',
+      };
+    }
+
+    const registryEntry = await this.documentRegistryService.findByDocument(
+      'cat',
+      candidate.id,
+      'pdf',
+      candidate.company_id,
+    );
+
+    return {
+      valid: true,
+      code: normalizedCode,
+      document: {
+        id: candidate.id,
+        module: registryEntry?.module || 'cat',
+        document_type: registryEntry?.document_type || 'cat',
+        title: `CAT ${candidate.numero}`,
+        document_date: registryEntry?.document_date
+          ? registryEntry.document_date.toISOString()
+          : candidate.data_ocorrencia
+            ? candidate.data_ocorrencia.toISOString()
+            : null,
+        original_name:
+          registryEntry?.original_name || candidate.pdf_original_name || null,
+        file_hash: registryEntry?.file_hash || candidate.pdf_file_hash || null,
+        updated_at: registryEntry?.updated_at
+          ? registryEntry.updated_at.toISOString()
+          : candidate.updated_at.toISOString(),
+      },
+      final_document: {
+        has_final_pdf: Boolean(candidate.pdf_file_key),
+        document_code:
+          registryEntry?.document_code || this.buildDocumentCode(candidate),
+        original_name:
+          registryEntry?.original_name || candidate.pdf_original_name || null,
+        file_hash: registryEntry?.file_hash || candidate.pdf_file_hash || null,
+        emitted_at: candidate.pdf_generated_at
+          ? candidate.pdf_generated_at.toISOString()
+          : null,
+      },
+    };
+  }
+
   private getTenantIdOrThrow(): string {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
@@ -466,20 +819,111 @@ export class CatsService {
       .slice(0, 140);
   }
 
+  buildDocumentCode(cat: Pick<Cat, 'id' | 'data_ocorrencia'>): string {
+    const date = new Date(cat.data_ocorrencia);
+    const year = Number.isNaN(date.getTime())
+      ? new Date().getFullYear()
+      : date.getFullYear();
+    return `CAT-${year}-${cat.id.slice(0, 8).toUpperCase()}`;
+  }
+
+  private normalizeCatNumber(numero: string): string {
+    return String(numero || '')
+      .trim()
+      .toUpperCase();
+  }
+
+  private assertReadyForFinalPdf(cat: Cat): void {
+    if (cat.pdf_file_key) {
+      throw new BadRequestException(
+        'A CAT já possui PDF final governado emitido.',
+      );
+    }
+    if (cat.status !== 'fechada') {
+      throw new BadRequestException(
+        'A CAT precisa estar fechada antes da emissão do PDF final governado.',
+      );
+    }
+  }
+
+  private async validateScopedRelations(
+    companyId: string,
+    payload: {
+      site_id?: string;
+      worker_id?: string;
+    },
+  ): Promise<void> {
+    if (payload.site_id) {
+      const siteExists = await this.sitesRepository.exist({
+        where: {
+          id: payload.site_id,
+          company_id: companyId,
+        },
+      });
+
+      if (!siteExists) {
+        throw new BadRequestException(
+          'Obra/setor informado não pertence à empresa atual.',
+        );
+      }
+    }
+
+    if (payload.worker_id) {
+      const workerExists = await this.usersRepository.exist({
+        where: {
+          id: payload.worker_id,
+          company_id: companyId,
+        },
+      });
+
+      if (!workerExists) {
+        throw new BadRequestException(
+          'Colaborador informado não pertence à empresa atual.',
+        );
+      }
+    }
+  }
+
+  private async ensureUniqueNumber(
+    companyId: string,
+    numero: string,
+    excludeId?: string,
+  ): Promise<void> {
+    const normalizedNumero = this.normalizeCatNumber(numero);
+    const query = this.catsRepository
+      .createQueryBuilder('cat')
+      .where('cat.company_id = :companyId', { companyId })
+      .andWhere('UPPER(cat.numero) = :numero', { numero: normalizedNumero });
+
+    if (excludeId) {
+      query.andWhere('cat.id != :excludeId', { excludeId });
+    }
+
+    const alreadyExists = (await query.getCount()) > 0;
+    if (alreadyExists) {
+      throw new BadRequestException('Já existe uma CAT com este número.');
+    }
+  }
+
   private async writeAuditLog(
     action: AuditAction,
     cat: Cat,
     userId?: string,
     metadata?: Record<string, unknown>,
   ) {
-    const actorId = userId || '';
+    const actorId = userId || RequestContext.getUserId() || 'system';
+    const requestId = RequestContext.getRequestId();
     await this.auditService.log({
       userId: actorId,
       action,
       entity: 'CAT',
       entityId: cat.id,
-      changes: JSON.stringify(metadata),
-      ip: '0.0.0.0',
+      changes: {
+        ...(metadata || {}),
+        ...(requestId ? { requestId } : {}),
+      },
+      ip: (RequestContext.get('ip') as string) || 'unknown',
+      userAgent: (RequestContext.get('userAgent') as string) || 'unknown',
       companyId: cat.company_id,
     });
   }

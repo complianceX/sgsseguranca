@@ -21,7 +21,9 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { Role } from '../auth/enums/roles.enum';
 import {
+  assertUploadedPdf,
   cleanupUploadedTempFile,
+  createGovernedPdfUploadOptions,
   fileUploadOptions,
   readUploadedFileBuffer,
   validateFileMagicBytes,
@@ -88,6 +90,15 @@ export class CatsController {
   @Authorize('can_view_cats')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.catsService.findOne(id);
+  }
+
+  @Get(':id/pdf')
+  @Authorize('can_view_cats')
+  getPdfAccess(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.catsService.getPdfAccess(id, req.user?.id);
   }
 
   @Patch(':id')
@@ -167,6 +178,23 @@ export class CatsController {
     }
   }
 
+  @Post(':id/pdf/file')
+  @UseInterceptors(FileInterceptor('file', createGovernedPdfUploadOptions()))
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_cats')
+  async attachPdf(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: AuthenticatedRequest,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    const pdfFile = await assertUploadedPdf(file);
+    try {
+      return await this.catsService.attachPdf(id, pdfFile, req.user?.id);
+    } finally {
+      await cleanupUploadedTempFile(pdfFile);
+    }
+  }
+
   @Delete(':id/attachments/:attachmentId')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_cats')
@@ -183,7 +211,8 @@ export class CatsController {
   getAttachmentAccess(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @Req() req: AuthenticatedRequest,
   ) {
-    return this.catsService.getAttachmentAccess(id, attachmentId);
+    return this.catsService.getAttachmentAccess(id, attachmentId, req.user?.id);
   }
 }

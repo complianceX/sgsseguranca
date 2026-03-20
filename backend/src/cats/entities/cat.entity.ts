@@ -30,6 +30,7 @@ export interface CatAttachment {
   file_name: string;
   file_key: string;
   file_type: string;
+  file_hash?: string;
   category: CatAttachmentCategory;
   uploaded_by_id?: string;
   uploaded_at: Date;
@@ -39,6 +40,7 @@ export interface CatAttachment {
 @Index(['company_id', 'status'])
 @Index(['company_id', 'created_at'])
 @Index(['company_id', 'worker_id'])
+@Index(['company_id', 'numero'], { unique: true })
 export class Cat {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -135,6 +137,21 @@ export class Cat {
 
   @Column({ type: isSqlite ? 'simple-json' : 'jsonb', nullable: true })
   attachments?: CatAttachment[];
+
+  @Column({ nullable: true })
+  pdf_file_key?: string;
+
+  @Column({ nullable: true })
+  pdf_folder_path?: string;
+
+  @Column({ nullable: true })
+  pdf_original_name?: string;
+
+  @Column({ nullable: true })
+  pdf_file_hash?: string;
+
+  @Column({ nullable: true })
+  pdf_generated_at?: Date;
 
   @CreateDateColumn()
   created_at: Date;

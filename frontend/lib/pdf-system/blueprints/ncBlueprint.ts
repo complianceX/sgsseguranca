@@ -2,7 +2,6 @@ import type { NonConformity } from "@/services/nonConformitiesService";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, sanitize } from "../core/format";
 import {
-  drawDocumentHeader,
   drawDocumentIdentityRail,
   drawExecutiveSummaryStrip,
   drawGovernanceClosingBlock,
@@ -19,20 +18,6 @@ export async function drawNcBlueprint(
   code: string,
   validationUrl: string,
 ) {
-  drawDocumentHeader(ctx, {
-    title: "RELATORIO DE NAO CONFORMIDADE",
-    subtitle: "Registro, tratativa e encerramento de desvio",
-    code,
-    date: formatDate(nc.data_identificacao),
-    status: sanitize(nc.status),
-    version: "1",
-    company: sanitize(
-      (nc as NonConformity & { company?: { razao_social?: string } }).company?.razao_social ||
-        nc.company_id,
-    ),
-    site: sanitize(nc.site?.nome || nc.local_setor_area),
-  });
-
   drawDocumentIdentityRail(ctx, {
     documentType: "NC",
     criticality: sanitize(nc.risco_nivel),

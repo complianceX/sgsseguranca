@@ -3,7 +3,6 @@ import type { Signature } from "@/services/signaturesService";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, sanitize } from "../core/format";
 import {
-  drawDocumentHeader,
   drawDocumentIdentityRail,
   drawExecutiveSummaryStrip,
   drawGovernanceClosingBlock,
@@ -30,17 +29,6 @@ export async function drawTrainingBlueprint(
     : isExpiringSoon
       ? `Vence em ${remainingDays} dias`
       : "Valido";
-
-  drawDocumentHeader(ctx, {
-    title: "COMPROVANTE DE TREINAMENTO",
-    subtitle: "Registro de qualificacao, validade e bloqueios operacionais",
-    code,
-    date: formatDate(training.data_conclusao),
-    status: statusLabel,
-    version: "1",
-    company: sanitize(training.company_id),
-    site: "-",
-  });
 
   drawDocumentIdentityRail(ctx, {
     documentType: "Treinamento",

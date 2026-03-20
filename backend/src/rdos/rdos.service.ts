@@ -1,5 +1,7 @@
+import { createHash } from 'crypto';
 import {
   BadRequestException,
+  GoneException,
   Injectable,
   Logger,
   NotFoundException,
@@ -10,6 +12,8 @@ import * as XLSX from 'xlsx';
 import { Rdo } from './entities/rdo.entity';
 import { CreateRdoDto } from './dto/create-rdo.dto';
 import { UpdateRdoDto } from './dto/update-rdo.dto';
+import { Site } from '../sites/entities/site.entity';
+import { User } from '../users/entities/user.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import {
   normalizeOffsetPagination,
@@ -22,18 +26,37 @@ import { DocumentGovernanceService } from '../document-registry/document-governa
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
+import { RdoAuditService } from './rdo-audit.service';
 
 const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
   rascunho: ['enviado'],
   enviado: ['aprovado', 'rascunho'],
   aprovado: [],
+  cancelado: [],
 };
+
+const CANCELABLE_STATUSES = new Set(['rascunho', 'enviado', 'aprovado']);
 
 const CLIMA_LABEL: Record<string, string> = {
   ensolarado: 'Ensolarado ☀️',
   nublado: 'Nublado ☁️',
   chuvoso: 'Chuvoso 🌧️',
   parcialmente_nublado: 'Parcialmente Nublado 🌤️',
+};
+
+type RdoPdfAccessAvailability =
+  | 'ready'
+  | 'registered_without_signed_url'
+  | 'not_emitted';
+
+type RdoOperationalSignature = {
+  nome: string;
+  cpf: string;
+  signed_at: string;
+  signature_mode: 'operational_ack';
+  verification_scope: 'document_integrity_snapshot';
+  document_hash_algorithm: 'sha256';
+  document_hash: string;
 };
 
 @Injectable()
@@ -48,7 +71,112 @@ export class RdosService {
     private documentStorageService: DocumentStorageService,
     private documentGovernanceService: DocumentGovernanceService,
     private documentRegistryService: DocumentRegistryService,
+    private rdoAuditService: RdoAuditService,
   ) {}
+
+  private async assertCompanyScopedEntityId<
+    T extends { id: string; company_id: string },
+  >(
+    entity: { new (): T },
+    companyId: string,
+    id: string | null | undefined,
+    label: string,
+  ): Promise<void> {
+    if (!id) {
+      return;
+    }
+
+    const exists = await this.rdosRepository.manager
+      .getRepository(entity)
+      .exist({
+        where: { id, company_id: companyId } as never,
+      });
+
+    if (!exists) {
+      throw new BadRequestException(
+        `${label} inválido para a empresa/tenant atual.`,
+      );
+    }
+  }
+
+  private async validateRelatedEntityScope(input: {
+    companyId: string;
+    siteId?: string | null;
+    responsavelId?: string | null;
+  }): Promise<void> {
+    await Promise.all([
+      this.assertCompanyScopedEntityId(
+        Site,
+        input.companyId,
+        input.siteId,
+        'Site',
+      ),
+      this.assertCompanyScopedEntityId(
+        User,
+        input.companyId,
+        input.responsavelId,
+        'Responsável',
+      ),
+    ]);
+  }
+
+  private resolveCompanyIdForCreate(requestedCompanyId?: string): string {
+    const tenantId = this.tenantService.getTenantId();
+
+    if (tenantId) {
+      if (requestedCompanyId && requestedCompanyId !== tenantId) {
+        this.logger.warn({
+          event: 'rdo_create_company_override_ignored',
+          tenantId,
+          requestedCompanyId,
+        });
+      }
+      return tenantId;
+    }
+
+    if (requestedCompanyId) {
+      return requestedCompanyId;
+    }
+
+    throw new BadRequestException(
+      'Tenant/empresa não identificado para criação do RDO.',
+    );
+  }
+
+  private resolveStatusForCreate(requestedStatus?: string): string {
+    if (!requestedStatus || requestedStatus === 'rascunho') {
+      return 'rascunho';
+    }
+
+    throw new BadRequestException(
+      'O status do RDO é controlado pelo fluxo formal de tramitação. Crie o documento como rascunho e use PATCH /rdos/:id/status para avançar o ciclo.',
+    );
+  }
+
+  private logRdoEvent(
+    event: string,
+    rdo: Pick<
+      Rdo,
+      | 'id'
+      | 'company_id'
+      | 'status'
+      | 'site_id'
+      | 'responsavel_id'
+      | 'pdf_file_key'
+    >,
+    metadata: Record<string, unknown> = {},
+  ) {
+    this.logger.log({
+      event,
+      rdoId: rdo.id,
+      companyId: rdo.company_id,
+      status: rdo.status,
+      siteId: rdo.site_id ?? null,
+      responsavelId: rdo.responsavel_id ?? null,
+      hasFinalPdf: Boolean(rdo.pdf_file_key),
+      ...metadata,
+    });
+  }
 
   private async generateNumero(companyId: string): Promise<string> {
     const now = new Date();
@@ -64,16 +192,137 @@ export class RdosService {
     return `${prefix}${String(lastSeq + 1).padStart(3, '0')}`;
   }
 
+  private buildSignatureTrackedSnapshot(
+    rdo: Pick<
+      Rdo,
+      | 'data'
+      | 'site_id'
+      | 'responsavel_id'
+      | 'clima_manha'
+      | 'clima_tarde'
+      | 'temperatura_min'
+      | 'temperatura_max'
+      | 'condicao_terreno'
+      | 'mao_de_obra'
+      | 'equipamentos'
+      | 'materiais_recebidos'
+      | 'servicos_executados'
+      | 'ocorrencias'
+      | 'houve_acidente'
+      | 'houve_paralisacao'
+      | 'motivo_paralisacao'
+      | 'observacoes'
+      | 'programa_servicos_amanha'
+    >,
+  ) {
+    return {
+      data: rdo.data,
+      site_id: rdo.site_id ?? null,
+      responsavel_id: rdo.responsavel_id ?? null,
+      clima_manha: rdo.clima_manha ?? null,
+      clima_tarde: rdo.clima_tarde ?? null,
+      temperatura_min: rdo.temperatura_min ?? null,
+      temperatura_max: rdo.temperatura_max ?? null,
+      condicao_terreno: rdo.condicao_terreno ?? null,
+      mao_de_obra: rdo.mao_de_obra ?? [],
+      equipamentos: rdo.equipamentos ?? [],
+      materiais_recebidos: rdo.materiais_recebidos ?? [],
+      servicos_executados: rdo.servicos_executados ?? [],
+      ocorrencias: rdo.ocorrencias ?? [],
+      houve_acidente: rdo.houve_acidente,
+      houve_paralisacao: rdo.houve_paralisacao,
+      motivo_paralisacao: rdo.motivo_paralisacao ?? null,
+      observacoes: rdo.observacoes ?? null,
+      programa_servicos_amanha: rdo.programa_servicos_amanha ?? null,
+    };
+  }
+
+  private buildSnapshotHash(
+    rdo: Pick<
+      Rdo,
+      | 'data'
+      | 'site_id'
+      | 'responsavel_id'
+      | 'clima_manha'
+      | 'clima_tarde'
+      | 'temperatura_min'
+      | 'temperatura_max'
+      | 'condicao_terreno'
+      | 'mao_de_obra'
+      | 'equipamentos'
+      | 'materiais_recebidos'
+      | 'servicos_executados'
+      | 'ocorrencias'
+      | 'houve_acidente'
+      | 'houve_paralisacao'
+      | 'motivo_paralisacao'
+      | 'observacoes'
+      | 'programa_servicos_amanha'
+    >,
+  ): string {
+    return createHash('sha256')
+      .update(JSON.stringify(this.buildSignatureTrackedSnapshot(rdo)))
+      .digest('hex');
+  }
+
+  private resetSignatures(
+    rdo: Pick<
+      Rdo,
+      | 'assinatura_responsavel'
+      | 'assinatura_engenheiro'
+      | 'status'
+      | 'id'
+      | 'company_id'
+      | 'site_id'
+      | 'responsavel_id'
+      | 'pdf_file_key'
+    >,
+    reason: 'content_changed' | 'returned_to_draft',
+  ): boolean {
+    if (!rdo.assinatura_responsavel && !rdo.assinatura_engenheiro) {
+      return false;
+    }
+
+    rdo.assinatura_responsavel = null as unknown as string;
+    rdo.assinatura_engenheiro = null as unknown as string;
+
+    this.logRdoEvent('rdo_signatures_reset', rdo, { reason });
+    return true;
+  }
+
+  private assertRdoNotCancelled(
+    rdo: Pick<Rdo, 'status'>,
+    action: 'editado' | 'assinado' | 'movimentado',
+  ) {
+    if (rdo.status === 'cancelado') {
+      throw new BadRequestException(`RDO cancelado não pode ser ${action}.`);
+    }
+  }
+
   async create(createRdoDto: CreateRdoDto): Promise<Rdo> {
-    const companyId =
-      createRdoDto.company_id ?? this.tenantService.getTenantId();
-    const numero = await this.generateNumero(companyId!);
+    const companyId = this.resolveCompanyIdForCreate(createRdoDto.company_id);
+    await this.validateRelatedEntityScope({
+      companyId,
+      siteId: createRdoDto.site_id,
+      responsavelId: createRdoDto.responsavel_id,
+    });
+
+    const numero = await this.generateNumero(companyId);
     const rdo = this.rdosRepository.create({
       ...createRdoDto,
       company_id: companyId,
+      status: this.resolveStatusForCreate(createRdoDto.status),
       numero,
     });
-    return this.rdosRepository.save(rdo);
+    const saved = await this.rdosRepository.save(rdo);
+    this.logRdoEvent('rdo_created', saved);
+    await this.rdoAuditService.recordEvent(saved.id, 'CREATED', {
+      numero: saved.numero,
+      status: saved.status,
+      siteId: saved.site_id ?? null,
+      responsavelId: saved.responsavel_id ?? null,
+    });
+    return saved;
   }
 
   async findPaginated(opts?: {
@@ -134,18 +383,69 @@ export class RdosService {
   async update(id: string, updateRdoDto: UpdateRdoDto): Promise<Rdo> {
     const rdo = await this.findOne(id);
     await this.assertRdoDocumentMutable(rdo);
+    this.assertRdoNotCancelled(rdo, 'editado');
     if ('status' in updateRdoDto && updateRdoDto.status !== undefined) {
       throw new BadRequestException(
         'Use PATCH /rdos/:id/status para alterar o status do RDO.',
       );
     }
-    Object.assign(rdo, updateRdoDto);
-    return this.rdosRepository.save(rdo);
+    if (
+      updateRdoDto.company_id !== undefined &&
+      updateRdoDto.company_id !== rdo.company_id
+    ) {
+      throw new BadRequestException(
+        'O company_id do RDO não pode ser alterado pelo endpoint genérico.',
+      );
+    }
+
+    await this.validateRelatedEntityScope({
+      companyId: rdo.company_id,
+      siteId:
+        updateRdoDto.site_id !== undefined ? updateRdoDto.site_id : rdo.site_id,
+      responsavelId:
+        updateRdoDto.responsavel_id !== undefined
+          ? updateRdoDto.responsavel_id
+          : rdo.responsavel_id,
+    });
+
+    const previousSnapshot = this.buildSnapshotHash(rdo);
+    const previousStatus = rdo.status;
+    const hadSignatures = Boolean(
+      rdo.assinatura_responsavel || rdo.assinatura_engenheiro,
+    );
+    Object.assign(rdo, { ...updateRdoDto, company_id: rdo.company_id });
+    const nextSnapshot = this.buildSnapshotHash(rdo);
+    const contentChanged = previousSnapshot !== nextSnapshot;
+    const signaturesReset =
+      hadSignatures && contentChanged
+        ? this.resetSignatures(rdo, 'content_changed')
+        : false;
+    const approvalReset = contentChanged && previousStatus === 'aprovado';
+    if (approvalReset) {
+      rdo.status = 'enviado';
+    }
+    const saved = await this.rdosRepository.save(rdo);
+    this.logRdoEvent('rdo_updated', saved);
+    await this.rdoAuditService.recordEvent(saved.id, 'UPDATED', {
+      siteId: saved.site_id ?? null,
+      responsavelId: saved.responsavel_id ?? null,
+      signaturesReset,
+      previousStatus,
+      currentStatus: saved.status,
+      approvalReset,
+    });
+    if (signaturesReset) {
+      await this.rdoAuditService.recordEvent(saved.id, 'SIGNATURES_RESET', {
+        reason: 'content_changed',
+      });
+    }
+    return saved;
   }
 
   async updateStatus(id: string, newStatus: string): Promise<Rdo> {
     const rdo = await this.findOne(id);
     await this.assertRdoDocumentMutable(rdo);
+    this.assertRdoNotCancelled(rdo, 'movimentado');
     const allowed = ALLOWED_STATUS_TRANSITIONS[rdo.status] ?? [];
     if (!allowed.includes(newStatus)) {
       throw new BadRequestException(
@@ -155,8 +455,82 @@ export class RdosService {
     if (newStatus === 'aprovado') {
       this.assertRdoReadyForFinalDocument(rdo);
     }
+    const previousStatus = rdo.status;
     rdo.status = newStatus;
-    return this.rdosRepository.save(rdo);
+    const signaturesReset =
+      newStatus === 'rascunho'
+        ? this.resetSignatures(rdo, 'returned_to_draft')
+        : false;
+    const saved = await this.rdosRepository.save(rdo);
+    this.logRdoEvent('rdo_status_changed', saved, {
+      previousStatus,
+      newStatus,
+      signaturesReset,
+    });
+
+    await this.rdoAuditService.recordStatusChange(
+      saved.id,
+      previousStatus,
+      newStatus,
+    );
+    if (signaturesReset) {
+      await this.rdoAuditService.recordEvent(saved.id, 'SIGNATURES_RESET', {
+        reason: 'returned_to_draft',
+      });
+    }
+
+    return saved;
+  }
+
+  async cancel(id: string, reason: string): Promise<Rdo> {
+    const rdo = await this.findOne(id);
+    await this.assertRdoDocumentMutable(rdo);
+
+    if (!CANCELABLE_STATUSES.has(rdo.status)) {
+      throw new BadRequestException(
+        `Transição de "${rdo.status}" para "cancelado" não permitida.`,
+      );
+    }
+
+    const previousStatus = rdo.status;
+    rdo.status = 'cancelado';
+    const saved = await this.rdosRepository.save(rdo);
+
+    this.logRdoEvent('rdo_canceled', saved, { reason });
+    await this.rdoAuditService.recordCancellation(
+      saved.id,
+      reason,
+      previousStatus,
+    );
+
+    return saved;
+  }
+
+  async getAuditTrail(id: string) {
+    await this.findOne(id); // Garante a validação de existência e o escopo do Tenant atual
+    const events = await this.rdoAuditService.getEventsForRdo(id);
+
+    const EVENT_LABELS: Record<string, string> = {
+      CREATED: 'Criado',
+      UPDATED: 'Atualizado',
+      CANCELED: 'Cancelado',
+      STATUS_CHANGED: 'Status Alterado',
+      PDF_GENERATED: 'PDF Gerado',
+      SIGNED: 'Assinado',
+      EMAIL_SENT: 'E-mail enviado',
+      REMOVED: 'Removido',
+      SIGNATURES_RESET: 'Assinaturas invalidadas',
+      LEGACY_SAVE_PDF_ATTEMPT: 'Tentativa em endpoint legado',
+    };
+
+    return events.map((event) => ({
+      id: event.id,
+      eventType: event.event_type,
+      eventLabel: EVENT_LABELS[event.event_type] || event.event_type,
+      userId: event.user_id,
+      createdAt: event.created_at,
+      details: event.details || {},
+    }));
   }
 
   async sign(
@@ -165,48 +539,44 @@ export class RdosService {
       tipo: 'responsavel' | 'engenheiro';
       nome: string;
       cpf: string;
-      hash: string;
-      timestamp: string;
     },
   ): Promise<Rdo> {
     const rdo = await this.findOne(id);
     await this.assertRdoDocumentMutable(rdo);
-    const sigData = JSON.stringify({
-      nome: body.nome,
-      cpf: body.cpf,
-      hash: body.hash,
-      timestamp: body.timestamp,
+    this.assertRdoNotCancelled(rdo, 'assinado');
+
+    if (rdo.status === 'rascunho') {
+      throw new BadRequestException(
+        'Envie o RDO para revisão antes de coletar assinaturas.',
+      );
+    }
+
+    const signaturePayload: RdoOperationalSignature = {
+      nome: body.nome.trim(),
+      cpf: body.cpf.trim(),
       signed_at: new Date().toISOString(),
-    });
+      signature_mode: 'operational_ack',
+      verification_scope: 'document_integrity_snapshot',
+      document_hash_algorithm: 'sha256',
+      document_hash: this.buildSnapshotHash(rdo),
+    };
+
+    const sigData = JSON.stringify(signaturePayload);
+
     if (body.tipo === 'responsavel') {
       rdo.assinatura_responsavel = sigData;
     } else {
       rdo.assinatura_engenheiro = sigData;
     }
-    return this.rdosRepository.save(rdo);
-  }
 
-  async markPdfSaved(id: string, body: { filename: string }): Promise<Rdo> {
-    const rdo = await this.findOne(id);
-    await this.assertRdoDocumentMutable(rdo);
-    this.assertRdoReadyForFinalDocument(rdo);
-    rdo.pdf_file_key = `rdos/${id}/${body.filename}`;
-    rdo.pdf_folder_path = `rdos/${id}`;
-    rdo.pdf_original_name = body.filename;
     const saved = await this.rdosRepository.save(rdo);
-
-    await this.documentGovernanceService.syncFinalDocumentMetadata({
-      companyId: rdo.company_id,
-      module: 'rdo',
-      entityId: rdo.id,
-      title: this.buildRdoTitle(rdo),
-      documentDate: this.getRdoDocumentDate(rdo),
-      documentCode: this.buildValidationCode(rdo),
-      fileKey: saved.pdf_file_key!,
-      folderPath: saved.pdf_folder_path,
-      originalName: saved.pdf_original_name,
-      mimeType: 'application/pdf',
+    this.logRdoEvent('rdo_signed', saved, {
+      signatureType: body.tipo,
+      signatureMode: signaturePayload.signature_mode,
+      documentHash: signaturePayload.document_hash,
     });
+
+    await this.rdoAuditService.recordSignature(saved.id, body.tipo, body.nome);
 
     return saved;
   }
@@ -272,6 +642,18 @@ export class RdosService {
       throw error;
     }
 
+    this.logRdoEvent('rdo_pdf_uploaded', rdo, {
+      fileKey,
+      folderPath,
+      originalName,
+    });
+
+    await this.rdoAuditService.recordPdfGenerated(
+      rdo.id,
+      fileKey,
+      originalName,
+    );
+
     return {
       fileKey,
       folderPath,
@@ -279,11 +661,31 @@ export class RdosService {
     };
   }
 
+  async markPdfSaved(
+    id: string,
+    _body?: { filename?: string },
+  ): Promise<never> {
+    const rdo = await this.findOne(id);
+    this.logRdoEvent('rdo_legacy_save_pdf_attempt', rdo, {
+      endpoint: 'POST /rdos/:id/save-pdf',
+    });
+    await this.rdoAuditService.recordEvent(rdo.id, 'LEGACY_SAVE_PDF_ATTEMPT', {
+      endpoint: 'POST /rdos/:id/save-pdf',
+      deprecated: true,
+    });
+    throw new GoneException(
+      'O endpoint legado POST /rdos/:id/save-pdf foi descontinuado. Envie o arquivo real por POST /rdos/:id/file.',
+    );
+  }
+
   async getPdfAccess(id: string): Promise<{
     entityId: string;
-    fileKey: string;
-    folderPath: string;
-    originalName: string;
+    hasFinalPdf: boolean;
+    availability: RdoPdfAccessAvailability;
+    message: string | null;
+    fileKey: string | null;
+    folderPath: string | null;
+    originalName: string | null;
     url: string | null;
   }> {
     const rdo = await this.findOne(id);
@@ -295,23 +697,40 @@ export class RdosService {
     );
 
     if (!registryEntry) {
-      throw new NotFoundException(`RDO ${id} não possui PDF final armazenado`);
+      return {
+        entityId: rdo.id,
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        message: 'O PDF final do RDO ainda não foi emitido.',
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        url: null,
+      };
     }
 
     let url: string | null = null;
+    let availability: RdoPdfAccessAvailability = 'ready';
+    let message: string | null = null;
     try {
       url = await this.documentStorageService.getSignedUrl(
         registryEntry.file_key,
         3600,
       );
     } catch {
+      availability = 'registered_without_signed_url';
+      message =
+        'O PDF final do RDO foi emitido, mas a URL segura não está disponível agora.';
       url = null;
     }
 
     return {
       entityId: rdo.id,
+      hasFinalPdf: true,
+      availability,
+      message,
       fileKey: registryEntry.file_key,
-      folderPath: registryEntry.folder_path || '',
+      folderPath: registryEntry.folder_path || null,
       originalName:
         registryEntry.original_name ||
         registryEntry.file_key.split('/').pop() ||
@@ -420,6 +839,14 @@ export class RdosService {
           },
         );
       }
+      this.logRdoEvent('rdo_email_sent', rdo, {
+        recipients: to.length,
+        hasGovernedPdf: true,
+      });
+      await this.rdoAuditService.recordEvent(rdo.id, 'EMAIL_SENT', {
+        recipients: to.length,
+        hasGovernedPdf: true,
+      });
       return;
     }
 
@@ -432,6 +859,14 @@ export class RdosService {
         { companyId: rdo.company_id },
       );
     }
+    this.logRdoEvent('rdo_email_sent', rdo, {
+      recipients: to.length,
+      hasGovernedPdf: false,
+    });
+    await this.rdoAuditService.recordEvent(rdo.id, 'EMAIL_SENT', {
+      recipients: to.length,
+      hasGovernedPdf: false,
+    });
   }
 
   async listFiles(filters: WeeklyBundleFilters = {}) {
@@ -448,6 +883,13 @@ export class RdosService {
 
   async remove(id: string): Promise<void> {
     const rdo = await this.findOne(id);
+
+    if (rdo.status === 'aprovado' || rdo.status === 'cancelado') {
+      throw new BadRequestException(
+        'RDOs aprovados ou cancelados não podem ser excluídos fisicamente. Utilize o cancelamento explícito.',
+      );
+    }
+
     await this.documentGovernanceService.removeFinalDocumentReference({
       companyId: rdo.company_id,
       module: 'rdo',
@@ -466,6 +908,44 @@ export class RdosService {
         this.documentStorageService.deleteFile(fileKey),
     });
     await this.rdosRepository.remove(rdo);
+    this.logRdoEvent('rdo_removed', rdo);
+    await this.rdoAuditService.recordEvent(rdo.id, 'REMOVED');
+  }
+
+  async getAnalyticsOverview(): Promise<{
+    totalRdos: number;
+    rascunho: number;
+    enviado: number;
+    aprovado: number;
+    cancelado: number;
+  }> {
+    const tenantId = this.tenantService.getTenantId();
+    const baseWhere = tenantId ? { company_id: tenantId } : {};
+
+    const countByStatus = (status: string) =>
+      this.rdosRepository.count({
+        where: {
+          ...baseWhere,
+          status,
+        },
+      });
+
+    const [totalRdos, rascunho, enviado, aprovado, cancelado] =
+      await Promise.all([
+        this.rdosRepository.count({ where: baseWhere }),
+        countByStatus('rascunho'),
+        countByStatus('enviado'),
+        countByStatus('aprovado'),
+        countByStatus('cancelado'),
+      ]);
+
+    return {
+      totalRdos,
+      rascunho,
+      enviado,
+      aprovado,
+      cancelado,
+    };
   }
 
   async exportExcel(): Promise<Buffer> {

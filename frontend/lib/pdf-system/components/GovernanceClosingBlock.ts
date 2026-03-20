@@ -215,17 +215,32 @@ export async function drawGovernanceClosingBlock(
     width: 256,
     color: { dark: "#0f172a", light: "#ffffff" },
   });
-  const availableFirstBodyHeight = Math.max(34, getRemainingHeight(ctx) - 18);
-  const firstSignatureCount = hasSignatures
+  let availableFirstBodyHeight = Math.max(34, getRemainingHeight(ctx) - 18);
+  let firstSignatureCount = hasSignatures
     ? Math.min(signatures.length, getMaxSignatureRows(availableFirstBodyHeight))
     : 0;
-  const firstSignatures = signatures.slice(0, firstSignatureCount);
-  const remainingSignatures = signatures.slice(firstSignatureCount);
-  const signatureH = estimateSignaturePanelHeight(firstSignatures);
-  const bodyHeight = Math.max(signatureH, validationH, 34);
-  const totalHeight = bodyHeight + 18;
+  let firstSignatures = signatures.slice(0, firstSignatureCount);
+  let remainingSignatures = signatures.slice(firstSignatureCount);
+  let signatureH = estimateSignaturePanelHeight(firstSignatures);
+  let bodyHeight = Math.max(signatureH, validationH, 34);
+  let totalHeight = bodyHeight + 18;
 
+  const yBeforeSpace = ctx.y;
   ensureSpace(ctx, totalHeight + 4);
+
+  if (ctx.y < yBeforeSpace && hasSignatures) {
+    availableFirstBodyHeight = Math.max(34, getRemainingHeight(ctx) - 18);
+    firstSignatureCount = Math.min(
+      signatures.length,
+      getMaxSignatureRows(availableFirstBodyHeight),
+    );
+    firstSignatures = signatures.slice(0, firstSignatureCount);
+    remainingSignatures = signatures.slice(firstSignatureCount);
+    signatureH = estimateSignaturePanelHeight(firstSignatures);
+    bodyHeight = Math.max(signatureH, validationH, 34);
+    totalHeight = bodyHeight + 18;
+  }
+
   const bodyY = ctx.y + 12;
 
   doc.setFillColor(...theme.tone.surface);

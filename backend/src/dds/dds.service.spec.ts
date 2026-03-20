@@ -6,6 +6,9 @@ import type { TenantService } from '../common/tenant/tenant.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { SignaturesService } from '../signatures/signatures.service';
+import { Signature } from '../signatures/entities/signature.entity';
+import { Site } from '../sites/entities/site.entity';
+import { User } from '../users/entities/user.entity';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -15,15 +18,34 @@ type RemoveFinalDocumentReferenceInput = Parameters<
 >[0];
 
 describe('DdsService', () => {
+  type SiteFindOneArgs = { where?: { id?: string } };
+  type UserFindArgs = {
+    where?: {
+      id?: {
+        value?: string[];
+        _value?: string[];
+      };
+    };
+  };
+  type MockManager = {
+    getRepository: jest.Mock;
+    transaction: jest.Mock;
+  };
+
   let service: DdsService;
   let repository: {
     findOne: jest.Mock;
     save: jest.Mock;
+    create: jest.Mock;
     createQueryBuilder: jest.Mock;
+    manager: {
+      getRepository: jest.Mock;
+      transaction: jest.Mock;
+    };
   };
   let documentStorageService: Pick<
     DocumentStorageService,
-    'generateDocumentKey' | 'uploadFile' | 'deleteFile'
+    'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
   >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
@@ -33,11 +55,65 @@ describe('DdsService', () => {
     SignaturesService,
     'findByDocument' | 'replaceDocumentSignatures' | 'findManyByDocuments'
   >;
+  let signatureRepository: { delete: jest.Mock };
+  let siteRepository: { findOne: jest.Mock };
+  let userRepository: { find: jest.Mock };
+  let transactionalDdsRepository: {
+    save: jest.Mock;
+    update: jest.Mock;
+    softDelete: jest.Mock;
+  };
 
   beforeEach(() => {
+    signatureRepository = {
+      delete: jest.fn(() => Promise.resolve()),
+    };
+    siteRepository = {
+      findOne: jest.fn((options: SiteFindOneArgs) =>
+        Promise.resolve(
+          options.where?.id ? ({ id: options.where.id } as Site) : null,
+        ),
+      ),
+    };
+    userRepository = {
+      find: jest.fn((options: UserFindArgs) => {
+        const ids = Array.isArray(options.where?.id?.value)
+          ? options.where.id.value
+          : Array.isArray(options.where?.id?._value)
+            ? options.where.id._value
+            : [];
+        return Promise.resolve(ids.map((id) => ({ id }) as User));
+      }),
+    };
+    transactionalDdsRepository = {
+      save: jest.fn((input) => Promise.resolve(input as Dds)),
+      update: jest.fn(),
+      softDelete: jest.fn(),
+    };
+    const manager = {} as MockManager;
+    manager.getRepository = jest.fn((entity: unknown) => {
+      if (entity === Signature) {
+        return signatureRepository;
+      }
+      if (entity === Site) {
+        return siteRepository;
+      }
+      if (entity === User) {
+        return userRepository;
+      }
+      if (entity === Dds) {
+        return transactionalDdsRepository;
+      }
+      return {};
+    });
+    manager.transaction = jest.fn(
+      (callback: (transactionManager: MockManager) => unknown) =>
+        callback(manager),
+    );
     repository = {
       findOne: jest.fn(),
       save: jest.fn((input) => Promise.resolve(input as Dds)),
+      create: jest.fn((input) => input as Dds),
       createQueryBuilder: jest.fn(() => {
         const builder = {
           select: jest.fn().mockReturnThis(),
@@ -49,6 +125,7 @@ describe('DdsService', () => {
         };
         return builder;
       }),
+      manager,
     };
     documentStorageService = {
       generateDocumentKey: jest.fn(
@@ -56,6 +133,9 @@ describe('DdsService', () => {
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
       deleteFile: jest.fn(() => Promise.resolve()),
+      getSignedUrl: jest.fn(() =>
+        Promise.resolve('https://example.com/dds.pdf'),
+      ),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
@@ -115,11 +195,15 @@ describe('DdsService', () => {
       buffer: Buffer.from('%PDF-dds'),
     } as Express.Multer.File;
 
-    await expect(service.attachPdf('dds-1', file)).resolves.toEqual({
-      fileKey: 'documents/company-1/dds/dds-1/dds-final.pdf',
-      folderPath: 'dds/company-1',
-      originalName: 'dds-final.pdf',
-    });
+    await expect(service.attachPdf('dds-1', file)).resolves.toEqual(
+      expect.objectContaining({
+        fileKey: 'documents/company-1/dds/dds-1/dds-final.pdf',
+        folderPath: 'dds/company-1',
+        originalName: 'dds-final.pdf',
+        storageMode: 's3',
+        degraded: false,
+      }),
+    );
 
     expect(
       documentGovernanceService.registerFinalDocument,
@@ -152,6 +236,72 @@ describe('DdsService', () => {
     await expect(
       service.update('dds-1', { tema: 'Novo tema' }),
     ).rejects.toThrow(BadRequestException);
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('getPdfAccess: retorna contrato explicito quando o PDF final ainda nao foi emitido', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      pdf_file_key: null,
+      pdf_folder_path: null,
+      pdf_original_name: null,
+    } as unknown as Dds);
+
+    await expect(service.getPdfAccess('dds-1')).resolves.toEqual({
+      ddsId: 'dds-1',
+      hasFinalPdf: false,
+      availability: 'not_emitted',
+      message:
+        'O DDS ainda não possui PDF final emitido. Gere o documento final para habilitar download governado.',
+      degraded: false,
+      fileKey: null,
+      folderPath: null,
+      originalName: null,
+      url: null,
+    });
+  });
+
+  it('getPdfAccess: retorna disponibilidade degradada quando a URL assinada nao pode ser emitida', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      pdf_file_key: 'documents/company-1/dds/dds-1/dds-final.pdf',
+      pdf_folder_path: 'dds/company-1',
+      pdf_original_name: 'dds-final.pdf',
+    } as unknown as Dds);
+    (documentStorageService.getSignedUrl as jest.Mock).mockRejectedValueOnce(
+      new Error('storage offline'),
+    );
+
+    await expect(service.getPdfAccess('dds-1')).resolves.toEqual({
+      ddsId: 'dds-1',
+      hasFinalPdf: true,
+      availability: 'registered_without_signed_url',
+      message:
+        'PDF final registrado, mas a URL segura não está disponível no momento. O storage está em modo degradado.',
+      degraded: true,
+      fileKey: 'documents/company-1/dds/dds-1/dds-final.pdf',
+      folderPath: 'dds/company-1',
+      originalName: 'dds-final.pdf',
+      url: null,
+    });
+  });
+
+  it('rejeita criacao quando o site nao pertence a empresa do DDS', async () => {
+    siteRepository.findOne.mockResolvedValueOnce(null);
+
+    await expect(
+      service.create({
+        tema: 'DDS Integridade',
+        data: '2026-03-14',
+        company_id: 'company-1',
+        site_id: 'site-x',
+        facilitador_id: 'user-1',
+        participants: ['user-1'],
+      }),
+    ).rejects.toThrow('O site informado não pertence à empresa atual do DDS.');
 
     expect(repository.save).not.toHaveBeenCalled();
   });
@@ -387,6 +537,33 @@ describe('DdsService', () => {
       'O DDS precisa ter participantes definidos antes das assinaturas.',
     );
     expect(signaturesService.replaceDocumentSignatures).not.toHaveBeenCalled();
+  });
+
+  it('invalida assinaturas existentes quando o conteudo operacional do DDS muda', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      status: DdsStatus.PUBLICADO,
+      tema: 'DDS antigo',
+      conteudo: 'Conteudo inicial',
+      data: new Date('2026-03-14T08:00:00.000Z'),
+      site_id: 'site-1',
+      facilitador_id: 'facilitador-1',
+      participants: [{ id: 'user-1' }],
+      is_modelo: false,
+    } as unknown as Dds);
+
+    await expect(
+      service.update('dds-1', { conteudo: 'Conteudo revisado' }),
+    ).resolves.toMatchObject({
+      id: 'dds-1',
+      conteudo: 'Conteudo revisado',
+    });
+
+    expect(signatureRepository.delete).toHaveBeenCalledWith({
+      document_id: 'dds-1',
+      document_type: 'DDS',
+    });
   });
 
   it('replaceSignatures: rejeita quando DDS e um modelo', async () => {

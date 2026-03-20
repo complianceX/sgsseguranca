@@ -42,6 +42,7 @@ describe('checklistsService', () => {
         titulo: 'Checklist operacional',
         site_id: 'site-1',
       }),
+      { headers: undefined },
     );
   });
 

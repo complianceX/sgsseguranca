@@ -67,6 +67,72 @@ export interface NonConformity {
   updated_at: string;
 }
 
+export type NonConformityPdfAccessAvailability =
+  | "ready"
+  | "registered_without_signed_url"
+  | "not_emitted";
+
+export interface NonConformityPdfAccessResponse {
+  entityId: string;
+  hasFinalPdf: boolean;
+  availability: NonConformityPdfAccessAvailability;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  url: string | null;
+  message: string | null;
+}
+
+export interface NonConformityAnalyticsOverview {
+  totalNonConformities: number;
+  abertas: number;
+  emAndamento: number;
+  aguardandoValidacao: number;
+  encerradas: number;
+}
+
+export type NonConformityAttachmentAccessAvailability =
+  | "ready"
+  | "registered_without_signed_url";
+
+export interface GovernedNonConformityAttachmentReference {
+  v: 1;
+  kind: "governed-storage";
+  fileKey: string;
+  originalName: string;
+  mimeType: string;
+  uploadedAt: string;
+  sizeBytes?: number | null;
+}
+
+export interface NonConformityAttachmentAccessResponse {
+  entityId: string;
+  index: number;
+  hasGovernedAttachment: true;
+  availability: NonConformityAttachmentAccessAvailability;
+  fileKey: string;
+  originalName: string;
+  mimeType: string;
+  url: string | null;
+  degraded: boolean;
+  message: string | null;
+}
+
+export interface NonConformityAttachmentAttachResponse {
+  entityId: string;
+  attachments: string[];
+  attachmentCount: number;
+  storageMode: "governed-storage";
+  degraded: false;
+  message: string;
+  attachment: {
+    index: number;
+    fileKey: string;
+    originalName: string;
+    mimeType: string;
+  };
+}
+
 export enum NcStatus {
   ABERTA = "ABERTA",
   EM_ANDAMENTO = "EM_ANDAMENTO",
@@ -94,6 +160,57 @@ export const NC_ALLOWED_TRANSITIONS: Record<NcStatus, NcStatus[]> = {
   [NcStatus.AGUARDANDO_VALIDACAO]: [NcStatus.ENCERRADA, NcStatus.ABERTA],
   [NcStatus.ENCERRADA]: [NcStatus.ABERTA],
 };
+
+const GOVERNED_ATTACHMENT_REF_PREFIX = "gst:nc-attachment:";
+
+function decodeBase64Url(value: string): string {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(
+    normalized.length + ((4 - (normalized.length % 4 || 4)) % 4),
+    "=",
+  );
+  return atob(padded);
+}
+
+export function parseGovernedNcAttachmentReference(
+  value?: string | null,
+): GovernedNonConformityAttachmentReference | null {
+  const normalized = String(value || "").trim();
+  if (!normalized.startsWith(GOVERNED_ATTACHMENT_REF_PREFIX)) {
+    return null;
+  }
+
+  const encodedPayload = normalized.slice(GOVERNED_ATTACHMENT_REF_PREFIX.length);
+  if (!encodedPayload) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(
+      decodeBase64Url(encodedPayload),
+    ) as Partial<GovernedNonConformityAttachmentReference>;
+    if (
+      parsed?.v !== 1 ||
+      parsed.kind !== "governed-storage" ||
+      typeof parsed.fileKey !== "string" ||
+      typeof parsed.originalName !== "string" ||
+      typeof parsed.mimeType !== "string" ||
+      typeof parsed.uploadedAt !== "string"
+    ) {
+      return null;
+    }
+
+    return parsed as GovernedNonConformityAttachmentReference;
+  } catch {
+    return null;
+  }
+}
+
+export function isGovernedNcAttachmentReference(
+  value?: string | null,
+): boolean {
+  return Boolean(parseGovernedNcAttachmentReference(value));
+}
 
 export function normalizeNcStatus(value?: string | null): NcStatus {
   const normalized =
@@ -260,13 +377,35 @@ export const nonConformitiesService = {
   },
 
   getPdfAccess: async (id: string) => {
-    const response = await api.get<{
-      entityId: string;
-      fileKey: string;
-      folderPath: string;
-      originalName: string;
-      url: string;
-    }>(`/nonconformities/${id}/pdf`);
+    const response = await api.get<NonConformityPdfAccessResponse>(
+      `/nonconformities/${id}/pdf`,
+    );
+    return response.data;
+  },
+
+  attachAttachment: async (
+    id: string,
+    file: File,
+  ): Promise<NonConformityAttachmentAttachResponse> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<NonConformityAttachmentAttachResponse>(
+      `/nonconformities/${id}/attachments`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+    return response.data;
+  },
+
+  getAttachmentAccess: async (
+    id: string,
+    index: number,
+  ): Promise<NonConformityAttachmentAccessResponse> => {
+    const response = await api.get<NonConformityAttachmentAccessResponse>(
+      `/nonconformities/${id}/attachments/${index}/access`,
+    );
     return response.data;
   },
 
@@ -304,6 +443,13 @@ export const nonConformitiesService = {
   getMonthlyAnalytics: async (): Promise<{ mes: string; total: number }[]> => {
     const response = await api.get<{ mes: string; total: number }[]>(
       "/nonconformities/analytics/monthly",
+    );
+    return response.data;
+  },
+
+  getAnalyticsOverview: async (): Promise<NonConformityAnalyticsOverview> => {
+    const response = await api.get<NonConformityAnalyticsOverview>(
+      "/nonconformities/analytics/overview",
     );
     return response.data;
   },

@@ -7,4 +7,6 @@ export * from "./ddsBlueprint";
 export * from "./trainingBlueprint";
 export * from "./auditBlueprint";
 export * from "./inspectionBlueprint";
-
+export * from "./rdoBlueprint";
+export * from "./catBlueprint";
+export * from "./dossierBlueprint";

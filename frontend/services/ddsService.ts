@@ -82,6 +82,27 @@ export interface HistoricalPhotoHashReference {
   hashes: string[];
 }
 
+export interface DdsPdfAccess {
+  ddsId: string;
+  hasFinalPdf: boolean;
+  availability: "ready" | "registered_without_signed_url" | "not_emitted";
+  message: string;
+  degraded: boolean;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  url: string | null;
+}
+
+export interface DdsAttachFileResult {
+  fileKey: string;
+  folderPath: string;
+  originalName: string;
+  storageMode: "s3" | "reference-only";
+  degraded: boolean;
+  message: string;
+}
+
 export const ddsService = {
   findPaginated: async (opts?: {
     page?: number;
@@ -127,20 +148,14 @@ export const ddsService = {
   attachFile: async (id: string, file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    const response = await api.post(`/dds/${id}/file`, formData, {
+    const response = await api.post<DdsAttachFileResult>(`/dds/${id}/file`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data;
   },
 
   getPdfAccess: async (id: string) => {
-    const response = await api.get<{
-      ddsId: string;
-      fileKey: string;
-      folderPath: string;
-      originalName: string;
-      url: string | null;
-    }>(`/dds/${id}/pdf`);
+    const response = await api.get<DdsPdfAccess>(`/dds/${id}/pdf`);
     return response.data;
   },
 

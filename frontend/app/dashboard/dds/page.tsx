@@ -70,6 +70,7 @@ import {
 import { PaginationControls } from "@/components/PaginationControls";
 import { cn } from "@/lib/utils";
 import { getFormErrorMessage } from "@/lib/error-handler";
+import { usePermissions } from "@/hooks/usePermissions";
 
 type StoredFile = {
   ddsId: string;
@@ -85,6 +86,8 @@ const inputClassName =
   "w-full rounded-[var(--ds-radius-md)] border border-[var(--component-field-border-subtle)] bg-[color:var(--component-field-bg-subtle)] px-3 py-2.5 text-sm text-[var(--component-field-text)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
 
 export default function DdsPage() {
+  const { hasPermission } = usePermissions();
+  const canManageDds = hasPermission("can_manage_dds");
   const [ddsList, setDdsList] = useState<Dds[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -174,6 +177,10 @@ export default function DdsPage() {
   }, [fileCompanyId, fileYear, fileWeek, filesPageSize]);
 
   async function handleDelete(id: string) {
+    if (!canManageDds) {
+      toast.error("Você não tem permissão para excluir DDS.");
+      return;
+    }
     if (!confirm("Tem certeza que deseja excluir este DDS?")) return;
 
     try {
@@ -191,12 +198,6 @@ export default function DdsPage() {
       );
     }
   }
-
-  const getErrorStatus = (error: unknown) =>
-    Number(
-      (error as { response?: { status?: number } } | undefined)?.response
-        ?.status ?? 0,
-    ) || null;
 
   const getApiErrorMessage = useCallback((error: unknown) => {
     const message = (
@@ -233,15 +234,7 @@ export default function DdsPage() {
   const buildDdsFilename = (dds: Dds) =>
     buildPdfFilename("DDS", dds.tema || "dds", dds.data);
 
-  const ensureGovernedPdf = async (dds: Dds) => {
-    try {
-      return await ddsService.getPdfAccess(dds.id);
-    } catch (error) {
-      if (getErrorStatus(error) !== 404) {
-        throw error;
-      }
-    }
-
+  const generateLocalDdsPdfBase64 = async (dds: Dds) => {
     const signatures = await signaturesService.findByDocument(dds.id, "DDS");
     const base64 = await generateDdsPdf(dds, signatures, {
       save: false,
@@ -249,13 +242,32 @@ export default function DdsPage() {
     });
 
     if (!base64) {
-      throw new Error("Falha ao gerar o PDF oficial do DDS.");
+      throw new Error("Falha ao gerar o PDF do DDS.");
     }
 
-    const file = base64ToPdfFile(String(base64), buildDdsFilename(dds));
-    await ddsService.attachFile(dds.id, file);
+    return String(base64);
+  };
+
+  const ensureGovernedPdf = async (dds: Dds) => {
+    if (!dds.pdf_file_key && !canManageDds) {
+      throw new Error(
+        "Você não tem permissão para emitir o PDF final deste DDS.",
+      );
+    }
+    const existingAccess = await ddsService.getPdfAccess(dds.id);
+    if (existingAccess.hasFinalPdf) {
+      return existingAccess;
+    }
+
+    const base64 = await generateLocalDdsPdfBase64(dds);
+    const file = base64ToPdfFile(base64, buildDdsFilename(dds));
+    const attachResult = await ddsService.attachFile(dds.id, file);
     await Promise.all([loadDds(), loadStoredFiles()]);
-    toast.success("PDF final do DDS emitido e registrado com sucesso.");
+    if (attachResult.degraded) {
+      toast.warning(attachResult.message);
+    } else {
+      toast.success(attachResult.message);
+    }
     return ddsService.getPdfAccess(dds.id);
   };
 
@@ -264,31 +276,24 @@ export default function DdsPage() {
       toast.info("Preparando impressão...");
       if (dds.pdf_file_key) {
         const access = await ddsService.getPdfAccess(dds.id);
-        if (!access.url) {
-          throw new Error("PDF final emitido, mas indisponível no armazenamento.");
+        if (access.availability === "ready" && access.url) {
+          openPdfForPrint(access.url, () => {
+            toast.info("Pop-up bloqueado. Abrimos o PDF final na mesma aba.");
+          });
+          return;
         }
-        openPdfForPrint(access.url, () => {
-          toast.info("Pop-up bloqueado. Abrimos o PDF final na mesma aba.");
-        });
-        return;
+        toast.warning(access.message);
       }
 
-      const signatures = await signaturesService.findByDocument(dds.id, "DDS");
-      const base64 = await generateDdsPdf(dds, signatures, {
-        save: false,
-        output: "base64",
+      const base64 = await generateLocalDdsPdfBase64(dds);
+      const fileURL = URL.createObjectURL(base64ToPdfBlob(base64));
+
+      openPdfForPrint(fileURL, () => {
+        toast.info(
+          "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
+        );
       });
-
-      if (base64) {
-        const fileURL = URL.createObjectURL(base64ToPdfBlob(String(base64)));
-
-        openPdfForPrint(fileURL, () => {
-          toast.info(
-            "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
-          );
-        });
-        setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
-      }
+      setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       toast.error("Erro ao gerar PDF para impressão.");
@@ -299,32 +304,27 @@ export default function DdsPage() {
     try {
       if (dds.pdf_file_key) {
         const access = await ddsService.getPdfAccess(dds.id);
-        setSelectedDoc({
-          name: `DDS - ${dds.tema}`,
-          filename: access.originalName || buildDdsFilename(dds),
-          storedDocument: {
-            documentId: dds.id,
-            documentType: "DDS",
-          },
-        });
-        setIsMailModalOpen(true);
-        return;
+        if (access.availability === "ready") {
+          setSelectedDoc({
+            name: `DDS - ${dds.tema}`,
+            filename: access.originalName || buildDdsFilename(dds),
+            storedDocument: {
+              documentId: dds.id,
+              documentType: "DDS",
+            },
+          });
+          setIsMailModalOpen(true);
+          return;
+        }
+        toast.warning(access.message);
       }
 
-      const signatures = await signaturesService.findByDocument(dds.id, "DDS");
-      const base64 = await generateDdsPdf(dds, signatures, {
-        save: false,
-        output: "base64",
-      });
-
-      if (!base64) {
-        throw new Error("Falha ao gerar PDF do DDS.");
-      }
+      const base64 = await generateLocalDdsPdfBase64(dds);
 
       setSelectedDoc({
         name: `DDS - ${dds.tema}`,
         filename: buildDdsFilename(dds),
-        base64: base64 as string,
+        base64,
       });
       setIsMailModalOpen(true);
     } catch (error) {
@@ -341,10 +341,8 @@ export default function DdsPage() {
           : "Emitindo PDF final governado...",
       );
       const access = await ensureGovernedPdf(dds);
-      if (!access.url) {
-        toast.success(
-          "PDF final emitido, mas a URL segura não está disponível no momento.",
-        );
+      if (access.availability !== "ready" || !access.url) {
+        toast.warning(access.message);
         return;
       }
       openUrlInNewTab(access.url);
@@ -368,10 +366,8 @@ export default function DdsPage() {
   const handleDownloadStoredPdf = async (ddsId: string) => {
     try {
       const access = await ddsService.getPdfAccess(ddsId);
-      if (!access.url) {
-        toast.info(
-          "PDF armazenado localmente — use o botão Imprimir para gerar.",
-        );
+      if (access.availability !== "ready" || !access.url) {
+        toast.info(access.message);
         return;
       }
       openUrlInNewTab(access.url);
@@ -382,6 +378,10 @@ export default function DdsPage() {
   };
 
   const handleStatusChange = async (dds: Dds, newStatus: DdsStatus) => {
+    if (!canManageDds) {
+      toast.error("Você não tem permissão para alterar o status do DDS.");
+      return;
+    }
     try {
       const updated = await ddsService.updateStatus(dds.id, newStatus);
       setDdsList((prev) =>
@@ -455,8 +455,8 @@ export default function DdsPage() {
   const handleCopyPdfLink = async (ddsId: string) => {
     try {
       const access = await ddsService.getPdfAccess(ddsId);
-      if (!access.url) {
-        toast.info("PDF sem URL pública — S3 não configurado.");
+      if (access.availability !== "ready" || !access.url) {
+        toast.info(access.message);
         return;
       }
       await navigator.clipboard.writeText(access.url);
@@ -588,13 +588,15 @@ export default function DdsPage() {
               armazenados por empresa.
             </CardDescription>
           </div>
-          <Link
-            href="/dashboard/dds/new"
-            className={cn(buttonVariants(), "inline-flex items-center")}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Novo DDS
-          </Link>
+          {canManageDds ? (
+            <Link
+              href="/dashboard/dds/new"
+              className={cn(buttonVariants(), "inline-flex items-center")}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Novo DDS
+            </Link>
+          ) : null}
         </CardHeader>
       </Card>
 
@@ -887,7 +889,7 @@ export default function DdsPage() {
                   : "Ainda não existem registros de DDS para este tenant."
               }
               action={
-                !deferredSearchTerm && modelFilter === "all" ? (
+                !deferredSearchTerm && modelFilter === "all" && canManageDds ? (
                   <Link
                     href="/dashboard/dds/new"
                     className={cn(buttonVariants(), "inline-flex items-center")}
@@ -949,7 +951,7 @@ export default function DdsPage() {
                           >
                             {DDS_STATUS_LABEL[currentStatus]}
                           </span>
-                          {transitions.length > 0 && (
+                          {canManageDds && transitions.length > 0 && (
                             <select
                               aria-label="Mover status"
                               className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2 py-1 text-xs text-[var(--ds-color-text-muted)] transition-colors hover:border-[var(--ds-color-border-strong)] focus:outline-none"
@@ -982,8 +984,11 @@ export default function DdsPage() {
                             title={
                               dds.pdf_file_key
                                 ? "Abrir PDF final governado"
-                                : "Emitir PDF final governado"
+                                : canManageDds
+                                  ? "Emitir PDF final governado"
+                                  : "Somente usuários com gestão podem emitir o PDF final"
                             }
+                            disabled={!dds.pdf_file_key && !canManageDds}
                           >
                             <ShieldCheck className="h-4 w-4 text-[var(--ds-color-success)]" />
                           </Button>
@@ -1005,47 +1010,51 @@ export default function DdsPage() {
                           >
                             <Mail className="h-4 w-4" />
                           </Button>
-                          <Link
-                            href={
-                              isLockedByFinalPdf
-                                ? "#"
-                                : `/dashboard/dds/edit/${dds.id}`
-                            }
-                            className={cn(
-                              buttonVariants({
-                                size: "icon",
-                                variant: "ghost",
-                              }),
-                              isLockedByFinalPdf
-                                ? "cursor-not-allowed opacity-45"
-                                : "",
-                            )}
-                            title={
-                              isLockedByFinalPdf
-                                ? "DDS com PDF final emitido: edição bloqueada"
-                                : "Editar DDS"
-                            }
-                            onClick={(event) => {
-                              if (isLockedByFinalPdf) {
-                                event.preventDefault();
-                                toast.error(
-                                  "DDS com PDF final emitido. Gere um novo DDS para alterações.",
-                                );
-                              }
-                            }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Link>
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handleDelete(dds.id)}
-                            title="Excluir DDS"
-                            className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {canManageDds ? (
+                            <>
+                              <Link
+                                href={
+                                  isLockedByFinalPdf
+                                    ? "#"
+                                    : `/dashboard/dds/edit/${dds.id}`
+                                }
+                                className={cn(
+                                  buttonVariants({
+                                    size: "icon",
+                                    variant: "ghost",
+                                  }),
+                                  isLockedByFinalPdf
+                                    ? "cursor-not-allowed opacity-45"
+                                    : "",
+                                )}
+                                title={
+                                  isLockedByFinalPdf
+                                    ? "DDS com PDF final emitido: edição bloqueada"
+                                    : "Editar DDS"
+                                }
+                                onClick={(event) => {
+                                  if (isLockedByFinalPdf) {
+                                    event.preventDefault();
+                                    toast.error(
+                                      "DDS com PDF final emitido. Gere um novo DDS para alterações.",
+                                    );
+                                  }
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Link>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleDelete(dds.id)}
+                                title="Excluir DDS"
+                                className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : null}
                         </div>
                       </TableCell>
                     </TableRow>

@@ -11,12 +11,4 @@ export class SignRdoDto {
   @IsString()
   @IsNotEmpty()
   cpf: string;
-
-  @IsString()
-  @IsNotEmpty()
-  hash: string;
-
-  @IsString()
-  @IsNotEmpty()
-  timestamp: string;
 }

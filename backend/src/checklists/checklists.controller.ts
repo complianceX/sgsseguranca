@@ -5,6 +5,7 @@ import {
   Body,
   Patch,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Delete,
   UseGuards,
@@ -29,6 +30,7 @@ import {
   cleanupUploadedTempFile,
   createTemporaryUploadOptions,
   readUploadedFileBuffer,
+  validateFileMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
 
 const wordUploadOptions = createTemporaryUploadOptions({
@@ -171,6 +173,22 @@ export class ChecklistsController {
     return this.checklistsService.getPdfAccess(id);
   }
 
+  @Get(':id/equipment-photo/access')
+  @Authorize('can_view_checklists')
+  getEquipmentPhotoAccess(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.checklistsService.getEquipmentPhotoAccess(id);
+  }
+
+  @Get(':id/items/:itemIndex/photos/:photoIndex/access')
+  @Authorize('can_view_checklists')
+  getItemPhotoAccess(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('itemIndex', ParseIntPipe) itemIndex: number,
+    @Param('photoIndex', ParseIntPipe) photoIndex: number,
+  ) {
+    return this.checklistsService.getItemPhotoAccess(id, itemIndex, photoIndex);
+  }
+
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_checklists')
@@ -212,6 +230,74 @@ export class ChecklistsController {
   @Authorize('can_manage_checklists')
   savePdf(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.checklistsService.savePdfToStorage(id);
+  }
+
+  @Post(':id/equipment-photo')
+  @UseInterceptors(
+    FileInterceptor(
+      'file',
+      createTemporaryUploadOptions({ maxFileSize: 10 * 1024 * 1024 }),
+    ),
+  )
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
+  async attachEquipmentPhoto(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Foto do equipamento não enviada.');
+    }
+
+    const buffer = await readUploadedFileBuffer(file);
+
+    try {
+      validateFileMagicBytes(buffer, ['image/jpeg', 'image/png', 'image/webp']);
+
+      return await this.checklistsService.attachEquipmentPhoto(
+        id,
+        buffer,
+        file.originalname,
+        file.mimetype,
+      );
+    } finally {
+      await cleanupUploadedTempFile(file);
+    }
+  }
+
+  @Post(':id/items/:itemIndex/photos')
+  @UseInterceptors(
+    FileInterceptor(
+      'file',
+      createTemporaryUploadOptions({ maxFileSize: 10 * 1024 * 1024 }),
+    ),
+  )
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_checklists')
+  async attachItemPhoto(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('itemIndex', ParseIntPipe) itemIndex: number,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Foto do item não enviada.');
+    }
+
+    const buffer = await readUploadedFileBuffer(file);
+
+    try {
+      validateFileMagicBytes(buffer, ['image/jpeg', 'image/png', 'image/webp']);
+
+      return await this.checklistsService.attachItemPhoto(
+        id,
+        itemIndex,
+        buffer,
+        file.originalname,
+        file.mimetype,
+      );
+    } finally {
+      await cleanupUploadedTempFile(file);
+    }
   }
 
   @Delete(':id')

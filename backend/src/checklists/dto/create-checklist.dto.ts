@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsString,
   IsNotEmpty,
   IsOptional,
@@ -6,9 +7,11 @@ import {
   IsUUID,
   IsEnum,
   IsBoolean,
+  ValidateNested,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { Trim } from 'class-sanitizer';
+import { ChecklistItemDto } from './checklist-item.dto';
 
 export class CreateChecklistDto {
   @IsString()
@@ -83,7 +86,10 @@ export class CreateChecklistDto {
   inspetor_id: string;
 
   @IsOptional()
-  itens?: Record<string, any>[];
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ChecklistItemDto)
+  itens?: ChecklistItemDto[];
 
   @IsBoolean()
   @IsOptional()

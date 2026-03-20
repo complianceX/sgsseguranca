@@ -43,8 +43,10 @@ interface PtsTableRowProps {
   onPrepareApproval: (id: string) => void;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  onFinalize: (id: string) => void;
   approvingId: string | null;
   rejectingId: string | null;
+  finalizingId: string | null;
   approvalReviewLoadingId: string | null;
   approvalIssue?: PtApprovalBlockedPayload;
   approvalReview?: PtApprovalReview;
@@ -124,8 +126,10 @@ export const PtsTableRow = React.memo(
     onPrepareApproval,
     onApprove,
     onReject,
+    onFinalize,
     approvingId,
     rejectingId,
+    finalizingId,
     approvalReviewLoadingId,
     approvalIssue,
     approvalReview,
@@ -138,11 +142,20 @@ export const PtsTableRow = React.memo(
     const [showSignModal, setShowSignModal] = useState(false);
     const [showSignaturesPanel, setShowSignaturesPanel] = useState(false);
     const isApproved = pt.status === 'Aprovada';
+    const isAwaitingApproval = pt.status === 'Pendente';
+    const isFinalizable = pt.status === 'Aprovada' || pt.status === 'Expirada';
+    const isEditable = pt.status === 'Pendente';
+    const canManagePt = hasPermission('can_manage_pt');
+    const canManageMail = hasPermission('can_manage_mail');
+    const canManageSignatures = hasPermission('can_manage_signatures');
+    const canViewSignatures = hasPermission('can_view_signatures');
+    const canApprovePt = hasPermission('can_approve_pt');
     const activeApprovalRules = approvalRuleLabels.filter(
       ({ key }) => approvalIssue?.rules[key],
     );
     const isApproving = approvingId === pt.id;
     const isRejecting = rejectingId === pt.id;
+    const isFinalizing = finalizingId === pt.id;
     const isPreparingApproval = approvalReviewLoadingId === pt.id;
 
     const handleSignSave = async (signatureData: string, type: string) => {
@@ -207,19 +220,21 @@ export const PtsTableRow = React.memo(
               >
                 <Printer className="h-4 w-4" />
               </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => onSendEmail(pt.id)}
-                title={
-                  pt.pdf_file_key || isApproved
-                    ? 'Enviar PDF final governado por e-mail'
-                    : 'Enviar pré-visualização por e-mail'
-                }
-              >
-                <Mail className="h-4 w-4" />
-              </Button>
+              {canManageMail ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => onSendEmail(pt.id)}
+                  title={
+                    pt.pdf_file_key || isApproved
+                      ? 'Enviar PDF final governado por e-mail'
+                      : 'Enviar pré-visualização por e-mail'
+                  }
+                >
+                  <Mail className="h-4 w-4" />
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 size="icon"
@@ -233,7 +248,7 @@ export const PtsTableRow = React.memo(
               >
                 <Download className="h-4 w-4" />
               </Button>
-              {!isApproved && hasPermission('can_approve_pt') ? (
+              {isAwaitingApproval && canApprovePt ? (
                 <>
                   <Button
                     type="button"
@@ -258,46 +273,70 @@ export const PtsTableRow = React.memo(
                   </Button>
                 </>
               ) : null}
-              <Link
-                href={`/dashboard/pts/edit/${pt.id}`}
-                className={cn(
-                  buttonVariants({ size: 'icon', variant: 'ghost' }),
-                  isApproved
-                    ? 'pointer-events-none text-[var(--ds-color-text-muted)] opacity-40'
-                    : '',
-                )}
-                title={isApproved ? 'PT aprovada: edição bloqueada' : 'Editar PT'}
-              >
-                <Pencil className="h-4 w-4" />
-              </Link>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => onDelete(pt.id)}
-                className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-                title="Excluir PT"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => setShowSignModal(true)}
-                title="Assinar PT"
-              >
-                <PenLine className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => setShowSignaturesPanel(true)}
-                title="Ver assinaturas"
-              >
-                <Users className="h-4 w-4" />
-              </Button>
+              {isFinalizable && canApprovePt ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  loading={isFinalizing}
+                  onClick={() => onFinalize(pt.id)}
+                  title="Encerrar PT"
+                >
+                  Encerrar
+                </Button>
+              ) : null}
+              {canManagePt ? (
+                <>
+                  <Link
+                    href={`/dashboard/pts/edit/${pt.id}`}
+                    className={cn(
+                      buttonVariants({ size: 'icon', variant: 'ghost' }),
+                      !isEditable
+                        ? 'pointer-events-none text-[var(--ds-color-text-muted)] opacity-40'
+                        : '',
+                    )}
+                    title={
+                      isEditable
+                        ? 'Editar PT'
+                        : 'Somente PTs pendentes podem ser editadas'
+                    }
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Link>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => onDelete(pt.id)}
+                    className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                    title="Excluir PT"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : null}
+              {canManageSignatures ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setShowSignModal(true)}
+                  title="Assinar PT"
+                >
+                  <PenLine className="h-4 w-4" />
+                </Button>
+              ) : null}
+              {canViewSignatures ? (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setShowSignaturesPanel(true)}
+                  title="Ver assinaturas"
+                >
+                  <Users className="h-4 w-4" />
+                </Button>
+              ) : null}
             </div>
           </TableCell>
         </TableRow>

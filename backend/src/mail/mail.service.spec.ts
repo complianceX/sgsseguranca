@@ -19,6 +19,7 @@ import { ServiceUnavailableException, NotFoundException } from '@nestjs/common';
 import { ReportsService } from '../reports/reports.service';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { DistributedLockService } from '../common/redis/distributed-lock.service';
+import { Cat } from '../cats/entities/cat.entity';
 
 // Mock do Resend
 const mockResendSend = jest.fn<(payload: unknown) => Promise<unknown>>();
@@ -39,6 +40,12 @@ type MailLogRepositoryMock = {
 };
 
 type PtDocument = Awaited<ReturnType<PtsService['findOne']>>;
+type NonConformityDocument = Awaited<
+  ReturnType<NonConformitiesService['findOne']>
+>;
+type NonConformityPdfAccess = Awaited<
+  ReturnType<NonConformitiesService['getPdfAccess']>
+>;
 type InspectionDocument = Awaited<ReturnType<InspectionsService['findOne']>>;
 type InspectionPdfAccess = Awaited<
   ReturnType<InspectionsService['getPdfAccess']>
@@ -63,6 +70,7 @@ describe('MailService', () => {
   let service: MailService;
   let documentStorageService: DocumentStorageService;
   let ptsService: PtsService;
+  let nonConformitiesService: NonConformitiesService;
   let inspectionsService: InspectionsService;
   let auditsService: AuditsService;
   let mailLogRepository: MailLogRepositoryMock;
@@ -86,6 +94,9 @@ describe('MailService', () => {
   const mockDocumentStorageService = {
     getPresignedDownloadUrl: jest.fn(),
     downloadFileBuffer: jest.fn(),
+  };
+  const mockCatsRepository = {
+    findOne: jest.fn(),
   };
 
   // Mock dos serviços de domínio
@@ -123,6 +134,10 @@ describe('MailService', () => {
           useValue: mockMailLogRepository,
         },
         {
+          provide: getRepositoryToken(Cat),
+          useValue: mockCatsRepository,
+        },
+        {
           provide: DocumentStorageService,
           useValue: mockDocumentStorageService,
         },
@@ -154,6 +169,9 @@ describe('MailService', () => {
       DocumentStorageService,
     );
     ptsService = module.get<PtsService>(PtsService);
+    nonConformitiesService = module.get<NonConformitiesService>(
+      NonConformitiesService,
+    );
     inspectionsService = module.get<InspectionsService>(InspectionsService);
     auditsService = module.get<AuditsService>(AuditsService);
     mailLogRepository = module.get<MailLogRepositoryMock>(
@@ -394,6 +412,72 @@ describe('MailService', () => {
       expect(findAuditSpy).toHaveBeenCalledWith('audit-1', 'company-1');
       expect(auditPdfAccessSpy).toHaveBeenCalledWith('audit-1', 'company-1');
       expect(downloadBufferSpy).toHaveBeenCalledWith('audits/final.pdf');
+    });
+
+    it('deve enviar uma não conformidade governada corretamente', async () => {
+      const nonConformity: NonConformityDocument = {
+        id: 'nc-1',
+        codigo_nc: 'NC-001',
+      } as NonConformityDocument;
+      const pdfAccess: NonConformityPdfAccess = {
+        entityId: 'nc-1',
+        hasFinalPdf: true,
+        availability: 'ready',
+        fileKey: 'nonconformities/final.pdf',
+        folderPath: 'nonconformities/company-1/week-11',
+        originalName: 'nc-001.pdf',
+        url: 'https://signed.example.com/nc-001.pdf',
+        message: null,
+      };
+      const findNcSpy = jest
+        .spyOn(nonConformitiesService, 'findOne')
+        .mockResolvedValue(nonConformity);
+      const ncPdfAccessSpy = jest
+        .spyOn(nonConformitiesService, 'getPdfAccess')
+        .mockResolvedValue(pdfAccess);
+      const downloadBufferSpy = jest
+        .spyOn(documentStorageService, 'downloadFileBuffer')
+        .mockResolvedValue(Buffer.from('nc-pdf'));
+      mockResendSend.mockResolvedValue({ data: { id: 'msg-4' }, error: null });
+
+      await service.sendStoredDocument(
+        'nc-1',
+        'NONCONFORMITY',
+        'destinatario@example.com',
+      );
+
+      expect(findNcSpy).toHaveBeenCalledWith('nc-1');
+      expect(ncPdfAccessSpy).toHaveBeenCalledWith('nc-1');
+      expect(downloadBufferSpy).toHaveBeenCalledWith(
+        'nonconformities/final.pdf',
+      );
+    });
+
+    it('deve enviar uma CAT com PDF final governado', async () => {
+      mockCatsRepository.findOne.mockResolvedValue({
+        id: 'cat-1',
+        numero: 'CAT-20260319-0001',
+        pdf_file_key: 'documents/company-1/cats/cat-1/cat-final.pdf',
+      });
+      const downloadBufferSpy = jest
+        .spyOn(documentStorageService, 'downloadFileBuffer')
+        .mockResolvedValue(Buffer.from('cat-pdf'));
+      mockResendSend.mockResolvedValue({ data: { id: 'msg-5' }, error: null });
+
+      await service.sendStoredDocument(
+        'cat-1',
+        'CAT',
+        'destinatario@example.com',
+        'company-1',
+      );
+
+      expect(mockCatsRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 'cat-1', company_id: 'company-1' },
+        select: ['id', 'numero', 'pdf_file_key'],
+      });
+      expect(downloadBufferSpy).toHaveBeenCalledWith(
+        'documents/company-1/cats/cat-1/cat-final.pdf',
+      );
     });
   });
 

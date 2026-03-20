@@ -5,6 +5,7 @@ import {
   Body,
   Patch,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Delete,
   UseGuards,
@@ -26,8 +27,10 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   cleanupUploadedTempFile,
+  createTemporaryUploadOptions,
   fileUploadOptions,
   readUploadedFileBuffer,
+  validateFileMagicBytes,
   validatePdfMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
 import { Authorize } from '../auth/authorize.decorator';
@@ -100,6 +103,12 @@ export class NonConformitiesController {
     return this.nonConformitiesService.getMonthlyAnalytics();
   }
 
+  @Get('analytics/overview')
+  @Authorize('can_manage_nc')
+  getAnalyticsOverview() {
+    return this.nonConformitiesService.getAnalyticsOverview();
+  }
+
   @Get('export/excel')
   @Authorize('can_manage_nc')
   @Header(
@@ -127,6 +136,15 @@ export class NonConformitiesController {
     return this.nonConformitiesService.getPdfAccess(id);
   }
 
+  @Get(':id/attachments/:index/access')
+  @Authorize('can_manage_nc')
+  getAttachmentAccess(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('index', ParseIntPipe) index: number,
+  ) {
+    return this.nonConformitiesService.getAttachmentAccess(id, index);
+  }
+
   @Post(':id/file')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   @Authorize('can_manage_nc')
@@ -144,6 +162,43 @@ export class NonConformitiesController {
       validatePdfMagicBytes(buffer);
 
       return await this.nonConformitiesService.attachPdf(
+        id,
+        buffer,
+        file.originalname,
+        file.mimetype,
+      );
+    } finally {
+      await cleanupUploadedTempFile(file);
+    }
+  }
+
+  @Post(':id/attachments')
+  @UseInterceptors(
+    FileInterceptor(
+      'file',
+      createTemporaryUploadOptions({ maxFileSize: 10 * 1024 * 1024 }),
+    ),
+  )
+  @Authorize('can_manage_nc')
+  async attachAttachment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Arquivo de evidência não enviado');
+    }
+
+    const buffer = await readUploadedFileBuffer(file);
+
+    try {
+      validateFileMagicBytes(buffer, [
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+      ]);
+
+      return await this.nonConformitiesService.attachAttachment(
         id,
         buffer,
         file.originalname,

@@ -1,6 +1,5 @@
 import { drawPtBlueprint } from './ptBlueprint';
 
-const drawDocumentHeader = jest.fn();
 const drawDocumentIdentityRail = jest.fn();
 const drawExecutiveSummaryStrip = jest.fn();
 const drawGovernanceClosingBlock = jest.fn().mockResolvedValue(undefined);
@@ -10,7 +9,6 @@ const drawChecklistTable = jest.fn();
 const drawParticipantTable = jest.fn();
 
 jest.mock('../components', () => ({
-  drawDocumentHeader: (...args: unknown[]) => drawDocumentHeader(...args),
   drawDocumentIdentityRail: (...args: unknown[]) =>
     drawDocumentIdentityRail(...args),
   drawExecutiveSummaryStrip: (...args: unknown[]) =>

@@ -5,9 +5,12 @@ import { toast } from 'sonner';
 import { dossiersService } from '@/services/dossiersService';
 import { sitesService, Site } from '@/services/sitesService';
 import { usersService, User } from '@/services/usersService';
+import { useAuth } from '@/context/AuthContext';
 import { FileDown } from 'lucide-react';
 
 export default function DossiersPage() {
+  const { loading: authLoading, hasPermission } = useAuth();
+  const canViewDossiers = hasPermission('can_view_dossiers');
   const [userOptions, setUserOptions] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
@@ -24,6 +27,12 @@ export default function DossiersPage() {
   const [selectedSiteId, setSelectedSiteId] = useState('');
 
   useEffect(() => {
+    if (!canViewDossiers) {
+      setSites([]);
+      setLoading(false);
+      return;
+    }
+
     const loadSites = async () => {
       try {
         setLoading(true);
@@ -53,9 +62,14 @@ export default function DossiersPage() {
     };
 
     void loadSites();
-  }, [deferredSiteSearch, selectedSiteId]);
+  }, [canViewDossiers, deferredSiteSearch, selectedSiteId]);
 
   useEffect(() => {
+    if (!canViewDossiers) {
+      setUserOptions([]);
+      return;
+    }
+
     const loadUsers = async () => {
       try {
         const usersPage = await usersService.findPaginated({
@@ -71,7 +85,7 @@ export default function DossiersPage() {
     };
 
     void loadUsers();
-  }, [deferredUserSearch]);
+  }, [canViewDossiers, deferredUserSearch]);
 
   const availableUsers = useMemo(() => {
     if (!selectedUser) {
@@ -89,6 +103,11 @@ export default function DossiersPage() {
   }, [selectedSite, sites]);
 
   const downloadEmployee = async () => {
+    if (!canViewDossiers) {
+      toast.error('Voce nao tem permissao para gerar dossie.');
+      return;
+    }
+
     if (!selectedUserId) {
       toast.error('Selecione um colaborador.');
       return;
@@ -99,13 +118,22 @@ export default function DossiersPage() {
       toast.success('Dossie do colaborador gerado.');
     } catch (error) {
       console.error('Erro ao gerar dossie colaborador:', error);
-      toast.error('Falha ao gerar dossie do colaborador.');
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Falha ao gerar dossie do colaborador.';
+      toast.error(message);
     } finally {
       setDownloading(null);
     }
   };
 
   const downloadSite = async () => {
+    if (!canViewDossiers) {
+      toast.error('Voce nao tem permissao para gerar dossie.');
+      return;
+    }
+
     if (!selectedSiteId) {
       toast.error('Selecione uma obra/setor.');
       return;
@@ -116,11 +144,38 @@ export default function DossiersPage() {
       toast.success('Dossie da obra/setor gerado.');
     } catch (error) {
       console.error('Erro ao gerar dossie obra:', error);
-      toast.error('Falha ao gerar dossie da obra/setor.');
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Falha ao gerar dossie da obra/setor.';
+      toast.error(message);
     } finally {
       setDownloading(null);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="ds-system-scope">
+        <div className="ds-surface-card p-4">
+          <p className="text-sm text-gray-500">Carregando permissoes...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!canViewDossiers) {
+    return (
+      <div className="ds-system-scope">
+        <div className="ds-surface-card p-4">
+          <h1 className="text-2xl font-bold text-gray-900">Dossies de SST</h1>
+          <p className="mt-2 text-sm text-gray-500">
+            Voce nao tem permissao para visualizar o fluxo de dossie.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="ds-system-scope space-y-6">

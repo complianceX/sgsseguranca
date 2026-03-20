@@ -2,7 +2,6 @@ import type { Inspection } from "@/services/inspectionsService";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, sanitize } from "../core/format";
 import {
-  drawDocumentHeader,
   drawDocumentIdentityRail,
   drawEvidenceGallery,
   drawExecutiveSummaryStrip,
@@ -26,20 +25,6 @@ export async function drawPhotographicReportBlueprint(
   validationUrl: string,
   resolveEvidenceImage: ResolveEvidenceImage,
 ) {
-  drawDocumentHeader(ctx, {
-    title: "RELATORIO FOTOGRAFICO DE SST",
-    subtitle: "Evidencias tecnicas e observacoes operacionais",
-    code,
-    date: formatDate(inspection.data_inspecao),
-    status: "Emitido",
-    version: "1",
-    company: sanitize(
-      (inspection as Inspection & { company?: { razao_social?: string } }).company?.razao_social ||
-        inspection.company_id,
-    ),
-    site: sanitize(inspection.site?.nome),
-  });
-
   drawDocumentIdentityRail(ctx, {
     documentType: "Relatorio Fotografico",
     criticality: (inspection.perigos_riscos?.length || 0) > 0 ? "moderate" : "low",

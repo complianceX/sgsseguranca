@@ -7,15 +7,18 @@ import { Pt } from '../pts/entities/pt.entity';
 import { Site } from '../sites/entities/site.entity';
 import { Training } from '../trainings/entities/training.entity';
 import { User } from '../users/entities/user.entity';
+import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { DossiersController } from './dossiers.controller';
 import { DossiersService } from './dossiers.service';
+import { PublicDossiersController } from './public-dossiers.controller';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Training, EpiAssignment, Pt, Cat, Site]),
     CommonModule,
+    DocumentRegistryModule,
   ],
-  controllers: [DossiersController],
+  controllers: [DossiersController, PublicDossiersController],
   providers: [DossiersService],
   exports: [DossiersService],
 })

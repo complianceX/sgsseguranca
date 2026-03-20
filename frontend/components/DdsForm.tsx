@@ -28,6 +28,7 @@ import { signaturesService } from "@/services/signaturesService";
 import { getFormErrorMessage } from "@/lib/error-handler";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const ddsSchema = z.object({
   tema: z.string().min(5, "O tema deve ter pelo menos 5 caracteres"),
@@ -109,6 +110,8 @@ function buildSignatureSnapshot(input: {
 }
 
 export function DdsForm({ id }: DdsFormProps) {
+  const { hasPermission } = usePermissions();
+  const canManageDds = hasPermission("can_manage_dds");
   const router = useRouter();
   const searchParams = useSearchParams();
   const prefillCompanyIdParam = searchParams.get("company_id") || "";
@@ -126,6 +129,7 @@ export function DdsForm({ id }: DdsFormProps) {
     searchParams.get("facilitador_id") || searchParams.get("user_id") || "";
   const prefillTitle = searchParams.get("title") || "";
   const prefillDescription = searchParams.get("description") || "";
+  const resumeSignatures = searchParams.get("resume_signatures") === "1";
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [suggesting, setSuggesting] = useState(false);
@@ -388,6 +392,14 @@ export function DdsForm({ id }: DdsFormProps) {
     setPhotoReuseWarnings(nextWarnings);
   }, [teamPhotos, historicalPhotoHashes]);
 
+  useEffect(() => {
+    if (resumeSignatures) {
+      toast.warning(
+        "O DDS foi salvo, mas as assinaturas/fotos precisam ser concluídas antes do PDF final.",
+      );
+    }
+  }, [resumeSignatures]);
+
   const getGeoMetadata = async (): Promise<TeamPhotoMetadata> => {
     const nav: Navigator | undefined =
       typeof window !== "undefined" ? window.navigator : undefined;
@@ -513,6 +525,13 @@ export function DdsForm({ id }: DdsFormProps) {
   };
 
   async function onSubmit(data: DdsFormData) {
+    if (!canManageDds) {
+      setSubmitError("Você não tem permissão para salvar DDS.");
+      toast.error("Você não tem permissão para salvar DDS.");
+      return;
+    }
+    let persistedDdsId: string | undefined;
+    let shouldPersistSignatures = false;
     try {
       setLoading(true);
       setSubmitError(null);
@@ -545,9 +564,11 @@ export function DdsForm({ id }: DdsFormProps) {
 
       if (id) {
         await ddsService.update(id, payload);
+        persistedDdsId = id;
       } else {
         const newDds = await ddsService.create(payload);
         ddsId = newDds.id;
+        persistedDdsId = newDds.id;
       }
 
       const currentSignatureSnapshot = buildSignatureSnapshot({
@@ -560,6 +581,7 @@ export function DdsForm({ id }: DdsFormProps) {
         !id ||
         !initialSignatureSnapshot ||
         currentSignatureSnapshot !== initialSignatureSnapshot;
+      shouldPersistSignatures = shouldReplaceSignatures;
 
       if (ddsId && shouldReplaceSignatures) {
         const participantSignaturesPayload = data.participants.map(
@@ -612,6 +634,18 @@ export function DdsForm({ id }: DdsFormProps) {
       router.push("/dashboard/dds");
       router.refresh();
     } catch (error) {
+      if (persistedDdsId && shouldPersistSignatures) {
+        const partialSaveMessage =
+          "O DDS foi salvo, mas assinaturas/fotos ainda não foram concluídas. Revise o registro e finalize antes de emitir o PDF final.";
+        setSubmitError(partialSaveMessage);
+        toast.warning(partialSaveMessage);
+        if (!id) {
+          router.replace(
+            `/dashboard/dds/edit/${persistedDdsId}?resume_signatures=1`,
+          );
+        }
+        return;
+      }
       console.error("Erro ao salvar DDS:", error);
       const errorMessage = getFormErrorMessage(error, {
         badRequest: "Dados inválidos. Revise os campos obrigatórios.",
@@ -680,6 +714,14 @@ export function DdsForm({ id }: DdsFormProps) {
     return (
       <div className="flex justify-center py-10">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  if (!canManageDds) {
+    return (
+      <div className="rounded-lg border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/8 px-5 py-4 text-sm text-[var(--ds-color-danger)]">
+        Você não tem permissão para criar ou editar DDS neste tenant.
       </div>
     );
   }

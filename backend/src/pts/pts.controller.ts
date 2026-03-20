@@ -32,6 +32,7 @@ import { LogPreApprovalReviewDto } from './dto/log-pre-approval-review.dto';
 import { UpdatePtApprovalRulesDto } from './dto/update-pt-approval-rules.dto';
 import { ApprovePtDto } from './dto/approve-pt.dto';
 import { RejectPtDto } from './dto/reject-pt.dto';
+import { PtResponseDto, toPtResponseDto } from './dto/pt-response.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Authorize } from '../auth/authorize.decorator';
 import {
@@ -78,8 +79,8 @@ export class PtsController {
     Role.COLABORADOR,
   )
   @Authorize('can_manage_pt')
-  create(@Body() createPtDto: CreatePtDto) {
-    return this.ptsService.create(createPtDto);
+  create(@Body() createPtDto: CreatePtDto): Promise<PtResponseDto> {
+    return this.ptsService.create(createPtDto).then(toPtResponseDto);
   }
 
   @Post(':id/approve')
@@ -89,12 +90,14 @@ export class PtsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: ApprovePtDto,
     @Req() req: { user?: { userId?: string } },
-  ) {
+  ): Promise<PtResponseDto> {
     const userId = req.user?.userId;
     if (!userId) {
       throw new BadRequestException('Usuário autenticado inválido');
     }
-    return this.ptsService.approve(id, userId, body.reason);
+    return this.ptsService
+      .approve(id, userId, body.reason)
+      .then(toPtResponseDto);
   }
 
   @Post(':id/pre-approval-review')
@@ -125,12 +128,14 @@ export class PtsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: RejectPtDto,
     @Req() req: { user?: { userId?: string } },
-  ) {
+  ): Promise<PtResponseDto> {
     const userId = req.user?.userId;
     if (!userId) {
       throw new BadRequestException('Usuário autenticado inválido');
     }
-    return this.ptsService.reject(id, userId, body.reason);
+    return this.ptsService
+      .reject(id, userId, body.reason)
+      .then(toPtResponseDto);
   }
 
   @Get()
@@ -200,6 +205,12 @@ export class PtsController {
     return this.ptsService.getApprovalRules();
   }
 
+  @Get('analytics/overview')
+  @Authorize('can_view_pt')
+  getAnalyticsOverview() {
+    return this.ptsService.getAnalyticsOverview();
+  }
+
   @Patch('approval-rules')
   @Authorize('can_manage_pt')
   updateApprovalRules(@Body() payload: UpdatePtApprovalRulesDto) {
@@ -229,6 +240,20 @@ export class PtsController {
     }
 
     return this.ptsService.getPdfAccess(id);
+  }
+
+  @Post(':id/finalize')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_approve_pt')
+  finalize(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req() req: { user?: { userId?: string } },
+  ): Promise<PtResponseDto> {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new BadRequestException('Usuário autenticado inválido');
+    }
+    return this.ptsService.finalize(id, userId).then(toPtResponseDto);
   }
 
   /** Anexa PDF a uma PT existente */
@@ -264,8 +289,10 @@ export class PtsController {
 
   @Get(':id')
   @Authorize('can_view_pt')
-  async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.ptsService.findOne(id);
+  async findOne(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<PtResponseDto> {
+    return toPtResponseDto(await this.ptsService.findOne(id));
   }
 
   @Patch(':id')
@@ -280,8 +307,8 @@ export class PtsController {
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updatePtDto: UpdatePtDto,
-  ) {
-    return this.ptsService.update(id, updatePtDto);
+  ): Promise<PtResponseDto> {
+    return this.ptsService.update(id, updatePtDto).then(toPtResponseDto);
   }
 
   @Delete(':id')

@@ -6,6 +6,7 @@ import {
   Pt,
   PtApprovalBlockedPayload,
   PtApprovalRules,
+  PtAnalyticsOverview,
   ptsService,
 } from '@/services/ptsService';
 import { aiService } from '@/services/aiService';
@@ -102,10 +103,13 @@ export function usePts() {
   const [approvalRules, setApprovalRules] = useState<PtApprovalRules | null>(
     null,
   );
+  const [overviewMetrics, setOverviewMetrics] =
+    useState<PtAnalyticsOverview | null>(null);
   const [approvalRulesLoading, setApprovalRulesLoading] = useState(true);
   const [approvalReviewLoadingId, setApprovalReviewLoadingId] = useState<
     string | null
   >(null);
+  const [finalizingId, setFinalizingId] = useState<string | null>(null);
   const [approvalReviewById, setApprovalReviewById] = useState<
     Record<string, PtApprovalReview>
   >({});
@@ -117,17 +121,17 @@ export function usePts() {
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
 
-  const getErrorStatus = useCallback((error: unknown) => {
-    return (
-      Number(
-        (error as { response?: { status?: number } } | undefined)?.response
-          ?.status ?? 0,
-      ) || null
-    );
-  }, []);
-
   const buildPtFilename = useCallback(
     (pt: Pt) => `PT_${String(pt.numero || pt.titulo || pt.id).replace(/\s+/g, '_')}.pdf`,
+    [],
+  );
+
+  const shouldUseGovernedPdf = useCallback(
+    (pt: Pick<Pt, 'status' | 'pdf_file_key'>) =>
+      Boolean(pt.pdf_file_key) ||
+      pt.status === 'Aprovada' ||
+      pt.status === 'Encerrada' ||
+      pt.status === 'Expirada',
     [],
   );
 
@@ -135,15 +139,33 @@ export function usePts() {
     try {
       setLoading(true);
       setLoadError(null);
-      const res = await ptsService.findPaginated({
-        page,
-        limit,
-        search: deferredSearchTerm || undefined,
-        status: statusFilter || undefined,
-      });
-      setPts(res.data);
-      setTotal(res.total);
-      setLastPage(res.lastPage);
+      const [pageResult, overviewResult] = await Promise.allSettled([
+        ptsService.findPaginated({
+          page,
+          limit,
+          search: deferredSearchTerm || undefined,
+          status: statusFilter || undefined,
+        }),
+        ptsService.getAnalyticsOverview(),
+      ]);
+
+      if (pageResult.status === 'rejected') {
+        throw pageResult.reason;
+      }
+
+      setPts(pageResult.value.data);
+      setTotal(pageResult.value.total);
+      setLastPage(pageResult.value.lastPage);
+
+      if (overviewResult.status === 'fulfilled') {
+        setOverviewMetrics(overviewResult.value);
+      } else {
+        console.error(
+          'Erro ao carregar overview analítico de PTs:',
+          overviewResult.reason,
+        );
+        setOverviewMetrics(null);
+      }
     } catch (error) {
       setLoadError('Nao foi possivel carregar a lista de PTs.');
       handleApiError(error, 'PTs');
@@ -503,15 +525,16 @@ export function usePts() {
 
   const ensureGovernedPdf = useCallback(
     async (pt: Pt) => {
-      try {
-        return await ptsService.getPdfAccess(pt.id);
-      } catch (error) {
-        if (getErrorStatus(error) !== 404) {
-          throw error;
-        }
+      const access = await ptsService.getPdfAccess(pt.id);
+      if (access.hasFinalPdf) {
+        return access;
       }
 
-      if (pt.status !== 'Aprovada') {
+      if (
+        pt.status !== 'Aprovada' &&
+        pt.status !== 'Encerrada' &&
+        pt.status !== 'Expirada'
+      ) {
         return null;
       }
 
@@ -538,15 +561,14 @@ export function usePts() {
       toast.success('PDF final da PT emitido e registrado com sucesso.');
       return ptsService.getPdfAccess(pt.id);
     },
-    [buildPtFilename, getErrorStatus, loadPts],
+    [buildPtFilename, loadPts],
   );
 
   const handleDownloadPdf = useCallback(async (id: string) => {
     try {
       const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
-      const shouldUseGovernedPdf = Boolean(pt.pdf_file_key) || pt.status === 'Aprovada';
 
-      if (shouldUseGovernedPdf) {
+      if (shouldUseGovernedPdf(pt)) {
         const access = await ensureGovernedPdf(pt);
         if (access?.url) {
           openUrlInNewTab(access.url);
@@ -567,15 +589,14 @@ export function usePts() {
     } catch (error) {
       handleApiError(error, 'PDF');
     }
-  }, [ensureGovernedPdf, pts]);
+  }, [ensureGovernedPdf, pts, shouldUseGovernedPdf]);
 
   const handleSendEmail = useCallback(async (id: string) => {
     try {
       toast.info('Preparando documento...');
       const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
-      const shouldUseGovernedPdf = Boolean(pt.pdf_file_key) || pt.status === 'Aprovada';
 
-      if (shouldUseGovernedPdf) {
+      if (shouldUseGovernedPdf(pt)) {
         const access = await ensureGovernedPdf(pt);
         if (!access?.url) {
           toast.warning(
@@ -586,9 +607,9 @@ export function usePts() {
 
         const storedAttachment = await getStoredPdfAttachment({
           ...pt,
-          pdf_file_key: access.fileKey,
-          pdf_folder_path: access.folderPath,
-          pdf_original_name: access.originalName,
+          pdf_file_key: access.fileKey ?? undefined,
+          pdf_folder_path: access.folderPath ?? undefined,
+          pdf_original_name: access.originalName ?? undefined,
         });
         if (storedAttachment) {
           setSelectedDoc({
@@ -619,15 +640,14 @@ export function usePts() {
     } catch (error) {
       handleApiError(error, 'Email');
     }
-  }, [ensureGovernedPdf, getStoredPdfAttachment, pts]);
+  }, [ensureGovernedPdf, getStoredPdfAttachment, pts, shouldUseGovernedPdf]);
 
   const handlePrint = useCallback(async (id: string) => {
     try {
       toast.info('Preparando impressão...');
       const pt = pts.find((item) => item.id === id) || (await ptsService.findOne(id));
-      const shouldUseGovernedPdf = Boolean(pt.pdf_file_key) || pt.status === 'Aprovada';
 
-      if (shouldUseGovernedPdf) {
+      if (shouldUseGovernedPdf(pt)) {
         const access = await ensureGovernedPdf(pt);
         if (access?.url) {
           openPdfForPrint(access.url, () => {
@@ -657,7 +677,7 @@ export function usePts() {
     } catch (error) {
       handleApiError(error, 'Impressão');
     }
-  }, [ensureGovernedPdf, pts]);
+  }, [ensureGovernedPdf, pts, shouldUseGovernedPdf]);
 
   const handleApprove = useCallback(async (id: string) => {
     const review = approvalReviewById[id];
@@ -726,6 +746,26 @@ export function usePts() {
     }
   }, [dismissApprovalIssue]);
 
+  const handleFinalize = useCallback(async (id: string) => {
+    if (!confirm('Tem certeza que deseja encerrar esta PT?')) {
+      return;
+    }
+
+    setFinalizingId(id);
+    try {
+      const updated = await ptsService.finalize(id);
+      setPts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      dismissApprovalIssue(id);
+      dismissApprovalReview(id);
+      toast.success('PT encerrada com sucesso.');
+      await loadPts();
+    } catch (error) {
+      handleApiError(error, 'PT');
+    } finally {
+      setFinalizingId((current) => (current === id ? null : current));
+    }
+  }, [dismissApprovalIssue, dismissApprovalReview, loadPts]);
+
   // Filtering is now server-side — pts already contains the filtered page
   const filteredPts = pts;
 
@@ -750,8 +790,10 @@ export function usePts() {
     filteredPts,
     approvalRules,
     approvalRulesLoading,
+    overviewMetrics,
     approvingId,
     rejectingId,
+    finalizingId,
     approvalIssuesById,
     approvalReviewLoadingId,
     approvalReviewById,
@@ -766,6 +808,7 @@ export function usePts() {
     handlePrepareApproval,
     handleApprove,
     handleReject,
+    handleFinalize,
     loadPts,
   };
 }

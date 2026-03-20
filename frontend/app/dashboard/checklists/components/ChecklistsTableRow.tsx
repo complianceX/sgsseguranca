@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { ChecklistColumnKey } from '../columns';
+import { useAuth } from '@/context/AuthContext';
 
 interface ChecklistsTableRowProps {
   checklist: Checklist;
@@ -55,6 +56,8 @@ export const ChecklistsTableRow = React.memo(({
   onSendEmail,
   onDelete
 }: ChecklistsTableRowProps) => {
+  const { hasPermission } = useAuth();
+  const canManageChecklists = hasPermission('can_manage_checklists');
   const sophieNcHref = (() => {
     const params = new URLSearchParams();
     params.set('documentType', 'nc');
@@ -209,21 +212,23 @@ export const ChecklistsTableRow = React.memo(({
           >
             <Download className="h-4 w-4" />
           </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            onClick={() => onSendEmail(checklist)}
-            disabled={printingId === checklist.id}
-            className={cn(
-              "text-[var(--ds-color-text-secondary)]",
-              printingId === checklist.id && "animate-pulse opacity-50"
-            )}
-            title="Enviar por E-mail"
-            aria-label={`Enviar checklist ${checklist.titulo} por e-mail`}
-          >
-            <Mail className="h-4 w-4" />
-          </Button>
+          {canManageChecklists ? (
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => onSendEmail(checklist)}
+              disabled={printingId === checklist.id}
+              className={cn(
+                "text-[var(--ds-color-text-secondary)]",
+                printingId === checklist.id && "animate-pulse opacity-50"
+              )}
+              title="Enviar por E-mail"
+              aria-label={`Enviar checklist ${checklist.titulo} por e-mail`}
+            >
+              <Mail className="h-4 w-4" />
+            </Button>
+          ) : null}
           <Link
             href={sophieNcHref}
             className={buttonVariants({ size: 'icon', variant: 'ghost' })}
@@ -232,25 +237,29 @@ export const ChecklistsTableRow = React.memo(({
           >
             <Bot className="h-4 w-4 text-[var(--ds-color-warning)]" />
           </Link>
-          <Link
-            href={`/dashboard/checklists/edit/${checklist.id}`}
-            className={buttonVariants({ size: 'icon', variant: 'ghost' })}
-            title="Editar Checklist"
-            aria-label={`Editar checklist ${checklist.titulo}`}
-          >
-            <Pencil className="h-4 w-4" />
-          </Link>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            onClick={() => onDelete(checklist.id)}
-            className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-            title="Excluir Checklist"
-            aria-label={`Excluir checklist ${checklist.titulo}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {canManageChecklists ? (
+            <>
+              <Link
+                href={`/dashboard/checklists/edit/${checklist.id}`}
+                className={buttonVariants({ size: 'icon', variant: 'ghost' })}
+                title="Editar Checklist"
+                aria-label={`Editar checklist ${checklist.titulo}`}
+              >
+                <Pencil className="h-4 w-4" />
+              </Link>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => onDelete(checklist.id)}
+                className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                title="Excluir Checklist"
+                aria-label={`Excluir checklist ${checklist.titulo}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          ) : null}
         </div>
       </TableCell>
     </TableRow>

@@ -1,14 +1,15 @@
 import type { Pt } from "@/services/ptsService";
 import type { Signature } from "@/services/signaturesService";
-import { pdfDocToBase64 } from "./pdfBase64";
+import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import {
   applyFooterGovernance,
+  applyInstitutionalDocumentHeader,
   buildDocumentCode,
   buildPdfFilename,
   buildValidationUrl,
   createPdfContext,
-  drawPageBackground,
   drawPtBlueprint,
+  formatDate,
   formatDateTime,
   sanitize,
 } from "@/lib/pdf-system";
@@ -25,13 +26,25 @@ export async function generatePtPdf(
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const ctx = createPdfContext(doc, "critical");
-  drawPageBackground(ctx);
 
   const code = buildDocumentCode(
     "PT",
     pt.id || pt.numero || pt.titulo,
     pt.data_hora_inicio,
   );
+  ctx.y = applyInstitutionalDocumentHeader(ctx, {
+    title: "PERMISSAO DE TRABALHO",
+    subtitle: "Documento oficial de liberacao operacional em SST",
+    code,
+    date: formatDate(pt.data_hora_inicio),
+    status: sanitize(pt.status),
+    version: "1",
+    company: sanitize(
+      (pt as Pt & { company?: { razao_social?: string } }).company
+        ?.razao_social || pt.company_id,
+    ),
+    site: sanitize(pt.site?.nome),
+  });
   await drawPtBlueprint(ctx, autoTable, pt, signatures, code, buildValidationUrl(code));
 
   applyFooterGovernance(ctx, {
@@ -41,7 +54,7 @@ export async function generatePtPdf(
 
   const filename = buildPdfFilename("PT", sanitize(pt.numero || code), pt.data_hora_inicio);
   if (options?.save === false && options?.output === "base64") {
-    const output = doc as unknown as { output: (type: "datauri" | "dataurl") => string };
+    const output = doc as unknown as PdfOutputDoc;
     return { base64: pdfDocToBase64(output), filename };
   }
   doc.save(filename);

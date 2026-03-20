@@ -16,6 +16,24 @@ import { buildApiUrl } from "@/lib/api";
 
 type VerifyMode = "evidence" | "signature" | "code";
 
+function resolveCodeValidationEndpoint(code: string) {
+  const normalized = code.trim().toUpperCase();
+
+  if (normalized.startsWith("INS-")) {
+    return `/public/inspections/validate?code=${encodeURIComponent(code)}`;
+  }
+
+  if (normalized.startsWith("CAT-")) {
+    return `/public/cats/validate?code=${encodeURIComponent(code)}`;
+  }
+
+  if (normalized.startsWith("DOS-")) {
+    return `/public/dossiers/validate?code=${encodeURIComponent(code)}`;
+  }
+
+  return `/public/documents/validate?code=${encodeURIComponent(code)}`;
+}
+
 function normalizeVerifyMode(value: string | null): VerifyMode | null {
   if (!value) {
     return null;
@@ -90,6 +108,13 @@ interface CodeVerifyResponse {
     file_hash: string | null;
     updated_at: string;
   };
+  final_document?: {
+    has_final_pdf: boolean;
+    document_code: string | null;
+    original_name: string | null;
+    file_hash: string | null;
+    emitted_at: string | null;
+  };
   inspection?: {
     id: string;
     site_id?: string;
@@ -159,10 +184,7 @@ export default function PublicHashVerifyPage() {
         }
         try {
           setLoading(true);
-          const isInspection = code.toUpperCase().startsWith("INS-");
-          const endpoint = isInspection
-            ? `/public/inspections/validate?code=${encodeURIComponent(code)}`
-            : `/public/documents/validate?code=${encodeURIComponent(code)}`;
+          const endpoint = resolveCodeValidationEndpoint(code);
           const response = await fetch(resolvePublicUrl(endpoint), {
             method: "GET",
             cache: "no-store",
@@ -360,6 +382,20 @@ export default function PublicHashVerifyPage() {
                       <p>
                         Última atualização: {codeResult.document.updated_at}
                       </p>
+                      {codeResult.final_document ? (
+                        <>
+                          <p>
+                            PDF final governado:{" "}
+                            {codeResult.final_document.has_final_pdf
+                              ? "Sim"
+                              : "Não"}
+                          </p>
+                          <p>
+                            Código documental:{" "}
+                            {codeResult.final_document.document_code || "-"}
+                          </p>
+                        </>
+                      ) : null}
                     </div>
                   ) : mode === "code" && codeResult?.checklist ? (
                     <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-3 text-[13px] text-[var(--ds-color-text-secondary)]">

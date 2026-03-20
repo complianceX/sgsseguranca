@@ -96,7 +96,7 @@ describe('DdsController (http)', () => {
     expect(ddsService.create).not.toHaveBeenCalled();
   });
 
-  it('retorna 400 quando tentam anexar PDF final na criacao inicial', async () => {
+  it('retorna 410 quando tentam usar o endpoint legado with-file para anexar PDF inicial', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
     await request(httpServer)
@@ -109,10 +109,10 @@ describe('DdsController (http)', () => {
         filename: 'dds-final.pdf',
         contentType: 'application/pdf',
       })
-      .expect(400)
+      .expect(410)
       .expect(({ body }) => {
         expect((body as { message?: string }).message).toBe(
-          'Anexe o PDF final somente apos salvar o DDS e registrar as assinaturas dos participantes.',
+          'O endpoint legado /dds/with-file não aceita mais PDF inicial. Use POST /dds para criar, PUT /dds/:id/signatures para assinaturas/fotos e POST /dds/:id/file para o PDF final.',
         );
       });
 
@@ -123,6 +123,10 @@ describe('DdsController (http)', () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
     ddsService.getPdfAccess.mockResolvedValue({
       ddsId,
+      hasFinalPdf: true,
+      availability: 'ready',
+      message: 'PDF final governado disponível para acesso.',
+      degraded: false,
       fileKey: 'documents/company-1/dds/dds-1/dds-final.pdf',
       folderPath: 'dds/company-1',
       originalName: 'dds-final.pdf',

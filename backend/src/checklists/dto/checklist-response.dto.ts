@@ -2,6 +2,7 @@ import { Exclude, Expose, Type } from 'class-transformer';
 import { UserResponseDto } from '../../users/dto/user-response.dto';
 import { SiteResponseDto } from '../../sites/dto/site-response.dto';
 import { CompanyResponseDto } from '../../companies/dto/company-response.dto';
+import { ChecklistItemDto } from './checklist-item.dto';
 
 @Exclude()
 export class ChecklistResponseDto {
@@ -39,7 +40,8 @@ export class ChecklistResponseDto {
   inspetor_id: string;
 
   @Expose()
-  itens: any;
+  @Type(() => ChecklistItemDto)
+  itens: ChecklistItemDto[];
 
   @Expose()
   is_modelo: boolean;
@@ -86,6 +88,10 @@ export class ChecklistResponseDto {
   @Expose()
   @Type(() => UserResponseDto)
   inspetor: UserResponseDto;
+
+  @Expose()
+  @Type(() => UserResponseDto)
+  auditado_por: UserResponseDto;
 
   @Expose()
   @Type(() => SiteResponseDto)

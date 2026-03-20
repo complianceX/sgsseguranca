@@ -3,7 +3,6 @@ import type { Signature } from "@/services/signaturesService";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, sanitize } from "../core/format";
 import {
-  drawDocumentHeader,
   drawDocumentIdentityRail,
   drawExecutiveSummaryStrip,
   drawGovernanceClosingBlock,
@@ -38,17 +37,6 @@ export async function drawChecklistBlueprint(
   const conformes = checklist.itens?.filter((item) => isConforme(item.status)).length ?? 0;
   const naoConformes = checklist.itens?.filter((item) => isNaoConforme(item.status)).length ?? 0;
   const score = totalItems > 0 ? Math.round((conformes / totalItems) * 100) : 0;
-
-  drawDocumentHeader(ctx, {
-    title: "CHECKLIST DE INSPECAO",
-    subtitle: "Conformidade operacional e rastreabilidade de campo",
-    code,
-    date: formatDate(checklist.data),
-    status: sanitize(checklist.status),
-    version: "1",
-    company: sanitize(checklist.company?.razao_social),
-    site: sanitize(checklist.site?.nome),
-  });
 
   drawDocumentIdentityRail(ctx, {
     documentType: "Checklist",

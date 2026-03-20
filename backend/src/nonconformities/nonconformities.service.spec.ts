@@ -17,10 +17,14 @@ type RemoveFinalDocumentReferenceInput = Parameters<
 describe('NonConformitiesService', () => {
   let service: NonConformitiesService;
   let repository: {
+    create: jest.Mock;
     findOne: jest.Mock;
     save: jest.Mock;
     update: jest.Mock;
     createQueryBuilder: jest.Mock;
+  };
+  let sitesRepository: {
+    findOne: jest.Mock;
   };
   let documentStorageService: Pick<
     DocumentStorageService,
@@ -35,10 +39,14 @@ describe('NonConformitiesService', () => {
 
   beforeEach(() => {
     repository = {
+      create: jest.fn((input: Partial<NonConformity>) => input),
       findOne: jest.fn(),
       save: jest.fn((input) => Promise.resolve(input as NonConformity)),
       update: jest.fn(),
       createQueryBuilder: jest.fn(),
+    };
+    sitesRepository = {
+      findOne: jest.fn(),
     };
     documentStorageService = {
       uploadFile: jest.fn(),
@@ -64,7 +72,7 @@ describe('NonConformitiesService', () => {
 
     service = new NonConformitiesService(
       repository as unknown as Repository<NonConformity>,
-      {} as Repository<Site>,
+      sitesRepository as unknown as Repository<Site>,
       { getTenantId: jest.fn(() => 'company-1') } as TenantService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
@@ -240,10 +248,200 @@ describe('NonConformitiesService', () => {
 
     await expect(service.getPdfAccess('nc-1')).resolves.toEqual({
       entityId: 'nc-1',
+      hasFinalPdf: true,
+      availability: 'registered_without_signed_url',
       fileKey: 'nonconformities/company-1/2026/week-11/nc-1.pdf',
       folderPath: 'nonconformities/company-1/2026/week-11',
       originalName: 'nc-1.pdf',
       url: null,
+      message:
+        'PDF final registrado, mas a URL segura do storage não está disponível no momento.',
+    });
+  });
+
+  it('sinaliza explicitamente quando o PDF final ainda não foi emitido', async () => {
+    jest.spyOn(service, 'findOne').mockResolvedValue({
+      id: 'nc-1',
+      company_id: 'company-1',
+      pdf_file_key: null,
+      pdf_folder_path: null,
+      pdf_original_name: null,
+    } as unknown as NonConformity);
+
+    await expect(service.getPdfAccess('nc-1')).resolves.toEqual({
+      entityId: 'nc-1',
+      hasFinalPdf: false,
+      availability: 'not_emitted',
+      fileKey: null,
+      folderPath: null,
+      originalName: null,
+      url: null,
+      message: 'PDF final ainda não foi emitido para esta não conformidade.',
+    });
+  });
+
+  it('bloqueia criação com anexo inline acima do limite operacional', async () => {
+    const oversizedInlineAttachment = `data:image/jpeg;base64,${Buffer.alloc(
+      1024 * 1024 + 32,
+      1,
+    ).toString('base64')}`;
+
+    await expect(
+      service.create({
+        codigo_nc: 'NC-001',
+        tipo: 'Operacional',
+        data_identificacao: '2026-03-10',
+        local_setor_area: 'Área 1',
+        atividade_envolvida: 'Inspeção',
+        responsavel_area: 'Maria',
+        auditor_responsavel: 'João',
+        descricao: 'Descrição',
+        evidencia_observada: 'Evidência',
+        condicao_insegura: 'Condição',
+        requisito_nr: 'NR-1',
+        requisito_item: '1.1',
+        risco_perigo: 'Perigo',
+        risco_associado: 'Risco',
+        risco_nivel: 'Alto',
+        status: 'ABERTA',
+        anexos: [oversizedInlineAttachment],
+      }),
+    ).rejects.toThrow(
+      'Anexo inline excede o limite de 1.00MB para criação ou edição.',
+    );
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia criação com referência governada forjada no payload', async () => {
+    const forgedReference = `gst:nc-attachment:${Buffer.from(
+      JSON.stringify({
+        v: 1,
+        kind: 'governed-storage',
+        fileKey: 'documents/company-1/nonconformity-attachments/nc-1/foto.png',
+        originalName: 'foto.png',
+        mimeType: 'image/png',
+        uploadedAt: new Date().toISOString(),
+      }),
+    ).toString('base64url')}`;
+
+    await expect(
+      service.create({
+        codigo_nc: 'NC-001',
+        tipo: 'Operacional',
+        data_identificacao: '2026-03-10',
+        local_setor_area: 'Área 1',
+        atividade_envolvida: 'Inspeção',
+        responsavel_area: 'Maria',
+        auditor_responsavel: 'João',
+        descricao: 'Descrição',
+        evidencia_observada: 'Evidência',
+        condicao_insegura: 'Condição',
+        requisito_nr: 'NR-1',
+        requisito_item: '1.1',
+        risco_perigo: 'Perigo',
+        risco_associado: 'Risco',
+        risco_nivel: 'Alto',
+        status: 'ABERTA',
+        anexos: [forgedReference],
+      }),
+    ).rejects.toThrow(
+      'Anexos governados devem ser enviados pelo endpoint dedicado do módulo.',
+    );
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('attachAttachment: salva evidência governada no storage oficial', async () => {
+    const nc = {
+      id: 'nc-1',
+      company_id: 'company-1',
+      anexos: ['https://evidencias.example.com/foto-antiga.jpg'],
+      pdf_file_key: null,
+    } as NonConformity;
+    jest.spyOn(service, 'findOne').mockResolvedValue(nc);
+
+    const result = await service.attachAttachment(
+      'nc-1',
+      Buffer.from('image-content'),
+      'foto.png',
+      'image/png',
+    );
+
+    expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
+      expect.stringContaining('nonconformity-attachments'),
+      Buffer.from('image-content'),
+      'image/png',
+    );
+    const saveCalls = repository.save.mock.calls as Array<
+      [Partial<NonConformity>]
+    >;
+    const savedPayload = saveCalls[0]?.[0];
+    expect(savedPayload?.anexos).toEqual(
+      expect.arrayContaining([
+        'https://evidencias.example.com/foto-antiga.jpg',
+        expect.stringContaining('gst:nc-attachment:'),
+      ]),
+    );
+    expect(result.storageMode).toBe('governed-storage');
+    expect(result.degraded).toBe(false);
+    expect(result.attachment.originalName).toBe('foto.png');
+  });
+
+  it('getAttachmentAccess: sinaliza modo degradado quando a URL segura do anexo falha', async () => {
+    const governedReference = `gst:nc-attachment:${Buffer.from(
+      JSON.stringify({
+        v: 1,
+        kind: 'governed-storage',
+        fileKey: 'documents/company-1/nonconformity-attachments/nc-1/foto.png',
+        originalName: 'foto.png',
+        mimeType: 'image/png',
+        uploadedAt: new Date().toISOString(),
+      }),
+    ).toString('base64url')}`;
+    jest.spyOn(service, 'findOne').mockResolvedValue({
+      id: 'nc-1',
+      company_id: 'company-1',
+      anexos: [governedReference],
+    } as NonConformity);
+    (documentStorageService.getSignedUrl as jest.Mock).mockRejectedValueOnce(
+      new Error('storage offline'),
+    );
+
+    await expect(service.getAttachmentAccess('nc-1', 0)).resolves.toEqual({
+      entityId: 'nc-1',
+      index: 0,
+      hasGovernedAttachment: true,
+      availability: 'registered_without_signed_url',
+      fileKey: 'documents/company-1/nonconformity-attachments/nc-1/foto.png',
+      originalName: 'foto.png',
+      mimeType: 'image/png',
+      url: null,
+      degraded: true,
+      message:
+        'Anexo governado registrado, mas a URL segura do storage não está disponível no momento.',
+    });
+  });
+
+  it('getAnalyticsOverview: retorna contagem consolidada por status', async () => {
+    jest.spyOn(service, 'summarizeByStatus').mockResolvedValue({
+      total: 9,
+      filtered: 9,
+      byStatus: {
+        ABERTA: 3,
+        EM_ANDAMENTO: 2,
+        AGUARDANDO_VALIDACAO: 1,
+        ENCERRADA: 3,
+      },
+      filterStatus: null,
+    });
+
+    await expect(service.getAnalyticsOverview()).resolves.toEqual({
+      totalNonConformities: 9,
+      abertas: 3,
+      emAndamento: 2,
+      aguardandoValidacao: 1,
+      encerradas: 3,
     });
   });
 });

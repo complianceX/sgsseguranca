@@ -40,6 +40,7 @@ import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state'
 import { PaginationControls } from '@/components/PaginationControls';
 import { ListPageLayout } from '@/components/layout';
 import { cn } from '@/lib/utils';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   StatusPill,
   StatusSelect,
@@ -65,6 +66,8 @@ function getNcStatusTone(status: NcStatus): StatusTone {
 }
 
 export default function NonConformitiesPage() {
+  const { hasPermission } = usePermissions();
+  const canManageNc = hasPermission('can_manage_nc');
   const [items, setItems] = useState<NonConformity[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -77,21 +80,59 @@ export default function NonConformitiesPage() {
   const [selectedDoc, setSelectedDoc] = useState<{
     name: string;
     filename: string;
-    base64: string;
+    base64?: string;
+    storedDocument?: {
+      documentId: string;
+      documentType: string;
+    };
   } | null>(null);
+  const [summary, setSummary] = useState({
+    totalNonConformities: 0,
+    abertas: 0,
+    emAndamento: 0,
+    aguardandoValidacao: 0,
+    encerradas: 0,
+  });
 
   const fetchItems = useCallback(async () => {
     try {
       setLoading(true);
       setLoadError(null);
-      const response = await nonConformitiesService.findPaginated({
-        page,
-        limit: 10,
-        search: deferredSearchTerm || undefined,
-      });
+      const [pageResult, overviewResult] = await Promise.allSettled([
+        nonConformitiesService.findPaginated({
+          page,
+          limit: 10,
+          search: deferredSearchTerm || undefined,
+        }),
+        nonConformitiesService.getAnalyticsOverview(),
+      ]);
+
+      if (pageResult.status !== 'fulfilled') {
+        throw pageResult.reason;
+      }
+
+      const response = pageResult.value;
       setItems(response.data);
       setTotal(response.total);
       setLastPage(response.lastPage);
+      if (overviewResult.status === 'fulfilled') {
+        setSummary(overviewResult.value);
+      } else {
+        setSummary({
+          totalNonConformities: response.total,
+          abertas: response.data.filter((item) => item.status === NcStatus.ABERTA)
+            .length,
+          emAndamento: response.data.filter(
+            (item) => item.status === NcStatus.EM_ANDAMENTO,
+          ).length,
+          aguardandoValidacao: response.data.filter(
+            (item) => item.status === NcStatus.AGUARDANDO_VALIDACAO,
+          ).length,
+          encerradas: response.data.filter(
+            (item) => item.status === NcStatus.ENCERRADA,
+          ).length,
+        });
+      }
     } catch (error) {
       console.error('Erro ao carregar nao conformidades:', error);
       setLoadError('Nao foi possivel carregar a lista de nao conformidades.');
@@ -106,6 +147,10 @@ export default function NonConformitiesPage() {
   }, [fetchItems]);
 
   const handleDelete = async (id: string) => {
+    if (!canManageNc) {
+      toast.error('Você não tem permissão para excluir não conformidades.');
+      return;
+    }
     if (!confirm('Tem certeza que deseja excluir esta nao conformidade?')) return;
 
     try {
@@ -123,8 +168,36 @@ export default function NonConformitiesPage() {
   };
 
   const handleSendEmail = async (item: NonConformity) => {
+    if (!canManageNc) {
+      toast.error('Você não tem permissão para enviar esta não conformidade por e-mail.');
+      return;
+    }
     try {
       toast.info('Preparando documento...');
+      const pdfAccess = await nonConformitiesService.getPdfAccess(item.id);
+
+      if (pdfAccess.hasFinalPdf) {
+        setSelectedDoc({
+          name: `NC ${item.codigo_nc}`,
+          filename: pdfAccess.originalName ?? `${item.codigo_nc}.pdf`,
+          storedDocument: {
+            documentId: item.id,
+            documentType: 'NONCONFORMITY',
+          },
+        });
+        if (pdfAccess.message) {
+          toast.warning(
+            `${pdfAccess.message} O envio usará o PDF final oficial anexado no backend.`,
+          );
+        }
+        setIsMailModalOpen(true);
+        return;
+      }
+
+      toast.warning(
+        'Esta não conformidade ainda não possui PDF final emitido. O envio ocorrerá com um PDF local não governado.',
+      );
+
       const fullItem = await nonConformitiesService.findOne(item.id);
       const result = (await generateNonConformityPdf(fullItem, {
         save: false,
@@ -146,6 +219,10 @@ export default function NonConformitiesPage() {
   };
 
   const handleCreateCapa = async (item: NonConformity) => {
+    if (!canManageNc) {
+      toast.error('Você não tem permissão para gerar CAPA a partir desta não conformidade.');
+      return;
+    }
     try {
       await correctiveActionsService.createFromNonConformity(item.id);
       toast.success('CAPA criada a partir da nao conformidade.');
@@ -156,6 +233,10 @@ export default function NonConformitiesPage() {
   };
 
   const handleStatusChange = async (id: string, newStatus: NcStatus) => {
+    if (!canManageNc) {
+      toast.error('Você não tem permissão para alterar o status da não conformidade.');
+      return;
+    }
     try {
       const updated = await nonConformitiesService.updateStatus(id, newStatus);
       setItems((current) =>
@@ -169,17 +250,6 @@ export default function NonConformitiesPage() {
       toast.error('Erro ao atualizar status da nao conformidade');
     }
   };
-
-  const summary = useMemo(
-    () => ({
-      total,
-      abertas: items.filter((item) => item.status === NcStatus.ABERTA).length,
-      andamento: items.filter((item) => item.status === NcStatus.EM_ANDAMENTO).length,
-      aguardando: items.filter((item) => item.status === NcStatus.AGUARDANDO_VALIDACAO).length,
-      encerradas: items.filter((item) => item.status === NcStatus.ENCERRADA).length,
-    }),
-    [items, total],
-  );
 
   const companyOptions = useMemo(
     () =>
@@ -227,41 +297,45 @@ export default function NonConformitiesPage() {
         icon={<AlertTriangle className="h-5 w-5" />}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
-              onClick={() =>
-                downloadExcel('/nonconformities/export/excel', 'nao-conformidades.xlsx')
-              }
-            >
-              Exportar Excel
-            </Button>
-            <Link
-              href="/dashboard/nonconformities/new"
-              className={cn(buttonVariants({ size: 'sm' }), 'inline-flex items-center')}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Nova nao conformidade
-            </Link>
+            {canManageNc ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
+                  onClick={() =>
+                    downloadExcel('/nonconformities/export/excel', 'nao-conformidades.xlsx')
+                  }
+                >
+                  Exportar Excel
+                </Button>
+                <Link
+                  href="/dashboard/nonconformities/new"
+                  className={cn(buttonVariants({ size: 'sm' }), 'inline-flex items-center')}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova nao conformidade
+                </Link>
+              </>
+            ) : null}
           </div>
         }
         metrics={[
           {
             label: 'Total monitorado',
-            value: summary.total,
-            note: 'Nao conformidades carregadas nesta pagina.',
+            value: summary.totalNonConformities,
+            note: 'Nao conformidades monitoradas no tenant atual.',
           },
           {
-            label: 'Abertas na pagina',
+            label: 'Abertas',
             value: summary.abertas,
             note: 'Desvios ainda sem tratativa concluida.',
             tone: 'danger',
           },
           {
             label: 'Em andamento',
-            value: summary.andamento + summary.aguardando,
+            value: summary.emAndamento + summary.aguardandoValidacao,
             note: 'Itens em execucao ou aguardando validacao.',
             tone: 'warning',
           },
@@ -302,14 +376,16 @@ export default function NonConformitiesPage() {
         }
       >
         <div className="space-y-4">
-          {summary.abertas > 0 || summary.andamento > 0 || summary.aguardando > 0 ? (
+          {summary.abertas > 0 ||
+          summary.emAndamento > 0 ||
+          summary.aguardandoValidacao > 0 ? (
             <div className="mx-4 mt-4 rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-danger)]/18 bg-[color:var(--ds-color-danger)]/6 px-4 py-3">
               <div className="flex items-start gap-3">
                 <ShieldAlert className="mt-0.5 h-4 w-4 text-[var(--ds-color-danger)]" />
                 <div>
                   <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Atencao de tratativa</p>
                   <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                    Nesta pagina existem {summary.abertas + summary.andamento + summary.aguardando} nao conformidade(s) ainda sem encerramento. Priorize CAPA e validacao para reduzir reincidencia.
+                    Existem {summary.abertas + summary.emAndamento + summary.aguardandoValidacao} nao conformidade(s) ainda sem encerramento no tenant atual. Priorize CAPA e validacao para reduzir reincidencia.
                   </p>
                 </div>
               </div>
@@ -326,7 +402,7 @@ export default function NonConformitiesPage() {
                     : 'Ainda nao existem registros de nao conformidade para este tenant.'
                 }
                 action={
-                  !deferredSearchTerm ? (
+                  !deferredSearchTerm && canManageNc ? (
                     <Link
                       href="/dashboard/nonconformities/new"
                       className={cn(buttonVariants(), 'inline-flex items-center')}
@@ -367,7 +443,8 @@ export default function NonConformitiesPage() {
                         <StatusPill tone={getNcStatusTone(item.status as NcStatus)}>
                           {NC_STATUS_LABEL[item.status as NcStatus] ?? item.status}
                         </StatusPill>
-                        {NC_ALLOWED_TRANSITIONS[item.status as NcStatus]?.length > 0 ? (
+                        {canManageNc &&
+                        NC_ALLOWED_TRANSITIONS[item.status as NcStatus]?.length > 0 ? (
                           <StatusSelect
                             title="Alterar status"
                             className="h-8 min-w-[10rem]"
@@ -396,46 +473,52 @@ export default function NonConformitiesPage() {
                     </TableCell>
                     <TableCell>{item.responsavel_area}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleCreateCapa(item)}
-                          title="Gerar CAPA"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleSendEmail(item)}
-                          title="Enviar por e-mail"
-                        >
-                          <Mail className="h-4 w-4" />
-                        </Button>
-                        <Link
-                          href={`/dashboard/nonconformities/edit/${item.id}`}
-                          className={buttonVariants({
-                            size: 'icon',
-                            variant: 'ghost',
-                          })}
-                          title="Editar"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Link>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleDelete(item.id)}
-                          title="Excluir"
-                          className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      {canManageNc ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleCreateCapa(item)}
+                            title="Gerar CAPA"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleSendEmail(item)}
+                            title="Enviar por e-mail"
+                          >
+                            <Mail className="h-4 w-4" />
+                          </Button>
+                          <Link
+                            href={`/dashboard/nonconformities/edit/${item.id}`}
+                            className={buttonVariants({
+                              size: 'icon',
+                              variant: 'ghost',
+                            })}
+                            title="Editar"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Link>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDelete(item.id)}
+                            title="Excluir"
+                            className="text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-[var(--ds-color-text-muted)]">
+                          Somente leitura
+                        </span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -464,6 +547,7 @@ export default function NonConformitiesPage() {
           documentName={selectedDoc.name}
           filename={selectedDoc.filename}
           base64={selectedDoc.base64}
+          storedDocument={selectedDoc.storedDocument}
         />
       ) : null}
     </>

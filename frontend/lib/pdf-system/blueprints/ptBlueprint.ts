@@ -3,7 +3,6 @@ import type { Signature } from "@/services/signaturesService";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, sanitize } from "../core/format";
 import {
-  drawDocumentHeader,
   drawDocumentIdentityRail,
   drawExecutiveSummaryStrip,
   drawGovernanceClosingBlock,
@@ -97,20 +96,6 @@ export async function drawPtBlueprint(
     (total, group) => total + (group.items?.length || 0),
     0,
   );
-
-  drawDocumentHeader(ctx, {
-    title: "PERMISSAO DE TRABALHO",
-    subtitle: "Documento de liberacao operacional em SST",
-    code,
-    date: formatDate(pt.data_hora_inicio),
-    status: sanitize(pt.status),
-    version: "1",
-    company: sanitize(
-      (pt as Pt & { company?: { razao_social?: string } }).company
-        ?.razao_social || pt.company_id,
-    ),
-    site: sanitize(pt.site?.nome),
-  });
 
   drawDocumentIdentityRail(ctx, {
     documentType: "PT",

@@ -57,7 +57,7 @@ export class Rdo {
   data: Date;
 
   @Column({ default: 'rascunho' })
-  status: string; // rascunho | enviado | aprovado
+  status: string; // rascunho | enviado | aprovado | cancelado
 
   // Multi-tenant
   @ManyToOne(() => Company)

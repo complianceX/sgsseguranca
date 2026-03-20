@@ -1,15 +1,14 @@
 import type { Apr } from "@/services/aprsService";
 import type { Signature } from "@/services/signaturesService";
-import { pdfDocToBase64 } from "./pdfBase64";
+import { pdfDocToBase64, type PdfOutputDoc } from "./pdfBase64";
 import {
   applyFooterGovernance,
+  applyInstitutionalDocumentHeader,
   buildDocumentCode,
   buildPdfFilename,
   buildValidationUrl,
   createPdfContext,
-  decorateCurrentPage,
   drawAprBlueprint,
-  drawDocumentHeader,
   formatDateTime,
   sanitize,
 } from "@/lib/pdf-system";
@@ -56,22 +55,16 @@ export async function generateAprPdf(
     apr.id || apr.numero || apr.titulo,
     apr.data_inicio,
   );
-  const renderHeader = () => {
-    drawDocumentHeader(ctx, {
-      title: "ANALISE PRELIMINAR DE RISCO",
-      subtitle: "Documento tecnico de avaliacao preventiva em SST",
-      code,
-      date: apr.data_inicio,
-      status: sanitize(apr.status),
-      version: sanitize(apr.versao ?? 1),
-      company: sanitize(apr.company?.razao_social || apr.company_id),
-      site: sanitize(apr.site?.nome || apr.site_id),
-    });
-    return ctx.y;
-  };
-
-  ctx.decoratePage = renderHeader;
-  ctx.y = decorateCurrentPage(ctx);
+  ctx.y = applyInstitutionalDocumentHeader(ctx, {
+    title: "ANALISE PRELIMINAR DE RISCO",
+    subtitle: "Documento tecnico de avaliacao preventiva em SST",
+    code,
+    date: apr.data_inicio,
+    status: sanitize(apr.status),
+    version: sanitize(apr.versao ?? 1),
+    company: sanitize(apr.company?.razao_social || apr.company_id),
+    site: sanitize(apr.site?.nome || apr.site_id),
+  });
 
   await drawAprBlueprint(
     ctx,
@@ -106,7 +99,7 @@ export async function generateAprPdf(
 
   const filename = buildPdfFilename("APR", `${sanitize(apr.numero || code)}_v${apr.versao ?? 1}`, apr.data_inicio);
   if (options?.save === false && options?.output === "base64") {
-    const output = doc as unknown as { output: (type: "datauri" | "dataurl") => string };
+    const output = doc as unknown as PdfOutputDoc;
     return { base64: pdfDocToBase64(output), filename };
   }
   doc.save(filename);

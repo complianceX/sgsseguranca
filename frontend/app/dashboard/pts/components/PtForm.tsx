@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
+  isPtOfflineSignatureBlockedError,
   PtPreApprovalHistoryEntry,
   ptsService,
 } from '@/services/ptsService';
@@ -296,8 +297,29 @@ function summarizeChecklistAnswers<T extends { id?: string; resposta?: string }>
   );
 }
 
+function hasPtSignatureChanges(
+  current: Record<string, { data: string; type: string }>,
+  persisted: Record<string, { id?: string; data: string; type: string }>,
+) {
+  const currentEntries = Object.entries(current);
+  const persistedEntries = Object.entries(persisted);
+
+  if (currentEntries.length !== persistedEntries.length) {
+    return true;
+  }
+
+  return currentEntries.some(([userId, signature]) => {
+    const persistedSignature = persisted[userId];
+    return (
+      !persistedSignature ||
+      persistedSignature.data !== signature.data ||
+      persistedSignature.type !== signature.type
+    );
+  });
+}
+
 export function PtForm({ id }: PtFormProps) {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const searchParams = useSearchParams();
   const prefillCompanyId = searchParams.get('company_id') || '';
   const prefillSiteId = searchParams.get('site_id') || '';
@@ -437,6 +459,7 @@ export function PtForm({ id }: PtFormProps) {
   const selectedSite = filteredSites.find((site) => site.id === selectedSiteId);
   const selectedResponsavel = filteredUsers.find((responsavel) => responsavel.id === selectedResponsavelId);
   const selectedApr = filteredAprs.find((apr) => apr.id === selectedAprId);
+  const canManageMail = hasPermission('can_manage_mail');
   const rapidRiskChecklist =
     watch('analise_risco_rapida_checklist') ?? initialChecklists.analise_risco_rapida_checklist;
   const rapidRiskObservacoes = watch('analise_risco_rapida_observacoes') ?? '';
@@ -469,6 +492,10 @@ export function PtForm({ id }: PtFormProps) {
   ].filter(Boolean).length;
   const completedSignatures = Object.keys(signatures).length;
   const pendingSignatures = Math.max(0, selectedExecutanteIds.length - completedSignatures);
+  const hasPendingSignatureChanges = useMemo(
+    () => hasPtSignatureChanges(signatures, persistedSignatures),
+    [persistedSignatures, signatures],
+  );
 
   const generalChecklistSummary = useMemo(
     () => summarizeChecklistAnswers(generalChecklist),
@@ -912,14 +939,26 @@ export function PtForm({ id }: PtFormProps) {
         ...data,
         status: id ? data.status : normalizePtGenericStatus(data.status),
       });
+      const allowOfflineQueue = !hasPendingSignatureChanges;
 
-      if (id) {
-        const updatedPt = await ptsService.update(id, payload);
-        queuedOffline = 'offlineQueued' in updatedPt && Boolean(updatedPt.offlineQueued);
-      } else {
-        const newPt = await ptsService.create(payload);
-        ptId = newPt.id;
-        queuedOffline = 'offlineQueued' in newPt && Boolean(newPt.offlineQueued);
+      try {
+        if (id) {
+          const updatedPt = await ptsService.update(id, payload, {
+            allowOfflineQueue,
+          });
+          queuedOffline =
+            'offlineQueued' in updatedPt && Boolean(updatedPt.offlineQueued);
+        } else {
+          const newPt = await ptsService.create(payload, { allowOfflineQueue });
+          ptId = newPt.id;
+          queuedOffline =
+            'offlineQueued' in newPt && Boolean(newPt.offlineQueued);
+        }
+      } catch (error) {
+        if (isPtOfflineSignatureBlockedError(error)) {
+          saveDraftSnapshot();
+        }
+        throw error;
       }
 
       if (queuedOffline) {
@@ -1394,6 +1433,7 @@ export function PtForm({ id }: PtFormProps) {
     sophieMandatoryChecklists,
     sophieRiskLevel,
     sophieSuggestedRisks,
+    hasPendingSignatureChanges,
   ]);
 
   useEffect(() => {
@@ -2028,6 +2068,12 @@ export function PtForm({ id }: PtFormProps) {
                     </StatusPill>
                   </div>
                 </div>
+                {hasPendingSignatureChanges ? (
+                  <div className="rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+                    As assinaturas capturadas nesta PT exigem conexão ativa para salvar e sincronizar o documento.
+                    Se estiver sem rede, use <strong>Salvar rascunho</strong> e conclua o envio quando a conexão voltar.
+                  </div>
+                ) : null}
                 {id && (
                   <div className="ds-form-section">
                     <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-[var(--ds-color-text-primary)]">
@@ -2084,7 +2130,7 @@ export function PtForm({ id }: PtFormProps) {
                     Salvar rascunho
                   </Button>
                 ) : null}
-                {id && (
+                {id && canManageMail ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -2094,7 +2140,7 @@ export function PtForm({ id }: PtFormProps) {
                   >
                     Enviar por e-mail
                   </Button>
-                )}
+                ) : null}
                 
                 {currentStep < 3 ? (
                   <Button

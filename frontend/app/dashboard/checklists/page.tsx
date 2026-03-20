@@ -34,7 +34,8 @@ import {
 } from './columns';
 
 export default function ChecklistsPage() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const canManageChecklists = hasPermission('can_manage_checklists');
   const {
     loading,
     loadError,
@@ -290,7 +291,12 @@ export default function ChecklistsPage() {
           </div>
           <Link
             href="/dashboard/checklists/new"
-            className={cn(buttonVariants(), 'inline-flex items-center')}
+            className={cn(
+              buttonVariants(),
+              'inline-flex items-center',
+              !canManageChecklists && 'pointer-events-none opacity-50',
+            )}
+            aria-disabled={!canManageChecklists}
           >
             <Plus className="mr-2 h-4 w-4" />
             Novo checklist
@@ -379,6 +385,7 @@ export default function ChecklistsPage() {
                   variant="destructive"
                   size="sm"
                   onClick={handleDeleteSelected}
+                  disabled={!canManageChecklists}
                   leftIcon={<Trash2 className="h-4 w-4" />}
                 >
                   Excluir selecionados
@@ -399,13 +406,15 @@ export default function ChecklistsPage() {
               }
               action={
                 !deferredSearchTerm ? (
-                  <Link
-                    href="/dashboard/checklists/new"
-                    className={cn(buttonVariants(), 'inline-flex items-center')}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo checklist
-                  </Link>
+                  canManageChecklists ? (
+                    <Link
+                      href="/dashboard/checklists/new"
+                      className={cn(buttonVariants(), 'inline-flex items-center')}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Novo checklist
+                    </Link>
+                  ) : undefined
                 ) : undefined
               }
             />

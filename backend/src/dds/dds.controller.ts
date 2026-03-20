@@ -16,6 +16,9 @@ import {
   StreamableFile,
   UploadedFile,
   BadRequestException,
+  GoneException,
+  Header,
+  Logger,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -43,6 +46,8 @@ import {
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 @UseInterceptors(TenantInterceptor)
 export class DdsController {
+  private readonly logger = new Logger(DdsController.name);
+
   private getRequestUserId(
     req: Request & {
       user?: { id?: string; userId?: string; sub?: string };
@@ -95,6 +100,12 @@ export class DdsController {
 
   /** Cria DDS + anexa PDF em uma única chamada (multipart/form-data) */
   @Post('with-file')
+  @Header('Deprecation', 'true')
+  @Header('Sunset', 'Tue, 30 Jun 2026 00:00:00 GMT')
+  @Header(
+    'Warning',
+    '299 - "Endpoint legado. Use POST /dds e POST /dds/:id/file."',
+  )
   @Roles(
     Role.ADMIN_GERAL,
     Role.ADMIN_EMPRESA,
@@ -115,9 +126,17 @@ export class DdsController {
     @Body() body: Record<string, string>,
     @UploadedFile() file?: Express.Multer.File,
   ) {
+    this.logger.warn({
+      event: 'dds_legacy_with_file_used',
+      hasFile: Boolean(file),
+      tema: body.tema || null,
+      siteId: body.site_id || null,
+      facilitatorId: body.facilitador_id || null,
+    });
+
     if (file) {
-      throw new BadRequestException(
-        'Anexe o PDF final somente apos salvar o DDS e registrar as assinaturas dos participantes.',
+      throw new GoneException(
+        'O endpoint legado /dds/with-file não aceita mais PDF inicial. Use POST /dds para criar, PUT /dds/:id/signatures para assinaturas/fotos e POST /dds/:id/file para o PDF final.',
       );
     }
 

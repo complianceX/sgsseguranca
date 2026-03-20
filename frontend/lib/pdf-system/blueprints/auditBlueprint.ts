@@ -2,7 +2,6 @@ import type { Audit } from "@/services/auditsService";
 import type { AutoTableFn, PdfContext } from "../core/types";
 import { formatDate, sanitize } from "../core/format";
 import {
-  drawDocumentHeader,
   drawDocumentIdentityRail,
   drawExecutiveSummaryStrip,
   drawGovernanceClosingBlock,
@@ -18,20 +17,6 @@ export async function drawAuditBlueprint(
   code: string,
   validationUrl: string,
 ) {
-  drawDocumentHeader(ctx, {
-    title: "RELATORIO DE AUDITORIA",
-    subtitle: "Conformidade, achados e parecer tecnico",
-    code,
-    date: formatDate(audit.data_auditoria),
-    status: "Emitido",
-    version: "1",
-    company: sanitize(
-      (audit as Audit & { company?: { razao_social?: string } }).company?.razao_social ||
-        audit.company_id,
-    ),
-    site: sanitize(audit.site?.nome),
-  });
-
   drawDocumentIdentityRail(ctx, {
     documentType: "Auditoria",
     criticality: sanitize(audit.tipo_auditoria),

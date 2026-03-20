@@ -2878,7 +2878,9 @@ export class AiService {
       periodicidade: params.periodicidade || 'Eventual',
       nivel_risco_padrao:
         params.nivel_risco_padrao || this.resolveChecklistRiskLevel(subject),
-      itens: this.normalizeGeneratedChecklistItems(generated.itens),
+      itens: this.normalizeGeneratedChecklistItems(
+        generated.itens,
+      ) as unknown as CreateChecklistDto['itens'],
     };
 
     const checklist = await this.checklistsService.create(createDto);

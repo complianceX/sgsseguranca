@@ -14,6 +14,8 @@ type RegistryModule =
   | 'pt'
   | 'dds'
   | 'checklist'
+  | 'cat'
+  | 'dossier'
   | 'audit'
   | 'nonconformity'
   | 'inspection'

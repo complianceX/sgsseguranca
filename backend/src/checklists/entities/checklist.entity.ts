@@ -11,6 +11,7 @@ import {
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
+import { ChecklistItemValue } from '../types/checklist-item.type';
 
 @Entity('checklists')
 export class Checklist {
@@ -60,7 +61,7 @@ export class Checklist {
   inspetor_id: string;
 
   @Column({ type: 'jsonb', nullable: true })
-  itens: any; // Lista de itens verificados: { item: string, status: boolean, observacao: string }
+  itens: ChecklistItemValue[]; // Lista de itens verificados
 
   @Column({ default: false })
   is_modelo: boolean;

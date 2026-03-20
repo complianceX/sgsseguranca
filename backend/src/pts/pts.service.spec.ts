@@ -12,6 +12,9 @@ import { DocumentStorageService } from '../common/services/document-storage.serv
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { SignaturesService } from '../signatures/signatures.service';
+import { Site } from '../sites/entities/site.entity';
+import { Apr } from '../aprs/entities/apr.entity';
+import { User } from '../users/entities/user.entity';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -34,6 +37,11 @@ describe('PtsService', () => {
   let documentStorageService: Partial<DocumentStorageService>;
   let documentGovernanceService: Partial<DocumentGovernanceService>;
   let signaturesService: Partial<SignaturesService>;
+  let getRepositoryMock: jest.Mock;
+  let defaultScopedRepository: {
+    exist: jest.Mock;
+    count: jest.Mock;
+  };
 
   beforeEach(() => {
     ptsSaveMock = jest.fn((input: Pt) => Promise.resolve(input));
@@ -41,6 +49,9 @@ describe('PtsService', () => {
     ptsRepository = {
       findOne: jest.fn(),
       save: ptsSaveMock,
+      create: jest.fn((input: Partial<Pt>) => input),
+      update: jest.fn().mockResolvedValue({ affected: 0 }),
+      count: jest.fn().mockResolvedValue(0),
     } as unknown as jest.Mocked<Repository<Pt>>;
     companiesRepository = {
       findOne: jest.fn(),
@@ -74,6 +85,23 @@ describe('PtsService', () => {
     };
     signaturesService = {
       findByDocument: jest.fn().mockResolvedValue([]),
+    };
+    defaultScopedRepository = {
+      exist: jest.fn().mockResolvedValue(true),
+      count: jest
+        .fn()
+        .mockImplementation((opts?: { where?: { id?: string[] } }) => {
+          const ids = opts?.where?.id;
+          return Array.isArray(ids) ? ids.length : 0;
+        }),
+    };
+    getRepositoryMock = jest.fn(() => defaultScopedRepository);
+    (
+      ptsRepository as unknown as {
+        manager: { getRepository: jest.Mock };
+      }
+    ).manager = {
+      getRepository: getRepositoryMock,
     };
 
     service = new PtsService(
@@ -417,6 +445,30 @@ describe('PtsService', () => {
     expect(ptsSaveMock).not.toHaveBeenCalled();
   });
 
+  it('bloqueia create quando o site nao pertence a empresa atual', async () => {
+    getRepositoryMock.mockImplementation((entity: unknown) => {
+      if (entity === Site) {
+        return {
+          exist: jest.fn().mockResolvedValue(false),
+        };
+      }
+      return defaultScopedRepository;
+    });
+
+    await expect(
+      service.create({
+        numero: 'PT-001',
+        titulo: 'PT com site invalido',
+        data_hora_inicio: '2026-03-14T08:00:00.000Z',
+        data_hora_fim: '2026-03-14T18:00:00.000Z',
+        site_id: 'site-fora-tenant',
+        responsavel_id: 'user-1',
+      }),
+    ).rejects.toThrow('Site inválido para a empresa/tenant atual.');
+
+    expect(ptsSaveMock).not.toHaveBeenCalled();
+  });
+
   it('bloqueia update generico quando tenta alterar o status da PT', async () => {
     ptsRepository.findOne.mockResolvedValue({
       id: 'pt-1',
@@ -440,7 +492,7 @@ describe('PtsService', () => {
     expect(ptsSaveMock).not.toHaveBeenCalled();
   });
 
-  it('permite update generico mantendo o mesmo status ja existente', async () => {
+  it('bloqueia update quando a PT ja saiu do estado pendente', async () => {
     ptsRepository.findOne.mockResolvedValue({
       id: 'pt-1',
       company_id: 'company-1',
@@ -455,18 +507,55 @@ describe('PtsService', () => {
     } as unknown as Pt);
 
     await expect(
-      service.update('pt-1', {
-        titulo: 'PT atualizada sem mudar o status',
-        status: PtStatus.APROVADA,
-      }),
-    ).resolves.toEqual(
-      expect.objectContaining({
-        titulo: 'PT atualizada sem mudar o status',
-        status: PtStatus.APROVADA,
-      }),
+      service.update('pt-1', { titulo: 'PT atualizada' }),
+    ).rejects.toThrow(
+      'Somente PTs pendentes podem ser editadas pelo formulário.',
     );
 
-    expect(ptsSaveMock).toHaveBeenCalledTimes(1);
+    expect(ptsSaveMock).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia update quando executantes nao pertencem a empresa atual', async () => {
+    ptsRepository.findOne.mockResolvedValue({
+      id: 'pt-1',
+      company_id: 'company-1',
+      status: PtStatus.PENDENTE,
+      pdf_file_key: null,
+      site_id: 'site-1',
+      responsavel_id: 'user-1',
+      apr_id: null,
+      auditado_por_id: null,
+      executantes: [{ id: 'user-1' }],
+      probability: 2,
+      severity: 2,
+      exposure: 2,
+      residual_risk: 'LOW',
+      control_evidence: false,
+    } as unknown as Pt);
+    getRepositoryMock.mockImplementation((entity: unknown) => {
+      if (entity === User) {
+        return {
+          exist: jest.fn().mockResolvedValue(true),
+          count: jest.fn().mockResolvedValue(1),
+        };
+      }
+      if (entity === Site || entity === Apr) {
+        return {
+          exist: jest.fn().mockResolvedValue(true),
+        };
+      }
+      return defaultScopedRepository;
+    });
+
+    await expect(
+      service.update('pt-1', {
+        executantes: ['user-1', 'user-fora-tenant'],
+      }),
+    ).rejects.toThrow(
+      'Executantes contém vínculo(s) inválido(s) para a empresa/tenant atual.',
+    );
+
+    expect(ptsSaveMock).not.toHaveBeenCalled();
   });
 
   it('findPaginated: aplica filtro deleted_at IS NULL para excluir PTs removidas', async () => {
@@ -510,16 +599,58 @@ describe('PtsService', () => {
     expect(whereCall[0]).toContain('deleted_at IS NULL');
   });
 
-  it('getPdfAccess: lança NotFoundException quando a PT nao possui PDF armazenado', async () => {
+  it('getPdfAccess: retorna disponibilidade explicita quando a PT nao possui PDF armazenado', async () => {
     ptsRepository.findOne.mockResolvedValue({
       id: 'pt-1',
       company_id: 'company-1',
       pdf_file_key: null,
     } as unknown as Pt);
 
-    await expect(service.getPdfAccess('pt-1')).rejects.toThrow(
-      'PT pt-1 não possui PDF armazenado',
+    await expect(service.getPdfAccess('pt-1')).resolves.toEqual({
+      entityId: 'pt-1',
+      hasFinalPdf: false,
+      availability: 'not_emitted',
+      message: 'A PT ainda não possui PDF final emitido.',
+      fileKey: null,
+      folderPath: null,
+      originalName: null,
+      url: null,
+    });
+  });
+
+  it('permite finalizar PT aprovada ou expirada pelo fluxo formal', async () => {
+    ptsRepository.findOne.mockResolvedValue({
+      id: 'pt-1',
+      company_id: 'company-1',
+      status: PtStatus.EXPIRADA,
+      pdf_file_key: null,
+    } as Pt);
+
+    await expect(service.finalize('pt-1', 'user-1')).resolves.toEqual(
+      expect.objectContaining({
+        id: 'pt-1',
+        status: PtStatus.ENCERRADA,
+      }),
     );
+  });
+
+  it('getAnalyticsOverview: retorna contagem consolidada por status', async () => {
+    (ptsRepository.count as jest.Mock)
+      .mockResolvedValueOnce(10)
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(1);
+
+    await expect(service.getAnalyticsOverview()).resolves.toEqual({
+      totalPts: 10,
+      aprovadas: 3,
+      pendentes: 4,
+      canceladas: 1,
+      encerradas: 1,
+      expiradas: 1,
+    });
   });
 
   it('bloqueia aprovacao quando transicao de status e invalida (Cancelada -> Aprovada)', async () => {

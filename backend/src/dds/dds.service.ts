@@ -5,13 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { Dds, DdsStatus, DDS_ALLOWED_TRANSITIONS } from './entities/dds.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreateDdsDto } from './dto/create-dds.dto';
 import { UpdateDdsDto } from './dto/update-dds.dto';
 import { ReplaceDdsSignaturesDto } from './dto/replace-dds-signatures.dto';
 import { User } from '../users/entities/user.entity';
+import { Site } from '../sites/entities/site.entity';
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import {
   normalizeOffsetPagination,
@@ -36,6 +37,11 @@ type HistoricalPhotoHashes = {
   data: string;
   hashes: string[];
 };
+
+type DdsPdfAvailability =
+  | 'ready'
+  | 'registered_without_signed_url'
+  | 'not_emitted';
 
 type TeamPhotoEvidence = {
   imageData: string;
@@ -69,11 +75,19 @@ export class DdsService {
     if (!resolvedCompanyId) {
       throw new BadRequestException('Empresa não definida para o DDS');
     }
+    const participantIds = this.normalizeUniqueIds(participants);
+    await this.assertRelationsBelongToCompany({
+      companyId: resolvedCompanyId,
+      siteId: rest.site_id,
+      facilitatorId: rest.facilitador_id,
+      participantIds,
+      auditorId: rest.auditado_por_id,
+    });
 
     const dds = this.ddsRepository.create({
       ...rest,
       company_id: resolvedCompanyId,
-      participants: participants?.map((id) => ({ id }) as unknown as User),
+      participants: participantIds.map((id) => ({ id }) as unknown as User),
     });
 
     const saved = await this.ddsRepository.save(dds);
@@ -198,14 +212,30 @@ export class DdsService {
         `Transição inválida: ${dds.status} → ${status}. Permitidas: ${allowed.join(', ') || 'nenhuma'}`,
       );
     }
+    const previousStatus = dds.status;
     dds.status = status;
-    return this.ddsRepository.save(dds);
+    const saved = await this.ddsRepository.save(dds);
+    this.logger.log({
+      event: 'dds_status_updated',
+      ddsId: saved.id,
+      companyId: saved.company_id,
+      previousStatus,
+      nextStatus: saved.status,
+    });
+    return saved;
   }
 
   async attachPdf(
     id: string,
     file: Express.Multer.File,
-  ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
+  ): Promise<{
+    fileKey: string;
+    folderPath: string;
+    originalName: string;
+    storageMode: 's3' | 'reference-only';
+    degraded: boolean;
+    message: string;
+  }> {
     const dds = await this.findOne(id);
     this.assertFinalDocumentMutable(dds);
     await this.assertReadyForFinalDocument(dds);
@@ -217,6 +247,7 @@ export class DdsService {
       file.originalname,
     );
     let uploadedToStorage = false;
+    let storageMode: 's3' | 'reference-only' = 's3';
 
     try {
       await this.documentStorageService.uploadFile(
@@ -231,6 +262,7 @@ export class DdsService {
       }
       // S3 desabilitado — armazena a referência sem upload real
       this.logger.warn(`S3 desabilitado, armazenando referência local: ${key}`);
+      storageMode = 'reference-only';
     }
 
     const folder = `dds/${companyId}`;
@@ -268,43 +300,98 @@ export class DdsService {
       throw error;
     }
 
+    this.logger.log({
+      event: 'dds_pdf_attached',
+      ddsId: dds.id,
+      companyId: dds.company_id,
+      storageMode,
+      fileKey: key,
+    });
     return {
       fileKey: key,
       folderPath: folder,
       originalName: file.originalname,
+      storageMode,
+      degraded: storageMode === 'reference-only',
+      message:
+        storageMode === 'reference-only'
+          ? 'PDF final registrado sem URL segura imediata. O documento foi governado, mas o storage está em modo degradado.'
+          : 'PDF final do DDS emitido e registrado com sucesso.',
     };
   }
 
   async getPdfAccess(id: string): Promise<{
     ddsId: string;
-    fileKey: string;
-    folderPath: string;
-    originalName: string;
+    hasFinalPdf: boolean;
+    availability: DdsPdfAvailability;
+    message: string;
+    degraded: boolean;
+    fileKey: string | null;
+    folderPath: string | null;
+    originalName: string | null;
     url: string | null;
   }> {
     const dds = await this.findOne(id);
     if (!dds.pdf_file_key) {
-      throw new NotFoundException(`DDS ${id} não possui PDF armazenado`);
+      const payload = {
+        ddsId: dds.id,
+        hasFinalPdf: false,
+        availability: 'not_emitted' as const,
+        message:
+          'O DDS ainda não possui PDF final emitido. Gere o documento final para habilitar download governado.',
+        degraded: false,
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        url: null,
+      };
+      this.logger.log({
+        event: 'dds_pdf_access_resolved',
+        ddsId: dds.id,
+        companyId: dds.company_id,
+        availability: payload.availability,
+        degraded: payload.degraded,
+      });
+      return payload;
     }
 
     let url: string | null = null;
+    let availability: DdsPdfAvailability = 'ready';
+    let degraded = false;
+    let message = 'PDF final governado disponível para acesso.';
     try {
       url = await this.documentStorageService.getSignedUrl(
         dds.pdf_file_key,
         3600,
       );
     } catch {
-      // S3 desabilitado — retorna null e frontend usa geração local
+      // S3 desabilitado ou indisponível — retorna sem URL segura
       url = null;
+      availability = 'registered_without_signed_url';
+      degraded = true;
+      message =
+        'PDF final registrado, mas a URL segura não está disponível no momento. O storage está em modo degradado.';
     }
 
-    return {
+    const payload = {
       ddsId: dds.id,
+      hasFinalPdf: true,
+      availability,
+      message,
+      degraded,
       fileKey: dds.pdf_file_key,
       folderPath: dds.pdf_folder_path,
       originalName: dds.pdf_original_name,
       url,
     };
+    this.logger.log({
+      event: 'dds_pdf_access_resolved',
+      ddsId: dds.id,
+      companyId: dds.company_id,
+      availability: payload.availability,
+      degraded: payload.degraded,
+    });
+    return payload;
   }
 
   async getHistoricalPhotoHashes(
@@ -371,7 +458,6 @@ export class DdsService {
   }> {
     const dds = await this.findOne(id);
     this.assertFinalDocumentMutable(dds);
-
     if (dds.is_modelo) {
       throw new BadRequestException(
         'Modelos de DDS não podem receber assinaturas de execução.',
@@ -476,6 +562,14 @@ export class DdsService {
       authenticated_user_id: authenticatedUserId,
       signatures: signaturesToPersist,
     });
+    this.logger.log({
+      event: 'dds_signatures_replaced',
+      ddsId: dds.id,
+      companyId: dds.company_id,
+      participantSignatures: participantIds.length,
+      teamPhotos: teamPhotos.length,
+      duplicateWarnings: duplicateWarnings.length,
+    });
 
     return {
       participantSignatures: participantIds.length,
@@ -488,19 +582,58 @@ export class DdsService {
     const dds = await this.findOne(id);
     this.assertFinalDocumentMutable(dds);
     const { participants, ...rest } = updateDdsDto;
+    const participantIds =
+      participants !== undefined
+        ? this.normalizeUniqueIds(participants)
+        : this.getParticipantIds(dds);
+    await this.assertRelationsBelongToCompany({
+      companyId: dds.company_id,
+      siteId: rest.site_id ?? dds.site_id,
+      facilitatorId: rest.facilitador_id ?? dds.facilitador_id,
+      participantIds,
+      auditorId:
+        rest.auditado_por_id !== undefined
+          ? rest.auditado_por_id
+          : dds.auditado_por_id,
+    });
+
+    const signatureResetReasons = this.getSignatureResetReasons(
+      dds,
+      rest,
+      participantIds,
+    );
 
     Object.assign(dds, rest);
+    dds.participants = participantIds.map(
+      (participantId) => ({ id: participantId }) as User,
+    );
 
-    if (participants) {
-      dds.participants = participants.map((id) => ({ id }) as unknown as User);
-    }
+    const saved = await this.ddsRepository.manager.transaction(
+      async (manager) => {
+        const persistedDds = await manager.getRepository(Dds).save(dds);
+        if (signatureResetReasons.length > 0) {
+          await manager.getRepository(Signature).delete({
+            document_id: id,
+            document_type: 'DDS',
+          });
+        }
+        return persistedDds;
+      },
+    );
 
-    const saved = await this.ddsRepository.save(dds);
     this.logger.log({
       event: 'dds_updated',
       ddsId: saved.id,
       companyId: saved.company_id,
     });
+    if (signatureResetReasons.length > 0) {
+      this.logger.warn({
+        event: 'dds_signatures_invalidated',
+        ddsId: saved.id,
+        companyId: saved.company_id,
+        reasons: signatureResetReasons,
+      });
+    }
     return saved;
   }
 
@@ -669,6 +802,141 @@ export class DdsService {
         'DDS com PDF final anexado. Edição bloqueada. Gere um novo DDS para alterar o documento.',
       );
     }
+    if (dds.status === DdsStatus.ARQUIVADO) {
+      throw new BadRequestException(
+        'DDS arquivado. Gere um novo DDS para retomar o fluxo operacional.',
+      );
+    }
+  }
+
+  private normalizeUniqueIds(ids?: string[]): string[] {
+    return Array.from(new Set((ids || []).filter(Boolean)));
+  }
+
+  private async assertRelationsBelongToCompany(input: {
+    companyId: string;
+    siteId: string;
+    facilitatorId: string;
+    participantIds: string[];
+    auditorId?: string;
+  }): Promise<void> {
+    await this.assertSiteBelongsToCompany(input.siteId, input.companyId);
+    await this.assertUsersBelongToCompany(
+      [input.facilitatorId],
+      input.companyId,
+      'Facilitador',
+    );
+    if (input.auditorId) {
+      await this.assertUsersBelongToCompany(
+        [input.auditorId],
+        input.companyId,
+        'Auditor',
+      );
+    }
+    if (input.participantIds.length > 0) {
+      await this.assertUsersBelongToCompany(
+        input.participantIds,
+        input.companyId,
+        'Participantes',
+      );
+    }
+  }
+
+  private async assertSiteBelongsToCompany(
+    siteId: string,
+    companyId: string,
+  ): Promise<void> {
+    const site = await this.ddsRepository.manager.getRepository(Site).findOne({
+      where: { id: siteId, company_id: companyId },
+      select: ['id'],
+    });
+    if (!site) {
+      throw new BadRequestException(
+        'O site informado não pertence à empresa atual do DDS.',
+      );
+    }
+  }
+
+  private async assertUsersBelongToCompany(
+    userIds: string[],
+    companyId: string,
+    label: string,
+  ): Promise<void> {
+    const uniqueUserIds = this.normalizeUniqueIds(userIds);
+    if (uniqueUserIds.length === 0) {
+      return;
+    }
+
+    const users = await this.ddsRepository.manager.getRepository(User).find({
+      where: {
+        id: In(uniqueUserIds),
+        company_id: companyId,
+        deletedAt: IsNull(),
+      },
+      select: ['id'],
+    });
+    const foundIds = new Set(users.map((user) => user.id));
+    const missingIds = uniqueUserIds.filter((userId) => !foundIds.has(userId));
+    if (missingIds.length > 0) {
+      throw new BadRequestException(
+        `${label} informado(s) não pertencem à empresa atual do DDS.`,
+      );
+    }
+  }
+
+  private getSignatureResetReasons(
+    dds: Dds,
+    nextValues: Omit<UpdateDdsDto, 'participants'>,
+    nextParticipantIds: string[],
+  ): string[] {
+    const reasons: string[] = [];
+    const currentParticipantIds = [...this.getParticipantIds(dds)].sort();
+    const sortedNextParticipantIds = [...nextParticipantIds].sort();
+
+    if (
+      JSON.stringify(currentParticipantIds) !==
+      JSON.stringify(sortedNextParticipantIds)
+    ) {
+      reasons.push('participants_changed');
+    }
+
+    const nextTema = nextValues.tema ?? dds.tema;
+    const nextConteudo = nextValues.conteudo ?? dds.conteudo ?? '';
+    const nextData = nextValues.data ?? this.toDateString(dds.data);
+    const nextSiteId = nextValues.site_id ?? dds.site_id;
+    const nextFacilitadorId = nextValues.facilitador_id ?? dds.facilitador_id;
+    const nextIsModelo = nextValues.is_modelo ?? dds.is_modelo;
+
+    if (nextTema !== dds.tema) {
+      reasons.push('theme_changed');
+    }
+    if (nextConteudo !== (dds.conteudo ?? '')) {
+      reasons.push('content_changed');
+    }
+    if (nextData !== this.toDateString(dds.data)) {
+      reasons.push('date_changed');
+    }
+    if (nextSiteId !== dds.site_id) {
+      reasons.push('site_changed');
+    }
+    if (nextFacilitadorId !== dds.facilitador_id) {
+      reasons.push('facilitator_changed');
+    }
+    if (nextIsModelo !== dds.is_modelo) {
+      reasons.push('model_flag_changed');
+    }
+
+    return reasons;
+  }
+
+  private toDateString(value?: Date | string | null): string {
+    if (!value) {
+      return '';
+    }
+    if (typeof value === 'string') {
+      return value.slice(0, 10);
+    }
+    return value.toISOString().slice(0, 10);
   }
 
   private buildDdsDocumentCode(

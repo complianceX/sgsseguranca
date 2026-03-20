@@ -14,6 +14,7 @@ import nodemailer, { Transporter } from 'nodemailer';
 import { Resend } from 'resend';
 import { Repository, Between, LessThan, Not, In } from 'typeorm';
 import { MailLog } from './entities/mail-log.entity';
+import { Cat } from '../cats/entities/cat.entity';
 import { EpisService } from '../epis/epis.service';
 import { TrainingsService } from '../trainings/trainings.service';
 import { PtsService } from '../pts/pts.service';
@@ -82,6 +83,8 @@ export class MailService {
     private configService: ConfigService,
     @InjectRepository(MailLog)
     private mailLogRepository: Repository<MailLog>,
+    @InjectRepository(Cat)
+    private readonly catsRepository: Repository<Cat>,
     private episService: EpisService,
     private trainingsService: TrainingsService,
     private ptsService: PtsService,
@@ -191,6 +194,44 @@ export class MailService {
           }
           break;
         }
+        case 'CAT': {
+          const cat = await this.catsRepository.findOne({
+            where: {
+              id: documentId,
+              ...(resolvedCompanyId ? { company_id: resolvedCompanyId } : {}),
+            },
+            select: ['id', 'numero', 'pdf_file_key'],
+          });
+          if (!cat) {
+            throw new NotFoundException(
+              'CAT não encontrada para envio por e-mail.',
+            );
+          }
+          if (!cat.pdf_file_key) {
+            throw new NotFoundException(
+              'A CAT ainda não possui PDF final governado emitido.',
+            );
+          }
+          fileKey = cat.pdf_file_key;
+          docName = `CAT #${cat.numero}`;
+          subject = `${docName}`;
+          break;
+        }
+        case 'NONCONFORMITY':
+        case 'NC': {
+          const nc = await this.nonConformitiesService.findOne(documentId);
+          const access =
+            await this.nonConformitiesService.getPdfAccess(documentId);
+          if (!access.hasFinalPdf || !access.fileKey) {
+            throw new NotFoundException(
+              'A não conformidade ainda não possui PDF final emitido.',
+            );
+          }
+          fileKey = access.fileKey;
+          docName = `Não Conformidade: ${nc.codigo_nc}`;
+          subject = `${docName}`;
+          break;
+        }
         case 'INSPECTION': {
           if (!resolvedCompanyId) {
             throw new BadRequestException(
@@ -242,6 +283,12 @@ export class MailService {
       }
     } catch (error) {
       if (error instanceof NotFoundException) {
+        const message = this.extractErrorMessage(error);
+        if (
+          /ainda nao possui pdf final|ainda não possui pdf final/i.test(message)
+        ) {
+          throw error;
+        }
         throw new NotFoundException(
           `Documento do tipo ${type} com ID ${documentId} não encontrado.`,
         );

@@ -89,7 +89,7 @@ export function useChecklists() {
           toast.success('PDF aberto com sucesso!');
           return;
         }
-        throw new Error('PDF final emitido, mas indisponível no armazenamento.');
+        throw new Error(access.message || 'PDF final emitido, mas indisponível no armazenamento.');
       }
       const signatures = await signaturesService.findByChecklist(checklist.id);
       await generateChecklistPdf(checklist, signatures);
@@ -104,30 +104,26 @@ export function useChecklists() {
   const handleSendEmail = useCallback(async (checklist: Checklist) => {
     try {
       setPrintingId(checklist.id);
-      if (checklist.pdf_file_key) {
-        setSelectedDoc({
-          name: checklist.titulo,
-          filename: checklist.pdf_original_name || `checklist-${checklist.id}.pdf`,
-          storedDocument: {
-            documentId: checklist.id,
-            documentType: 'CHECKLIST',
-          },
-        });
-        setIsMailModalOpen(true);
+      if (!checklist.pdf_file_key) {
+        toast.info('Emita o PDF final antes de enviar este checklist por e-mail.');
         return;
       }
 
-      const signatures = await signaturesService.findByChecklist(checklist.id);
-      const pdfData = await generateChecklistPdf(checklist, signatures, { save: false, output: 'base64' });
-      
-      if (pdfData && pdfData.base64) {
-        setSelectedDoc({
-          name: checklist.titulo,
-          filename: pdfData.filename,
-          base64: pdfData.base64,
-        });
-        setIsMailModalOpen(true);
+      const access = await checklistsService.getPdfAccess(checklist.id);
+      if (!access.hasFinalPdf) {
+        toast.info(access.message);
+        return;
       }
+
+      setSelectedDoc({
+        name: checklist.titulo,
+        filename: checklist.pdf_original_name || `checklist-${checklist.id}.pdf`,
+        storedDocument: {
+          documentId: checklist.id,
+          documentType: 'CHECKLIST',
+        },
+      });
+      setIsMailModalOpen(true);
     } catch (error) {
       handleApiError(error, 'Preparar e-mail');
     } finally {
@@ -146,7 +142,7 @@ export function useChecklists() {
           });
           return;
         }
-        throw new Error('PDF final emitido, mas indisponível no armazenamento.');
+        throw new Error(access.message || 'PDF final emitido, mas indisponível no armazenamento.');
       }
       const signatures = await signaturesService.findByChecklist(checklist.id);
       const result = await generateChecklistPdf(checklist, signatures, { save: false, output: 'base64' }) as { base64: string };

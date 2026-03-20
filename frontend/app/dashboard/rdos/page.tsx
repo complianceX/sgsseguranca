@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   rdosService,
   Rdo,
+  RdoAnalyticsOverview,
   MaoDeObraItem,
   EquipamentoItem,
   MaterialItem,
@@ -71,6 +72,7 @@ import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { StoredFilesPanel } from "@/components/StoredFilesPanel";
 import { generateRdoPdf } from "@/lib/pdf/rdoGenerator";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
+import { useAuth } from "@/context/AuthContext";
 
 const inputClassName =
   "h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 text-base text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
@@ -123,6 +125,70 @@ function escapePrintHtml(value: unknown) {
 
 function escapePrintHtmlWithBreaks(value: unknown) {
   return escapePrintHtml(value).replace(/\r?\n/g, "<br/>");
+}
+
+type ParsedRdoSignature = {
+  nome: string;
+  cpf: string;
+  signedAt: string | null;
+  signatureMode: string | null;
+  documentHash: string | null;
+};
+
+function parseRdoSignature(raw?: string | null): ParsedRdoSignature | null {
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const nome =
+      typeof parsed.nome === "string"
+        ? parsed.nome
+        : typeof parsed.aceite_por === "string"
+          ? parsed.aceite_por
+          : null;
+    const cpf = typeof parsed.cpf === "string" ? parsed.cpf : null;
+    const signedAt =
+      typeof parsed.signed_at === "string"
+        ? parsed.signed_at
+        : typeof parsed.realizado_em === "string"
+          ? parsed.realizado_em
+          : null;
+
+    if (!nome || !cpf) {
+      return null;
+    }
+
+    return {
+      nome,
+      cpf,
+      signedAt,
+      signatureMode:
+        typeof parsed.signature_mode === "string"
+          ? parsed.signature_mode
+          : null,
+      documentHash:
+        typeof parsed.document_hash === "string"
+          ? parsed.document_hash
+          : typeof parsed.prova_documento_hash === "string"
+            ? parsed.prova_documento_hash
+            : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function formatSignatureDate(value?: string | null) {
+  if (!value) {
+    return "Data não disponível";
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? "Data não disponível"
+    : parsed.toLocaleString("pt-BR");
 }
 
 interface FormState {
@@ -196,6 +262,7 @@ function rdoToForm(rdo: Rdo): FormState {
 }
 
 export default function RdosPage() {
+  const { hasPermission } = useAuth();
   const [rdos, setRdos] = useState<Rdo[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -245,16 +312,9 @@ export default function RdosPage() {
     rascunho: 0,
     enviado: 0,
     aprovado: 0,
+    cancelado: 0,
   });
-
-  const getErrorStatus = useCallback((error: unknown) => {
-    return (
-      Number(
-        (error as { response?: { status?: number } } | undefined)?.response
-          ?.status ?? 0,
-      ) || null
-    );
-  }, []);
+  const canManageRdo = hasPermission("can_manage_rdos");
 
   const getApiErrorMessage = useCallback((error: unknown) => {
     const message = (
@@ -289,30 +349,63 @@ export default function RdosPage() {
     try {
       setLoading(true);
       setLoadError(null);
-      const [rdosData, sitesPage, usersPage] = await Promise.all([
-        rdosService.findPaginated({
-          page,
-          limit,
-          status: filterStatus || undefined,
-          site_id: filterSiteId || undefined,
-          data_inicio: filterDataInicio || undefined,
-          data_fim: filterDataFim || undefined,
-        }),
-        sitesService.findPaginated({ page: 1, limit: 100 }),
-        usersService.findPaginated({ page: 1, limit: 100 }),
-      ]);
+      const [rdosResult, sitesResult, usersResult, overviewResult] =
+        await Promise.allSettled([
+          rdosService.findPaginated({
+            page,
+            limit,
+            status: filterStatus || undefined,
+            site_id: filterSiteId || undefined,
+            data_inicio: filterDataInicio || undefined,
+            data_fim: filterDataFim || undefined,
+          }),
+          sitesService.findPaginated({ page: 1, limit: 100 }),
+          usersService.findPaginated({ page: 1, limit: 100 }),
+          rdosService.getAnalyticsOverview(),
+        ]);
+
+      if (
+        rdosResult.status !== "fulfilled" ||
+        sitesResult.status !== "fulfilled" ||
+        usersResult.status !== "fulfilled"
+      ) {
+        throw new Error("Falha ao carregar os dados principais do módulo RDO.");
+      }
+
+      const rdosData = rdosResult.value;
+      const sitesPage = sitesResult.value;
+      const usersPage = usersResult.value;
       setRdos(rdosData.data);
       setTotal(rdosData.total);
       setLastPage(rdosData.lastPage);
       setSites(sitesPage.data);
       setUsers(usersPage.data);
 
-      const allRdos = rdosData.data;
+      const fallbackSummary: RdoAnalyticsOverview = {
+        totalRdos: rdosData.total,
+        rascunho: rdosData.data.filter((r) => r.status === "rascunho").length,
+        enviado: rdosData.data.filter((r) => r.status === "enviado").length,
+        aprovado: rdosData.data.filter((r) => r.status === "aprovado").length,
+        cancelado: rdosData.data.filter((r) => r.status === "cancelado").length,
+      };
+      const summaryData =
+        overviewResult.status === "fulfilled"
+          ? overviewResult.value
+          : fallbackSummary;
+
+      if (overviewResult.status !== "fulfilled") {
+        console.error(
+          "Erro ao carregar overview analítico de RDOs:",
+          overviewResult.reason,
+        );
+      }
+
       setSummary({
-        total: rdosData.total,
-        rascunho: allRdos.filter((r) => r.status === "rascunho").length,
-        enviado: allRdos.filter((r) => r.status === "enviado").length,
-        aprovado: allRdos.filter((r) => r.status === "aprovado").length,
+        total: summaryData.totalRdos,
+        rascunho: summaryData.rascunho,
+        enviado: summaryData.enviado,
+        aprovado: summaryData.aprovado,
+        cancelado: summaryData.cancelado,
       });
     } catch (error) {
       console.error("Erro ao carregar RDOs:", error);
@@ -334,19 +427,10 @@ export default function RdosPage() {
     loadData();
   }, [loadData]);
 
-  const getGovernedPdfAccess = useCallback(
-    async (rdoId: string) => {
-      try {
-        return await rdosService.getPdfAccess(rdoId);
-      } catch (error) {
-        if (getErrorStatus(error) === 404) {
-          return null;
-        }
-        throw error;
-      }
-    },
-    [getErrorStatus],
-  );
+  const getGovernedPdfAccess = useCallback(async (rdoId: string) => {
+    const access = await rdosService.getPdfAccess(rdoId);
+    return access.hasFinalPdf ? access : null;
+  }, []);
 
   const ensureGovernedPdf = useCallback(
     async (rdo: Rdo) => {
@@ -379,6 +463,10 @@ export default function RdosPage() {
   );
 
   const handleOpenCreate = () => {
+    if (!canManageRdo) {
+      toast.error("Você não tem permissão para criar RDOs.");
+      return;
+    }
     setEditingId(null);
     setForm(defaultForm);
     setCurrentStep(0);
@@ -386,6 +474,14 @@ export default function RdosPage() {
   };
 
   const handleOpenEdit = (rdo: Rdo) => {
+    if (!canManageRdo) {
+      toast.error("Você não tem permissão para editar RDOs.");
+      return;
+    }
+    if (rdo.status === "cancelado") {
+      toast.error("RDO cancelado está bloqueado para edição.");
+      return;
+    }
     if (rdo.pdf_file_key) {
       toast.error(
         "RDO com PDF final emitido esta bloqueado para edicao. Gere um novo documento para alterar o conteudo.",
@@ -407,7 +503,7 @@ export default function RdosPage() {
 
       if (shouldUseGovernedPdf) {
         const access = await ensureGovernedPdf(rdo);
-        if (access?.url) {
+        if (access?.hasFinalPdf && access.url) {
           openPdfForPrint(access.url, () => {
             toast.info(
               "Pop-up bloqueado. Abrimos o PDF final do RDO na mesma aba para impressão.",
@@ -416,9 +512,10 @@ export default function RdosPage() {
           return;
         }
 
-        if (access) {
+        if (access?.hasFinalPdf) {
           toast.warning(
-            "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora.",
+            access.message ||
+              "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora.",
           );
           return;
         }
@@ -436,7 +533,9 @@ export default function RdosPage() {
 
       const fileURL = URL.createObjectURL(base64ToPdfBlob(result.base64));
       openPdfForPrint(fileURL, () => {
-        toast.info("Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.");
+        toast.info(
+          "Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.",
+        );
       });
       setTimeout(() => URL.revokeObjectURL(fileURL), 60_000);
     },
@@ -497,7 +596,10 @@ export default function RdosPage() {
         try {
           await handlePrintAfterSave(savedRdo);
         } catch (printError) {
-          console.error("Erro ao preparar impressão automática do RDO:", printError);
+          console.error(
+            "Erro ao preparar impressão automática do RDO:",
+            printError,
+          );
           toast.warning(
             "RDO salvo, mas não foi possível abrir a impressão automática.",
           );
@@ -512,21 +614,71 @@ export default function RdosPage() {
   };
 
   const handleStatusChange = async (id: string, newStatus: string) => {
+    if (!canManageRdo) {
+      toast.error("Você não tem permissão para alterar o status do RDO.");
+      return;
+    }
     try {
       const updated = await rdosService.updateStatus(id, newStatus);
       setRdos((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, status: updated.status } : r)),
+        prev.map((r) => (r.id === id ? { ...r, ...updated } : r)),
       );
-      if (viewRdo?.id === id)
-        setViewRdo((v) => (v ? { ...v, status: updated.status } : v));
+      if (viewRdo?.id === id) {
+        setViewRdo((v) => (v ? { ...v, ...updated } : v));
+      }
       toast.success(`Status atualizado para "${RDO_STATUS_LABEL[newStatus]}"`);
     } catch (error) {
       console.error("Erro ao atualizar status:", error);
-      toast.error(getApiErrorMessage(error) || "Erro ao atualizar status do RDO.");
+      toast.error(
+        getApiErrorMessage(error) || "Erro ao atualizar status do RDO.",
+      );
+    }
+  };
+
+  const handleCancelRdo = async (rdo: Rdo) => {
+    if (!canManageRdo) {
+      toast.error("Você não tem permissão para cancelar RDOs.");
+      return;
+    }
+
+    if (rdo.status === "cancelado") {
+      toast.error("Este RDO já está cancelado.");
+      return;
+    }
+
+    if (rdo.pdf_file_key) {
+      toast.error("RDO com PDF final emitido não pode ser cancelado.");
+      return;
+    }
+
+    const reason = window.prompt("Informe o motivo do cancelamento do RDO:");
+    if (!reason || !reason.trim()) {
+      return;
+    }
+
+    try {
+      const updated = await rdosService.cancel(rdo.id, reason.trim());
+      setRdos((prev) =>
+        prev.map((item) => (item.id === updated.id ? updated : item)),
+      );
+      if (viewRdo?.id === updated.id) {
+        setViewRdo(updated);
+      }
+      await loadData();
+      toast.success("RDO cancelado com sucesso.");
+    } catch (error) {
+      console.error("Erro ao cancelar RDO:", error);
+      toast.error(
+        getApiErrorMessage(error) || "Não foi possível cancelar o RDO.",
+      );
     }
   };
 
   const handleDelete = async (id: string) => {
+    if (!canManageRdo) {
+      toast.error("Você não tem permissão para excluir RDOs.");
+      return;
+    }
     if (!confirm("Deseja excluir este RDO?")) return;
     try {
       await rdosService.delete(id);
@@ -686,24 +838,8 @@ export default function RdosPage() {
             `<tr><td>${escapePrintHtml(OCORRENCIA_TIPO_LABEL[o.tipo] ?? o.tipo)}</td><td>${escapePrintHtml(o.descricao)}</td><td>${escapePrintHtml(o.hora ?? "")}</td></tr>`,
         )
         .join("");
-      const sigResp = rdo.assinatura_responsavel
-        ? (() => {
-            try {
-              return JSON.parse(rdo.assinatura_responsavel!);
-            } catch {
-              return null;
-            }
-          })()
-        : null;
-      const sigEng = rdo.assinatura_engenheiro
-        ? (() => {
-            try {
-              return JSON.parse(rdo.assinatura_engenheiro!);
-            } catch {
-              return null;
-            }
-          })()
-        : null;
+      const sigResp = parseRdoSignature(rdo.assinatura_responsavel);
+      const sigEng = parseRdoSignature(rdo.assinatura_engenheiro);
       win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/>
 <title>RDO ${escapePrintHtml(rdo.numero)}</title>
 <style>
@@ -740,8 +876,8 @@ ${ocorrencias ? `<div class="section">Ocorrências</div><table><tr><th>Tipo</th>
 ${rdo.observacoes ? `<div class="section">Observações</div><p>${escapePrintHtmlWithBreaks(rdo.observacoes)}</p>` : ""}
 ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</div><p>${escapePrintHtmlWithBreaks(rdo.programa_servicos_amanha)}</p>` : ""}
 <div class="sig-box">
-  <div class="sig-item">${sigResp ? `Responsável: ${escapePrintHtml(sigResp.nome)}<br/>CPF: ${escapePrintHtml(sigResp.cpf)}<br/>Assinado em: ${escapePrintHtml(new Date(sigResp.signed_at).toLocaleString("pt-BR"))}` : "Responsável pela Obra"}</div>
-  <div class="sig-item">${sigEng ? `Engenheiro: ${escapePrintHtml(sigEng.nome)}<br/>CPF: ${escapePrintHtml(sigEng.cpf)}<br/>Assinado em: ${escapePrintHtml(new Date(sigEng.signed_at).toLocaleString("pt-BR"))}` : "Engenheiro Responsável"}</div>
+  <div class="sig-item">${sigResp ? `Responsável: ${escapePrintHtml(sigResp.nome)}<br/>CPF: ${escapePrintHtml(sigResp.cpf)}<br/>Assinado em: ${escapePrintHtml(formatSignatureDate(sigResp.signedAt))}` : "Responsável pela Obra"}</div>
+  <div class="sig-item">${sigEng ? `Engenheiro: ${escapePrintHtml(sigEng.nome)}<br/>CPF: ${escapePrintHtml(sigEng.cpf)}<br/>Assinado em: ${escapePrintHtml(formatSignatureDate(sigEng.signedAt))}` : "Engenheiro Responsável"}</div>
 </div>
 </body></html>`);
       win.document.close();
@@ -755,8 +891,11 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
           Boolean(rdo.pdf_file_key) || rdo.status === "aprovado";
 
         if (shouldUseGovernedPdf) {
-          const access = await ensureGovernedPdf(rdo);
-          if (access?.url) {
+          const access =
+            canManageRdo && !rdo.pdf_file_key
+              ? await ensureGovernedPdf(rdo)
+              : await getGovernedPdfAccess(rdo.id);
+          if (access?.hasFinalPdf && access.url) {
             openPdfForPrint(access.url, () => {
               toast.info(
                 "Pop-up bloqueado. Abrimos o PDF final do RDO na mesma aba para impressão.",
@@ -765,9 +904,10 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
             return;
           }
 
-          if (access) {
+          if (access?.hasFinalPdf) {
             toast.warning(
-              "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora.",
+              access.message ||
+                "O PDF final do RDO foi emitido, mas a URL segura não está disponível agora.",
             );
             return;
           }
@@ -785,7 +925,17 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
     async (rdo: Rdo) => {
       try {
         toast.info("Preparando PDF final governado...");
-        const access = await ensureGovernedPdf(rdo);
+        if (!canManageRdo && !rdo.pdf_file_key) {
+          toast.error(
+            "Você não tem permissão para emitir o PDF final deste RDO.",
+          );
+          return;
+        }
+
+        const access =
+          canManageRdo && !rdo.pdf_file_key
+            ? await ensureGovernedPdf(rdo)
+            : await getGovernedPdfAccess(rdo.id);
         if (!access) {
           toast.error(
             "O RDO precisa estar aprovado e assinado pelo responsável e engenheiro antes da emissão final.",
@@ -794,8 +944,9 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
         }
 
         if (!access.url) {
-          toast.success(
-            "PDF final emitido, mas a URL segura não está disponível no momento.",
+          toast.warning(
+            access.message ||
+              "PDF final emitido, mas a URL segura não está disponível no momento.",
           );
           return;
         }
@@ -806,24 +957,29 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
         toast.error("Não foi possível emitir ou abrir o PDF final do RDO.");
       }
     },
-    [ensureGovernedPdf],
+    [canManageRdo, ensureGovernedPdf, getGovernedPdfAccess],
   );
 
   const handleSign = async () => {
     if (!signModal) return;
+    if (!canManageRdo) {
+      toast.error("Você não tem permissão para assinar RDOs.");
+      return;
+    }
+    if (signModal.rdo.status === "rascunho") {
+      toast.error("Envie o RDO para revisão antes de coletar assinaturas.");
+      return;
+    }
     if (!signForm.nome || !signForm.cpf) {
       toast.error("Preencha nome e CPF.");
       return;
     }
     setSigning(true);
     try {
-      const hash = btoa(`${signForm.nome}:${signForm.cpf}:${Date.now()}`);
       const updated = await rdosService.sign(signModal.rdo.id, {
         tipo: signModal.tipo,
         nome: signForm.nome,
         cpf: signForm.cpf,
-        hash,
-        timestamp: new Date().toISOString(),
       });
       setRdos((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
       if (viewRdo?.id === updated.id) setViewRdo(updated);
@@ -839,6 +995,10 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
 
   const handleSendEmail = async () => {
     if (!emailModal) return;
+    if (!canManageRdo) {
+      toast.error("Você não tem permissão para enviar RDOs por e-mail.");
+      return;
+    }
     const emails = emailTo
       .split(/[,;\s]+/)
       .map((e) => e.trim())
@@ -923,18 +1083,20 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
             >
               Exportar Excel
             </Button>
-            <Button
-              type="button"
-              leftIcon={<Plus className="h-4 w-4" />}
-              onClick={handleOpenCreate}
-            >
-              Novo RDO
-            </Button>
+            {canManageRdo ? (
+              <Button
+                type="button"
+                leftIcon={<Plus className="h-4 w-4" />}
+                onClick={handleOpenCreate}
+              >
+                Novo RDO
+              </Button>
+            ) : null}
           </div>
         </CardHeader>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
         <Card interactive padding="md">
           <CardHeader>
             <CardDescription>Total de RDOs</CardDescription>
@@ -962,6 +1124,14 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
             <CardDescription>Aprovados</CardDescription>
             <CardTitle className="text-3xl text-[var(--ds-color-success)]">
               {summary.aprovado}
+            </CardTitle>
+          </CardHeader>
+        </Card>
+        <Card interactive padding="md">
+          <CardHeader>
+            <CardDescription>Cancelados</CardDescription>
+            <CardTitle className="text-3xl text-[var(--ds-color-danger)]">
+              {summary.cancelado}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -1021,6 +1191,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               <option value="rascunho">Rascunho</option>
               <option value="enviado">Enviado</option>
               <option value="aprovado">Aprovado</option>
+              <option value="cancelado">Cancelado</option>
             </select>
             <select
               aria-label="Filtrar por obra"
@@ -1071,7 +1242,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   : "Ainda não existem RDOs registrados para este tenant."
               }
               action={
-                !deferredSearch ? (
+                !deferredSearch && canManageRdo ? (
                   <button
                     type="button"
                     onClick={handleOpenCreate}
@@ -1102,101 +1273,130 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   {filteredRdos.map((rdo) => {
                     const statusTransitions = getAllowedStatusTransitions(rdo);
                     return (
-                    <TableRow key={rdo.id}>
-                      <TableCell className="font-mono text-sm font-medium text-[var(--ds-color-action-primary)]">
-                        {rdo.numero}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {new Date(rdo.data).toLocaleDateString("pt-BR")}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {rdo.site?.nome ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {rdo.responsavel?.nome ?? "—"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${RDO_STATUS_COLORS[rdo.status] ?? "border-[color:var(--ds-color-text-muted)]/30 bg-[color:var(--ds-color-text-muted)]/12 text-[var(--ds-color-text-muted)]"}`}
-                          >
-                            {RDO_STATUS_LABEL[rdo.status] ?? rdo.status}
-                          </span>
-                          {statusTransitions.length > 0 && (
-                            <select
-                              aria-label="Mover status do RDO"
-                              value=""
-                              onChange={(e) => {
-                                if (e.target.value)
-                                  handleStatusChange(rdo.id, e.target.value);
-                              }}
-                              className="rounded border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-1 py-0.5 text-xs text-[var(--ds-color-text-secondary)]"
+                      <TableRow key={rdo.id}>
+                        <TableCell className="font-mono text-sm font-medium text-[var(--ds-color-action-primary)]">
+                          {rdo.numero}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {new Date(rdo.data).toLocaleDateString("pt-BR")}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {rdo.site?.nome ?? "—"}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {rdo.responsavel?.nome ?? "—"}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${RDO_STATUS_COLORS[rdo.status] ?? "border-[color:var(--ds-color-text-muted)]/30 bg-[color:var(--ds-color-text-muted)]/12 text-[var(--ds-color-text-muted)]"}`}
                             >
-                              <option value="">Mover para...</option>
-                              {statusTransitions.map((s) => (
-                                <option key={s} value={s}>
-                                  {RDO_STATUS_LABEL[s]}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {totalTrabalhadores(rdo) > 0 ? (
-                          <span className="font-medium">
-                            {totalTrabalhadores(rdo)}
-                          </span>
-                        ) : (
-                          <span className="text-[var(--ds-color-text-muted)]">
-                            —
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {rdo.houve_acidente ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--ds-color-danger)]/10 px-2 py-0.5 text-xs font-medium text-[var(--ds-color-danger)]">
-                            <AlertTriangle className="h-3 w-3" /> Sim
-                          </span>
-                        ) : (
-                          <span className="text-xs text-[var(--ds-color-text-muted)]">
-                            Não
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => setViewRdo(rdo)}
-                            className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]"
-                            title="Visualizar"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleOpenEdit(rdo)}
-                            className={cn(
-                              "rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]",
-                              rdo.pdf_file_key && "opacity-40",
+                              {RDO_STATUS_LABEL[rdo.status] ?? rdo.status}
+                            </span>
+                            {canManageRdo && statusTransitions.length > 0 && (
+                              <select
+                                aria-label="Mover status do RDO"
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value)
+                                    handleStatusChange(rdo.id, e.target.value);
+                                }}
+                                className="rounded border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-1 py-0.5 text-xs text-[var(--ds-color-text-secondary)]"
+                              >
+                                <option value="">Mover para...</option>
+                                {statusTransitions.map((s) => (
+                                  <option key={s} value={s}>
+                                    {RDO_STATUS_LABEL[s]}
+                                  </option>
+                                ))}
+                              </select>
                             )}
-                            title={
-                              rdo.pdf_file_key
-                                ? "RDO com PDF final: edição bloqueada"
-                                : "Editar"
-                            }
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(rdo.id)}
-                            className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]"
-                            title="Excluir"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {totalTrabalhadores(rdo) > 0 ? (
+                            <span className="font-medium">
+                              {totalTrabalhadores(rdo)}
+                            </span>
+                          ) : (
+                            <span className="text-[var(--ds-color-text-muted)]">
+                              —
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {rdo.houve_acidente ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--ds-color-danger)]/10 px-2 py-0.5 text-xs font-medium text-[var(--ds-color-danger)]">
+                              <AlertTriangle className="h-3 w-3" /> Sim
+                            </span>
+                          ) : (
+                            <span className="text-xs text-[var(--ds-color-text-muted)]">
+                              Não
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => setViewRdo(rdo)}
+                              className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]"
+                              title="Visualizar"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            {canManageRdo ? (
+                              <>
+                                <button
+                                  onClick={() => handleOpenEdit(rdo)}
+                                  className={cn(
+                                    "rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]",
+                                    (rdo.pdf_file_key ||
+                                      rdo.status === "cancelado") &&
+                                      "opacity-40",
+                                  )}
+                                  title={
+                                    rdo.status === "cancelado"
+                                      ? "RDO cancelado: edição bloqueada"
+                                      : rdo.pdf_file_key
+                                        ? "RDO com PDF final: edição bloqueada"
+                                        : "Editar"
+                                  }
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (
+                                      rdo.status === "aprovado" ||
+                                      rdo.status === "cancelado"
+                                    ) {
+                                      toast.error(
+                                        "RDO aprovado ou cancelado não pode ser excluído.",
+                                      );
+                                      return;
+                                    }
+                                    handleDelete(rdo.id);
+                                  }}
+                                  className={cn(
+                                    "rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]",
+                                    (rdo.status === "aprovado" ||
+                                      rdo.status === "cancelado") &&
+                                      "opacity-40",
+                                  )}
+                                  title={
+                                    rdo.status === "aprovado" ||
+                                    rdo.status === "cancelado"
+                                      ? "RDO aprovado ou cancelado não pode ser excluído"
+                                      : "Excluir"
+                                  }
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
                 </TableBody>
@@ -2071,16 +2271,18 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewRdo(null);
-                    handleOpenEdit(viewRdo);
-                  }}
-                  className="flex items-center gap-1 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors"
-                >
-                  <Pencil className="h-3.5 w-3.5" /> Editar
-                </button>
+                {canManageRdo ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewRdo(null);
+                      handleOpenEdit(viewRdo);
+                    }}
+                    className="flex items-center gap-1 rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] transition-colors"
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Editar
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   aria-label="Fechar visualização"
@@ -2441,15 +2643,9 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   {(() => {
-                    const sig = viewRdo.assinatura_responsavel
-                      ? (() => {
-                          try {
-                            return JSON.parse(viewRdo.assinatura_responsavel!);
-                          } catch {
-                            return null;
-                          }
-                        })()
-                      : null;
+                    const sig = parseRdoSignature(
+                      viewRdo.assinatura_responsavel,
+                    );
                     return (
                       <div
                         className={`rounded-xl border px-4 py-3 ${sig ? "border-[color:var(--ds-color-success)]/30 bg-[color:var(--ds-color-success)]/8" : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20"}`}
@@ -2466,7 +2662,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                               CPF: {sig.cpf}
                             </p>
                             <p className="text-xs text-[color:var(--ds-color-success)]/80">
-                              {new Date(sig.signed_at).toLocaleString("pt-BR")}
+                              {formatSignatureDate(sig.signedAt)}
                             </p>
                           </>
                         ) : (
@@ -2478,15 +2674,9 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     );
                   })()}
                   {(() => {
-                    const sig = viewRdo.assinatura_engenheiro
-                      ? (() => {
-                          try {
-                            return JSON.parse(viewRdo.assinatura_engenheiro!);
-                          } catch {
-                            return null;
-                          }
-                        })()
-                      : null;
+                    const sig = parseRdoSignature(
+                      viewRdo.assinatura_engenheiro,
+                    );
                     return (
                       <div
                         className={`rounded-xl border px-4 py-3 ${sig ? "border-[color:var(--ds-color-success)]/30 bg-[color:var(--ds-color-success)]/8" : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20"}`}
@@ -2503,7 +2693,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                               CPF: {sig.cpf}
                             </p>
                             <p className="text-xs text-[color:var(--ds-color-success)]/80">
-                              {new Date(sig.signed_at).toLocaleString("pt-BR")}
+                              {formatSignatureDate(sig.signedAt)}
                             </p>
                           </>
                         ) : (
@@ -2528,40 +2718,67 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 >
                   <Printer className="h-3.5 w-3.5" /> Imprimir
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleOpenGovernedPdf(viewRdo)}
-                  className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
-                >
-                  <Download className="h-3.5 w-3.5" />{" "}
-                  {viewRdo.pdf_file_key ? "Abrir PDF final" : "Emitir PDF final"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (viewRdo.pdf_file_key) {
-                      toast.error(
-                        "RDO com PDF final emitido esta bloqueado para novas assinaturas.",
-                      );
-                      return;
-                    }
-                    setSignModal({ rdo: viewRdo, tipo: "responsavel" });
-                    setSignForm({ nome: "", cpf: "", tipo: "responsavel" });
-                  }}
-                  className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
-                >
-                  <PenLine className="h-3.5 w-3.5" /> Assinar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmailModal(viewRdo);
-                    setEmailTo("");
-                  }}
-                  className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
-                >
-                  <Mail className="h-3.5 w-3.5" /> Enviar e-mail
-                </button>
+                {canManageRdo || viewRdo.pdf_file_key ? (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenGovernedPdf(viewRdo)}
+                    className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
+                  >
+                    <Download className="h-3.5 w-3.5" />{" "}
+                    {viewRdo.pdf_file_key
+                      ? "Abrir PDF final"
+                      : "Emitir PDF final"}
+                  </button>
+                ) : null}
+                {canManageRdo ? (
+                  <>
+                    {viewRdo.status !== "cancelado" && !viewRdo.pdf_file_key ? (
+                      <button
+                        type="button"
+                        onClick={() => handleCancelRdo(viewRdo)}
+                        className="flex items-center gap-1.5 rounded-xl border border-[color:var(--ds-color-danger)]/30 px-3 py-2 text-xs font-medium text-[var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger)]/10 transition-colors"
+                      >
+                        <X className="h-3.5 w-3.5" /> Cancelar RDO
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (viewRdo.pdf_file_key) {
+                          toast.error(
+                            "RDO com PDF final emitido esta bloqueado para novas assinaturas.",
+                          );
+                          return;
+                        }
+                        if (viewRdo.status === "rascunho") {
+                          toast.error(
+                            "Envie o RDO para revisão antes de coletar assinaturas.",
+                          );
+                          return;
+                        }
+                        if (viewRdo.status === "cancelado") {
+                          toast.error("RDO cancelado não pode ser assinado.");
+                          return;
+                        }
+                        setSignModal({ rdo: viewRdo, tipo: "responsavel" });
+                        setSignForm({ nome: "", cpf: "", tipo: "responsavel" });
+                      }}
+                      className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
+                    >
+                      <PenLine className="h-3.5 w-3.5" /> Assinar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmailModal(viewRdo);
+                        setEmailTo("");
+                      }}
+                      className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2 text-xs font-medium text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)] transition-colors"
+                    >
+                      <Mail className="h-3.5 w-3.5" /> Enviar e-mail
+                    </button>
+                  </>
+                ) : null}
               </div>
               <button
                 type="button"

@@ -38,6 +38,75 @@ export enum NcStatus {
   ENCERRADA = 'ENCERRADA',
 }
 
+export type NonConformityPdfAccessAvailability =
+  | 'ready'
+  | 'registered_without_signed_url'
+  | 'not_emitted';
+
+export type NonConformityPdfAccessResponse = {
+  entityId: string;
+  hasFinalPdf: boolean;
+  availability: NonConformityPdfAccessAvailability;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  url: string | null;
+  message: string | null;
+};
+
+export type NonConformityAnalyticsOverview = {
+  totalNonConformities: number;
+  abertas: number;
+  emAndamento: number;
+  aguardandoValidacao: number;
+  encerradas: number;
+};
+
+export type NonConformityAttachmentAccessAvailability =
+  | 'ready'
+  | 'registered_without_signed_url';
+
+export type NonConformityAttachmentAccessResponse = {
+  entityId: string;
+  index: number;
+  hasGovernedAttachment: true;
+  availability: NonConformityAttachmentAccessAvailability;
+  fileKey: string;
+  originalName: string;
+  mimeType: string;
+  url: string | null;
+  degraded: boolean;
+  message: string | null;
+};
+
+export type NonConformityAttachmentAttachResponse = {
+  entityId: string;
+  attachments: string[];
+  attachmentCount: number;
+  storageMode: 'governed-storage';
+  degraded: false;
+  message: string;
+  attachment: {
+    index: number;
+    fileKey: string;
+    originalName: string;
+    mimeType: string;
+  };
+};
+
+const MAX_INLINE_ATTACHMENT_BYTES = 1 * 1024 * 1024;
+const GOVERNED_ATTACHMENT_REF_PREFIX = 'gst:nc-attachment:';
+
+type GovernedAttachmentReferencePayload = {
+  v: 1;
+  kind: 'governed-storage';
+  fileKey: string;
+  originalName: string;
+  mimeType: string;
+  uploadedAt: string;
+  sizeBytes?: number | null;
+};
+
 const ALLOWED_TRANSITIONS: Record<NcStatus, NcStatus[]> = {
   [NcStatus.ABERTA]: [NcStatus.EM_ANDAMENTO],
   [NcStatus.EM_ANDAMENTO]: [NcStatus.AGUARDANDO_VALIDACAO, NcStatus.ABERTA],
@@ -89,9 +158,222 @@ export class NonConformitiesService {
     return normalized ? normalized : undefined;
   }
 
+  private encodeBase64Url(value: string): string {
+    return Buffer.from(value, 'utf8').toString('base64url');
+  }
+
+  private decodeBase64Url(value: string): string {
+    return Buffer.from(value, 'base64url').toString('utf8');
+  }
+
   private normalizeStringArray(values?: string[]): string[] {
     return Array.from(
       new Set((values ?? []).map((value) => value.trim()).filter(Boolean)),
+    );
+  }
+
+  private logNcEvent(
+    level: 'log' | 'warn',
+    event: string,
+    payload: Record<string, unknown>,
+  ): void {
+    const loggerPayload = {
+      event,
+      userId: RequestContext.getUserId() || undefined,
+      ...payload,
+    };
+
+    if (level === 'warn') {
+      this.logger.warn(loggerPayload);
+      return;
+    }
+
+    this.logger.log(loggerPayload);
+  }
+
+  private countInlineAttachments(values?: string[]): number {
+    return (values ?? []).filter(
+      (item) => typeof item === 'string' && item.startsWith('data:'),
+    ).length;
+  }
+
+  private getInlineAttachmentPayloadBytes(dataUrl: string): number | null {
+    const match = dataUrl.match(/^data:(.+?);base64,(.+)$/);
+    if (!match) {
+      return null;
+    }
+
+    const base64Payload = match[2].replace(/\s+/g, '');
+    if (!base64Payload) {
+      return 0;
+    }
+
+    const padding = base64Payload.endsWith('==')
+      ? 2
+      : base64Payload.endsWith('=')
+        ? 1
+        : 0;
+
+    return Math.max(0, Math.floor((base64Payload.length * 3) / 4) - padding);
+  }
+
+  private buildGovernedAttachmentReference(
+    payload: GovernedAttachmentReferencePayload,
+  ): string {
+    return `${GOVERNED_ATTACHMENT_REF_PREFIX}${this.encodeBase64Url(JSON.stringify(payload))}`;
+  }
+
+  private parseGovernedAttachmentReference(
+    value?: string | null,
+  ): GovernedAttachmentReferencePayload | null {
+    const normalized = this.normalizeOptionalText(value);
+    if (!normalized || !normalized.startsWith(GOVERNED_ATTACHMENT_REF_PREFIX)) {
+      return null;
+    }
+
+    const encodedPayload = normalized.slice(
+      GOVERNED_ATTACHMENT_REF_PREFIX.length,
+    );
+    if (!encodedPayload) {
+      throw new BadRequestException('Referência de anexo governado inválida.');
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(this.decodeBase64Url(encodedPayload));
+    } catch {
+      throw new BadRequestException('Referência de anexo governado inválida.');
+    }
+
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed) ||
+      (parsed as GovernedAttachmentReferencePayload).v !== 1 ||
+      (parsed as GovernedAttachmentReferencePayload).kind !==
+        'governed-storage' ||
+      typeof (parsed as GovernedAttachmentReferencePayload).fileKey !==
+        'string' ||
+      typeof (parsed as GovernedAttachmentReferencePayload).originalName !==
+        'string' ||
+      typeof (parsed as GovernedAttachmentReferencePayload).mimeType !==
+        'string' ||
+      typeof (parsed as GovernedAttachmentReferencePayload).uploadedAt !==
+        'string'
+    ) {
+      throw new BadRequestException('Referência de anexo governado inválida.');
+    }
+
+    return parsed as GovernedAttachmentReferencePayload;
+  }
+
+  private getGovernedAttachmentEntries(values?: string[]): Array<{
+    reference: string;
+    payload: GovernedAttachmentReferencePayload;
+  }> {
+    return (values ?? []).flatMap((value) => {
+      const payload = this.parseGovernedAttachmentReference(value);
+      if (!payload || !value) {
+        return [];
+      }
+
+      return [
+        {
+          reference: value,
+          payload,
+        },
+      ];
+    });
+  }
+
+  private normalizeAttachmentReference(
+    value?: string | null,
+    options?: {
+      allowedGovernedReferences?: Set<string>;
+    },
+  ): string | undefined {
+    const normalized = this.normalizeOptionalText(value) || undefined;
+    if (!normalized) {
+      return undefined;
+    }
+
+    const governedPayload = this.parseGovernedAttachmentReference(normalized);
+    if (governedPayload) {
+      const allowedReferences = options?.allowedGovernedReferences;
+      if (!allowedReferences?.has(normalized)) {
+        throw new BadRequestException(
+          'Anexos governados devem ser enviados pelo endpoint dedicado do módulo.',
+        );
+      }
+      return normalized;
+    }
+
+    if (!normalized.startsWith('data:')) {
+      return normalized;
+    }
+
+    const payloadBytes = this.getInlineAttachmentPayloadBytes(normalized);
+    if (payloadBytes === null) {
+      throw new BadRequestException('Anexo inline inválido.');
+    }
+
+    if (payloadBytes > MAX_INLINE_ATTACHMENT_BYTES) {
+      throw new BadRequestException(
+        `Anexo inline excede o limite de ${(MAX_INLINE_ATTACHMENT_BYTES / 1024 / 1024).toFixed(2)}MB para criação ou edição.`,
+      );
+    }
+
+    return normalized;
+  }
+
+  private normalizeAttachments(
+    values?: string[],
+    options?: {
+      allowedGovernedReferences?: Set<string>;
+    },
+  ): string[] {
+    return Array.from(
+      new Set(
+        (values ?? [])
+          .map((value) => this.normalizeAttachmentReference(value, options))
+          .filter((value): value is string => Boolean(value)),
+      ),
+    );
+  }
+
+  private getAllowedGovernedAttachmentReferences(
+    values?: string[],
+  ): Set<string> {
+    return new Set(
+      this.getGovernedAttachmentEntries(values).map((item) => item.reference),
+    );
+  }
+
+  private async cleanupGovernedAttachmentFiles(
+    entityId: string,
+    attachments: Array<{
+      reference: string;
+      payload: GovernedAttachmentReferencePayload;
+    }>,
+  ): Promise<void> {
+    await Promise.all(
+      attachments.map(async ({ payload }) => {
+        try {
+          await this.documentStorageService.deleteFile(payload.fileKey);
+          this.logNcEvent('log', 'nc_attachment_removed_from_storage', {
+            entityId,
+            fileKey: payload.fileKey,
+            originalName: payload.originalName,
+          });
+        } catch (error) {
+          this.logNcEvent('warn', 'nc_attachment_storage_cleanup_failed', {
+            entityId,
+            fileKey: payload.fileKey,
+            originalName: payload.originalName,
+            errorMessage: error instanceof Error ? error.message : 'unknown',
+          });
+        }
+      }),
     );
   }
 
@@ -208,7 +490,9 @@ export class NonConformitiesService {
       ),
       status: this.normalizeStatus(dto.status),
       observacoes_gerais: this.normalizeOptionalText(dto.observacoes_gerais),
-      anexos: this.normalizeStringArray(dto.anexos),
+      anexos: this.normalizeAttachments(dto.anexos, {
+        allowedGovernedReferences: new Set<string>(),
+      }),
       assinatura_responsavel_area: this.normalizeOptionalText(
         dto.assinatura_responsavel_area,
       ),
@@ -221,8 +505,11 @@ export class NonConformitiesService {
 
   private buildUpdatePayload(
     dto: UpdateNonConformityDto,
+    existingAttachments?: string[],
   ): Partial<NonConformity> {
     const payload: Partial<NonConformity> = {};
+    const allowedGovernedReferences =
+      this.getAllowedGovernedAttachmentReferences(existingAttachments);
 
     if (dto.codigo_nc !== undefined)
       payload.codigo_nc = this.normalizeRequiredText(dto.codigo_nc);
@@ -398,7 +685,9 @@ export class NonConformitiesService {
       );
     }
     if (dto.anexos !== undefined) {
-      payload.anexos = this.normalizeStringArray(dto.anexos);
+      payload.anexos = this.normalizeAttachments(dto.anexos, {
+        allowedGovernedReferences,
+      });
     }
     if (dto.assinatura_responsavel_area !== undefined) {
       payload.assinatura_responsavel_area = this.normalizeOptionalText(
@@ -449,6 +738,14 @@ export class NonConformitiesService {
 
     const nonConformity = this.nonConformitiesRepository.create(payload);
     const saved = await this.nonConformitiesRepository.save(nonConformity);
+    const inlineAttachmentCount = this.countInlineAttachments(saved.anexos);
+    if (inlineAttachmentCount > 0) {
+      this.logNcEvent('warn', 'nc_inline_attachments_persisted', {
+        entityId: saved.id,
+        inlineAttachmentCount,
+        degradedInlineAttachments: true,
+      });
+    }
     await this.logAudit(AuditAction.CREATE, saved.id, null, saved);
     return saved;
   }
@@ -600,10 +897,34 @@ export class NonConformitiesService {
     const nonConformity = await this.findOne(id);
     this.assertNcDocumentMutable(nonConformity);
     const before = { ...nonConformity };
-    const payload = this.buildUpdatePayload(updateNonConformityDto);
+    const previousGovernedAttachments = this.getGovernedAttachmentEntries(
+      nonConformity.anexos,
+    );
+    const payload = this.buildUpdatePayload(
+      updateNonConformityDto,
+      nonConformity.anexos,
+    );
     await this.validateLinkedRecords(payload, nonConformity.company_id);
     Object.assign(nonConformity, payload);
     const saved = await this.nonConformitiesRepository.save(nonConformity);
+    const nextAttachmentReferences = new Set(saved.anexos ?? []);
+    const removedGovernedAttachments = previousGovernedAttachments.filter(
+      ({ reference }) => !nextAttachmentReferences.has(reference),
+    );
+    if (removedGovernedAttachments.length > 0) {
+      await this.cleanupGovernedAttachmentFiles(
+        saved.id,
+        removedGovernedAttachments,
+      );
+    }
+    const inlineAttachmentCount = this.countInlineAttachments(saved.anexos);
+    if (inlineAttachmentCount > 0) {
+      this.logNcEvent('warn', 'nc_inline_attachments_persisted', {
+        entityId: saved.id,
+        inlineAttachmentCount,
+        degradedInlineAttachments: true,
+      });
+    }
     await this.logAudit(AuditAction.UPDATE, saved.id, before, saved);
     return saved;
   }
@@ -611,6 +932,9 @@ export class NonConformitiesService {
   async remove(id: string) {
     const nonConformity = await this.findOne(id);
     const before = { ...nonConformity };
+    const governedAttachments = this.getGovernedAttachmentEntries(
+      nonConformity.anexos,
+    );
     await this.documentGovernanceService.removeFinalDocumentReference({
       companyId: nonConformity.company_id,
       module: 'nonconformity',
@@ -621,6 +945,12 @@ export class NonConformitiesService {
       cleanupStoredFile: (fileKey) =>
         this.documentStorageService.deleteFile(fileKey),
     });
+    if (governedAttachments.length > 0) {
+      await this.cleanupGovernedAttachmentFiles(
+        nonConformity.id,
+        governedAttachments,
+      );
+    }
     await this.logAudit(AuditAction.DELETE, id, before, null);
   }
 
@@ -639,26 +969,217 @@ export class NonConformitiesService {
     );
   }
 
-  async getPdfAccess(id: string) {
+  async getPdfAccess(id: string): Promise<NonConformityPdfAccessResponse> {
     const nc = await this.findOne(id);
     if (!nc.pdf_file_key) {
-      throw new NotFoundException('Arquivo PDF não encontrado para esta NC');
+      const response: NonConformityPdfAccessResponse = {
+        entityId: nc.id,
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        url: null,
+        message: 'PDF final ainda não foi emitido para esta não conformidade.',
+      };
+      this.logNcEvent('log', 'nc_pdf_access_resolved', {
+        entityId: nc.id,
+        availability: response.availability,
+        hasFinalPdf: response.hasFinalPdf,
+      });
+      return response;
     }
 
-    let url: string | null = null;
     try {
-      url = await this.documentStorageService.getSignedUrl(nc.pdf_file_key);
-    } catch {
-      url = null;
+      const url = await this.documentStorageService.getSignedUrl(
+        nc.pdf_file_key,
+      );
+      const response: NonConformityPdfAccessResponse = {
+        entityId: nc.id,
+        hasFinalPdf: true,
+        availability: 'ready',
+        fileKey: nc.pdf_file_key,
+        folderPath: nc.pdf_folder_path || null,
+        originalName: nc.pdf_original_name || null,
+        url,
+        message: null,
+      };
+      this.logNcEvent('log', 'nc_pdf_access_resolved', {
+        entityId: nc.id,
+        availability: response.availability,
+        hasFinalPdf: response.hasFinalPdf,
+      });
+      return response;
+    } catch (error) {
+      const response: NonConformityPdfAccessResponse = {
+        entityId: nc.id,
+        hasFinalPdf: true,
+        availability: 'registered_without_signed_url',
+        fileKey: nc.pdf_file_key,
+        folderPath: nc.pdf_folder_path || null,
+        originalName: nc.pdf_original_name || null,
+        url: null,
+        message:
+          'PDF final registrado, mas a URL segura do storage não está disponível no momento.',
+      };
+      this.logNcEvent('warn', 'nc_pdf_access_storage_degraded', {
+        entityId: nc.id,
+        availability: response.availability,
+        errorMessage: error instanceof Error ? error.message : 'unknown',
+      });
+      return response;
     }
+  }
+
+  async attachAttachment(
+    id: string,
+    buffer: Buffer,
+    originalName: string,
+    mimetype: string,
+  ): Promise<NonConformityAttachmentAttachResponse> {
+    const nc = await this.findOne(id);
+    this.assertNcDocumentMutable(nc);
+
+    const fileKey = this.documentStorageService.generateDocumentKey(
+      nc.company_id,
+      'nonconformity-attachments',
+      id,
+      originalName,
+    );
+
+    try {
+      await this.documentStorageService.uploadFile(fileKey, buffer, mimetype);
+    } catch (error) {
+      this.logNcEvent('warn', 'nc_attachment_upload_failed', {
+        entityId: nc.id,
+        fileKey,
+        originalName,
+        mimeType: mimetype,
+        errorMessage: error instanceof Error ? error.message : 'unknown',
+      });
+      throw error;
+    }
+
+    const reference = this.buildGovernedAttachmentReference({
+      v: 1,
+      kind: 'governed-storage',
+      fileKey,
+      originalName,
+      mimeType: mimetype,
+      uploadedAt: new Date().toISOString(),
+      sizeBytes: buffer.byteLength,
+    });
+
+    const before = { ...nc };
+    nc.anexos = Array.from(new Set([...(nc.anexos ?? []), reference]));
+
+    let saved: NonConformity;
+    try {
+      saved = await this.nonConformitiesRepository.save(nc);
+    } catch (error) {
+      await cleanupUploadedFile(
+        this.logger,
+        `nonconformity-attachment:${nc.id}`,
+        fileKey,
+        (key) => this.documentStorageService.deleteFile(key),
+      );
+      this.logNcEvent('warn', 'nc_attachment_persist_failed', {
+        entityId: nc.id,
+        fileKey,
+        originalName,
+        mimeType: mimetype,
+        errorMessage: error instanceof Error ? error.message : 'unknown',
+      });
+      throw error;
+    }
+
+    await this.logAudit(AuditAction.UPDATE, saved.id, before, saved);
+    this.logNcEvent('log', 'nc_attachment_uploaded', {
+      entityId: saved.id,
+      fileKey,
+      originalName,
+      mimeType: mimetype,
+      attachmentCount: saved.anexos?.length ?? 0,
+      governedAttachment: true,
+    });
 
     return {
-      entityId: nc.id,
-      fileKey: nc.pdf_file_key,
-      folderPath: nc.pdf_folder_path,
-      originalName: nc.pdf_original_name,
-      url,
+      entityId: saved.id,
+      attachments: saved.anexos ?? [],
+      attachmentCount: saved.anexos?.length ?? 0,
+      storageMode: 'governed-storage',
+      degraded: false,
+      message:
+        'Anexo governado salvo no storage oficial. URLs manuais e anexos inline permanecem como caminho degradado.',
+      attachment: {
+        index: (saved.anexos ?? []).findIndex((item) => item === reference),
+        fileKey,
+        originalName,
+        mimeType: mimetype,
+      },
     };
+  }
+
+  async getAttachmentAccess(
+    id: string,
+    index: number,
+  ): Promise<NonConformityAttachmentAccessResponse> {
+    const nc = await this.findOne(id);
+    const attachmentValue = nc.anexos?.[index];
+    const governedAttachment =
+      this.parseGovernedAttachmentReference(attachmentValue);
+
+    if (!governedAttachment) {
+      throw new BadRequestException(
+        'O anexo solicitado não está disponível no storage governado.',
+      );
+    }
+
+    try {
+      const url = await this.documentStorageService.getSignedUrl(
+        governedAttachment.fileKey,
+      );
+      const response: NonConformityAttachmentAccessResponse = {
+        entityId: nc.id,
+        index,
+        hasGovernedAttachment: true,
+        availability: 'ready',
+        fileKey: governedAttachment.fileKey,
+        originalName: governedAttachment.originalName,
+        mimeType: governedAttachment.mimeType,
+        url,
+        degraded: false,
+        message: null,
+      };
+      this.logNcEvent('log', 'nc_attachment_access_resolved', {
+        entityId: nc.id,
+        index,
+        availability: response.availability,
+        fileKey: governedAttachment.fileKey,
+      });
+      return response;
+    } catch (error) {
+      const response: NonConformityAttachmentAccessResponse = {
+        entityId: nc.id,
+        index,
+        hasGovernedAttachment: true,
+        availability: 'registered_without_signed_url',
+        fileKey: governedAttachment.fileKey,
+        originalName: governedAttachment.originalName,
+        mimeType: governedAttachment.mimeType,
+        url: null,
+        degraded: true,
+        message:
+          'Anexo governado registrado, mas a URL segura do storage não está disponível no momento.',
+      };
+      this.logNcEvent('warn', 'nc_attachment_storage_degraded', {
+        entityId: nc.id,
+        index,
+        fileKey: governedAttachment.fileKey,
+        errorMessage: error instanceof Error ? error.message : 'unknown',
+      });
+      return response;
+    }
   }
 
   async attachPdf(
@@ -681,7 +1202,17 @@ export class NonConformitiesService {
       `${id}.pdf`,
     );
 
-    await this.documentStorageService.uploadFile(fileKey, buffer, mimetype);
+    try {
+      await this.documentStorageService.uploadFile(fileKey, buffer, mimetype);
+    } catch (error) {
+      this.logNcEvent('warn', 'nc_pdf_upload_failed', {
+        entityId: nc.id,
+        fileKey,
+        folderPath,
+        errorMessage: error instanceof Error ? error.message : 'unknown',
+      });
+      throw error;
+    }
     try {
       await this.documentGovernanceService.registerFinalDocument({
         companyId: nc.company_id,
@@ -706,6 +1237,12 @@ export class NonConformitiesService {
           );
         },
       });
+      this.logNcEvent('log', 'nc_pdf_attached', {
+        entityId: nc.id,
+        fileKey,
+        folderPath,
+        originalName,
+      });
     } catch (error) {
       await cleanupUploadedFile(
         this.logger,
@@ -713,6 +1250,12 @@ export class NonConformitiesService {
         fileKey,
         (key) => this.documentStorageService.deleteFile(key),
       );
+      this.logNcEvent('warn', 'nc_pdf_governance_failed', {
+        entityId: nc.id,
+        fileKey,
+        folderPath,
+        errorMessage: error instanceof Error ? error.message : 'unknown',
+      });
       throw error;
     }
 
@@ -736,6 +1279,17 @@ export class NonConformitiesService {
 
     const rows = await qb.getRawMany<{ mes: string; total: string }>();
     return rows.map((r) => ({ mes: r.mes, total: Number(r.total) }));
+  }
+
+  async getAnalyticsOverview(): Promise<NonConformityAnalyticsOverview> {
+    const summary = await this.summarizeByStatus();
+    return {
+      totalNonConformities: summary.total,
+      abertas: summary.byStatus[NcStatus.ABERTA] ?? 0,
+      emAndamento: summary.byStatus[NcStatus.EM_ANDAMENTO] ?? 0,
+      aguardandoValidacao: summary.byStatus[NcStatus.AGUARDANDO_VALIDACAO] ?? 0,
+      encerradas: summary.byStatus[NcStatus.ENCERRADA] ?? 0,
+    };
   }
 
   async updateStatus(id: string, newStatus: NcStatus): Promise<NonConformity> {
