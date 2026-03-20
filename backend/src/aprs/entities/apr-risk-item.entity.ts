@@ -56,6 +56,15 @@ export class AprRiskItem {
   @Column({ type: 'text', nullable: true })
   medidas_prevencao: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  responsavel: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  prazo: Date | null;
+
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  status_acao: string | null;
+
   @Column({ type: 'int', default: 0 })
   ordem: number;
 

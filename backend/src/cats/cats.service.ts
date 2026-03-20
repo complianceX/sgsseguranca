@@ -483,7 +483,8 @@ export class CatsService {
         fileKey,
         folderPath,
         originalName,
-        documentCode: registryEntry.document_code || this.buildDocumentCode(cat),
+        documentCode:
+          registryEntry.document_code || this.buildDocumentCode(cat),
         fileHash: hash,
       };
     } catch (error) {

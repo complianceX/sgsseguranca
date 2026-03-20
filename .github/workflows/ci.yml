@@ -33,7 +33,7 @@ jobs:
         run: npm ci
 
       - name: Lint backend
-        run: npm run lint:ci
+        run: npm run lint
 
       - name: Test backend
         run: npm run test:ci

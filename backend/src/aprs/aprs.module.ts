@@ -13,6 +13,8 @@ import { StorageModule } from '../common/storage/storage.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { PublicAprEvidenceController } from './public-apr-evidence.controller';
 import { SignaturesModule } from '../signatures/signatures.module';
+import { AprRiskMatrixService } from './apr-risk-matrix.service';
+import { AprExcelService } from './apr-excel.service';
 
 @Module({
   imports: [
@@ -30,7 +32,7 @@ import { SignaturesModule } from '../signatures/signatures.module';
     SignaturesModule,
   ],
   controllers: [AprsController, PublicAprEvidenceController],
-  providers: [AprsService],
+  providers: [AprsService, AprRiskMatrixService, AprExcelService],
   exports: [AprsService],
 })
 export class AprsModule {}

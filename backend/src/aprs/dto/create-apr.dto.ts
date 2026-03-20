@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import {
   IsString,
   IsNotEmpty,
@@ -10,7 +11,9 @@ import {
   IsInt,
   Min,
   Max,
+  ValidateNested,
 } from 'class-validator';
+import { AprRiskItemInputDto } from './apr-risk-item-input.dto';
 
 export class CreateAprDto {
   @IsString()
@@ -49,6 +52,12 @@ export class CreateAprDto {
   @IsArray()
   @IsOptional()
   itens_risco?: Array<Record<string, string>>;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AprRiskItemInputDto)
+  @IsOptional()
+  risk_items?: AprRiskItemInputDto[];
 
   @IsInt()
   @Min(1)

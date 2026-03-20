@@ -160,6 +160,15 @@ class AprRiskItemResponseDto {
   medidas_prevencao?: string | null;
 
   @Expose()
+  responsavel?: string | null;
+
+  @Expose()
+  prazo?: Date | null;
+
+  @Expose()
+  status_acao?: string | null;
+
+  @Expose()
   ordem: number;
 
   @Expose()

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, In, Repository } from 'typeorm';
+import { EntityManager, FindOptionsWhere, In, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Apr, AprStatus, APR_ALLOWED_TRANSITIONS } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
@@ -38,6 +38,13 @@ import {
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { Site } from '../sites/entities/site.entity';
+import {
+  AprRiskCategory,
+  AprRiskMatrixService,
+} from './apr-risk-matrix.service';
+import { AprRiskItemInputDto } from './dto/apr-risk-item-input.dto';
+import { AprExcelService } from './apr-excel.service';
+import { AprExcelImportPreviewDto } from './dto/apr-excel-import-preview.dto';
 
 const APR_LOG_ACTIONS = {
   CREATED: 'APR_CRIADA',
@@ -67,9 +74,12 @@ type AprRiskItemSnapshot = {
   probabilidade: number | null;
   severidade: number | null;
   score_risco: number | null;
-  categoria_risco: string | null;
+  categoria_risco: AprRiskCategory | null;
   prioridade: string | null;
   medidas_prevencao: string | null;
+  responsavel: string | null;
+  prazo: string | null;
+  status_acao: string | null;
   ordem: number;
 };
 
@@ -84,6 +94,8 @@ export class AprsService {
     private aprLogsRepository: Repository<AprLog>,
     private tenantService: TenantService,
     private readonly riskCalculationService: RiskCalculationService,
+    private readonly aprRiskMatrixService: AprRiskMatrixService,
+    private readonly aprExcelService: AprExcelService,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly signaturesService: SignaturesService,
@@ -222,43 +234,112 @@ export class AprsService {
     return Number.isFinite(numeric) ? numeric : null;
   }
 
-  private mapAprRiskItems(
-    items?: Array<Record<string, string>>,
-  ): AprRiskItemSnapshot[] {
-    if (!Array.isArray(items)) {
-      return [];
-    }
+  private toLegacyRiskItemPayload(
+    items: AprRiskItemSnapshot[],
+  ): Array<Record<string, string>> {
+    return items.map((item) => ({
+      atividade_processo: item.atividade ?? '',
+      agente_ambiental: item.agente_ambiental ?? '',
+      condicao_perigosa: item.condicao_perigosa ?? '',
+      fontes_circunstancias: item.fonte_circunstancia ?? '',
+      possiveis_lesoes: item.lesao ?? '',
+      probabilidade:
+        item.probabilidade !== null && item.probabilidade !== undefined
+          ? String(item.probabilidade)
+          : '',
+      severidade:
+        item.severidade !== null && item.severidade !== undefined
+          ? String(item.severidade)
+          : '',
+      categoria_risco: item.categoria_risco ?? '',
+      medidas_prevencao: item.medidas_prevencao ?? '',
+      responsavel: item.responsavel ?? '',
+      prazo: item.prazo ?? '',
+      status_acao: item.status_acao ?? '',
+    }));
+  }
 
-    return items.map((item, index) => {
-      const probabilidade = this.normalizeAprRiskNumber(item.probabilidade);
-      const severidade = this.normalizeAprRiskNumber(item.severidade);
-      const score_risco =
-        probabilidade !== null && severidade !== null
-          ? probabilidade * severidade
-          : null;
-      const categoria_risco =
-        this.normalizeAprRiskText(item.categoria_risco) ||
-        (score_risco !== null
-          ? this.riskCalculationService.classifyByScore(score_risco)
-          : null);
+  private normalizeAprRiskItemInput(
+    item: Partial<AprRiskItemInputDto & Record<string, unknown>>,
+    index: number,
+  ): AprRiskItemSnapshot {
+    const probabilidade = this.normalizeAprRiskNumber(item.probabilidade);
+    const severidade = this.normalizeAprRiskNumber(item.severidade);
+    const evaluation = this.aprRiskMatrixService.evaluate(
+      probabilidade,
+      severidade,
+    );
 
-      return {
-        atividade: this.normalizeAprRiskText(item.atividade_processo),
-        agente_ambiental: this.normalizeAprRiskText(item.agente_ambiental),
-        condicao_perigosa: this.normalizeAprRiskText(item.condicao_perigosa),
-        fonte_circunstancia: this.normalizeAprRiskText(
-          item.fontes_circunstancias,
-        ),
-        lesao: this.normalizeAprRiskText(item.possiveis_lesoes),
-        probabilidade,
-        severidade,
-        score_risco,
-        categoria_risco,
-        prioridade: categoria_risco,
-        medidas_prevencao: this.normalizeAprRiskText(item.medidas_prevencao),
-        ordem: index,
-      };
-    });
+    return {
+      atividade: this.normalizeAprRiskText(
+        item.atividade_processo ?? item.atividade,
+      ),
+      agente_ambiental: this.normalizeAprRiskText(item.agente_ambiental),
+      condicao_perigosa: this.normalizeAprRiskText(item.condicao_perigosa),
+      fonte_circunstancia: this.normalizeAprRiskText(
+        item.fonte_circunstancia ?? item.fontes_circunstancias,
+      ),
+      lesao: this.normalizeAprRiskText(item.possiveis_lesoes ?? item.lesao),
+      probabilidade,
+      severidade,
+      score_risco: evaluation.score,
+      categoria_risco: evaluation.categoria,
+      prioridade: evaluation.prioridade,
+      medidas_prevencao: this.normalizeAprRiskText(item.medidas_prevencao),
+      responsavel: this.normalizeAprRiskText(item.responsavel),
+      prazo: this.normalizeAprRiskText(item.prazo),
+      status_acao: this.normalizeAprRiskText(item.status_acao),
+      ordem: index,
+    };
+  }
+
+  private buildAprRiskItemSnapshots(input: {
+    itens_risco?: Array<Record<string, unknown>>;
+    risk_items?: AprRiskItemInputDto[];
+  }): AprRiskItemSnapshot[] {
+    const source: Array<
+      Partial<AprRiskItemInputDto & Record<string, unknown>>
+    > = Array.isArray(input.risk_items)
+      ? input.risk_items.map((item) => ({
+          ...item,
+        }))
+      : Array.isArray(input.itens_risco)
+        ? input.itens_risco
+        : [];
+
+    return source.map((item, index) =>
+      this.normalizeAprRiskItemInput(item, index),
+    );
+  }
+
+  private buildAprClassificationSummary(items: AprRiskItemSnapshot[]) {
+    return this.aprRiskMatrixService.summarize(
+      items.map((item) => item.categoria_risco),
+    );
+  }
+
+  private mapPersistedRiskItemToSnapshot(
+    item: AprRiskItem,
+  ): AprRiskItemSnapshot {
+    return {
+      atividade: item.atividade,
+      agente_ambiental: item.agente_ambiental,
+      condicao_perigosa: item.condicao_perigosa,
+      fonte_circunstancia: item.fonte_circunstancia,
+      lesao: item.lesao,
+      probabilidade: item.probabilidade,
+      severidade: item.severidade,
+      score_risco: item.score_risco,
+      categoria_risco: this.aprRiskMatrixService.normalizeCategory(
+        item.categoria_risco,
+      ),
+      prioridade: item.prioridade,
+      medidas_prevencao: item.medidas_prevencao,
+      responsavel: item.responsavel,
+      prazo: item.prazo ? item.prazo.toISOString().slice(0, 10) : null,
+      status_acao: item.status_acao,
+      ordem: item.ordem,
+    };
   }
 
   private hasRiskItemChanged(
@@ -277,23 +358,33 @@ export class AprsService {
       existing.categoria_risco !== next.categoria_risco ||
       existing.prioridade !== next.prioridade ||
       existing.medidas_prevencao !== next.medidas_prevencao ||
+      existing.responsavel !== next.responsavel ||
+      (existing.prazo
+        ? new Date(existing.prazo).toISOString().slice(0, 10)
+        : null) !== next.prazo ||
+      existing.status_acao !== next.status_acao ||
       existing.ordem !== next.ordem
     );
   }
 
-  private async loadRiskItemsForSync(aprId: string): Promise<AprRiskItem[]> {
-    return this.aprsRepository.manager.getRepository(AprRiskItem).find({
-      where: { apr_id: aprId },
-      relations: ['evidences'],
-      order: { ordem: 'ASC', created_at: 'ASC' },
-    });
+  private async loadRiskItemsForSync(
+    aprId: string,
+    manager?: EntityManager,
+  ): Promise<AprRiskItem[]> {
+    return (manager ?? this.aprsRepository.manager)
+      .getRepository(AprRiskItem)
+      .find({
+        where: { apr_id: aprId },
+        relations: ['evidences'],
+        order: { ordem: 'ASC', created_at: 'ASC' },
+      });
   }
 
   private async assertRiskItemSyncAllowed(
     aprId: string,
-    items?: Array<Record<string, string>>,
+    items?: AprRiskItemSnapshot[],
   ): Promise<void> {
-    const desired = this.mapAprRiskItems(items);
+    const desired = items ?? [];
     const existing = await this.loadRiskItemsForSync(aprId);
 
     for (const [index, row] of existing.entries()) {
@@ -319,19 +410,20 @@ export class AprsService {
   }
 
   private async syncRiskItems(
+    manager: EntityManager,
     aprId: string,
-    items?: Array<Record<string, string>>,
+    items?: AprRiskItemSnapshot[],
   ): Promise<void> {
-    const desired = this.mapAprRiskItems(items);
-    const riskItemsRepository =
-      this.aprsRepository.manager.getRepository(AprRiskItem);
-    const existing = await this.loadRiskItemsForSync(aprId);
+    const desired = items ?? [];
+    const riskItemsRepository = manager.getRepository(AprRiskItem);
+    const existing = await this.loadRiskItemsForSync(aprId, manager);
 
     const upserts: AprRiskItem[] = [];
     desired.forEach((item, index) => {
       const current = existing[index];
       if (current) {
         Object.assign(current, item);
+        current.prazo = item.prazo ? new Date(item.prazo) : null;
         upserts.push(current);
         return;
       }
@@ -340,6 +432,7 @@ export class AprsService {
         riskItemsRepository.create({
           apr_id: aprId,
           ...item,
+          prazo: item.prazo ? new Date(item.prazo) : null,
         }),
       );
     });
@@ -363,29 +456,43 @@ export class AprsService {
       apr.risk_items = Array.isArray(apr.risk_items)
         ? apr.risk_items.slice().sort((left, right) => left.ordem - right.ordem)
         : [];
+      apr.itens_risco = this.toLegacyRiskItemPayload(
+        apr.risk_items.map((item) => this.mapPersistedRiskItemToSnapshot(item)),
+      );
       return apr;
     }
 
     if (!Array.isArray(apr.risk_items) || apr.risk_items.length === 0) {
-      await this.syncRiskItems(apr.id, apr.itens_risco);
+      await this.syncRiskItems(
+        this.aprsRepository.manager,
+        apr.id,
+        this.buildAprRiskItemSnapshots({ itens_risco: apr.itens_risco }),
+      );
       apr.risk_items = await this.aprsRepository.manager
         .getRepository(AprRiskItem)
         .find({
           where: { apr_id: apr.id },
           order: { ordem: 'ASC', created_at: 'ASC' },
         });
+      apr.itens_risco = this.toLegacyRiskItemPayload(
+        apr.risk_items.map((item) => this.mapPersistedRiskItemToSnapshot(item)),
+      );
       return apr;
     }
 
     apr.risk_items = apr.risk_items
       .slice()
       .sort((left, right) => left.ordem - right.ordem);
+    apr.itens_risco = this.toLegacyRiskItemPayload(
+      apr.risk_items.map((item) => this.mapPersistedRiskItemToSnapshot(item)),
+    );
     return apr;
   }
 
   private async assertCompanyScopedEntityId<
     T extends { id: string; company_id: string },
   >(
+    manager: EntityManager,
     entity: { new (): T },
     companyId: string,
     id: string | null | undefined,
@@ -395,11 +502,9 @@ export class AprsService {
       return;
     }
 
-    const exists = await this.aprsRepository.manager
-      .getRepository(entity)
-      .exist({
-        where: { id, company_id: companyId } as never,
-      });
+    const exists = await manager.getRepository(entity).exist({
+      where: { id, company_id: companyId } as never,
+    });
 
     if (!exists) {
       throw new BadRequestException(
@@ -411,6 +516,7 @@ export class AprsService {
   private async assertCompanyScopedEntityIds<
     T extends { id: string; company_id: string },
   >(
+    manager: EntityManager,
     entity: { new (): T },
     companyId: string,
     ids: string[] | undefined,
@@ -421,11 +527,9 @@ export class AprsService {
       return;
     }
 
-    const count = await this.aprsRepository.manager
-      .getRepository(entity)
-      .count({
-        where: { id: In(uniqueIds), company_id: companyId } as never,
-      });
+    const count = await manager.getRepository(entity).count({
+      where: { id: In(uniqueIds), company_id: companyId } as never,
+    });
 
     if (count !== uniqueIds.length) {
       throw new BadRequestException(
@@ -435,6 +539,7 @@ export class AprsService {
   }
 
   private async validateRelatedEntityScope(input: {
+    manager?: EntityManager;
     companyId: string;
     siteId?: string | null;
     elaboradorId?: string | null;
@@ -446,56 +551,66 @@ export class AprsService {
     machines?: string[];
     participants?: string[];
   }): Promise<void> {
+    const manager = input.manager ?? this.aprsRepository.manager;
     await Promise.all([
       this.assertCompanyScopedEntityId(
+        manager,
         Site,
         input.companyId,
         input.siteId,
         'Site',
       ),
       this.assertCompanyScopedEntityId(
+        manager,
         User,
         input.companyId,
         input.elaboradorId,
         'Elaborador',
       ),
       this.assertCompanyScopedEntityId(
+        manager,
         User,
         input.companyId,
         input.auditadoPorId,
         'Auditado por',
       ),
       this.assertCompanyScopedEntityIds(
+        manager,
         Activity,
         input.companyId,
         input.activities,
         'Atividades',
       ),
       this.assertCompanyScopedEntityIds(
+        manager,
         Risk,
         input.companyId,
         input.risks,
         'Riscos',
       ),
       this.assertCompanyScopedEntityIds(
+        manager,
         Epi,
         input.companyId,
         input.epis,
         'EPIs',
       ),
       this.assertCompanyScopedEntityIds(
+        manager,
         Tool,
         input.companyId,
         input.tools,
         'Ferramentas',
       ),
       this.assertCompanyScopedEntityIds(
+        manager,
         Machine,
         input.companyId,
         input.machines,
         'Máquinas',
       ),
       this.assertCompanyScopedEntityIds(
+        manager,
         User,
         input.companyId,
         input.participants,
@@ -513,75 +628,104 @@ export class AprsService {
       participantCount: Array.isArray(apr.participants)
         ? apr.participants.length
         : 0,
-      riskItemCount: Array.isArray(apr.itens_risco)
-        ? apr.itens_risco.length
-        : 0,
+      riskItemCount: Array.isArray(apr.risk_items)
+        ? apr.risk_items.length
+        : Array.isArray(apr.itens_risco)
+          ? apr.itens_risco.length
+          : 0,
     };
   }
 
   // ─── CRUD ────────────────────────────────────────────────────────────────────
 
   async create(createAprDto: CreateAprDto, userId?: string): Promise<Apr> {
-    const { activities, risks, epis, tools, machines, participants, ...rest } =
-      createAprDto;
-    const companyId = this.tenantService.getTenantId();
-    if (!companyId) {
-      throw new BadRequestException(
-        'Tenant/empresa não identificado para criação da APR.',
-      );
-    }
-    await this.validateRelatedEntityScope({
-      companyId,
-      siteId: createAprDto.site_id,
-      elaboradorId: createAprDto.elaborador_id,
-      auditadoPorId: createAprDto.auditado_por_id ?? null,
+    const {
       activities,
       risks,
       epis,
       tools,
       machines,
       participants,
+      risk_items,
+      itens_risco,
+      ...rest
+    } = createAprDto;
+    const companyId = this.tenantService.getTenantId();
+    if (!companyId) {
+      throw new BadRequestException(
+        'Tenant/empresa não identificado para criação da APR.',
+      );
+    }
+    const normalizedRiskItems = this.buildAprRiskItemSnapshots({
+      itens_risco: itens_risco as Array<Record<string, unknown>> | undefined,
+      risk_items,
     });
-    const initialRisk = this.riskCalculationService.calculateScore(
-      rest.probability,
-      rest.severity,
-      rest.exposure,
+
+    const savedId = await this.aprsRepository.manager.transaction(
+      async (manager) => {
+        await this.validateRelatedEntityScope({
+          manager,
+          companyId,
+          siteId: createAprDto.site_id,
+          elaboradorId: createAprDto.elaborador_id,
+          auditadoPorId: createAprDto.auditado_por_id ?? null,
+          activities,
+          risks,
+          epis,
+          tools,
+          machines,
+          participants,
+        });
+        const initialRisk = this.riskCalculationService.calculateScore(
+          rest.probability,
+          rest.severity,
+          rest.exposure,
+        );
+        const residualRisk =
+          rest.residual_risk ||
+          this.riskCalculationService.classifyByScore(initialRisk) ||
+          null;
+
+        if (rest.is_modelo_padrao) {
+          rest.is_modelo = true;
+        }
+
+        const aprRepository = manager.getRepository(Apr);
+        const apr = aprRepository.create({
+          ...rest,
+          itens_risco: this.toLegacyRiskItemPayload(normalizedRiskItems),
+          initial_risk: initialRisk,
+          residual_risk: residualRisk,
+          control_evidence: Boolean(rest.control_evidence),
+          classificacao_resumo:
+            this.buildAprClassificationSummary(normalizedRiskItems),
+          company_id: companyId,
+          activities: activities?.map((id) => ({ id }) as unknown as Activity),
+          risks: risks?.map((id) => ({ id }) as unknown as Risk),
+          epis: epis?.map((id) => ({ id }) as unknown as Epi),
+          tools: tools?.map((id) => ({ id }) as unknown as Tool),
+          machines: machines?.map((id) => ({ id }) as unknown as Machine),
+          participants: participants?.map((id) => ({ id }) as unknown as User),
+        });
+
+        const saved = await aprRepository.save(apr);
+        await this.syncRiskItems(manager, saved.id, normalizedRiskItems);
+        if (saved.is_modelo_padrao) {
+          await aprRepository.update(
+            { company_id: saved.company_id },
+            { is_modelo_padrao: false },
+          );
+          await aprRepository.update(
+            { id: saved.id },
+            { is_modelo_padrao: true, is_modelo: true },
+          );
+        }
+
+        return saved.id;
+      },
     );
-    const residualRisk =
-      rest.residual_risk ||
-      this.riskCalculationService.classifyByScore(initialRisk) ||
-      null;
 
-    if (rest.is_modelo_padrao) {
-      rest.is_modelo = true;
-    }
-
-    const apr = this.aprsRepository.create({
-      ...rest,
-      initial_risk: initialRisk,
-      residual_risk: residualRisk,
-      control_evidence: Boolean(rest.control_evidence),
-      company_id: companyId,
-      activities: activities?.map((id) => ({ id }) as unknown as Activity),
-      risks: risks?.map((id) => ({ id }) as unknown as Risk),
-      epis: epis?.map((id) => ({ id }) as unknown as Epi),
-      tools: tools?.map((id) => ({ id }) as unknown as Tool),
-      machines: machines?.map((id) => ({ id }) as unknown as Machine),
-      participants: participants?.map((id) => ({ id }) as unknown as User),
-    });
-
-    const saved: Apr = await this.aprsRepository.save(apr);
-    await this.syncRiskItems(saved.id, saved.itens_risco);
-    if (saved.is_modelo_padrao) {
-      await this.aprsRepository.update(
-        { company_id: saved.company_id },
-        { is_modelo_padrao: false },
-      );
-      await this.aprsRepository.update(
-        { id: saved.id },
-        { is_modelo_padrao: true, is_modelo: true },
-      );
-    }
+    const saved = await this.findOne(savedId);
     this.logger.log({
       event: 'apr_created',
       aprId: saved.id,
@@ -692,6 +836,7 @@ export class AprsService {
         'machines',
         'participants',
         'auditado_por',
+        'aprovado_por',
         'risk_items',
       ],
     });
@@ -725,29 +870,35 @@ export class AprsService {
     }
     const apr = await this.findOneForWrite(id);
     this.assertAprDocumentMutable(apr);
-    const { activities, risks, epis, tools, machines, participants, ...rest } =
-      updateAprDto;
-
-    const next = { ...rest };
-    if (next.is_modelo_padrao) next.is_modelo = true;
-    if (next.is_modelo === false) next.is_modelo_padrao = false;
-    await this.validateRelatedEntityScope({
-      companyId: apr.company_id,
-      siteId: next.site_id ?? apr.site_id,
-      elaboradorId: next.elaborador_id ?? apr.elaborador_id,
-      auditadoPorId:
-        next.auditado_por_id !== undefined
-          ? next.auditado_por_id
-          : apr.auditado_por_id,
+    const {
       activities,
       risks,
       epis,
       tools,
       machines,
       participants,
+      risk_items,
+      itens_risco,
+      ...rest
+    } = updateAprDto;
+    const persistedRiskItems = await this.loadRiskItemsForSync(id);
+
+    const next = { ...rest };
+    if (next.is_modelo_padrao) next.is_modelo = true;
+    if (next.is_modelo === false) next.is_modelo_padrao = false;
+    const nextRiskItems = this.buildAprRiskItemSnapshots({
+      itens_risco:
+        itens_risco !== undefined
+          ? (itens_risco as Array<Record<string, unknown>>)
+          : risk_items === undefined && persistedRiskItems.length > 0
+            ? this.toLegacyRiskItemPayload(
+                persistedRiskItems.map((item) =>
+                  this.mapPersistedRiskItemToSnapshot(item),
+                ),
+              )
+            : (apr.itens_risco as Array<Record<string, unknown>> | undefined),
+      risk_items: risk_items !== undefined ? risk_items : undefined,
     });
-    const nextRiskItems =
-      next.itens_risco !== undefined ? next.itens_risco : apr.itens_risco;
     await this.assertRiskItemSyncAllowed(id, nextRiskItems);
 
     const initialRisk = this.riskCalculationService.calculateScore(
@@ -761,38 +912,81 @@ export class AprsService {
       apr.residual_risk ||
       null;
 
-    Object.assign(apr, {
-      ...next,
-      initial_risk: initialRisk,
-      residual_risk: residualRisk,
-      control_evidence:
-        next.control_evidence !== undefined
-          ? Boolean(next.control_evidence)
-          : Boolean(apr.control_evidence),
+    await this.aprsRepository.manager.transaction(async (manager) => {
+      await this.validateRelatedEntityScope({
+        manager,
+        companyId: apr.company_id,
+        siteId: next.site_id ?? apr.site_id,
+        elaboradorId: next.elaborador_id ?? apr.elaborador_id,
+        auditadoPorId:
+          next.auditado_por_id !== undefined
+            ? next.auditado_por_id
+            : apr.auditado_por_id,
+        activities,
+        risks,
+        epis,
+        tools,
+        machines,
+        participants,
+      });
+
+      Object.assign(apr, {
+        ...next,
+        itens_risco: this.toLegacyRiskItemPayload(nextRiskItems),
+        initial_risk: initialRisk,
+        residual_risk: residualRisk,
+        classificacao_resumo: this.buildAprClassificationSummary(nextRiskItems),
+        control_evidence:
+          next.control_evidence !== undefined
+            ? Boolean(next.control_evidence)
+            : Boolean(apr.control_evidence),
+      });
+
+      if (activities) {
+        apr.activities = activities.map((itemId) => ({
+          id: itemId,
+        })) as unknown as Activity[];
+      }
+      if (risks) {
+        apr.risks = risks.map((itemId) => ({
+          id: itemId,
+        })) as unknown as Risk[];
+      }
+      if (epis) {
+        apr.epis = epis.map((itemId) => ({ id: itemId })) as unknown as Epi[];
+      }
+      if (tools) {
+        apr.tools = tools.map((itemId) => ({
+          id: itemId,
+        })) as unknown as Tool[];
+      }
+      if (machines) {
+        apr.machines = machines.map((itemId) => ({
+          id: itemId,
+        })) as unknown as Machine[];
+      }
+      if (participants) {
+        apr.participants = participants.map((itemId) => ({
+          id: itemId,
+        })) as unknown as User[];
+      }
+
+      const aprRepository = manager.getRepository(Apr);
+      const saved = await aprRepository.save(apr);
+      await this.syncRiskItems(manager, saved.id, nextRiskItems);
+      if (saved.is_modelo_padrao) {
+        await aprRepository.update(
+          { company_id: saved.company_id },
+          { is_modelo_padrao: false },
+        );
+        await aprRepository.update(
+          { id: saved.id },
+          { is_modelo_padrao: true, is_modelo: true },
+        );
+      }
     });
 
-    if (activities)
-      apr.activities = activities.map((id) => ({ id }) as unknown as Activity);
-    if (risks) apr.risks = risks.map((id) => ({ id }) as unknown as Risk);
-    if (epis) apr.epis = epis.map((id) => ({ id }) as unknown as Epi);
-    if (tools) apr.tools = tools.map((id) => ({ id }) as unknown as Tool);
-    if (machines)
-      apr.machines = machines.map((id) => ({ id }) as unknown as Machine);
-    if (participants)
-      apr.participants = participants.map((id) => ({ id }) as unknown as User);
-
-    const saved = await this.aprsRepository.save(apr);
-    await this.syncRiskItems(saved.id, saved.itens_risco);
-    if (saved.is_modelo_padrao) {
-      await this.aprsRepository.update(
-        { company_id: saved.company_id },
-        { is_modelo_padrao: false },
-      );
-      await this.aprsRepository.update(
-        { id: saved.id },
-        { is_modelo_padrao: true, is_modelo: true },
-      );
-    }
+    const saved = await this.findOne(id);
     this.logger.log({
       event: 'apr_updated',
       aprId: saved.id,
@@ -911,6 +1105,9 @@ export class AprsService {
       .where('(apr.id = :rootId OR apr.parent_apr_id = :rootId)', { rootId })
       .getRawOne<{ max: string }>();
     const nextVersion = Number(maxVersionRow?.max ?? original.versao) + 1;
+    const normalizedRiskItems = this.buildAprRiskItemSnapshots({
+      itens_risco: original.itens_risco as Array<Record<string, unknown>>,
+    });
 
     const novo = this.aprsRepository.create({
       titulo: original.titulo,
@@ -927,9 +1124,9 @@ export class AprsService {
       residual_risk: original.residual_risk,
       control_description: original.control_description,
       control_evidence: original.control_evidence,
-      itens_risco: Array.isArray(original.itens_risco)
-        ? original.itens_risco
-        : [],
+      itens_risco: this.toLegacyRiskItemPayload(normalizedRiskItems),
+      classificacao_resumo:
+        this.buildAprClassificationSummary(normalizedRiskItems),
       company_id: original.company_id,
       site_id: original.site_id,
       elaborador_id: userId,
@@ -947,7 +1144,11 @@ export class AprsService {
     });
 
     const saved = await this.aprsRepository.save(novo);
-    await this.syncRiskItems(saved.id, saved.itens_risco);
+    await this.syncRiskItems(
+      this.aprsRepository.manager,
+      saved.id,
+      normalizedRiskItems,
+    );
     await this.addLog(id, userId, APR_LOG_ACTIONS.NEW_VERSION_GENERATED, {
       novaAprId: saved.id,
       versao: nextVersion,
@@ -1465,6 +1666,27 @@ export class AprsService {
       'APR',
       filters,
     );
+  }
+
+  previewExcelImport(
+    buffer: Buffer,
+    fileName: string,
+  ): AprExcelImportPreviewDto {
+    return this.aprExcelService.previewImport(buffer, fileName);
+  }
+
+  exportExcelTemplate(): Buffer {
+    return this.aprExcelService.buildTemplateWorkbook();
+  }
+
+  async exportAprExcel(
+    id: string,
+  ): Promise<{ buffer: Buffer; fileName: string }> {
+    const apr = await this.findOne(id);
+    return {
+      buffer: this.aprExcelService.buildDetailWorkbook(apr),
+      fileName: `apr-${String(apr.numero || apr.id).replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`,
+    };
   }
 
   async exportExcel(): Promise<Buffer> {

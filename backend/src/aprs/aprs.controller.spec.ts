@@ -25,6 +25,7 @@ describe('AprsController (http)', () => {
     findOne: jest.fn(),
     getPdfAccess: jest.fn(),
     uploadRiskEvidence: jest.fn(),
+    previewExcelImport: jest.fn(),
   };
   const pdfRateLimitService = {
     checkDownloadLimit: jest.fn(),
@@ -36,6 +37,7 @@ describe('AprsController (http)', () => {
     aprsService.findOne.mockReset();
     aprsService.getPdfAccess.mockReset();
     aprsService.uploadRiskEvidence.mockReset();
+    aprsService.previewExcelImport.mockReset();
     pdfRateLimitService.checkDownloadLimit.mockReset();
   });
 
@@ -187,6 +189,37 @@ describe('AprsController (http)', () => {
       }),
       'user-1',
       expect.any(String),
+    );
+  });
+
+  it('faz preview da planilha APR antes da persistencia', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.previewExcelImport.mockResolvedValue({
+      fileName: 'apr.xlsx',
+      sheetName: 'APR',
+      importedRows: 1,
+      ignoredRows: 0,
+      warnings: [],
+      errors: [],
+      matchedColumns: { atividade_processo: 'Atividade/Processo' },
+      draft: {
+        numero: 'APR-001',
+        risk_items: [],
+      },
+    });
+
+    await request(httpServer)
+      .post('/aprs/import/excel/preview')
+      .attach('file', Buffer.from('504b0304140000000800', 'hex'), {
+        filename: 'apr.xlsx',
+        contentType:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+      .expect(201);
+
+    expect(aprsService.previewExcelImport).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      'apr.xlsx',
     );
   });
 });

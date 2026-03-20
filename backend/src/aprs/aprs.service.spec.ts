@@ -7,6 +7,8 @@ import type { RiskCalculationService } from '../common/services/risk-calculation
 import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { SignaturesService } from '../signatures/signatures.service';
+import type { AprRiskMatrixService } from './apr-risk-matrix.service';
+import type { AprExcelService } from './apr-excel.service';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -35,6 +37,14 @@ describe('AprsService', () => {
     'registerFinalDocument' | 'removeFinalDocumentReference'
   >;
   let signaturesService: Pick<SignaturesService, 'findByDocument'>;
+  let aprRiskMatrixService: Pick<
+    AprRiskMatrixService,
+    'evaluate' | 'normalizeCategory' | 'summarize'
+  >;
+  let aprExcelService: Pick<
+    AprExcelService,
+    'previewImport' | 'buildTemplateWorkbook' | 'buildDetailWorkbook'
+  >;
 
   beforeEach(() => {
     aprRepository = {
@@ -61,12 +71,72 @@ describe('AprsService', () => {
     signaturesService = {
       findByDocument: jest.fn(() => Promise.resolve([{ user_id: 'user-1' }])),
     };
+    aprRiskMatrixService = {
+      evaluate: jest.fn(
+        (probability?: number | null, severity?: number | null) => {
+          if (!probability || !severity) {
+            return { score: null, categoria: null, prioridade: null };
+          }
+          const score = Number(probability) * Number(severity);
+          if (score <= 2) {
+            return {
+              score,
+              categoria: 'Aceitável',
+              prioridade: 'Não prioritário',
+            };
+          }
+          if (score <= 4) {
+            return {
+              score,
+              categoria: 'Atenção',
+              prioridade: 'Prioridade básica',
+            };
+          }
+          if (score <= 6) {
+            return {
+              score,
+              categoria: 'Substancial',
+              prioridade: 'Prioridade preferencial',
+            };
+          }
+          return {
+            score,
+            categoria: 'Crítico',
+            prioridade: 'Prioridade máxima',
+          };
+        },
+      ),
+      normalizeCategory: jest.fn((value?: string | null) => {
+        if (!value) return null;
+        if (value === 'Crítico') return 'Crítico';
+        if (value === 'Substancial') return 'Substancial';
+        if (value === 'Atenção' || value === 'De Atenção') return 'Atenção';
+        return 'Aceitável';
+      }),
+      summarize: jest.fn((categories: Array<string | null | undefined>) => ({
+        total: categories.filter(Boolean).length,
+        aceitavel: categories.filter((value) => value === 'Aceitável').length,
+        atencao: categories.filter(
+          (value) => value === 'Atenção' || value === 'De Atenção',
+        ).length,
+        substancial: categories.filter((value) => value === 'Substancial')
+          .length,
+        critico: categories.filter((value) => value === 'Crítico').length,
+      })),
+    };
+    aprExcelService = {
+      previewImport: jest.fn(),
+      buildTemplateWorkbook: jest.fn(() => Buffer.from('template')),
+      buildDetailWorkbook: jest.fn(() => Buffer.from('detail')),
+    };
 
     service = new AprsService(
       aprRepository as unknown as Repository<Apr>,
       aprLogsRepository as unknown as Repository<AprLog>,
       { getTenantId: jest.fn(() => 'company-1') } as TenantService,
       {} as RiskCalculationService,
+      aprRiskMatrixService as AprRiskMatrixService,
+      aprExcelService as AprExcelService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
       signaturesService as SignaturesService,

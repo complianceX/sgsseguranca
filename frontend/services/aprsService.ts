@@ -18,6 +18,47 @@ import {
   setOfflineCache,
 } from "@/lib/offline-cache";
 
+export interface AprRiskItemInput {
+  atividade_processo?: string;
+  agente_ambiental?: string;
+  condicao_perigosa?: string;
+  fonte_circunstancia?: string;
+  fontes_circunstancias?: string;
+  possiveis_lesoes?: string;
+  probabilidade?: number;
+  severidade?: number;
+  categoria_risco?: string;
+  medidas_prevencao?: string;
+  responsavel?: string;
+  prazo?: string;
+  status_acao?: string;
+}
+
+export interface AprExcelImportPreview {
+  fileName: string;
+  sheetName: string;
+  importedRows: number;
+  ignoredRows: number;
+  warnings: string[];
+  errors: string[];
+  matchedColumns: Record<string, string>;
+  draft: {
+    numero?: string;
+    titulo?: string;
+    descricao?: string;
+    data_inicio?: string;
+    data_fim?: string;
+    company_name?: string;
+    cnpj?: string;
+    site_name?: string;
+    unidade_setor?: string;
+    local_atividade?: string;
+    elaborador_name?: string;
+    aprovador_name?: string;
+    risk_items: AprRiskItemInput[];
+  };
+}
+
 export interface Apr {
   id: string;
   numero: string;
@@ -84,6 +125,9 @@ export interface Apr {
     categoria_risco?: string;
     prioridade?: string;
     medidas_prevencao?: string;
+    responsavel?: string;
+    prazo?: string;
+    status_acao?: string;
     ordem: number;
     created_at: string;
     updated_at: string;
@@ -128,6 +172,7 @@ export interface CreateAprDto {
   is_modelo?: boolean;
   is_modelo_padrao?: boolean;
   itens_risco?: Array<Record<string, string>>;
+  risk_items?: AprRiskItemInput[];
   probability?: number;
   severity?: number;
   exposure?: number;
@@ -303,6 +348,19 @@ export const aprsService = {
 
   getPdfAccess: async (id: string) => {
     const response = await api.get<AprPdfAccessResponse>(`/aprs/${id}/pdf`);
+    return response.data;
+  },
+
+  previewExcelImport: async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<AprExcelImportPreview>(
+      "/aprs/import/excel/preview",
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
     return response.data;
   },
 

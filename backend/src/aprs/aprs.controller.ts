@@ -35,6 +35,7 @@ import { Authorize } from '../auth/authorize.decorator';
 import {
   assertUploadedPdf,
   cleanupUploadedTempFile,
+  createTemporaryUploadOptions,
   createGovernedPdfUploadOptions,
   fileUploadOptions,
   readUploadedFileBuffer,
@@ -155,6 +156,46 @@ export class AprsController {
     return new StreamableFile(buffer);
   }
 
+  @Get('export/excel/template')
+  @Authorize('can_view_apr')
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  @Header(
+    'Content-Disposition',
+    'attachment; filename="apr-template-importacao.xlsx"',
+  )
+  exportExcelTemplate(): StreamableFile {
+    const buffer = this.aprsService.exportExcelTemplate();
+    return new StreamableFile(buffer);
+  }
+
+  @Post('import/excel/preview')
+  @Authorize('can_create_apr')
+  @UseInterceptors(
+    FileInterceptor(
+      'file',
+      createTemporaryUploadOptions({ maxFileSize: 15 * 1024 * 1024 }),
+    ),
+  )
+  async previewExcelImport(@UploadedFile() file: Express.Multer.File) {
+    const buffer = await readUploadedFileBuffer(
+      file,
+      'Nenhuma planilha enviada.',
+    );
+    validateFileMagicBytes(buffer, [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ]);
+
+    try {
+      return this.aprsService.previewExcelImport(buffer, file.originalname);
+    } finally {
+      await cleanupUploadedTempFile(file);
+    }
+  }
+
   @Get('risks/matrix')
   @Authorize('can_view_apr')
   getRiskMatrix(@Query('site_id') siteId?: string) {
@@ -181,6 +222,21 @@ export class AprsController {
   @Authorize('can_view_apr')
   getAnalyticsOverview() {
     return this.aprsService.getAnalyticsOverview();
+  }
+
+  @Get(':id/export/excel')
+  @Authorize('can_view_apr')
+  @Header(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async exportExcelById(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<StreamableFile> {
+    const { buffer, fileName } = await this.aprsService.exportAprExcel(id);
+    return new StreamableFile(buffer, {
+      disposition: `attachment; filename="${fileName}"`,
+    });
   }
 
   @Get(':id')
