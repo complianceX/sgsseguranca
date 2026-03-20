@@ -5,6 +5,8 @@ import { randomUUID } from 'crypto';
 import { Client } from 'pg';
 import { DataSource, FindOptionsWhere, Repository } from 'typeorm';
 import { AprsService } from '../aprs/aprs.service';
+import type { AprExcelService } from '../aprs/apr-excel.service';
+import type { AprRiskMatrixService } from '../aprs/apr-risk-matrix.service';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { AprLog } from '../aprs/entities/apr-log.entity';
 import { AprRiskEvidence } from '../aprs/entities/apr-risk-evidence.entity';
@@ -29,6 +31,7 @@ import { DdsService } from '../dds/dds.service';
 import { DocumentRegistryEntry } from './entities/document-registry.entity';
 import { DocumentRegistryService } from './document-registry.service';
 import { DocumentGovernanceService } from './document-governance.service';
+import type { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { Epi } from '../epis/entities/epi.entity';
 import { Machine } from '../machines/entities/machine.entity';
 import { Profile } from '../profiles/entities/profile.entity';
@@ -103,6 +106,20 @@ function buildSignaturesService(
 
 function buildPuppeteerPoolStub(): PuppeteerPoolService {
   return {} as unknown as PuppeteerPoolService;
+}
+
+function buildAprRiskMatrixService(): AprRiskMatrixService {
+  return {} as unknown as AprRiskMatrixService;
+}
+
+function buildAprExcelService(): AprExcelService {
+  return {} as unknown as AprExcelService;
+}
+
+function buildForensicTrailService(): ForensicTrailService {
+  return {
+    append: jest.fn(),
+  } as unknown as ForensicTrailService;
 }
 
 function buildTenantRepositoryFactory() {
@@ -247,6 +264,7 @@ describe('Document governance integration', () => {
       pdfService,
       bundleService,
       documentRegistryService,
+      buildForensicTrailService(),
     );
     const documentStorageService = buildDocumentStorageStub();
 
@@ -255,9 +273,12 @@ describe('Document governance integration', () => {
       dataSource.getRepository(AprLog),
       buildTenantService(companyId),
       buildRiskCalculationService(),
+      buildAprRiskMatrixService(),
+      buildAprExcelService(),
       documentStorageService as unknown as DocumentStorageService,
       governanceService,
       buildSignaturesService([{ user_id: userId, type: 'pin' }]),
+      buildForensicTrailService(),
     );
     ddsService = new DdsService(
       dataSource.getRepository(Dds),
@@ -283,6 +304,7 @@ describe('Document governance integration', () => {
       documentStorageService as unknown as DocumentStorageService,
       governanceService,
       buildSignaturesService(),
+      buildForensicTrailService(),
     );
 
     registryRepository = dataSource.getRepository(DocumentRegistryEntry);

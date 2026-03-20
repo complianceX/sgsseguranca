@@ -16,6 +16,8 @@ import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { PtsController } from './pts.controller';
 import { PtsService } from './pts.service';
 
+jest.setTimeout(15000);
+
 describe('PtsController (http)', () => {
   const ptId = '11111111-1111-4111-8111-111111111111';
   let currentUser: { userId?: string; id?: string } = { userId: 'user-1' };

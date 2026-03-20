@@ -5,6 +5,8 @@ import { DocumentBundleService } from '../common/services/document-bundle.servic
 import { DocumentRegistryService } from './document-registry.service';
 import { DocumentRegistryEntry } from './entities/document-registry.entity';
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
+import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 
 type GovernedModule =
   | 'apr'
@@ -52,6 +54,8 @@ type RemoveFinalDocumentReferenceInput = {
   documentType?: string;
   removeEntityState?: (manager: EntityManager) => Promise<void>;
   cleanupStoredFile?: (fileKey: string) => Promise<void>;
+  trailEventType?: string;
+  trailMetadata?: Record<string, unknown>;
 };
 
 const signatureDocumentTypeToRegistryModule = new Map<string, GovernedModule>([
@@ -81,7 +85,7 @@ function normalizeSignatureDocumentType(documentType: string): string {
     .toUpperCase();
 }
 
-function resolveRegistryModuleForSignatureDocumentType(
+export function resolveRegistryModuleForSignatureDocumentType(
   documentType: string,
 ): GovernedModule | null {
   return (
@@ -100,6 +104,7 @@ export class DocumentGovernanceService {
     private readonly pdfService: PdfService,
     private readonly documentBundleService: DocumentBundleService,
     private readonly documentRegistryService: DocumentRegistryService,
+    private readonly forensicTrailService: ForensicTrailService,
   ) {}
 
   async registerFinalDocument(
@@ -142,6 +147,28 @@ export class DocumentGovernanceService {
             createdBy: input.createdBy,
             documentType: input.documentType,
           });
+
+        await this.forensicTrailService.append(
+          {
+            eventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REGISTERED,
+            module: input.module,
+            entityId: input.entityId,
+            companyId: input.companyId,
+            userId: input.createdBy || null,
+            metadata: {
+              registryEntryId: registryEntry.id,
+              documentCode: registryEntry.document_code,
+              documentType: registryEntry.document_type,
+              title: registryEntry.title,
+              fileKey: registryEntry.file_key,
+              folderPath: registryEntry.folder_path,
+              originalName: registryEntry.original_name,
+              mimeType: registryEntry.mime_type,
+              fileHash: registryEntry.file_hash,
+            },
+          },
+          { manager },
+        );
 
         return { hash, registryEntry };
       });
@@ -235,6 +262,28 @@ export class DocumentGovernanceService {
         entityId: input.entityId,
         documentType: input.documentType,
       });
+
+      await this.forensicTrailService.append(
+        {
+          eventType:
+            input.trailEventType || FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+          module: input.module,
+          entityId: input.entityId,
+          companyId: input.companyId,
+          metadata: {
+            documentType: input.documentType || 'pdf',
+            hadGovernedFile: Boolean(registryEntry),
+            registryEntryId: registryEntry?.id || null,
+            documentCode: registryEntry?.document_code || null,
+            fileKey: registryEntry?.file_key || null,
+            folderPath: registryEntry?.folder_path || null,
+            originalName: registryEntry?.original_name || null,
+            fileHash: registryEntry?.file_hash || null,
+            ...(input.trailMetadata || {}),
+          },
+        },
+        { manager },
+      );
     });
 
     if (registryEntry?.file_key && input.cleanupStoredFile) {

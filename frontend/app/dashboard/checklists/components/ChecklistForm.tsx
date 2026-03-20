@@ -1156,13 +1156,25 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
         if (!latestChecklist?.pdf_file_key) {
           throw new Error("Checklist sem PDF final governado.");
         }
-        await checklistsService.sendEmail(resolvedChecklistId, emailTo);
-        toast.success("Checklist enviado por email com sucesso!");
+        const result = await checklistsService.sendEmail(
+          resolvedChecklistId,
+          emailTo,
+        );
+        toast.success(result.message);
         setEmailModalOpen(false);
       }
     } catch (error) {
       console.error("Erro ao enviar email:", error);
-      toast.error("Erro ao enviar email.");
+      const message = (
+        error as
+          | { response?: { data?: { message?: string | string[] } } }
+          | undefined
+      )?.response?.data?.message;
+      toast.error(
+        Array.isArray(message)
+          ? message.join(" ")
+          : message || "Erro ao enviar email.",
+      );
     } finally {
       setSendingEmail(false);
     }

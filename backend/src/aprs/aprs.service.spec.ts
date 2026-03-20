@@ -9,6 +9,9 @@ import type { DocumentGovernanceService } from '../document-registry/document-go
 import type { SignaturesService } from '../signatures/signatures.service';
 import type { AprRiskMatrixService } from './apr-risk-matrix.service';
 import type { AprExcelService } from './apr-excel.service';
+import type { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import type { AppendForensicTrailEventInput } from '../forensic-trail/forensic-trail.service';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -23,6 +26,9 @@ describe('AprsService', () => {
   let service: AprsService;
   let aprRepository: {
     findOne: jest.Mock;
+    manager: {
+      transaction: jest.Mock;
+    };
   };
   let aprLogsRepository: {
     create: jest.Mock;
@@ -45,10 +51,22 @@ describe('AprsService', () => {
     AprExcelService,
     'previewImport' | 'buildTemplateWorkbook' | 'buildDetailWorkbook'
   >;
+  let forensicTrailService: Pick<ForensicTrailService, 'append'>;
 
   beforeEach(() => {
     aprRepository = {
       findOne: jest.fn(),
+      manager: {
+        transaction: jest.fn((callback: (manager: unknown) => unknown) =>
+          Promise.resolve(
+            callback({
+              getRepository: jest.fn(() => ({
+                save: jest.fn((input: Apr) => Promise.resolve(input)),
+              })),
+            }),
+          ),
+        ),
+      },
     };
     aprLogsRepository = {
       create: jest.fn((input: Partial<AprLog>) => input as AprLog),
@@ -129,6 +147,9 @@ describe('AprsService', () => {
       buildTemplateWorkbook: jest.fn(() => Buffer.from('template')),
       buildDetailWorkbook: jest.fn(() => Buffer.from('detail')),
     };
+    forensicTrailService = {
+      append: jest.fn(() => Promise.resolve(undefined)),
+    };
 
     service = new AprsService(
       aprRepository as unknown as Repository<Apr>,
@@ -140,6 +161,7 @@ describe('AprsService', () => {
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
       signaturesService as SignaturesService,
+      forensicTrailService as ForensicTrailService,
     );
   });
 
@@ -265,6 +287,10 @@ describe('AprsService', () => {
     expect(removeInput.companyId).toBe('company-1');
     expect(removeInput.module).toBe('apr');
     expect(removeInput.entityId).toBe('apr-1');
+    expect(removeInput.trailEventType).toBe(
+      FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+    );
+    expect(removeInput.trailMetadata).toEqual({ removalMode: 'soft_delete' });
     expect(typeof removeInput.removeEntityState).toBe('function');
     expect(softDelete).toHaveBeenCalledWith('apr-1');
   });
@@ -340,6 +366,42 @@ describe('AprsService', () => {
     );
 
     expect(aprRepository.findOne).not.toHaveBeenCalled();
+  });
+
+  it('registra cancelamento da APR na trilha imutável', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+    } as unknown as Apr);
+
+    await expect(
+      service.reject('apr-1', 'user-1', 'Risco não aceito'),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: 'apr-1',
+        status: AprStatus.CANCELADA,
+      }),
+    );
+
+    const appendCalls = (forensicTrailService.append as jest.Mock).mock
+      .calls as Array<[AppendForensicTrailEventInput, { manager?: unknown }]>;
+    const firstAppendCall = appendCalls[0];
+    if (!firstAppendCall) {
+      throw new Error('Expected forensic append call');
+    }
+    const [appendInput, appendOptions] = firstAppendCall;
+    const appendMetadata = appendInput.metadata as Record<string, unknown>;
+    expect(appendInput.eventType).toBe(FORENSIC_EVENT_TYPES.DOCUMENT_CANCELED);
+    expect(appendInput.module).toBe('apr');
+    expect(appendInput.entityId).toBe('apr-1');
+    expect(appendInput.companyId).toBe('company-1');
+    expect(appendInput.userId).toBe('user-1');
+    expect(appendMetadata.previousStatus).toBe(AprStatus.PENDENTE);
+    expect(appendMetadata.currentStatus).toBe(AprStatus.CANCELADA);
+    expect(appendMetadata.reason).toBe('Risco não aceito');
+    expect(appendOptions.manager).toBeDefined();
   });
 
   it('bloqueia criacao de nova versao quando APR nao esta aprovada', async () => {

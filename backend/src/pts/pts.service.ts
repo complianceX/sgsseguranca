@@ -43,6 +43,8 @@ import { WeeklyBundleFilters } from '../common/services/document-bundle.service'
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { SignaturesService } from '../signatures/signatures.service';
+import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 
 type PreApprovalChecklist = Record<string, unknown>;
 type PtPdfAccessAvailability =
@@ -97,6 +99,7 @@ export class PtsService {
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly signaturesService: SignaturesService,
+    private readonly forensicTrailService: ForensicTrailService,
   ) {}
 
   private assertPtDocumentMutable(pt: Pick<Pt, 'pdf_file_key'>) {
@@ -664,7 +667,29 @@ export class PtsService {
     pt.reprovado_por_id = rejectedByUserId;
     pt.reprovado_em = new Date();
     pt.reprovado_motivo = reason;
-    const saved = await this.ptsRepository.save(pt);
+    const previousStatus = before.status;
+    const saved = await this.ptsRepository.manager.transaction(
+      async (manager) => {
+        const transactionalRepository = manager.getRepository(Pt);
+        const persisted = await transactionalRepository.save(pt);
+        await this.forensicTrailService.append(
+          {
+            eventType: FORENSIC_EVENT_TYPES.DOCUMENT_CANCELED,
+            module: 'pt',
+            entityId: persisted.id,
+            companyId: persisted.company_id,
+            userId: rejectedByUserId,
+            metadata: {
+              previousStatus,
+              currentStatus: persisted.status,
+              reason,
+            },
+          },
+          { manager },
+        );
+        return persisted;
+      },
+    );
     await this.logAudit({
       action: AuditAction.UPDATE,
       entityId: saved.id,
@@ -814,6 +839,10 @@ export class PtsService {
       companyId: pt.company_id,
       module: 'pt',
       entityId: pt.id,
+      trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+      trailMetadata: {
+        removalMode: 'soft_delete',
+      },
       removeEntityState: async (manager) => {
         await manager.getRepository(Pt).softDelete(id);
       },

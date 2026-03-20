@@ -5,7 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindManyOptions, IsNull, Repository } from 'typeorm';
+import {
+  FindManyOptions,
+  IsNull,
+  Not,
+  QueryFailedError,
+  Repository,
+} from 'typeorm';
 import * as XLSX from 'xlsx';
 import { NonConformity } from './entities/nonconformity.entity';
 import {
@@ -30,6 +36,7 @@ import {
   coerceDocumentDate,
   getIsoWeekNumber,
 } from '../common/utils/document-calendar.util';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 
 export enum NcStatus {
   ABERTA = 'ABERTA',
@@ -143,6 +150,10 @@ export class NonConformitiesService {
     return value.trim();
   }
 
+  private normalizeNcCode(value: string): string {
+    return this.normalizeRequiredText(value).toUpperCase();
+  }
+
   private assertNcDocumentMutable(
     nc: Pick<NonConformity, 'pdf_file_key'>,
   ): void {
@@ -170,6 +181,63 @@ export class NonConformitiesService {
     return Array.from(
       new Set((values ?? []).map((value) => value.trim()).filter(Boolean)),
     );
+  }
+
+  private isDuplicateCodigoNcError(error: unknown): boolean {
+    if (error instanceof QueryFailedError) {
+      const driverError = (
+        error as QueryFailedError & { driverError?: unknown }
+      ).driverError as
+        | {
+            code?: string;
+            constraint?: string;
+            detail?: string;
+          }
+        | undefined;
+
+      if (driverError?.code === '23505') {
+        const constraint = String(
+          driverError.constraint || driverError.detail || '',
+        ).toLowerCase();
+        return constraint.includes(
+          'uq_nonconformities_company_codigo_nc_active',
+        );
+      }
+    }
+
+    const message =
+      error instanceof Error
+        ? error.message.toLowerCase()
+        : typeof error === 'string'
+          ? error.toLowerCase()
+          : '';
+
+    return (
+      message.includes('uq_nonconformities_company_codigo_nc_active') ||
+      message.includes('duplicate key')
+    );
+  }
+
+  private async ensureUniqueCodigoNc(
+    companyId: string,
+    codigoNc: string,
+    excludeId?: string,
+  ): Promise<void> {
+    const existing = await this.nonConformitiesRepository.findOne({
+      where: {
+        company_id: companyId,
+        codigo_nc: this.normalizeNcCode(codigoNc),
+        deleted_at: IsNull(),
+        ...(excludeId ? { id: Not(excludeId) } : {}),
+      },
+      select: ['id'],
+    });
+
+    if (existing) {
+      throw new BadRequestException(
+        'Já existe uma não conformidade com este código na empresa atual.',
+      );
+    }
   }
 
   private logNcEvent(
@@ -416,7 +484,7 @@ export class NonConformitiesService {
   ): Partial<NonConformity> {
     return {
       company_id: tenantId,
-      codigo_nc: this.normalizeRequiredText(dto.codigo_nc),
+      codigo_nc: this.normalizeNcCode(dto.codigo_nc),
       tipo: this.normalizeRequiredText(dto.tipo),
       data_identificacao: dto.data_identificacao as unknown as Date,
       site_id: dto.site_id,
@@ -512,7 +580,7 @@ export class NonConformitiesService {
       this.getAllowedGovernedAttachmentReferences(existingAttachments);
 
     if (dto.codigo_nc !== undefined)
-      payload.codigo_nc = this.normalizeRequiredText(dto.codigo_nc);
+      payload.codigo_nc = this.normalizeNcCode(dto.codigo_nc);
     if (dto.tipo !== undefined)
       payload.tipo = this.normalizeRequiredText(dto.tipo);
     if (dto.data_identificacao !== undefined) {
@@ -735,9 +803,20 @@ export class NonConformitiesService {
     const tenantId = this.getTenantIdOrThrow();
     const payload = this.buildCreatePayload(createNonConformityDto, tenantId);
     await this.validateLinkedRecords(payload, tenantId);
+    await this.ensureUniqueCodigoNc(tenantId, payload.codigo_nc!);
 
     const nonConformity = this.nonConformitiesRepository.create(payload);
-    const saved = await this.nonConformitiesRepository.save(nonConformity);
+    let saved: NonConformity;
+    try {
+      saved = await this.nonConformitiesRepository.save(nonConformity);
+    } catch (error) {
+      if (this.isDuplicateCodigoNcError(error)) {
+        throw new BadRequestException(
+          'Já existe uma não conformidade com este código na empresa atual.',
+        );
+      }
+      throw error;
+    }
     const inlineAttachmentCount = this.countInlineAttachments(saved.anexos);
     if (inlineAttachmentCount > 0) {
       this.logNcEvent('warn', 'nc_inline_attachments_persisted', {
@@ -905,8 +984,25 @@ export class NonConformitiesService {
       nonConformity.anexos,
     );
     await this.validateLinkedRecords(payload, nonConformity.company_id);
+    if (payload.codigo_nc) {
+      await this.ensureUniqueCodigoNc(
+        nonConformity.company_id,
+        payload.codigo_nc,
+        nonConformity.id,
+      );
+    }
     Object.assign(nonConformity, payload);
-    const saved = await this.nonConformitiesRepository.save(nonConformity);
+    let saved: NonConformity;
+    try {
+      saved = await this.nonConformitiesRepository.save(nonConformity);
+    } catch (error) {
+      if (this.isDuplicateCodigoNcError(error)) {
+        throw new BadRequestException(
+          'Já existe uma não conformidade com este código na empresa atual.',
+        );
+      }
+      throw error;
+    }
     const nextAttachmentReferences = new Set(saved.anexos ?? []);
     const removedGovernedAttachments = previousGovernedAttachments.filter(
       ({ reference }) => !nextAttachmentReferences.has(reference),
@@ -939,6 +1035,10 @@ export class NonConformitiesService {
       companyId: nonConformity.company_id,
       module: 'nonconformity',
       entityId: nonConformity.id,
+      trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+      trailMetadata: {
+        removalMode: 'soft_delete',
+      },
       removeEntityState: async (manager) => {
         await manager.getRepository(NonConformity).softDelete(nonConformity.id);
       },

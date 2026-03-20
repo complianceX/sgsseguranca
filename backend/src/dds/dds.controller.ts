@@ -39,7 +39,6 @@ import {
   assertUploadedPdf,
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
-  createTemporaryUploadOptions,
 } from '../common/interceptors/file-upload.interceptor';
 
 @Controller('dds')
@@ -98,7 +97,6 @@ export class DdsController {
     return this.ddsService.create(createDdsDto);
   }
 
-  /** Cria DDS + anexa PDF em uma única chamada (multipart/form-data) */
   @Post('with-file')
   @Header('Deprecation', 'true')
   @Header('Sunset', 'Tue, 30 Jun 2026 00:00:00 GMT')
@@ -114,55 +112,15 @@ export class DdsController {
     Role.COLABORADOR,
   )
   @Authorize('can_manage_dds')
-  @UseInterceptors(
-    FileInterceptor(
-      'file',
-      createTemporaryUploadOptions({
-        maxFileSize: 20 * 1024 * 1024,
-      }),
-    ),
-  )
-  async createWithFile(
-    @Body() body: Record<string, string>,
-    @UploadedFile() file?: Express.Multer.File,
-  ) {
+  createWithFile() {
     this.logger.warn({
       event: 'dds_legacy_with_file_used',
-      hasFile: Boolean(file),
-      tema: body.tema || null,
-      siteId: body.site_id || null,
-      facilitatorId: body.facilitador_id || null,
+      blocked: true,
     });
 
-    if (file) {
-      throw new GoneException(
-        'O endpoint legado /dds/with-file não aceita mais PDF inicial. Use POST /dds para criar, PUT /dds/:id/signatures para assinaturas/fotos e POST /dds/:id/file para o PDF final.',
-      );
-    }
-
-    let participants: string[] | undefined;
-    if (body.participants) {
-      try {
-        participants = JSON.parse(body.participants) as string[];
-      } catch {
-        throw new BadRequestException(
-          'O campo participants deve ser um JSON valido.',
-        );
-      }
-    }
-
-    const dto: CreateDdsDto = {
-      tema: body.tema,
-      conteudo: body.conteudo,
-      data: body.data,
-      site_id: body.site_id,
-      facilitador_id: body.facilitador_id,
-      company_id: body.company_id,
-      is_modelo: body.is_modelo === 'true',
-      participants,
-    };
-
-    return this.ddsService.create(dto);
+    throw new GoneException(
+      'O endpoint legado /dds/with-file foi removido. Use POST /dds para criar, PUT /dds/:id/signatures para assinaturas/fotos e POST /dds/:id/file para o PDF final.',
+    );
   }
 
   @Get()

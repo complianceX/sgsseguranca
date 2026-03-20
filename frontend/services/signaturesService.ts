@@ -1,6 +1,16 @@
 import api from '@/lib/api';
 
 export interface Signature {
+  integrity_payload?: {
+    verification_mode?: string;
+    legal_assurance?: string;
+    proof_scope?: string;
+    canonical_payload_hash?: string;
+    signature_evidence_hash?: string;
+    document_binding?: {
+      binding_hash?: string;
+    };
+  };
   id?: string;
   user_id?: string;
   user?: {
@@ -83,6 +93,11 @@ export const signaturesService = {
       signed_at?: string;
       timestamp_authority?: string;
       signature_hash?: string;
+      verification_mode: string;
+      legal_assurance: string;
+      proof_scope?: string | null;
+      document_binding_hash?: string | null;
+      signature_evidence_hash?: string | null;
     }>(`/signatures/verify/${id}`);
     return response.data;
   },

@@ -3,6 +3,9 @@ import { DocumentGovernanceService } from './document-governance.service';
 import type { PdfService } from '../common/services/pdf.service';
 import type { DocumentBundleService } from '../common/services/document-bundle.service';
 import type { DocumentRegistryService } from './document-registry.service';
+import type { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import type { AppendForensicTrailEventInput } from '../forensic-trail/forensic-trail.service';
 
 describe('DocumentGovernanceService', () => {
   let service: DocumentGovernanceService;
@@ -17,6 +20,7 @@ describe('DocumentGovernanceService', () => {
     DocumentRegistryService,
     'upsertWithManager' | 'removeWithManager' | 'findByDocument' | 'list'
   >;
+  let forensicTrailService: Pick<ForensicTrailService, 'append'>;
 
   beforeEach(() => {
     manager = {} as EntityManager;
@@ -38,12 +42,16 @@ describe('DocumentGovernanceService', () => {
       findByDocument: jest.fn(),
       list: jest.fn(),
     };
+    forensicTrailService = {
+      append: jest.fn(),
+    };
 
     service = new DocumentGovernanceService(
       dataSource as DataSource,
       pdfService as PdfService,
       documentBundleService as DocumentBundleService,
       documentRegistryService as DocumentRegistryService,
+      forensicTrailService as ForensicTrailService,
     );
   });
 
@@ -105,6 +113,29 @@ describe('DocumentGovernanceService', () => {
         fileHash: 'abc123',
       }),
     );
+    const registerTrailCalls = (forensicTrailService.append as jest.Mock).mock
+      .calls as Array<
+      [AppendForensicTrailEventInput, { manager?: EntityManager }]
+    >;
+    const firstRegisterTrailCall = registerTrailCalls[0];
+    if (!firstRegisterTrailCall) {
+      throw new Error('Expected forensic register trail call');
+    }
+    const [registerTrailInput, registerTrailOptions] = firstRegisterTrailCall;
+    const registerMetadata = registerTrailInput.metadata as Record<
+      string,
+      unknown
+    >;
+    expect(registerTrailInput.eventType).toBe(
+      FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REGISTERED,
+    );
+    expect(registerTrailInput.module).toBe('checklist');
+    expect(registerTrailInput.entityId).toBe('checklist-1');
+    expect(registerTrailInput.companyId).toBe('company-1');
+    expect(registerTrailInput.userId).toBe('user-1');
+    expect(registerMetadata.registryEntryId).toBe('registry-1');
+    expect(registerMetadata.fileHash).toBe('abc123');
+    expect(registerTrailOptions.manager).toBe(manager);
   });
 
   it('propaga a falha do bloco relacional sem deixar o erro silencioso', async () => {
@@ -172,6 +203,30 @@ describe('DocumentGovernanceService', () => {
     expect(cleanupStoredFile).toHaveBeenCalledWith(
       'documents/company-1/checklists/doc.pdf',
     );
+    const removalTrailCalls = (forensicTrailService.append as jest.Mock).mock
+      .calls as Array<
+      [AppendForensicTrailEventInput, { manager?: EntityManager }]
+    >;
+    const firstRemovalTrailCall = removalTrailCalls[0];
+    if (!firstRemovalTrailCall) {
+      throw new Error('Expected forensic removal trail call');
+    }
+    const [removalTrailInput, removalTrailOptions] = firstRemovalTrailCall;
+    const removalMetadata = removalTrailInput.metadata as Record<
+      string,
+      unknown
+    >;
+    expect(removalTrailInput.eventType).toBe(
+      FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+    );
+    expect(removalTrailInput.module).toBe('checklist');
+    expect(removalTrailInput.entityId).toBe('checklist-1');
+    expect(removalTrailInput.companyId).toBe('company-1');
+    expect(removalMetadata.hadGovernedFile).toBe(true);
+    expect(removalMetadata.fileKey).toBe(
+      'documents/company-1/checklists/doc.pdf',
+    );
+    expect(removalTrailOptions.manager).toBe(manager);
     expect(loggerDebug).toHaveBeenCalledWith(
       expect.stringContaining('registro de integridade preservado'),
     );

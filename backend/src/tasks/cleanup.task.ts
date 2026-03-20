@@ -7,6 +7,7 @@ import type { Queue } from 'bullmq';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { CompaniesService } from '../companies/companies.service';
 import { isApiCronDisabled } from '../common/utils/scheduler.util';
+import * as uploadUtils from '../common/interceptors/file-upload.interceptor';
 
 @Injectable()
 export class CleanupTask {
@@ -104,6 +105,18 @@ export class CleanupTask {
     this.logger.log(
       `Expiry notifications enqueued for ${tenants.length} tenants`,
     );
+  }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async cleanupStaleTempUploads() {
+    if (isApiCronDisabled()) {
+      this.logger.warn(
+        'API_CRONS_DISABLED=true: limpeza agendada de uploads temporários foi pulada neste runtime.',
+      );
+      return;
+    }
+
+    await uploadUtils.runTempUploadCleanupBestEffort(this.logger);
   }
 
   @Cron(CronExpression.EVERY_HOUR)

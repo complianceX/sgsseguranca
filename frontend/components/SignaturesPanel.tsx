@@ -21,6 +21,19 @@ const TYPE_LABEL: Record<string, string> = {
   hmac: 'PIN Seguro (HMAC-SHA256)',
 };
 
+const VERIFICATION_MODE_LABEL: Record<string, string> = {
+  server_verifiable: 'Verificável server-side',
+  operational_ack: 'Aceite operacional',
+  legacy_client_hash: 'Legado',
+};
+
+const PROOF_SCOPE_LABEL: Record<string, string> = {
+  governed_final_document: 'Vinculada ao documento final governado',
+  document_revision: 'Vinculada à revisão do documento',
+  document_identity: 'Vinculada à identidade do documento',
+  operational_snapshot: 'Vinculada a snapshot operacional',
+};
+
 const TYPE_ICON: Record<string, React.ReactNode> = {
   digital: <PenTool className="h-3.5 w-3.5" />,
   upload: <Upload className="h-3.5 w-3.5" />,
@@ -74,7 +87,13 @@ export function SignaturesPanel({ isOpen, onClose, documentId, documentType }: S
             </div>
           ) : (
             <div className="space-y-4">
-              {signatures.map((sig) => (
+              {signatures.map((sig) => {
+                const verificationMode =
+                  sig.integrity_payload?.verification_mode ||
+                  (sig.signature_hash ? 'legacy_client_hash' : null);
+                const proofScope = sig.integrity_payload?.proof_scope || null;
+
+                return (
                 <div key={sig.id} className="flex items-start gap-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-4">
                   {/* Miniature for image-based signatures */}
                   {isImageType(sig.type) && sig.signature_data && (
@@ -99,10 +118,10 @@ export function SignaturesPanel({ isOpen, onClose, documentId, documentType }: S
                         {TYPE_ICON[sig.type] ?? <PenTool className="h-3.5 w-3.5" />}
                         {TYPE_LABEL[sig.type] ?? sig.type}
                       </StatusPill>
-                      {sig.signature_hash && (
+                      {sig.signature_hash && verificationMode && (
                         <StatusPill tone="success">
                           <ShieldCheck className="h-3.5 w-3.5" />
-                          Verificado
+                          {VERIFICATION_MODE_LABEL[verificationMode] ?? verificationMode}
                         </StatusPill>
                       )}
                     </div>
@@ -114,9 +133,15 @@ export function SignaturesPanel({ isOpen, onClose, documentId, documentType }: S
                           ? new Date(sig.created_at).toLocaleString('pt-BR')
                           : 'Data não disponível'}
                     </p>
+                    {proofScope ? (
+                      <p className="mt-1 text-[11px] text-[var(--ds-color-text-muted)]">
+                        {PROOF_SCOPE_LABEL[proofScope] ?? proofScope}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
       </ModalBody>

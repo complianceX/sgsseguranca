@@ -1551,7 +1551,7 @@ export function PtForm({ id }: PtFormProps) {
   const handleConfirmSendEmail = async (email: string) => {
     if (!id || !email.trim()) return;
     try {
-      await mailService.sendStoredDocument(id, 'PT', email.trim());
+      return await mailService.sendStoredDocument(id, 'PT', email.trim());
     } catch (error) {
       console.error('Erro ao enviar email:', error);
       toast.error('Erro ao enviar o documento. Verifique se o PDF foi gerado.');

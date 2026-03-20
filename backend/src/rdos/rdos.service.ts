@@ -1,4 +1,3 @@
-import { createHash } from 'crypto';
 import {
   BadRequestException,
   GoneException,
@@ -7,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Rdo } from './entities/rdo.entity';
 import { CreateRdoDto } from './dto/create-rdo.dto';
@@ -21,12 +20,23 @@ import {
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
 import { MailService } from '../mail/mail.service';
+import { DocumentMailDispatchResponseDto } from '../mail/dto/document-mail-dispatch-response.dto';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import { RdoAuditService } from './rdo-audit.service';
+import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
+import {
+  SIGNATURE_LEGAL_ASSURANCE,
+  SIGNATURE_PROOF_SCOPES,
+  SIGNATURE_VERIFICATION_MODES,
+  canonicalizeSignaturePayload,
+  hashCanonicalSignaturePayload,
+} from '../signatures/signature-proof.util';
 
 const ALLOWED_STATUS_TRANSITIONS: Record<string, string[]> = {
   rascunho: ['enviado'],
@@ -54,9 +64,16 @@ type RdoOperationalSignature = {
   cpf: string;
   signed_at: string;
   signature_mode: 'operational_ack';
+  verification_mode: 'operational_ack';
+  legal_assurance: 'not_legal_strong';
   verification_scope: 'document_integrity_snapshot';
   document_hash_algorithm: 'sha256';
   document_hash: string;
+  signature_hash_algorithm: 'sha256';
+  signature_hash: string;
+  timestamp_token: string;
+  timestamp_authority: string;
+  canonical_payload_version: 1;
 };
 
 @Injectable()
@@ -72,6 +89,8 @@ export class RdosService {
     private documentGovernanceService: DocumentGovernanceService,
     private documentRegistryService: DocumentRegistryService,
     private rdoAuditService: RdoAuditService,
+    private readonly forensicTrailService: ForensicTrailService,
+    private readonly signatureTimestampService: SignatureTimestampService,
   ) {}
 
   private async assertCompanyScopedEntityId<
@@ -178,6 +197,39 @@ export class RdosService {
     });
   }
 
+  private isDuplicateNumeroError(error: unknown): boolean {
+    if (error instanceof QueryFailedError) {
+      const driverError = (
+        error as QueryFailedError & { driverError?: unknown }
+      ).driverError as
+        | {
+            code?: string;
+            constraint?: string;
+            detail?: string;
+          }
+        | undefined;
+
+      if (driverError?.code === '23505') {
+        const constraint = String(
+          driverError.constraint || driverError.detail || '',
+        ).toLowerCase();
+        return constraint.includes('uq_rdos_company_numero');
+      }
+    }
+
+    const message =
+      error instanceof Error
+        ? error.message.toLowerCase()
+        : typeof error === 'string'
+          ? error.toLowerCase()
+          : '';
+
+    return (
+      message.includes('uq_rdos_company_numero') ||
+      message.includes('duplicate key')
+    );
+  }
+
   private async generateNumero(companyId: string): Promise<string> {
     const now = new Date();
     const yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -260,9 +312,65 @@ export class RdosService {
       | 'programa_servicos_amanha'
     >,
   ): string {
-    return createHash('sha256')
-      .update(JSON.stringify(this.buildSignatureTrackedSnapshot(rdo)))
-      .digest('hex');
+    return hashCanonicalSignaturePayload(
+      this.buildSignatureTrackedSnapshot(rdo),
+    );
+  }
+
+  private buildOperationalSignatureCanonicalPayload(input: {
+    rdo: Pick<
+      Rdo,
+      | 'id'
+      | 'company_id'
+      | 'numero'
+      | 'status'
+      | 'updated_at'
+      | 'data'
+      | 'site_id'
+      | 'responsavel_id'
+      | 'clima_manha'
+      | 'clima_tarde'
+      | 'temperatura_min'
+      | 'temperatura_max'
+      | 'condicao_terreno'
+      | 'mao_de_obra'
+      | 'equipamentos'
+      | 'materiais_recebidos'
+      | 'servicos_executados'
+      | 'ocorrencias'
+      | 'houve_acidente'
+      | 'houve_paralisacao'
+      | 'motivo_paralisacao'
+      | 'observacoes'
+      | 'programa_servicos_amanha'
+    >;
+    signerType: 'responsavel' | 'engenheiro';
+    signerName: string;
+    signerCpf: string;
+    signedAt: string;
+    actorUserId?: string | null;
+  }) {
+    return canonicalizeSignaturePayload({
+      schema_version: 1,
+      verification_mode: SIGNATURE_VERIFICATION_MODES.OPERATIONAL_ACK,
+      legal_assurance: SIGNATURE_LEGAL_ASSURANCE.NOT_LEGAL_STRONG,
+      document: {
+        id: input.rdo.id,
+        company_id: input.rdo.company_id,
+        numero: input.rdo.numero,
+        status: input.rdo.status,
+        updated_at: input.rdo.updated_at?.toISOString?.() ?? null,
+        proof_scope: SIGNATURE_PROOF_SCOPES.OPERATIONAL_SNAPSHOT,
+        snapshot_hash: this.buildSnapshotHash(input.rdo),
+      },
+      signer: {
+        actor_user_id: input.actorUserId || null,
+        role: input.signerType,
+        name: input.signerName,
+        cpf_suffix: input.signerCpf.slice(-4),
+      },
+      signed_at: input.signedAt,
+    });
   }
 
   private resetSignatures(
@@ -314,7 +422,17 @@ export class RdosService {
       status: this.resolveStatusForCreate(createRdoDto.status),
       numero,
     });
-    const saved = await this.rdosRepository.save(rdo);
+    let saved: Rdo;
+    try {
+      saved = await this.rdosRepository.save(rdo);
+    } catch (error) {
+      if (this.isDuplicateNumeroError(error)) {
+        throw new BadRequestException(
+          'Já existe um RDO com este número na empresa atual.',
+        );
+      }
+      throw error;
+    }
     this.logRdoEvent('rdo_created', saved);
     await this.rdoAuditService.recordEvent(saved.id, 'CREATED', {
       numero: saved.numero,
@@ -494,7 +612,27 @@ export class RdosService {
 
     const previousStatus = rdo.status;
     rdo.status = 'cancelado';
-    const saved = await this.rdosRepository.save(rdo);
+    const saved = await this.rdosRepository.manager.transaction(
+      async (manager) => {
+        const transactionalRepository = manager.getRepository(Rdo);
+        const persisted = await transactionalRepository.save(rdo);
+        await this.forensicTrailService.append(
+          {
+            eventType: FORENSIC_EVENT_TYPES.DOCUMENT_CANCELED,
+            module: 'rdo',
+            entityId: persisted.id,
+            companyId: persisted.company_id,
+            metadata: {
+              previousStatus,
+              currentStatus: persisted.status,
+              reason,
+            },
+          },
+          { manager },
+        );
+        return persisted;
+      },
+    );
 
     this.logRdoEvent('rdo_canceled', saved, { reason });
     await this.rdoAuditService.recordCancellation(
@@ -540,6 +678,7 @@ export class RdosService {
       nome: string;
       cpf: string;
     },
+    authenticatedUserId?: string,
   ): Promise<Rdo> {
     const rdo = await this.findOne(id);
     await this.assertRdoDocumentMutable(rdo);
@@ -551,14 +690,36 @@ export class RdosService {
       );
     }
 
+    const signedAtIso = new Date().toISOString();
+    const canonicalPayload = this.buildOperationalSignatureCanonicalPayload({
+      rdo,
+      signerType: body.tipo,
+      signerName: body.nome.trim(),
+      signerCpf: body.cpf.trim(),
+      signedAt: signedAtIso,
+      actorUserId: authenticatedUserId,
+    });
+    const documentHash = this.buildSnapshotHash(rdo);
+    const signatureHash = hashCanonicalSignaturePayload(canonicalPayload);
+    const generatedStamp = this.signatureTimestampService.issueFromHash(
+      signatureHash,
+      signedAtIso,
+    );
     const signaturePayload: RdoOperationalSignature = {
       nome: body.nome.trim(),
       cpf: body.cpf.trim(),
-      signed_at: new Date().toISOString(),
+      signed_at: generatedStamp.timestamp_issued_at,
       signature_mode: 'operational_ack',
+      verification_mode: SIGNATURE_VERIFICATION_MODES.OPERATIONAL_ACK,
+      legal_assurance: SIGNATURE_LEGAL_ASSURANCE.NOT_LEGAL_STRONG,
       verification_scope: 'document_integrity_snapshot',
       document_hash_algorithm: 'sha256',
-      document_hash: this.buildSnapshotHash(rdo),
+      document_hash: documentHash,
+      signature_hash_algorithm: 'sha256',
+      signature_hash: generatedStamp.signature_hash,
+      timestamp_token: generatedStamp.timestamp_token,
+      timestamp_authority: generatedStamp.timestamp_authority,
+      canonical_payload_version: 1,
     };
 
     const sigData = JSON.stringify(signaturePayload);
@@ -569,11 +730,40 @@ export class RdosService {
       rdo.assinatura_engenheiro = sigData;
     }
 
-    const saved = await this.rdosRepository.save(rdo);
+    const saved = await this.rdosRepository.manager.transaction(
+      async (manager) => {
+        const transactionalRepository = manager.getRepository(Rdo);
+        const persisted = await transactionalRepository.save(rdo);
+        await this.forensicTrailService.append(
+          {
+            eventType: FORENSIC_EVENT_TYPES.SIGNATURE_RECORDED,
+            module: 'rdo',
+            entityId: persisted.id,
+            companyId: persisted.company_id,
+            userId: authenticatedUserId || null,
+            occurredAt: new Date(signaturePayload.signed_at),
+            metadata: {
+              signatureType: body.tipo,
+              verificationMode: signaturePayload.verification_mode,
+              signatureMode: signaturePayload.signature_mode,
+              signerName: signaturePayload.nome,
+              signerCpfSuffix: signaturePayload.cpf.slice(-4),
+              documentHash: signaturePayload.document_hash,
+              signatureHash: signaturePayload.signature_hash,
+              timestampAuthority: signaturePayload.timestamp_authority,
+            },
+          },
+          { manager },
+        );
+        return persisted;
+      },
+    );
     this.logRdoEvent('rdo_signed', saved, {
       signatureType: body.tipo,
+      verificationMode: signaturePayload.verification_mode,
       signatureMode: signaturePayload.signature_mode,
       documentHash: signaturePayload.document_hash,
+      signatureHash: signaturePayload.signature_hash,
     });
 
     await this.rdoAuditService.recordSignature(saved.id, body.tipo, body.nome);
@@ -739,134 +929,71 @@ export class RdosService {
     };
   }
 
-  async sendEmail(id: string, to: string[]): Promise<void> {
+  async sendEmail(
+    id: string,
+    to: string[],
+  ): Promise<DocumentMailDispatchResponseDto & { recipients: number }> {
     const rdo = await this.findOne(id);
     if (!to.length) {
-      return;
+      return {
+        success: true,
+        message: 'Nenhum destinatário informado para envio do RDO.',
+        deliveryMode: 'sent',
+        artifactType: 'governed_final_pdf',
+        isOfficial: true,
+        fallbackUsed: false,
+        documentId: rdo.id,
+        documentType: 'RDO',
+        recipients: 0,
+      };
     }
-    const dataFormatada = new Date(rdo.data).toLocaleDateString('pt-BR');
-    const totalTrab = (rdo.mao_de_obra ?? []).reduce(
-      (s, m) => s + (m.quantidade ?? 0),
-      0,
-    );
-    const totalEquip = (rdo.equipamentos ?? []).length;
-    const totalServicos = (rdo.servicos_executados ?? []).length;
-    const totalOcorrencias = (rdo.ocorrencias ?? []).length;
-
-    const climaManha = rdo.clima_manha
-      ? (CLIMA_LABEL[rdo.clima_manha] ?? rdo.clima_manha)
-      : '-';
-    const climaTarde = rdo.clima_tarde
-      ? (CLIMA_LABEL[rdo.clima_tarde] ?? rdo.clima_tarde)
-      : '-';
-    const registryEntry = await this.documentRegistryService.findByDocument(
-      'rdo',
-      rdo.id,
-      'pdf',
-      rdo.company_id,
-    );
-    const subject = `RDO ${rdo.numero} — ${dataFormatada}${rdo.site?.nome ? ` · ${rdo.site.nome}` : ''}`;
-    const text = `RDO ${rdo.numero} de ${dataFormatada}.`;
-
-    const html = `
-      <div style="font-family:Inter,Arial,sans-serif;max-width:600px;margin:0 auto;background:#f8fafc;padding:0;border-radius:12px;overflow:hidden;">
-        <div style="background:linear-gradient(135deg,#1e6b43,#0c2e1a);padding:28px 32px;color:white;">
-          <div style="font-size:11px;letter-spacing:0.1em;opacity:0.7;text-transform:uppercase;margin-bottom:4px;">GST — Gestão de Segurança do Trabalho</div>
-          <h1 style="margin:0;font-size:22px;font-weight:700;">Relatório Diário de Obra</h1>
-          <div style="font-size:15px;opacity:0.85;margin-top:4px;">${rdo.numero} &nbsp;·&nbsp; ${dataFormatada}</div>
-        </div>
-        <div style="padding:28px 32px;background:#fff;">
-          <table style="width:100%;border-collapse:collapse;font-size:14px;">
-            <tr><td style="padding:8px 0;color:#6b7280;">Obra/Setor</td><td style="padding:8px 0;font-weight:600;color:#111827;">${rdo.site?.nome ?? '-'}</td></tr>
-            <tr><td style="padding:8px 0;color:#6b7280;">Responsável</td><td style="padding:8px 0;font-weight:600;color:#111827;">${rdo.responsavel?.nome ?? '-'}</td></tr>
-            <tr><td style="padding:8px 0;color:#6b7280;">Status</td><td style="padding:8px 0;"><span style="background:#dcfce7;color:#166534;padding:3px 10px;border-radius:9999px;font-size:12px;font-weight:600;">${rdo.status.toUpperCase()}</span></td></tr>
-            <tr><td style="padding:8px 0;color:#6b7280;">Clima manhã</td><td style="padding:8px 0;color:#111827;">${climaManha}</td></tr>
-            <tr><td style="padding:8px 0;color:#6b7280;">Clima tarde</td><td style="padding:8px 0;color:#111827;">${climaTarde}</td></tr>
-            ${rdo.temperatura_min != null ? `<tr><td style="padding:8px 0;color:#6b7280;">Temperatura</td><td style="padding:8px 0;color:#111827;">${rdo.temperatura_min}°C — ${rdo.temperatura_max}°C</td></tr>` : ''}
-          </table>
-          <hr style="border:none;border-top:1px solid #e5e7eb;margin:18px 0;"/>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div style="background:#f0fdf4;border-radius:8px;padding:14px;text-align:center;">
-              <div style="font-size:24px;font-weight:700;color:#166534;">${totalTrab}</div>
-              <div style="font-size:12px;color:#4b7a5c;">Trabalhadores</div>
-            </div>
-            <div style="background:#eff6ff;border-radius:8px;padding:14px;text-align:center;">
-              <div style="font-size:24px;font-weight:700;color:#1d4ed8;">${totalServicos}</div>
-              <div style="font-size:12px;color:#3b5ec4;">Serviços exec.</div>
-            </div>
-            <div style="background:#fefce8;border-radius:8px;padding:14px;text-align:center;">
-              <div style="font-size:24px;font-weight:700;color:#854d0e;">${totalEquip}</div>
-              <div style="font-size:12px;color:#a16207;">Equipamentos</div>
-            </div>
-            <div style="background:#fdf4ff;border-radius:8px;padding:14px;text-align:center;">
-              <div style="font-size:24px;font-weight:700;color:#7e22ce;">${totalOcorrencias}</div>
-              <div style="font-size:12px;color:#6b21a8;">Ocorrências</div>
-            </div>
-          </div>
-          ${rdo.houve_acidente ? '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin-top:16px;color:#991b1b;font-weight:600;">⚠️ Acidente registrado neste RDO</div>' : ''}
-          ${rdo.houve_paralisacao ? `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin-top:12px;color:#92400e;font-weight:600;">⏸️ Paralisação: ${rdo.motivo_paralisacao ?? 'sem motivo informado'}</div>` : ''}
-          ${rdo.observacoes ? `<div style="margin-top:16px;"><div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Observações</div><div style="font-size:14px;color:#374151;line-height:1.6;">${rdo.observacoes}</div></div>` : ''}
-        </div>
-        <div style="padding:16px 32px;background:#f8fafc;text-align:center;font-size:11px;color:#9ca3af;">
-          GST — Gestão de Segurança do Trabalho · Enviado automaticamente
-        </div>
-      </div>
-    `;
-
-    if (registryEntry?.file_key) {
-      const pdfBuffer = await this.documentStorageService.downloadFileBuffer(
-        registryEntry.file_key,
+    const access = await this.getPdfAccess(id);
+    if (!access.hasFinalPdf) {
+      this.logRdoEvent('rdo_email_blocked_without_final_pdf', rdo, {
+        recipients: to.length,
+      });
+      await this.rdoAuditService.recordEvent(rdo.id, 'EMAIL_BLOCKED', {
+        recipients: to.length,
+        reason: 'missing_final_pdf',
+      });
+      throw new BadRequestException(
+        'Emita o PDF final governado antes de enviar este RDO por e-mail.',
       );
-      const attachmentFilename =
-        registryEntry.original_name || `${rdo.numero || rdo.id}.pdf`;
-
-      for (const email of to) {
-        await this.mailService.sendMailSimple(
-          email,
-          subject,
-          `${text} O PDF final governado segue em anexo.`,
-          { companyId: rdo.company_id },
-          [
-            {
-              filename: attachmentFilename,
-              content: pdfBuffer,
-              contentType: 'application/pdf',
-            },
-          ],
-          {
-            html,
-            filename: attachmentFilename,
-          },
-        );
-      }
-      this.logRdoEvent('rdo_email_sent', rdo, {
-        recipients: to.length,
-        hasGovernedPdf: true,
-      });
-      await this.rdoAuditService.recordEvent(rdo.id, 'EMAIL_SENT', {
-        recipients: to.length,
-        hasGovernedPdf: true,
-      });
-      return;
     }
 
     for (const email of to) {
-      await this.mailService.sendMail(
+      await this.mailService.sendStoredDocument(
+        rdo.id,
+        'RDO',
         email,
-        subject,
-        `${text} Acesse o sistema para visualizar o documento completo.`,
-        html,
-        { companyId: rdo.company_id },
+        rdo.company_id,
       );
     }
+
     this.logRdoEvent('rdo_email_sent', rdo, {
       recipients: to.length,
-      hasGovernedPdf: false,
+      hasGovernedPdf: true,
+      artifactType: 'governed_final_pdf',
+      fallbackUsed: false,
     });
     await this.rdoAuditService.recordEvent(rdo.id, 'EMAIL_SENT', {
       recipients: to.length,
-      hasGovernedPdf: false,
+      hasGovernedPdf: true,
+      artifactType: 'governed_final_pdf',
+      fallbackUsed: false,
     });
+
+    return {
+      success: true,
+      message: `O RDO foi enviado com o PDF final governado para ${to.length} destinatário(s).`,
+      deliveryMode: 'sent',
+      artifactType: 'governed_final_pdf',
+      isOfficial: true,
+      fallbackUsed: false,
+      documentId: rdo.id,
+      documentType: 'RDO',
+      recipients: to.length,
+    };
   }
 
   async listFiles(filters: WeeklyBundleFilters = {}) {
@@ -894,6 +1021,10 @@ export class RdosService {
       companyId: rdo.company_id,
       module: 'rdo',
       entityId: rdo.id,
+      trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+      trailMetadata: {
+        removalMode: 'hard_remove',
+      },
       removeEntityState: async (manager) => {
         await manager.getRepository(Rdo).update(
           { id: rdo.id },

@@ -38,6 +38,7 @@ import { RequestContext } from '../common/middleware/request-context.middleware'
 import { getIsoWeekNumber } from '../common/utils/document-calendar.util';
 import { createReadStream } from 'fs';
 import { readFile } from 'fs/promises';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { getInspectionInlineEvidenceMaxBytes } from '../common/services/pdf-runtime-config';
 
 export type InspectionPdfAccessAvailability =
@@ -668,6 +669,10 @@ export class InspectionsService {
       companyId: inspection.company_id,
       module: 'inspection',
       entityId: inspection.id,
+      trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+      trailMetadata: {
+        removalMode: 'hard_delete',
+      },
       removeEntityState: async (manager) => {
         await manager.getRepository(Inspection).delete({ id: inspection.id });
       },

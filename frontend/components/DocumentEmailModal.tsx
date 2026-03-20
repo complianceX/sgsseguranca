@@ -3,6 +3,7 @@ import { Mail, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { DocumentMailDispatchResponse } from '@/services/mailService';
 import {
   ModalBody,
   ModalFooter,
@@ -14,7 +15,7 @@ interface DocumentEmailModalProps {
   isOpen: boolean;
   onClose: () => void;
   documentName: string;
-  onSend: (email: string) => Promise<void>;
+  onSend: (email: string) => Promise<DocumentMailDispatchResponse | void>;
 }
 
 export function DocumentEmailModal({
@@ -35,8 +36,11 @@ export function DocumentEmailModal({
 
     try {
       setSending(true);
-      await onSend(email);
-      toast.success('E-mail enviado com sucesso!');
+      const result = await onSend(email);
+      toast.success(
+        result?.message ||
+          'Solicitação recebida. O documento será enviado por e-mail em instantes.',
+      );
       onClose();
       setEmail('');
     } catch (error) {
@@ -52,14 +56,18 @@ export function DocumentEmailModal({
       <form onSubmit={handleSend}>
         <ModalHeader
           title="Enviar documento"
-          description="Envie um link seguro do documento final para o destinatário informado."
+          description="O envio usará o PDF final governado emitido para este documento."
           icon={<Mail className="h-5 w-5" />}
           onClose={onClose}
         />
         <ModalBody className="space-y-5">
           <div>
             <p className="text-sm text-[var(--ds-color-text-secondary)]">
-              O documento <span className="font-semibold text-[var(--ds-color-text-primary)]">{documentName}</span> será enviado para o e-mail abaixo como um link seguro.
+              O documento{' '}
+              <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                {documentName}
+              </span>{' '}
+              será enviado para o e-mail abaixo com o PDF final governado anexado.
             </p>
 
             <label htmlFor="email" className="mb-2 mt-4 block">

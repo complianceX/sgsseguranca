@@ -1,14 +1,20 @@
-import { mkdir, access, writeFile } from 'fs/promises';
+import { mkdir, access, writeFile, utimes } from 'fs/promises';
 import * as path from 'path';
 import {
   assertUploadedPdf,
+  cleanupStaleTempUploads,
   cleanupUploadedTempFile,
   readUploadedFileBuffer,
+  resetTempUploadCleanupStateForTests,
   validateFileMagicBytes,
 } from './file-upload.interceptor';
 
 describe('file-upload.interceptor helpers', () => {
   const tempDir = path.join(process.cwd(), 'temp');
+
+  afterEach(() => {
+    resetTempUploadCleanupStateForTests();
+  });
 
   it('reuses the in-memory multer buffer when available', async () => {
     const buffer = Buffer.from('%PDF-1.4\nbody\n%%EOF');
@@ -61,5 +67,53 @@ describe('file-upload.interceptor helpers', () => {
     expect(() =>
       validateFileMagicBytes(webpHeader, ['image/webp']),
     ).not.toThrow();
+  });
+
+  it('removes stale temporary uploads and preserves fresh files', async () => {
+    await mkdir(tempDir, { recursive: true });
+    const staleFilePath = path.join(
+      tempDir,
+      `jest-stale-upload-${Date.now()}-${Math.random().toString(16).slice(2)}.pdf`,
+    );
+    const freshFilePath = path.join(
+      tempDir,
+      `jest-fresh-upload-${Date.now()}-${Math.random().toString(16).slice(2)}.pdf`,
+    );
+    const buffer = Buffer.from('%PDF-1.4\ncleanup-test\n%%EOF');
+    const now = Date.now();
+    const staleTimestamp = new Date(now - 10 * 60 * 1000);
+    const freshTimestamp = new Date(now - 5 * 1000);
+    const logger = {
+      log: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+
+    await writeFile(staleFilePath, buffer);
+    await writeFile(freshFilePath, buffer);
+    await utimes(staleFilePath, staleTimestamp, staleTimestamp);
+    await utimes(freshFilePath, freshTimestamp, freshTimestamp);
+
+    const result = await cleanupStaleTempUploads({
+      directory: tempDir,
+      ttlMs: 60 * 1000,
+      now,
+      logger,
+    });
+
+    await expect(access(staleFilePath)).rejects.toThrow();
+    await expect(access(freshFilePath)).resolves.toBeUndefined();
+    expect(result.removedFiles).toBeGreaterThanOrEqual(1);
+    expect(result.failedFiles).toBe(0);
+    expect(logger.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'temp_upload_cleanup_completed',
+        removedFiles: result.removedFiles,
+      }),
+    );
+
+    await cleanupUploadedTempFile({
+      path: freshFilePath,
+    } as Express.Multer.File);
   });
 });

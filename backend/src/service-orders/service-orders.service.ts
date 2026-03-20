@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { ServiceOrder } from './entities/service-order.entity';
 import { CreateServiceOrderDto } from './dto/create-service-order.dto';
@@ -39,10 +39,48 @@ export class ServiceOrdersService {
   private async generateNumero(companyId: string): Promise<string> {
     const now = new Date();
     const yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const count = await this.serviceOrdersRepository.count({
-      where: { company_id: companyId },
-    });
-    return `OS-${yyyymm}-${String(count + 1).padStart(3, '0')}`;
+    const prefix = `OS-${yyyymm}-`;
+    const last = await this.serviceOrdersRepository
+      .createQueryBuilder('so')
+      .select('MAX(so.numero)', 'max')
+      .where('so.company_id = :companyId', { companyId })
+      .andWhere('so.numero LIKE :prefix', { prefix: `${prefix}%` })
+      .getRawOne<{ max: string | null }>();
+    const lastSeq = last?.max ? Number(last.max.slice(prefix.length)) || 0 : 0;
+    return `${prefix}${String(lastSeq + 1).padStart(3, '0')}`;
+  }
+
+  private isDuplicateNumeroError(error: unknown): boolean {
+    if (error instanceof QueryFailedError) {
+      const driverError = (
+        error as QueryFailedError & { driverError?: unknown }
+      ).driverError as
+        | {
+            code?: string;
+            constraint?: string;
+            detail?: string;
+          }
+        | undefined;
+
+      if (driverError?.code === '23505') {
+        const constraint = String(
+          driverError.constraint || driverError.detail || '',
+        ).toLowerCase();
+        return constraint.includes('uq_service_orders_company_numero');
+      }
+    }
+
+    const message =
+      error instanceof Error
+        ? error.message.toLowerCase()
+        : typeof error === 'string'
+          ? error.toLowerCase()
+          : '';
+
+    return (
+      message.includes('uq_service_orders_company_numero') ||
+      message.includes('duplicate key')
+    );
   }
 
   async create(dto: CreateServiceOrderDto): Promise<ServiceOrder> {
@@ -55,7 +93,16 @@ export class ServiceOrdersService {
       company_id: companyId,
       status: dto.status ?? 'ativo',
     });
-    return this.serviceOrdersRepository.save(order);
+    try {
+      return await this.serviceOrdersRepository.save(order);
+    } catch (error) {
+      if (this.isDuplicateNumeroError(error)) {
+        throw new BadRequestException(
+          'Já existe uma ordem de serviço com este número na empresa atual.',
+        );
+      }
+      throw error;
+    }
   }
 
   async findPaginated(opts?: {

@@ -23,7 +23,7 @@ describe('AuditsService', () => {
   };
   let documentStorageService: Pick<
     DocumentStorageService,
-    'generateDocumentKey' | 'uploadFile' | 'deleteFile'
+    'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
   >;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
@@ -43,6 +43,9 @@ describe('AuditsService', () => {
       ),
       uploadFile: jest.fn(() => Promise.resolve()),
       deleteFile: jest.fn(() => Promise.resolve()),
+      getSignedUrl: jest.fn((key: string) =>
+        Promise.resolve(`https://signed.example/${encodeURIComponent(key)}`),
+      ),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
@@ -211,6 +214,79 @@ describe('AuditsService', () => {
 
     expect(documentStorageService.deleteFile).toHaveBeenCalledWith(
       'documents/company-1/audits/audit-1/audit-final.pdf',
+    );
+  });
+
+  it('retorna contrato explicito quando a auditoria ainda nao possui PDF final emitido', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'audit-1',
+      company_id: 'company-1',
+      pdf_file_key: null,
+      pdf_folder_path: null,
+      pdf_original_name: null,
+    } as Audit);
+
+    await expect(service.getPdfAccess('audit-1', 'company-1')).resolves.toEqual(
+      {
+        entityId: 'audit-1',
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        message: 'PDF final ainda não emitido para esta auditoria.',
+        fileKey: null,
+        folderPath: null,
+        originalName: null,
+        url: null,
+      },
+    );
+  });
+
+  it('retorna disponibilidade degradada quando a URL assinada nao pode ser emitida', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'audit-1',
+      company_id: 'company-1',
+      pdf_file_key: 'documents/company-1/audits/audit-1/audit-final.pdf',
+      pdf_folder_path: 'audits/company-1',
+      pdf_original_name: 'audit-final.pdf',
+    } as Audit);
+    (documentStorageService.getSignedUrl as jest.Mock).mockRejectedValueOnce(
+      new Error('storage offline'),
+    );
+
+    await expect(service.getPdfAccess('audit-1', 'company-1')).resolves.toEqual(
+      {
+        entityId: 'audit-1',
+        hasFinalPdf: true,
+        availability: 'registered_without_signed_url',
+        message:
+          'PDF final emitido, mas a URL segura não está disponível no momento.',
+        fileKey: 'documents/company-1/audits/audit-1/audit-final.pdf',
+        folderPath: 'audits/company-1',
+        originalName: 'audit-final.pdf',
+        url: null,
+      },
+    );
+  });
+
+  it('retorna disponibilidade pronta quando o PDF final possui URL assinada', async () => {
+    tenantRepo.findOne.mockResolvedValue({
+      id: 'audit-1',
+      company_id: 'company-1',
+      pdf_file_key: 'documents/company-1/audits/audit-1/audit-final.pdf',
+      pdf_folder_path: 'audits/company-1',
+      pdf_original_name: 'audit-final.pdf',
+    } as Audit);
+
+    await expect(service.getPdfAccess('audit-1', 'company-1')).resolves.toEqual(
+      {
+        entityId: 'audit-1',
+        hasFinalPdf: true,
+        availability: 'ready',
+        message: null,
+        fileKey: 'documents/company-1/audits/audit-1/audit-final.pdf',
+        folderPath: 'audits/company-1',
+        originalName: 'audit-final.pdf',
+        url: 'https://signed.example/documents%2Fcompany-1%2Faudits%2Faudit-1%2Faudit-final.pdf',
+      },
     );
   });
 });

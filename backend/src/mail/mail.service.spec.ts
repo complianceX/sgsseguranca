@@ -12,6 +12,7 @@ import { NonConformitiesService } from '../nonconformities/nonconformities.servi
 import { DdsService } from '../dds/dds.service';
 import { InspectionsService } from '../inspections/inspections.service';
 import { AuditsService } from '../audits/audits.service';
+import { RdosService } from '../rdos/rdos.service';
 import { CompaniesService } from '../companies/companies.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
@@ -52,6 +53,8 @@ type InspectionPdfAccess = Awaited<
 >;
 type AuditDocument = Awaited<ReturnType<AuditsService['findOne']>>;
 type AuditPdfAccess = Awaited<ReturnType<AuditsService['getPdfAccess']>>;
+type RdoDocument = Awaited<ReturnType<RdosService['findOne']>>;
+type RdoPdfAccess = Awaited<ReturnType<RdosService['getPdfAccess']>>;
 type MailServiceWithScheduledAlerts = {
   runScheduledAlerts(): Promise<void>;
 };
@@ -73,6 +76,7 @@ describe('MailService', () => {
   let nonConformitiesService: NonConformitiesService;
   let inspectionsService: InspectionsService;
   let auditsService: AuditsService;
+  let rdosService: RdosService;
   let mailLogRepository: MailLogRepositoryMock;
 
   const mockMailLogRepository: MailLogRepositoryMock = {
@@ -150,6 +154,7 @@ describe('MailService', () => {
         { provide: DdsService, useValue: mockDomainService },
         { provide: InspectionsService, useValue: mockDomainService },
         { provide: AuditsService, useValue: mockDomainService },
+        { provide: RdosService, useValue: mockDomainService },
         { provide: CompaniesService, useValue: mockDomainService },
         { provide: TenantService, useValue: mockTenantService },
         { provide: ReportsService, useValue: mockDomainService },
@@ -174,6 +179,7 @@ describe('MailService', () => {
     );
     inspectionsService = module.get<InspectionsService>(InspectionsService);
     auditsService = module.get<AuditsService>(AuditsService);
+    rdosService = module.get<RdosService>(RdosService);
     mailLogRepository = module.get<MailLogRepositoryMock>(
       getRepositoryToken(MailLog),
     );
@@ -280,7 +286,7 @@ describe('MailService', () => {
         .mockResolvedValue(Buffer.from('pdf-content'));
       mockResendSend.mockResolvedValue({ data: { id: 'msg-1' }, error: null });
 
-      await service.sendStoredDocument(
+      const result = await service.sendStoredDocument(
         'pt-1',
         'PT',
         'destinatario@example.com',
@@ -303,6 +309,14 @@ describe('MailService', () => {
       }
       expect(String(firstAttachment.filename)).toContain('.pdf');
       expect(mailLogRepository.save).toHaveBeenCalled();
+      expect(result).toMatchObject({
+        success: true,
+        artifactType: 'governed_final_pdf',
+        isOfficial: true,
+        fallbackUsed: false,
+        documentId: 'pt-1',
+        documentType: 'PT',
+      });
     });
 
     it('deve lançar NotFoundException se o documento não for encontrado no serviço de origem', async () => {
@@ -386,6 +400,9 @@ describe('MailService', () => {
       } as AuditDocument;
       const auditPdfAccess: AuditPdfAccess = {
         entityId: 'audit-1',
+        hasFinalPdf: true,
+        availability: 'ready',
+        message: null,
         fileKey: 'audits/final.pdf',
         folderPath: 'audits/company-1',
         originalName: 'audit-final.pdf',
@@ -478,6 +495,53 @@ describe('MailService', () => {
       expect(downloadBufferSpy).toHaveBeenCalledWith(
         'documents/company-1/cats/cat-1/cat-final.pdf',
       );
+    });
+
+    it('deve enviar um RDO com PDF final governado', async () => {
+      const rdo: RdoDocument = {
+        id: 'rdo-1',
+        numero: 'RDO-202603-0001',
+      } as RdoDocument;
+      const rdoPdfAccess: RdoPdfAccess = {
+        entityId: 'rdo-1',
+        hasFinalPdf: true,
+        availability: 'registered_without_signed_url',
+        message:
+          'O PDF final do RDO foi emitido, mas a URL segura não está disponível agora.',
+        fileKey: 'rdos/final.pdf',
+        folderPath: 'rdos/company-1/week-12',
+        originalName: 'rdo-final.pdf',
+        url: null,
+      };
+      const findRdoSpy = jest
+        .spyOn(rdosService, 'findOne')
+        .mockResolvedValue(rdo);
+      const rdoPdfAccessSpy = jest
+        .spyOn(rdosService, 'getPdfAccess')
+        .mockResolvedValue(rdoPdfAccess);
+      const downloadBufferSpy = jest
+        .spyOn(documentStorageService, 'downloadFileBuffer')
+        .mockResolvedValue(Buffer.from('rdo-pdf'));
+      mockResendSend.mockResolvedValue({ data: { id: 'msg-6' }, error: null });
+
+      const result = await service.sendStoredDocument(
+        'rdo-1',
+        'RDO',
+        'destinatario@example.com',
+        'company-1',
+      );
+
+      expect(findRdoSpy).toHaveBeenCalledWith('rdo-1');
+      expect(rdoPdfAccessSpy).toHaveBeenCalledWith('rdo-1');
+      expect(downloadBufferSpy).toHaveBeenCalledWith('rdos/final.pdf');
+      expect(result).toMatchObject({
+        success: true,
+        artifactType: 'governed_final_pdf',
+        isOfficial: true,
+        fallbackUsed: false,
+        documentId: 'rdo-1',
+        documentType: 'RDO',
+      });
     });
   });
 

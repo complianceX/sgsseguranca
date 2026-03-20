@@ -161,7 +161,11 @@ async function bootstrap() {
         queues: [
           new BullMQAdapter(app.get<Queue>(getQueueToken('mail'))),
           new BullMQAdapter(app.get<Queue>(getQueueToken('pdf-generation'))),
+          new BullMQAdapter(app.get<Queue>(getQueueToken('document-import'))),
           new BullMQAdapter(app.get<Queue>(getQueueToken('sla-escalation'))),
+          new BullMQAdapter(
+            app.get<Queue>(getQueueToken('document-import-dlq')),
+          ),
         ],
         serverAdapter: bullBoardAdapter,
       });

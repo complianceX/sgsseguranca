@@ -7,6 +7,7 @@ import { CommonModule } from '../common/common.module';
 import { PublicSignaturesController } from './public-signatures.controller';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { UsersModule } from '../users/users.module';
+import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { UsersModule } from '../users/users.module';
     CommonModule,
     DocumentRegistryModule,
     UsersModule,
+    ForensicTrailModule,
   ],
   controllers: [SignaturesController, PublicSignaturesController],
   providers: [SignaturesService],

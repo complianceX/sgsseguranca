@@ -281,20 +281,6 @@ export const dossiersService = {
     return finalAccess;
   },
 
-  downloadContractPdf: async (contractId: string) => {
-    const response = await api.get(`/dossiers/contract/${contractId}/pdf`, {
-      responseType: 'blob',
-    });
-    const url = URL.createObjectURL(response.data as Blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `dossie_contrato_${contractId}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  },
-
   downloadSitePdf: async (siteId: string) => {
     const access = await dossiersService.getSitePdfAccess(siteId);
     if (access.hasFinalPdf) {

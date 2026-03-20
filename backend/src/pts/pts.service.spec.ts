@@ -15,6 +15,9 @@ import { SignaturesService } from '../signatures/signatures.service';
 import { Site } from '../sites/entities/site.entity';
 import { Apr } from '../aprs/entities/apr.entity';
 import { User } from '../users/entities/user.entity';
+import type { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import type { AppendForensicTrailEventInput } from '../forensic-trail/forensic-trail.service';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -37,6 +40,7 @@ describe('PtsService', () => {
   let documentStorageService: Partial<DocumentStorageService>;
   let documentGovernanceService: Partial<DocumentGovernanceService>;
   let signaturesService: Partial<SignaturesService>;
+  let forensicTrailService: Partial<ForensicTrailService>;
   let getRepositoryMock: jest.Mock;
   let defaultScopedRepository: {
     exist: jest.Mock;
@@ -86,6 +90,9 @@ describe('PtsService', () => {
     signaturesService = {
       findByDocument: jest.fn().mockResolvedValue([]),
     };
+    forensicTrailService = {
+      append: jest.fn().mockResolvedValue(undefined),
+    };
     defaultScopedRepository = {
       exist: jest.fn().mockResolvedValue(true),
       count: jest
@@ -98,10 +105,27 @@ describe('PtsService', () => {
     getRepositoryMock = jest.fn(() => defaultScopedRepository);
     (
       ptsRepository as unknown as {
-        manager: { getRepository: jest.Mock };
+        manager: { getRepository: jest.Mock; transaction: jest.Mock };
       }
     ).manager = {
       getRepository: getRepositoryMock,
+      transaction: jest.fn((callback: (manager: unknown) => unknown) =>
+        Promise.resolve(
+          callback({
+            getRepository: jest.fn((entity: unknown) => {
+              if (entity === Pt) {
+                return {
+                  save: jest.fn((input: Pt) => Promise.resolve(input)),
+                };
+              }
+              return getRepositoryMock(entity) as {
+                exist?: jest.Mock;
+                count?: jest.Mock;
+              };
+            }),
+          }),
+        ),
+      ),
     };
 
     service = new PtsService(
@@ -115,6 +139,7 @@ describe('PtsService', () => {
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
       signaturesService as SignaturesService,
+      forensicTrailService as ForensicTrailService,
     );
   });
 
@@ -399,6 +424,42 @@ describe('PtsService', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
+  it('registra cancelamento da PT na trilha imutável', async () => {
+    ptsRepository.findOne.mockResolvedValue({
+      id: 'pt-1',
+      company_id: 'company-1',
+      status: PtStatus.PENDENTE,
+      pdf_file_key: null,
+    } as Pt);
+
+    await expect(
+      service.reject('pt-1', 'user-1', 'Condição insegura'),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: 'pt-1',
+        status: PtStatus.CANCELADA,
+      }),
+    );
+
+    const appendCalls = (forensicTrailService.append as jest.Mock).mock
+      .calls as Array<[AppendForensicTrailEventInput, { manager?: unknown }]>;
+    const firstAppendCall = appendCalls[0];
+    if (!firstAppendCall) {
+      throw new Error('Expected forensic append call');
+    }
+    const [appendInput, appendOptions] = firstAppendCall;
+    const appendMetadata = appendInput.metadata as Record<string, unknown>;
+    expect(appendInput.eventType).toBe(FORENSIC_EVENT_TYPES.DOCUMENT_CANCELED);
+    expect(appendInput.module).toBe('pt');
+    expect(appendInput.entityId).toBe('pt-1');
+    expect(appendInput.companyId).toBe('company-1');
+    expect(appendInput.userId).toBe('user-1');
+    expect(appendMetadata.previousStatus).toBe(PtStatus.PENDENTE);
+    expect(appendMetadata.currentStatus).toBe(PtStatus.CANCELADA);
+    expect(appendMetadata.reason).toBe('Condição insegura');
+    expect(appendOptions.manager).toBeDefined();
+  });
+
   it('remove a PT via esteira central e aplica a policy de lifecycle', async () => {
     const pt = {
       id: 'pt-1',
@@ -424,6 +485,10 @@ describe('PtsService', () => {
         companyId: 'company-1',
         module: 'pt',
         entityId: 'pt-1',
+        trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+        trailMetadata: {
+          removalMode: 'soft_delete',
+        },
       }),
     );
     expect(softDelete).toHaveBeenCalledWith('pt-1');

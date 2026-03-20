@@ -1,51 +1,28 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { 
-  Upload, 
-  FileText, 
-  CheckCircle2, 
-  AlertCircle, 
-  Loader2, 
-  ShieldCheck, 
-  Search, 
-  Info,
+import {
+  AlertCircle,
+  CheckCircle2,
   ChevronRight,
-  FileCheck
+  FileCheck,
+  FileText,
+  Info,
+  Loader2,
+  Search,
+  ShieldCheck,
+  Upload,
 } from 'lucide-react';
-import api from '@/lib/api';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
-
-interface AnalysisResult {
-  success: boolean;
-  documentId: string;
-  tipoDocumento: string;
-  tipoDocumentoDescricao: string;
-  analysis: {
-    empresa: string;
-    cnpj: string;
-    data: string;
-    responsavelTecnico: string;
-    nrsCitadas: string[];
-    riscos: string[];
-    epis: string[];
-    assinaturas: string[];
-    scoreConfianca: number;
-  };
-  validation: {
-    status: 'VALIDO' | 'INCOMPLETO' | 'CRITICO';
-    pendencias: string[];
-    scoreConfianca: number;
-  };
-  metadata: {
-    tamanhoArquivo: number;
-    quantidadeTexto: number;
-    hash: string;
-    timestamp: string;
-  };
-}
+import {
+  documentImportService,
+  type DocumentImportDomainStatus,
+  type DocumentImportEnqueueResponse,
+  type DocumentImportJobSnapshot,
+  type DocumentImportStatusResponse,
+} from '@/services/documentImportService';
 
 const DOCUMENT_LABELS: Record<string, string> = {
   apr: 'APR',
@@ -65,25 +42,249 @@ const DOCUMENT_TYPE_UPLOAD_MAP: Record<string, string> = {
   nc: 'NC',
 };
 
+const TERMINAL_STATUSES = new Set<DocumentImportDomainStatus>([
+  'COMPLETED',
+  'FAILED',
+  'DEAD_LETTER',
+]);
+
+function generateIdempotencyKey() {
+  if (
+    typeof globalThis.crypto !== 'undefined' &&
+    typeof globalThis.crypto.randomUUID === 'function'
+  ) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `import-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+}
+
+function getProgressFromImportStatus(
+  status: DocumentImportDomainStatus,
+  queueState?: string | null,
+) {
+  if (status === 'QUEUED') {
+    return queueState === 'delayed' ? 15 : 20;
+  }
+
+  switch (status) {
+    case 'UPLOADED':
+      return 10;
+    case 'PROCESSING':
+      return 45;
+    case 'INTERPRETING':
+      return 65;
+    case 'VALIDATING':
+      return 85;
+    case 'COMPLETED':
+      return 100;
+    case 'FAILED':
+    case 'DEAD_LETTER':
+      return 100;
+    default:
+      return 10;
+  }
+}
+
+function getStatusLabel(status: DocumentImportDomainStatus) {
+  switch (status) {
+    case 'UPLOADED':
+      return 'Recebido';
+    case 'QUEUED':
+      return 'Na fila';
+    case 'PROCESSING':
+      return 'Extraindo conteúdo';
+    case 'INTERPRETING':
+      return 'Interpretando';
+    case 'VALIDATING':
+      return 'Validando';
+    case 'COMPLETED':
+      return 'Concluído';
+    case 'FAILED':
+      return 'Falhou';
+    case 'DEAD_LETTER':
+      return 'Falha permanente';
+    default:
+      return status;
+  }
+}
+
+function getQueueStateLabel(queueState?: string | null) {
+  switch (queueState) {
+    case 'waiting':
+      return 'Aguardando worker';
+    case 'delayed':
+      return 'Aguardando retry';
+    case 'active':
+      return 'Em processamento';
+    case 'completed':
+      return 'Processado';
+    case 'failed':
+      return 'Falhou';
+    case 'retry_pending':
+      return 'Retry pendente';
+    case 'dead_letter':
+      return 'Direcionado ao DLQ';
+    case 'enqueue_failed':
+      return 'Falha ao enfileirar';
+    case 'unknown':
+      return 'Estado indefinido';
+    case 'uploaded':
+      return 'Recebido';
+    default:
+      return queueState || 'Aguardando atualização';
+  }
+}
+
+function extractErrorMessage(error: unknown) {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'response' in error &&
+    error.response &&
+    typeof error.response === 'object' &&
+    'data' in error.response &&
+    error.response.data &&
+    typeof error.response.data === 'object' &&
+    'message' in error.response.data &&
+    typeof error.response.data.message === 'string'
+  ) {
+    return error.response.data.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Erro ao processar documento.';
+}
+
 export default function DocumentImportPage() {
   const { user, hasPermission } = useAuth();
   const searchParams = useSearchParams();
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [polling, setPolling] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [enqueueResponse, setEnqueueResponse] =
+    useState<DocumentImportEnqueueResponse | null>(null);
+  const [statusResponse, setStatusResponse] =
+    useState<DocumentImportStatusResponse | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const progressBarRef = useRef<HTMLDivElement>(null);
+  const terminalToastRef = useRef<string | null>(null);
+  const operationKeyRef = useRef<string | null>(null);
   const requestedDocumentType = searchParams.get('documentType') || '';
   const requestedDocumentLabel = DOCUMENT_LABELS[requestedDocumentType] || null;
   const canImportDocuments = hasPermission('can_import_documents');
 
+  const currentStatus = statusResponse?.status ?? enqueueResponse?.status ?? null;
+  const currentJob: DocumentImportJobSnapshot | null =
+    statusResponse?.job ?? enqueueResponse?.job ?? null;
+  const currentMessage =
+    statusResponse?.message ??
+    enqueueResponse?.message ??
+    'Documento recebido para processamento.';
+  const showCompletedResult = Boolean(
+    statusResponse?.completed && statusResponse.analysis && statusResponse.validation,
+  );
+
   useEffect(() => {
-    if (progressBarRef.current) {
-      progressBarRef.current.style.width = `${progress}%`;
+    const documentId = enqueueResponse?.documentId;
+    if (!documentId) {
+      return;
     }
-  }, [progress]);
+
+    let cancelled = false;
+    let intervalRef: ReturnType<typeof setInterval> | null = null;
+
+    const stopPolling = () => {
+      if (intervalRef) {
+        clearInterval(intervalRef);
+        intervalRef = null;
+      }
+    };
+
+    const syncStatus = async () => {
+      try {
+        const response =
+          await documentImportService.getImportStatus(documentId);
+
+        if (cancelled) {
+          return;
+        }
+
+        setStatusResponse(response);
+        setProgress(
+          getProgressFromImportStatus(response.status, response.job.queueState),
+        );
+
+        if (TERMINAL_STATUSES.has(response.status)) {
+          setPolling(false);
+          stopPolling();
+
+          if (terminalToastRef.current !== documentId) {
+            terminalToastRef.current = documentId;
+
+            if (response.completed) {
+              toast.success(response.message || 'Documento processado com sucesso.');
+            } else {
+              toast.error(
+                response.message ||
+                  'A importação falhou e precisa de intervenção manual.',
+              );
+            }
+          }
+        } else {
+          setPolling(true);
+        }
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+
+        stopPolling();
+        setPolling(false);
+        setUploading(false);
+        toast.error(extractErrorMessage(error));
+      } finally {
+        if (!cancelled) {
+          setUploading(false);
+        }
+      }
+    };
+
+    void syncStatus();
+    if (!TERMINAL_STATUSES.has(enqueueResponse.status)) {
+      setPolling(true);
+      intervalRef = setInterval(() => {
+        void syncStatus();
+      }, 2500);
+    }
+
+    return () => {
+      cancelled = true;
+      stopPolling();
+    };
+  }, [enqueueResponse?.documentId, enqueueResponse?.status]);
+
+  const resetFlowState = () => {
+    setUploading(false);
+    setPolling(false);
+    setProgress(0);
+    setEnqueueResponse(null);
+    setStatusResponse(null);
+  };
+
+  const reset = () => {
+    setFile(null);
+    resetFlowState();
+    terminalToastRef.current = null;
+    operationKeyRef.current = null;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -94,20 +295,32 @@ export default function DocumentImportPage() {
     setIsDragging(false);
   };
 
+  const handleFileSelection = (selectedFile?: File) => {
+    if (!selectedFile) {
+      return;
+    }
+
+    if (selectedFile.type !== 'application/pdf') {
+      toast.error('Por favor, envie apenas arquivos PDF.');
+      return;
+    }
+
+    setFile(selectedFile);
+    resetFlowState();
+    terminalToastRef.current = null;
+    operationKeyRef.current = generateIdempotencyKey();
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+
     if (!canImportDocuments) {
       toast.error('Você não possui permissão para importar documentos.');
       return;
     }
+
     setIsDragging(false);
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && droppedFile.type === 'application/pdf') {
-      setFile(droppedFile);
-      setResult(null);
-    } else {
-      toast.error('Por favor, envie apenas arquivos PDF.');
-    }
+    handleFileSelection(e.dataTransfer.files[0]);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -115,11 +328,8 @@ export default function DocumentImportPage() {
       toast.error('Você não possui permissão para importar documentos.');
       return;
     }
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setResult(null);
-    }
+
+    handleFileSelection(e.target.files?.[0]);
   };
 
   const handleUpload = async () => {
@@ -127,94 +337,82 @@ export default function DocumentImportPage() {
       toast.error('Você não possui permissão para importar documentos.');
       return;
     }
-    if (!file) return;
+
+    if (!file) {
+      return;
+    }
 
     setUploading(true);
-    setProgress(0);
-    setResult(null);
+    setPolling(false);
+    setProgress(10);
+    setEnqueueResponse(null);
+    setStatusResponse(null);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    if (user?.company_id) {
-      formData.append('empresaId', user.company_id);
-    }
-    if (requestedDocumentType && DOCUMENT_TYPE_UPLOAD_MAP[requestedDocumentType]) {
-      formData.append(
-        'tipoDocumento',
-        DOCUMENT_TYPE_UPLOAD_MAP[requestedDocumentType],
-      );
-    }
+    const idempotencyKey =
+      operationKeyRef.current || generateIdempotencyKey();
+    operationKeyRef.current = idempotencyKey;
 
     try {
-      // Simulação de progresso para melhor UX
-      const progressInterval = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 500);
-
-      const response = await api.post<AnalysisResult>('/documents/import', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+      const response = await documentImportService.importDocument({
+        file,
+        empresaId: user?.company_id,
+        tipoDocumento:
+          requestedDocumentType && DOCUMENT_TYPE_UPLOAD_MAP[requestedDocumentType]
+            ? DOCUMENT_TYPE_UPLOAD_MAP[requestedDocumentType]
+            : undefined,
+        idempotencyKey,
       });
 
-      clearInterval(progressInterval);
-      setProgress(100);
-      setResult(response.data);
-      toast.success('Documento processado com sucesso!');
-    } catch (error: unknown) {
-      console.error('Erro no upload:', error);
-      
-      let message = 'Erro ao processar documento.';
-      if (error && typeof error === 'object' && 'response' in error) {
-        const response = (error as { response: { data?: { message?: string } } }).response;
-        message = response.data?.message || message;
+      setEnqueueResponse(response);
+      setProgress(
+        getProgressFromImportStatus(response.status, response.job.queueState),
+      );
+      if (response.reused) {
+        toast.info(
+          response.message || 'Operação reutilizada sem criar nova importação.',
+        );
+      } else {
+        toast.success(
+          response.message || 'Documento recebido e enviado para processamento.',
+        );
       }
-      
-      toast.error(message);
-    } finally {
+    } catch (error) {
+      toast.error(extractErrorMessage(error));
       setUploading(false);
+      setPolling(false);
+      setProgress(0);
     }
   };
 
-  const reset = () => {
-    setFile(null);
-    setResult(null);
-    setProgress(0);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
+  const analysis = statusResponse?.analysis;
+  const validation = statusResponse?.validation;
 
   return (
     <div className="ds-form-page mx-auto max-w-6xl space-y-8 p-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Importação Inteligente de PDF</h1>
-          <p className="text-sm text-slate-500">
-            {requestedDocumentLabel
-              ? `Fluxo preparado para anexar um PDF de ${requestedDocumentLabel} já emitido, sem refazer o preenchimento no sistema.`
-              : 'Faça upload de documentos SST (APR, PT, DDS, Checklist, Relatório Fotográfico, NC, PGR, PCMSO, ASO) para extração automática e validação.'}
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          Importação Inteligente de PDF
+        </h1>
+        <p className="text-sm text-slate-500">
+          {requestedDocumentLabel
+            ? `Fluxo preparado para anexar um PDF de ${requestedDocumentLabel} já emitido, sem refazer o preenchimento no sistema.`
+            : 'Faça upload de documentos SST (APR, PT, DDS, Checklist, Relatório Fotográfico, NC, PGR, PCMSO, ASO) para extração automática e validação.'}
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Lado Esquerdo: Upload */}
-        <div className="lg:col-span-1 space-y-6">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-1">
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className={`
-              relative border-2 border-dashed rounded-xl p-6 transition-all duration-200
-              flex flex-col items-center justify-center text-center gap-4 cursor-pointer
-              ${isDragging ? 'border-primary bg-primary/5' : 'border-slate-200 hover:border-slate-300 bg-slate-50'}
+              relative flex cursor-pointer flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-6 text-center transition-all duration-200
+              ${isDragging ? 'border-primary bg-primary/5' : 'border-slate-200 bg-slate-50 hover:border-slate-300'}
               ${file ? 'border-green-500 bg-green-50' : ''}
             `}
             onClick={() => {
-              if (canImportDocuments) {
+              if (canImportDocuments && !uploading && !polling) {
                 fileInputRef.current?.click();
               }
             }}
@@ -224,13 +422,15 @@ export default function DocumentImportPage() {
               ref={fileInputRef}
               onChange={handleFileChange}
               accept=".pdf"
-              disabled={!canImportDocuments}
+              disabled={!canImportDocuments || uploading || polling}
               className="hidden"
               title="Upload de arquivo PDF"
               aria-label="Upload de arquivo PDF"
             />
-            
-            <div className={`rounded-full p-3.5 ${file ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-slate-800'}`}>
+
+            <div
+              className={`rounded-full p-3.5 ${file ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-slate-800'}`}
+            >
               {file ? <FileCheck size={28} /> : <Upload size={28} />}
             </div>
 
@@ -238,48 +438,57 @@ export default function DocumentImportPage() {
               <p className="text-sm font-semibold text-slate-900">
                 {file ? file.name : 'Clique ou arraste o PDF aqui'}
               </p>
-              <p className="text-[13px] text-slate-500">Apenas arquivos PDF até 10MB</p>
+              <p className="text-[13px] text-slate-500">
+                Apenas arquivos PDF até 10MB
+              </p>
             </div>
 
-            {file && !uploading && !result && canImportDocuments && (
+            {file && !uploading && !polling && !enqueueResponse && canImportDocuments && (
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleUpload();
+                  void handleUpload();
                 }}
                 className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-slate-800"
               >
-                Começar Processamento <ChevronRight size={18} />
+                Enviar para fila <ChevronRight size={18} />
               </button>
             )}
 
             {!canImportDocuments && (
               <div className="mt-3.5 w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
-                Você não possui permissão <code>can_import_documents</code> para este fluxo.
+                Você não possui permissão <code>can_import_documents</code> para
+                este fluxo.
               </div>
             )}
 
-            {uploading && (
-              <div className="w-full mt-4 space-y-3">
+            {(uploading || polling || currentStatus) && (
+              <div className="mt-4 w-full space-y-3">
                 <div className="flex justify-between text-sm font-medium text-slate-600">
-                  <span>Processando...</span>
+                  <span>
+                    {currentStatus
+                      ? getStatusLabel(currentStatus)
+                      : 'Recebendo documento...'}
+                  </span>
                   <span>{progress}%</span>
                 </div>
-                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-                  <div 
-                    ref={progressBarRef}
-                    className="bg-slate-900 h-2 rounded-full transition-all duration-300"
+                <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-2 rounded-full bg-slate-900 transition-all duration-300"
+                    style={{ width: `${progress}%` }}
                   />
                 </div>
-                <div className="flex items-center justify-center gap-2 text-sm text-slate-800 animate-pulse">
-                  <Loader2 size={16} className="animate-spin" />
-                  IA analisando o conteúdo...
+                <div className="flex items-center justify-center gap-2 text-sm text-slate-800">
+                  {(uploading || polling) && (
+                    <Loader2 size={16} className="animate-spin" />
+                  )}
+                  <span>{currentMessage}</span>
                 </div>
               </div>
             )}
 
-            {result && (
+            {(enqueueResponse || statusResponse) && (
               <button
                 type="button"
                 onClick={(e) => {
@@ -293,135 +502,305 @@ export default function DocumentImportPage() {
             )}
           </div>
 
-          <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-amber-900 flex items-center gap-2">
+          <div className="space-y-3 rounded-xl border border-amber-100 bg-amber-50 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-amber-900">
               <Info size={16} /> Como funciona?
             </h3>
-            <ul className="text-xs text-amber-800 space-y-2 list-disc pl-4">
-              <li>Extraímos o texto legível do PDF e analisamos o conteúdo com Processamento de Linguagem Natural.</li>
-              <li>Nossa IA classifica automaticamente o tipo do documento.</li>
-              <li>Identificamos riscos, EPIs, empresas, datas e assinaturas.</li>
-              <li>Validamos as exigências das NRs (Normas Regulamentadoras).</li>
-              <li>Se o PDF for apenas imagem escaneada, a extração pode ficar parcial e exigir revisão manual.</li>
+            <ul className="list-disc space-y-2 pl-4 text-xs text-amber-800">
+              <li>O request apenas recebe e valida o upload inicial.</li>
+              <li>
+                O documento segue para fila com retries automáticos e timeout
+                controlado.
+              </li>
+              <li>
+                Você pode consultar o status a qualquer momento usando o ID da
+                importação.
+              </li>
+              <li>
+                Em falha permanente, o processamento é marcado de forma auditável
+                e não fica preso em request longa.
+              </li>
             </ul>
           </div>
         </div>
 
-        {/* Lado Direito: Resultados */}
         <div className="lg:col-span-2">
-          {result ? (
-            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              {/* Header de Resultado */}
-              <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+          {showCompletedResult && analysis && validation ? (
+            <div className="animate-in slide-in-from-bottom-4 space-y-6 duration-500 fade-in">
+              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-center gap-4">
-                  <div className={`rounded-xl p-2.5 ${
-                    result.validation.status === 'VALIDO' ? 'bg-green-100 text-green-600' :
-                    result.validation.status === 'INCOMPLETO' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'
-                  }`}>
-                    {result.validation.status === 'VALIDO' ? <CheckCircle2 size={22} /> : <AlertCircle size={22} />}
+                  <div
+                    className={`rounded-xl p-2.5 ${
+                      validation.status === 'VALIDO'
+                        ? 'bg-green-100 text-green-600'
+                        : validation.status === 'INCOMPLETO'
+                          ? 'bg-amber-100 text-amber-600'
+                          : 'bg-red-100 text-red-600'
+                    }`}
+                  >
+                    {validation.status === 'VALIDO' ? (
+                      <CheckCircle2 size={22} />
+                    ) : (
+                      <AlertCircle size={22} />
+                    )}
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-slate-900">{result.tipoDocumentoDescricao}</h2>
-                    <p className="text-[13px] text-slate-500">Status da Validação: <span className="font-semibold">{result.validation.status}</span></p>
+                    <h2 className="text-lg font-bold text-slate-900">
+                      {statusResponse?.tipoDocumentoDescricao}
+                    </h2>
+                    <p className="text-[13px] text-slate-500">
+                      Status da validação:{' '}
+                      <span className="font-semibold">{validation.status}</span>
+                    </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="mb-1 text-[13px] text-slate-500">Score de Confiança</div>
-                  <div className={`text-[1.5rem] font-black ${
-                    result.validation.scoreConfianca > 0.8 ? 'text-green-600' :
-                    result.validation.scoreConfianca > 0.5 ? 'text-slate-800' : 'text-red-600'
-                  }`}>
-                    {(result.validation.scoreConfianca * 100).toFixed(0)}%
+                  <div className="mb-1 text-[13px] text-slate-500">
+                    Score de confiança
+                  </div>
+                  <div
+                    className={`text-[1.5rem] font-black ${
+                      validation.scoreConfianca > 0.8
+                        ? 'text-green-600'
+                        : validation.scoreConfianca > 0.5
+                          ? 'text-slate-800'
+                          : 'text-red-600'
+                    }`}
+                  >
+                    {(validation.scoreConfianca * 100).toFixed(0)}%
                   </div>
                 </div>
               </div>
 
-              {/* Grid de Detalhes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Informações Gerais */}
-                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-                  <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                    <Search size={18} className="text-slate-800" /> Informações Extraídas
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h3 className="flex items-center gap-2 font-semibold text-slate-900">
+                    <Search size={18} className="text-slate-800" /> Informações
+                    extraídas
                   </h3>
                   <div className="space-y-3">
-                    <DetailItem label="Empresa" value={result.analysis.empresa} />
-                    <DetailItem label="CNPJ" value={result.analysis.cnpj} />
-                    <DetailItem label="Data" value={result.analysis.data ? new Date(result.analysis.data).toLocaleDateString('pt-BR') : 'Não encontrada'} />
-                    <DetailItem label="Resp. Técnico" value={result.analysis.responsavelTecnico} />
+                    <DetailItem label="Empresa" value={analysis.empresa} />
+                    <DetailItem label="CNPJ" value={analysis.cnpj} />
+                    <DetailItem
+                      label="Data"
+                      value={
+                        analysis.data
+                          ? new Date(analysis.data).toLocaleDateString('pt-BR')
+                          : 'Não encontrada'
+                      }
+                    />
+                    <DetailItem
+                      label="Resp. Técnico"
+                      value={analysis.responsavelTecnico}
+                    />
                   </div>
                 </div>
 
-                {/* Pendências / Validação */}
-                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
-                  <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                    <ShieldCheck size={18} className="text-slate-800" /> Validação Técnica
+                <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h3 className="flex items-center gap-2 font-semibold text-slate-900">
+                    <ShieldCheck size={18} className="text-slate-800" /> Validação
+                    técnica
                   </h3>
-                  {result.validation.pendencias.length > 0 ? (
+                  {validation.pendencias.length > 0 ? (
                     <div className="space-y-2">
-                      {result.validation.pendencias.map((pendencia, i) => (
-                          <div key={i} className="flex gap-2 rounded-lg bg-amber-50 p-2 text-[13px] text-amber-700">
-                          <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                      {validation.pendencias.map((pendencia, index) => (
+                        <div
+                          key={index}
+                          className="flex gap-2 rounded-lg bg-amber-50 p-2 text-[13px] text-amber-700"
+                        >
+                          <AlertCircle size={16} className="mt-0.5 shrink-0" />
                           {pendencia}
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center py-6 text-center">
-                      <CheckCircle2 size={32} className="text-green-500 mb-2" />
-                      <p className="text-[13px] font-medium text-green-700">Nenhuma pendência crítica identificada.</p>
+                      <CheckCircle2 size={32} className="mb-2 text-green-500" />
+                      <p className="text-[13px] font-medium text-green-700">
+                        Nenhuma pendência crítica identificada.
+                      </p>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Tags e Listas */}
-              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                   <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Riscos Identificados</h4>
+                    <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Riscos identificados
+                    </h4>
                     <div className="flex flex-wrap gap-2">
-                      {result.analysis.riscos.length > 0 ? (
-                        result.analysis.riscos.map((risco, i) => (
-                          <span key={i} className="px-2 py-1 bg-red-50 text-red-700 text-xs font-medium rounded-md border border-red-100">
+                      {analysis.riscos.length > 0 ? (
+                        analysis.riscos.map((risco, index) => (
+                          <span
+                            key={index}
+                            className="rounded-md border border-red-100 bg-red-50 px-2 py-1 text-xs font-medium text-red-700"
+                          >
                             {risco}
                           </span>
                         ))
-                      ) : <span className="text-xs text-slate-400">Nenhum risco detectado</span>}
+                      ) : (
+                        <span className="text-xs text-slate-400">
+                          Nenhum risco detectado
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">EPIs Citados</h4>
+                    <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+                      EPIs citados
+                    </h4>
                     <div className="flex flex-wrap gap-2">
-                      {result.analysis.epis.length > 0 ? (
-                        result.analysis.epis.map((epi, i) => (
-                          <span key={i} className="px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-md border border-green-100">
+                      {analysis.epis.length > 0 ? (
+                        analysis.epis.map((epi, index) => (
+                          <span
+                            key={index}
+                            className="rounded-md border border-green-100 bg-green-50 px-2 py-1 text-xs font-medium text-green-700"
+                          >
                             {epi}
                           </span>
                         ))
-                      ) : <span className="text-xs text-slate-400">Nenhum EPI detectado</span>}
+                      ) : (
+                        <span className="text-xs text-slate-400">
+                          Nenhum EPI detectado
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-slate-100">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Normas Regulamentadoras (NRs)</h4>
+                <div className="border-t border-slate-100 pt-4">
+                  <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Normas Regulamentadoras (NRs)
+                  </h4>
                   <div className="flex flex-wrap gap-2">
-                    {result.analysis.nrsCitadas.length > 0 ? (
-                      result.analysis.nrsCitadas.map((nr, i) => (
-                        <span key={i} className="px-2 py-1 bg-amber-50 text-amber-700 text-xs font-medium rounded-md border border-amber-100">
+                    {analysis.nrsCitadas.length > 0 ? (
+                      analysis.nrsCitadas.map((nr, index) => (
+                        <span
+                          key={index}
+                          className="rounded-md border border-amber-100 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700"
+                        >
                           {nr}
                         </span>
                       ))
-                    ) : <span className="text-xs text-slate-400">Nenhuma NR identificada</span>}
+                    ) : (
+                      <span className="text-xs text-slate-400">
+                        Nenhuma NR identificada
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
+          ) : enqueueResponse || statusResponse ? (
+            <div className="space-y-6">
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`rounded-xl p-2.5 ${
+                          currentStatus === 'COMPLETED'
+                            ? 'bg-green-100 text-green-600'
+                            : currentStatus === 'FAILED' ||
+                                currentStatus === 'DEAD_LETTER'
+                              ? 'bg-red-100 text-red-600'
+                              : 'bg-blue-100 text-slate-800'
+                        }`}
+                      >
+                        {currentStatus === 'FAILED' ||
+                        currentStatus === 'DEAD_LETTER' ? (
+                          <AlertCircle size={22} />
+                        ) : currentStatus === 'COMPLETED' ? (
+                          <CheckCircle2 size={22} />
+                        ) : (
+                          <Loader2 size={22} className="animate-spin" />
+                        )}
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-bold text-slate-900">
+                          {currentStatus
+                            ? getStatusLabel(currentStatus)
+                            : 'Documento recebido'}
+                        </h2>
+                        <p className="text-[13px] text-slate-500">
+                          {currentMessage}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 pt-2 text-[13px] text-slate-600 md:grid-cols-2">
+                      <StatusItem
+                        label="ID da importação"
+                        value={enqueueResponse?.documentId || statusResponse?.documentId}
+                      />
+                      <StatusItem
+                        label="Queue state"
+                        value={getQueueStateLabel(currentJob?.queueState)}
+                      />
+                      <StatusItem
+                        label="Tentativas"
+                        value={
+                          currentJob?.maxAttempts
+                            ? `${currentJob.attemptsMade || 0}/${currentJob.maxAttempts}`
+                            : String(currentJob?.attemptsMade || 0)
+                        }
+                      />
+                      <StatusItem
+                        label="Status consultável"
+                        value={statusResponse?.statusUrl || enqueueResponse?.statusUrl}
+                      />
+                      <StatusItem
+                        label="Idempotência"
+                        value={
+                          enqueueResponse?.reused
+                            ? enqueueResponse.dedupeSource === 'idempotency_key'
+                              ? 'Reutilizado por chave'
+                              : 'Reutilizado por hash'
+                            : 'Nova operação'
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="min-w-[160px] rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-right">
+                    <div className="text-[12px] uppercase tracking-wider text-slate-400">
+                      Progresso
+                    </div>
+                    <div className="text-2xl font-black text-slate-900">
+                      {progress}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {currentStatus === 'DEAD_LETTER' && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  A importação esgotou as tentativas automáticas e foi marcada
+                  como falha permanente. O documento permanece auditável para
+                  investigação e reprocessamento controlado.
+                </div>
+              )}
+
+              {currentStatus === 'FAILED' && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  O processamento falhou antes da conclusão. Acompanhe o status
+                  novamente pelo endpoint informado ou reenvie o documento após
+                  corrigir a causa.
+                </div>
+              )}
+            </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-10 text-slate-400">
               <FileText size={64} className="mb-4 opacity-20" />
-              <p className="text-base font-medium">Aguardando envio de arquivo para análise</p>
-              <p className="text-[13px]">Os resultados da IA aparecerão aqui após o processamento.</p>
+              <p className="text-base font-medium">
+                Aguardando envio de arquivo para análise
+              </p>
+              <p className="text-[13px]">
+                O documento será recebido, enviado para a fila e o status ficará
+                consultável até a conclusão.
+              </p>
             </div>
           )}
         </div>
@@ -430,11 +809,40 @@ export default function DocumentImportPage() {
   );
 }
 
-function DetailItem({ label, value }: { label: string; value: string }) {
+function DetailItem({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | null;
+}) {
   return (
     <div className="flex flex-col">
-      <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">{label}</span>
-      <span className="text-sm font-semibold text-slate-700">{value || '---'}</span>
+      <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
+        {label}
+      </span>
+      <span className="text-sm font-semibold text-slate-700">
+        {value || '---'}
+      </span>
+    </div>
+  );
+}
+
+function StatusItem({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | null;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+        {label}
+      </div>
+      <div className="truncate text-sm font-semibold text-slate-700">
+        {value || '---'}
+      </div>
     </div>
   );
 }

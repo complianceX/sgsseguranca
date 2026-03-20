@@ -5,16 +5,69 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { type EntityManager, In, IsNull, Repository } from 'typeorm';
+import {
+  type EntityManager,
+  DataSource,
+  In,
+  IsNull,
+  Repository,
+} from 'typeorm';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { resolveRegistryModuleForSignatureDocumentType } from '../document-registry/document-governance.service';
 import { UsersService } from '../users/users.service';
 import { Signature } from './entities/signature.entity';
 import { CreateSignatureDto } from './dto/create-signature.dto';
+import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import { Apr } from '../aprs/entities/apr.entity';
+import { Pt } from '../pts/entities/pt.entity';
+import { Dds } from '../dds/entities/dds.entity';
+import { Checklist } from '../checklists/entities/checklist.entity';
+import {
+  SIGNATURE_LEGAL_ASSURANCE,
+  SIGNATURE_PROOF_SCOPES,
+  SIGNATURE_VERIFICATION_MODES,
+  canonicalizeSignaturePayload,
+  hashCanonicalSignaturePayload,
+  hashSignatureEvidence,
+} from './signature-proof.util';
 
 type SignatureWriteInput = CreateSignatureDto & {
   signer_user_id?: string;
+};
+
+type SignatureVerificationMode =
+  (typeof SIGNATURE_VERIFICATION_MODES)[keyof typeof SIGNATURE_VERIFICATION_MODES];
+
+type SignatureProofScope =
+  (typeof SIGNATURE_PROOF_SCOPES)[keyof typeof SIGNATURE_PROOF_SCOPES];
+
+type SignatureLegalAssurance =
+  (typeof SIGNATURE_LEGAL_ASSURANCE)[keyof typeof SIGNATURE_LEGAL_ASSURANCE];
+
+type SignatureDocumentBinding = {
+  module: string;
+  proofScope: SignatureProofScope;
+  reference: string | null;
+  status: string | null;
+  version: string | number | null;
+  updatedAt: string | null;
+  bindingHash: string;
+  registryEntryId: string | null;
+  documentCode: string | null;
+  fileHash: string | null;
+  fileKey: string | null;
+};
+
+type SignatureVerificationDetails = {
+  verificationMode: SignatureVerificationMode;
+  proofScope: SignatureProofScope | null;
+  legalAssurance: SignatureLegalAssurance;
+  canonicalPayloadHash: string | null;
+  signatureEvidenceHash: string | null;
+  documentBindingHash: string | null;
 };
 
 @Injectable()
@@ -22,20 +75,25 @@ export class SignaturesService {
   constructor(
     @InjectRepository(Signature)
     private signaturesRepository: Repository<Signature>,
+    private readonly dataSource: DataSource,
     private readonly tenantService: TenantService,
     private readonly signatureTimestampService: SignatureTimestampService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly usersService: UsersService,
+    private readonly forensicTrailService: ForensicTrailService,
   ) {}
 
   async create(
     createSignatureDto: CreateSignatureDto,
     authenticatedUserId: string,
   ): Promise<Signature> {
-    return this.persistSignature(
-      createSignatureDto,
-      authenticatedUserId,
-      authenticatedUserId,
+    return this.signaturesRepository.manager.transaction((manager) =>
+      this.persistSignature(
+        createSignatureDto,
+        authenticatedUserId,
+        authenticatedUserId,
+        manager,
+      ),
     );
   }
 
@@ -117,8 +175,9 @@ export class SignaturesService {
   ): Promise<Signature> {
     const tenantId = this.tenantService.getTenantId();
     let payload = { ...createSignatureDto };
+    const effectiveCompanyId = payload.company_id || tenantId || null;
+    const signedAtIso = new Date().toISOString();
 
-    // HMAC-SHA256: assinatura com PIN derivado por PBKDF2
     if (payload.type === 'hmac') {
       if (!payload.pin) {
         throw new BadRequestException('PIN obrigatório para assinatura HMAC.');
@@ -127,15 +186,14 @@ export class SignaturesService {
         signerUserId,
         payload.pin,
       );
-      const timestamp = new Date().toISOString();
       const message = [
         payload.document_id,
         payload.document_type,
         signerUserId,
-        timestamp,
+        effectiveCompanyId || '',
+        signedAtIso,
       ].join('|');
       const hmacHex = this.usersService.computeHmac(hmacKey, message);
-      // Sobrescreve signature_data com o HMAC (não há imagem neste tipo)
       payload = {
         ...payload,
         signature_data: hmacHex,
@@ -143,16 +201,64 @@ export class SignaturesService {
       };
     }
 
-    const generatedStamp = this.signatureTimestampService.issueFromRaw(
-      payload.signature_data,
-    );
-    const signedAt = new Date(generatedStamp.timestamp_issued_at);
     const registryContext =
       await this.documentGovernanceService.findRegistryContextForSignature(
         payload.document_id,
         payload.document_type,
-        payload.company_id || tenantId || null,
+        effectiveCompanyId,
       );
+    const documentBinding = await this.resolveDocumentBindingContext({
+      documentId: payload.document_id,
+      documentType: payload.document_type,
+      companyId: effectiveCompanyId,
+      registryContext,
+    });
+    const signatureEvidenceHash = hashSignatureEvidence(payload.signature_data);
+    const verificationMode = SIGNATURE_VERIFICATION_MODES.SERVER_VERIFIABLE;
+    const proofScope = documentBinding.proofScope;
+    const legalAssurance = SIGNATURE_LEGAL_ASSURANCE.NOT_LEGAL_STRONG;
+    const canonicalPayload = canonicalizeSignaturePayload({
+      schema_version: 2,
+      verification_mode: verificationMode,
+      legal_assurance: legalAssurance,
+      document: {
+        id: payload.document_id,
+        type: payload.document_type,
+        module: documentBinding.module,
+        company_id: effectiveCompanyId,
+        reference: documentBinding.reference,
+        status: documentBinding.status,
+        version: documentBinding.version,
+        updated_at: documentBinding.updatedAt,
+        proof_scope: proofScope,
+        binding_hash: documentBinding.bindingHash,
+        registry_entry_id: documentBinding.registryEntryId,
+        document_code: documentBinding.documentCode,
+        file_hash: documentBinding.fileHash,
+        file_key: documentBinding.fileKey,
+      },
+      signer: {
+        user_id: signerUserId,
+        captured_by_user_id:
+          authenticatedUserId !== signerUserId ? authenticatedUserId : null,
+      },
+      signature: {
+        type: payload.type,
+        evidence_hash: signatureEvidenceHash,
+        evidence_kind: this.resolveEvidenceKind(
+          payload.type,
+          payload.signature_data,
+        ),
+      },
+      signed_at: signedAtIso,
+    });
+    const canonicalPayloadHash =
+      hashCanonicalSignaturePayload(canonicalPayload);
+    const generatedStamp = this.signatureTimestampService.issueFromHash(
+      canonicalPayloadHash,
+      signedAtIso,
+    );
+    const signedAt = new Date(generatedStamp.timestamp_issued_at);
     const signatureRepository =
       manager?.getRepository(Signature) ?? this.signaturesRepository;
     const signature = signatureRepository.create({
@@ -161,14 +267,13 @@ export class SignaturesService {
       signature_data: payload.signature_data,
       type: payload.type,
       user_id: signerUserId,
-      company_id: payload.company_id || tenantId,
-      signature_hash: payload.signature_hash || generatedStamp.signature_hash,
-      timestamp_token:
-        payload.timestamp_token || generatedStamp.timestamp_token,
-      timestamp_authority:
-        payload.timestamp_authority || generatedStamp.timestamp_authority,
+      company_id: effectiveCompanyId || undefined,
+      signature_hash: generatedStamp.signature_hash,
+      timestamp_token: generatedStamp.timestamp_token,
+      timestamp_authority: generatedStamp.timestamp_authority,
       signed_at: signedAt,
       integrity_payload: {
+        schema_version: 2,
         document_id: payload.document_id,
         document_type: payload.document_type,
         user_id: signerUserId,
@@ -178,7 +283,26 @@ export class SignaturesService {
             : undefined,
         type: payload.type,
         signed_at: signedAt.toISOString(),
+        verification_mode: verificationMode,
+        legal_assurance: legalAssurance,
+        proof_scope: proofScope,
+        canonical_payload_hash: canonicalPayloadHash,
+        canonical_payload: canonicalPayload,
+        signature_evidence_hash: signatureEvidenceHash,
+        signature_evidence_kind: this.resolveEvidenceKind(
+          payload.type,
+          payload.signature_data,
+        ),
         hmac_verified: payload.type === 'hmac' ? true : undefined,
+        document_binding: {
+          module: documentBinding.module,
+          reference: documentBinding.reference,
+          status: documentBinding.status,
+          version: documentBinding.version,
+          updated_at: documentBinding.updatedAt,
+          proof_scope: documentBinding.proofScope,
+          binding_hash: documentBinding.bindingHash,
+        },
         document_registry: registryContext
           ? {
               entry_id: registryContext.registryEntryId,
@@ -190,7 +314,40 @@ export class SignaturesService {
           : undefined,
       },
     });
-    return signatureRepository.save(signature);
+    const savedSignature = await signatureRepository.save(signature);
+    const signatureModule =
+      registryContext?.module ||
+      resolveRegistryModuleForSignatureDocumentType(payload.document_type) ||
+      normalizeModuleFromDocumentType(payload.document_type);
+
+    await this.forensicTrailService.append(
+      {
+        eventType: FORENSIC_EVENT_TYPES.SIGNATURE_RECORDED,
+        module: signatureModule,
+        entityId: payload.document_id,
+        companyId: effectiveCompanyId,
+        userId: signerUserId,
+        occurredAt: signedAt,
+        metadata: {
+          signatureId: savedSignature.id,
+          signatureType: payload.type,
+          documentType: payload.document_type,
+          signedAt: signedAt.toISOString(),
+          signatureHash: savedSignature.signature_hash || null,
+          signatureEvidenceHash,
+          verificationMode,
+          proofScope,
+          timestampAuthority: savedSignature.timestamp_authority || null,
+          registryEntryId: registryContext?.registryEntryId || null,
+          documentCode: registryContext?.documentCode || null,
+          documentFileHash: registryContext?.fileHash || null,
+          documentBindingHash: documentBinding.bindingHash,
+        },
+      },
+      manager ? { manager } : undefined,
+    );
+
+    return savedSignature;
   }
 
   async findByDocument(
@@ -300,6 +457,11 @@ export class SignaturesService {
     signed_at?: string;
     timestamp_authority?: string;
     signature_hash?: string;
+    verification_mode: SignatureVerificationMode;
+    legal_assurance: SignatureLegalAssurance;
+    proof_scope?: SignatureProofScope | null;
+    document_binding_hash?: string | null;
+    signature_evidence_hash?: string | null;
   }> {
     const tenantId = this.tenantService.getTenantId();
     const signature = await this.signaturesRepository.findOne({
@@ -324,6 +486,7 @@ export class SignaturesService {
           signature.timestamp_token as string,
         )
       : false;
+    const verificationDetails = this.extractVerificationDetails(signature);
 
     return {
       id: signature.id,
@@ -331,6 +494,11 @@ export class SignaturesService {
       signed_at: signature.signed_at?.toISOString(),
       timestamp_authority: signature.timestamp_authority,
       signature_hash: signature.signature_hash,
+      verification_mode: verificationDetails.verificationMode,
+      legal_assurance: verificationDetails.legalAssurance,
+      proof_scope: verificationDetails.proofScope,
+      document_binding_hash: verificationDetails.documentBindingHash,
+      signature_evidence_hash: verificationDetails.signatureEvidenceHash,
     };
   }
 
@@ -344,6 +512,11 @@ export class SignaturesService {
       document_id?: string;
       document_type?: string;
       type?: string;
+      verification_mode: SignatureVerificationMode;
+      legal_assurance: SignatureLegalAssurance;
+      proof_scope?: SignatureProofScope | null;
+      document_binding_hash?: string | null;
+      signature_evidence_hash?: string | null;
     };
   }> {
     const normalizedHash = String(signatureHash || '')
@@ -375,6 +548,7 @@ export class SignaturesService {
         signature.timestamp_token,
       ),
     );
+    const verificationDetails = this.extractVerificationDetails(signature);
 
     return {
       valid,
@@ -388,8 +562,284 @@ export class SignaturesService {
         document_id: signature.document_id,
         document_type: signature.document_type,
         type: signature.type,
+        verification_mode: verificationDetails.verificationMode,
+        legal_assurance: verificationDetails.legalAssurance,
+        proof_scope: verificationDetails.proofScope,
+        document_binding_hash: verificationDetails.documentBindingHash,
+        signature_evidence_hash: verificationDetails.signatureEvidenceHash,
       },
     };
+  }
+
+  private resolveEvidenceKind(type: string, signatureData: string): string {
+    if (type === 'hmac') {
+      return 'pin_hmac';
+    }
+
+    if (type.startsWith('team_photo_')) {
+      return 'json';
+    }
+
+    if (signatureData.startsWith('data:image')) {
+      return 'image_data_url';
+    }
+
+    return 'raw_text';
+  }
+
+  private async resolveDocumentBindingContext(input: {
+    documentId: string;
+    documentType: string;
+    companyId: string | null;
+    registryContext: {
+      registryEntryId: string;
+      module: string;
+      documentCode: string | null;
+      fileHash: string | null;
+      fileKey: string | null;
+    } | null;
+  }): Promise<SignatureDocumentBinding> {
+    const module =
+      input.registryContext?.module ||
+      resolveRegistryModuleForSignatureDocumentType(input.documentType) ||
+      normalizeModuleFromDocumentType(input.documentType);
+    const entityContext = await this.loadEntityBindingContext(
+      module,
+      input.documentId,
+      input.companyId,
+    );
+
+    const bindingHash =
+      input.registryContext?.fileHash ||
+      entityContext?.stateHash ||
+      hashCanonicalSignaturePayload({
+        documentId: input.documentId,
+        documentType: input.documentType,
+        companyId: input.companyId,
+      });
+    const proofScope = input.registryContext?.fileHash
+      ? SIGNATURE_PROOF_SCOPES.GOVERNED_FINAL_DOCUMENT
+      : entityContext?.stateHash
+        ? SIGNATURE_PROOF_SCOPES.DOCUMENT_REVISION
+        : SIGNATURE_PROOF_SCOPES.DOCUMENT_IDENTITY;
+
+    return {
+      module,
+      proofScope,
+      reference: entityContext?.reference || null,
+      status: entityContext?.status || null,
+      version: entityContext?.version ?? null,
+      updatedAt: entityContext?.updatedAt || null,
+      bindingHash,
+      registryEntryId: input.registryContext?.registryEntryId || null,
+      documentCode: input.registryContext?.documentCode || null,
+      fileHash: input.registryContext?.fileHash || null,
+      fileKey: input.registryContext?.fileKey || null,
+    };
+  }
+
+  private async loadEntityBindingContext(
+    module: string,
+    documentId: string,
+    companyId: string | null,
+  ): Promise<{
+    reference: string | null;
+    status: string | null;
+    version: string | number | null;
+    updatedAt: string | null;
+    stateHash: string;
+  } | null> {
+    switch (module) {
+      case 'apr': {
+        const apr = await this.dataSource.getRepository(Apr).findOne({
+          where: companyId
+            ? { id: documentId, company_id: companyId }
+            : { id: documentId },
+          select: [
+            'id',
+            'company_id',
+            'numero',
+            'versao',
+            'status',
+            'updated_at',
+          ],
+        });
+        if (!apr) {
+          return null;
+        }
+
+        return this.buildEntityBindingContext({
+          module,
+          documentId: apr.id,
+          companyId: apr.company_id,
+          reference: apr.numero,
+          status: apr.status,
+          version: apr.versao,
+          updatedAt: apr.updated_at,
+        });
+      }
+      case 'pt': {
+        const pt = await this.dataSource.getRepository(Pt).findOne({
+          where: companyId
+            ? { id: documentId, company_id: companyId }
+            : { id: documentId },
+          select: ['id', 'company_id', 'numero', 'status', 'updated_at'],
+        });
+        if (!pt) {
+          return null;
+        }
+
+        return this.buildEntityBindingContext({
+          module,
+          documentId: pt.id,
+          companyId: pt.company_id,
+          reference: pt.numero,
+          status: pt.status,
+          version: null,
+          updatedAt: pt.updated_at,
+        });
+      }
+      case 'dds': {
+        const dds = await this.dataSource.getRepository(Dds).findOne({
+          where: companyId
+            ? { id: documentId, company_id: companyId }
+            : { id: documentId },
+          select: ['id', 'company_id', 'tema', 'status', 'updated_at'],
+        });
+        if (!dds) {
+          return null;
+        }
+
+        return this.buildEntityBindingContext({
+          module,
+          documentId: dds.id,
+          companyId: dds.company_id,
+          reference: dds.tema,
+          status: dds.status,
+          version: null,
+          updatedAt: dds.updated_at,
+        });
+      }
+      case 'checklist': {
+        const checklist = await this.dataSource
+          .getRepository(Checklist)
+          .findOne({
+            where: companyId
+              ? { id: documentId, company_id: companyId }
+              : { id: documentId },
+            select: ['id', 'company_id', 'titulo', 'status', 'updated_at'],
+          });
+        if (!checklist) {
+          return null;
+        }
+
+        return this.buildEntityBindingContext({
+          module,
+          documentId: checklist.id,
+          companyId: checklist.company_id,
+          reference: checklist.titulo,
+          status: checklist.status,
+          version: null,
+          updatedAt: checklist.updated_at,
+        });
+      }
+      default:
+        return null;
+    }
+  }
+
+  private buildEntityBindingContext(input: {
+    module: string;
+    documentId: string;
+    companyId: string | null;
+    reference: string | null;
+    status: string | null;
+    version: string | number | null;
+    updatedAt: Date | null;
+  }) {
+    const updatedAtIso = input.updatedAt?.toISOString() || null;
+    const stateHash = hashCanonicalSignaturePayload({
+      module: input.module,
+      document_id: input.documentId,
+      company_id: input.companyId,
+      reference: input.reference,
+      status: input.status,
+      version: input.version,
+      updated_at: updatedAtIso,
+    });
+
+    return {
+      reference: input.reference,
+      status: input.status,
+      version: input.version,
+      updatedAt: updatedAtIso,
+      stateHash,
+    };
+  }
+
+  private extractVerificationDetails(
+    signature: Signature,
+  ): SignatureVerificationDetails {
+    const integrityPayload =
+      (signature.integrity_payload as Record<string, unknown> | null) || null;
+    const documentBinding =
+      (integrityPayload?.document_binding as
+        | Record<string, unknown>
+        | undefined) || undefined;
+
+    const verificationMode = this.isKnownVerificationMode(
+      integrityPayload?.verification_mode,
+    )
+      ? integrityPayload?.verification_mode
+      : SIGNATURE_VERIFICATION_MODES.LEGACY_CLIENT_HASH;
+    const proofScope = this.isKnownProofScope(integrityPayload?.proof_scope)
+      ? integrityPayload?.proof_scope
+      : null;
+    const legalAssurance = this.isKnownLegalAssurance(
+      integrityPayload?.legal_assurance,
+    )
+      ? integrityPayload?.legal_assurance
+      : SIGNATURE_LEGAL_ASSURANCE.NOT_LEGAL_STRONG;
+
+    return {
+      verificationMode,
+      proofScope,
+      legalAssurance,
+      canonicalPayloadHash:
+        typeof integrityPayload?.canonical_payload_hash === 'string'
+          ? integrityPayload.canonical_payload_hash
+          : null,
+      signatureEvidenceHash:
+        typeof integrityPayload?.signature_evidence_hash === 'string'
+          ? integrityPayload.signature_evidence_hash
+          : null,
+      documentBindingHash:
+        typeof documentBinding?.binding_hash === 'string'
+          ? documentBinding.binding_hash
+          : null,
+    };
+  }
+
+  private isKnownVerificationMode(
+    value: unknown,
+  ): value is SignatureVerificationMode {
+    return Object.values(SIGNATURE_VERIFICATION_MODES).includes(
+      value as SignatureVerificationMode,
+    );
+  }
+
+  private isKnownProofScope(value: unknown): value is SignatureProofScope {
+    return Object.values(SIGNATURE_PROOF_SCOPES).includes(
+      value as SignatureProofScope,
+    );
+  }
+
+  private isKnownLegalAssurance(
+    value: unknown,
+  ): value is SignatureLegalAssurance {
+    return Object.values(SIGNATURE_LEGAL_ASSURANCE).includes(
+      value as SignatureLegalAssurance,
+    );
   }
 
   private isPrivilegedRole(roleName?: string | null): boolean {
@@ -410,4 +860,32 @@ export class SignaturesService {
 
     return privilegedRoles.has(normalized);
   }
+}
+
+function normalizeModuleFromDocumentType(documentType: string): string {
+  const normalized = String(documentType || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase();
+
+  if (normalized === 'auditoria') {
+    return 'audit';
+  }
+
+  if (
+    normalized === 'nao_conformidade' ||
+    normalized === 'nonconformity' ||
+    normalized === 'nc'
+  ) {
+    return 'nonconformity';
+  }
+
+  if (normalized === 'inspecao' || normalized === 'inspection') {
+    return 'inspection';
+  }
+
+  return normalized || 'document';
 }

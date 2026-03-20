@@ -27,6 +27,7 @@ import {
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { Signature } from '../signatures/entities/signature.entity';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 
 const TEAM_PHOTO_SIGNATURE_PREFIX = 'team_photo';
 const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = 'team_photo_reuse_justification';
@@ -643,6 +644,10 @@ export class DdsService {
       companyId: dds.company_id,
       module: 'dds',
       entityId: dds.id,
+      trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+      trailMetadata: {
+        removalMode: 'soft_delete',
+      },
       removeEntityState: async (manager) => {
         await manager.getRepository(Dds).softDelete(id);
       },

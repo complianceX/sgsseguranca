@@ -100,6 +100,22 @@ export interface CreateAuditDto {
   conclusao?: string;
 }
 
+export type AuditPdfAccessAvailability =
+  | 'ready'
+  | 'registered_without_signed_url'
+  | 'not_emitted';
+
+export interface AuditPdfAccessResponse {
+  entityId: string;
+  hasFinalPdf: boolean;
+  availability: AuditPdfAccessAvailability;
+  message: string | null;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  url: string | null;
+}
+
 export const auditsService = {
   findPaginated: async (opts?: { page?: number; limit?: number; search?: string }): Promise<PaginatedResponse<Audit>> => {
     const response = await api.get<PaginatedResponse<Audit>>('/audits', {
@@ -145,13 +161,7 @@ export const auditsService = {
   },
 
   getPdfAccess: async (id: string) => {
-    const response = await api.get<{
-      entityId: string;
-      fileKey: string;
-      folderPath: string;
-      originalName: string;
-      url: string;
-    }>(`/audits/${id}/pdf`);
+    const response = await api.get<AuditPdfAccessResponse>(`/audits/${id}/pdf`);
     return response.data;
   },
 

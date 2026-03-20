@@ -45,6 +45,8 @@ import {
 import { AprRiskItemInputDto } from './dto/apr-risk-item-input.dto';
 import { AprExcelService } from './apr-excel.service';
 import { AprExcelImportPreviewDto } from './dto/apr-excel-import-preview.dto';
+import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 
 const APR_LOG_ACTIONS = {
   CREATED: 'APR_CRIADA',
@@ -99,6 +101,7 @@ export class AprsService {
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly signaturesService: SignaturesService,
+    private readonly forensicTrailService: ForensicTrailService,
   ) {}
 
   private assertAprDocumentMutable(apr: Pick<Apr, 'pdf_file_key'>) {
@@ -1007,6 +1010,10 @@ export class AprsService {
       companyId: apr.company_id,
       module: 'apr',
       entityId: apr.id,
+      trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+      trailMetadata: {
+        removalMode: 'soft_delete',
+      },
       removeEntityState: async (manager) => {
         await manager.getRepository(Apr).softDelete(id);
       },
@@ -1060,7 +1067,29 @@ export class AprsService {
     apr.reprovado_por_id = userId;
     apr.reprovado_em = new Date();
     apr.reprovado_motivo = reason;
-    const saved = await this.aprsRepository.save(apr);
+    const previousStatus = currentStatus;
+    const saved = await this.aprsRepository.manager.transaction(
+      async (manager) => {
+        const transactionalRepository = manager.getRepository(Apr);
+        const persisted = await transactionalRepository.save(apr);
+        await this.forensicTrailService.append(
+          {
+            eventType: FORENSIC_EVENT_TYPES.DOCUMENT_CANCELED,
+            module: 'apr',
+            entityId: persisted.id,
+            companyId: persisted.company_id,
+            userId,
+            metadata: {
+              previousStatus,
+              currentStatus: persisted.status,
+              reason,
+            },
+          },
+          { manager },
+        );
+        return persisted;
+      },
+    );
     await this.addLog(id, userId, APR_LOG_ACTIONS.REJECTED, {
       ...this.buildAprTraceMetadata(saved),
       motivo: reason,

@@ -38,6 +38,9 @@ jobs:
       - name: Test backend
         run: npm run test:ci
 
+      - name: Smoke backend
+        run: npm run test:smoke
+
       - name: Build backend
         run: npm run build
 

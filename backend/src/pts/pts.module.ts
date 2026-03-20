@@ -13,6 +13,7 @@ import { AuditLog } from '../audit/entities/audit-log.entity';
 import { UsersModule } from '../users/users.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { SignaturesModule } from '../signatures/signatures.module';
+import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SignaturesModule } from '../signatures/signatures.module';
     UsersModule,
     DocumentRegistryModule,
     SignaturesModule,
+    ForensicTrailModule,
   ],
   controllers: [PtsController],
   providers: [PtsService],

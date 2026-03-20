@@ -132,6 +132,7 @@ type ParsedRdoSignature = {
   cpf: string;
   signedAt: string | null;
   signatureMode: string | null;
+  verificationMode: string | null;
   documentHash: string | null;
 };
 
@@ -167,6 +168,10 @@ function parseRdoSignature(raw?: string | null): ParsedRdoSignature | null {
       signatureMode:
         typeof parsed.signature_mode === "string"
           ? parsed.signature_mode
+          : null,
+      verificationMode:
+        typeof parsed.verification_mode === "string"
+          ? parsed.verification_mode
           : null,
       documentHash:
         typeof parsed.document_hash === "string"
@@ -1009,12 +1014,27 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
     }
     setSendingEmail(true);
     try {
-      await rdosService.sendEmail(emailModal.id, emails);
-      toast.success(`RDO enviado para ${emails.length} destinatário(s).`);
+      const access = await rdosService.getPdfAccess(emailModal.id);
+      if (!access.hasFinalPdf) {
+        toast.info(
+          access.message ||
+            "Emita o PDF final governado antes de enviar este RDO por e-mail.",
+        );
+        return;
+      }
+
+      if (access.message) {
+        toast.info(
+          `${access.message} O envio oficial continuará usando o PDF final governado do RDO.`,
+        );
+      }
+
+      const result = await rdosService.sendEmail(emailModal.id, emails);
+      toast.success(result.message);
       setEmailModal(null);
       setEmailTo("");
-    } catch {
-      toast.error("Erro ao enviar e-mail.");
+    } catch (error) {
+      toast.error(getApiErrorMessage(error) || "Erro ao enviar e-mail.");
     } finally {
       setSendingEmail(false);
     }
@@ -2664,6 +2684,13 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                             <p className="text-xs text-[color:var(--ds-color-success)]/80">
                               {formatSignatureDate(sig.signedAt)}
                             </p>
+                            {sig.verificationMode ? (
+                              <p className="text-xs text-[color:var(--ds-color-success)]/80">
+                                {sig.verificationMode === "operational_ack"
+                                  ? "Aceite operacional verificável"
+                                  : sig.verificationMode}
+                              </p>
+                            ) : null}
                           </>
                         ) : (
                           <p className="mt-1 text-xs text-[var(--ds-color-text-muted)] italic">
@@ -2695,6 +2722,13 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                             <p className="text-xs text-[color:var(--ds-color-success)]/80">
                               {formatSignatureDate(sig.signedAt)}
                             </p>
+                            {sig.verificationMode ? (
+                              <p className="text-xs text-[color:var(--ds-color-success)]/80">
+                                {sig.verificationMode === "operational_ack"
+                                  ? "Aceite operacional verificável"
+                                  : sig.verificationMode}
+                              </p>
+                            ) : null}
                           </>
                         ) : (
                           <p className="mt-1 text-xs text-[var(--ds-color-text-muted)] italic">
@@ -2917,6 +2951,11 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 Enviar <strong>{emailModal.numero}</strong> —{" "}
                 {new Date(emailModal.data).toLocaleDateString("pt-BR")}
               </p>
+              <div className="mb-4 rounded-xl border border-[color:var(--ds-color-success)]/30 bg-[color:var(--ds-color-success)]/10 px-3 py-2 text-xs text-[var(--ds-color-success)]">
+                Envio oficial: o backend anexará o PDF final governado do RDO.
+                Se o documento ainda não tiver sido emitido, o envio será
+                bloqueado.
+              </div>
               <label
                 htmlFor="email-to"
                 className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"

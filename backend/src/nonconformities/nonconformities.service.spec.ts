@@ -352,6 +352,54 @@ describe('NonConformitiesService', () => {
     expect(repository.save).not.toHaveBeenCalled();
   });
 
+  it('bloqueia criação quando já existe código NC ativo na empresa', async () => {
+    repository.findOne.mockResolvedValueOnce({ id: 'nc-existing' });
+
+    await expect(
+      service.create({
+        codigo_nc: 'nc-001',
+        tipo: 'Operacional',
+        data_identificacao: '2026-03-10',
+        local_setor_area: 'Área 1',
+        atividade_envolvida: 'Inspeção',
+        responsavel_area: 'Maria',
+        auditor_responsavel: 'João',
+        descricao: 'Descrição',
+        evidencia_observada: 'Evidência',
+        condicao_insegura: 'Condição',
+        requisito_nr: 'NR-1',
+        requisito_item: '1.1',
+        risco_perigo: 'Perigo',
+        risco_associado: 'Risco',
+        risco_nivel: 'Alto',
+        status: 'ABERTA',
+      }),
+    ).rejects.toThrow(
+      'Já existe uma não conformidade com este código na empresa atual.',
+    );
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia atualização quando o novo código NC já está em uso na empresa', async () => {
+    jest.spyOn(service, 'findOne').mockResolvedValue({
+      id: 'nc-1',
+      company_id: 'company-1',
+      codigo_nc: 'NC-001',
+      anexos: [],
+      pdf_file_key: null,
+    } as NonConformity);
+    repository.findOne.mockResolvedValueOnce({ id: 'nc-2' });
+
+    await expect(
+      service.update('nc-1', { codigo_nc: 'nc-002' }),
+    ).rejects.toThrow(
+      'Já existe uma não conformidade com este código na empresa atual.',
+    );
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
   it('attachAttachment: salva evidência governada no storage oficial', async () => {
     const nc = {
       id: 'nc-1',

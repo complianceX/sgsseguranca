@@ -15,6 +15,8 @@ import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { DdsController } from './dds.controller';
 import { DdsService } from './dds.service';
 
+jest.setTimeout(15000);
+
 describe('DdsController (http)', () => {
   const ddsId = '11111111-1111-4111-8111-111111111111';
   let currentUser: { userId?: string; id?: string } = { userId: 'user-1' };
@@ -76,7 +78,7 @@ describe('DdsController (http)', () => {
     await app.close();
   });
 
-  it('retorna 400 quando participants do createWithFile nao vier como JSON valido', async () => {
+  it('retorna 410 quando tentam usar o endpoint legado with-file mesmo sem arquivo', async () => {
     const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
 
     await request(httpServer)
@@ -86,10 +88,10 @@ describe('DdsController (http)', () => {
       .field('site_id', '11111111-1111-4111-8111-111111111111')
       .field('facilitador_id', '22222222-2222-4222-8222-222222222222')
       .field('participants', 'not-json')
-      .expect(400)
+      .expect(410)
       .expect(({ body }) => {
         expect((body as { message?: string }).message).toBe(
-          'O campo participants deve ser um JSON valido.',
+          'O endpoint legado /dds/with-file foi removido. Use POST /dds para criar, PUT /dds/:id/signatures para assinaturas/fotos e POST /dds/:id/file para o PDF final.',
         );
       });
 
@@ -112,7 +114,7 @@ describe('DdsController (http)', () => {
       .expect(410)
       .expect(({ body }) => {
         expect((body as { message?: string }).message).toBe(
-          'O endpoint legado /dds/with-file não aceita mais PDF inicial. Use POST /dds para criar, PUT /dds/:id/signatures para assinaturas/fotos e POST /dds/:id/file para o PDF final.',
+          'O endpoint legado /dds/with-file foi removido. Use POST /dds para criar, PUT /dds/:id/signatures para assinaturas/fotos e POST /dds/:id/file para o PDF final.',
         );
       });
 

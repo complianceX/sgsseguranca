@@ -202,8 +202,15 @@ export class RdosController {
   @Patch(':id/sign')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_rdos')
-  sign(@Param('id', new ParseUUIDPipe()) id: string, @Body() body: SignRdoDto) {
-    return this.rdosService.sign(id, body);
+  sign(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: SignRdoDto,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    return this.rdosService.sign(id, body, this.getRequestUserId(req));
   }
 
   @Post(':id/cancel')
@@ -217,6 +224,12 @@ export class RdosController {
   }
 
   @Post(':id/save-pdf')
+  @Header('Deprecation', 'true')
+  @Header('Sunset', 'Tue, 30 Jun 2026 00:00:00 GMT')
+  @Header(
+    'Warning',
+    '299 - "Endpoint legado descontinuado. Use POST /rdos/:id/file para anexar o PDF final governado."',
+  )
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_rdos')
   savePdfLegacy(

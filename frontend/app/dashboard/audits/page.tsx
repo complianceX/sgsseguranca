@@ -72,29 +72,15 @@ export default function AuditsPage() {
     };
   } | null>(null);
 
-  const getErrorStatus = (error: unknown) =>
-    Number(
-      (error as { response?: { status?: number } } | undefined)?.response
-        ?.status ?? 0,
-    ) || null;
-
   const buildAuditFilename = (audit: Audit) =>
     buildPdfFilename('AUDITORIA', audit.titulo || 'auditoria', audit.data_auditoria);
 
-  const getGovernedPdfAccess = async (auditId: string) => {
-    try {
-      return await auditsService.getPdfAccess(auditId);
-    } catch (error) {
-      if (getErrorStatus(error) === 404) {
-        return null;
-      }
-      throw error;
-    }
-  };
+  const getGovernedPdfAccess = async (auditId: string) =>
+    auditsService.getPdfAccess(auditId);
 
   const ensureGovernedPdf = async (audit: Audit) => {
     const existingAccess = await getGovernedPdfAccess(audit.id);
-    if (existingAccess) {
+    if (existingAccess.hasFinalPdf) {
       return existingAccess;
     }
 
@@ -164,9 +150,11 @@ export default function AuditsPage() {
   const handleDownloadPdf = async (audit: Audit) => {
     try {
       const access = await getGovernedPdfAccess(audit.id);
-      if (access) {
+      if (access.hasFinalPdf) {
         if (!access.url) {
-          throw new Error('PDF final emitido, mas indisponível no armazenamento.');
+          throw new Error(
+            access.message || 'PDF final emitido, mas indisponível no armazenamento.',
+          );
         }
         openUrlInNewTab(access.url);
         return;
@@ -186,9 +174,11 @@ export default function AuditsPage() {
     try {
       toast.info('Preparando impressao...');
       const access = await getGovernedPdfAccess(audit.id);
-      if (access) {
+      if (access.hasFinalPdf) {
         if (!access.url) {
-          throw new Error('PDF final emitido, mas indisponível no armazenamento.');
+          throw new Error(
+            access.message || 'PDF final emitido, mas indisponível no armazenamento.',
+          );
         }
         openPdfForPrint(access.url, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressao.');
@@ -218,7 +208,12 @@ export default function AuditsPage() {
     try {
       toast.info('Preparando documento...');
       const access = await getGovernedPdfAccess(audit.id);
-      if (access) {
+      if (access.hasFinalPdf) {
+        if (access.availability !== 'ready' && access.message) {
+          toast.info(
+            `${access.message} O envio oficial continuará usando o PDF final governado da auditoria.`,
+          );
+        }
         setSelectedDoc({
           name: audit.titulo,
           filename: access.originalName || buildAuditFilename(audit),
@@ -261,7 +256,8 @@ export default function AuditsPage() {
       const access = await ensureGovernedPdf(audit);
       if (!access.url) {
         toast.success(
-          'PDF final emitido, mas a URL segura não está disponível no momento.',
+          access.message ||
+            'PDF final emitido, mas a URL segura não está disponível no momento.',
         );
         return;
       }

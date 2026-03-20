@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { RdosService } from './rdos.service';
 import { Rdo } from './entities/rdo.entity';
@@ -12,6 +12,10 @@ import type { DocumentRegistryService } from '../document-registry/document-regi
 import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import type { RdoAuditService } from './rdo-audit.service';
+import type { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import type { AppendForensicTrailEventInput } from '../forensic-trail/forensic-trail.service';
+import type { SignatureTimestampService } from '../common/services/signature-timestamp.service';
 
 const COMPANY_ID = 'company-1';
 const RDO_ID = '11111111-2222-3333-4444-555555555555';
@@ -55,10 +59,14 @@ describe('RdosService', () => {
     createQueryBuilder: jest.Mock;
     manager: {
       getRepository: jest.Mock;
+      transaction: jest.Mock;
     };
   };
   let tenantService: Pick<TenantService, 'getTenantId'>;
-  let mailService: Pick<MailService, 'sendMail' | 'sendMailSimple'>;
+  let mailService: Pick<
+    MailService,
+    'sendMail' | 'sendMailSimple' | 'sendStoredDocument'
+  >;
   let documentStorageService: Pick<
     DocumentStorageService,
     | 'uploadFile'
@@ -84,6 +92,11 @@ describe('RdosService', () => {
     | 'recordStatusChange'
     | 'recordPdfGenerated'
     | 'recordSignature'
+  >;
+  let forensicTrailService: Pick<ForensicTrailService, 'append'>;
+  let signatureTimestampService: Pick<
+    SignatureTimestampService,
+    'issueFromHash'
   >;
   let siteScopedRepository: { exist: jest.Mock };
   let userScopedRepository: { exist: jest.Mock };
@@ -123,6 +136,31 @@ describe('RdosService', () => {
 
           throw new Error(`Repository não mapeado no teste: ${String(entity)}`);
         }),
+        transaction: jest.fn((callback: (manager: unknown) => unknown) =>
+          Promise.resolve(
+            callback({
+              getRepository: jest.fn((entity: unknown) => {
+                if (entity === Rdo) {
+                  return {
+                    save: jest.fn((input: Rdo) => Promise.resolve(input)),
+                  };
+                }
+
+                if (entity === Site) {
+                  return siteScopedRepository;
+                }
+
+                if (entity === User) {
+                  return userScopedRepository;
+                }
+
+                throw new Error(
+                  `Repository transacional não mapeado no teste: ${String(entity)}`,
+                );
+              }),
+            }),
+          ),
+        ),
       },
     };
     siteScopedRepository = {
@@ -135,6 +173,14 @@ describe('RdosService', () => {
     mailService = {
       sendMail: jest.fn().mockResolvedValue(undefined),
       sendMailSimple: jest.fn().mockResolvedValue(undefined),
+      sendStoredDocument: jest.fn().mockResolvedValue({
+        success: true,
+        message: 'Documento final governado enviado.',
+        deliveryMode: 'sent',
+        artifactType: 'governed_final_pdf',
+        isOfficial: true,
+        fallbackUsed: false,
+      }),
     };
     documentStorageService = {
       uploadFile: jest.fn().mockResolvedValue(undefined),
@@ -181,6 +227,17 @@ describe('RdosService', () => {
       recordPdfGenerated: jest.fn().mockResolvedValue(undefined),
       recordSignature: jest.fn().mockResolvedValue(undefined),
     };
+    forensicTrailService = {
+      append: jest.fn().mockResolvedValue(undefined),
+    };
+    signatureTimestampService = {
+      issueFromHash: jest.fn((signatureHash: string, issuedAt?: string) => ({
+        signature_hash: signatureHash,
+        timestamp_token: `token.${signatureHash}`,
+        timestamp_authority: 'internal-hmac-v1',
+        timestamp_issued_at: issuedAt || '2026-03-16T12:00:00.000Z',
+      })),
+    };
 
     service = new RdosService(
       repository as unknown as Repository<Rdo>,
@@ -190,6 +247,8 @@ describe('RdosService', () => {
       documentGovernanceService as DocumentGovernanceService,
       documentRegistryService as DocumentRegistryService,
       rdoAuditService as RdoAuditService,
+      forensicTrailService as ForensicTrailService,
+      signatureTimestampService as SignatureTimestampService,
     );
   });
 
@@ -212,6 +271,21 @@ describe('RdosService', () => {
     const result = await service.create(dto);
     expect(result.numero).toMatch(/^RDO-\d{6}-003$/);
     expect(repository.save).toHaveBeenCalled();
+  });
+
+  it('rejeita create quando o banco sinaliza número duplicado na empresa', async () => {
+    repository.save.mockRejectedValueOnce(
+      new QueryFailedError('INSERT', [], {
+        code: '23505',
+        constraint: 'UQ_rdos_company_numero',
+      } as never),
+    );
+
+    await expect(
+      service.create({
+        data: '2026-03-16',
+      }),
+    ).rejects.toThrow('Já existe um RDO com este número na empresa atual.');
   });
 
   it('usa company_id do tenant quando o DTO nao fornece', async () => {
@@ -323,7 +397,27 @@ describe('RdosService', () => {
     repository.findOne.mockResolvedValue(makeRdo({ status: 'enviado' }));
     const result = await service.cancel(RDO_ID, 'Erro de preenchimento');
     expect(result.status).toBe('cancelado');
-    expect(repository.save).toHaveBeenCalled();
+    const cancelTrailCalls = (forensicTrailService.append as jest.Mock).mock
+      .calls as Array<[AppendForensicTrailEventInput, { manager?: unknown }]>;
+    const firstCancelTrailCall = cancelTrailCalls[0];
+    if (!firstCancelTrailCall) {
+      throw new Error('Expected forensic cancellation trail call');
+    }
+    const [cancelTrailInput, cancelTrailOptions] = firstCancelTrailCall;
+    const cancelTrailMetadata = cancelTrailInput.metadata as Record<
+      string,
+      unknown
+    >;
+    expect(cancelTrailInput.eventType).toBe(
+      FORENSIC_EVENT_TYPES.DOCUMENT_CANCELED,
+    );
+    expect(cancelTrailInput.module).toBe('rdo');
+    expect(cancelTrailInput.entityId).toBe(RDO_ID);
+    expect(cancelTrailInput.companyId).toBe(COMPANY_ID);
+    expect(cancelTrailMetadata.previousStatus).toBe('enviado');
+    expect(cancelTrailMetadata.currentStatus).toBe('cancelado');
+    expect(cancelTrailMetadata.reason).toBe('Erro de preenchimento');
+    expect(cancelTrailOptions.manager).toBeDefined();
     expect(rdoAuditService.recordCancellation).toHaveBeenCalledWith(
       RDO_ID,
       'Erro de preenchimento',
@@ -398,13 +492,46 @@ describe('RdosService', () => {
       cpf: string;
       signed_at: string;
       signature_mode: string;
+      verification_mode: string;
       document_hash: string;
+      signature_hash: string;
+      timestamp_token: string;
+      timestamp_authority: string;
     };
     expect(parsed.nome).toBe('João Silva');
     expect(parsed.cpf).toBe('12345678900');
     expect(parsed.signature_mode).toBe('operational_ack');
+    expect(parsed.verification_mode).toBe('operational_ack');
     expect(parsed.document_hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(parsed.signature_hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(parsed.timestamp_token).toContain(parsed.signature_hash);
+    expect(parsed.timestamp_authority).toBe('internal-hmac-v1');
     expect(parsed.signed_at).toBeDefined();
+    const signatureTrailCalls = (forensicTrailService.append as jest.Mock).mock
+      .calls as Array<[AppendForensicTrailEventInput, { manager?: unknown }]>;
+    const firstSignatureTrailCall = signatureTrailCalls[0];
+    if (!firstSignatureTrailCall) {
+      throw new Error('Expected forensic signature trail call');
+    }
+    const [signatureTrailInput, signatureTrailOptions] =
+      firstSignatureTrailCall;
+    const signatureTrailMetadata = signatureTrailInput.metadata as Record<
+      string,
+      unknown
+    >;
+    expect(signatureTrailInput.eventType).toBe(
+      FORENSIC_EVENT_TYPES.SIGNATURE_RECORDED,
+    );
+    expect(signatureTrailInput.module).toBe('rdo');
+    expect(signatureTrailInput.entityId).toBe(RDO_ID);
+    expect(signatureTrailInput.companyId).toBe(COMPANY_ID);
+    expect(signatureTrailMetadata.signatureType).toBe('responsavel');
+    expect(signatureTrailMetadata.verificationMode).toBe('operational_ack');
+    expect(signatureTrailMetadata.signatureMode).toBe('operational_ack');
+    expect(signatureTrailMetadata.signerName).toBe('João Silva');
+    expect(signatureTrailMetadata.signerCpfSuffix).toBe('8900');
+    expect(signatureTrailMetadata.signatureHash).toBe(parsed.signature_hash);
+    expect(signatureTrailOptions.manager).toBeDefined();
     expect(rdoAuditService.recordSignature).toHaveBeenCalledWith(
       RDO_ID,
       'responsavel',
@@ -424,9 +551,13 @@ describe('RdosService', () => {
     const parsed = JSON.parse(result.assinatura_engenheiro!) as {
       nome: string;
       signature_mode: string;
+      verification_mode: string;
+      signature_hash: string;
     };
     expect(parsed.nome).toBe('Ana Engenheira');
     expect(parsed.signature_mode).toBe('operational_ack');
+    expect(parsed.verification_mode).toBe('operational_ack');
+    expect(parsed.signature_hash).toMatch(/^[a-f0-9]{64}$/);
     expect(rdoAuditService.recordSignature).toHaveBeenCalledWith(
       RDO_ID,
       'engenheiro',
@@ -531,35 +662,42 @@ describe('RdosService', () => {
 
   // ─── sendEmail ───────────────────────────────────────────────────────────────
 
-  it('envia e-mail com dados do RDO para cada destinatario', async () => {
+  it('envia e-mail oficial com PDF final governado para cada destinatario', async () => {
     const rdo = makeRdo({
       numero: 'RDO-202603-001',
-      mao_de_obra: [
-        { funcao: 'Pedreiro', quantidade: 3, turno: 'manha', horas: 8 },
-      ],
-      equipamentos: [
-        {
-          nome: 'Escavadeira',
-          quantidade: 1,
-          horas_trabalhadas: 4,
-          horas_ociosas: 0,
-        },
-      ],
-      servicos_executados: [
-        { descricao: 'Escavação', percentual_concluido: 50 },
-      ],
-      ocorrencias: [],
+      pdf_file_key: 'documents/rdo.pdf',
     });
     repository.findOne.mockResolvedValue(rdo);
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValueOnce(
+      {
+        file_key: 'documents/rdo.pdf',
+        original_name: 'rdo.pdf',
+        folder_path: 'rdos/company-1/week-12',
+      },
+    );
 
-    await service.sendEmail(RDO_ID, ['gestor@empresa.com', 'eng@empresa.com']);
+    const result = await service.sendEmail(RDO_ID, [
+      'gestor@empresa.com',
+      'eng@empresa.com',
+    ]);
 
-    expect(mailService.sendMail).toHaveBeenCalledTimes(2);
-    const [to, subject, , html] = (mailService.sendMail as jest.Mock).mock
-      .calls[0] as [string, string, string, string];
-    expect(to).toBe('gestor@empresa.com');
-    expect(subject).toContain('RDO-202603-001');
-    expect(html).toContain('Relatório Diário de Obra');
+    expect(mailService.sendStoredDocument).toHaveBeenCalledTimes(2);
+    expect(mailService.sendStoredDocument).toHaveBeenNthCalledWith(
+      1,
+      RDO_ID,
+      'RDO',
+      'gestor@empresa.com',
+      COMPANY_ID,
+    );
+    expect(result).toMatchObject({
+      success: true,
+      artifactType: 'governed_final_pdf',
+      isOfficial: true,
+      fallbackUsed: false,
+      recipients: 2,
+      documentType: 'RDO',
+      documentId: RDO_ID,
+    });
   });
 
   it('nao envia e-mail quando lista de destinatarios esta vazia', async () => {
@@ -568,21 +706,19 @@ describe('RdosService', () => {
     expect(mailService.sendMail).not.toHaveBeenCalled();
   });
 
-  it('envia PDF final governado em anexo quando o RDO ja foi emitido', async () => {
-    repository.findOne.mockResolvedValue(
-      makeRdo({ pdf_file_key: 'documents/rdo.pdf' }),
+  it('bloqueia envio de email quando o RDO ainda nao possui PDF final governado', async () => {
+    repository.findOne.mockResolvedValue(makeRdo({ pdf_file_key: null }));
+    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue(
+      null,
     );
-    (documentRegistryService.findByDocument as jest.Mock).mockResolvedValue({
-      file_key: 'documents/rdo.pdf',
-      original_name: 'rdo.pdf',
-    });
 
-    await service.sendEmail(RDO_ID, ['gestor@empresa.com']);
-
-    expect(documentStorageService.downloadFileBuffer).toHaveBeenCalledWith(
-      'documents/rdo.pdf',
+    await expect(
+      service.sendEmail(RDO_ID, ['gestor@empresa.com']),
+    ).rejects.toThrow(
+      'Emita o PDF final governado antes de enviar este RDO por e-mail.',
     );
-    expect(mailService.sendMailSimple).toHaveBeenCalledTimes(1);
+
+    expect(mailService.sendStoredDocument).not.toHaveBeenCalled();
   });
 
   // ─── listFiles ───────────────────────────────────────────────────────────────
@@ -652,6 +788,19 @@ describe('RdosService', () => {
     expect(
       documentGovernanceService.removeFinalDocumentReference,
     ).toHaveBeenCalled();
+    expect(
+      documentGovernanceService.removeFinalDocumentReference,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: COMPANY_ID,
+        module: 'rdo',
+        entityId: RDO_ID,
+        trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+        trailMetadata: {
+          removalMode: 'hard_remove',
+        },
+      }),
+    );
     expect(repository.remove).toHaveBeenCalledWith(rdo);
   });
 

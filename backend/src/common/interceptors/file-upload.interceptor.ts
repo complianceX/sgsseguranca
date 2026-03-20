@@ -2,19 +2,57 @@ import { BadRequestException } from '@nestjs/common';
 import { diskStorage } from 'multer';
 import type { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import { mkdirSync } from 'fs';
-import { open, readFile, unlink } from 'fs/promises';
+import { open, readFile, readdir, stat, unlink } from 'fs/promises';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
 const TEMP_UPLOAD_DIR = path.join(process.cwd(), 'temp');
+const TEMP_UPLOAD_CLEANUP_TTL_MS = resolvePositiveIntEnv(
+  'TEMP_UPLOAD_CLEANUP_TTL_MS',
+  24 * 60 * 60 * 1000,
+);
+const TEMP_UPLOAD_CLEANUP_MIN_INTERVAL_MS = resolvePositiveIntEnv(
+  'TEMP_UPLOAD_CLEANUP_MIN_INTERVAL_MS',
+  15 * 60 * 1000,
+);
+
+let tempUploadCleanupInFlight: Promise<TempUploadCleanupSummary> | null = null;
+let lastTempUploadCleanupAt = 0;
 
 type UploadLogger = {
-  warn: (message: string) => void;
+  log?: (message: unknown) => void;
+  warn: (message: unknown) => void;
+  error?: (message: unknown, trace?: string) => void;
 };
 
-function ensureTempUploadDir(): string {
+export type TempUploadCleanupSummary = {
+  directory: string;
+  scannedFiles: number;
+  removedFiles: number;
+  failedFiles: number;
+  ttlMs: number;
+  cutoffTimestamp: string;
+};
+
+function resolvePositiveIntEnv(name: string, fallback: number): number {
+  const rawValue = process.env[name];
+  if (!rawValue) {
+    return fallback;
+  }
+
+  const parsed = Number(rawValue);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function prepareTempUploadDir(): string {
   mkdirSync(TEMP_UPLOAD_DIR, { recursive: true });
   return TEMP_UPLOAD_DIR;
+}
+
+function ensureTempUploadDir(): string {
+  const directory = prepareTempUploadDir();
+  void runTempUploadCleanupBestEffort();
+  return directory;
 }
 
 function sanitizeExtension(originalName?: string): string {
@@ -235,6 +273,106 @@ export async function cleanupUploadedTempFile(
       }`,
     );
   });
+}
+
+export async function cleanupStaleTempUploads(options?: {
+  directory?: string;
+  ttlMs?: number;
+  now?: number;
+  logger?: UploadLogger;
+}): Promise<TempUploadCleanupSummary> {
+  const directory = options?.directory ?? prepareTempUploadDir();
+  const ttlMs = options?.ttlMs ?? TEMP_UPLOAD_CLEANUP_TTL_MS;
+  const now = options?.now ?? Date.now();
+  const logger = options?.logger;
+  const cutoff = now - ttlMs;
+  const entries = await readdir(directory, { withFileTypes: true });
+
+  let scannedFiles = 0;
+  let removedFiles = 0;
+  let failedFiles = 0;
+
+  for (const entry of entries) {
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    scannedFiles += 1;
+    const filePath = path.join(directory, entry.name);
+
+    try {
+      const fileStat = await stat(filePath);
+      if (fileStat.mtimeMs > cutoff) {
+        continue;
+      }
+
+      await unlink(filePath);
+      removedFiles += 1;
+    } catch (error) {
+      failedFiles += 1;
+      logger?.warn({
+        event: 'temp_upload_cleanup_failed_file',
+        filePath,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  const summary: TempUploadCleanupSummary = {
+    directory,
+    scannedFiles,
+    removedFiles,
+    failedFiles,
+    ttlMs,
+    cutoffTimestamp: new Date(cutoff).toISOString(),
+  };
+
+  logger?.log?.({
+    event: 'temp_upload_cleanup_completed',
+    ...summary,
+  });
+
+  return summary;
+}
+
+export async function runTempUploadCleanupBestEffort(
+  logger?: UploadLogger,
+): Promise<TempUploadCleanupSummary | null> {
+  const now = Date.now();
+  if (
+    tempUploadCleanupInFlight ||
+    now - lastTempUploadCleanupAt < TEMP_UPLOAD_CLEANUP_MIN_INTERVAL_MS
+  ) {
+    return tempUploadCleanupInFlight
+      ? tempUploadCleanupInFlight.catch(() => null)
+      : null;
+  }
+
+  lastTempUploadCleanupAt = now;
+  tempUploadCleanupInFlight = cleanupStaleTempUploads({ logger }).finally(
+    () => {
+      tempUploadCleanupInFlight = null;
+    },
+  );
+
+  try {
+    return await tempUploadCleanupInFlight;
+  } catch (error) {
+    logger?.error?.(
+      {
+        event: 'temp_upload_cleanup_failed',
+        directory: TEMP_UPLOAD_DIR,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      },
+      error instanceof Error ? error.stack : undefined,
+    );
+    return null;
+  }
+}
+
+export function resetTempUploadCleanupStateForTests(): void {
+  tempUploadCleanupInFlight = null;
+  lastTempUploadCleanupAt = 0;
 }
 
 export async function validatePdfMagicBytesFromPath(filePath: string) {

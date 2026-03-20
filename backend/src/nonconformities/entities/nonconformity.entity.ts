@@ -7,11 +7,20 @@ import {
   DeleteDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
 
 @Entity('nonconformities')
+@Index(
+  'UQ_nonconformities_company_codigo_nc_active',
+  ['company_id', 'codigo_nc'],
+  {
+    unique: true,
+    where: '"deleted_at" IS NULL',
+  },
+)
 export class NonConformity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

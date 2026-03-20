@@ -32,6 +32,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { UsersService } from '../users/users.service';
 import { SitesService } from '../sites/sites.service';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import {
   applyBackendPdfFooter,
   backendPdfTheme,
@@ -1339,6 +1340,10 @@ export class ChecklistsService {
       companyId: checklist.company_id,
       module: 'checklist',
       entityId: checklist.id,
+      trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+      trailMetadata: {
+        removalMode: 'soft_delete',
+      },
       removeEntityState: async (manager) => {
         await manager.getRepository(Checklist).softDelete(checklist.id);
       },
@@ -1598,7 +1603,7 @@ export class ChecklistsService {
     }
 
     try {
-      await this.mailService.sendStoredDocument(
+      const result = await this.mailService.sendStoredDocument(
         checklist.id,
         'CHECKLIST',
         to,
@@ -1607,7 +1612,10 @@ export class ChecklistsService {
       this.logChecklistEvent('checklist_email_sent', checklist, {
         reusedFinalPdf: true,
         recipient: to,
+        artifactType: result.artifactType,
+        fallbackUsed: result.fallbackUsed,
       });
+      return result;
     } catch (error) {
       this.logChecklistEvent(
         'checklist_email_failed_official_pdf_unavailable',
@@ -1619,8 +1627,6 @@ export class ChecklistsService {
       );
       throw error;
     }
-
-    return { success: true };
   }
 
   async generatePdf(checklist: Checklist): Promise<Buffer> {

@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { Mail, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
-import api from '@/lib/api';
 import { Input } from './ui/input';
-import { mailService } from '@/services/mailService';
+import {
+  DocumentMailDispatchResponse,
+  mailService,
+} from '@/services/mailService';
 import {
   ModalBody,
   ModalFooter,
@@ -24,6 +26,24 @@ interface SendMailModalProps {
   };
 }
 
+function getMailErrorMessage(error: unknown) {
+  const message = (
+    error as
+      | { response?: { data?: { message?: string | string[] } } }
+      | undefined
+  )?.response?.data?.message;
+
+  if (Array.isArray(message)) {
+    return message.join(' ');
+  }
+
+  if (typeof message === 'string' && message.trim()) {
+    return message;
+  }
+
+  return 'Erro ao enviar e-mail. Tente novamente.';
+}
+
 export function SendMailModal({
   isOpen,
   onClose,
@@ -34,6 +54,7 @@ export function SendMailModal({
 }: SendMailModalProps) {
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
+  const isStoredDocumentFlow = Boolean(storedDocument);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,9 +65,10 @@ export function SendMailModal({
 
     try {
       setSending(true);
+      let result: DocumentMailDispatchResponse;
 
       if (storedDocument) {
-        await mailService.sendStoredDocument(
+        result = await mailService.sendStoredDocument(
           storedDocument.documentId,
           storedDocument.documentType,
           email,
@@ -59,23 +81,22 @@ export function SendMailModal({
         }
         const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: 'application/pdf' });
-
-        const formData = new FormData();
-        formData.append('file', blob, filename);
-        formData.append('email', email);
-        formData.append('docName', documentName);
-
-        await api.post('/mail/send-uploaded-document', formData);
+        result = await mailService.sendUploadedDocument(
+          blob,
+          filename,
+          email,
+          documentName,
+        );
       } else {
         throw new Error('Nenhum documento disponível para envio.');
       }
 
-      toast.success('E-mail enviado com sucesso!');
+      toast.success(result.message);
       onClose();
       setEmail('');
     } catch (error) {
       console.error('Erro ao enviar e-mail:', error);
-      toast.error('Erro ao enviar e-mail. Tente novamente.');
+      toast.error(getMailErrorMessage(error));
     } finally {
       setSending(false);
     }
@@ -86,7 +107,11 @@ export function SendMailModal({
       <form onSubmit={handleSend}>
         <ModalHeader
           title="Enviar documento"
-          description="Compartilhe o PDF final diretamente por e-mail sem sair da tela."
+          description={
+            isStoredDocumentFlow
+              ? 'O envio usará o PDF final governado sempre que ele já estiver emitido.'
+              : 'Este envio usará um PDF local/degradado de forma explícita e auditável.'
+          }
           icon={<Mail className="h-5 w-5" />}
           onClose={onClose}
         />
@@ -94,18 +119,32 @@ export function SendMailModal({
           <div>
             <p className="text-sm text-[var(--ds-color-text-secondary)]">
               O documento{' '}
-              <span className="font-semibold text-[var(--ds-color-text-primary)]">{documentName}</span>{' '}
-              será enviado para o e-mail abaixo como anexo PDF.
+              <span className="font-semibold text-[var(--ds-color-text-primary)]">
+                {documentName}
+              </span>{' '}
+              será enviado para o(s) destinatário(s) abaixo como anexo PDF.
             </p>
+            <div
+              className={`mt-4 rounded-[var(--ds-radius-md)] border px-3 py-2 text-xs ${
+                isStoredDocumentFlow
+                  ? 'border-[color:var(--ds-color-success)]/30 bg-[color:var(--ds-color-success)]/10 text-[var(--ds-color-success)]'
+                  : 'border-[color:var(--ds-color-warning)]/30 bg-[color:var(--ds-color-warning)]/10 text-[var(--ds-color-warning)]'
+              }`}
+            >
+              {isStoredDocumentFlow
+                ? 'Envio oficial: o backend anexará o documento final governado.'
+                : 'Envio local/degradado: o PDF anexado foi gerado localmente e não substitui a emissão final governada.'}
+            </div>
             <label htmlFor="send-mail-email" className="mb-2 mt-4 block">
-              E-mail de Destino
+              E-mail(s) de Destino
             </label>
             <Input
               id="send-mail-email"
               type="email"
+              multiple
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="exemplo@email.com"
+              placeholder="exemplo@email.com, outro@email.com"
               autoFocus
               required
             />

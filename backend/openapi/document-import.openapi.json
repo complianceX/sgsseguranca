@@ -1,0 +1,508 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/documents/import": {
+      "post": {
+        "operationId": "DocumentImportController_importDocument",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Chave opcional para garantir idempotência formal da operação de importação.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Arquivo e metadados",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadDocumentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Documento recebido e enviado para processamento assíncrono",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentImportEnqueueResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos ou arquivo duplicado"
+          },
+          "500": {
+            "description": "Erro interno no servidor"
+          }
+        },
+        "summary": "Importar e analisar documento",
+        "tags": [
+          "document-import"
+        ]
+      }
+    },
+    "/documents/import/{id}/status": {
+      "get": {
+        "operationId": "DocumentImportController_getImportStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Status atual da importação",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentImportStatusResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Importação não encontrada"
+          }
+        },
+        "summary": "Consultar status da importação documental",
+        "tags": [
+          "document-import"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "API Sistema Wanderson-Gandra - Importação Documental",
+    "description": "Schema OpenAPI escopado para o fluxo de Importação Documental.",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "document-import",
+      "description": "Fluxo de importação documental"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "access-token": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "UploadDocumentDto": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "Arquivo a ser importado."
+          },
+          "empresaId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Empresa alvo da importação. Campo legado, usado apenas quando o tenant não vier do contexto autenticado."
+          },
+          "tipoDocumento": {
+            "type": "string",
+            "description": "Tipo documental sugerido para o parser.",
+            "example": "APR"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "description": "Chave formal de idempotência da operação.",
+            "example": "7d0d90d7-0a68-4b2a-b9c8-2cb5cfb9f979"
+          },
+          "metadados": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Metadados livres anexados à operação."
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "DocumentImportJobSnapshotDto": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "description": "Identificador do job na fila.",
+            "nullable": true
+          },
+          "queueState": {
+            "type": "string",
+            "description": "Estado atual do job na fila.",
+            "nullable": true
+          },
+          "attemptsMade": {
+            "type": "number",
+            "description": "Quantidade de tentativas já consumidas pelo worker."
+          },
+          "maxAttempts": {
+            "type": "number",
+            "description": "Quantidade máxima de tentativas configuradas."
+          },
+          "lastAttemptAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp da última tentativa conhecida.",
+            "nullable": true
+          },
+          "deadLettered": {
+            "type": "boolean",
+            "description": "Indica se o job já foi para a DLQ/estado terminal equivalente."
+          }
+        },
+        "required": [
+          "deadLettered"
+        ]
+      },
+      "DocumentImportEnqueueResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "queued": {
+            "type": "boolean"
+          },
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "UPLOADED",
+              "QUEUED",
+              "PROCESSING",
+              "INTERPRETING",
+              "VALIDATING",
+              "COMPLETED",
+              "FAILED",
+              "DEAD_LETTER"
+            ]
+          },
+          "job": {
+            "$ref": "#/components/schemas/DocumentImportJobSnapshotDto"
+          },
+          "statusUrl": {
+            "type": "string",
+            "example": "/documents/import/11111111-1111-4111-8111-111111111111/status"
+          },
+          "reused": {
+            "type": "boolean"
+          },
+          "replayState": {
+            "type": "string",
+            "enum": [
+              "new",
+              "in_progress",
+              "completed",
+              "failed"
+            ]
+          },
+          "dedupeSource": {
+            "type": "string",
+            "enum": [
+              "idempotency_key",
+              "file_hash"
+            ]
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "nullable": true,
+            "description": "Chave formal de idempotência reconhecida pela operação."
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "queued",
+          "documentId",
+          "status",
+          "job",
+          "statusUrl",
+          "reused",
+          "replayState"
+        ]
+      },
+      "DocumentAnalysisResponseDto": {
+        "type": "object",
+        "properties": {
+          "empresa": {
+            "type": "string"
+          },
+          "cnpj": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "responsavelTecnico": {
+            "type": "string"
+          },
+          "responsavel": {
+            "type": "string"
+          },
+          "nrsCitadas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "riscos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "epis": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assinaturas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tipoDocumento": {
+            "type": "string"
+          },
+          "tema": {
+            "type": "string"
+          },
+          "conteudo": {
+            "type": "string"
+          },
+          "resumo": {
+            "type": "string"
+          },
+          "site_id": {
+            "type": "string"
+          },
+          "facilitador_id": {
+            "type": "string"
+          },
+          "scoreConfianca": {
+            "type": "number"
+          },
+          "camposEstruturados": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "tipoNormalizado": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nrsCitadas",
+          "riscos",
+          "epis",
+          "assinaturas"
+        ]
+      },
+      "DocumentValidationResultDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "VALIDO",
+              "INCOMPLETO",
+              "CRITICO"
+            ]
+          },
+          "pendencias": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scoreConfianca": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "status",
+          "pendencias",
+          "scoreConfianca"
+        ]
+      },
+      "DocumentImportAutoCreateDdsMetadataDto": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "created",
+              "failed"
+            ]
+          },
+          "requestedAt": {
+            "type": "string"
+          },
+          "completedAt": {
+            "type": "string"
+          },
+          "ddsId": {
+            "type": "string",
+            "nullable": true
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "DocumentImportMetadataDto": {
+        "type": "object",
+        "properties": {
+          "tamanhoArquivo": {
+            "type": "number"
+          },
+          "quantidadeTexto": {
+            "type": "number"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "scoreClassificacao": {
+            "type": "number"
+          },
+          "textoExtraidoLength": {
+            "type": "number"
+          },
+          "validacao": {
+            "$ref": "#/components/schemas/DocumentValidationResultDto"
+          },
+          "erro": {
+            "type": "string"
+          },
+          "timestampFalha": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "UPLOADED",
+              "QUEUED",
+              "PROCESSING",
+              "INTERPRETING",
+              "VALIDATING",
+              "COMPLETED",
+              "FAILED",
+              "DEAD_LETTER"
+            ]
+          },
+          "autoCreateDds": {
+            "$ref": "#/components/schemas/DocumentImportAutoCreateDdsMetadataDto"
+          }
+        },
+        "required": [
+          "tamanhoArquivo",
+          "quantidadeTexto",
+          "hash",
+          "timestamp"
+        ]
+      },
+      "DocumentImportStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "UPLOADED",
+              "QUEUED",
+              "PROCESSING",
+              "INTERPRETING",
+              "VALIDATING",
+              "COMPLETED",
+              "FAILED",
+              "DEAD_LETTER"
+            ]
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "tipoDocumento": {
+            "type": "string"
+          },
+          "tipoDocumentoDescricao": {
+            "type": "string"
+          },
+          "analysis": {
+            "$ref": "#/components/schemas/DocumentAnalysisResponseDto"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/DocumentValidationResultDto"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/DocumentImportMetadataDto"
+          },
+          "job": {
+            "$ref": "#/components/schemas/DocumentImportJobSnapshotDto"
+          },
+          "statusUrl": {
+            "type": "string",
+            "example": "/documents/import/11111111-1111-4111-8111-111111111111/status"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "success",
+          "documentId",
+          "status",
+          "completed",
+          "failed",
+          "job",
+          "statusUrl"
+        ]
+      }
+    }
+  }
+}

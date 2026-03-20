@@ -7,12 +7,14 @@ import { PublicDocumentRegistryController } from './public-document-registry.con
 import { DocumentGovernanceService } from './document-governance.service';
 import { CommonModule } from '../common/common.module';
 import { AuthModule } from '../auth/auth.module';
+import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([DocumentRegistryEntry]),
     CommonModule,
     AuthModule,
+    ForensicTrailModule,
   ],
   controllers: [DocumentRegistryController, PublicDocumentRegistryController],
   providers: [DocumentRegistryService, DocumentGovernanceService],

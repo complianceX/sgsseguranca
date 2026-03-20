@@ -8,6 +8,8 @@ import { RdoAuditService } from './rdo-audit.service';
 import { MailModule } from '../mail/mail.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { AuthModule } from '../auth/auth.module';
+import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
+import { CommonModule } from '../common/common.module';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { AuthModule } from '../auth/auth.module';
     forwardRef(() => MailModule),
     DocumentRegistryModule,
     AuthModule,
+    ForensicTrailModule,
+    CommonModule,
   ],
   controllers: [RdosController],
   providers: [RdosService, RdoAuditService],

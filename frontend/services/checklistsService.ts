@@ -1,6 +1,7 @@
 import api from "@/lib/api";
 import { AxiosError } from "axios";
 import { fetchAllPages, PaginatedResponse } from "./pagination";
+import { DocumentMailDispatchResponse } from "./mailService";
 import { enqueueOfflineMutation } from "@/lib/offline-sync";
 import {
   getOfflineCache,
@@ -259,8 +260,15 @@ export const checklistsService = {
     await api.delete(`/checklists/${id}`);
   },
 
-  sendEmail: async (id: string, to: string) => {
-    await api.post(`/checklists/${id}/send-email`, { to });
+  sendEmail: async (
+    id: string,
+    to: string,
+  ): Promise<DocumentMailDispatchResponse> => {
+    const response = await api.post<DocumentMailDispatchResponse>(
+      `/checklists/${id}/send-email`,
+      { to },
+    );
+    return response.data;
   },
 
   getPdfAccess: async (id: string) => {

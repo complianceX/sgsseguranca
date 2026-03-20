@@ -394,54 +394,6 @@ export class DossiersService {
     return payload;
   }
 
-  async getLegacyEmployeePdfDownload(userId: string): Promise<{
-    filename: string;
-    buffer: Buffer;
-    source: 'legacy_local_generation' | 'governed_storage';
-  }> {
-    const access = await this.getEmployeePdfAccess(userId);
-    if (access.hasFinalPdf && access.fileKey) {
-      const buffer = await this.documentStorageService.downloadFileBuffer(
-        access.fileKey,
-      );
-      return {
-        filename:
-          access.originalName ||
-          `dossie_colaborador_${userId}_${new Date().toISOString().slice(0, 10)}.pdf`,
-        buffer,
-        source: 'governed_storage',
-      };
-    }
-
-    const generated = await this.generateEmployeeDossier(userId);
-    try {
-      const syntheticFile = {
-        originalname: generated.filename,
-        mimetype: 'application/pdf',
-        buffer: generated.buffer,
-      } as Express.Multer.File;
-      await this.attachEmployeePdf(
-        userId,
-        syntheticFile,
-        'system-legacy-dossiers',
-      );
-      this.logger.log(
-        `legacy_dossier_pdf_promoted_to_governed_pipeline dossierId=${userId}`,
-      );
-    } catch (error) {
-      this.logger.warn(
-        `Falha ao promover endpoint legado de dossie para pipeline governado (${userId}): ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-
-    return {
-      ...generated,
-      source: 'legacy_local_generation',
-    };
-  }
-
   async generateEmployeeDossier(userId: string): Promise<{
     filename: string;
     buffer: Buffer;

@@ -7,21 +7,48 @@ import {
   Index,
 } from 'typeorm';
 import { DocumentImportStatus } from './document-import-status.enum';
+import type { DocumentAnalysisResponseDto } from '../dto/document-analysis.dto';
 
 export interface DocumentImportMetadata {
   scoreClassificacao?: number;
   quantidadeTexto?: number;
-  validacao?: any;
+  autoCreatedDdsId?: string | null;
+  autoCreateDds?: {
+    state?: 'pending' | 'created' | 'failed';
+    requestedAt?: string;
+    completedAt?: string;
+    ddsId?: string | null;
+    error?: string;
+  };
+  queue?: {
+    statusUrl?: string;
+    enqueuedAt?: string;
+    timeoutMs?: number;
+    attempts?: number;
+    lastQueueState?: string;
+  };
+  validacao?: {
+    status?: 'VALIDO' | 'INCOMPLETO' | 'CRITICO';
+    pendencias?: string[];
+    scoreConfianca?: number;
+  };
   erro?: string;
   timestampFalha?: string;
   timestampFinalizacao?: string;
-  [key: string]: any;
 }
 
 @Entity('document_imports')
 @Index('UQ_document_imports_empresa_hash', ['empresaId', 'hash'], {
   unique: true,
 })
+@Index(
+  'UQ_document_imports_empresa_idempotency_key',
+  ['empresaId', 'idempotencyKey'],
+  {
+    unique: true,
+    where: '"idempotency_key" IS NOT NULL',
+  },
+)
 export class DocumentImport {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -30,25 +57,39 @@ export class DocumentImport {
   empresaId!: string;
 
   @Column({ name: 'tipo_documento', length: 50, nullable: true })
-  tipoDocumento!: string;
+  tipoDocumento!: string | null;
 
   @Column({ name: 'nome_arquivo', length: 255, nullable: true })
-  nomeArquivo!: string;
+  nomeArquivo!: string | null;
 
   @Column({ name: 'hash', length: 64 })
   hash!: string;
 
+  @Column({ name: 'idempotency_key', length: 128, nullable: true })
+  idempotencyKey!: string | null;
+
   @Column({ name: 'tamanho', type: 'integer', nullable: true })
-  tamanho!: number;
+  tamanho!: number | null;
+
+  @Column({ name: 'mime_type', length: 120, nullable: true })
+  mimeType!: string | null;
 
   @Column({ name: 'texto_extraido', type: 'text', nullable: true })
-  textoExtraido!: string;
+  textoExtraido!: string | null;
+
+  @Column({
+    name: 'arquivo_staging',
+    type: 'bytea',
+    nullable: true,
+    select: false,
+  })
+  arquivoStaging!: Buffer | null;
 
   @Column({ name: 'json_estruturado', type: 'jsonb', nullable: true })
-  jsonEstruturado!: Record<string, unknown>;
+  jsonEstruturado!: DocumentAnalysisResponseDto | null;
 
   @Column({ name: 'metadata', type: 'jsonb', nullable: true })
-  metadata!: DocumentImportMetadata;
+  metadata!: DocumentImportMetadata | null;
 
   @Column({
     name: 'status',
@@ -68,7 +109,19 @@ export class DocumentImport {
   scoreConfianca!: number;
 
   @Column({ name: 'data_documento', type: 'date', nullable: true })
-  dataDocumento!: Date;
+  dataDocumento!: Date | null;
+
+  @Column({ name: 'processing_job_id', length: 128, nullable: true })
+  processingJobId!: string | null;
+
+  @Column({ name: 'processing_attempts', type: 'integer', default: 0 })
+  processingAttempts!: number;
+
+  @Column({ name: 'last_attempt_at', type: 'timestamptz', nullable: true })
+  lastAttemptAt!: Date | null;
+
+  @Column({ name: 'dead_lettered_at', type: 'timestamptz', nullable: true })
+  deadLetteredAt!: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
@@ -77,7 +130,7 @@ export class DocumentImport {
   updatedAt!: Date;
 
   @Column({ name: 'mensagem_erro', type: 'text', nullable: true })
-  mensagemErro!: string;
+  mensagemErro!: string | null;
 
   constructor(partial?: Partial<DocumentImport>) {
     Object.assign(this, partial);

@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DocumentAnalysisDto } from '../dto/document-analysis.dto';
-import { DocumentValidationResultDto } from '../dto/document-analysis.dto';
+import {
+  DocumentValidationResultDto,
+  DocumentValidationStatus,
+} from '../dto/document-analysis.dto';
 
 @Injectable()
 export class DocumentValidationService {
@@ -286,7 +289,7 @@ export class DocumentValidationService {
   private determineValidationStatus(
     score: number,
     pendencias: string[],
-  ): 'VALIDO' | 'INCOMPLETO' | 'CRITICO' {
+  ): DocumentValidationStatus {
     const criticalPendencias = pendencias.filter(
       (p) =>
         p.includes('não identificada') ||
@@ -295,14 +298,14 @@ export class DocumentValidationService {
     );
 
     if (criticalPendencias.length > 2 || score < 0.4) {
-      return 'CRITICO';
+      return DocumentValidationStatus.CRITICO;
     }
 
     if (score >= 0.7 && criticalPendencias.length === 0) {
-      return 'VALIDO';
+      return DocumentValidationStatus.VALIDO;
     }
 
-    return 'INCOMPLETO';
+    return DocumentValidationStatus.INCOMPLETO;
   }
 
   getValidationRecommendations(pendencias: string[]): string[] {

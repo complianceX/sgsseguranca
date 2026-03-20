@@ -24,6 +24,7 @@ import { NonConformitiesService } from '../nonconformities/nonconformities.servi
 import { DdsService } from '../dds/dds.service';
 import { InspectionsService } from '../inspections/inspections.service';
 import { AuditsService } from '../audits/audits.service';
+import { RdosService } from '../rdos/rdos.service';
 import { CompaniesService } from '../companies/companies.service';
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
@@ -31,6 +32,10 @@ import { IntegrationResilienceService } from '../common/resilience/integration-r
 import { isApiCronDisabled } from '../common/utils/scheduler.util';
 import { ReportsService } from '../reports/reports.service';
 import { CompanyResponseDto } from '../companies/dto/company-response.dto';
+import {
+  DocumentMailArtifactType,
+  DocumentMailDispatchResponseDto,
+} from './dto/document-mail-dispatch-response.dto';
 import {
   DistributedLockHandle,
   DistributedLockService,
@@ -95,6 +100,8 @@ export class MailService {
     private ddsService: DdsService,
     private inspectionsService: InspectionsService,
     private auditsService: AuditsService,
+    @Inject(forwardRef(() => RdosService))
+    private rdosService: RdosService,
     private companiesService: CompaniesService,
     private tenantService: TenantService,
     private documentStorageService: DocumentStorageService,
@@ -146,7 +153,7 @@ export class MailService {
     documentType: string,
     email: string,
     companyId?: string,
-  ) {
+  ): Promise<DocumentMailDispatchResponseDto> {
     const resolvedCompanyId =
       companyId?.trim() || this.tenantService.getTenantId() || undefined;
     let fileKey: string | undefined;
@@ -270,8 +277,26 @@ export class MailService {
             documentId,
             resolvedCompanyId,
           );
+          if (!access.hasFinalPdf || !access.fileKey) {
+            throw new NotFoundException(
+              'A auditoria ainda não possui PDF final emitido.',
+            );
+          }
           fileKey = access.fileKey;
           docName = `Auditoria: ${audit.titulo}`;
+          subject = `${docName}`;
+          break;
+        }
+        case 'RDO': {
+          const rdo = await this.rdosService.findOne(documentId);
+          const access = await this.rdosService.getPdfAccess(documentId);
+          if (!access.hasFinalPdf || !access.fileKey) {
+            throw new NotFoundException(
+              'O RDO ainda não possui PDF final emitido.',
+            );
+          }
+          fileKey = access.fileKey;
+          docName = `RDO ${rdo.numero}`;
           subject = `${docName}`;
           break;
         }
@@ -335,6 +360,28 @@ export class MailService {
         filename: attachmentFilename,
       },
     );
+
+    this.logger.log({
+      event: 'mail_document_sent',
+      documentType: type,
+      documentId,
+      companyId: resolvedCompanyId,
+      artifactType: 'governed_final_pdf',
+      fallbackUsed: false,
+      isOfficial: true,
+      recipient: email,
+    });
+
+    return this.buildDocumentDispatchResponse({
+      message:
+        'O documento final governado foi enviado por e-mail com sucesso.',
+      deliveryMode: 'sent',
+      artifactType: 'governed_final_pdf',
+      isOfficial: true,
+      fallbackUsed: false,
+      documentId,
+      documentType: type,
+    });
   }
 
   async sendStoredFileKey(
@@ -347,7 +394,7 @@ export class MailService {
       companyId?: string;
       userId?: string;
     },
-  ) {
+  ): Promise<DocumentMailDispatchResponseDto> {
     if (!fileKey || !email) {
       throw new BadRequestException('fileKey e email são obrigatórios.');
     }
@@ -390,6 +437,50 @@ export class MailService {
         filename: attachmentFilename,
       },
     );
+
+    this.logger.warn({
+      event: 'mail_document_sent_with_local_fallback',
+      companyId: options?.companyId,
+      userId: options?.userId,
+      artifactType: 'local_uploaded_pdf',
+      fallbackUsed: true,
+      isOfficial: false,
+      recipient: email,
+      fileKey,
+    });
+
+    return this.buildDocumentDispatchResponse({
+      message:
+        'O PDF local foi enviado por e-mail. Este envio não substitui o documento final governado.',
+      deliveryMode: 'sent',
+      artifactType: 'local_uploaded_pdf',
+      isOfficial: false,
+      fallbackUsed: true,
+      fileKey,
+    });
+  }
+
+  buildDocumentDispatchResponse(input: {
+    message: string;
+    deliveryMode: 'queued' | 'sent';
+    artifactType: DocumentMailArtifactType;
+    isOfficial: boolean;
+    fallbackUsed: boolean;
+    documentType?: string;
+    documentId?: string;
+    fileKey?: string;
+  }): DocumentMailDispatchResponseDto {
+    return {
+      success: true,
+      message: input.message,
+      deliveryMode: input.deliveryMode,
+      artifactType: input.artifactType,
+      isOfficial: input.isOfficial,
+      fallbackUsed: input.fallbackUsed,
+      documentType: input.documentType,
+      documentId: input.documentId,
+      fileKey: input.fileKey,
+    };
   }
 
   async sendMail(

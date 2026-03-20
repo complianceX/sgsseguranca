@@ -1,19 +1,30 @@
 import {
   Controller,
-  Post,
-  UseGuards,
-  UseInterceptors,
-  UploadedFile,
-  Body,
   BadRequestException,
+  Body,
+  ConflictException,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  HttpStatus,
   InternalServerErrorException,
   Logger,
-  ForbiddenException,
+  NotFoundException,
+  Param,
+  Post,
+  ParseUUIDPipe,
   Req,
+  ServiceUnavailableException,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadDocumentDto } from '../dto/upload-document.dto';
-import { DocumentImportResponseDto } from '../dto/document-analysis.dto';
+import {
+  DocumentImportEnqueueResponseDto,
+  DocumentImportStatusResponseDto,
+} from '../dto/document-import-queue.dto';
 import { DocumentImportService } from '../services/document-import.service';
 import {
   cleanupUploadedTempFile,
@@ -34,9 +45,12 @@ import {
   ApiOperation,
   ApiConsumes,
   ApiBody,
-  ApiCreatedResponse,
   ApiBadRequestResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiAcceptedResponse,
   ApiInternalServerErrorResponse,
+  ApiHeader,
 } from '@nestjs/swagger';
 
 @ApiTags('document-import')
@@ -60,9 +74,16 @@ export class DocumentImportController {
     description: 'Arquivo e metadados',
     type: UploadDocumentDto,
   })
-  @ApiCreatedResponse({
-    description: 'Documento processado com sucesso',
-    type: DocumentImportResponseDto,
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description:
+      'Chave opcional para garantir idempotência formal da operação de importação.',
+  })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiAcceptedResponse({
+    description: 'Documento recebido e enviado para processamento assíncrono',
+    type: DocumentImportEnqueueResponseDto,
   })
   @ApiBadRequestResponse({
     description: 'Dados inválidos ou arquivo duplicado',
@@ -72,8 +93,17 @@ export class DocumentImportController {
   async importDocument(
     @UploadedFile() file: Express.Multer.File,
     @Body() uploadDto: UploadDocumentDto,
-    @Req() req: { user?: { company_id?: string } },
-  ): Promise<DocumentImportResponseDto> {
+    @Req()
+    req: {
+      user?: { company_id?: string; userId?: string; id?: string };
+      headers?: Record<string, string | string[] | undefined>;
+    },
+  ): Promise<DocumentImportEnqueueResponseDto> {
+    const idempotencyKeyHeaderValue = req.headers?.['idempotency-key'];
+    const idempotencyKeyHeader = Array.isArray(idempotencyKeyHeaderValue)
+      ? idempotencyKeyHeaderValue[0]
+      : idempotencyKeyHeaderValue;
+
     const tenantId =
       req.user?.company_id || this.tenantService.getTenantId() || undefined;
     const isSuperAdmin = this.tenantService.isSuperAdmin();
@@ -129,16 +159,18 @@ export class DocumentImportController {
       }
 
       // Processa o documento através do serviço
-      const result = await this.documentImportService.processDocument(
+      const result = await this.documentImportService.enqueueDocumentProcessing(
         buffer,
         effectiveEmpresaId,
         uploadDto.tipoDocumento,
         file.mimetype,
         file.originalname,
+        req.user?.userId || req.user?.id,
+        idempotencyKeyHeader || uploadDto.idempotencyKey,
       );
 
       this.logger.log(
-        `Documento ${uploadDto.tipoDocumento} processado com sucesso para empresa ${effectiveEmpresaId}`,
+        `Documento ${uploadDto.tipoDocumento} enfileirado com sucesso para empresa ${effectiveEmpresaId}`,
       );
 
       return result;
@@ -151,7 +183,9 @@ export class DocumentImportController {
       // Re-lança exceções conhecidas para que o filtro de exceções global as trate.
       if (
         error instanceof BadRequestException ||
-        error instanceof InternalServerErrorException
+        error instanceof ConflictException ||
+        error instanceof InternalServerErrorException ||
+        error instanceof ServiceUnavailableException
       ) {
         throw error;
       }
@@ -170,5 +204,27 @@ export class DocumentImportController {
     } finally {
       await cleanupUploadedTempFile(file, this.logger);
     }
+  }
+
+  @Get(':id/status')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_import_documents')
+  @ApiOperation({ summary: 'Consultar status da importação documental' })
+  @ApiOkResponse({
+    description: 'Status atual da importação',
+    type: DocumentImportStatusResponseDto,
+  })
+  @ApiNotFoundResponse({ description: 'Importação não encontrada' })
+  async getImportStatus(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<DocumentImportStatusResponseDto> {
+    const result =
+      await this.documentImportService.getDocumentStatusResponse(id);
+
+    if (!result) {
+      throw new NotFoundException('Importação documental não encontrada.');
+    }
+
+    return result;
   }
 }

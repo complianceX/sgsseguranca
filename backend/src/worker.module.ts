@@ -7,6 +7,7 @@ import * as Joi from 'joi';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RedisModule } from './common/redis/redis.module';
 import { MailWorkerModule } from './mail/mail.worker.module';
+import { DocumentImportWorkerModule } from './document-import/document-import.worker.module';
 import { ReportsWorkerModule } from './reports/reports.worker.module';
 import { QueueServicesModule } from './queue/queue-services.module';
 import { ObservabilityModule } from './common/observability/observability.module';
@@ -169,6 +170,21 @@ const validationSchema = Joi.object({
     .min(60000)
     .max(900000)
     .optional(),
+  DOCUMENT_IMPORT_QUEUE_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(30000)
+    .max(900000)
+    .optional(),
+  DOCUMENT_IMPORT_QUEUE_ATTEMPTS: Joi.number()
+    .integer()
+    .min(1)
+    .max(10)
+    .optional(),
+  DOCUMENT_IMPORT_QUEUE_CONCURRENCY: Joi.number()
+    .integer()
+    .min(1)
+    .max(4)
+    .optional(),
   INSPECTION_INLINE_EVIDENCE_MAX_BYTES: Joi.number()
     .integer()
     .min(131072)
@@ -276,6 +292,7 @@ const validationSchema = Joi.object({
     // Apenas módulos relacionados a filas/processamento
     ObservabilityModule,
     MailWorkerModule,
+    DocumentImportWorkerModule,
     ReportsWorkerModule,
     QueueServicesModule,
     SlaEscalationWorkerModule,

@@ -1,30 +1,32 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { SendMailModal } from './SendMailModal';
 
-const postMock = jest.fn();
 const sendStoredDocumentMock = jest.fn();
-
-jest.mock('@/lib/api', () => ({
-  __esModule: true,
-  default: {
-    post: (...args: unknown[]) => postMock(...args),
-  },
-}));
+const sendUploadedDocumentMock = jest.fn();
 
 jest.mock('@/services/mailService', () => ({
   mailService: {
     sendStoredDocument: (...args: unknown[]) => sendStoredDocumentMock(...args),
+    sendUploadedDocument: (...args: unknown[]) =>
+      sendUploadedDocumentMock(...args),
   },
 }));
 
 describe('SendMailModal', () => {
   beforeEach(() => {
-    postMock.mockReset();
     sendStoredDocumentMock.mockReset();
+    sendUploadedDocumentMock.mockReset();
   });
 
   it('usa o fluxo de documento armazenado quando o PDF final governado existe', async () => {
-    sendStoredDocumentMock.mockResolvedValue({});
+    sendStoredDocumentMock.mockResolvedValue({
+      success: true,
+      message: 'Documento final governado enviado.',
+      deliveryMode: 'queued',
+      artifactType: 'governed_final_pdf',
+      isOfficial: true,
+      fallbackUsed: false,
+    });
 
     render(
       <SendMailModal
@@ -36,7 +38,7 @@ describe('SendMailModal', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText(/e-mail de destino/i), {
+    fireEvent.change(screen.getByLabelText(/e-mail.*destino/i), {
       target: { value: 'cliente@empresa.com' },
     });
     fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
@@ -48,11 +50,19 @@ describe('SendMailModal', () => {
         'cliente@empresa.com',
       );
     });
-    expect(postMock).not.toHaveBeenCalled();
+    expect(sendUploadedDocumentMock).not.toHaveBeenCalled();
   });
 
   it('mantem o fluxo legado de upload quando recebe base64', async () => {
-    postMock.mockResolvedValue({});
+    sendUploadedDocumentMock.mockResolvedValue({
+      success: true,
+      message:
+        'O PDF local foi enviado por e-mail. Este envio não substitui o documento final governado.',
+      deliveryMode: 'queued',
+      artifactType: 'local_uploaded_pdf',
+      isOfficial: false,
+      fallbackUsed: true,
+    });
 
     render(
       <SendMailModal
@@ -64,15 +74,17 @@ describe('SendMailModal', () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText(/e-mail de destino/i), {
+    fireEvent.change(screen.getByLabelText(/e-mail.*destino/i), {
       target: { value: 'preview@empresa.com' },
     });
     fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
 
     await waitFor(() => {
-      expect(postMock).toHaveBeenCalledWith(
-        '/mail/send-uploaded-document',
-        expect.any(FormData),
+      expect(sendUploadedDocumentMock).toHaveBeenCalledWith(
+        expect.any(Blob),
+        'checklist-preview.pdf',
+        'preview@empresa.com',
+        'Checklist Preview',
       );
     });
     expect(sendStoredDocumentMock).not.toHaveBeenCalled();

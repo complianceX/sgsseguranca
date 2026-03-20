@@ -11,7 +11,6 @@ import { isAiEnabled } from '@/lib/featureFlags';
 import {
   base64ToPdfBlob,
   base64ToPdfFile,
-  blobToBase64,
 } from '@/lib/pdf/pdfFile';
 
 interface Insight {
@@ -50,7 +49,15 @@ export function useAprs() {
 
   // Estados para o modal de e-mail
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<{ name: string; filename: string; base64: string } | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<{
+    name: string;
+    filename: string;
+    base64?: string;
+    storedDocument?: {
+      documentId: string;
+      documentType: string;
+    };
+  } | null>(null);
 
   const buildAprFilename = useCallback(
     (apr: Apr) => `APR_${String(apr.numero || apr.titulo || apr.id).replace(/\s+/g, '_')}.pdf`,
@@ -105,31 +112,6 @@ export function useAprs() {
     loadAprs();
     loadInsights();
   }, [loadAprs, loadInsights]);
-
-  const getStoredPdfAttachment = useCallback(
-    async (apr: Apr): Promise<{ base64: string; filename: string } | null> => {
-      if (!apr.pdf_file_key) {
-        return null;
-      }
-
-      const access = await aprsService.getPdfAccess(apr.id);
-      if (!access.hasFinalPdf || !access.url) {
-        return null;
-      }
-
-      const response = await fetch(access.url);
-      if (!response.ok) {
-        throw new Error('Falha ao baixar o PDF final armazenado da APR.');
-      }
-
-      const blob = await response.blob();
-      return {
-        base64: await blobToBase64(blob),
-        filename: access.originalName || buildAprFilename(apr),
-      };
-    },
-    [buildAprFilename],
-  );
 
   const ensureGovernedPdf = useCallback(
     async (apr: Apr) => {
@@ -271,30 +253,36 @@ export function useAprs() {
 
       if (shouldUseGovernedPdf) {
         const access = await ensureGovernedPdf(apr);
-        if (!access?.url) {
+        if (access?.hasFinalPdf) {
+          if (access.message) {
+            toast.info(
+              `${access.message} O envio oficial continuará usando o PDF final governado da APR.`,
+            );
+          }
+          setSelectedDoc({
+            name: apr.titulo,
+            filename: access.originalName || buildAprFilename(apr),
+            storedDocument: {
+              documentId: apr.id,
+              documentType: 'APR',
+            },
+          });
+          setIsMailModalOpen(true);
+          return;
+        }
+
+        if (apr.status === 'Aprovada') {
           toast.warning(
             access?.message ||
               'O PDF final da APR foi emitido, mas a URL segura não está disponível agora.',
           );
           return;
         }
-
-        const storedAttachment = await getStoredPdfAttachment({
-          ...apr,
-          pdf_file_key: access.fileKey ?? undefined,
-          pdf_folder_path: access.folderPath ?? undefined,
-          pdf_original_name: access.originalName ?? undefined,
-        });
-        if (storedAttachment) {
-          setSelectedDoc({
-            name: apr.titulo,
-            filename: storedAttachment.filename,
-            base64: storedAttachment.base64,
-          });
-          setIsMailModalOpen(true);
-          return;
-        }
       }
+
+      toast.warning(
+        'Esta APR ainda não possui PDF final governado emitido. O envio ocorrerá com um PDF local não governado.',
+      );
 
       const [fullApr, signatures, evidences] = await Promise.all([
         aprsService.findOne(id),
@@ -319,7 +307,7 @@ export function useAprs() {
     } catch (error) {
       handleApiError(error, 'Email');
     }
-  }, [aprs, ensureGovernedPdf, getStoredPdfAttachment]);
+  }, [aprs, buildAprFilename, ensureGovernedPdf]);
 
   // Filtering is now server-side — aprs already contains the filtered page
   const filteredAprs = aprs;

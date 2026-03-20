@@ -1,5 +1,6 @@
 import api from "@/lib/api";
 import { fetchAllPages, PaginatedResponse } from "./pagination";
+import { DocumentMailDispatchResponse } from "./mailService";
 
 export interface MaoDeObraItem {
   funcao: string;
@@ -233,8 +234,15 @@ export const rdosService = {
     return response.data;
   },
 
-  sendEmail: async (id: string, to: string[]): Promise<void> => {
-    await api.post(`/rdos/${id}/send-email`, { to });
+  sendEmail: async (
+    id: string,
+    to: string[],
+  ): Promise<DocumentMailDispatchResponse & { recipients: number }> => {
+    const response = await api.post<DocumentMailDispatchResponse & { recipients: number }>(
+      `/rdos/${id}/send-email`,
+      { to },
+    );
+    return response.data;
   },
 
   listFiles: async (opts?: {

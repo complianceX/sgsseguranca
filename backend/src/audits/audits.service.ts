@@ -25,6 +25,23 @@ import {
   cleanupUploadedFile,
   isS3DisabledUploadError,
 } from '../common/storage/storage-compensation.util';
+import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+
+type AuditPdfAccessAvailability =
+  | 'ready'
+  | 'registered_without_signed_url'
+  | 'not_emitted';
+
+type AuditPdfAccessResponse = {
+  entityId: string;
+  hasFinalPdf: boolean;
+  availability: AuditPdfAccessAvailability;
+  message: string | null;
+  fileKey: string | null;
+  folderPath: string | null;
+  originalName: string | null;
+  url: string | null;
+};
 
 @Injectable()
 export class AuditsService {
@@ -156,6 +173,10 @@ export class AuditsService {
       companyId: audit.company_id,
       module: 'audit',
       entityId: auditId,
+      trailEventType: FORENSIC_EVENT_TYPES.FINAL_DOCUMENT_REMOVED,
+      trailMetadata: {
+        removalMode: 'soft_delete',
+      },
       removeEntityState: async (manager) => {
         await manager.getRepository(Audit).softDelete(auditId);
       },
@@ -255,19 +276,24 @@ export class AuditsService {
   async getPdfAccess(
     id: string,
     companyId: string,
-  ): Promise<{
-    entityId: string;
-    fileKey: string;
-    folderPath: string;
-    originalName: string;
-    url: string | null;
-  }> {
+  ): Promise<AuditPdfAccessResponse> {
     const audit = await this.findOne(id, companyId);
     if (!audit.pdf_file_key) {
-      throw new NotFoundException(`Auditoria ${id} não possui PDF armazenado`);
+      return {
+        entityId: audit.id,
+        hasFinalPdf: false,
+        availability: 'not_emitted',
+        message: 'PDF final ainda não emitido para esta auditoria.',
+        fileKey: null,
+        folderPath: audit.pdf_folder_path ?? null,
+        originalName: audit.pdf_original_name ?? null,
+        url: null,
+      };
     }
 
     let url: string | null = null;
+    let availability: AuditPdfAccessAvailability = 'ready';
+    let message: string | null = null;
     try {
       url = await this.documentStorageService.getSignedUrl(
         audit.pdf_file_key,
@@ -275,13 +301,19 @@ export class AuditsService {
       );
     } catch {
       url = null;
+      availability = 'registered_without_signed_url';
+      message =
+        'PDF final emitido, mas a URL segura não está disponível no momento.';
     }
 
     return {
       entityId: audit.id,
+      hasFinalPdf: true,
+      availability,
+      message,
       fileKey: audit.pdf_file_key,
-      folderPath: audit.pdf_folder_path,
-      originalName: audit.pdf_original_name,
+      folderPath: audit.pdf_folder_path ?? null,
+      originalName: audit.pdf_original_name ?? null,
       url,
     };
   }

@@ -81,6 +81,23 @@ const SIGNATURE_TYPE_LABEL: Record<string, string> = {
   hmac: "PIN Seguro (HMAC-SHA256)",
 };
 
+const SIGNATURE_VERIFICATION_MODE_LABEL: Record<string, string> = {
+  server_verifiable: "Verificável server-side",
+  operational_ack: "Aceite operacional",
+  legacy_client_hash: "Legado",
+};
+
+const SIGNATURE_PROOF_SCOPE_LABEL: Record<string, string> = {
+  governed_final_document: "Documento final governado",
+  document_revision: "Revisão do documento",
+  document_identity: "Identidade do documento",
+  operational_snapshot: "Snapshot operacional",
+};
+
+const SIGNATURE_LEGAL_ASSURANCE_LABEL: Record<string, string> = {
+  not_legal_strong: "Não equivale a assinatura jurídica forte",
+};
+
 interface SignatureVerifyResponse {
   valid: boolean;
   message?: string;
@@ -91,6 +108,11 @@ interface SignatureVerifyResponse {
     document_id?: string;
     document_type?: string;
     type?: string;
+    verification_mode?: string;
+    legal_assurance?: string;
+    proof_scope?: string | null;
+    document_binding_hash?: string | null;
+    signature_evidence_hash?: string | null;
   };
 }
 
@@ -474,6 +496,30 @@ export default function PublicHashVerifyPage() {
                       <p>
                         Autoridade:{" "}
                         {signatureResult.signature.timestamp_authority || "-"}
+                      </p>
+                      <p>
+                        Modo de verificação:{" "}
+                        {signatureResult.signature.verification_mode
+                          ? (SIGNATURE_VERIFICATION_MODE_LABEL[
+                              signatureResult.signature.verification_mode
+                            ] ?? signatureResult.signature.verification_mode)
+                          : "-"}
+                      </p>
+                      <p>
+                        Escopo de prova:{" "}
+                        {signatureResult.signature.proof_scope
+                          ? (SIGNATURE_PROOF_SCOPE_LABEL[
+                              signatureResult.signature.proof_scope
+                            ] ?? signatureResult.signature.proof_scope)
+                          : "-"}
+                      </p>
+                      <p>
+                        Nível jurídico:{" "}
+                        {signatureResult.signature.legal_assurance
+                          ? (SIGNATURE_LEGAL_ASSURANCE_LABEL[
+                              signatureResult.signature.legal_assurance
+                            ] ?? signatureResult.signature.legal_assurance)
+                          : "-"}
                       </p>
                       <p>Hash: {signatureResult.signature.hash}</p>
                     </div>

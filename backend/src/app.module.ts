@@ -326,6 +326,21 @@ const validationSchema = Joi.object({
     .min(60000)
     .max(900000)
     .optional(),
+  DOCUMENT_IMPORT_QUEUE_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(30000)
+    .max(900000)
+    .optional(),
+  DOCUMENT_IMPORT_QUEUE_ATTEMPTS: Joi.number()
+    .integer()
+    .min(1)
+    .max(10)
+    .optional(),
+  DOCUMENT_IMPORT_QUEUE_CONCURRENCY: Joi.number()
+    .integer()
+    .min(1)
+    .max(4)
+    .optional(),
   INSPECTION_INLINE_EVIDENCE_MAX_BYTES: Joi.number()
     .integer()
     .min(131072)

@@ -10,6 +10,8 @@ import { TempCleanupService } from '../common/services/temp-cleanup.service';
       { name: 'mail' },
       { name: 'pdf-generation-dlq' },
       { name: 'mail-dlq' },
+      { name: 'document-import' },
+      { name: 'document-import-dlq' },
       { name: 'sla-escalation' },
       { name: 'expiry-notifications' },
     ),

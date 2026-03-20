@@ -7,13 +7,12 @@ import {
   ParseUUIDPipe,
   Post,
   Req,
-  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { Request, Response } from 'express';
+import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
@@ -46,20 +45,12 @@ export class DossiersController {
     '299 - "Endpoint legado. Use o fluxo governado /dossiers/{employee|site}/:id/pdf/access + /pdf/file."',
   )
   @Authorize('can_view_dossiers')
-  async generateEmployeeDossier(
+  generateEmployeeDossier(
     @Param('userId', new ParseUUIDPipe()) userId: string,
-    @Res() res: Response,
   ) {
-    const { filename, buffer, source } =
-      await this.dossiersService.getLegacyEmployeePdfDownload(userId);
-    res.setHeader('X-Dossier-Legacy-Source', source);
-    if (source === 'legacy_local_generation') {
-      res.setHeader(
-        'X-Dossier-Legacy-Mode',
-        'degraded-local-generation-promoted',
-      );
-    }
-    this.sendPdf(res, filename, buffer);
+    throw new GoneException(
+      `O endpoint legado de PDF do dossiê por colaborador (${userId}) foi descontinuado. Use GET /dossiers/employee/:userId/context, GET /dossiers/employee/:userId/pdf/access e POST /dossiers/employee/:userId/pdf/file.`,
+    );
   }
 
   @Get('employee/:userId/context')
@@ -135,6 +126,10 @@ export class DossiersController {
   @Get('contract/:contractId/pdf')
   @Header('Deprecation', 'true')
   @Header('Sunset', 'Tue, 30 Jun 2026 00:00:00 GMT')
+  @Header(
+    'Warning',
+    '299 - "Fluxo legado descontinuado. Use os fluxos oficiais por colaborador ou por obra/setor."',
+  )
   @Authorize('can_view_dossiers')
   getLegacyContractDossier(
     @Param('contractId', new ParseUUIDPipe()) contractId: string,
@@ -142,12 +137,5 @@ export class DossiersController {
     throw new GoneException(
       `O fluxo legado de dossiê por contrato (${contractId}) foi descontinuado. Use os fluxos oficiais por colaborador ou por obra/setor.`,
     );
-  }
-
-  private sendPdf(res: Response, filename: string, buffer: Buffer) {
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Length', buffer.length);
-    res.send(buffer);
   }
 }

@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
@@ -22,6 +23,9 @@ export interface EpiNecessario {
 }
 
 @Entity('service_orders')
+@Index('UQ_service_orders_company_numero', ['company_id', 'numero'], {
+  unique: true,
+})
 export class ServiceOrder {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -17,6 +17,9 @@ export class QueueMonitorService {
     @InjectQueue('mail') private mailQueue: Queue,
     @InjectQueue('pdf-generation-dlq') private pdfDlqQueue: Queue,
     @InjectQueue('mail-dlq') private mailDlqQueue: Queue,
+    @InjectQueue('document-import') private documentImportQueue: Queue,
+    @InjectQueue('document-import-dlq')
+    private documentImportDlqQueue: Queue,
   ) {}
 
   // SECURITY: monitoramento periódico das filas sem bloquear o servidor HTTP
@@ -45,12 +48,25 @@ export class QueueMonitorService {
         'wait',
         'failed',
       );
+      const documentImportStats = await this.documentImportQueue.getJobCounts(
+        'active',
+        'wait',
+        'completed',
+        'failed',
+        'delayed',
+      );
+      const documentImportDlqStats =
+        await this.documentImportDlqQueue.getJobCounts('wait', 'failed');
 
       const pdfTotal = Object.values(pdfStats).reduce(
         (a: number, b: number) => a + b,
         0,
       );
       const mailTotal = Object.values(mailStats).reduce(
+        (a: number, b: number) => a + b,
+        0,
+      );
+      const documentImportTotal = Object.values(documentImportStats).reduce(
         (a: number, b: number) => a + b,
         0,
       );
@@ -62,12 +78,18 @@ export class QueueMonitorService {
       this.logger.log(
         `📧 FILA MAIL: ${mailStats.active || 0} ativo, ${mailStats.wait || 0} aguardando, ${mailStats.completed || 0} completo, ${mailStats.failed || 0} falhou (Total: ${mailTotal})`,
       );
+      this.logger.log(
+        `📥 FILA IMPORT: ${documentImportStats.active || 0} ativo, ${documentImportStats.wait || 0} aguardando, ${documentImportStats.delayed || 0} atrasado, ${documentImportStats.completed || 0} completo, ${documentImportStats.failed || 0} falhou (Total: ${documentImportTotal})`,
+      );
 
       this.logger.log(
         `🧯 DLQ PDF: ${pdfDlqStats.wait || 0} aguardando, ${pdfDlqStats.failed || 0} falhou`,
       );
       this.logger.log(
         `🧯 DLQ MAIL: ${mailDlqStats.wait || 0} aguardando, ${mailDlqStats.failed || 0} falhou`,
+      );
+      this.logger.log(
+        `🧯 DLQ IMPORT: ${documentImportDlqStats.wait || 0} aguardando, ${documentImportDlqStats.failed || 0} falhou`,
       );
 
       // Alertas
@@ -106,6 +128,18 @@ export class QueueMonitorService {
         });
       }
 
+      if ((documentImportStats.wait || 0) > threshold) {
+        this.logger.warn({
+          alert: 'QUEUE_WAITING_HIGH',
+          queue: 'document-import',
+          waiting: documentImportStats.wait || 0,
+          threshold,
+          action:
+            'Inspecionar backlog da importação documental, worker e integrações de IA/parsing.',
+          runbook: 'backend/OPERATIONS_RUNBOOK.md',
+        });
+      }
+
       if ((pdfDlqStats.wait || 0) > 0) {
         this.logger.warn({
           alert: 'DLQ_NOT_EMPTY',
@@ -124,6 +158,17 @@ export class QueueMonitorService {
           waiting: mailDlqStats.wait || 0,
           action:
             'Inspecionar jobs no Bull Board, corrigir causa raiz e reprocessar manualmente se necessário.',
+          runbook: 'backend/OPERATIONS_RUNBOOK.md',
+        });
+      }
+
+      if ((documentImportDlqStats.wait || 0) > 0) {
+        this.logger.warn({
+          alert: 'DLQ_NOT_EMPTY',
+          queue: 'document-import-dlq',
+          waiting: documentImportDlqStats.wait || 0,
+          action:
+            'Inspecionar jobs no Bull Board, revisar o erro do parser/IA e reprocessar manualmente se necessário.',
           runbook: 'backend/OPERATIONS_RUNBOOK.md',
         });
       }
@@ -147,6 +192,15 @@ export class QueueMonitorService {
     );
     const pdfDlqStats = await this.pdfDlqQueue.getJobCounts('wait', 'failed');
     const mailDlqStats = await this.mailDlqQueue.getJobCounts('wait', 'failed');
+    const documentImportStats = await this.documentImportQueue.getJobCounts(
+      'active',
+      'wait',
+      'completed',
+      'failed',
+      'delayed',
+    );
+    const documentImportDlqStats =
+      await this.documentImportDlqQueue.getJobCounts('wait', 'failed');
 
     return {
       pdf: {
@@ -169,6 +223,17 @@ export class QueueMonitorService {
           0,
         ),
       },
+      documentImport: {
+        active: documentImportStats.active || 0,
+        waiting: documentImportStats.wait || 0,
+        delayed: documentImportStats.delayed || 0,
+        completed: documentImportStats.completed || 0,
+        failed: documentImportStats.failed || 0,
+        total: Object.values(documentImportStats).reduce(
+          (a: number, b: number) => a + b,
+          0,
+        ),
+      },
       dlq: {
         pdf: {
           waiting: pdfDlqStats.wait || 0,
@@ -177,6 +242,10 @@ export class QueueMonitorService {
         mail: {
           waiting: mailDlqStats.wait || 0,
           failed: mailDlqStats.failed || 0,
+        },
+        documentImport: {
+          waiting: documentImportDlqStats.wait || 0,
+          failed: documentImportDlqStats.failed || 0,
         },
       },
     };

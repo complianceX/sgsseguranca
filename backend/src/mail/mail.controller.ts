@@ -36,6 +36,7 @@ import { defaultJobOptions } from '../queue/default-job-options';
 import { validatePdfMagicBytesFromPath } from '../common/interceptors/file-upload.interceptor';
 import { TenantService } from '../common/tenant/tenant.service';
 import { Authorize } from '../auth/authorize.decorator';
+import { DocumentMailDispatchResponseDto } from './dto/document-mail-dispatch-response.dto';
 
 type RequestWithUser = {
   user?: { company_id?: string; companyId?: string; userId?: string };
@@ -159,7 +160,7 @@ export class MailController {
   async sendStoredDocument(
     @Body() body: { documentId: string; documentType: string; email: string },
     @Request() req: RequestWithUser,
-  ) {
+  ): Promise<DocumentMailDispatchResponseDto> {
     const { documentId, documentType, email } = body;
     const companyId = req.user?.company_id || req.user?.companyId;
 
@@ -182,11 +183,27 @@ export class MailController {
         defaultJobOptions,
       );
 
-      return {
-        success: true,
+      this.logger.log({
+        event: 'mail_document_dispatch_queued',
+        documentType: documentType.toUpperCase().trim(),
+        documentId,
+        companyId,
+        artifactType: 'governed_final_pdf',
+        fallbackUsed: false,
+        isOfficial: true,
+        recipient: email,
+      });
+
+      return this.mailService.buildDocumentDispatchResponse({
         message:
-          'Solicitação recebida. O documento será enviado por e-mail em instantes.',
-      };
+          'Solicitação recebida. O documento final governado será enviado por e-mail em instantes.',
+        deliveryMode: 'queued',
+        artifactType: 'governed_final_pdf',
+        isOfficial: true,
+        fallbackUsed: false,
+        documentType: documentType.toUpperCase().trim(),
+        documentId,
+      });
     } catch (error) {
       // Fallback: se Redis/fila estiver indisponível, envia no fluxo síncrono
       // para evitar erro 500 no front.
@@ -196,18 +213,13 @@ export class MailController {
         }`,
       );
 
-      await this.mailService.sendStoredDocument(
+      return this.mailService.sendStoredDocument(
         documentId,
         documentType,
         email,
         companyId,
       );
     }
-
-    return {
-      success: true,
-      message: 'Documento enviado por e-mail com sucesso.',
-    };
   }
 
   @Post('send-uploaded-document')
@@ -236,7 +248,7 @@ export class MailController {
     @UploadedFile() file: Express.Multer.File,
     @Body() body: { email: string; subject?: string; docName?: string },
     @Request() req: RequestWithUser,
-  ) {
+  ): Promise<DocumentMailDispatchResponseDto> {
     const email = body.email?.trim();
     if (!email) {
       throw new BadRequestException('email é obrigatório.');
@@ -282,12 +294,26 @@ export class MailController {
         defaultJobOptions,
       );
 
-      return {
-        success: true,
-        message:
-          'Solicitação recebida. O documento será enviado por e-mail em instantes.',
+      this.logger.warn({
+        event: 'mail_document_local_fallback_queued',
+        companyId,
+        userId: req.user?.userId,
+        artifactType: 'local_uploaded_pdf',
+        fallbackUsed: true,
+        isOfficial: false,
+        recipient: email,
         fileKey,
-      };
+      });
+
+      return this.mailService.buildDocumentDispatchResponse({
+        message:
+          'Solicitação recebida. O PDF local será enviado por e-mail em instantes. Este envio não substitui o documento final governado.',
+        deliveryMode: 'queued',
+        artifactType: 'local_uploaded_pdf',
+        isOfficial: false,
+        fallbackUsed: true,
+        fileKey,
+      });
     } catch (error) {
       this.logger.warn(
         `Fila de e-mail indisponível para upload, aplicando fallback síncrono: ${
@@ -295,7 +321,7 @@ export class MailController {
         }`,
       );
 
-      await this.mailService.sendStoredFileKey(fileKey, email, {
+      return this.mailService.sendStoredFileKey(fileKey, email, {
         subject: body.subject,
         docName: body.docName || file.originalname,
         expiresInSeconds: 604800,
@@ -303,12 +329,6 @@ export class MailController {
         userId: req.user?.userId,
       });
     }
-
-    return {
-      success: true,
-      message: 'Documento enviado por e-mail com sucesso.',
-      fileKey,
-    };
   }
 
   @Post('alerts/dispatch')

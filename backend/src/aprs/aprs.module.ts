@@ -15,6 +15,7 @@ import { PublicAprEvidenceController } from './public-apr-evidence.controller';
 import { SignaturesModule } from '../signatures/signatures.module';
 import { AprRiskMatrixService } from './apr-risk-matrix.service';
 import { AprExcelService } from './apr-excel.service';
+import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AprExcelService } from './apr-excel.service';
     StorageModule,
     DocumentRegistryModule,
     SignaturesModule,
+    ForensicTrailModule,
   ],
   controllers: [AprsController, PublicAprEvidenceController],
   providers: [AprsService, AprRiskMatrixService, AprExcelService],

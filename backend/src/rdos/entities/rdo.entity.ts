@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
@@ -46,6 +47,7 @@ export interface OcorrenciaItem {
 }
 
 @Entity('rdos')
+@Index('UQ_rdos_company_numero', ['company_id', 'numero'], { unique: true })
 export class Rdo {
   @PrimaryGeneratedColumn('uuid')
   id: string;

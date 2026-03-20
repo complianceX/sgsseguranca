@@ -585,7 +585,15 @@ describe('ChecklistsService', () => {
   });
 
   it('reaproveita PDF armazenado ao enviar email', async () => {
-    const sendStoredDocument = jest.fn();
+    const sendStoredDocument = jest.fn().mockResolvedValue({
+      success: true,
+      message:
+        'O documento final governado foi enviado por e-mail com sucesso.',
+      deliveryMode: 'sent',
+      artifactType: 'governed_final_pdf',
+      isOfficial: true,
+      fallbackUsed: false,
+    });
     service = new ChecklistsService(
       repository as unknown as Repository<Checklist>,
       { getTenantId: jest.fn(() => 'company-1') } as TenantService,
@@ -629,7 +637,10 @@ describe('ChecklistsService', () => {
       message: 'PDF final do checklist disponível para acesso.',
     });
 
-    await service.sendEmail('checklist-1', 'cliente@empresa.com');
+    const result = await service.sendEmail(
+      'checklist-1',
+      'cliente@empresa.com',
+    );
 
     expect(sendStoredDocument).toHaveBeenCalledWith(
       'checklist-1',
@@ -637,6 +648,11 @@ describe('ChecklistsService', () => {
       'cliente@empresa.com',
       'company-1',
     );
+    expect(result).toMatchObject({
+      artifactType: 'governed_final_pdf',
+      isOfficial: true,
+      fallbackUsed: false,
+    });
   });
 
   it('bloqueia envio de email quando o checklist ainda nao tem PDF final', async () => {
