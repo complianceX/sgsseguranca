@@ -26,6 +26,7 @@ import { SendMailModal } from '@/components/SendMailModal';
 import { StoredFilesPanel } from '@/components/StoredFilesPanel';
 import { correctiveActionsService } from '@/services/correctiveActionsService';
 import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
+import { resolveGovernedPdfConsumption } from '@/lib/governedPdfFallback';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Card,
@@ -150,17 +151,17 @@ export default function AuditsPage() {
   const handleDownloadPdf = async (audit: Audit) => {
     try {
       const access = await getGovernedPdfAccess(audit.id);
-      if (access.hasFinalPdf) {
-        if (!access.url) {
-          throw new Error(
-            access.message || 'PDF final emitido, mas indisponível no armazenamento.',
-          );
-        }
-        openUrlInNewTab(access.url);
+      const resolution = resolveGovernedPdfConsumption(access, {
+        action: 'download',
+        documentLabel: 'auditoria',
+      });
+      if (resolution.mode === 'governed_url') {
+        openUrlInNewTab(resolution.url);
         return;
       }
 
-      toast.info('Gerando PDF...');
+      toast.info(resolution.message);
+
       const fullAudit = await auditsService.findOne(audit.id);
       await generateAuditPdf(fullAudit);
       toast.success('PDF gerado com sucesso');
@@ -174,18 +175,18 @@ export default function AuditsPage() {
     try {
       toast.info('Preparando impressao...');
       const access = await getGovernedPdfAccess(audit.id);
-      if (access.hasFinalPdf) {
-        if (!access.url) {
-          throw new Error(
-            access.message || 'PDF final emitido, mas indisponível no armazenamento.',
-          );
-        }
-        openPdfForPrint(access.url, () => {
+      const resolution = resolveGovernedPdfConsumption(access, {
+        action: 'print',
+        documentLabel: 'auditoria',
+      });
+      if (resolution.mode === 'governed_url') {
+        openPdfForPrint(resolution.url, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressao.');
         });
         return;
       }
 
+      toast.info(resolution.message);
       const fullAudit = await auditsService.findOne(audit.id);
       const result = (await generateAuditPdf(fullAudit, {
         save: false,
@@ -255,7 +256,7 @@ export default function AuditsPage() {
       );
       const access = await ensureGovernedPdf(audit);
       if (!access.url) {
-        toast.success(
+        toast.warning(
           access.message ||
             'PDF final emitido, mas a URL segura não está disponível no momento.',
         );

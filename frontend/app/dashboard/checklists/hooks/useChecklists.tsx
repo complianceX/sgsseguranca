@@ -10,6 +10,7 @@ import { ptBR } from 'date-fns/locale';
 import React from 'react';
 import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
 import { isAiEnabled } from '@/lib/featureFlags';
+import { resolveGovernedPdfConsumption } from '@/lib/governedPdfFallback';
 import {
   ChecklistColumnKey,
   checklistColumnLabels,
@@ -84,12 +85,16 @@ export function useChecklists() {
       setPrintingId(checklist.id);
       if (checklist.pdf_file_key) {
         const access = await checklistsService.getPdfAccess(checklist.id);
-        if (access.url) {
-          openUrlInNewTab(access.url);
+        const resolution = resolveGovernedPdfConsumption(access, {
+          action: 'download',
+          documentLabel: 'checklist',
+        });
+        if (resolution.mode === 'governed_url') {
+          openUrlInNewTab(resolution.url);
           toast.success('PDF aberto com sucesso!');
           return;
         }
-        throw new Error(access.message || 'PDF final emitido, mas indisponível no armazenamento.');
+        toast.info(resolution.message);
       }
       const signatures = await signaturesService.findByChecklist(checklist.id);
       await generateChecklistPdf(checklist, signatures);
@@ -114,6 +119,11 @@ export function useChecklists() {
         toast.info(access.message);
         return;
       }
+      if (access.availability !== 'ready' && access.message) {
+        toast.info(
+          `${access.message} O envio oficial continuará usando o PDF final governado do checklist.`,
+        );
+      }
 
       setSelectedDoc({
         name: checklist.titulo,
@@ -136,13 +146,17 @@ export function useChecklists() {
       setPrintingId(checklist.id);
       if (checklist.pdf_file_key) {
         const access = await checklistsService.getPdfAccess(checklist.id);
-        if (access.url) {
-          openPdfForPrint(access.url, () => {
+        const resolution = resolveGovernedPdfConsumption(access, {
+          action: 'print',
+          documentLabel: 'checklist',
+        });
+        if (resolution.mode === 'governed_url') {
+          openPdfForPrint(resolution.url, () => {
             toast.info('Pop-up bloqueado. Abrimos o PDF na mesma aba para impressão.');
           });
           return;
         }
-        throw new Error(access.message || 'PDF final emitido, mas indisponível no armazenamento.');
+        toast.info(resolution.message);
       }
       const signatures = await signaturesService.findByChecklist(checklist.id);
       const result = await generateChecklistPdf(checklist, signatures, { save: false, output: 'base64' }) as { base64: string };

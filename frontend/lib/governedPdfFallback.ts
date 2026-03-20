@@ -1,0 +1,65 @@
+export type GovernedPdfAvailability =
+  | 'ready'
+  | 'registered_without_signed_url'
+  | 'not_emitted';
+
+export type GovernedPdfAccessLike = {
+  hasFinalPdf: boolean;
+  availability: GovernedPdfAvailability;
+  url: string | null;
+  message?: string | null;
+};
+
+export type GovernedPdfConsumptionAction = 'download' | 'print';
+
+export type GovernedPdfConsumptionResolution =
+  | {
+      mode: 'governed_url';
+      url: string;
+    }
+  | {
+      mode: 'local_fallback';
+      message: string;
+    }
+  | {
+      mode: 'local_generation';
+      message: string;
+    };
+
+function getActionLabel(action: GovernedPdfConsumptionAction): string {
+  return action === 'print' ? 'impressão' : 'download';
+}
+
+export function resolveGovernedPdfConsumption(
+  access: GovernedPdfAccessLike,
+  options: {
+    action: GovernedPdfConsumptionAction;
+    documentLabel: string;
+  },
+): GovernedPdfConsumptionResolution {
+  if (access.hasFinalPdf && access.availability === 'ready' && access.url) {
+    return {
+      mode: 'governed_url',
+      url: access.url,
+    };
+  }
+
+  if (
+    access.hasFinalPdf &&
+    access.availability === 'registered_without_signed_url'
+  ) {
+    return {
+      mode: 'local_fallback',
+      message:
+        access.message ||
+        `PDF final da ${options.documentLabel} emitido, mas indisponível no armazenamento. Gerando versão local temporária para ${getActionLabel(options.action)}.`,
+    };
+  }
+
+  return {
+    mode: 'local_generation',
+    message:
+      access.message ||
+      `PDF final da ${options.documentLabel} ainda não foi emitido. Gerando versão local para ${getActionLabel(options.action)}.`,
+  };
+}

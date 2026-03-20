@@ -27,6 +27,7 @@ import {
 import { buildPdfFilename } from '@/lib/pdf-system/core/format';
 import { SendMailModal } from '@/components/SendMailModal';
 import { openPdfForPrint, openUrlInNewTab } from '@/lib/print-utils';
+import { resolveGovernedPdfConsumption } from '@/lib/governedPdfFallback';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -139,16 +140,16 @@ export default function InspectionsPage() {
   const handleDownloadPdf = async (inspection: Inspection) => {
     try {
       const access = await getGovernedPdfAccess(inspection.id);
-      if (access.hasFinalPdf) {
-        if (!access.url) {
-          throw new Error('PDF final emitido, mas indisponível no armazenamento.');
-        }
-        openUrlInNewTab(access.url);
+      const resolution = resolveGovernedPdfConsumption(access, {
+        action: 'download',
+        documentLabel: 'inspeção',
+      });
+      if (resolution.mode === 'governed_url') {
+        openUrlInNewTab(resolution.url);
         return;
       }
 
-      toast.info(access.message || 'PDF final ainda não emitido. Gerando versão local.');
-      toast.info('Gerando PDF...');
+      toast.info(resolution.message);
       const fullInspection = await inspectionsService.findOne(inspection.id);
       await generateInspectionPdf(fullInspection);
       toast.success('PDF gerado com sucesso');
@@ -162,17 +163,18 @@ export default function InspectionsPage() {
     try {
       toast.info('Preparando impressão...');
       const access = await getGovernedPdfAccess(inspection.id);
-      if (access.hasFinalPdf) {
-        if (!access.url) {
-          throw new Error('PDF final emitido, mas indisponível no armazenamento.');
-        }
-        openPdfForPrint(access.url, () => {
+      const resolution = resolveGovernedPdfConsumption(access, {
+        action: 'print',
+        documentLabel: 'inspeção',
+      });
+      if (resolution.mode === 'governed_url') {
+        openPdfForPrint(resolution.url, () => {
           toast.info('Pop-up bloqueado. Abrimos o PDF final na mesma aba para impressão.');
         });
         return;
       }
 
-      toast.info(access.message || 'PDF final ainda não emitido. Gerando versão local.');
+      toast.info(resolution.message);
       const fullInspection = await inspectionsService.findOne(inspection.id);
       const result = (await generateInspectionPdf(fullInspection, {
         save: false,
@@ -196,6 +198,11 @@ export default function InspectionsPage() {
       toast.info('Preparando documento...');
       const access = await getGovernedPdfAccess(inspection.id);
       if (access.hasFinalPdf) {
+        if (access.availability !== 'ready' && access.message) {
+          toast.info(
+            `${access.message} O envio oficial continuará usando o PDF final governado da inspeção.`,
+          );
+        }
         setSelectedDoc({
           name: `${inspection.tipo_inspecao} - ${inspection.setor_area}`,
           filename: access.originalName || buildInspectionFilename(inspection),
@@ -234,8 +241,9 @@ export default function InspectionsPage() {
       toast.info('Preparando PDF final governado...');
       const access = await ensureGovernedPdf(inspection);
       if (!access.url) {
-        toast.success(
-          'PDF final emitido, mas a URL segura não está disponível no momento.',
+        toast.warning(
+          access.message ||
+            'PDF final emitido, mas a URL segura não está disponível no momento.',
         );
         return;
       }
