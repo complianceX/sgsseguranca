@@ -357,9 +357,6 @@ export const aprsService = {
     const response = await api.post<AprExcelImportPreview>(
       "/aprs/import/excel/preview",
       formData,
-      {
-        headers: { "Content-Type": "multipart/form-data" },
-      },
     );
     return response.data;
   },

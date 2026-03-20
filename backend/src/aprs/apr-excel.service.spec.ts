@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { AprExcelService } from './apr-excel.service';
 import { AprRiskMatrixService } from './apr-risk-matrix.service';
+import type { Apr } from './entities/apr.entity';
 
 describe('AprExcelService', () => {
   let service: AprExcelService;
@@ -78,5 +79,88 @@ describe('AprExcelService', () => {
     expect(() => service.previewImport(buffer, 'apr-invalida.xlsx')).toThrow(
       'Não foi possível localizar a tabela de riscos na planilha.',
     );
+  });
+
+  it('gera template corporativo que pode ser importado novamente sem ajustes manuais no parser', () => {
+    const workbook = service.buildTemplateWorkbook();
+
+    const preview = service.previewImport(workbook, 'apr-template.xlsx');
+
+    expect(preview.errors).toEqual([]);
+    expect(preview.importedRows).toBe(1);
+    expect(preview.draft).toMatchObject({
+      numero: 'APR-2026-001',
+      titulo: 'Inspeção de atividade crítica',
+      company_name: 'Empresa exemplo',
+    });
+    expect(preview.draft.risk_items[0]).toMatchObject({
+      atividade_processo: 'Montagem de linha de vida',
+      categoria_risco: 'Crítico',
+      status_acao: 'Aberta',
+    });
+  });
+
+  it('faz roundtrip da planilha exportada pela propria APR com resumo em outra aba', () => {
+    const workbook = service.buildDetailWorkbook({
+      id: 'apr-1',
+      numero: 'APR-2026-010',
+      titulo: 'APR exportada',
+      descricao: 'Fluxo real de roundtrip',
+      status: 'Pendente',
+      data_inicio: '2026-03-19',
+      data_fim: '2026-03-26',
+      versao: 3,
+      company: {
+        razao_social: 'Empresa Teste',
+        cnpj: '00.000.000/0001-00',
+      },
+      site: { nome: 'Obra Centro' },
+      elaborador: { nome: 'Maria Silva' },
+      aprovado_por: { nome: 'Joao Souza' },
+      risk_items: [
+        {
+          id: 'risk-1',
+          ordem: 0,
+          atividade: 'Montagem',
+          agente_ambiental: 'Ruido',
+          condicao_perigosa: 'Trabalho sem isolamento',
+          fonte_circunstancia: 'Circulacao simultanea',
+          lesao: 'Contusao',
+          probabilidade: 2,
+          severidade: 3,
+          score_risco: 6,
+          categoria_risco: 'Substancial',
+          medidas_prevencao: 'Isolar area',
+          responsavel: 'TST',
+          prazo: new Date('2026-03-20T00:00:00.000Z'),
+          status_acao: 'Aberta',
+        },
+      ],
+    } as unknown as Apr);
+
+    const preview = service.previewImport(workbook, 'apr-exportada.xlsx');
+
+    expect(preview.errors).toEqual([]);
+    expect(preview.sheetName).toBe('Riscos APR');
+    expect(preview.draft).toMatchObject({
+      numero: 'APR-2026-010',
+      titulo: 'APR exportada',
+      company_name: 'Empresa Teste',
+      site_name: 'Obra Centro',
+      elaborador_name: 'Maria Silva',
+      aprovador_name: 'Joao Souza',
+      data_inicio: '2026-03-19',
+      data_fim: '2026-03-26',
+    });
+    expect(preview.draft.risk_items[0]).toMatchObject({
+      atividade_processo: 'Montagem',
+      condicao_perigosa: 'Trabalho sem isolamento',
+      probabilidade: 2,
+      severidade: 3,
+      categoria_risco: 'Substancial',
+      responsavel: 'TST',
+      prazo: '2026-03-20',
+      status_acao: 'Aberta',
+    });
   });
 });

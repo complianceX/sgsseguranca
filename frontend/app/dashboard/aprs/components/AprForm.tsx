@@ -65,6 +65,7 @@ import type {
   SophieWizardDraft,
 } from "@/lib/sophie-draft-storage";
 import { calculateAprRiskEvaluation } from "@/lib/apr-risk-matrix";
+import { applyAprImportPreview } from "@/lib/apr-import";
 
 const aprSchema = z.object({
   // Campo interno: indica que o usuário anexou uma APR já preenchida e assinada (PDF).
@@ -202,14 +203,6 @@ function getCategoriaBadgeClass(categoria?: string) {
     default:
       return "bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]";
   }
-}
-
-function normalizeLookupLabel(value?: string | null) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .trim()
-    .toLowerCase();
 }
 
 function createEmptyRiskRow(): NonNullable<AprFormData["itens_risco"]>[number] {
@@ -581,84 +574,41 @@ export function AprForm({ id }: AprFormProps) {
 
   const applyExcelPreviewToForm = useCallback(
     (preview: AprExcelImportPreview) => {
-      const normalizeItem = (
-        item: AprRiskItemInput,
-      ): NonNullable<AprFormData["itens_risco"]>[number] => {
-        const evaluation = calculateAprRiskEvaluation(
-          item.probabilidade,
-          item.severidade,
-        );
+      const applied = applyAprImportPreview(preview, {
+        companies,
+        sites,
+        users,
+        selectedCompanyId,
+      });
 
-        return {
-          atividade_processo: item.atividade_processo || "",
-          agente_ambiental: item.agente_ambiental || "",
-          condicao_perigosa: item.condicao_perigosa || "",
-          fontes_circunstancias:
-            item.fonte_circunstancia || item.fontes_circunstancias || "",
-          possiveis_lesoes: item.possiveis_lesoes || "",
-          probabilidade:
-            item.probabilidade !== undefined ? String(item.probabilidade) : "",
-          severidade:
-            item.severidade !== undefined ? String(item.severidade) : "",
-          categoria_risco: evaluation.categoria || item.categoria_risco || "",
-          medidas_prevencao: item.medidas_prevencao || "",
-          responsavel: item.responsavel || "",
-          prazo: item.prazo || "",
-          status_acao: item.status_acao || "",
-        };
-      };
+      Object.entries(applied.fieldValues).forEach(([field, value]) => {
+        if (!value) {
+          return;
+        }
 
-      if (preview.draft.numero) setValue("numero", preview.draft.numero);
-      if (preview.draft.titulo) setValue("titulo", preview.draft.titulo);
-      if (preview.draft.descricao) {
-        setValue("descricao", preview.draft.descricao);
-      }
-      if (preview.draft.data_inicio) {
-        setValue("data_inicio", preview.draft.data_inicio);
-      }
-      if (preview.draft.data_fim) {
-        setValue("data_fim", preview.draft.data_fim);
-      }
-
-      const matchedSite = preview.draft.site_name
-        ? filteredSites.find(
-            (site) =>
-              normalizeLookupLabel(site.nome) ===
-              normalizeLookupLabel(preview.draft.site_name),
-          )
-        : undefined;
-      if (matchedSite) {
-        setValue("site_id", matchedSite.id, {
+        setValue(field as keyof AprFormData, value, {
           shouldDirty: true,
           shouldValidate: true,
         });
-      }
-
-      const matchedElaborador = preview.draft.elaborador_name
-        ? filteredUsers.find(
-            (item) =>
-              normalizeLookupLabel(item.nome) ===
-              normalizeLookupLabel(preview.draft.elaborador_name),
-          )
-        : undefined;
-      if (matchedElaborador) {
-        setValue("elaborador_id", matchedElaborador.id, {
-          shouldDirty: true,
-          shouldValidate: true,
-        });
-      }
+      });
 
       replaceRisk(
-        preview.draft.risk_items.length > 0
-          ? preview.draft.risk_items.map(normalizeItem)
+        applied.riskItems.length > 0
+          ? applied.riskItems
           : [createEmptyRiskRow()],
       );
+
+      if (applied.unresolved.length > 0) {
+        toast.warning(
+          `Preview aplicado com pendência de vínculo: ${applied.unresolved.join(", ")}.`,
+        );
+      }
 
       toast.success(
         `${preview.importedRows} linha(s) da planilha aplicadas ao formulário.`,
       );
     },
-    [filteredSites, filteredUsers, replaceRisk, setValue],
+    [companies, replaceRisk, selectedCompanyId, setValue, sites, users],
   );
 
   const handleExcelFileSelection = useCallback(
@@ -686,7 +636,16 @@ export function AprForm({ id }: AprFormProps) {
         );
       } catch (error) {
         console.error("Erro ao importar planilha APR:", error);
-        toast.error("Não foi possível interpretar a planilha APR.");
+        const message =
+          typeof error === "object" &&
+          error !== null &&
+          "response" in error &&
+          typeof (error as { response?: { data?: { message?: string } } }).response
+            ?.data?.message === "string"
+            ? (error as { response?: { data?: { message?: string } } }).response!
+                .data!.message
+            : "Não foi possível interpretar a planilha APR.";
+        toast.error(message);
       } finally {
         setImportingExcel(false);
         if (event.target) {

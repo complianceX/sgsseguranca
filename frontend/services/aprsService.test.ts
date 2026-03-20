@@ -53,9 +53,6 @@ describe("aprsService", () => {
     expect(api.post).toHaveBeenCalledWith(
       "/aprs/import/excel/preview",
       expect.any(FormData),
-      expect.objectContaining({
-        headers: { "Content-Type": "multipart/form-data" },
-      }),
     );
     expect(result.fileName).toBe("apr.xlsx");
   });

@@ -10,6 +10,7 @@ import {
 } from './apr-risk-matrix.service';
 
 type WorksheetRow = Array<string | number | Date | null | undefined>;
+type WorksheetData = { sheetName: string; rows: WorksheetRow[] };
 
 type MetadataField =
   | 'numero'
@@ -17,6 +18,7 @@ type MetadataField =
   | 'descricao'
   | 'data_inicio'
   | 'data_fim'
+  | 'periodo'
   | 'company_name'
   | 'cnpj'
   | 'site_name'
@@ -43,11 +45,33 @@ const METADATA_LABELS: Record<MetadataField, string[]> = {
   numero: ['codigo', 'código', 'numero', 'número', 'codigo apr', 'número apr'],
   titulo: ['titulo', 'título', 'atividade', 'titulo apr', 'título apr'],
   descricao: ['descricao', 'descrição', 'escopo', 'descricao atividade'],
-  data_inicio: ['data emissao', 'data emissão', 'data inicio', 'data início'],
-  data_fim: ['data revisao', 'data revisão', 'data fim', 'validade'],
+  data_inicio: [
+    'data emissao',
+    'data emissão',
+    'data de emissao',
+    'data de emissão',
+    'data inicio',
+    'data início',
+  ],
+  data_fim: [
+    'data revisao',
+    'data revisão',
+    'data de revisao',
+    'data de revisão',
+    'data fim',
+    'validade',
+  ],
+  periodo: ['periodo', 'período'],
   company_name: ['empresa', 'razao social', 'razão social'],
   cnpj: ['cnpj'],
-  site_name: ['obra', 'site', 'unidade', 'obra/unidade'],
+  site_name: [
+    'obra',
+    'site',
+    'unidade',
+    'obra unidade',
+    'obra/unidade',
+    'site obra',
+  ],
   unidade_setor: ['unidade/setor', 'unidade setor', 'setor'],
   local_atividade: ['local atividade', 'local da atividade', 'local'],
   elaborador_name: [
@@ -63,33 +87,58 @@ const METADATA_LABELS: Record<MetadataField, string[]> = {
 };
 
 const RISK_COLUMN_LABELS: Record<RiskField, string[]> = {
-  atividade_processo: ['atividade/processo', 'atividade processo', 'atividade'],
-  agente_ambiental: ['agente ambiental', 'agente'],
-  condicao_perigosa: ['condicao perigosa', 'condição perigosa', 'perigo'],
+  atividade_processo: [
+    'atividade/processo',
+    'atividade processo',
+    'atividade',
+    'processo',
+  ],
+  agente_ambiental: ['agente ambiental', 'agente', 'categoria de risco'],
+  condicao_perigosa: [
+    'condicao perigosa',
+    'condição perigosa',
+    'perigo',
+    'condicao insegura',
+    'condição insegura',
+  ],
   fonte_circunstancia: [
     'fonte/circunstancia',
     'fonte/circunstância',
     'fonte circunstancia',
     'fontes circunstâncias',
+    'fonte',
+    'circunstancia',
+    'circunstância',
   ],
   possiveis_lesoes: [
     'possiveis lesoes',
     'possíveis lesões',
     'lesoes',
     'lesões',
+    'consequencias',
+    'consequências',
+    'danos',
   ],
-  probabilidade: ['probabilidade'],
-  severidade: ['severidade'],
-  categoria_risco: ['categoria de risco', 'categoria risco', 'categoria'],
+  probabilidade: ['probabilidade', 'p'],
+  severidade: ['severidade', 's'],
+  categoria_risco: [
+    'categoria de risco',
+    'categoria risco',
+    'categoria',
+    'grau de risco',
+  ],
   medidas_prevencao: [
     'medidas de controle',
     'medidas de prevencao',
     'medidas de prevenção',
     'controles',
+    'medidas preventivas',
+    'acoes de controle',
+    'ações de controle',
   ],
-  responsavel: ['responsavel', 'responsável'],
+  responsavel: ['responsavel', 'responsável', 'responsavel pela acao'],
   prazo: ['prazo', 'data prazo'],
-  status_acao: ['status', 'status acao', 'status ação'],
+  status_acao: ['status', 'status acao', 'status ação', 'situacao'],
 };
 
 const REQUIRED_RISK_COLUMNS: RiskField[] = [
@@ -139,6 +188,31 @@ export class AprExcelService {
       m: parsedDate.getUTCMonth() + 1,
       d: parsedDate.getUTCDate(),
     };
+  }
+
+  private formatDateForWorkbook(
+    value: string | Date | null | undefined,
+  ): string {
+    if (!value) {
+      return '';
+    }
+
+    if (typeof value === 'string') {
+      const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) {
+        const [, year, month, day] = isoMatch;
+        return `${day}/${month}/${year}`;
+      }
+    }
+
+    const parsed = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return this.stringifyScalar(typeof value === 'string' ? value : null);
+    }
+
+    return `${String(parsed.getUTCDate()).padStart(2, '0')}/${String(
+      parsed.getUTCMonth() + 1,
+    ).padStart(2, '0')}/${parsed.getUTCFullYear()}`;
   }
 
   private toWorkbookBuffer(workbook: XLSX.WorkBook): Buffer {
@@ -206,6 +280,12 @@ export class AprExcelService {
       return raw;
     }
 
+    const ptBrMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (ptBrMatch) {
+      const [, day, month, year] = ptBrMatch;
+      return `${year}-${month}-${day}`;
+    }
+
     const parsed = new Date(raw);
     if (Number.isNaN(parsed.getTime())) {
       return undefined;
@@ -240,41 +320,36 @@ export class AprExcelService {
     ).find(([, aliases]) => aliases.includes(label))?.[0];
   }
 
-  private getWorksheetRows(buffer: Buffer): {
-    rows: WorksheetRow[];
-    sheetName: string;
-  } {
+  private getWorkbookSheets(buffer: Buffer): WorksheetData[] {
     const workbook = XLSX.read(buffer, {
       type: 'buffer',
       cellDates: true,
       raw: false,
     });
-    const firstSheetName = workbook.SheetNames[0];
-
-    if (!firstSheetName) {
+    if (!workbook.SheetNames.length) {
       throw new BadRequestException(
         'A planilha enviada está vazia ou não possui abas válidas.',
       );
     }
 
-    const worksheet = workbook.Sheets[firstSheetName];
-    const rows = XLSX.utils.sheet_to_json<WorksheetRow>(worksheet, {
-      header: 1,
-      raw: false,
-      defval: '',
-      blankrows: false,
-    });
+    const sheets = workbook.SheetNames.map((sheetName) => {
+      const worksheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json<WorksheetRow>(worksheet, {
+        header: 1,
+        raw: false,
+        defval: '',
+        blankrows: false,
+      });
+      return { sheetName, rows };
+    }).filter((sheet) => Array.isArray(sheet.rows) && sheet.rows.length > 0);
 
-    if (!Array.isArray(rows) || rows.length === 0) {
+    if (sheets.length === 0) {
       throw new BadRequestException(
         'A planilha enviada não possui conteúdo processável.',
       );
     }
 
-    return {
-      rows,
-      sheetName: firstSheetName,
-    };
+    return sheets;
   }
 
   private detectTableHeader(rows: WorksheetRow[]): {
@@ -303,31 +378,76 @@ export class AprExcelService {
       }
     });
 
-    if (bestMatch.headerRowIndex < 0) {
+    return bestMatch;
+  }
+
+  private extractMetadataFromRows(
+    rows: WorksheetRow[],
+  ): Partial<Record<MetadataField, string>> {
+    const metadata: Partial<Record<MetadataField, string>> = {};
+
+    rows.forEach((row) => {
+      const key = this.normalizeLabel(row[0]);
+      const field = this.getMetadataField(key);
+      const value = this.formatCell(row[1]);
+      if (field && value && !metadata[field]) {
+        metadata[field] = value;
+      }
+    });
+
+    const periodo = metadata.periodo;
+    if (periodo) {
+      const [startRaw, endRaw] = periodo
+        .split(/\s+-\s+/)
+        .map((value) => value.trim());
+      const start = this.parseOptionalDate(startRaw);
+      const end = this.parseOptionalDate(endRaw);
+      if (start && !metadata.data_inicio) {
+        metadata.data_inicio = start;
+      }
+      if (end && !metadata.data_fim) {
+        metadata.data_fim = end;
+      }
+    }
+
+    return metadata;
+  }
+
+  previewImport(buffer: Buffer, fileName: string): AprExcelImportPreviewDto {
+    const sheets = this.getWorkbookSheets(buffer);
+    const metadata = sheets.reduce<Partial<Record<MetadataField, string>>>(
+      (acc, sheet) => ({
+        ...this.extractMetadataFromRows(sheet.rows),
+        ...acc,
+      }),
+      {},
+    );
+    const bestSheet = sheets
+      .map((sheet) => ({
+        sheetName: sheet.sheetName,
+        rows: sheet.rows,
+        ...this.detectTableHeader(sheet.rows),
+      }))
+      .sort(
+        (left, right) =>
+          Object.keys(right.matchedColumns).length -
+          Object.keys(left.matchedColumns).length,
+      )[0];
+
+    if (
+      !bestSheet ||
+      bestSheet.headerRowIndex < 0 ||
+      Object.keys(bestSheet.matchedColumns).length === 0
+    ) {
       throw new BadRequestException(
         'Não foi possível localizar a tabela de riscos na planilha.',
       );
     }
 
-    return bestMatch;
-  }
-
-  previewImport(buffer: Buffer, fileName: string): AprExcelImportPreviewDto {
-    const { rows, sheetName } = this.getWorksheetRows(buffer);
-    const { headerRowIndex, matchedColumns } = this.detectTableHeader(rows);
+    const { rows, sheetName, headerRowIndex, matchedColumns } = bestSheet;
     const warnings: string[] = [];
     const errors: string[] = [];
-    const metadata: Partial<Record<MetadataField, string>> = {};
     const riskColumnMap = new Map<number, RiskField>();
-
-    rows.slice(0, headerRowIndex).forEach((row) => {
-      const key = this.normalizeLabel(row[0]);
-      const field = this.getMetadataField(key);
-      const value = this.formatCell(row[1]);
-      if (field && value) {
-        metadata[field] = value;
-      }
-    });
 
     const headerRow = rows[headerRowIndex] || [];
     headerRow.forEach((cell, index) => {
@@ -531,7 +651,7 @@ export class AprExcelService {
       ['Status', apr.status || ''],
       [
         'Período',
-        `${apr.data_inicio ? new Date(apr.data_inicio).toLocaleDateString('pt-BR') : ''} - ${apr.data_fim ? new Date(apr.data_fim).toLocaleDateString('pt-BR') : ''}`,
+        `${this.formatDateForWorkbook(apr.data_inicio)} - ${this.formatDateForWorkbook(apr.data_fim)}`,
       ],
       ['Versão', apr.versao ?? 1],
     ];
@@ -570,7 +690,7 @@ export class AprExcelService {
         item.categoria_risco || '',
         item.medidas_prevencao || '',
         item.responsavel || '',
-        item.prazo ? new Date(item.prazo).toLocaleDateString('pt-BR') : '',
+        this.formatDateForWorkbook(item.prazo),
         item.status_acao || '',
       ]),
     ];
