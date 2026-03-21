@@ -460,6 +460,78 @@ export class MailService {
     });
   }
 
+  async sendUploadedPdfBuffer(
+    pdfBuffer: Buffer,
+    email: string,
+    options?: {
+      subject?: string;
+      docName?: string;
+      companyId?: string;
+      userId?: string;
+    },
+  ): Promise<DocumentMailDispatchResponseDto> {
+    if (!email) {
+      throw new BadRequestException('email é obrigatório.');
+    }
+
+    const docName = options?.docName?.trim() || 'Documento';
+    const subject = options?.subject?.trim() || 'Documento Compartilhado - GST';
+    const attachmentFilename = this.buildAttachmentFilename(docName);
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
+        <div style="display: inline-block; margin-bottom: 16px; padding: 6px 10px; border-radius: 999px; background-color: #fef3c7; color: #b45309; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
+          Envio local/degradado
+        </div>
+        <h2 style="margin: 0 0 12px; color: #0f172a;">${docName}</h2>
+        <p>Olá,</p>
+        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma &lt;GST&gt; Gestão de Segurança do Trabalho.</p>
+        <p>O PDF está anexado neste e-mail para visualização e download.</p>
+        <p><strong>Importante:</strong> este envio utilizou um PDF local/degradado e não substitui o documento final governado.</p>
+      </div>
+    `;
+
+    await this.sendMailSimple(
+      email,
+      subject,
+      `Segue em anexo o documento ${docName}. Este envio utilizou um PDF local/degradado e não substitui o documento final governado.`,
+      {
+        companyId: options?.companyId,
+        userId: options?.userId,
+      },
+      [
+        {
+          filename: attachmentFilename,
+          content: pdfBuffer,
+          contentType: 'application/pdf',
+        },
+      ],
+      {
+        html,
+        filename: attachmentFilename,
+      },
+    );
+
+    this.logger.warn({
+      event: 'mail_document_sent_with_buffer_fallback',
+      companyId: options?.companyId,
+      userId: options?.userId,
+      artifactType: 'local_uploaded_pdf',
+      fallbackUsed: true,
+      isOfficial: false,
+      recipient: email,
+    });
+
+    return this.buildDocumentDispatchResponse({
+      message:
+        'O PDF local foi enviado por e-mail. Este envio não substitui o documento final governado.',
+      deliveryMode: 'sent',
+      artifactType: 'local_uploaded_pdf',
+      isOfficial: false,
+      fallbackUsed: true,
+    });
+  }
+
   buildDocumentDispatchResponse(input: {
     message: string;
     deliveryMode: 'queued' | 'sent';

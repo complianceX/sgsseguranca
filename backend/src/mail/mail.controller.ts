@@ -15,8 +15,7 @@ import {
 import { InjectQueue } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import type { Response } from 'express';
-import { createReadStream } from 'fs';
-import { unlink } from 'fs/promises';
+import { readFile, unlink } from 'fs/promises';
 import { tmpdir } from 'os';
 import path from 'path';
 import { randomUUID } from 'crypto';
@@ -31,12 +30,13 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { DispatchAlertsDto } from './dto/dispatch-alerts.dto';
-import { StorageService } from '../common/services/storage.service';
 import { defaultJobOptions } from '../queue/default-job-options';
 import { validatePdfMagicBytesFromPath } from '../common/interceptors/file-upload.interceptor';
 import { TenantService } from '../common/tenant/tenant.service';
 import { Authorize } from '../auth/authorize.decorator';
 import { DocumentMailDispatchResponseDto } from './dto/document-mail-dispatch-response.dto';
+import { DocumentStorageService } from '../common/services/document-storage.service';
+import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 
 type RequestWithUser = {
   user?: { company_id?: string; companyId?: string; userId?: string };
@@ -51,7 +51,7 @@ export class MailController {
   constructor(
     private readonly mailService: MailService,
     @InjectQueue('mail') private readonly mailQueue: Queue,
-    private readonly storageService: StorageService,
+    private readonly documentStorageService: DocumentStorageService,
     private readonly tenantService: TenantService,
   ) {}
 
@@ -267,64 +267,93 @@ export class MailController {
     const companyId = req.user?.company_id || req.user?.companyId;
     const folder = companyId ? `mail/${companyId}` : 'mail';
     const fileKey = `uploads/${folder}/${randomUUID()}.pdf`;
+    const resolvedDocName = body.docName?.trim() || file.originalname;
+    let pdfBuffer!: Buffer;
 
     try {
+      pdfBuffer = await readFile(file.path);
       await validatePdfMagicBytesFromPath(file.path);
-      await this.storageService.upload(
-        fileKey,
-        createReadStream(file.path),
-        file.mimetype || 'application/pdf',
-      );
     } finally {
       await unlink(file.path).catch(() => undefined);
     }
 
     try {
-      await this.mailQueue.add(
-        'send-file-key',
-        {
-          fileKey,
-          email,
-          subject: body.subject,
-          docName: body.docName || file.originalname,
-          expiresInSeconds: 604800,
-          companyId,
-          userId: req.user?.userId,
-        },
-        defaultJobOptions,
+      await this.documentStorageService.uploadFile(
+        fileKey,
+        pdfBuffer,
+        file.mimetype || 'application/pdf',
       );
 
-      this.logger.warn({
-        event: 'mail_document_local_fallback_queued',
-        companyId,
-        userId: req.user?.userId,
-        artifactType: 'local_uploaded_pdf',
-        fallbackUsed: true,
-        isOfficial: false,
-        recipient: email,
-        fileKey,
-      });
+      try {
+        await this.mailQueue.add(
+          'send-file-key',
+          {
+            fileKey,
+            email,
+            subject: body.subject,
+            docName: resolvedDocName,
+            expiresInSeconds: 604800,
+            companyId,
+            userId: req.user?.userId,
+          },
+          defaultJobOptions,
+        );
 
-      return this.mailService.buildDocumentDispatchResponse({
-        message:
-          'Solicitação recebida. O PDF local será enviado por e-mail em instantes. Este envio não substitui o documento final governado.',
-        deliveryMode: 'queued',
-        artifactType: 'local_uploaded_pdf',
-        isOfficial: false,
-        fallbackUsed: true,
-        fileKey,
-      });
+        this.logger.warn({
+          event: 'mail_document_local_fallback_queued',
+          companyId,
+          userId: req.user?.userId,
+          artifactType: 'local_uploaded_pdf',
+          fallbackUsed: true,
+          isOfficial: false,
+          recipient: email,
+          fileKey,
+        });
+
+        return this.mailService.buildDocumentDispatchResponse({
+          message:
+            'Solicitação recebida. O PDF local será enviado por e-mail em instantes. Este envio não substitui o documento final governado.',
+          deliveryMode: 'queued',
+          artifactType: 'local_uploaded_pdf',
+          isOfficial: false,
+          fallbackUsed: true,
+          fileKey,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Fila de e-mail indisponível para upload, aplicando fallback síncrono pelo arquivo já armazenado: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+
+        try {
+          return await this.mailService.sendStoredFileKey(fileKey, email, {
+            subject: body.subject,
+            docName: resolvedDocName,
+            expiresInSeconds: 604800,
+            companyId,
+            userId: req.user?.userId,
+          });
+        } catch (sendError) {
+          await cleanupUploadedFile(
+            this.logger,
+            'mail_uploaded_document_sync_fallback',
+            fileKey,
+            (key) => this.documentStorageService.deleteFile(key),
+          );
+          throw sendError;
+        }
+      }
     } catch (error) {
       this.logger.warn(
-        `Fila de e-mail indisponível para upload, aplicando fallback síncrono: ${
+        `Storage documental indisponível para upload, aplicando fallback síncrono por buffer: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
 
-      return this.mailService.sendStoredFileKey(fileKey, email, {
+      return this.mailService.sendUploadedPdfBuffer(pdfBuffer, email, {
         subject: body.subject,
-        docName: body.docName || file.originalname,
-        expiresInSeconds: 604800,
+        docName: resolvedDocName,
         companyId,
         userId: req.user?.userId,
       });

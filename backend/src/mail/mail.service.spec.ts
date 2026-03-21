@@ -563,6 +563,47 @@ describe('MailService', () => {
     });
   });
 
+  describe('sendUploadedPdfBuffer', () => {
+    it('envia PDF local por buffer com contrato explícito de fallback', async () => {
+      mockResendSend.mockResolvedValue({
+        data: { id: 'msg-local-1' },
+        error: null,
+      });
+
+      const result = await service.sendUploadedPdfBuffer(
+        Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF'),
+        'destinatario@example.com',
+        {
+          docName: 'RDO Teste',
+          companyId: 'company-1',
+          userId: 'user-1',
+        },
+      );
+
+      const sendPayload = getFirstMockArgument(mockResendSend);
+      if (!isRecord(sendPayload) || !isUnknownArray(sendPayload.attachments)) {
+        throw new Error('Payload do envio local não contém anexos válidos.');
+      }
+
+      expect(sendPayload.to).toBe('destinatario@example.com');
+      expect(String(sendPayload.subject)).toContain('Documento Compartilhado');
+
+      const firstAttachment = sendPayload.attachments[0];
+      if (!isRecord(firstAttachment)) {
+        throw new Error('Anexo local não foi serializado corretamente.');
+      }
+
+      expect(String(firstAttachment.filename)).toContain('.pdf');
+      expect(result).toMatchObject({
+        success: true,
+        artifactType: 'local_uploaded_pdf',
+        isOfficial: false,
+        fallbackUsed: true,
+        deliveryMode: 'sent',
+      });
+    });
+  });
+
   describe('runScheduledAlerts', () => {
     it('nao executa alertas agendados quando API_CRONS_DISABLED=true', async () => {
       process.env.API_CRONS_DISABLED = 'true';
