@@ -1,4 +1,5 @@
 import { readFrontendEnvironment } from './scripts/public-env.mjs';
+import { execSync } from 'node:child_process';
 
 /** @type {import('next').NextConfig} */
 const isProd = process.env.NODE_ENV === 'production';
@@ -6,12 +7,41 @@ const frontendEnv = readFrontendEnvironment({
   requireExplicitApiUrl: isProd,
   requireExplicitAppUrl: isProd,
 });
+
+function resolveGitBuildId() {
+  try {
+    const sha = execSync('git rev-parse --short=12 HEAD', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      cwd: process.cwd(),
+    })
+      .toString()
+      .trim();
+
+    if (!sha) {
+      return null;
+    }
+
+    const dirty = execSync('git status --porcelain', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      cwd: process.cwd(),
+    })
+      .toString()
+      .trim();
+
+    return dirty ? `${sha}-dirty` : sha;
+  } catch {
+    return null;
+  }
+}
+
+const gitBuildId = resolveGitBuildId();
 const resolvedBuildId = [
   process.env.NEXT_PUBLIC_BUILD_ID,
   process.env.RAILWAY_GIT_COMMIT_SHA,
   process.env.RAILWAY_DEPLOYMENT_ID,
   process.env.GITHUB_SHA,
   process.env.VERCEL_GIT_COMMIT_SHA,
+  gitBuildId,
   process.env.npm_package_version,
   'local-dev',
 ]
