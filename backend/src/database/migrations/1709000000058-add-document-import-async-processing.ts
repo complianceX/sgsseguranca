@@ -1,18 +1,51 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+type StatusColumnRow = {
+  udt_schema: string;
+  udt_name: string;
+};
+
 export class AddDocumentImportAsyncProcessing1709000000058 implements MigrationInterface {
   name = 'AddDocumentImportAsyncProcessing1709000000058';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`
-      DO $$
-      BEGIN
-        ALTER TYPE "public"."document_imports_status_enum" ADD VALUE IF NOT EXISTS 'QUEUED';
-        ALTER TYPE "public"."document_imports_status_enum" ADD VALUE IF NOT EXISTS 'DEAD_LETTER';
-      EXCEPTION
-        WHEN duplicate_object THEN null;
-      END $$;
-    `);
+    const statusColumn = (await queryRunner.query(`
+      SELECT udt_schema, udt_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'document_imports'
+        AND column_name = 'status'
+      LIMIT 1
+    `)) as StatusColumnRow[];
+
+    const statusUdtSchema: string | null = statusColumn[0]?.udt_schema ?? null;
+    const statusUdtName: string | null = statusColumn[0]?.udt_name ?? null;
+
+    const usesNativeEnum =
+      statusUdtSchema !== null &&
+      statusUdtName !== null &&
+      statusUdtName !== 'varchar' &&
+      statusUdtName !== 'text';
+
+    if (usesNativeEnum) {
+      await queryRunner.query(`
+        DO $$
+        BEGIN
+          EXECUTE format(
+            'ALTER TYPE %I.%I ADD VALUE IF NOT EXISTS ''QUEUED''',
+            '${statusUdtSchema}',
+            '${statusUdtName}',
+          );
+          EXECUTE format(
+            'ALTER TYPE %I.%I ADD VALUE IF NOT EXISTS ''DEAD_LETTER''',
+            '${statusUdtSchema}',
+            '${statusUdtName}',
+          );
+        EXCEPTION
+          WHEN duplicate_object THEN null;
+        END $$;
+      `);
+    }
 
     await queryRunner.query(`
       ALTER TABLE "document_imports"
@@ -26,6 +59,24 @@ export class AddDocumentImportAsyncProcessing1709000000058 implements MigrationI
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    const statusColumn = (await queryRunner.query(`
+      SELECT udt_schema, udt_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'document_imports'
+        AND column_name = 'status'
+      LIMIT 1
+    `)) as StatusColumnRow[];
+
+    const statusUdtSchema: string | null = statusColumn[0]?.udt_schema ?? null;
+    const statusUdtName: string | null = statusColumn[0]?.udt_name ?? null;
+
+    const usesNativeEnum =
+      statusUdtSchema !== null &&
+      statusUdtName !== null &&
+      statusUdtName !== 'varchar' &&
+      statusUdtName !== 'text';
+
     await queryRunner.query(`
       ALTER TABLE "document_imports"
       DROP COLUMN IF EXISTS "dead_lettered_at",
@@ -41,13 +92,22 @@ export class AddDocumentImportAsyncProcessing1709000000058 implements MigrationI
       ALTER COLUMN "status" DROP DEFAULT
     `);
 
+    if (!usesNativeEnum) {
+      await queryRunner.query(`
+        ALTER TABLE "document_imports"
+        ALTER COLUMN "status" SET DEFAULT 'UPLOADED'
+      `);
+
+      return;
+    }
+
     await queryRunner.query(`
-      ALTER TYPE "public"."document_imports_status_enum"
-      RENAME TO "document_imports_status_enum_old"
+      ALTER TYPE "${statusUdtSchema}"."${statusUdtName}"
+      RENAME TO "${statusUdtName}_old"
     `);
 
     await queryRunner.query(`
-      CREATE TYPE "public"."document_imports_status_enum" AS ENUM(
+      CREATE TYPE "${statusUdtSchema}"."${statusUdtName}" AS ENUM(
         'UPLOADED',
         'PROCESSING',
         'INTERPRETING',
@@ -59,8 +119,8 @@ export class AddDocumentImportAsyncProcessing1709000000058 implements MigrationI
 
     await queryRunner.query(`
       ALTER TABLE "document_imports"
-      ALTER COLUMN "status" TYPE "public"."document_imports_status_enum"
-      USING "status"::text::"public"."document_imports_status_enum"
+      ALTER COLUMN "status" TYPE "${statusUdtSchema}"."${statusUdtName}"
+      USING "status"::text::"${statusUdtSchema}"."${statusUdtName}"
     `);
 
     await queryRunner.query(`
@@ -69,7 +129,7 @@ export class AddDocumentImportAsyncProcessing1709000000058 implements MigrationI
     `);
 
     await queryRunner.query(`
-      DROP TYPE "public"."document_imports_status_enum_old"
+      DROP TYPE "${statusUdtSchema}"."${statusUdtName}_old"
     `);
   }
 }
