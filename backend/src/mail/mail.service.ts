@@ -43,7 +43,7 @@ import {
 
 type MailContext = { companyId?: string; userId?: string };
 
-type MailProvider = 'smtp' | 'resend';
+type MailProvider = 'smtp' | 'resend' | 'brevo';
 type LooseRecord = Record<string, unknown>;
 type MailAttachment = {
   filename: string;
@@ -79,6 +79,7 @@ const isLooseRecord = (value: unknown): value is LooseRecord =>
 export class MailService {
   private resend: Resend | null = null;
   private transporter: Transporter | null = null;
+  private brevoApiKey: string | null = null;
   private readonly logger = new Logger(MailService.name);
   private alertsRunning = false;
   private lastScheduledAlertsAt = 0;
@@ -120,6 +121,13 @@ export class MailService {
       smtpSecureRaw === 'true' ||
       this.configService.get<boolean>('MAIL_SECURE') === true;
     const smtpTimeoutMs = this.resolveMailProviderTimeoutMs('smtp');
+
+    const brevoApiKey = this.configService.get<string>('BREVO_API_KEY')?.trim();
+    if (brevoApiKey) {
+      this.brevoApiKey = brevoApiKey;
+      this.logger.log('MailService configurado com Brevo API.');
+      return;
+    }
 
     if (smtpHost && smtpUser && smtpPass) {
       this.transporter = nodemailer.createTransport({
@@ -698,6 +706,56 @@ export class MailService {
       );
     }
 
+    if (this.brevoApiKey) {
+      const timeoutMs = this.resolveMailProviderTimeoutMs('brevo');
+      const rawInfo = await this.integration.execute<unknown>(
+        'brevo_email',
+        async () => {
+          const payload = {
+            sender: { name: fromName, email: fromEmail },
+            to: recipients.map((email) => ({ email })),
+            subject: options.subject,
+            textContent: options.text,
+            htmlContent: options.html || options.text,
+            attachment: this.normalizeAttachmentsForBrevo(options.attachments),
+          };
+
+          const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'api-key': this.brevoApiKey!,
+            },
+            body: JSON.stringify(payload),
+          });
+
+          const bodyText = await response.text();
+          if (!response.ok) {
+            throw new Error(
+              `Brevo API error: status=${response.status} body=${bodyText}`,
+            );
+          }
+
+          try {
+            return JSON.parse(bodyText) as unknown;
+          } catch {
+            return { raw: bodyText };
+          }
+        },
+        { timeoutMs, retry: { attempts: 2, mode: 'safe' } },
+      );
+
+      const brevo = this.toBrevoInfo(rawInfo);
+      return {
+        provider: 'brevo',
+        messageId: brevo.messageId,
+        accepted: recipients,
+        rejected: [],
+        providerResponse: 'Brevo API',
+        raw: rawInfo,
+      };
+    }
+
     if (this.transporter) {
       const timeoutMs = this.resolveMailProviderTimeoutMs('smtp');
       const rawInfo = await this.integration.execute<unknown>(
@@ -766,7 +824,7 @@ export class MailService {
     }
 
     throw new ServiceUnavailableException(
-      'Nenhum provedor de e-mail configurado. Configure SMTP ou RESEND_API_KEY.',
+      'Nenhum provedor de e-mail configurado. Configure BREVO_API_KEY, SMTP ou RESEND_API_KEY.',
     );
   }
 
@@ -847,9 +905,40 @@ export class MailService {
     });
   }
 
+  private normalizeAttachmentsForBrevo(
+    attachments?: MailAttachment[],
+  ): { name: string; content: string }[] | undefined {
+    if (!attachments?.length) {
+      return undefined;
+    }
+
+    const mapped = attachments.map((attachment) => ({
+      name: attachment.filename,
+      content: Buffer.isBuffer(attachment.content)
+        ? attachment.content.toString('base64')
+        : Buffer.from(String(attachment.content || ''), 'utf8').toString(
+            'base64',
+          ),
+    }));
+
+    // Brevo aceita array; manter sempre array.
+    return mapped;
+  }
+
+  private toBrevoInfo(value: unknown): { messageId?: string } {
+    const record = isLooseRecord(value) ? value : null;
+    const messageId =
+      typeof record?.messageId === 'string' ? record.messageId : undefined;
+    return { messageId };
+  }
+
   private resolveMailProviderTimeoutMs(provider: MailProvider): number {
     const providerEnv =
-      provider === 'smtp' ? 'SMTP_EMAIL_TIMEOUT_MS' : 'RESEND_EMAIL_TIMEOUT_MS';
+      provider === 'smtp'
+        ? 'SMTP_EMAIL_TIMEOUT_MS'
+        : provider === 'resend'
+          ? 'RESEND_EMAIL_TIMEOUT_MS'
+          : 'BREVO_EMAIL_TIMEOUT_MS';
     const mailDeliveryTimeout = this.getEnvNumber(
       'MAIL_DELIVERY_TIMEOUT_MS',
       0,

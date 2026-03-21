@@ -271,6 +271,87 @@ describe('MailService', () => {
       expect(createdLog.error_message).toBe('Erro de rede');
     });
 
+    it('usa Brevo API quando BREVO_API_KEY está configurada', async () => {
+      const originalFetch = globalThis.fetch;
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        text: () => Promise.resolve(JSON.stringify({ messageId: 'brevo-1' })),
+      });
+      (globalThis as unknown as { fetch: unknown }).fetch =
+        fetchMock as unknown;
+
+      const brevoConfigService = {
+        get: jest.fn((key: string) => {
+          if (key === 'BREVO_API_KEY') return 'brevo-key';
+          if (key === 'MAIL_FROM_EMAIL') return 'test@example.com';
+          if (key === 'MAIL_FROM_NAME') return 'GST';
+          if (key === 'BREVO_EMAIL_TIMEOUT_MS') return '30000';
+          return null;
+        }),
+      };
+
+      const module = await Test.createTestingModule({
+        providers: [
+          MailService,
+          { provide: ConfigService, useValue: brevoConfigService },
+          {
+            provide: getRepositoryToken(MailLog),
+            useValue: mockMailLogRepository,
+          },
+          {
+            provide: getRepositoryToken(Cat),
+            useValue: mockCatsRepository,
+          },
+          {
+            provide: DocumentStorageService,
+            useValue: mockDocumentStorageService,
+          },
+          { provide: EpisService, useValue: mockDomainService },
+          { provide: TrainingsService, useValue: mockDomainService },
+          { provide: PtsService, useValue: mockDomainService },
+          { provide: AprsService, useValue: mockDomainService },
+          { provide: ChecklistsService, useValue: mockDomainService },
+          { provide: NonConformitiesService, useValue: mockDomainService },
+          { provide: DdsService, useValue: mockDomainService },
+          { provide: InspectionsService, useValue: mockDomainService },
+          { provide: AuditsService, useValue: mockDomainService },
+          { provide: RdosService, useValue: mockDomainService },
+          { provide: CompaniesService, useValue: mockDomainService },
+          { provide: TenantService, useValue: mockTenantService },
+          { provide: ReportsService, useValue: mockDomainService },
+          {
+            provide: IntegrationResilienceService,
+            useValue: mockIntegrationResilienceService,
+          },
+          {
+            provide: DistributedLockService,
+            useValue: mockDistributedLockService,
+          },
+        ],
+      }).compile();
+
+      const brevoService = module.get<MailService>(MailService);
+      await brevoService.sendMailSimple(
+        'destinatario@example.com',
+        'Assunto',
+        'Texto',
+        { companyId: 'company-1', userId: 'user-1' },
+      );
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [_url, init] = fetchMock.mock.calls[0] as unknown as [
+        string,
+        { method?: string; headers?: Record<string, string> } | undefined,
+      ];
+      expect(_url).toBe('https://api.brevo.com/v3/smtp/email');
+      expect(init?.method).toBe('POST');
+      expect(init?.headers?.['api-key']).toBe('brevo-key');
+
+      await module.close();
+      (globalThis as unknown as { fetch: unknown }).fetch = originalFetch;
+    });
+
     it('usa timeout configurado para SMTP no transporte e no wrapper resiliente', async () => {
       const smtpSendMail = jest.fn().mockResolvedValue({
         messageId: 'smtp-1',
