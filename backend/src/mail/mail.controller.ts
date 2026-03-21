@@ -37,6 +37,13 @@ import { Authorize } from '../auth/authorize.decorator';
 import { DocumentMailDispatchResponseDto } from './dto/document-mail-dispatch-response.dto';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
+import { RequestTimeout } from '../common/decorators/request-timeout.decorator';
+
+const resolveMailRequestTimeoutMs = (): number => {
+  const raw = process.env.MAIL_REQUEST_TIMEOUT_MS;
+  const parsed = raw ? Number(raw) : NaN;
+  return Number.isFinite(parsed) && parsed >= 30_000 ? parsed : 90_000;
+};
 
 type RequestWithUser = {
   user?: { company_id?: string; companyId?: string; userId?: string };
@@ -157,6 +164,7 @@ export class MailController {
 
   @Post('send-stored-document')
   @Authorize('can_manage_mail')
+  @RequestTimeout(resolveMailRequestTimeoutMs())
   async sendStoredDocument(
     @Body() body: { documentId: string; documentType: string; email: string },
     @Request() req: RequestWithUser,
@@ -224,6 +232,7 @@ export class MailController {
 
   @Post('send-uploaded-document')
   @Authorize('can_manage_mail')
+  @RequestTimeout(resolveMailRequestTimeoutMs())
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
