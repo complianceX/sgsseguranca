@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  Inject,
   GoneException,
   Injectable,
   Logger,
   NotFoundException,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
@@ -84,6 +86,7 @@ export class RdosService {
     @InjectRepository(Rdo)
     private rdosRepository: Repository<Rdo>,
     private tenantService: TenantService,
+    @Inject(forwardRef(() => MailService))
     private mailService: MailService,
     private documentStorageService: DocumentStorageService,
     private documentGovernanceService: DocumentGovernanceService,
