@@ -24,15 +24,12 @@ import { companiesService, Company } from "@/services/companiesService";
 import { usersService, User } from "@/services/usersService";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import {
   Save,
   ArrowLeft,
   Sparkles,
   Loader2,
   Plus,
-  Copy,
-  Trash2,
   AlertTriangle,
   CheckCircle2,
   ArrowRight,
@@ -43,7 +40,6 @@ import {
   Upload,
   Download,
   ChevronDown,
-  ChevronUp,
   Minimize2,
   Maximize2,
   Lock,
@@ -70,10 +66,14 @@ import type {
   SophieDraftRiskSuggestion,
   SophieWizardDraft,
 } from "@/lib/sophie-draft-storage";
-import { calculateAprRiskEvaluation } from "@/lib/apr-risk-matrix";
 import { applyAprImportPreview } from "@/lib/apr-import";
+import { aprSchema, type AprFormData } from "./aprForm.schema";
+import { AprRiskRow } from "./AprRiskRow";
+import { AprExecutiveSummary } from "./AprExecutiveSummary";
+import { useAprCalculations } from "./useAprCalculations";
 
-const aprSchema = z.object({
+/* Schema movido para ./aprForm.schema.ts
+   (mantemos o nome `aprSchema` via import para o zodResolver)
   // Campo interno: indica que o usuário anexou uma APR já preenchida e assinada (PDF).
   // Usado somente para validação/UX do wizard; não deve ser enviado para a API.
   pdf_signed: z.boolean().optional(),
@@ -119,6 +119,7 @@ const aprSchema = z.object({
 });
 
 type AprFormData = z.infer<typeof aprSchema>;
+*/
 type AprMutationPayload = Omit<AprFormData, "pdf_signed">;
 type AprSubmitResult = {
   aprId?: string;
@@ -196,7 +197,7 @@ const aprPrimaryActionClass =
 const aprPrimarySubmitActionClass =
   "flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-8 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50";
 
-function getCategoriaBadgeClass(categoria?: string) {
+/* function getCategoriaBadgeClass(categoria?: string) {
   switch (categoria) {
     case "Aceitável":
       return "risk-badge-acceptable";
@@ -210,6 +211,7 @@ function getCategoriaBadgeClass(categoria?: string) {
       return "bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]";
   }
 }
+*/
 
 function createEmptyRiskRow(): NonNullable<AprFormData["itens_risco"]>[number] {
   return {
@@ -232,6 +234,7 @@ export function AprForm({ id }: AprFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const { getActionCriteriaText } = useAprCalculations();
   const prefillCompanyIdParam = searchParams.get("company_id");
   const prefillSiteIdParam = searchParams.get("site_id");
   const prefillUserIdParam =
@@ -339,6 +342,7 @@ export function AprForm({ id }: AprFormProps) {
     control,
     setValue,
     watch,
+    getValues,
     trigger,
     formState: { errors, isDirty },
   } = useForm<AprFormData>({
@@ -367,6 +371,11 @@ export function AprForm({ id }: AprFormProps) {
       itens_risco: [],
     },
   });
+
+  const getValuesRef = useRef(getValues);
+  useEffect(() => {
+    getValuesRef.current = getValues;
+  }, [getValues]);
 
   const selectedCompanyId = watch("company_id");
   const selectedSiteId = watch("site_id");
@@ -406,11 +415,6 @@ export function AprForm({ id }: AprFormProps) {
     name: "participants",
     defaultValue: [],
   });
-  const watchedRiskItemsRaw = useWatch({
-    control,
-    name: "itens_risco",
-    defaultValue: [],
-  });
   const selectedRiskIds = useMemo(
     () => selectedRiskIdsRaw ?? [],
     [selectedRiskIdsRaw],
@@ -422,10 +426,6 @@ export function AprForm({ id }: AprFormProps) {
   const selectedParticipantIds = useMemo(
     () => selectedParticipantIdsRaw ?? [],
     [selectedParticipantIdsRaw],
-  );
-  const watchedRiskItems = useMemo(
-    () => watchedRiskItemsRaw ?? [],
-    [watchedRiskItemsRaw],
   );
   const isModelo = watch("is_modelo");
   const isApproved = currentApr?.status === "Aprovada";
@@ -572,16 +572,13 @@ export function AprForm({ id }: AprFormProps) {
   const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSavedRef = useRef<string>("");
 
-  const duplicateRiskRow = useCallback(
-    (index: number) => {
-      const source = watchedRiskItems?.[index];
-      appendRisk({
-        ...createEmptyRiskRow(),
-        ...source,
-      });
-    },
-    [appendRisk, watchedRiskItems],
-  );
+  const duplicateRiskRow = (index: number) => {
+    const source = getValues(`itens_risco.${index}` as const);
+    appendRisk({
+      ...createEmptyRiskRow(),
+      ...source,
+    });
+  };
 
   const moveRiskRow = useCallback(
     (from: number, to: number) => {
@@ -600,7 +597,8 @@ export function AprForm({ id }: AprFormProps) {
     });
   }, []);
 
-  const ACTION_CRITERIA: Record<string, string> = useMemo(
+  // (refatorado) Critério de ação e resumo executivo agora são calculados em componentes isolados.
+  /* const ACTION_CRITERIA: Record<string, string> = useMemo(
     () => ({
       Aceitável: "Não são requeridos controles adicionais.",
       Atenção: "Reavaliar e adotar medidas complementares.",
@@ -643,6 +641,19 @@ export function AprForm({ id }: AprFormProps) {
       if (hasIdentification || hasEvaluation) return "partial";
       return "empty";
     },
+    [],
+  );
+  */
+
+  const riskSummary = useMemo(
+    () => ({
+      total: 0,
+      aceitavel: 0,
+      atencao: 0,
+      substancial: 0,
+      critico: 0,
+      incompletas: 0,
+    }),
     [],
   );
 
@@ -761,13 +772,13 @@ export function AprForm({ id }: AprFormProps) {
 
   const hasSuggestedRiskInMatrix = useCallback(
     (suggestion: SophieDraftRiskSuggestion) =>
-      (watchedRiskItems ?? []).some(
+      (getValuesRef.current("itens_risco") ?? []).some(
         (item) =>
           String(item?.condicao_perigosa || "")
             .trim()
             .toLowerCase() === suggestion.label.trim().toLowerCase(),
       ),
-    [watchedRiskItems],
+    [],
   );
 
   const applySuggestedAprRisk = useCallback(
@@ -2318,7 +2329,8 @@ export function AprForm({ id }: AprFormProps) {
                 />
               </div>
 
-              {riskSummary.total > 0 && (
+              <AprExecutiveSummary control={control} variant="badges" />
+              {false && (
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                   <span className="font-semibold text-[var(--ds-color-text-muted)]">Riscos:</span>
                   {riskSummary.aceitavel > 0 && (
@@ -2896,7 +2908,16 @@ export function AprForm({ id }: AprFormProps) {
                 </div>
 
                 {/* Executive Summary Panel */}
-                {riskSummary.total > 0 && (
+                <AprExecutiveSummary
+                  control={control}
+                  variant="panel"
+                  compactMode={compactMode}
+                  onToggleCompactMode={() => {
+                    setCompactMode((v) => !v);
+                    setExpandedRows(new Set());
+                  }}
+                />
+                {false && (
                   <div className="mb-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
@@ -2979,362 +3000,24 @@ export function AprForm({ id }: AprFormProps) {
                   ) : null}
 
                   {riskFields.map((field, index) => {
-                    const watchedItem = watchedRiskItems?.[index];
-                    const p = String(watchedItem?.probabilidade || "");
-                    const s = String(watchedItem?.severidade || "");
-                    const calc = calculateAprRiskEvaluation(p, s);
-                    const completeness = getRiskRowCompleteness(watchedItem);
-                    const isCritical = calc.categoria === "Crítico";
-                    const isSubstantial = calc.categoria === "Substancial";
-                    const isIncomplete = !p || !s;
-                    const isRowExpanded = !compactMode || expandedRows.has(index);
-
-                    const borderClass = isCritical
-                      ? "border-[var(--ds-color-danger-border)] shadow-[0_0_0_1px_var(--ds-color-danger-border)]"
-                      : isSubstantial
-                        ? "border-[var(--ds-color-warning-border)]"
-                        : isIncomplete && (watchedItem?.atividade_processo || watchedItem?.condicao_perigosa)
-                          ? "border-dashed border-[var(--ds-color-warning-border)]"
-                          : "border-[var(--color-border-subtle)]";
-
-                    const completenessColor = completeness === "complete"
-                      ? "bg-[var(--color-success)]"
-                      : completeness === "partial"
-                        ? "bg-[var(--color-warning)]"
-                        : "bg-[var(--ds-color-text-muted)]/40";
-
                     return (
-                      <div
+                      <AprRiskRow
                         key={field.id}
-                        className={cn(
-                          "rounded-[var(--ds-radius-xl)] border bg-[color:var(--color-card)] shadow-[var(--ds-shadow-sm)] transition-all",
-                          borderClass,
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:items-center sm:justify-between",
-                            isRowExpanded ? "border-b border-[var(--color-border-subtle)] pb-4" : "pb-3",
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className={cn("h-2.5 w-2.5 rounded-full shrink-0", completenessColor)} title={
-                              completeness === "complete" ? "Linha completa" : completeness === "partial" ? "Linha incompleta" : "Linha vazia"
-                            } />
-                            <div className="min-w-0">
-                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
-                                Risco #{index + 1}
-                              </p>
-                              {compactMode && !isRowExpanded && watchedItem?.atividade_processo && (
-                                <p className="mt-0.5 truncate text-sm text-[var(--ds-color-text-secondary)]">
-                                  {watchedItem.atividade_processo}
-                                  {watchedItem.condicao_perigosa ? ` — ${watchedItem.condicao_perigosa}` : ""}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className={cn(
-                                "inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                                getCategoriaBadgeClass(calc.categoria),
-                              )}
-                            >
-                              {calc.categoria || "Não definida"}
-                            </span>
-                            {isIncomplete && (watchedItem?.atividade_processo || watchedItem?.condicao_perigosa) && (
-                              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-warning)]" title="Probabilidade/Severidade não preenchidas">
-                                <AlertTriangle className="h-3 w-3" />
-                                P/S
-                              </span>
-                            )}
-                            {compactMode && (
-                              <button
-                                type="button"
-                                onClick={() => toggleExpandedRow(index)}
-                                className="rounded-[var(--ds-radius-md)] p-1.5 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[color:var(--color-card-muted)]"
-                                title={isRowExpanded ? "Recolher" : "Expandir"}
-                              >
-                                {isRowExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => moveRiskRow(index, index - 1)}
-                              disabled={index === 0}
-                              className="rounded-[var(--ds-radius-md)] p-1.5 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[color:var(--color-card-muted)] disabled:opacity-30"
-                              title="Mover para cima"
-                            >
-                              <ChevronUp className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveRiskRow(index, index + 1)}
-                              disabled={index === riskFields.length - 1}
-                              className="rounded-[var(--ds-radius-md)] p-1.5 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[color:var(--color-card-muted)] disabled:opacity-30"
-                              title="Mover para baixo"
-                            >
-                              <ChevronDown className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => duplicateRiskRow(index)}
-                              className="rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-primary-subtle)] p-1.5 text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78"
-                              title="Duplicar linha"
-                            >
-                              <Copy className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeRisk(index)}
-                              className="rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-danger-subtle)] p-1.5 text-[var(--color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]/78"
-                              title="Remover linha"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {isRowExpanded && (
-                        <div className="space-y-3 p-4">
-                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                            <div>
-                              <label className={aprLabelCompactClass}>
-                                Atividade / Processo
-                              </label>
-                              <input
-                                {...register(
-                                  `itens_risco.${index}.atividade_processo`,
-                                )}
-                                className={aprFieldClass}
-                                placeholder="Atividade/processo"
-                              />
-                            </div>
-                            <div>
-                              <label className={aprLabelCompactClass}>
-                                Agente ambiental
-                              </label>
-                              <input
-                                {...register(
-                                  `itens_risco.${index}.agente_ambiental`,
-                                )}
-                                className={aprFieldClass}
-                                placeholder="Agente ambiental"
-                              />
-                            </div>
-                            <div>
-                              <label className={aprLabelCompactClass}>
-                                Condição perigosa
-                              </label>
-                              <input
-                                {...register(
-                                  `itens_risco.${index}.condicao_perigosa`,
-                                )}
-                                className={aprFieldClass}
-                                placeholder="Condição perigosa"
-                              />
-                            </div>
-                            <div>
-                              <label className={aprLabelCompactClass}>
-                                Fontes / circunstâncias
-                              </label>
-                              <input
-                                {...register(
-                                  `itens_risco.${index}.fontes_circunstancias`,
-                                )}
-                                className={aprFieldClass}
-                                placeholder="Fontes ou circunstâncias"
-                              />
-                            </div>
-                            <div>
-                              <label className={aprLabelCompactClass}>
-                                Possíveis lesões
-                              </label>
-                              <input
-                                {...register(
-                                  `itens_risco.${index}.possiveis_lesoes`,
-                                )}
-                                className={aprFieldClass}
-                                placeholder="Possíveis lesões"
-                              />
-                            </div>
-
-                          </div>
-
-                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                              <div>
-                                <label className={aprLabelCompactClass}>
-                                  Probabilidade
-                                </label>
-                                <select
-                                  {...register(
-                                    `itens_risco.${index}.probabilidade`,
-                                  )}
-                                  onChange={(event) => {
-                                    const value = event.target.value;
-                                    setValue(
-                                      `itens_risco.${index}.probabilidade`,
-                                      value,
-                                      {
-                                        shouldDirty: true,
-                                        shouldValidate: true,
-                                      },
-                                    );
-                                    const severidade = String(
-                                      watchedRiskItems?.[index]?.severidade ||
-                                        "",
-                                    );
-                                    const result = calculateAprRiskEvaluation(
-                                      value,
-                                      severidade,
-                                    );
-                                    setValue(
-                                      `itens_risco.${index}.categoria_risco`,
-                                      result.categoria,
-                                      {
-                                        shouldDirty: true,
-                                        shouldValidate: true,
-                                      },
-                                    );
-                                  }}
-                                  className={aprFieldClass}
-                                >
-                                  <option value="">Selecione</option>
-                                  <option value="1">1 - Baixa</option>
-                                  <option value="2">2 - Média</option>
-                                  <option value="3">3 - Alta</option>
-                                </select>
-                              </div>
-                              <div>
-                                <label className={aprLabelCompactClass}>
-                                  Severidade
-                                </label>
-                                <select
-                                  {...register(
-                                    `itens_risco.${index}.severidade`,
-                                  )}
-                                  onChange={(event) => {
-                                    const value = event.target.value;
-                                    setValue(
-                                      `itens_risco.${index}.severidade`,
-                                      value,
-                                      {
-                                        shouldDirty: true,
-                                        shouldValidate: true,
-                                      },
-                                    );
-                                    const probabilidade = String(
-                                      watchedRiskItems?.[index]
-                                        ?.probabilidade || "",
-                                    );
-                                    const result = calculateAprRiskEvaluation(
-                                      probabilidade,
-                                      value,
-                                    );
-                                    setValue(
-                                      `itens_risco.${index}.categoria_risco`,
-                                      result.categoria,
-                                      {
-                                        shouldDirty: true,
-                                        shouldValidate: true,
-                                      },
-                                    );
-                                  }}
-                                  className={aprFieldClass}
-                                >
-                                  <option value="">Selecione</option>
-                                  <option value="1">1 - Baixa</option>
-                                  <option value="2">2 - Média</option>
-                                  <option value="3">3 - Alta</option>
-                                </select>
-                              </div>
-                            </div>
-
-                            <div className={cn(
-                              "rounded-[var(--ds-radius-lg)] border px-4 py-2.5",
-                              isCritical
-                                ? "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]/40"
-                                : isSubstantial
-                                  ? "border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)]/40"
-                                  : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18",
-                            )}>
-                              <div className="flex flex-wrap items-center gap-3">
-                                <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Avaliação:</span>
-                                <span
-                                  className={cn(
-                                    "inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                                    getCategoriaBadgeClass(calc.categoria),
-                                  )}
-                                >
-                                  {calc.categoria || "Não definida"}
-                                </span>
-                                <span className="text-xs text-[var(--ds-color-text-secondary)]">
-                                  Prioridade: <strong>{calc.prioridade || "-"}</strong>
-                                </span>
-                                <span className="text-xs text-[var(--ds-color-text-secondary)]">
-                                  Score: <strong>{calc.score || "-"}</strong>
-                                </span>
-                              </div>
-                              {calc.categoria && ACTION_CRITERIA[calc.categoria] && (
-                                <p className="mt-1.5 text-xs text-[var(--ds-color-text-muted)]">
-                                  <strong>Critério de ação:</strong> {ACTION_CRITERIA[calc.categoria]}
-                                </p>
-                              )}
-                            </div>
-
-                          <div>
-                            <label className={aprLabelCompactClass}>
-                              Medidas de prevenção
-                            </label>
-                            <textarea
-                              {...register(
-                                `itens_risco.${index}.medidas_prevencao`,
-                              )}
-                              rows={3}
-                              className={aprFieldClass}
-                              placeholder="Descreva as barreiras, controles e medidas preventivas."
-                            />
-                          </div>
-
-                          <div className="grid gap-3 sm:grid-cols-3">
-                            <div>
-                              <label className={aprLabelCompactClass}>
-                                Responsável
-                              </label>
-                              <input
-                                {...register(
-                                  `itens_risco.${index}.responsavel`,
-                                )}
-                                className={aprFieldClass}
-                                placeholder="Responsável pela ação"
-                              />
-                            </div>
-                            <div>
-                              <label className={aprLabelCompactClass}>
-                                Prazo
-                              </label>
-                              <input
-                                type="date"
-                                {...register(`itens_risco.${index}.prazo`)}
-                                className={aprFieldClass}
-                              />
-                            </div>
-                            <div>
-                              <label className={aprLabelCompactClass}>
-                                Status da ação
-                              </label>
-                              <input
-                                {...register(
-                                  `itens_risco.${index}.status_acao`,
-                                )}
-                                className={aprFieldClass}
-                                placeholder="Aberta, em andamento, concluída..."
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        )}
-                      </div>
+                        fieldId={field.id}
+                        index={index}
+                        totalRows={riskFields.length}
+                        compactMode={compactMode}
+                        expanded={expandedRows.has(index)}
+                        onToggleExpanded={toggleExpandedRow}
+                        onMove={moveRiskRow}
+                        onDuplicate={duplicateRiskRow}
+                        onRemove={removeRisk}
+                        control={control}
+                        register={register}
+                        setValue={setValue}
+                        aprFieldClass={aprFieldClass}
+                        aprLabelCompactClass={aprLabelCompactClass}
+                      />
                     );
                   })}
                 </div>
@@ -3415,22 +3098,22 @@ export function AprForm({ id }: AprFormProps) {
                           <tr>
                             <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
                             <td className="font-bold">Não prioritário</td>
-                            <td>Não são requeridos controles adicionais. Condição dentro dos parâmetros.</td>
+                            <td>{getActionCriteriaText("Aceitável", "long")}</td>
                           </tr>
                           <tr>
                             <td className="risk-badge-attention text-center font-bold">Atenção</td>
                             <td className="font-bold">Prioridade básica</td>
-                            <td>Reavaliar periodicamente e adotar medidas complementares quando necessário.</td>
+                            <td>{getActionCriteriaText("Atenção", "long")}</td>
                           </tr>
                           <tr>
                             <td className="risk-badge-substantial text-center font-bold">Substancial</td>
                             <td className="font-bold">Prioridade preferencial</td>
-                            <td>Trabalho não deve ser iniciado/continuado sem redução de risco e controles eficazes.</td>
+                            <td>{getActionCriteriaText("Substancial", "long")}</td>
                           </tr>
                           <tr>
                             <td className="risk-badge-critical text-center font-bold">Crítico</td>
                             <td className="font-bold">Prioridade máxima</td>
-                            <td>Interromper o processo e implementar ações imediatas antes da execução.</td>
+                            <td>{getActionCriteriaText("Crítico", "long")}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -3489,7 +3172,8 @@ export function AprForm({ id }: AprFormProps) {
                 </div>
 
                 {/* Risk Summary Breakdown */}
-                {riskSummary.total > 0 && (
+                <AprExecutiveSummary control={control} variant="breakdown" />
+                {false && (
                   <div className="mt-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
                       Distribuição de riscos
