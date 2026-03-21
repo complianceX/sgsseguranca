@@ -1311,26 +1311,26 @@ html[data-theme="light"] {
   }
 
   .apr-tech-table thead th {
-    border: 1px solid #0F1923 !important;
-    background: #e5e7eb !important;
-    color: #0F1923 !important;
+    border: 1px solid var(--ds-color-border-strong) !important;
+    background: var(--ds-color-surface-muted) !important;
+    color: var(--ds-color-text-primary) !important;
     font-weight: 800 !important;
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    font-size: 0.9rem;
-    padding-top: 0.55rem !important;
-    padding-bottom: 0.55rem !important;
+    font-size: 0.8rem;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
     overflow-wrap: anywhere;
     word-break: break-word;
   }
 
   .apr-tech-table tbody td {
-    border: 1px solid #0F1923 !important;
-    color: #0F1923 !important;
-    background: #ffffff !important;
-    padding: 0.55rem 0.6rem !important;
+    border: 1px solid var(--ds-color-border-default) !important;
+    color: var(--ds-color-text-primary) !important;
+    background: var(--ds-color-surface-base) !important;
+    padding: 0.45rem 0.55rem !important;
     line-height: 1.35;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     overflow-wrap: anywhere;
     word-break: break-word;
   }

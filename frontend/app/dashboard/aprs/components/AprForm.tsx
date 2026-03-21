@@ -42,6 +42,7 @@ import {
   Printer,
   Upload,
   Download,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -146,14 +147,14 @@ const APR_STEPS = [
 ] as const;
 
 const aprBackButtonClass =
-  "group rounded-full p-2 text-[var(--color-text-muted)] transition-colors hover:bg-[color:var(--color-card-muted)] hover:text-[var(--color-text)]";
-const aprHeadingClass = "text-2xl font-bold text-[var(--color-text)]";
-const aprSubheadingClass = "text-sm text-[var(--color-text-muted)]";
-const aprSectionTitleClass = "mb-3 text-sm font-bold text-[var(--color-text)]";
+  "group rounded-full p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]";
+const aprHeadingClass = "text-2xl font-bold text-[var(--ds-color-text-primary)]";
+const aprSubheadingClass = "text-sm text-[var(--ds-color-text-muted)]";
+const aprSectionTitleClass = "mb-3 text-sm font-bold text-[var(--ds-color-text-primary)]";
 const aprLabelClass =
-  "mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]";
+  "mb-1.5 block text-[13px] font-semibold text-[var(--ds-color-text-secondary)]";
 const aprLabelCompactClass =
-  "mb-1.5 block text-[13px] font-semibold text-[var(--color-text-secondary)]";
+  "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]";
 const aprFieldClass =
   "w-full min-h-[2.875rem] rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-4 py-2.5 text-base leading-6 text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
 const aprFileFieldClass =
@@ -163,8 +164,8 @@ const aprFieldErrorClass =
 const aprFieldDisabledClass =
   "disabled:bg-[color:var(--color-card-muted)]/60 disabled:cursor-not-allowed disabled:opacity-60";
 const aprCheckboxClass =
-  "h-5 w-5 rounded border-[var(--component-field-border)] text-[var(--color-primary)] transition-all focus:ring-[var(--color-primary)]";
-const aprErrorTextClass = "mt-1 text-xs text-[var(--color-danger)]";
+  "h-5 w-5 rounded border-[var(--component-field-border)] text-[var(--ds-color-action-primary)] transition-all focus:ring-[var(--ds-color-action-primary)]";
+const aprErrorTextClass = "mt-1 text-xs text-[var(--ds-color-danger)]";
 const aprSuccessButtonCompactClass =
   "rounded-[var(--ds-radius-md)] bg-[var(--component-button-success-bg)] px-3 py-2 text-xs font-semibold text-[var(--component-button-success-text)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)] disabled:opacity-60";
 const aprPrimaryCompactButtonClass =
@@ -2832,8 +2833,8 @@ export function AprForm({ id }: AprFormProps) {
                           </div>
                         </div>
 
-                        <div className="grid gap-4 xl:grid-cols-2">
-                          <div className="space-y-4">
+                        <div className="space-y-3">
+                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                             <div>
                               <label className={aprLabelCompactClass}>
                                 Atividade / Processo
@@ -2882,9 +2883,6 @@ export function AprForm({ id }: AprFormProps) {
                                 placeholder="Fontes ou circunstâncias"
                               />
                             </div>
-                          </div>
-
-                          <div className="space-y-4">
                             <div>
                               <label className={aprLabelCompactClass}>
                                 Possíveis lesões
@@ -2898,7 +2896,9 @@ export function AprForm({ id }: AprFormProps) {
                               />
                             </div>
 
-                            <div className="grid gap-4 sm:grid-cols-2">
+                          </div>
+
+                          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                               <div>
                                 <label className={aprLabelCompactClass}>
                                   Probabilidade
@@ -2987,11 +2987,9 @@ export function AprForm({ id }: AprFormProps) {
                               </div>
                             </div>
 
-                            <div className="rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/24 px-4 py-3">
-                              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
-                                Avaliação automática
-                              </p>
-                              <div className="mt-3 flex flex-wrap items-center gap-3">
+                            <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-2.5">
+                              <div className="flex flex-wrap items-center gap-3">
+                                <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Avaliação:</span>
                                 <span
                                   className={cn(
                                     "inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold",
@@ -3000,238 +2998,169 @@ export function AprForm({ id }: AprFormProps) {
                                 >
                                   {calc.categoria || "Não definida"}
                                 </span>
-                                <span className="text-sm text-[var(--color-text-secondary)]">
-                                  Prioridade:{" "}
-                                  <strong>{calc.prioridade || "-"}</strong>
+                                <span className="text-xs text-[var(--ds-color-text-secondary)]">
+                                  Prioridade: <strong>{calc.prioridade || "-"}</strong>
                                 </span>
-                                <span className="text-sm text-[var(--color-text-secondary)]">
+                                <span className="text-xs text-[var(--ds-color-text-secondary)]">
                                   Score: <strong>{calc.score || "-"}</strong>
                                 </span>
                               </div>
                             </div>
+                          </div>
 
+                          <div>
+                            <label className={aprLabelCompactClass}>
+                              Medidas de prevenção
+                            </label>
+                            <textarea
+                              {...register(
+                                `itens_risco.${index}.medidas_prevencao`,
+                              )}
+                              rows={3}
+                              className={aprFieldClass}
+                              placeholder="Descreva as barreiras, controles e medidas preventivas."
+                            />
+                          </div>
+
+                          <div className="grid gap-3 sm:grid-cols-3">
                             <div>
                               <label className={aprLabelCompactClass}>
-                                Medidas de prevenção
+                                Responsável
                               </label>
-                              <textarea
+                              <input
                                 {...register(
-                                  `itens_risco.${index}.medidas_prevencao`,
+                                  `itens_risco.${index}.responsavel`,
                                 )}
-                                rows={4}
                                 className={aprFieldClass}
-                                placeholder="Descreva as barreiras, controles e medidas preventivas."
+                                placeholder="Responsável pela ação"
                               />
                             </div>
-
-                            <div className="grid gap-4 sm:grid-cols-3">
-                              <div>
-                                <label className={aprLabelCompactClass}>
-                                  Responsável
-                                </label>
-                                <input
-                                  {...register(
-                                    `itens_risco.${index}.responsavel`,
-                                  )}
-                                  className={aprFieldClass}
-                                  placeholder="Responsável pela ação"
-                                />
-                              </div>
-                              <div>
-                                <label className={aprLabelCompactClass}>
-                                  Prazo
-                                </label>
-                                <input
-                                  type="date"
-                                  {...register(`itens_risco.${index}.prazo`)}
-                                  className={aprFieldClass}
-                                />
-                              </div>
-                              <div>
-                                <label className={aprLabelCompactClass}>
-                                  Status da ação
-                                </label>
-                                <input
-                                  {...register(
-                                    `itens_risco.${index}.status_acao`,
-                                  )}
-                                  className={aprFieldClass}
-                                  placeholder="Aberta, em andamento, concluída..."
-                                />
-                              </div>
+                            <div>
+                              <label className={aprLabelCompactClass}>
+                                Prazo
+                              </label>
+                              <input
+                                type="date"
+                                {...register(`itens_risco.${index}.prazo`)}
+                                className={aprFieldClass}
+                              />
+                            </div>
+                            <div>
+                              <label className={aprLabelCompactClass}>
+                                Status da ação
+                              </label>
+                              <input
+                                {...register(
+                                  `itens_risco.${index}.status_acao`,
+                                )}
+                                className={aprFieldClass}
+                                placeholder="Aberta, em andamento, concluída..."
+                              />
                             </div>
                           </div>
-                        </div>
                       </div>
                     );
                   })}
                 </div>
 
-                <div className="mt-4 space-y-3">
-                  <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
-                    <table className="apr-tech-table w-full min-w-[760px] table-auto text-sm">
-                      <thead>
-                        <tr>
-                          <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)] w-[170px]">
-                            Severidade
-                          </th>
-                          <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">
-                            1 - Baixa
-                          </th>
-                          <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">
-                            2 - Média
-                          </th>
-                          <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">
-                            3 - Alta
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="font-bold">Descrição</td>
-                          <td>
-                            Sem afastamento. Danos materiais inexistentes ou
-                            leves.
-                          </td>
-                          <td>
-                            Danos materiais existentes sem perda de
-                            funcionalidade. Afastamento sem incapacidade
-                            permanente.
-                          </td>
-                          <td>
-                            Afastamento com incapacidade parcial/total. Danos
-                            materiais com perda de funcionalidade.
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                <details className="mt-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]">
+                  <summary className="flex cursor-pointer items-center gap-2 px-5 py-3 text-sm font-semibold text-[var(--ds-color-text-primary)] select-none [&::-webkit-details-marker]:hidden">
+                    <ChevronDown className="h-4 w-4 text-[var(--ds-color-text-muted)] transition-transform [[open]>&]:rotate-180" />
+                    Matriz de referência — Severidade, Probabilidade e Categorias
+                  </summary>
+                  <div className="space-y-3 border-t border-[var(--ds-color-border-subtle)] px-5 py-4">
+                    <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)]">
+                      <table className="apr-tech-table w-full min-w-[700px] table-auto text-sm">
+                        <thead>
+                          <tr>
+                            <th className="w-[150px]">Severidade</th>
+                            <th>1 - Baixa</th>
+                            <th>2 - Média</th>
+                            <th>3 - Alta</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="font-bold">Descrição</td>
+                            <td>Sem afastamento. Danos materiais inexistentes ou leves.</td>
+                            <td>Danos materiais existentes sem perda de funcionalidade. Afastamento sem incapacidade permanente.</td>
+                            <td>Afastamento com incapacidade parcial/total. Danos materiais com perda de funcionalidade.</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
 
-                  <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
-                    <table className="apr-tech-table w-full min-w-[760px] table-auto text-sm">
-                      <thead>
-                        <tr>
-                          <th
-                            colSpan={2}
-                            className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]"
-                          >
-                            Probabilidade
-                          </th>
-                          <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">
-                            1 - Baixa
-                          </th>
-                          <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">
-                            2 - Média
-                          </th>
-                          <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">
-                            3 - Alta
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="font-bold">1</td>
-                          <td className="font-semibold">Baixa</td>
-                          <td className="risk-badge-acceptable text-center font-bold">
-                            Aceitável
-                          </td>
-                          <td className="risk-badge-acceptable text-center font-bold">
-                            Aceitável
-                          </td>
-                          <td className="risk-badge-attention text-center font-bold">
-                            Atenção
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="font-bold">2</td>
-                          <td className="font-semibold">Média</td>
-                          <td className="risk-badge-acceptable text-center font-bold">
-                            Aceitável
-                          </td>
-                          <td className="risk-badge-attention text-center font-bold">
-                            Atenção
-                          </td>
-                          <td className="risk-badge-substantial text-center font-bold">
-                            Substancial
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="font-bold">3</td>
-                          <td className="font-semibold">Alta</td>
-                          <td className="risk-badge-attention text-center font-bold">
-                            Atenção
-                          </td>
-                          <td className="risk-badge-substantial text-center font-bold">
-                            Substancial
-                          </td>
-                          <td className="risk-badge-critical text-center font-bold">
-                            Crítico
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                    <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)]">
+                      <table className="apr-tech-table w-full min-w-[700px] table-auto text-sm">
+                        <thead>
+                          <tr>
+                            <th colSpan={2}>Probabilidade</th>
+                            <th>1 - Baixa</th>
+                            <th>2 - Média</th>
+                            <th>3 - Alta</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="font-bold">1</td>
+                            <td className="font-semibold">Baixa</td>
+                            <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
+                            <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
+                            <td className="risk-badge-attention text-center font-bold">Atenção</td>
+                          </tr>
+                          <tr>
+                            <td className="font-bold">2</td>
+                            <td className="font-semibold">Média</td>
+                            <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
+                            <td className="risk-badge-attention text-center font-bold">Atenção</td>
+                            <td className="risk-badge-substantial text-center font-bold">Substancial</td>
+                          </tr>
+                          <tr>
+                            <td className="font-bold">3</td>
+                            <td className="font-semibold">Alta</td>
+                            <td className="risk-badge-attention text-center font-bold">Atenção</td>
+                            <td className="risk-badge-substantial text-center font-bold">Substancial</td>
+                            <td className="risk-badge-critical text-center font-bold">Crítico</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
 
-                  <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--color-border-strong)] bg-[color:var(--color-card)]">
-                    <table className="apr-tech-table w-full min-w-[860px] table-auto text-sm">
-                      <thead>
-                        <tr>
-                          <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)] w-[170px]">
-                            Categoria
-                          </th>
-                          <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)] w-[220px]">
-                            Prioridade
-                          </th>
-                          <th className="!bg-[color:var(--color-card-muted)]/42 !text-[var(--color-text)]">
-                            Critério de ação
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="risk-badge-acceptable text-center font-bold">
-                            Aceitável
-                          </td>
-                          <td className="font-bold">Não prioritário</td>
-                          <td>
-                            Não são requeridos controles adicionais. Condição
-                            dentro dos parâmetros.
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="risk-badge-attention text-center font-bold">
-                            Atenção
-                          </td>
-                          <td className="font-bold">Prioridade básica</td>
-                          <td>
-                            Reavaliar periodicamente e adotar medidas
-                            complementares quando necessário.
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="risk-badge-substantial text-center font-bold">
-                            Substancial
-                          </td>
-                          <td className="font-bold">Prioridade preferencial</td>
-                          <td>
-                            Trabalho não deve ser iniciado/continuado sem
-                            redução de risco e controles eficazes.
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="risk-badge-critical text-center font-bold">
-                            Crítico
-                          </td>
-                          <td className="font-bold">Prioridade máxima</td>
-                          <td>
-                            Interromper o processo e implementar ações imediatas
-                            antes da execução.
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+                    <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)]">
+                      <table className="apr-tech-table w-full min-w-[760px] table-auto text-sm">
+                        <thead>
+                          <tr>
+                            <th className="w-[150px]">Categoria</th>
+                            <th className="w-[200px]">Prioridade</th>
+                            <th>Critério de ação</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
+                            <td className="font-bold">Não prioritário</td>
+                            <td>Não são requeridos controles adicionais. Condição dentro dos parâmetros.</td>
+                          </tr>
+                          <tr>
+                            <td className="risk-badge-attention text-center font-bold">Atenção</td>
+                            <td className="font-bold">Prioridade básica</td>
+                            <td>Reavaliar periodicamente e adotar medidas complementares quando necessário.</td>
+                          </tr>
+                          <tr>
+                            <td className="risk-badge-substantial text-center font-bold">Substancial</td>
+                            <td className="font-bold">Prioridade preferencial</td>
+                            <td>Trabalho não deve ser iniciado/continuado sem redução de risco e controles eficazes.</td>
+                          </tr>
+                          <tr>
+                            <td className="risk-badge-critical text-center font-bold">Crítico</td>
+                            <td className="font-bold">Prioridade máxima</td>
+                            <td>Interromper o processo e implementar ações imediatas antes da execução.</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
+                </details>
               </div>
             </>
           )}
