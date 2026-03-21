@@ -119,18 +119,24 @@ export class MailService {
     const smtpSecure =
       smtpSecureRaw === 'true' ||
       this.configService.get<boolean>('MAIL_SECURE') === true;
+    const smtpTimeoutMs = this.resolveMailProviderTimeoutMs('smtp');
 
     if (smtpHost && smtpUser && smtpPass) {
       this.transporter = nodemailer.createTransport({
         host: smtpHost,
         port: Number.isFinite(smtpPort) ? smtpPort : 587,
         secure: smtpSecure,
+        connectionTimeout: smtpTimeoutMs,
+        greetingTimeout: smtpTimeoutMs,
+        socketTimeout: smtpTimeoutMs,
         auth: {
           user: smtpUser,
           pass: smtpPass,
         },
       });
-      this.logger.log(`MailService configurado com SMTP (${smtpHost}).`);
+      this.logger.log(
+        `MailService configurado com SMTP (${smtpHost}) timeout=${smtpTimeoutMs}ms.`,
+      );
       return;
     }
 
@@ -693,6 +699,7 @@ export class MailService {
     }
 
     if (this.transporter) {
+      const timeoutMs = this.resolveMailProviderTimeoutMs('smtp');
       const rawInfo = await this.integration.execute<unknown>(
         'smtp_email',
         () =>
@@ -705,7 +712,7 @@ export class MailService {
             attachments: options.attachments,
           }),
         {
-          timeoutMs: 10_000,
+          timeoutMs,
           retry: { attempts: 2, mode: 'safe' },
         },
       );
@@ -722,6 +729,7 @@ export class MailService {
     }
 
     if (this.resend) {
+      const timeoutMs = this.resolveMailProviderTimeoutMs('resend');
       const data = this.toResendSendResponse(
         await this.integration.execute<unknown>(
           'resend_email',
@@ -737,7 +745,7 @@ export class MailService {
               ),
             }),
           {
-            timeoutMs: 10_000,
+            timeoutMs,
             retry: { attempts: 2, mode: 'safe' },
           },
         ),
@@ -837,6 +845,23 @@ export class MailService {
         content,
       };
     });
+  }
+
+  private resolveMailProviderTimeoutMs(provider: MailProvider): number {
+    const providerEnv =
+      provider === 'smtp' ? 'SMTP_EMAIL_TIMEOUT_MS' : 'RESEND_EMAIL_TIMEOUT_MS';
+    const mailDeliveryTimeout = this.getEnvNumber(
+      'MAIL_DELIVERY_TIMEOUT_MS',
+      0,
+    );
+    const providerTimeout = this.getEnvNumber(providerEnv, 0);
+    const integrationTimeout = this.getEnvNumber('INTEGRATION_TIMEOUT_MS', 0);
+    const fallback = provider === 'smtp' ? 30_000 : 15_000;
+
+    return Math.max(
+      1_000,
+      providerTimeout || mailDeliveryTimeout || integrationTimeout || fallback,
+    );
   }
 
   private buildAttachmentFilename(docName: string, fileKey?: string): string {

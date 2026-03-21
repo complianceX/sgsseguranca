@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MailService } from './mail.service';
 import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import nodemailer from 'nodemailer';
 import { MailLog } from './entities/mail-log.entity';
 import { EpisService } from '../epis/epis.service';
 import { TrainingsService } from '../trainings/trainings.service';
@@ -268,6 +269,115 @@ describe('MailService', () => {
 
       expect(createdLog.status).toBe('error');
       expect(createdLog.error_message).toBe('Erro de rede');
+    });
+
+    it('usa timeout configurado para SMTP no transporte e no wrapper resiliente', async () => {
+      const smtpSendMail = jest.fn().mockResolvedValue({
+        messageId: 'smtp-1',
+        accepted: ['smtp@example.com'],
+        rejected: [],
+        response: '250 OK',
+      });
+      const smtpTransport = {
+        sendMail: smtpSendMail,
+      } as unknown as nodemailer.Transporter;
+      const createTransportSpy = jest.spyOn(nodemailer, 'createTransport');
+      createTransportSpy.mockImplementation(
+        (() => smtpTransport) as typeof nodemailer.createTransport,
+      );
+      const smtpConfigService = {
+        get: jest.fn((key: string) => {
+          switch (key) {
+            case 'MAIL_HOST':
+              return 'smtp-relay.brevo.com';
+            case 'MAIL_USER':
+              return 'smtp-user';
+            case 'MAIL_PASS':
+              return 'smtp-pass';
+            case 'MAIL_PORT':
+              return '2525';
+            case 'MAIL_SECURE':
+              return 'false';
+            case 'SMTP_EMAIL_TIMEOUT_MS':
+              return '30000';
+            case 'MAIL_FROM_EMAIL':
+              return 'test@example.com';
+            case 'MAIL_FROM_NAME':
+              return 'GST';
+            default:
+              return null;
+          }
+        }),
+      };
+
+      const smtpModule = await Test.createTestingModule({
+        providers: [
+          MailService,
+          { provide: ConfigService, useValue: smtpConfigService },
+          {
+            provide: getRepositoryToken(MailLog),
+            useValue: mockMailLogRepository,
+          },
+          {
+            provide: getRepositoryToken(Cat),
+            useValue: mockCatsRepository,
+          },
+          {
+            provide: DocumentStorageService,
+            useValue: mockDocumentStorageService,
+          },
+          { provide: EpisService, useValue: mockDomainService },
+          { provide: TrainingsService, useValue: mockDomainService },
+          { provide: PtsService, useValue: mockDomainService },
+          { provide: AprsService, useValue: mockDomainService },
+          { provide: ChecklistsService, useValue: mockDomainService },
+          { provide: NonConformitiesService, useValue: mockDomainService },
+          { provide: DdsService, useValue: mockDomainService },
+          { provide: InspectionsService, useValue: mockDomainService },
+          { provide: AuditsService, useValue: mockDomainService },
+          { provide: RdosService, useValue: mockDomainService },
+          { provide: CompaniesService, useValue: mockDomainService },
+          { provide: TenantService, useValue: mockTenantService },
+          { provide: ReportsService, useValue: mockDomainService },
+          {
+            provide: IntegrationResilienceService,
+            useValue: mockIntegrationResilienceService,
+          },
+          {
+            provide: DistributedLockService,
+            useValue: mockDistributedLockService,
+          },
+        ],
+      }).compile();
+
+      const smtpService = smtpModule.get<MailService>(MailService);
+
+      await smtpService.sendMailSimple(
+        'smtp@example.com',
+        'Assunto SMTP',
+        'Conteudo SMTP',
+      );
+
+      expect(createTransportSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          host: 'smtp-relay.brevo.com',
+          port: 2525,
+          connectionTimeout: 30000,
+          greetingTimeout: 30000,
+          socketTimeout: 30000,
+        }),
+      );
+      expect(mockIntegrationResilienceService.execute).toHaveBeenCalledWith(
+        'smtp_email',
+        expect.any(Function),
+        expect.objectContaining({
+          timeoutMs: 30000,
+          retry: { attempts: 2, mode: 'safe' },
+        }),
+      );
+
+      await smtpModule.close();
+      createTransportSpy.mockRestore();
     });
   });
 
