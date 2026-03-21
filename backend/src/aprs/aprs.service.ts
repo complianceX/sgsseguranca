@@ -112,6 +112,45 @@ export class AprsService {
     }
   }
 
+  private assertAprEditableStatus(status: string) {
+    if (this.ensureAprStatus(status) !== AprStatus.PENDENTE) {
+      throw new BadRequestException(
+        'Somente APRs pendentes podem ser editadas pelo formulário. Use os fluxos formais de aprovação, cancelamento, encerramento ou nova versão.',
+      );
+    }
+  }
+
+  private assertAprFormMutable(
+    apr: Pick<Apr, 'status' | 'pdf_file_key'>,
+  ): void {
+    this.assertAprDocumentMutable(apr);
+    this.assertAprEditableStatus(apr.status);
+  }
+
+  private assertAprWorkflowTransitionAllowed(
+    apr: Pick<Apr, 'pdf_file_key'>,
+  ): void {
+    if (apr.pdf_file_key) {
+      throw new BadRequestException(
+        'APR com PDF final emitido está bloqueada para mudança de status. Gere uma nova versão para seguir com alterações.',
+      );
+    }
+  }
+
+  private assertAprRemovable(apr: Pick<Apr, 'status' | 'pdf_file_key'>): void {
+    if (apr.pdf_file_key) {
+      throw new BadRequestException(
+        'APR com PDF final emitido não pode ser removida. Use a governança documental ou gere nova versão quando aplicável.',
+      );
+    }
+
+    if (this.ensureAprStatus(apr.status) !== AprStatus.PENDENTE) {
+      throw new BadRequestException(
+        'Somente APRs pendentes e sem PDF final podem ser removidas. Use os fluxos formais de cancelamento/encerramento para registros fechados.',
+      );
+    }
+  }
+
   private ensureAprStatus(status: string): AprStatus {
     const knownStatuses = Object.values(AprStatus);
     if (knownStatuses.includes(status as AprStatus)) {
@@ -872,7 +911,7 @@ export class AprsService {
       );
     }
     const apr = await this.findOneForWrite(id);
-    this.assertAprDocumentMutable(apr);
+    this.assertAprFormMutable(apr);
     const {
       activities,
       risks,
@@ -1006,6 +1045,7 @@ export class AprsService {
 
   async remove(id: string, userId?: string): Promise<void> {
     const apr = await this.findOneForWrite(id);
+    this.assertAprRemovable(apr);
     await this.documentGovernanceService.removeFinalDocumentReference({
       companyId: apr.company_id,
       module: 'apr',
@@ -1034,6 +1074,7 @@ export class AprsService {
 
   async approve(id: string, userId: string, reason?: string): Promise<Apr> {
     const apr = await this.findOneForWrite(id);
+    this.assertAprWorkflowTransitionAllowed(apr);
     const currentStatus = this.ensureAprStatus(apr.status);
     const allowed = APR_ALLOWED_TRANSITIONS[currentStatus];
     if (!allowed?.includes(AprStatus.APROVADA)) {
@@ -1056,6 +1097,7 @@ export class AprsService {
 
   async reject(id: string, userId: string, reason: string): Promise<Apr> {
     const apr = await this.findOneForWrite(id);
+    this.assertAprWorkflowTransitionAllowed(apr);
     const currentStatus = this.ensureAprStatus(apr.status);
     const allowed = APR_ALLOWED_TRANSITIONS[currentStatus];
     if (!allowed?.includes(AprStatus.CANCELADA)) {
@@ -1100,6 +1142,7 @@ export class AprsService {
 
   async finalize(id: string, userId: string): Promise<Apr> {
     const apr = await this.findOneForWrite(id);
+    this.assertAprWorkflowTransitionAllowed(apr);
     const currentStatus = this.ensureAprStatus(apr.status);
     const allowed = APR_ALLOWED_TRANSITIONS[currentStatus];
     if (!allowed?.includes(AprStatus.ENCERRADA)) {
@@ -1294,7 +1337,7 @@ export class AprsService {
     hashSha256: string;
   }> {
     const apr = await this.findOneForWrite(aprId);
-    this.assertAprDocumentMutable(apr);
+    this.assertAprFormMutable(apr);
 
     const riskItem = await this.aprsRepository.manager
       .getRepository(AprRiskItem)

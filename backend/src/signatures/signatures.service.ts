@@ -21,7 +21,7 @@ import { Signature } from './entities/signature.entity';
 import { CreateSignatureDto } from './dto/create-signature.dto';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
-import { Apr } from '../aprs/entities/apr.entity';
+import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { Pt } from '../pts/entities/pt.entity';
 import { Dds } from '../dds/entities/dds.entity';
 import { Checklist } from '../checklists/entities/checklist.entity';
@@ -87,6 +87,13 @@ export class SignaturesService {
     createSignatureDto: CreateSignatureDto,
     authenticatedUserId: string,
   ): Promise<Signature> {
+    const companyId =
+      createSignatureDto.company_id || this.tenantService.getTenantId() || null;
+    await this.assertDocumentSignatureMutable({
+      documentId: createSignatureDto.document_id,
+      documentType: createSignatureDto.document_type,
+      companyId,
+    });
     return this.signaturesRepository.manager.transaction((manager) =>
       this.persistSignature(
         createSignatureDto,
@@ -104,6 +111,11 @@ export class SignaturesService {
     authenticated_user_id: string;
     signatures: SignatureWriteInput[];
   }): Promise<Signature[]> {
+    await this.assertDocumentSignatureMutable({
+      documentId: input.document_id,
+      documentType: input.document_type,
+      companyId: input.company_id || this.tenantService.getTenantId() || null,
+    });
     return this.signaturesRepository.manager.transaction(async (manager) => {
       await manager.getRepository(Signature).delete({
         document_id: input.document_id,
@@ -395,6 +407,12 @@ export class SignaturesService {
       );
     }
 
+    await this.assertDocumentSignatureMutable({
+      documentId: signature.document_id,
+      documentType: signature.document_type,
+      companyId: signature.company_id || tenantId || null,
+    });
+
     await this.signaturesRepository.delete({ id: signature.id });
   }
 
@@ -428,6 +446,12 @@ export class SignaturesService {
         );
       }
     }
+
+    await this.assertDocumentSignatureMutable({
+      documentId: document_id,
+      documentType: document_type,
+      companyId: tenantId || signatures[0]?.company_id || null,
+    });
 
     await this.signaturesRepository.delete({
       id: In(signatures.map((signature) => signature.id)),
@@ -636,6 +660,44 @@ export class SignaturesService {
       fileHash: input.registryContext?.fileHash || null,
       fileKey: input.registryContext?.fileKey || null,
     };
+  }
+
+  private async assertDocumentSignatureMutable(input: {
+    documentId: string;
+    documentType: string;
+    companyId: string | null;
+  }): Promise<void> {
+    const module =
+      resolveRegistryModuleForSignatureDocumentType(input.documentType) ||
+      normalizeModuleFromDocumentType(input.documentType);
+
+    if (module !== 'apr') {
+      return;
+    }
+
+    const apr = await this.dataSource.getRepository(Apr).findOne({
+      where: input.companyId
+        ? { id: input.documentId, company_id: input.companyId }
+        : { id: input.documentId },
+      select: ['id', 'company_id', 'status', 'pdf_file_key'],
+    });
+
+    if (!apr) {
+      throw new NotFoundException('APR não encontrada para assinatura.');
+    }
+
+    if (apr.pdf_file_key) {
+      throw new BadRequestException(
+        'APR com PDF final emitido está bloqueada para alterações de assinatura. Gere uma nova versão para seguir com alterações.',
+      );
+    }
+
+    const isPendingApr = String(apr.status) === String(AprStatus.PENDENTE);
+    if (!isPendingApr) {
+      throw new BadRequestException(
+        'Somente APRs pendentes podem ter assinaturas alteradas diretamente. Use nova versão se precisar ajustar signatários.',
+      );
+    }
   }
 
   private async loadEntityBindingContext(

@@ -267,6 +267,8 @@ describe('AprsService', () => {
     const apr = {
       id: 'apr-1',
       company_id: 'company-1',
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
     } as Apr;
     const softDelete = jest.fn();
     const manager = {
@@ -293,6 +295,19 @@ describe('AprsService', () => {
     expect(removeInput.trailMetadata).toEqual({ removalMode: 'soft_delete' });
     expect(typeof removeInput.removeEntityState).toBe('function');
     expect(softDelete).toHaveBeenCalledWith('apr-1');
+  });
+
+  it('bloqueia remocao quando a APR ja saiu do estado pendente', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: null,
+    } as unknown as Apr);
+
+    await expect(service.remove('apr-1', 'user-1')).rejects.toThrow(
+      /Somente APRs pendentes e sem PDF final podem ser removidas\./,
+    );
   });
 
   it('remove o arquivo da APR do storage quando a governanca falha depois do upload', async () => {
@@ -366,6 +381,27 @@ describe('AprsService', () => {
     );
 
     expect(aprRepository.findOne).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia update comum quando a APR ja esta aprovada, mesmo sem PDF final', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: null,
+    } as unknown as Apr);
+
+    await expect(
+      service.update(
+        'apr-1',
+        {
+          titulo: 'APR revisada fora do fluxo oficial',
+        } as never,
+        'user-1',
+      ),
+    ).rejects.toThrow(
+      /Somente APRs pendentes podem ser editadas pelo formulário\./,
+    );
   });
 
   it('registra cancelamento da APR na trilha imutável', async () => {
@@ -510,6 +546,7 @@ describe('AprsService', () => {
     aprRepository.findOne.mockResolvedValue({
       id: 'apr-1',
       company_id: 'company-1',
+      status: AprStatus.PENDENTE,
       pdf_file_key: null,
     } as Apr);
 
@@ -583,6 +620,65 @@ describe('AprsService', () => {
         file_size_bytes: 5,
         ip_address: '127.0.0.1',
       }),
+    );
+  });
+
+  it('bloqueia upload de evidencia quando a APR ja esta aprovada, mesmo sem PDF final', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: null,
+    } as unknown as Apr);
+
+    const file = {
+      originalname: 'evidence.jpg',
+      mimetype: 'image/jpeg',
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0x00]),
+      size: 5,
+    } as Express.Multer.File;
+
+    await expect(
+      service.uploadRiskEvidence(
+        'apr-1',
+        'risk-1',
+        file,
+        {},
+        'user-1',
+        '127.0.0.1',
+      ),
+    ).rejects.toThrow(
+      /Somente APRs pendentes podem ser editadas pelo formulário\./,
+    );
+
+    expect(documentStorageService.uploadFile).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia cancelamento quando a APR ja possui PDF final emitido', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
+    } as unknown as Apr);
+
+    await expect(
+      service.reject('apr-1', 'user-1', 'Cancelamento tardio'),
+    ).rejects.toThrow(
+      /APR com PDF final emitido está bloqueada para mudança de status\./,
+    );
+  });
+
+  it('bloqueia encerramento quando a APR ja possui PDF final emitido', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
+    } as unknown as Apr);
+
+    await expect(service.finalize('apr-1', 'user-1')).rejects.toThrow(
+      /APR com PDF final emitido está bloqueada para mudança de status\./,
     );
   });
 });

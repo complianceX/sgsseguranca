@@ -9,6 +9,7 @@ import type { ForensicTrailService } from '../forensic-trail/forensic-trail.serv
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import type { AppendForensicTrailEventInput } from '../forensic-trail/forensic-trail.service';
 import type { DataSource } from 'typeorm';
+import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { Dds } from '../dds/entities/dds.entity';
 import {
   SIGNATURE_PROOF_SCOPES,
@@ -31,7 +32,9 @@ describe('SignaturesService', () => {
   const repository = {
     create: jest.fn((input: Signature) => input),
     save: jest.fn((input: Signature) => Promise.resolve(input)),
+    find: jest.fn(),
     findOne: jest.fn(),
+    delete: jest.fn(() => Promise.resolve({ affected: 1 })),
     manager: {
       transaction: jest.fn((callback: (manager: unknown) => unknown) =>
         Promise.resolve(
@@ -67,8 +70,16 @@ describe('SignaturesService', () => {
     computeHmac: jest.fn(() => 'computed-hmac'),
   };
 
+  const aprRepository = {
+    findOne: jest.fn(() => Promise.resolve(null)),
+  };
+
   const dataSource = {
     getRepository: jest.fn((entity: unknown) => {
+      if (entity === Apr) {
+        return aprRepository;
+      }
+
       if (entity === Dds) {
         return {
           findOne: jest.fn(() =>
@@ -92,6 +103,15 @@ describe('SignaturesService', () => {
   beforeEach(() => {
     savedEntities.length = 0;
     jest.clearAllMocks();
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      numero: 'APR-001',
+      versao: 1,
+      status: AprStatus.PENDENTE,
+      pdf_file_key: null,
+      updated_at: new Date('2026-03-16T11:55:00.000Z'),
+    } as Partial<Apr>);
 
     service = new SignaturesService(
       repository as unknown as Repository<Signature>,
@@ -258,5 +278,54 @@ describe('SignaturesService', () => {
         signature_evidence_hash: 'evidence-hash',
       }),
     );
+  });
+
+  it('bloqueia criacao de assinatura quando a APR nao esta mais pendente', async () => {
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: null,
+    } as Partial<Apr>);
+
+    await expect(
+      service.create(
+        {
+          document_id: 'apr-1',
+          document_type: 'APR',
+          signature_data: 'data:image/png;base64,AAAA',
+          type: 'digital',
+        },
+        'user-1',
+      ),
+    ).rejects.toThrow(
+      /Somente APRs pendentes podem ter assinaturas alteradas diretamente\./,
+    );
+  });
+
+  it('bloqueia remocao de assinaturas quando a APR ja possui PDF final emitido', async () => {
+    repository.find.mockResolvedValue([
+      {
+        id: 'sig-1',
+        document_id: 'apr-1',
+        document_type: 'APR',
+        company_id: 'company-1',
+        user_id: 'user-1',
+      },
+    ]);
+    aprRepository.findOne.mockResolvedValue({
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.APROVADA,
+      pdf_file_key: 'documents/company-1/aprs/apr-1/apr-final.pdf',
+    } as Partial<Apr>);
+
+    await expect(
+      service.removeByDocument('apr-1', 'APR', 'user-1'),
+    ).rejects.toThrow(
+      /APR com PDF final emitido está bloqueada para alterações de assinatura\./,
+    );
+
+    expect(repository.delete).not.toHaveBeenCalled();
   });
 });

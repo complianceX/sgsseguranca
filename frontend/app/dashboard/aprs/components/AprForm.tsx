@@ -39,11 +39,9 @@ import {
   Printer,
   Upload,
   Download,
-  ChevronDown,
   Minimize2,
   Maximize2,
   Lock,
-  Info,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -68,7 +66,7 @@ import type {
 } from "@/lib/sophie-draft-storage";
 import { applyAprImportPreview } from "@/lib/apr-import";
 import { aprSchema, type AprFormData } from "./aprForm.schema";
-import { AprRiskRow } from "./AprRiskRow";
+import { APR_RISK_GRID_LAYOUT_CLASS, AprRiskRow } from "./AprRiskRow";
 import { AprExecutiveSummary } from "./AprExecutiveSummary";
 import { useAprCalculations } from "./useAprCalculations";
 
@@ -684,18 +682,6 @@ export function AprForm({ id }: AprFormProps) {
     [],
   );
   */
-
-  const riskSummary = useMemo(
-    () => ({
-      total: 0,
-      aceitavel: 0,
-      atencao: 0,
-      substancial: 0,
-      critico: 0,
-      incompletas: 0,
-    }),
-    [],
-  );
 
   // Unsaved changes warning
   useEffect(() => {
@@ -2464,26 +2450,6 @@ export function AprForm({ id }: AprFormProps) {
               </div>
 
               <AprExecutiveSummary control={control} variant="badges" />
-              {false && (
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                  <span className="font-semibold text-[var(--ds-color-text-muted)]">Riscos:</span>
-                  {riskSummary.aceitavel > 0 && (
-                    <span className="risk-badge-acceptable rounded-full px-2 py-0.5 text-[10px] font-semibold">{riskSummary.aceitavel} Aceitável</span>
-                  )}
-                  {riskSummary.atencao > 0 && (
-                    <span className="risk-badge-attention rounded-full px-2 py-0.5 text-[10px] font-semibold">{riskSummary.atencao} Atenção</span>
-                  )}
-                  {riskSummary.substancial > 0 && (
-                    <span className="risk-badge-substantial rounded-full px-2 py-0.5 text-[10px] font-semibold">{riskSummary.substancial} Substancial</span>
-                  )}
-                  {riskSummary.critico > 0 && (
-                    <span className="risk-badge-critical rounded-full px-2 py-0.5 text-[10px] font-semibold">{riskSummary.critico} Crítico</span>
-                  )}
-                  {riskSummary.incompletas > 0 && (
-                    <span className="rounded-full border border-dashed border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-warning)]">{riskSummary.incompletas} Incompleta(s)</span>
-                  )}
-                </div>
-              )}
 
               {selectedParticipantIds.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -2521,6 +2487,67 @@ export function AprForm({ id }: AprFormProps) {
         </div>
 
         <div className="space-y-8">
+          {currentStep === 2 && isReadOnly && (
+            <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                    Ações seguras em somente leitura
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                    Exportação e navegação visual continuam disponíveis sem
+                    reabrir edição da APR.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadExcel(
+                        "/aprs/export/excel/template",
+                        "apr-template-importacao.xlsx",
+                      )
+                    }
+                    className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                  >
+                    <Download className="h-4 w-4" />
+                    Template
+                  </button>
+                  {id ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        downloadExcel(
+                          `/aprs/${id}/export/excel`,
+                          `apr-${id}.xlsx`,
+                        )
+                      }
+                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                    >
+                      <Download className="h-4 w-4" />
+                      Exportar Excel
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCompactMode((v) => !v);
+                      setExpandedRows(new Set());
+                    }}
+                    className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                  >
+                    {compactMode ? (
+                      <Maximize2 className="h-4 w-4" />
+                    ) : (
+                      <Minimize2 className="h-4 w-4" />
+                    )}
+                    {compactMode ? "Expandir linhas" : "Modo compacto"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <fieldset
             disabled={isReadOnly}
             className="border-none p-0 m-0 min-w-0"
@@ -2882,8 +2909,8 @@ export function AprForm({ id }: AprFormProps) {
                 />
               </div>
 
-              {/* Itens de Risco Detalhados - formato planilha */}
-              <div className="sst-card p-6">
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+                <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+4px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
                 <input
                   ref={excelInputRef}
                   type="file"
@@ -2891,16 +2918,26 @@ export function AprForm({ id }: AprFormProps) {
                   className="hidden"
                   onChange={handleExcelFileSelection}
                 />
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-bold text-[var(--color-text)]">
-                    APR - Análise Preliminar de Riscos (Planilha)
-                  </h2>
-                  <div className="flex items-center gap-2">
+                <div className="sticky top-24 z-20 border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/94 px-5 py-4 backdrop-blur">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="max-w-3xl">
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                        Grade operacional da APR
+                      </p>
+                      <h2 className="mt-2 text-2xl font-black text-[var(--ds-color-text-primary)]">
+                        Caderno técnico com comportamento de planilha
+                      </h2>
+                      <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                        Importe, lance, duplique, reordene e revise riscos sem sair
+                        da grade principal.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => excelInputRef.current?.click()}
-                      disabled={importingExcel}
-                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--color-card)] px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)] transition-colors hover:bg-[color:var(--color-card-muted)] disabled:opacity-60"
+                      disabled={importingExcel || isReadOnly}
+                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
                     >
                       {importingExcel ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -2917,7 +2954,7 @@ export function AprForm({ id }: AprFormProps) {
                           "apr-template-importacao.xlsx",
                         )
                       }
-                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--color-card)] px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)] transition-colors hover:bg-[color:var(--color-card-muted)]"
+                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                     >
                       <Download className="h-4 w-4" />
                       Template
@@ -2931,7 +2968,7 @@ export function AprForm({ id }: AprFormProps) {
                             `apr-${id}.xlsx`,
                           )
                         }
-                        className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--color-card)] px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)] transition-colors hover:bg-[color:var(--color-card-muted)]"
+                        className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                       >
                         <Download className="h-4 w-4" />
                         Exportar Excel
@@ -2940,8 +2977,8 @@ export function AprForm({ id }: AprFormProps) {
                     <button
                       type="button"
                       onClick={handleSuggestControls}
-                      disabled={suggestingControls}
-                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-4 py-2 text-sm font-semibold text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60"
+                      disabled={suggestingControls || isReadOnly}
+                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60"
                     >
                       {suggestingControls ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -2954,17 +2991,18 @@ export function AprForm({ id }: AprFormProps) {
                       <button
                         type="button"
                         onClick={() => appendRisk(createEmptyRiskRow())}
-                        className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
+                        className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
                       >
                         <Plus className="h-4 w-4" />
-                        Adicionar Linha
+                        Adicionar linha
                       </button>
                     ) : null}
                   </div>
                 </div>
+                </div>
 
                 {excelPreview ? (
-                  <div className="mb-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-4">
+                  <div className="mx-5 mt-5 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-4 shadow-[var(--ds-shadow-xs)]">
                     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
@@ -2978,7 +3016,7 @@ export function AprForm({ id }: AprFormProps) {
                           {excelPreview.ignoredRows} ignorada(s)
                         </p>
                       </div>
-                      {excelPreview.errors.length === 0 ? (
+                      {excelPreview.errors.length === 0 && !isReadOnly ? (
                         <button
                           type="button"
                           onClick={() => applyExcelPreviewToForm(excelPreview)}
@@ -3004,24 +3042,25 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
                 ) : null}
 
-                <div className="mb-4 rounded-[var(--ds-radius-xl)] border border-[var(--color-border)] bg-[color:var(--color-card-muted)]/24 p-4">
-                  <div className="flex flex-col gap-3 border-b border-[var(--color-border)] pb-4 md:flex-row md:items-start md:justify-between">
+                <div className="mx-5 mt-5 overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-muted)_34%,transparent),transparent)]">
+                  <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-subtle)] px-4 py-4 md:flex-row md:items-start md:justify-between">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-muted)]">
-                        Caderno técnico da APR
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                        Cabeçalho compacto
                       </p>
-                      <p className="mt-1 text-lg font-extrabold text-[var(--color-text)]">
+                      <p className="mt-1 text-lg font-extrabold text-[var(--ds-color-text-primary)]">
                         APR - Análise Preliminar de Riscos
                       </p>
                     </div>
-                    <span className="rounded-full border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] px-3 py-1 text-xs font-semibold text-[var(--color-text-secondary)]">
-                      GST
-                    </span>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+                      <ClipboardList className="h-3.5 w-3.5" />
+                      {totalRiskLines} linha(s) em edição
+                    </div>
                   </div>
 
-                  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="grid gap-3 px-4 py-4 md:grid-cols-2 xl:grid-cols-3">
                     <SummaryMetaCard
-                      label="Descrição da atividade"
+                      label="Descrição"
                       value={tituloApr || "-"}
                     />
                     <SummaryMetaCard
@@ -3033,7 +3072,7 @@ export function AprForm({ id }: AprFormProps) {
                       value={selectedSite?.nome || "-"}
                     />
                     <SummaryMetaCard
-                      label="Data de elaboração"
+                      label="Data"
                       value={dataInicioApr || "-"}
                     />
                     <SummaryMetaCard
@@ -3048,220 +3087,104 @@ export function AprForm({ id }: AprFormProps) {
                 </div>
 
                 {/* Executive Summary Panel */}
-                <AprExecutiveSummary
-                  control={control}
-                  variant="panel"
-                  compactMode={compactMode}
-                  onToggleCompactMode={() => {
-                    setCompactMode((v) => !v);
-                    setExpandedRows(new Set());
-                  }}
-                />
-                {false && (
-                  <div className="mb-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
-                          Resumo executivo da matriz
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                          {riskSummary.total} risco(s) identificado(s)
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCompactMode((v) => !v);
-                            setExpandedRows(new Set());
-                          }}
-                          className="inline-flex items-center gap-1.5 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--color-card)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-secondary)] transition-colors hover:bg-[color:var(--color-card-muted)]"
-                          title={compactMode ? "Expandir todas as linhas" : "Modo compacto"}
-                        >
-                          {compactMode ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
-                          {compactMode ? "Expandir" : "Compactar"}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-                      <div className="rounded-[var(--ds-radius-lg)] bg-[color:var(--color-card-muted)]/18 px-3 py-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Total</p>
-                        <p className="mt-1 text-lg font-bold text-[var(--ds-color-text-primary)]">{riskSummary.total}</p>
-                      </div>
-                      <div className="rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-success-subtle)] px-3 py-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-success)]">Aceitável</p>
-                        <p className="mt-1 text-lg font-bold text-[var(--color-success)]">{riskSummary.aceitavel}</p>
-                      </div>
-                      <div className="rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-info-subtle)] px-3 py-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-info)]">Atenção</p>
-                        <p className="mt-1 text-lg font-bold text-[var(--color-info)]">{riskSummary.atencao}</p>
-                      </div>
-                      <div className="rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-warning)]">Substancial</p>
-                        <p className="mt-1 text-lg font-bold text-[var(--color-warning)]">{riskSummary.substancial}</p>
-                      </div>
-                      <div className="rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-danger)]">Crítico</p>
-                        <p className="mt-1 text-lg font-bold text-[var(--color-danger)]">{riskSummary.critico}</p>
-                      </div>
-                      {riskSummary.incompletas > 0 && (
-                        <div className="rounded-[var(--ds-radius-lg)] border border-dashed border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-2">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-warning)]">Incompletas</p>
-                          <p className="mt-1 text-lg font-bold text-[var(--color-warning)]">{riskSummary.incompletas}</p>
-                        </div>
-                      )}
-                    </div>
-                    {riskSummary.critico > 0 && (
-                      <div className="mt-3 flex items-center gap-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-danger)]">
-                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                        {riskSummary.critico} risco(s) crítico(s) — interrompa o processo e implemente ações imediatas.
-                      </div>
-                    )}
-                    {riskSummary.incompletas > 0 && (
-                      <div className="mt-2 flex items-center gap-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-warning)]">
-                        <Info className="h-3.5 w-3.5 shrink-0" />
-                        {riskSummary.incompletas} linha(s) sem probabilidade/severidade preenchidas.
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {errors.itens_risco && (
-                  <div className="mb-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2 text-sm text-[var(--color-danger)]">
-                    {errors.itens_risco.message}
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  {riskFields.length === 0 ? (
-                    <div className="rounded-[var(--ds-radius-lg)] border border-dashed border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/18 px-4 py-8 text-center text-sm text-[var(--color-text-muted)]">
-                      Nenhuma linha adicionada.
-                    </div>
-                  ) : null}
-
-                  {riskFields.map((field, index) => {
-                    return (
-                      <AprRiskRow
-                        key={field.id}
-                        fieldId={field.id}
-                        index={index}
-                        totalRows={riskFields.length}
-                        readOnly={isReadOnly}
-                        compactMode={compactMode}
-                        expanded={expandedRows.has(index)}
-                        onToggleExpanded={toggleExpandedRow}
-                        onMove={moveRiskRow}
-                        onDuplicate={duplicateRiskRow}
-                        onRemove={handleRemoveRiskRow}
-                        control={control}
-                        register={register}
-                        setValue={setValue}
-                        aprFieldClass={aprFieldClass}
-                        aprLabelCompactClass={aprLabelCompactClass}
-                      />
-                    );
-                  })}
+                <div className="mx-5 mt-5">
+                  <AprExecutiveSummary
+                    control={control}
+                    variant="panel"
+                    compactMode={compactMode}
+                    onToggleCompactMode={() => {
+                      setCompactMode((v) => !v);
+                      setExpandedRows(new Set());
+                    }}
+                  />
                 </div>
 
-                <details className="mt-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]">
-                  <summary className="flex cursor-pointer items-center gap-2 px-5 py-3 text-sm font-semibold text-[var(--ds-color-text-primary)] select-none [&::-webkit-details-marker]:hidden">
-                    <ChevronDown className="h-4 w-4 text-[var(--ds-color-text-muted)] transition-transform [[open]>&]:rotate-180" />
-                    Matriz de referência — Severidade, Probabilidade e Categorias
-                  </summary>
-                  <div className="space-y-3 border-t border-[var(--ds-color-border-subtle)] px-5 py-4">
-                    <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)]">
-                      <table className="apr-tech-table w-full min-w-[700px] table-auto text-sm">
-                        <thead>
-                          <tr>
-                            <th className="w-[150px]">Severidade</th>
-                            <th>1 - Baixa</th>
-                            <th>2 - Média</th>
-                            <th>3 - Alta</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td className="font-bold">Descrição</td>
-                            <td>Sem afastamento. Danos materiais inexistentes ou leves.</td>
-                            <td>Danos materiais existentes sem perda de funcionalidade. Afastamento sem incapacidade permanente.</td>
-                            <td>Afastamento com incapacidade parcial/total. Danos materiais com perda de funcionalidade.</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                <div className="mx-5 mt-5">
+                  {errors.itens_risco && (
+                    <div className="mb-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2 text-sm text-[var(--color-danger)]">
+                      {errors.itens_risco.message}
                     </div>
+                  )}
 
-                    <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)]">
-                      <table className="apr-tech-table w-full min-w-[700px] table-auto text-sm">
-                        <thead>
-                          <tr>
-                            <th colSpan={2}>Probabilidade</th>
-                            <th>1 - Baixa</th>
-                            <th>2 - Média</th>
-                            <th>3 - Alta</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td className="font-bold">1</td>
-                            <td className="font-semibold">Baixa</td>
-                            <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
-                            <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
-                            <td className="risk-badge-attention text-center font-bold">Atenção</td>
-                          </tr>
-                          <tr>
-                            <td className="font-bold">2</td>
-                            <td className="font-semibold">Média</td>
-                            <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
-                            <td className="risk-badge-attention text-center font-bold">Atenção</td>
-                            <td className="risk-badge-substantial text-center font-bold">Substancial</td>
-                          </tr>
-                          <tr>
-                            <td className="font-bold">3</td>
-                            <td className="font-semibold">Alta</td>
-                            <td className="risk-badge-attention text-center font-bold">Atenção</td>
-                            <td className="risk-badge-substantial text-center font-bold">Substancial</td>
-                            <td className="risk-badge-critical text-center font-bold">Crítico</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)]">
-                      <table className="apr-tech-table w-full min-w-[760px] table-auto text-sm">
-                        <thead>
-                          <tr>
-                            <th className="w-[150px]">Categoria</th>
-                            <th className="w-[200px]">Prioridade</th>
-                            <th>Critério de ação</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
-                            <td className="font-bold">Não prioritário</td>
-                            <td>{getActionCriteriaText("Aceitável", "long")}</td>
-                          </tr>
-                          <tr>
-                            <td className="risk-badge-attention text-center font-bold">Atenção</td>
-                            <td className="font-bold">Prioridade básica</td>
-                            <td>{getActionCriteriaText("Atenção", "long")}</td>
-                          </tr>
-                          <tr>
-                            <td className="risk-badge-substantial text-center font-bold">Substancial</td>
-                            <td className="font-bold">Prioridade preferencial</td>
-                            <td>{getActionCriteriaText("Substancial", "long")}</td>
-                          </tr>
-                          <tr>
-                            <td className="risk-badge-critical text-center font-bold">Crítico</td>
-                            <td className="font-bold">Prioridade máxima</td>
-                            <td>{getActionCriteriaText("Crítico", "long")}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
+                  <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-muted)_18%,transparent),transparent)]">
+                    {riskFields.length === 0 ? (
+                      <div className="px-6 py-12 text-center">
+                        <p className="text-base font-semibold text-[var(--ds-color-text-primary)]">
+                          Nenhuma linha adicionada ainda.
+                        </p>
+                        <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                          Adicione a primeira atividade crítica ou importe uma
+                          planilha existente para acelerar o preenchimento.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <AprRiskGridHeader />
+                        <div className="space-y-3 p-3">
+                          {riskFields.map((field, index) => {
+                            return (
+                              <AprRiskRow
+                                key={field.id}
+                                fieldId={field.id}
+                                index={index}
+                                totalRows={riskFields.length}
+                                readOnly={isReadOnly}
+                                compactMode={compactMode}
+                                expanded={expandedRows.has(index)}
+                                onToggleExpanded={toggleExpandedRow}
+                                onMove={moveRiskRow}
+                                onDuplicate={duplicateRiskRow}
+                                onRemove={handleRemoveRiskRow}
+                                control={control}
+                                register={register}
+                                setValue={setValue}
+                                aprFieldClass={aprFieldClass}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </details>
+                </div>
               </div>
+
+              <div className="space-y-4 xl:sticky xl:top-24 xl:self-start">
+                <AprRiskReferencePanel
+                  getActionCriteriaText={getActionCriteriaText}
+                />
+                <div className="rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                    Feedback visual
+                  </p>
+                  <h3 className="mt-2 text-lg font-black text-[var(--ds-color-text-primary)]">
+                    Leitura rápida da grade
+                  </h3>
+                  <div className="mt-4 space-y-2 text-sm text-[var(--ds-color-text-secondary)]">
+                    <LegendItem
+                      tone="danger"
+                      label="Crítico"
+                      description="Exige ação imediata e aparece com destaque máximo."
+                    />
+                    <LegendItem
+                      tone="warning"
+                      label="Incompleta / sem medida"
+                      description="Linha com matriz parcial ou controle ainda indefinido."
+                    />
+                    <LegendItem
+                      tone="success"
+                      label="Pronta"
+                      description="Identificação, avaliação e medidas já estão coerentes."
+                    />
+                    <LegendItem
+                      tone="info"
+                      label="Alta prioridade"
+                      description="Risco substancial ou máximo antes do fechamento."
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
             </>
           )}
 
@@ -3312,49 +3235,7 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
                 </div>
 
-                {/* Risk Summary Breakdown */}
                 <AprExecutiveSummary control={control} variant="breakdown" />
-                {false && (
-                  <div className="mt-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
-                      Distribuição de riscos
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-3">
-                      <span className="inline-flex items-center gap-1.5 text-sm">
-                        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-success)]" />
-                        <strong>{riskSummary.aceitavel}</strong>
-                        <span className="text-xs text-[var(--ds-color-text-muted)]">Aceitável</span>
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 text-sm">
-                        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-info)]" />
-                        <strong>{riskSummary.atencao}</strong>
-                        <span className="text-xs text-[var(--ds-color-text-muted)]">Atenção</span>
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 text-sm">
-                        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-warning)]" />
-                        <strong>{riskSummary.substancial}</strong>
-                        <span className="text-xs text-[var(--ds-color-text-muted)]">Substancial</span>
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 text-sm">
-                        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-danger)]" />
-                        <strong>{riskSummary.critico}</strong>
-                        <span className="text-xs text-[var(--ds-color-text-muted)]">Crítico</span>
-                      </span>
-                      {riskSummary.incompletas > 0 && (
-                        <span className="inline-flex items-center gap-1.5 text-sm text-[var(--color-warning)]">
-                          <AlertTriangle className="h-3.5 w-3.5" />
-                          <strong>{riskSummary.incompletas}</strong>
-                          <span className="text-xs">Incompletas</span>
-                        </span>
-                      )}
-                    </div>
-                    {riskSummary.critico > 0 && (
-                      <p className="mt-2 text-xs font-semibold text-[var(--color-danger)]">
-                        {riskSummary.critico} risco(s) crítico(s) identificado(s) — verifique as medidas de controle antes de prosseguir.
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
 
               <details className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
@@ -3535,11 +3416,14 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 
 function SummaryMetaCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className={aprSubtleMetaCardClass}>
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">
+    <div className="rounded-[calc(var(--ds-radius-lg)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/84 px-3 py-3 shadow-[var(--ds-shadow-xs)]">
+      <div className="mb-2 h-1.5 w-12 rounded-full bg-[var(--ds-color-action-primary)]/55" />
+      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
         {label}
       </p>
-      <p className="text-sm font-semibold text-[var(--color-text)]">{value}</p>
+      <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+        {value}
+      </p>
     </div>
   );
 }
@@ -3569,6 +3453,195 @@ function WizardMetric({
         {label}
       </p>
       <p className="mt-2 text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function AprRiskGridHeader() {
+  const columns = [
+    "Linha",
+    "Atividade / processo",
+    "Agente ambiental",
+    "Condição perigosa",
+    "Fontes / circunstâncias",
+    "Possíveis lesões",
+    "Prob.",
+    "Sev.",
+    "Categoria",
+    "Prioridade",
+    "Medidas de prevenção",
+    "Ações",
+  ];
+
+  return (
+    <div
+      className={cn(
+        "sticky top-0 z-10 hidden border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/96 px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)] backdrop-blur xl:grid",
+        APR_RISK_GRID_LAYOUT_CLASS,
+      )}
+    >
+      {columns.map((label) => (
+        <div key={label} className="min-w-0 px-1">
+          {label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AprRiskReferencePanel({
+  getActionCriteriaText,
+}: {
+  getActionCriteriaText: (
+    categoria?: string,
+    variant?: "short" | "long",
+  ) => string | undefined;
+}) {
+  return (
+    <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
+      <div className="border-b border-[var(--ds-color-border-subtle)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--ds-color-surface-muted)_48%,transparent),transparent)] px-5 py-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+          Matriz inteligente
+        </p>
+        <h3 className="mt-2 text-lg font-black text-[var(--ds-color-text-primary)]">
+          Apoio rápido sem dominar a tela
+        </h3>
+        <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+          A regra continua no sistema. Este painel serve só para consulta e
+          conferência operacional.
+        </p>
+      </div>
+
+      <div className="space-y-4 p-5">
+        <details
+          open
+          className="overflow-hidden rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18"
+        >
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+            Matriz de risco P x S
+          </summary>
+          <div className="border-t border-[var(--ds-color-border-subtle)] p-4">
+            <div className="overflow-x-auto rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)]">
+              <table className="apr-tech-table w-full min-w-[420px] table-auto text-sm">
+                <thead>
+                  <tr>
+                    <th>Prob. \\ Sev.</th>
+                    <th>1</th>
+                    <th>2</th>
+                    <th>3</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="font-bold">1</td>
+                    <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
+                    <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
+                    <td className="risk-badge-attention text-center font-bold">Atenção</td>
+                  </tr>
+                  <tr>
+                    <td className="font-bold">2</td>
+                    <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
+                    <td className="risk-badge-attention text-center font-bold">Atenção</td>
+                    <td className="risk-badge-substantial text-center font-bold">Substancial</td>
+                  </tr>
+                  <tr>
+                    <td className="font-bold">3</td>
+                    <td className="risk-badge-attention text-center font-bold">Atenção</td>
+                    <td className="risk-badge-substantial text-center font-bold">Substancial</td>
+                    <td className="risk-badge-critical text-center font-bold">Crítico</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+
+        <details className="overflow-hidden rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+            Critério de ação por categoria
+          </summary>
+          <div className="space-y-3 border-t border-[var(--ds-color-border-subtle)] p-4 text-sm">
+            <ActionCriteriaCard
+              categoria="Aceitável"
+              prioridade="Não prioritário"
+              criterio={getActionCriteriaText("Aceitável", "long") || "-"}
+            />
+            <ActionCriteriaCard
+              categoria="Atenção"
+              prioridade="Prioridade básica"
+              criterio={getActionCriteriaText("Atenção", "long") || "-"}
+            />
+            <ActionCriteriaCard
+              categoria="Substancial"
+              prioridade="Prioridade preferencial"
+              criterio={getActionCriteriaText("Substancial", "long") || "-"}
+            />
+            <ActionCriteriaCard
+              categoria="Crítico"
+              prioridade="Prioridade máxima"
+              criterio={getActionCriteriaText("Crítico", "long") || "-"}
+            />
+          </div>
+        </details>
+      </div>
+    </div>
+  );
+}
+
+function ActionCriteriaCard({
+  categoria,
+  prioridade,
+  criterio,
+}: {
+  categoria: string;
+  prioridade: string;
+  criterio: string;
+}) {
+  return (
+    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={cn("inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold", categoria === "Aceitável" ? "risk-badge-acceptable" : categoria === "Atenção" ? "risk-badge-attention" : categoria === "Substancial" ? "risk-badge-substantial" : "risk-badge-critical")}>
+          {categoria}
+        </span>
+        <span className="text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+          {prioridade}
+        </span>
+      </div>
+      <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">{criterio}</p>
+    </div>
+  );
+}
+
+function LegendItem({
+  tone,
+  label,
+  description,
+}: {
+  tone: "danger" | "warning" | "success" | "info";
+  label: string;
+  description: string;
+}) {
+  const toneClasses = {
+    danger:
+      "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--color-danger)]",
+    warning:
+      "border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] text-[var(--color-warning)]",
+    success:
+      "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]",
+    info: "border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]",
+  };
+
+  return (
+    <div className="flex items-start gap-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-3 py-3">
+      <span className={cn("mt-1 h-2.5 w-2.5 rounded-full border", toneClasses[tone])} />
+      <div>
+        <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+          {label}
+        </p>
+        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+          {description}
+        </p>
+      </div>
     </div>
   );
 }

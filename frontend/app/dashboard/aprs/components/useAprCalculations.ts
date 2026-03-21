@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import { calculateAprRiskEvaluation } from "@/lib/apr-risk-matrix";
 
 export type AprRiskCategoria =
@@ -40,6 +40,8 @@ export type AprRiskSummary = {
   substancial: number;
   critico: number;
   incompletas: number;
+  semMedidasPreventivas: number;
+  prontas: number;
 };
 
 export function getCategoriaBadgeClass(categoria?: string) {
@@ -57,6 +59,21 @@ export function getCategoriaBadgeClass(categoria?: string) {
   }
 }
 
+export function getPrioridadeBadgeClass(prioridade?: string) {
+  switch (prioridade) {
+    case "Prioridade máxima":
+      return "border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--color-danger)]";
+    case "Prioridade preferencial":
+      return "border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] text-[var(--color-warning)]";
+    case "Prioridade básica":
+      return "border border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)]";
+    case "Não prioritário":
+      return "border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]";
+    default:
+      return "border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]";
+  }
+}
+
 function asCategoria(value?: string): AprRiskCategoria | null {
   switch (value) {
     case "Aceitável":
@@ -69,80 +86,127 @@ function asCategoria(value?: string): AprRiskCategoria | null {
   }
 }
 
-export function useAprCalculations() {
-  const shortCriteria = useMemo(() => ACTION_CRITERIA_SHORT, []);
-  const longCriteria = useMemo(() => ACTION_CRITERIA_LONG, []);
+export function getActionCriteriaText(
+  categoria?: string,
+  variant: AprActionCriteriaVariant = "short",
+) {
+  const normalized = asCategoria(categoria);
+  if (!normalized) return undefined;
+  return variant === "long"
+    ? ACTION_CRITERIA_LONG[normalized]
+    : ACTION_CRITERIA_SHORT[normalized];
+}
 
-  const getActionCriteriaText = useCallback(
-    (categoria?: string, variant: AprActionCriteriaVariant = "short") => {
-      const normalized = asCategoria(categoria);
-      if (!normalized) return undefined;
-      return variant === "long"
-        ? longCriteria[normalized]
-        : shortCriteria[normalized];
-    },
-    [longCriteria, shortCriteria],
-  );
-
-  const evaluateRisk = useCallback(
-    (probabilidade: string, severidade: string): AprRiskEvaluation => {
-      const calc = calculateAprRiskEvaluation(probabilidade, severidade);
-      return {
-        ...calc,
-        actionCriteria: getActionCriteriaText(calc.categoria, "short"),
-      };
-    },
-    [getActionCriteriaText],
-  );
-
-  const computeRiskSummary = useCallback(
-    (
-      items: Array<{ probabilidade?: string; severidade?: string }> | null,
-    ): AprRiskSummary => {
-      const summary: AprRiskSummary = {
-        total: 0,
-        aceitavel: 0,
-        atencao: 0,
-        substancial: 0,
-        critico: 0,
-        incompletas: 0,
-      };
-
-      (items ?? []).forEach((item) => {
-        summary.total += 1;
-        const p = String(item?.probabilidade || "");
-        const s = String(item?.severidade || "");
-        if (!p || !s) {
-          summary.incompletas += 1;
-          return;
-        }
-        const calc = calculateAprRiskEvaluation(p, s);
-        switch (calc.categoria) {
-          case "Aceitável":
-            summary.aceitavel += 1;
-            break;
-          case "Atenção":
-            summary.atencao += 1;
-            break;
-          case "Substancial":
-            summary.substancial += 1;
-            break;
-          case "Crítico":
-            summary.critico += 1;
-            break;
-        }
-      });
-
-      return summary;
-    },
-    [],
-  );
-
+export function evaluateAprRisk(
+  probabilidade: string,
+  severidade: string,
+): AprRiskEvaluation {
+  const calc = calculateAprRiskEvaluation(probabilidade, severidade);
   return {
-    evaluateRisk,
-    computeRiskSummary,
-    getActionCriteriaText,
-    getCategoriaBadgeClass,
+    ...calc,
+    actionCriteria: getActionCriteriaText(calc.categoria, "short"),
   };
 }
 
+type SummaryItem = {
+  probabilidade?: string;
+  severidade?: string;
+  medidas_prevencao?: string;
+  atividade_processo?: string;
+  agente_ambiental?: string;
+  condicao_perigosa?: string;
+  fontes_circunstancias?: string;
+  possiveis_lesoes?: string;
+};
+
+function hasMeaningfulContent(item?: SummaryItem | null) {
+  return Boolean(
+    item?.atividade_processo ||
+      item?.agente_ambiental ||
+      item?.condicao_perigosa ||
+      item?.fontes_circunstancias ||
+      item?.possiveis_lesoes ||
+      item?.probabilidade ||
+      item?.severidade ||
+      item?.medidas_prevencao,
+  );
+}
+
+export function computeAprRiskSummary(
+  items: SummaryItem[] | null,
+): AprRiskSummary {
+  const summary: AprRiskSummary = {
+    total: 0,
+    aceitavel: 0,
+    atencao: 0,
+    substancial: 0,
+    critico: 0,
+    incompletas: 0,
+    semMedidasPreventivas: 0,
+    prontas: 0,
+  };
+
+  (items ?? []).forEach((item) => {
+    summary.total += 1;
+
+    const p = String(item?.probabilidade || "");
+    const s = String(item?.severidade || "");
+    const hasEvaluation = Boolean(p && s);
+    const hasMeasures = Boolean(String(item?.medidas_prevencao || "").trim());
+    const hasIdentification = Boolean(
+      item?.atividade_processo ||
+        item?.agente_ambiental ||
+        item?.condicao_perigosa ||
+        item?.fontes_circunstancias ||
+        item?.possiveis_lesoes,
+    );
+    const started = hasMeaningfulContent(item);
+
+    if (!hasEvaluation) {
+      summary.incompletas += 1;
+    }
+
+    if (started && !hasMeasures) {
+      summary.semMedidasPreventivas += 1;
+    }
+
+    if (hasIdentification && hasEvaluation && hasMeasures) {
+      summary.prontas += 1;
+    }
+
+    if (!hasEvaluation) {
+      return;
+    }
+
+    const calc = calculateAprRiskEvaluation(p, s);
+    switch (calc.categoria) {
+      case "Aceitável":
+        summary.aceitavel += 1;
+        break;
+      case "Atenção":
+        summary.atencao += 1;
+        break;
+      case "Substancial":
+        summary.substancial += 1;
+        break;
+      case "Crítico":
+        summary.critico += 1;
+        break;
+    }
+  });
+
+  return summary;
+}
+
+export function useAprCalculations() {
+  return useMemo(
+    () => ({
+      evaluateRisk: evaluateAprRisk,
+      computeRiskSummary: computeAprRiskSummary,
+      getActionCriteriaText,
+      getCategoriaBadgeClass,
+      getPrioridadeBadgeClass,
+    }),
+    [],
+  );
+}
