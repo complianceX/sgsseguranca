@@ -427,9 +427,15 @@ export function AprForm({ id }: AprFormProps) {
     () => selectedParticipantIdsRaw ?? [],
     [selectedParticipantIdsRaw],
   );
+  const watchedStatus = useWatch({
+    control,
+    name: "status",
+    defaultValue: "Pendente",
+  });
   const isModelo = watch("is_modelo");
   const isApproved = currentApr?.status === "Aprovada";
   const hasFinalPdf = Boolean(currentApr?.pdf_file_key);
+  const isReadOnly = watchedStatus === "Aprovada" || hasFinalPdf;
   const aiEnabled = isAiEnabled();
   const selectedCompany = companies.find(
     (company) => company.id === selectedCompanyId,
@@ -669,6 +675,7 @@ export function AprForm({ id }: AprFormProps) {
 
   // Autosave to localStorage (new APRs only, every 30s)
   useEffect(() => {
+    if (isReadOnly) return;
     if (id || !draftStorageKey) return;
     autosaveTimerRef.current = setInterval(() => {
       const values = watch();
@@ -684,7 +691,7 @@ export function AprForm({ id }: AprFormProps) {
     return () => {
       if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current);
     };
-  }, [id, draftStorageKey, watch, currentStep, signatures]);
+  }, [isReadOnly, id, draftStorageKey, watch, currentStep, signatures]);
 
   const applyExcelPreviewToForm = useCallback(
     (preview: AprExcelImportPreview) => {
@@ -1725,6 +1732,7 @@ export function AprForm({ id }: AprFormProps) {
   ]);
 
   useEffect(() => {
+    if (isReadOnly) return;
     if (!draftStorageKey || typeof window === "undefined" || id) {
       return;
     }
@@ -1741,9 +1749,10 @@ export function AprForm({ id }: AprFormProps) {
     });
 
     return () => subscription.unsubscribe();
-  }, [currentStep, draftStorageKey, id, signatures, watch]);
+  }, [isReadOnly, currentStep, draftStorageKey, id, signatures, watch]);
 
   useEffect(() => {
+    if (isReadOnly) return;
     if (!draftStorageKey || typeof window === "undefined" || id) {
       return;
     }
@@ -1756,7 +1765,7 @@ export function AprForm({ id }: AprFormProps) {
         signatures,
       }),
     );
-  }, [currentStep, draftStorageKey, id, signatures, watch]);
+  }, [isReadOnly, currentStep, draftStorageKey, id, signatures, watch]);
 
   const toggleSelection = useCallback(
     (
@@ -2387,6 +2396,10 @@ export function AprForm({ id }: AprFormProps) {
         </div>
 
         <div className="space-y-8">
+          <fieldset
+            disabled={isReadOnly}
+            className="border-none p-0 m-0 min-w-0"
+          >
           {currentStep === 1 && (
             <div className={aprInteractivePanelClass}>
               <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -2812,14 +2825,16 @@ export function AprForm({ id }: AprFormProps) {
                       )}
                       Sugerir Controles
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => appendRisk(createEmptyRiskRow())}
-                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Adicionar Linha
-                    </button>
+                    {!isReadOnly ? (
+                      <button
+                        type="button"
+                        onClick={() => appendRisk(createEmptyRiskRow())}
+                        className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Adicionar Linha
+                      </button>
+                    ) : null}
                   </div>
                 </div>
 
@@ -3230,6 +3245,8 @@ export function AprForm({ id }: AprFormProps) {
               </details>
             </>
           )}
+
+          </fieldset>
 
           <div
             className={cn(
