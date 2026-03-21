@@ -1,14 +1,19 @@
-export type GovernedPdfAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
+import type {
+  GovernedPdfAccessAvailability,
+  GovernedPdfAccessResponse,
+} from '@/lib/api/generated/governed-contracts.client';
 
-export type GovernedPdfAccessLike = {
-  hasFinalPdf: boolean;
-  availability: GovernedPdfAvailability;
-  url: string | null;
-  message?: string | null;
-};
+/** @deprecated Use GovernedPdfAccessAvailability do cliente gerado. */
+export type GovernedPdfAvailability = GovernedPdfAccessAvailability;
+
+/**
+ * Subset mínimo de GovernedPdfAccessResponse usado pelo helper de
+ * consumo. Derivado do schema gerado para evitar drift.
+ */
+export type GovernedPdfAccessLike = Pick<
+  GovernedPdfAccessResponse,
+  'hasFinalPdf' | 'availability' | 'url' | 'message'
+>;
 
 export type GovernedPdfConsumptionAction = 'download' | 'print';
 

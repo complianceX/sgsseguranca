@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import type { GovernedPdfAccessResponse } from "@/lib/api/generated/governed-contracts.client";
 import { AxiosError } from "axios";
 import { fetchAllPages, PaginatedResponse } from "./pagination";
 import { DocumentMailDispatchResponse } from "./mailService";
@@ -63,16 +64,7 @@ export interface Checklist {
   company?: { razao_social: string };
 }
 
-export interface ChecklistPdfAccess {
-  entityId: string;
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
-  url: string | null;
-  hasFinalPdf: boolean;
-  availability: "ready" | "registered_without_signed_url" | "not_emitted";
-  message: string;
-}
+export type ChecklistPdfAccess = GovernedPdfAccessResponse;
 
 export interface ChecklistSavePdfResult extends ChecklistPdfAccess {
   fileUrl?: string | null;

@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import type { GovernedPdfAccessResponse } from "@/lib/api/generated/governed-contracts.client";
 import { AxiosError } from 'axios';
 import { Site } from './sitesService';
 import { User } from './usersService';
@@ -55,16 +56,7 @@ export interface Inspection {
   updated_at: string;
 }
 
-export interface InspectionPdfAccess {
-  entityId: string;
-  hasFinalPdf: boolean;
-  availability: "ready" | "registered_without_signed_url" | "not_emitted";
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
-  url: string | null;
-  message: string | null;
-}
+export type InspectionPdfAccess = GovernedPdfAccessResponse;
 
 export interface InspectionEvidenceAttachResult {
   evidencias: Inspection["evidencias"];

@@ -144,19 +144,14 @@ export interface SiteDossierContext extends DossierBaseContext {
 
 export type DossierContext = EmployeeDossierContext | SiteDossierContext;
 
-export interface DossierPdfAccess {
+import type { GovernedPdfAccessResponse } from "@/lib/api/generated/governed-contracts.client";
+
+export interface DossierPdfAccess extends Omit<GovernedPdfAccessResponse, 'entityId'> {
   dossierId: string;
   kind: 'employee' | 'site';
-  hasFinalPdf: boolean;
-  availability: 'ready' | 'registered_without_signed_url' | 'not_emitted';
-  message: string;
   degraded: boolean;
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
   fileHash: string | null;
   documentCode: string;
-  url: string | null;
 }
 
 export interface DossierAttachPdfResult {
@@ -250,7 +245,7 @@ export const dossiersService = {
     const access = await dossiersService.getEmployeePdfAccess(userId);
     if (access.hasFinalPdf) {
       if (!access.url || access.availability !== 'ready') {
-        throw new Error(access.message);
+        throw new Error(access.message ?? undefined);
       }
       await openPdfUrl(
         access.url,
@@ -271,7 +266,7 @@ export const dossiersService = {
 
     const finalAccess = await dossiersService.getEmployeePdfAccess(userId);
     if (!finalAccess.url || finalAccess.availability !== 'ready') {
-      throw new Error(finalAccess.message);
+      throw new Error(finalAccess.message ?? undefined);
     }
 
     await openPdfUrl(
@@ -285,7 +280,7 @@ export const dossiersService = {
     const access = await dossiersService.getSitePdfAccess(siteId);
     if (access.hasFinalPdf) {
       if (!access.url || access.availability !== 'ready') {
-        throw new Error(access.message);
+        throw new Error(access.message ?? undefined);
       }
       await openPdfUrl(
         access.url,
@@ -306,7 +301,7 @@ export const dossiersService = {
 
     const finalAccess = await dossiersService.getSitePdfAccess(siteId);
     if (!finalAccess.url || finalAccess.availability !== 'ready') {
-      throw new Error(finalAccess.message);
+      throw new Error(finalAccess.message ?? undefined);
     }
 
     await openPdfUrl(

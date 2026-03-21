@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import type { GovernedPdfAccessResponse, GovernedPdfAccessAvailability } from "@/lib/api/generated/governed-contracts.client";
 import { fetchAllPages, PaginatedResponse } from "./pagination";
 import { DocumentMailDispatchResponse } from "./mailService";
 
@@ -71,21 +72,8 @@ export interface Rdo {
   company?: { id: string; razao_social: string };
 }
 
-export type RdoPdfAccessAvailability =
-  | "ready"
-  | "registered_without_signed_url"
-  | "not_emitted";
-
-export interface RdoPdfAccessResponse {
-  entityId: string;
-  hasFinalPdf: boolean;
-  availability: RdoPdfAccessAvailability;
-  message: string | null;
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
-  url: string | null;
-}
+export type RdoPdfAccessAvailability = GovernedPdfAccessAvailability;
+export type RdoPdfAccessResponse = GovernedPdfAccessResponse;
 
 export interface RdoAnalyticsOverview {
   totalRdos: number;

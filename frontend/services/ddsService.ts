@@ -82,16 +82,11 @@ export interface HistoricalPhotoHashReference {
   hashes: string[];
 }
 
-export interface DdsPdfAccess {
+import type { GovernedPdfAccessResponse } from "@/lib/api/generated/governed-contracts.client";
+
+export interface DdsPdfAccess extends Omit<GovernedPdfAccessResponse, 'entityId'> {
   ddsId: string;
-  hasFinalPdf: boolean;
-  availability: "ready" | "registered_without_signed_url" | "not_emitted";
-  message: string;
   degraded: boolean;
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
-  url: string | null;
 }
 
 export interface DdsAttachFileResult {

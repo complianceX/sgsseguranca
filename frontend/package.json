@@ -13,6 +13,7 @@
     "prestart": "node scripts/check-required-env.mjs start",
     "start": "next start",
     "api:generate:document-import": "node scripts/generate-document-import-client.mjs",
+    "api:generate:governed-contracts": "node scripts/generate-governed-contracts-client.mjs",
     "lint": "eslint . --max-warnings=0",
     "test": "jest --config jest.config.cjs",
     "test:ci": "jest --ci --runInBand --config jest.config.cjs"

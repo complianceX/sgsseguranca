@@ -62,18 +62,13 @@ export interface CatRecord {
   closed_by?: { id: string; nome: string };
 }
 
-export interface CatPdfAccess {
+import type { GovernedPdfAccessResponse } from "@/lib/api/generated/governed-contracts.client";
+
+export interface CatPdfAccess extends Omit<GovernedPdfAccessResponse, 'entityId'> {
   catId: string;
-  hasFinalPdf: boolean;
-  availability: "ready" | "registered_without_signed_url" | "not_emitted";
-  message: string;
   degraded: boolean;
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
   fileHash: string | null;
   documentCode: string | null;
-  url: string | null;
 }
 
 export interface CatAttachPdfResult {

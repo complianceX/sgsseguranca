@@ -1,0 +1,197 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/_schema/pdf-access": {
+      "get": {
+        "operationId": "GovernedContractsSchemaController_pdfAccess",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Formato canônico de resposta de acesso a PDF.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernedPdfAccessResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Schema: resposta de acesso a PDF governado",
+        "tags": [
+          "governed-contracts"
+        ]
+      }
+    },
+    "/_schema/mail-dispatch": {
+      "get": {
+        "operationId": "GovernedContractsSchemaController_mailDispatch",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Formato canônico de resposta de mail dispatch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentMailDispatchResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Schema: resposta de envio de e-mail documental",
+        "tags": [
+          "governed-contracts"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "API Sistema Wanderson-Gandra - Contratos Governados",
+    "description": "Schema OpenAPI para contratos cross-cutting compartilhados entre módulos: resposta de PDF governado e dispatch de e-mail documental.",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "governed-contracts",
+      "description": "Schemas compartilhados de contratos governados"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "schemas": {
+      "GovernedPdfAccessResponseDto": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string",
+            "description": "Identificador da entidade dona do PDF.",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "hasFinalPdf": {
+            "type": "boolean",
+            "description": "Indica se o PDF final já foi gerado e registrado.",
+            "example": true
+          },
+          "availability": {
+            "type": "string",
+            "description": "Estado de disponibilidade do PDF no storage.",
+            "enum": [
+              "ready",
+              "registered_without_signed_url",
+              "not_emitted"
+            ],
+            "example": "ready"
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem informativa sobre o estado do PDF (motivo de indisponibilidade, etc.).",
+            "example": null,
+            "nullable": true
+          },
+          "fileKey": {
+            "type": "string",
+            "description": "Chave do arquivo no bucket S3/storage.",
+            "example": "companies/abc/aprs/2025/file.pdf",
+            "nullable": true
+          },
+          "folderPath": {
+            "type": "string",
+            "description": "Caminho da pasta no storage.",
+            "example": "companies/abc/aprs/2025/",
+            "nullable": true
+          },
+          "originalName": {
+            "type": "string",
+            "description": "Nome original do arquivo.",
+            "example": "APR-202503-001.pdf",
+            "nullable": true
+          },
+          "url": {
+            "type": "string",
+            "description": "URL assinada para download direto (presente quando availability = ready).",
+            "example": "https://s3.amazonaws.com/bucket/file.pdf?signature=...",
+            "nullable": true
+          }
+        },
+        "required": [
+          "entityId",
+          "hasFinalPdf",
+          "availability",
+          "message",
+          "fileKey",
+          "folderPath",
+          "originalName",
+          "url"
+        ]
+      },
+      "DocumentMailDispatchResponseDto": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indica se o envio foi aceito com sucesso.",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "description": "Mensagem descritiva do resultado do envio.",
+            "example": "E-mail enfileirado para envio."
+          },
+          "deliveryMode": {
+            "type": "string",
+            "description": "Modo de entrega do e-mail.",
+            "enum": [
+              "queued",
+              "sent"
+            ],
+            "example": "queued"
+          },
+          "artifactType": {
+            "type": "string",
+            "description": "Tipo de artefato anexado ao e-mail.",
+            "enum": [
+              "governed_final_pdf",
+              "local_uploaded_pdf"
+            ],
+            "example": "governed_final_pdf"
+          },
+          "isOfficial": {
+            "type": "boolean",
+            "description": "Indica se o PDF usado é o oficial governado.",
+            "example": true
+          },
+          "fallbackUsed": {
+            "type": "boolean",
+            "description": "Indica se foi usado fallback (upload local em vez de PDF governado).",
+            "example": false
+          },
+          "documentType": {
+            "type": "string",
+            "description": "Tipo do documento (apr, rdo, pt, etc.).",
+            "example": "apr"
+          },
+          "documentId": {
+            "type": "string",
+            "description": "ID do documento enviado.",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "fileKey": {
+            "type": "string",
+            "description": "Chave do arquivo no storage.",
+            "example": "companies/abc/aprs/2025/file.pdf"
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "deliveryMode",
+          "artifactType",
+          "isOfficial",
+          "fallbackUsed"
+        ]
+      }
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import type { GovernedPdfAccessResponse, GovernedPdfAccessAvailability } from "@/lib/api/generated/governed-contracts.client";
 import { AxiosError } from "axios";
 import { Site } from "./sitesService";
 import { enqueueOfflineMutation } from "@/lib/offline-sync";
@@ -67,21 +68,8 @@ export interface NonConformity {
   updated_at: string;
 }
 
-export type NonConformityPdfAccessAvailability =
-  | "ready"
-  | "registered_without_signed_url"
-  | "not_emitted";
-
-export interface NonConformityPdfAccessResponse {
-  entityId: string;
-  hasFinalPdf: boolean;
-  availability: NonConformityPdfAccessAvailability;
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
-  url: string | null;
-  message: string | null;
-}
+export type NonConformityPdfAccessAvailability = GovernedPdfAccessAvailability;
+export type NonConformityPdfAccessResponse = GovernedPdfAccessResponse;
 
 export interface NonConformityAnalyticsOverview {
   totalNonConformities: number;

@@ -43,6 +43,11 @@ import {
   Upload,
   Download,
   ChevronDown,
+  ChevronUp,
+  Minimize2,
+  Maximize2,
+  Lock,
+  Info,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -335,7 +340,7 @@ export function AprForm({ id }: AprFormProps) {
     setValue,
     watch,
     trigger,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<AprFormData>({
     resolver: zodResolver(aprSchema),
     defaultValues: {
@@ -555,12 +560,17 @@ export function AprForm({ id }: AprFormProps) {
     append: appendRisk,
     remove: removeRisk,
     replace: replaceRisk,
+    move: moveRisk,
   } = useFieldArray({
     control,
     name: "itens_risco",
   });
   const totalRiskLines = riskFields.length;
   const completedSignatures = Object.keys(signatures).length;
+  const [compactMode, setCompactMode] = useState(false);
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSavedRef = useRef<string>("");
 
   const duplicateRiskRow = useCallback(
     (index: number) => {
@@ -572,6 +582,98 @@ export function AprForm({ id }: AprFormProps) {
     },
     [appendRisk, watchedRiskItems],
   );
+
+  const moveRiskRow = useCallback(
+    (from: number, to: number) => {
+      if (to < 0 || to >= riskFields.length) return;
+      moveRisk(from, to);
+    },
+    [moveRisk, riskFields.length],
+  );
+
+  const toggleExpandedRow = useCallback((index: number) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }, []);
+
+  const ACTION_CRITERIA: Record<string, string> = useMemo(
+    () => ({
+      Aceitável: "Não são requeridos controles adicionais.",
+      Atenção: "Reavaliar e adotar medidas complementares.",
+      Substancial: "Não iniciar sem redução de risco.",
+      Crítico: "Interromper e agir imediatamente.",
+    }),
+    [],
+  );
+
+  const riskSummary = useMemo(() => {
+    const summary = { total: 0, aceitavel: 0, atencao: 0, substancial: 0, critico: 0, incompletas: 0 };
+    (watchedRiskItems ?? []).forEach((item) => {
+      summary.total += 1;
+      const p = String(item?.probabilidade || "");
+      const s = String(item?.severidade || "");
+      if (!p || !s) {
+        summary.incompletas += 1;
+        return;
+      }
+      const calc = calculateAprRiskEvaluation(p, s);
+      switch (calc.categoria) {
+        case "Aceitável": summary.aceitavel += 1; break;
+        case "Atenção": summary.atencao += 1; break;
+        case "Substancial": summary.substancial += 1; break;
+        case "Crítico": summary.critico += 1; break;
+      }
+    });
+    return summary;
+  }, [watchedRiskItems]);
+
+  const getRiskRowCompleteness = useCallback(
+    (item: NonNullable<AprFormData["itens_risco"]>[number] | undefined) => {
+      if (!item) return "empty";
+      const hasIdentification = Boolean(
+        item.atividade_processo || item.condicao_perigosa || item.agente_ambiental,
+      );
+      const hasEvaluation = Boolean(item.probabilidade && item.severidade);
+      const hasControl = Boolean(item.medidas_prevencao);
+      if (hasIdentification && hasEvaluation && hasControl) return "complete";
+      if (hasIdentification || hasEvaluation) return "partial";
+      return "empty";
+    },
+    [],
+  );
+
+  // Unsaved changes warning
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
+  // Autosave to localStorage (new APRs only, every 30s)
+  useEffect(() => {
+    if (id || !draftStorageKey) return;
+    autosaveTimerRef.current = setInterval(() => {
+      const values = watch();
+      const serialized = JSON.stringify({ values, step: currentStep, signatures });
+      if (serialized === lastSavedRef.current) return;
+      lastSavedRef.current = serialized;
+      try {
+        window.localStorage.setItem(draftStorageKey, serialized);
+      } catch {
+        // storage full — silent
+      }
+    }, 30_000);
+    return () => {
+      if (autosaveTimerRef.current) clearInterval(autosaveTimerRef.current);
+    };
+  }, [id, draftStorageKey, watch, currentStep, signatures]);
 
   const applyExcelPreviewToForm = useCallback(
     (preview: AprExcelImportPreview) => {
@@ -2216,6 +2318,27 @@ export function AprForm({ id }: AprFormProps) {
                 />
               </div>
 
+              {riskSummary.total > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-semibold text-[var(--ds-color-text-muted)]">Riscos:</span>
+                  {riskSummary.aceitavel > 0 && (
+                    <span className="risk-badge-acceptable rounded-full px-2 py-0.5 text-[10px] font-semibold">{riskSummary.aceitavel} Aceitável</span>
+                  )}
+                  {riskSummary.atencao > 0 && (
+                    <span className="risk-badge-attention rounded-full px-2 py-0.5 text-[10px] font-semibold">{riskSummary.atencao} Atenção</span>
+                  )}
+                  {riskSummary.substancial > 0 && (
+                    <span className="risk-badge-substantial rounded-full px-2 py-0.5 text-[10px] font-semibold">{riskSummary.substancial} Substancial</span>
+                  )}
+                  {riskSummary.critico > 0 && (
+                    <span className="risk-badge-critical rounded-full px-2 py-0.5 text-[10px] font-semibold">{riskSummary.critico} Crítico</span>
+                  )}
+                  {riskSummary.incompletas > 0 && (
+                    <span className="rounded-full border border-dashed border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-warning)]">{riskSummary.incompletas} Incompleta(s)</span>
+                  )}
+                </div>
+              )}
+
               {selectedParticipantIds.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {selectedParticipantIds.slice(0, 5).map((participantId) => {
@@ -2772,6 +2895,76 @@ export function AprForm({ id }: AprFormProps) {
                   </div>
                 </div>
 
+                {/* Executive Summary Panel */}
+                {riskSummary.total > 0 && (
+                  <div className="mb-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                          Resumo executivo da matriz
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                          {riskSummary.total} risco(s) identificado(s)
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCompactMode((v) => !v);
+                            setExpandedRows(new Set());
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--color-card)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-secondary)] transition-colors hover:bg-[color:var(--color-card-muted)]"
+                          title={compactMode ? "Expandir todas as linhas" : "Modo compacto"}
+                        >
+                          {compactMode ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
+                          {compactMode ? "Expandir" : "Compactar"}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                      <div className="rounded-[var(--ds-radius-lg)] bg-[color:var(--color-card-muted)]/18 px-3 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Total</p>
+                        <p className="mt-1 text-lg font-bold text-[var(--ds-color-text-primary)]">{riskSummary.total}</p>
+                      </div>
+                      <div className="rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-success-subtle)] px-3 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-success)]">Aceitável</p>
+                        <p className="mt-1 text-lg font-bold text-[var(--color-success)]">{riskSummary.aceitavel}</p>
+                      </div>
+                      <div className="rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-info-subtle)] px-3 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-info)]">Atenção</p>
+                        <p className="mt-1 text-lg font-bold text-[var(--color-info)]">{riskSummary.atencao}</p>
+                      </div>
+                      <div className="rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-warning)]">Substancial</p>
+                        <p className="mt-1 text-lg font-bold text-[var(--color-warning)]">{riskSummary.substancial}</p>
+                      </div>
+                      <div className="rounded-[var(--ds-radius-lg)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-danger)]">Crítico</p>
+                        <p className="mt-1 text-lg font-bold text-[var(--color-danger)]">{riskSummary.critico}</p>
+                      </div>
+                      {riskSummary.incompletas > 0 && (
+                        <div className="rounded-[var(--ds-radius-lg)] border border-dashed border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-warning)]">Incompletas</p>
+                          <p className="mt-1 text-lg font-bold text-[var(--color-warning)]">{riskSummary.incompletas}</p>
+                        </div>
+                      )}
+                    </div>
+                    {riskSummary.critico > 0 && (
+                      <div className="mt-3 flex items-center gap-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-danger)]">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        {riskSummary.critico} risco(s) crítico(s) — interrompa o processo e implemente ações imediatas.
+                      </div>
+                    )}
+                    {riskSummary.incompletas > 0 && (
+                      <div className="mt-2 flex items-center gap-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-2 text-xs font-semibold text-[var(--color-warning)]">
+                        <Info className="h-3.5 w-3.5 shrink-0" />
+                        {riskSummary.incompletas} linha(s) sem probabilidade/severidade preenchidas.
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {errors.itens_risco && (
                   <div className="mb-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2 text-sm text-[var(--color-danger)]">
                     {errors.itens_risco.message}
@@ -2790,22 +2983,57 @@ export function AprForm({ id }: AprFormProps) {
                     const p = String(watchedItem?.probabilidade || "");
                     const s = String(watchedItem?.severidade || "");
                     const calc = calculateAprRiskEvaluation(p, s);
+                    const completeness = getRiskRowCompleteness(watchedItem);
+                    const isCritical = calc.categoria === "Crítico";
+                    const isSubstantial = calc.categoria === "Substancial";
+                    const isIncomplete = !p || !s;
+                    const isRowExpanded = !compactMode || expandedRows.has(index);
+
+                    const borderClass = isCritical
+                      ? "border-[var(--ds-color-danger-border)] shadow-[0_0_0_1px_var(--ds-color-danger-border)]"
+                      : isSubstantial
+                        ? "border-[var(--ds-color-warning-border)]"
+                        : isIncomplete && (watchedItem?.atividade_processo || watchedItem?.condicao_perigosa)
+                          ? "border-dashed border-[var(--ds-color-warning-border)]"
+                          : "border-[var(--color-border-subtle)]";
+
+                    const completenessColor = completeness === "complete"
+                      ? "bg-[var(--color-success)]"
+                      : completeness === "partial"
+                        ? "bg-[var(--color-warning)]"
+                        : "bg-[var(--ds-color-text-muted)]/40";
 
                     return (
                       <div
                         key={field.id}
-                        className="rounded-[var(--ds-radius-xl)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-4 shadow-[var(--ds-shadow-sm)]"
+                        className={cn(
+                          "rounded-[var(--ds-radius-xl)] border bg-[color:var(--color-card)] shadow-[var(--ds-shadow-sm)] transition-all",
+                          borderClass,
+                        )}
                       >
-                        <div className="mb-4 flex flex-col gap-3 border-b border-[var(--color-border-subtle)] pb-4 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
-                              Linha da matriz
-                            </p>
-                            <p className="mt-1 text-sm font-semibold text-[var(--color-text)]">
-                              Risco #{index + 1}
-                            </p>
+                        <div
+                          className={cn(
+                            "flex flex-col gap-3 px-4 pt-4 sm:flex-row sm:items-center sm:justify-between",
+                            isRowExpanded ? "border-b border-[var(--color-border-subtle)] pb-4" : "pb-3",
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={cn("h-2.5 w-2.5 rounded-full shrink-0", completenessColor)} title={
+                              completeness === "complete" ? "Linha completa" : completeness === "partial" ? "Linha incompleta" : "Linha vazia"
+                            } />
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-muted)]">
+                                Risco #{index + 1}
+                              </p>
+                              {compactMode && !isRowExpanded && watchedItem?.atividade_processo && (
+                                <p className="mt-0.5 truncate text-sm text-[var(--ds-color-text-secondary)]">
+                                  {watchedItem.atividade_processo}
+                                  {watchedItem.condicao_perigosa ? ` — ${watchedItem.condicao_perigosa}` : ""}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <span
                               className={cn(
                                 "inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold",
@@ -2814,26 +3042,61 @@ export function AprForm({ id }: AprFormProps) {
                             >
                               {calc.categoria || "Não definida"}
                             </span>
+                            {isIncomplete && (watchedItem?.atividade_processo || watchedItem?.condicao_perigosa) && (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-warning)]" title="Probabilidade/Severidade não preenchidas">
+                                <AlertTriangle className="h-3 w-3" />
+                                P/S
+                              </span>
+                            )}
+                            {compactMode && (
+                              <button
+                                type="button"
+                                onClick={() => toggleExpandedRow(index)}
+                                className="rounded-[var(--ds-radius-md)] p-1.5 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[color:var(--color-card-muted)]"
+                                title={isRowExpanded ? "Recolher" : "Expandir"}
+                              >
+                                {isRowExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => moveRiskRow(index, index - 1)}
+                              disabled={index === 0}
+                              className="rounded-[var(--ds-radius-md)] p-1.5 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[color:var(--color-card-muted)] disabled:opacity-30"
+                              title="Mover para cima"
+                            >
+                              <ChevronUp className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveRiskRow(index, index + 1)}
+                              disabled={index === riskFields.length - 1}
+                              className="rounded-[var(--ds-radius-md)] p-1.5 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[color:var(--color-card-muted)] disabled:opacity-30"
+                              title="Mover para baixo"
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => duplicateRiskRow(index)}
-                              className="rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-primary-subtle)] p-2 text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78"
+                              className="rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-primary-subtle)] p-1.5 text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78"
                               title="Duplicar linha"
                             >
-                              <Copy className="h-4 w-4" />
+                              <Copy className="h-3.5 w-3.5" />
                             </button>
                             <button
                               type="button"
                               onClick={() => removeRisk(index)}
-                              className="rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-danger-subtle)] p-2 text-[var(--color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]/78"
+                              className="rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-danger-subtle)] p-1.5 text-[var(--color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]/78"
                               title="Remover linha"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         </div>
 
-                        <div className="space-y-3">
+                        {isRowExpanded && (
+                        <div className="space-y-3 p-4">
                           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                             <div>
                               <label className={aprLabelCompactClass}>
@@ -2987,7 +3250,14 @@ export function AprForm({ id }: AprFormProps) {
                               </div>
                             </div>
 
-                            <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-2.5">
+                            <div className={cn(
+                              "rounded-[var(--ds-radius-lg)] border px-4 py-2.5",
+                              isCritical
+                                ? "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]/40"
+                                : isSubstantial
+                                  ? "border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)]/40"
+                                  : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18",
+                            )}>
                               <div className="flex flex-wrap items-center gap-3">
                                 <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Avaliação:</span>
                                 <span
@@ -3005,8 +3275,12 @@ export function AprForm({ id }: AprFormProps) {
                                   Score: <strong>{calc.score || "-"}</strong>
                                 </span>
                               </div>
+                              {calc.categoria && ACTION_CRITERIA[calc.categoria] && (
+                                <p className="mt-1.5 text-xs text-[var(--ds-color-text-muted)]">
+                                  <strong>Critério de ação:</strong> {ACTION_CRITERIA[calc.categoria]}
+                                </p>
+                              )}
                             </div>
-                          </div>
 
                           <div>
                             <label className={aprLabelCompactClass}>
@@ -3058,6 +3332,8 @@ export function AprForm({ id }: AprFormProps) {
                               />
                             </div>
                           </div>
+                        </div>
+                        )}
                       </div>
                     );
                   })}
@@ -3211,6 +3487,49 @@ export function AprForm({ id }: AprFormProps) {
                     </p>
                   </div>
                 </div>
+
+                {/* Risk Summary Breakdown */}
+                {riskSummary.total > 0 && (
+                  <div className="mt-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                      Distribuição de riscos
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-3">
+                      <span className="inline-flex items-center gap-1.5 text-sm">
+                        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-success)]" />
+                        <strong>{riskSummary.aceitavel}</strong>
+                        <span className="text-xs text-[var(--ds-color-text-muted)]">Aceitável</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-sm">
+                        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-info)]" />
+                        <strong>{riskSummary.atencao}</strong>
+                        <span className="text-xs text-[var(--ds-color-text-muted)]">Atenção</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-sm">
+                        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-warning)]" />
+                        <strong>{riskSummary.substancial}</strong>
+                        <span className="text-xs text-[var(--ds-color-text-muted)]">Substancial</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-sm">
+                        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-danger)]" />
+                        <strong>{riskSummary.critico}</strong>
+                        <span className="text-xs text-[var(--ds-color-text-muted)]">Crítico</span>
+                      </span>
+                      {riskSummary.incompletas > 0 && (
+                        <span className="inline-flex items-center gap-1.5 text-sm text-[var(--color-warning)]">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          <strong>{riskSummary.incompletas}</strong>
+                          <span className="text-xs">Incompletas</span>
+                        </span>
+                      )}
+                    </div>
+                    {riskSummary.critico > 0 && (
+                      <p className="mt-2 text-xs font-semibold text-[var(--color-danger)]">
+                        {riskSummary.critico} risco(s) crítico(s) identificado(s) — verifique as medidas de controle antes de prosseguir.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <details className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
@@ -3230,12 +3549,10 @@ export function AprForm({ id }: AprFormProps) {
 
           <div
             className={cn(
-              "flex flex-col gap-4 border-t border-[var(--ds-color-border-subtle)] pt-6 sm:flex-row sm:items-center sm:justify-between",
-              isFieldMode &&
-                "sticky bottom-4 z-10 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[var(--color-card)]/95 p-4 shadow-[var(--ds-shadow-lg)] backdrop-blur",
+              "sticky bottom-4 z-10 flex flex-col gap-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[var(--color-card)]/95 p-4 shadow-[var(--ds-shadow-lg)] backdrop-blur sm:flex-row sm:items-center sm:justify-between",
             )}
           >
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               {currentStep > 1 ? (
                 <button
                   type="button"
@@ -3248,6 +3565,18 @@ export function AprForm({ id }: AprFormProps) {
                 <Link href="/dashboard/aprs" className={aprGhostActionClass}>
                   Cancelar
                 </Link>
+              )}
+              {isDirty && (
+                <span className="hidden rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-warning)] sm:inline-flex sm:items-center sm:gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  Não salvo
+                </span>
+              )}
+              {(isApproved || hasFinalPdf) && (
+                <span className="hidden rounded-full border border-[var(--ds-color-border-subtle)] bg-[color:var(--color-card-muted)]/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)] sm:inline-flex sm:items-center sm:gap-1">
+                  <Lock className="h-3 w-3" />
+                  {hasFinalPdf ? "PDF emitido" : "Aprovada"}
+                </span>
               )}
             </div>
 

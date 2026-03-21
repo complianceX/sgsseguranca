@@ -58,6 +58,8 @@ type ResendSendResponse = {
   error?: { message?: string } | null;
 };
 
+type BrevoErrorBody = { message?: string; code?: string };
+
 type MailDeliveryResult = {
   provider: MailProvider;
   messageId?: string;
@@ -731,6 +733,29 @@ export class MailService {
 
           const bodyText = await response.text();
           if (!response.ok) {
+            let parsed: BrevoErrorBody | null = null;
+            try {
+              parsed = JSON.parse(bodyText) as BrevoErrorBody;
+            } catch {
+              parsed = null;
+            }
+
+            const message = parsed?.message || bodyText;
+            const code = parsed?.code;
+            if (
+              response.status === 401 &&
+              (code === 'unauthorized' ||
+                /unrecognised ip address/i.test(message))
+            ) {
+              const ipMatch = message.match(
+                /unrecognised ip address\s+([0-9]{1,3}(?:\.[0-9]{1,3}){3})/i,
+              );
+              const blockedIp = ipMatch?.[1];
+              throw new Error(
+                `Brevo bloqueou o IP de saída do servidor (${blockedIp || 'desconhecido'}). Autorize este IP em Brevo (Security > Authorised IPs) e tente novamente.`,
+              );
+            }
+
             throw new Error(
               `Brevo API error: status=${response.status} body=${bodyText}`,
             );

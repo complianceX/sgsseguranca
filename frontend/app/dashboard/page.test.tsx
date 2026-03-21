@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react";
-import DashboardPage from "./page";
 
 jest.mock("@/lib/temporarilyHiddenModules", () => ({
   isTemporarilyVisibleDashboardRoute: () => true,
@@ -79,6 +78,7 @@ describe("DashboardPage", () => {
   });
 
   it("renders only the compliance score view and hides removed dashboard blocks", async () => {
+    const { default: DashboardPage } = await import("./page");
     render(<DashboardPage />);
 
     expect(await screen.findByText(/score de conformidade/i)).toBeInTheDocument();

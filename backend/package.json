@@ -29,6 +29,7 @@
     "migration:revert": "typeorm migration:revert -d dist/data-source.js",
     "verify:rls": "node scripts/verify-tenant-rls.js",
     "openapi:export": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register scripts/generate-openapi.ts",
+    "openapi:export:governed": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register scripts/generate-governed-openapi.ts",
     "lint": "eslint \"{src,test}/**/*.ts\" --max-warnings=0",
     "lint:all": "npm run lint",
     "lint:fix": "eslint \"{src,test}/**/*.ts\" --fix",

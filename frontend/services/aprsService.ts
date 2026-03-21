@@ -1,4 +1,5 @@
 import api from "@/lib/api";
+import type { GovernedPdfAccessResponse } from "@/lib/api/generated/governed-contracts.client";
 import { AxiosResponse } from "axios";
 import { AxiosError } from "axios";
 import { Activity } from "./activitiesService";
@@ -196,16 +197,7 @@ export interface CreateAprDto {
   notas_auditoria?: string;
 }
 
-export interface AprPdfAccessResponse {
-  entityId: string;
-  hasFinalPdf: boolean;
-  availability: "ready" | "registered_without_signed_url" | "not_emitted";
-  message?: string;
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
-  url: string | null;
-}
+export type AprPdfAccessResponse = GovernedPdfAccessResponse;
 
 export const aprsService = {
   findPaginated: async (opts?: {

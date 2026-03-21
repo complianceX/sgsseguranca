@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import type { GovernedPdfAccessResponse, GovernedPdfAccessAvailability } from "@/lib/api/generated/governed-contracts.client";
 import { Site } from './sitesService';
 import { User } from './usersService';
 import { fetchAllPages, PaginatedResponse } from './pagination';
@@ -100,21 +101,8 @@ export interface CreateAuditDto {
   conclusao?: string;
 }
 
-export type AuditPdfAccessAvailability =
-  | 'ready'
-  | 'registered_without_signed_url'
-  | 'not_emitted';
-
-export interface AuditPdfAccessResponse {
-  entityId: string;
-  hasFinalPdf: boolean;
-  availability: AuditPdfAccessAvailability;
-  message: string | null;
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
-  url: string | null;
-}
+export type AuditPdfAccessAvailability = GovernedPdfAccessAvailability;
+export type AuditPdfAccessResponse = GovernedPdfAccessResponse;
 
 export const auditsService = {
   findPaginated: async (opts?: { page?: number; limit?: number; search?: string }): Promise<PaginatedResponse<Audit>> => {

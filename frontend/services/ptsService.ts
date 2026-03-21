@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import type { GovernedPdfAccessResponse } from "@/lib/api/generated/governed-contracts.client";
 import { AxiosError } from 'axios';
 import { User } from './usersService';
 import { fetchAllPages, PaginatedResponse } from './pagination';
@@ -139,16 +140,7 @@ export interface PtApprovalRules {
   requireAtLeastOneExecutante: boolean;
 }
 
-export interface PtPdfAccessResponse {
-  entityId: string;
-  hasFinalPdf: boolean;
-  availability: 'ready' | 'registered_without_signed_url' | 'not_emitted';
-  message: string;
-  fileKey: string | null;
-  folderPath: string | null;
-  originalName: string | null;
-  url: string | null;
-}
+export type PtPdfAccessResponse = GovernedPdfAccessResponse;
 
 export interface PtAnalyticsOverview {
   totalPts: number;

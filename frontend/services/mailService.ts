@@ -1,22 +1,13 @@
 import api from '@/lib/api';
+import type {
+  DocumentMailDispatchResponse as GeneratedMailDispatchResponse,
+  DocumentMailArtifactType as GeneratedMailArtifactType,
+  DocumentMailDeliveryMode as GeneratedMailDeliveryMode,
+} from '@/lib/api/generated/governed-contracts.client';
 
-export type DocumentMailArtifactType =
-  | 'governed_final_pdf'
-  | 'local_uploaded_pdf';
-
-export type DocumentMailDeliveryMode = 'queued' | 'sent';
-
-export interface DocumentMailDispatchResponse {
-  success: true;
-  message: string;
-  deliveryMode: DocumentMailDeliveryMode;
-  artifactType: DocumentMailArtifactType;
-  isOfficial: boolean;
-  fallbackUsed: boolean;
-  documentType?: string;
-  documentId?: string;
-  fileKey?: string;
-}
+export type DocumentMailArtifactType = GeneratedMailArtifactType;
+export type DocumentMailDeliveryMode = GeneratedMailDeliveryMode;
+export type DocumentMailDispatchResponse = GeneratedMailDispatchResponse;
 
 export const mailService = {
   async sendStoredDocument(
