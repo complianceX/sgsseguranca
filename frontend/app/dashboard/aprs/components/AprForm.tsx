@@ -436,6 +436,21 @@ export function AprForm({ id }: AprFormProps) {
   const isApproved = currentApr?.status === "Aprovada";
   const hasFinalPdf = Boolean(currentApr?.pdf_file_key);
   const isReadOnly = watchedStatus === "Aprovada" || hasFinalPdf;
+  const readOnlyReason = useMemo(() => {
+    if (!isReadOnly) return null;
+    return hasFinalPdf
+      ? "APR bloqueada para edição porque já possui PDF final emitido."
+      : "APR bloqueada para edição porque já foi aprovada.";
+  }, [hasFinalPdf, isReadOnly]);
+  const notifyReadOnly = useCallback(
+    (action?: string) => {
+      if (!readOnlyReason) return;
+      toast.warning("APR em modo somente leitura", {
+        description: action ? `${readOnlyReason} ${action}` : readOnlyReason,
+      });
+    },
+    [readOnlyReason],
+  );
   const aiEnabled = isAiEnabled();
   const selectedCompany = companies.find(
     (company) => company.id === selectedCompanyId,
@@ -578,20 +593,39 @@ export function AprForm({ id }: AprFormProps) {
   const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSavedRef = useRef<string>("");
 
-  const duplicateRiskRow = (index: number) => {
+  const duplicateRiskRow = useCallback((index: number) => {
+    if (isReadOnly) {
+      notifyReadOnly("Não é possível duplicar linhas em uma APR bloqueada.");
+      return;
+    }
     const source = getValues(`itens_risco.${index}` as const);
     appendRisk({
       ...createEmptyRiskRow(),
       ...source,
     });
-  };
+  }, [appendRisk, getValues, isReadOnly, notifyReadOnly]);
 
   const moveRiskRow = useCallback(
     (from: number, to: number) => {
+      if (isReadOnly) {
+        notifyReadOnly("Não é possível reordenar linhas em uma APR bloqueada.");
+        return;
+      }
       if (to < 0 || to >= riskFields.length) return;
       moveRisk(from, to);
     },
-    [moveRisk, riskFields.length],
+    [isReadOnly, moveRisk, notifyReadOnly, riskFields.length],
+  );
+
+  const handleRemoveRiskRow = useCallback(
+    (index: number) => {
+      if (isReadOnly) {
+        notifyReadOnly("Não é possível remover linhas em uma APR bloqueada.");
+        return;
+      }
+      removeRisk(index);
+    },
+    [isReadOnly, notifyReadOnly, removeRisk],
   );
 
   const toggleExpandedRow = useCallback((index: number) => {
@@ -695,6 +729,10 @@ export function AprForm({ id }: AprFormProps) {
 
   const applyExcelPreviewToForm = useCallback(
     (preview: AprExcelImportPreview) => {
+      if (isReadOnly) {
+        notifyReadOnly("Importação não está disponível em uma APR bloqueada.");
+        return;
+      }
       const applied = applyAprImportPreview(preview, {
         companies,
         sites,
@@ -729,11 +767,27 @@ export function AprForm({ id }: AprFormProps) {
         `${preview.importedRows} linha(s) da planilha aplicadas ao formulário.`,
       );
     },
-    [companies, replaceRisk, selectedCompanyId, setValue, sites, users],
+    [
+      companies,
+      isReadOnly,
+      notifyReadOnly,
+      replaceRisk,
+      selectedCompanyId,
+      setValue,
+      sites,
+      users,
+    ],
   );
 
   const handleExcelFileSelection = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
+      if (isReadOnly) {
+        notifyReadOnly("Importação não está disponível em uma APR bloqueada.");
+        if (event.target) {
+          event.target.value = "";
+        }
+        return;
+      }
       const selectedFile = event.target.files?.[0];
       if (!selectedFile) {
         return;
@@ -774,7 +828,7 @@ export function AprForm({ id }: AprFormProps) {
         }
       }
     },
-    [],
+    [isReadOnly, notifyReadOnly],
   );
 
   const hasSuggestedRiskInMatrix = useCallback(
@@ -790,6 +844,10 @@ export function AprForm({ id }: AprFormProps) {
 
   const applySuggestedAprRisk = useCallback(
     (suggestion: SophieDraftRiskSuggestion) => {
+      if (isReadOnly) {
+        notifyReadOnly("Não é possível aplicar sugestões em uma APR bloqueada.");
+        return;
+      }
       let appliedSelection = false;
 
       if (suggestion.id && !selectedRiskIds.includes(suggestion.id)) {
@@ -819,6 +877,8 @@ export function AprForm({ id }: AprFormProps) {
     [
       appendRisk,
       hasSuggestedRiskInMatrix,
+      isReadOnly,
+      notifyReadOnly,
       selectedRiskIds,
       setValue,
       tituloApr,
@@ -826,6 +886,10 @@ export function AprForm({ id }: AprFormProps) {
   );
 
   const applyAllSuggestedAprRisks = useCallback(() => {
+    if (isReadOnly) {
+      notifyReadOnly("Não é possível aplicar sugestões em uma APR bloqueada.");
+      return;
+    }
     let appliedCount = 0;
     const nextSelectedRiskIds = [...selectedRiskIds];
     sophieSuggestedRisks.forEach((suggestion) => {
@@ -867,6 +931,8 @@ export function AprForm({ id }: AprFormProps) {
   }, [
     appendRisk,
     hasSuggestedRiskInMatrix,
+    isReadOnly,
+    notifyReadOnly,
     selectedRiskIds,
     setValue,
     sophieSuggestedRisks,
@@ -875,9 +941,11 @@ export function AprForm({ id }: AprFormProps) {
 
   const { handleSubmit: onSubmit, loading } = useFormSubmit(
     async (data: AprFormData) => {
-      if (id && hasFinalPdf) {
+      if (id && isReadOnly) {
         throw new Error(
-          "APR com PDF final emitido está bloqueada. Crie uma nova versão.",
+          hasFinalPdf
+            ? "APR com PDF final emitido está bloqueada. Crie uma nova versão."
+            : "APR aprovada está bloqueada para edição. Crie uma nova versão.",
         );
       }
 
@@ -1060,6 +1128,10 @@ export function AprForm({ id }: AprFormProps) {
   }, [isModelo, setValue]);
 
   const handleAiAnalysis = async () => {
+    if (isReadOnly) {
+      notifyReadOnly("Ações de sugestão/análise não estão disponíveis em modo somente leitura.");
+      return;
+    }
     if (!isAiEnabled()) {
       toast.error("IA desativada neste ambiente.");
       return;
@@ -1099,6 +1171,10 @@ export function AprForm({ id }: AprFormProps) {
   };
 
   const handleSuggestControls = useCallback(async () => {
+    if (isReadOnly) {
+      notifyReadOnly("Não é possível sugerir controles em uma APR bloqueada.");
+      return;
+    }
     if (riskFields.length === 0) {
       toast.error("Adicione ao menos uma linha de risco para gerar sugestões.");
       return;
@@ -1139,10 +1215,14 @@ export function AprForm({ id }: AprFormProps) {
     } finally {
       setSuggestingControls(false);
     }
-  }, [riskFields.length, setValue, tituloApr, watch]);
+  }, [isReadOnly, notifyReadOnly, riskFields.length, setValue, tituloApr, watch]);
 
   const handleFinalizeApr = useCallback(async () => {
     if (!id) return;
+    if (isReadOnly) {
+      notifyReadOnly("Aprovação não está disponível em uma APR bloqueada.");
+      return;
+    }
     if (!confirm("Deseja aprovar esta APR?")) return;
 
     try {
@@ -1170,7 +1250,7 @@ export function AprForm({ id }: AprFormProps) {
     } finally {
       setFinalizing(false);
     }
-  }, [id, setValue]);
+  }, [id, isReadOnly, notifyReadOnly, setValue]);
 
   const handleCreateVersion = useCallback(async () => {
     if (!id) return;
@@ -1203,6 +1283,10 @@ export function AprForm({ id }: AprFormProps) {
   }, [id, compareTargetId]);
 
   const handleCaptureLocation = useCallback(() => {
+    if (isReadOnly) {
+      notifyReadOnly("Captura de localização não está disponível em uma APR bloqueada.");
+      return;
+    }
     if (!navigator.geolocation) {
       toast.error("Geolocalização não suportada neste navegador.");
       return;
@@ -1217,9 +1301,13 @@ export function AprForm({ id }: AprFormProps) {
       () => toast.error("Não foi possível capturar a localização."),
       { enableHighAccuracy: true, timeout: 10000 },
     );
-  }, []);
+  }, [isReadOnly, notifyReadOnly]);
 
   const handleUploadEvidence = useCallback(async () => {
+    if (isReadOnly) {
+      notifyReadOnly("Envio de evidências não está disponível em uma APR bloqueada.");
+      return;
+    }
     if (!id || !selectedRiskItemEvidence || !evidenceFile) {
       toast.error("Selecione item de risco e imagem.");
       return;
@@ -1261,6 +1349,8 @@ export function AprForm({ id }: AprFormProps) {
     }
   }, [
     id,
+    isReadOnly,
+    notifyReadOnly,
     selectedRiskItemEvidence,
     evidenceFile,
     evidenceLatitude,
@@ -1778,6 +1868,10 @@ export function AprForm({ id }: AprFormProps) {
         | "participants",
       value: string,
     ) => {
+      if (isReadOnly) {
+        notifyReadOnly("Não é possível alterar seleções/assinaturas em uma APR bloqueada.");
+        return;
+      }
       const current = watch(field) || [];
       const isSelected = current.includes(value);
 
@@ -1802,11 +1896,15 @@ export function AprForm({ id }: AprFormProps) {
         setValue(field, updated, { shouldValidate: true });
       }
     },
-    [watch, setValue, signatures, users],
+    [isReadOnly, notifyReadOnly, setValue, signatures, users, watch],
   );
 
   const handleSaveSignature = useCallback(
     (signatureData: string, type: string) => {
+      if (isReadOnly) {
+        notifyReadOnly("Não é possível salvar assinaturas em uma APR bloqueada.");
+        return;
+      }
       if (currentSigningUser) {
         setSignatures((prev) => ({
           ...prev,
@@ -1821,7 +1919,7 @@ export function AprForm({ id }: AprFormProps) {
         toast.success(`Assinatura de ${currentSigningUser.nome} capturada!`);
       }
     },
-    [currentSigningUser, setValue, watch],
+    [currentSigningUser, isReadOnly, notifyReadOnly, setValue, watch],
   );
 
   const nextStep = useCallback(async () => {
@@ -1949,7 +2047,7 @@ export function AprForm({ id }: AprFormProps) {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {!isApproved && (
+              {!isReadOnly && !isApproved && (
                 <button
                   type="button"
                   onClick={handleFinalizeApr}
@@ -2047,6 +2145,7 @@ export function AprForm({ id }: AprFormProps) {
               <select
                 value={selectedRiskItemEvidence}
                 onChange={(e) => setSelectedRiskItemEvidence(e.target.value)}
+                disabled={isReadOnly}
                 className={aprFieldClass}
               >
                 <option value="">Selecione</option>
@@ -2068,6 +2167,7 @@ export function AprForm({ id }: AprFormProps) {
                 accept="image/*"
                 aria-label="Selecionar foto da evidência da APR"
                 onChange={(e) => setEvidenceFile(e.target.files?.[0] || null)}
+                disabled={isReadOnly}
                 className={aprFileFieldClass}
               />
             </div>
@@ -2078,6 +2178,7 @@ export function AprForm({ id }: AprFormProps) {
                 onChange={(e) => setEvidenceLatitude(e.target.value)}
                 placeholder="Latitude"
                 aria-label="Latitude da evidência"
+                disabled={isReadOnly}
                 className={aprFieldClass}
               />
               <input
@@ -2086,6 +2187,7 @@ export function AprForm({ id }: AprFormProps) {
                 onChange={(e) => setEvidenceLongitude(e.target.value)}
                 placeholder="Longitude"
                 aria-label="Longitude da evidência"
+                disabled={isReadOnly}
                 className={aprFieldClass}
               />
             </div>
@@ -2096,11 +2198,13 @@ export function AprForm({ id }: AprFormProps) {
                 onChange={(e) => setEvidenceAccuracy(e.target.value)}
                 placeholder="Precisão (m)"
                 aria-label="Precisão do GPS da evidência"
+                disabled={isReadOnly}
                 className={aprFieldClass}
               />
               <button
                 type="button"
                 onClick={handleCaptureLocation}
+                disabled={isReadOnly}
                 className={aprSoftPrimaryButtonClass}
               >
                 Capturar GPS
@@ -2113,7 +2217,10 @@ export function AprForm({ id }: AprFormProps) {
               type="button"
               onClick={handleUploadEvidence}
               disabled={
-                uploadingEvidence || !selectedRiskItemEvidence || !evidenceFile
+                isReadOnly ||
+                uploadingEvidence ||
+                !selectedRiskItemEvidence ||
+                !evidenceFile
               }
               className={aprSuccessButtonClass}
             >
@@ -2198,6 +2305,24 @@ export function AprForm({ id }: AprFormProps) {
                   : verificationResult.message || "Hash não validado."}
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {isReadOnly && readOnlyReason && (
+        <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 rounded-[var(--ds-radius-lg)] bg-[color:var(--color-card-muted)]/30 p-2 text-[var(--ds-color-text-muted)]">
+              <Lock className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">
+                APR bloqueada para edição
+              </p>
+              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                {readOnlyReason}
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -3021,12 +3146,13 @@ export function AprForm({ id }: AprFormProps) {
                         fieldId={field.id}
                         index={index}
                         totalRows={riskFields.length}
+                        readOnly={isReadOnly}
                         compactMode={compactMode}
                         expanded={expandedRows.has(index)}
                         onToggleExpanded={toggleExpandedRow}
                         onMove={moveRiskRow}
                         onDuplicate={duplicateRiskRow}
-                        onRemove={removeRisk}
+                        onRemove={handleRemoveRiskRow}
                         control={control}
                         register={register}
                         setValue={setValue}

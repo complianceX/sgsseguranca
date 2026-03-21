@@ -33,6 +33,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
   fieldId,
   index,
   totalRows,
+  readOnly,
   compactMode,
   expanded,
   onToggleExpanded,
@@ -48,6 +49,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
   fieldId: string;
   index: number;
   totalRows: number;
+  readOnly: boolean;
   compactMode: boolean;
   expanded: boolean;
   onToggleExpanded: (index: number) => void;
@@ -102,6 +104,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
 
   const handleProbabilityChange = useCallback(
     (value: string) => {
+      if (readOnly) return;
       setValue(`itens_risco.${index}.probabilidade`, value, {
         shouldDirty: true,
         shouldValidate: true,
@@ -112,11 +115,12 @@ export const AprRiskRow = React.memo(function AprRiskRow({
         shouldValidate: true,
       });
     },
-    [evaluateRisk, index, item?.severidade, setValue],
+    [evaluateRisk, index, item?.severidade, readOnly, setValue],
   );
 
   const handleSeverityChange = useCallback(
     (value: string) => {
+      if (readOnly) return;
       setValue(`itens_risco.${index}.severidade`, value, {
         shouldDirty: true,
         shouldValidate: true,
@@ -127,7 +131,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
         shouldValidate: true,
       });
     },
-    [evaluateRisk, index, item?.probabilidade, setValue],
+    [evaluateRisk, index, item?.probabilidade, readOnly, setValue],
   );
 
   return (
@@ -204,7 +208,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
           <button
             type="button"
             onClick={() => onMove(index, index - 1)}
-            disabled={index === 0}
+            disabled={readOnly || index === 0}
             className="rounded-[var(--ds-radius-md)] p-1.5 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[color:var(--color-card-muted)] disabled:opacity-30"
             title="Mover para cima"
           >
@@ -213,7 +217,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
           <button
             type="button"
             onClick={() => onMove(index, index + 1)}
-            disabled={index === totalRows - 1}
+            disabled={readOnly || index === totalRows - 1}
             className="rounded-[var(--ds-radius-md)] p-1.5 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[color:var(--color-card-muted)] disabled:opacity-30"
             title="Mover para baixo"
           >
@@ -222,6 +226,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
           <button
             type="button"
             onClick={() => onDuplicate(index)}
+            disabled={readOnly}
             className="rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-primary-subtle)] p-1.5 text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78"
             title="Duplicar linha"
           >
@@ -230,6 +235,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
           <button
             type="button"
             onClick={() => onRemove(index)}
+            disabled={readOnly}
             className="rounded-[var(--ds-radius-md)] bg-[color:var(--ds-color-danger-subtle)] p-1.5 text-[var(--color-danger)] transition-colors hover:bg-[color:var(--ds-color-danger-subtle)]/78"
             title="Remover linha"
           >
@@ -391,4 +397,3 @@ export const AprRiskRow = React.memo(function AprRiskRow({
     </div>
   );
 });
-
