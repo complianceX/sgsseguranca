@@ -56,22 +56,37 @@ export class DocumentImport {
   @Column({ name: 'empresa_id', type: 'uuid' })
   empresaId!: string;
 
-  @Column({ name: 'tipo_documento', length: 50, nullable: true })
+  @Column({
+    name: 'tipo_documento',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   tipoDocumento!: string | null;
 
-  @Column({ name: 'nome_arquivo', length: 255, nullable: true })
+  @Column({
+    name: 'nome_arquivo',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   nomeArquivo!: string | null;
 
   @Column({ name: 'hash', length: 64 })
   hash!: string;
 
-  @Column({ name: 'idempotency_key', length: 128, nullable: true })
+  @Column({
+    name: 'idempotency_key',
+    type: 'varchar',
+    length: 128,
+    nullable: true,
+  })
   idempotencyKey!: string | null;
 
   @Column({ name: 'tamanho', type: 'integer', nullable: true })
   tamanho!: number | null;
 
-  @Column({ name: 'mime_type', length: 120, nullable: true })
+  @Column({ name: 'mime_type', type: 'varchar', length: 120, nullable: true })
   mimeType!: string | null;
 
   @Column({ name: 'texto_extraido', type: 'text', nullable: true })
@@ -111,7 +126,12 @@ export class DocumentImport {
   @Column({ name: 'data_documento', type: 'date', nullable: true })
   dataDocumento!: Date | null;
 
-  @Column({ name: 'processing_job_id', length: 128, nullable: true })
+  @Column({
+    name: 'processing_job_id',
+    type: 'varchar',
+    length: 128,
+    nullable: true,
+  })
   processingJobId!: string | null;
 
   @Column({ name: 'processing_attempts', type: 'integer', default: 0 })
