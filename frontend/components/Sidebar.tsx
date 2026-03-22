@@ -188,12 +188,12 @@ export function Sidebar({
       />
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col border-r border-[color:var(--ds-color-sidebar-border)] bg-[var(--ds-color-sidebar-bg)] text-[var(--ds-color-sidebar-text)] transition-transform duration-[var(--ds-motion-base)] xl:static xl:z-auto xl:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col border-r border-[color:var(--ds-color-sidebar-border)] bg-[var(--ds-color-sidebar-bg)] text-[var(--ds-color-sidebar-text)] shadow-[var(--ds-shadow-md)] transition-transform duration-[var(--ds-motion-base)] xl:static xl:z-auto xl:translate-x-0 xl:shadow-none',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         {/* Logo */}
-        <div className="border-b border-[color:var(--ds-color-sidebar-border)] px-5 py-4">
+        <div className="border-b border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-bg-soft)]/60 px-5 py-4">
           <div className="flex items-center gap-3">
             <Image src="/logo-gst-mark.svg" alt="Logo GST" width={26} height={26} priority />
             <div className="min-w-0">
@@ -221,7 +221,7 @@ export function Sidebar({
                     onClick={() => toggleSection(section.id)}
                     className="flex w-full items-center justify-between px-4 pb-1.5 text-left"
                   >
-                    <span className="text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-[var(--ds-color-sidebar-muted)]">
+                    <span className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-sidebar-muted)]">
                       {section.label}
                     </span>
                     <ChevronDown
@@ -244,10 +244,10 @@ export function Sidebar({
                             href={item.href!}
                             onClick={onClose}
                             className={cn(
-                              'mx-2 flex items-center gap-2.5 rounded-lg border-l-2 px-3 py-2 text-[13px] font-medium transition-colors',
+                              'mx-2 flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-[13px] font-medium transition-all',
                               active
-                                ? 'border-[color:var(--ds-color-sidebar-text)] bg-[color:var(--ds-color-sidebar-surface)] text-[var(--ds-color-sidebar-text)]'
-                                : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:bg-[color:var(--ds-color-sidebar-surface)] hover:text-[var(--ds-color-sidebar-text)]',
+                                ? 'border-[color:var(--ds-color-primary-border)] bg-[color:var(--ds-color-sidebar-surface)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]'
+                                : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:border-[color:var(--ds-color-sidebar-border)] hover:bg-[color:var(--ds-color-sidebar-bg-soft)] hover:text-[var(--ds-color-text-primary)]',
                             )}
                           >
                             <Icon
@@ -279,7 +279,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={logout}
-            className="mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2.5 rounded-lg border-l-2 border-transparent px-3 py-2 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-colors hover:border-[color:var(--ds-color-danger)] hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
+            className="mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2.5 rounded-xl border border-transparent px-3.5 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-all hover:border-[color:var(--ds-color-danger-border)] hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
           >
             <LogOut className="h-4 w-4 shrink-0" />
             Sair

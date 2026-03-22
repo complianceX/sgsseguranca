@@ -99,7 +99,7 @@ export default function DashboardLayout({
   if (!user) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--ds-color-bg-canvas)] px-6 text-center text-[var(--ds-color-text-primary)]">
-        <div className="max-w-md rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-5 shadow-[var(--ds-shadow-sm)]">
+        <div className="max-w-md rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
           <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">Sessão não encontrada</h2>
           <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
             Sua sessão expirou ou o acesso não foi carregado corretamente. Volte para o login e tente novamente.
@@ -107,7 +107,7 @@ export default function DashboardLayout({
           <button
             type="button"
             onClick={() => router.push('/login')}
-            className="mt-4 w-full rounded-xl bg-[image:var(--ds-gradient-brand)] px-4 py-2 text-[13px] font-semibold text-white transition-all hover:-translate-y-px hover:brightness-105"
+            className="mt-4 w-full rounded-xl bg-[var(--ds-color-action-primary)] px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[var(--ds-color-action-primary-hover)]"
           >
             Ir para login
           </button>
@@ -123,12 +123,12 @@ export default function DashboardLayout({
         <Header onOpenMobileNav={() => setSidebarOpen(true)} />
         {/* Badge da empresa selecionada para Admin Geral */}
         {isAdminGeral && (
-          <div className="flex items-center justify-between border-b border-[color:var(--ds-color-info)]/18 bg-[color:var(--ds-color-info)]/10 px-5 py-2.5 backdrop-blur-sm">
-            <div className="flex items-center gap-2 text-sm text-[var(--ds-color-text-on-canvas-secondary)]">
+          <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-info-subtle)]/55 px-5 py-2.5">
+            <div className="flex items-center gap-2 text-sm text-[var(--ds-color-text-secondary)]">
               <Building2 className="h-4 w-4 text-[var(--ds-color-info)]" />
               {selectedTenant ? (
                 <span>
-                  Operando em: <span className="font-semibold text-[var(--ds-color-text-on-canvas)]">{selectedTenant.companyName}</span>
+                  Operando em: <span className="font-semibold text-[var(--ds-color-text-primary)]">{selectedTenant.companyName}</span>
                 </span>
               ) : (
                 <span className="text-[var(--ds-color-warning)]">Nenhuma empresa selecionada</span>
@@ -137,7 +137,7 @@ export default function DashboardLayout({
             <button
               type="button"
               onClick={() => setSelectorOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-[color:var(--ds-color-info)]/20 bg-[color:var(--ds-color-info)]/10 px-3 py-1.5 text-[11px] font-semibold text-[var(--ds-color-info)] transition-colors hover:bg-[color:var(--ds-color-info)]/16 hover:text-[var(--ds-color-text-primary)]"
+              className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-info-border)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-[11px] font-semibold text-[var(--ds-color-info-fg)] shadow-[var(--ds-shadow-xs)] transition-colors hover:bg-[var(--ds-color-info-subtle)] hover:text-[var(--ds-color-text-primary)]"
             >
               <ChevronsUpDown className="h-3.5 w-3.5" />
               Trocar empresa

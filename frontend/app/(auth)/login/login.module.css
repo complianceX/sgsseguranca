@@ -4,8 +4,8 @@
   overflow: hidden;
   color: var(--ds-color-text-primary);
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--ds-color-primary-subtle) 74%, transparent), transparent 32%),
-    linear-gradient(180deg, var(--ds-color-bg-canvas) 0%, var(--ds-color-surface-muted) 100%);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--ds-color-primary-subtle) 54%, transparent), transparent 36%),
+    linear-gradient(180deg, var(--ds-color-bg-canvas) 0%, var(--ds-color-bg-subtle) 100%);
 }
 
 .backgroundGlowA,
@@ -14,25 +14,25 @@
   border-radius: 999px;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.5;
+  opacity: 0.34;
 }
 
 .backgroundGlowA {
-  width: 420px;
-  height: 420px;
-  left: -140px;
-  top: -160px;
-  background: color-mix(in srgb, var(--ds-color-action-primary) 10%, transparent);
-  filter: blur(36px);
+  width: 360px;
+  height: 360px;
+  left: -130px;
+  top: -150px;
+  background: color-mix(in srgb, var(--ds-color-action-primary) 8%, transparent);
+  filter: blur(42px);
 }
 
 .backgroundGlowB {
-  width: 360px;
-  height: 360px;
-  right: -120px;
-  bottom: -140px;
-  background: color-mix(in srgb, var(--ds-color-accent) 10%, transparent);
-  filter: blur(32px);
+  width: 280px;
+  height: 280px;
+  right: -100px;
+  bottom: -120px;
+  background: color-mix(in srgb, var(--ds-color-info) 7%, transparent);
+  filter: blur(36px);
 }
 
 .backgroundGrid {
@@ -43,7 +43,7 @@
     linear-gradient(color-mix(in srgb, var(--ds-color-border-subtle) 35%, transparent) 1px, transparent 1px),
     linear-gradient(90deg, color-mix(in srgb, var(--ds-color-border-subtle) 35%, transparent) 1px, transparent 1px);
   background-size: 40px 40px;
-  opacity: 0.28;
+  opacity: 0.16;
 }
 
 .layout {
@@ -63,6 +63,7 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  padding: 8px 0;
 }
 
 .brandRow {
@@ -90,8 +91,8 @@
 .heroTitle {
   margin: 0;
   max-width: 620px;
-  font-size: clamp(2rem, 4vw, 3.4rem);
-  line-height: 1.02;
+  font-size: clamp(1.95rem, 4vw, 3.1rem);
+  line-height: 1.04;
   font-weight: 600;
   letter-spacing: -0.05em;
   color: var(--ds-color-text-primary);
@@ -113,8 +114,8 @@
 
 .statCard {
   border: 1px solid var(--ds-color-border-subtle);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--ds-color-surface-base) 92%, transparent);
+  border-radius: 16px;
+  background: var(--ds-color-surface-base);
   padding: 18px;
   display: flex;
   flex-direction: column;
@@ -146,10 +147,10 @@
   gap: 6px;
   padding: 8px 10px;
   font-size: 0.82rem;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--ds-color-border-subtle);
   color: var(--ds-color-text-secondary);
-  background: color-mix(in srgb, var(--ds-color-surface-base) 88%, transparent);
+  background: color-mix(in srgb, var(--ds-color-surface-base) 94%, transparent);
 }
 
 .loginSection {
@@ -160,10 +161,10 @@
 .loginCard {
   width: 100%;
   max-width: 448px;
-  border-radius: 24px;
+  border-radius: 20px;
   border: 1px solid var(--ds-color-border-subtle);
-  background: color-mix(in srgb, var(--ds-color-surface-base) 96%, transparent);
-  box-shadow: var(--ds-shadow-md);
+  background: color-mix(in srgb, var(--ds-color-surface-base) 98%, transparent);
+  box-shadow: var(--ds-shadow-sm);
   padding: 30px;
 }
 
@@ -302,7 +303,7 @@
 
 .passwordToggle:hover {
   color: var(--ds-color-text-primary);
-  background: var(--ds-color-surface-muted);
+  background: color-mix(in srgb, var(--ds-color-surface-muted) 72%, var(--ds-color-surface-base) 28%);
 }
 
 .capsWarning {

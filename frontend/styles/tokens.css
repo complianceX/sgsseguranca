@@ -1,35 +1,40 @@
 :root {
   /* ═══════════════════════════════════════════════════════════════
-     GST ENTERPRISE PALETTE — "Atlas Command"
+     GST ENTERPRISE PALETTE — "White Ledger"
      ───────────────────────────────────────────────────────────────
      Direção visual:
-       · Shell executivo em graphite/navy
-       · Acento cobalt para ação principal
-       · Info em teal regulatório
-       · Superfícies frias e refinadas, sem “lavar” a interface
-       · Estados de segurança ainda seguem leitura ANSI/ISO
+       · Fundo branco predominante
+       · Estrutura em neutros frios e sofisticados
+       · Azul corporativo como linguagem principal de ação
+       · Estados semânticos controlados, sem poluição visual
+       · Leitura limpa, forte e orientada a software enterprise
 
-     SIDEBAR    #081523  Atlas Command — sala de controle, autoridade
-     PRIMARY    #1E5EFF  Cobalt Signal — CTA institucional, preciso
-     SECONDARY  #4D647B  Steel Ledger — apoio, filtros e contexto
-     BACKGROUND #EEF3F8  Paper Fog — claro premium, sem branco estourado
-     ─── Status — ANSI Z535 / ABNT NBR 7195 / ISO 3864-1 ─────────
-     SUCCESS    #18895B  Safety Green — ISO 45001 / NR-26 conforme
-     WARNING    #B9771E  Safety Amber — alerta elegante e legível
-     DANGER     #C84A4A  Hazard Red — inequívoco, sem agressão visual
-     INFO       #0F738E  Notice Teal — regulatório, profundo
+     BACKGROUND #FFFFFF  White Ledger — canvas principal do sistema
+     SIDEBAR    #F8FAFC  Slate Panel  — navegação clara e estruturada
+     PRIMARY    #1D4ED8  Corporate Blue — CTA e destaque funcional
+     SECONDARY  #475569  Steel Text — apoio, filtros e contexto
+     ─── Status — semântica funcional, não decorativa ────────────
+     SUCCESS    #15803D
+     WARNING    #B45309
+     DANGER     #B91C1C
+     INFO       #0369A1
   ══════════════════════════════════════════════════════════════ */
-  --brand-background: #EEF3F8;
-  --brand-sidebar: #081523;      /* Atlas Command — mais executivo e sólido */
-  --brand-card: #FFFFFF;         /* Base limpa para superfícies e formulários */
-  --brand-primary: #1E5EFF;      /* Cobalt Signal — ação primária refinada */
-  --brand-secondary: #4D647B;    /* Steel Ledger — apoio, navegação e dados */
-  --brand-text-primary: #11253B; /* Ink Blue — leitura forte e corporativa */
-  --brand-text-secondary: #66788B; /* Slate Copy — contexto e apoio */
-  --brand-success: #18895B;      /* Safety Green — leitura mais premium */
-  --brand-warning: #B9771E;      /* Safety Amber — alerta sem ruído */
-  --brand-danger: #C84A4A;       /* Hazard Red — erro com elegância */
-  --brand-info: #0F738E;         /* Notice Teal — regulação e dados */
+  --brand-background: #ffffff;
+  --brand-sidebar: #f8fafc;
+  --brand-card: #ffffff;
+  --brand-primary: #1d4ed8;
+  --brand-primary-hover: #1e40af;
+  --brand-primary-active: #1e3a8a;
+  --brand-primary-soft: #eaf2ff;
+  --brand-focus-ring: #93c5fd;
+  --brand-secondary: #475569;
+  --brand-title: #0f172a;
+  --brand-text-primary: #1e293b;
+  --brand-text-secondary: #475569;
+  --brand-success: #15803d;
+  --brand-warning: #b45309;
+  --brand-danger: #b91c1c;
+  --brand-info: #0369a1;
 
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;
@@ -144,8 +149,8 @@
   --component-shell-backdrop: var(--ds-shell-backdrop);
   --component-navbar-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-elevated) 74%,
-    var(--ds-color-bg-canvas) 26%
+    var(--ds-color-surface-base) 84%,
+    var(--ds-color-surface-elevated) 16%
   );
   --component-navbar-border: color-mix(
     in srgb,
@@ -154,14 +159,14 @@
   );
   --component-navbar-chip-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-base) 58%,
-    var(--ds-color-surface-elevated) 42%
+    var(--ds-color-surface-base) 76%,
+    var(--ds-color-surface-elevated) 24%
   );
   --component-navbar-chip-text: var(--ds-color-text-secondary);
   --component-navbar-chip-hover-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-muted-hover) 72%,
-    var(--ds-color-surface-elevated) 28%
+    var(--ds-color-surface-muted-hover) 56%,
+    var(--ds-color-surface-base) 44%
   );
 
   --component-card-bg: var(--ds-color-surface-base);
@@ -173,7 +178,7 @@
   );
   --component-card-border: var(--ds-color-border-subtle);
   --component-card-border-strong: var(--ds-color-border-strong);
-  --component-card-shadow: var(--ds-shadow-sm);
+  --component-card-shadow: var(--ds-shadow-xs);
   --component-card-shadow-elevated: var(--ds-shadow-md);
 
   --component-field-bg: color-mix(
@@ -219,13 +224,13 @@
 
   --component-table-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-base) 82%,
-    var(--ds-color-surface-elevated) 18%
+    var(--ds-color-surface-base) 90%,
+    var(--ds-color-surface-elevated) 10%
   );
   --component-table-header-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-elevated) 78%,
-    var(--ds-color-surface-muted) 22%
+    var(--ds-color-surface-muted) 64%,
+    var(--ds-color-surface-base) 36%
   );
   --component-table-header-text: var(--ds-color-text-muted);
   --component-table-footer-bg: color-mix(
@@ -236,8 +241,8 @@
   --component-table-row-border: var(--ds-color-border-subtle);
   --component-table-row-hover: color-mix(
     in srgb,
-    var(--ds-color-action-primary) 14%,
-    var(--component-table-bg) 86%
+    var(--ds-color-action-primary) 10%,
+    var(--component-table-bg) 90%
   );
   --component-table-row-selected: color-mix(
     in srgb,
@@ -261,4 +266,42 @@
     var(--ds-color-border-strong) 78%,
     transparent
   );
+
+  /* Aliases utilitários da paleta para uso direto no app */
+  --bg-app: var(--ds-color-bg-canvas);
+  --bg-subtle: var(--ds-color-bg-subtle);
+  --surface: var(--ds-color-surface-base);
+  --surface-muted: var(--ds-color-surface-muted);
+  --sidebar-bg: var(--ds-color-sidebar-bg);
+  --border-default: var(--ds-color-border-default);
+  --border-strong: var(--ds-color-border-strong);
+  --disabled-border: var(--ds-color-border-subtle);
+  --title: var(--brand-title);
+  --text-primary: var(--ds-color-text-primary);
+  --text-secondary: var(--ds-color-text-secondary);
+  --text-muted: var(--ds-color-text-muted);
+  --button-primary-bg: var(--ds-color-action-primary);
+  --button-primary-hover: var(--ds-color-action-primary-hover);
+  --button-primary-text: var(--ds-color-action-primary-foreground);
+  --button-secondary-bg: var(--ds-color-action-secondary);
+  --button-secondary-hover: var(--ds-color-action-secondary-hover);
+  --button-secondary-text: var(--ds-color-action-secondary-foreground);
+  --disabled-bg: var(--ds-color-surface-sunken);
+  --disabled-text: var(--ds-color-text-disabled);
+  --success: var(--ds-color-success);
+  --success-bg: var(--ds-color-success-subtle);
+  --warning: var(--ds-color-warning);
+  --warning-bg: var(--ds-color-warning-subtle);
+  --error: var(--ds-color-danger);
+  --error-bg: var(--ds-color-danger-subtle);
+  --info: var(--ds-color-info);
+  --info-bg: var(--ds-color-info-subtle);
+  --badge-neutral: color-mix(
+    in srgb,
+    var(--ds-color-surface-muted) 84%,
+    var(--ds-color-surface-base) 16%
+  );
+  --table-header: var(--component-table-header-bg);
+  --table-hover: var(--component-table-row-hover);
+  --focus-ring: var(--brand-focus-ring);
 }

@@ -1,151 +1,162 @@
 :root[data-theme='light'],
 .theme-light {
-  /* Superfícies — “executive paper”, claras mas com profundidade real */
+  /* Superfícies — branco dominante com neutros frios e discretos */
   --ds-color-bg-canvas: var(--brand-background);
-  --ds-color-bg-subtle: #F7F9FC;
+  --ds-color-bg-subtle: #f6f8fb;
   --ds-color-surface-base: var(--brand-card);
-  --ds-color-surface-elevated: #FBFCFE;
-  --ds-color-surface-overlay: #FFFFFF;
-  --ds-color-surface-muted: #F2F6FA;
-  --ds-color-surface-sunken: #E7EEF5;
-  --ds-color-surface-muted-hover: #EAF1F8;
+  --ds-color-surface-elevated: #fbfcfe;
+  --ds-color-surface-overlay: #ffffff;
+  --ds-color-surface-muted: #f8fafc;
+  --ds-color-surface-sunken: #f1f5f9;
+  --ds-color-surface-muted-hover: #f2f6fa;
 
-  /* Bordas — steel blue bem controlado, sem poluição cromática */
-  --ds-color-border-subtle: #DAE4EE;
-  --ds-color-border-default: #C7D4E2;
-  --ds-color-border-strong: #9FB3C8;
-  --ds-color-border-focus: color-mix(in srgb, var(--brand-primary) 82%, #0f172a 18%);
+  /* Bordas — cinzas frios elegantes, com separação clara */
+  --ds-color-border-subtle: #e2e8f0;
+  --ds-color-border-default: #cbd5e1;
+  --ds-color-border-strong: #94a3b8;
+  --ds-color-border-focus: #60a5fa;
 
-  /* Text ramp — institucional, denso e limpo */
+  /* Texto — leitura forte, limpa e corporativa */
   --ds-color-text-primary: var(--brand-text-primary);
-  --ds-color-text-secondary: color-mix(in srgb, var(--brand-text-secondary) 90%, var(--brand-text-primary) 10%);
-  --ds-color-text-muted: color-mix(in srgb, var(--brand-text-secondary) 74%, var(--brand-background) 26%);
-  --ds-color-text-disabled: color-mix(in srgb, var(--brand-text-secondary) 56%, var(--brand-background) 44%);
+  --ds-color-text-secondary: var(--brand-text-secondary);
+  --ds-color-text-muted: #94a3b8;
+  --ds-color-text-disabled: #94a3b8;
   --ds-color-text-inverse: #ffffff;
   --ds-color-text-link: var(--brand-primary);
 
-  /* Canvas text — no light mode, iguais aos normais (fundo claro) */
   --ds-color-text-on-canvas: var(--ds-color-text-primary);
   --ds-color-text-on-canvas-secondary: var(--ds-color-text-secondary);
   --ds-color-text-on-canvas-muted: var(--ds-color-text-muted);
 
-  /* Sidebar — command deck mais polido e menos chapado */
+  /* Sidebar — painel claro, técnico e consistente com o canvas branco */
   --ds-color-sidebar-bg: var(--brand-sidebar);
-  --ds-color-sidebar-bg-soft: color-mix(in srgb, var(--brand-sidebar) 90%, var(--brand-primary) 10%);
-  --ds-color-sidebar-surface: color-mix(in srgb, var(--brand-sidebar) 82%, var(--brand-primary) 18%);
-  --ds-color-sidebar-text: #F1F6FD;
-  --ds-color-sidebar-muted: #B7C8DB;
-  --ds-color-sidebar-border: color-mix(in srgb, var(--brand-sidebar) 72%, var(--brand-primary) 28%);
+  --ds-color-sidebar-bg-soft: #ffffff;
+  --ds-color-sidebar-surface: var(--brand-primary-soft);
+  --ds-color-sidebar-text: #334155;
+  --ds-color-sidebar-muted: #64748b;
+  --ds-color-sidebar-border: #e2e8f0;
 
   --ds-color-action-primary: var(--brand-primary);
-  --ds-color-action-primary-hover: color-mix(in srgb, var(--brand-primary) 88%, #0f172a 12%);
-  --ds-color-action-primary-active: color-mix(in srgb, var(--brand-primary) 74%, #0f172a 26%);
+  --ds-color-action-primary-hover: var(--brand-primary-hover);
+  --ds-color-action-primary-active: var(--brand-primary-active);
   --ds-color-action-primary-foreground: #ffffff;
-  --ds-color-primary-subtle: color-mix(in srgb, var(--brand-primary) 14%, white 86%);
-  --ds-color-primary-subtle-hover: color-mix(in srgb, var(--brand-primary) 18%, white 82%);
-  --ds-color-primary-border: color-mix(in srgb, var(--brand-primary) 30%, white 70%);
+  --ds-color-primary-subtle: var(--brand-primary-soft);
+  --ds-color-primary-subtle-hover: #dbeafe;
+  --ds-color-primary-border: #bfdbfe;
 
-  --ds-color-action-secondary: color-mix(in srgb, var(--brand-secondary) 9%, #ffffff 91%);
-  --ds-color-action-secondary-hover: color-mix(in srgb, var(--brand-secondary) 16%, #ffffff 84%);
-  --ds-color-action-secondary-active: color-mix(in srgb, var(--brand-secondary) 22%, #ffffff 78%);
-  --ds-color-action-secondary-foreground: var(--ds-color-text-primary);
-  --ds-color-action-secondary-border: color-mix(in srgb, var(--brand-secondary) 18%, var(--ds-color-border-default) 82%);
+  --ds-color-action-secondary: #ffffff;
+  --ds-color-action-secondary-hover: #f8fafc;
+  --ds-color-action-secondary-active: #f1f5f9;
+  --ds-color-action-secondary-foreground: #334155;
+  --ds-color-action-secondary-border: #cbd5e1;
 
-  --ds-color-accent: color-mix(in srgb, var(--brand-info) 62%, var(--brand-primary) 38%);
-  --ds-color-accent-hover: color-mix(in srgb, var(--brand-info) 70%, var(--brand-primary) 30%);
-  --ds-color-accent-subtle: color-mix(in srgb, var(--ds-color-accent) 13%, white 87%);
-  --ds-color-accent-border: color-mix(in srgb, var(--ds-color-accent) 28%, white 72%);
+  --ds-color-accent: var(--brand-info);
+  --ds-color-accent-hover: #075985;
+  --ds-color-accent-subtle: #f0f9ff;
+  --ds-color-accent-border: #bae6fd;
 
-  --ds-color-success: color-mix(in srgb, var(--brand-success) 92%, #052e16 8%);
-  --ds-color-success-hover: color-mix(in srgb, var(--brand-success) 82%, #052e16 18%);
-  --ds-color-success-subtle: color-mix(in srgb, var(--brand-success) 11%, white 89%);
-  --ds-color-success-border: color-mix(in srgb, var(--brand-success) 26%, white 74%);
-  --ds-color-success-fg: color-mix(in srgb, var(--brand-success) 74%, #052e16 26%);
+  --ds-color-success: var(--brand-success);
+  --ds-color-success-hover: #166534;
+  --ds-color-success-subtle: #ecfdf3;
+  --ds-color-success-border: #bbf7d0;
+  --ds-color-success-fg: #166534;
 
-  --ds-color-warning: color-mix(in srgb, var(--brand-warning) 94%, #431407 6%);
-  --ds-color-warning-hover: color-mix(in srgb, var(--brand-warning) 82%, #431407 18%);
-  --ds-color-warning-subtle: color-mix(in srgb, var(--brand-warning) 11%, white 89%);
-  --ds-color-warning-border: color-mix(in srgb, var(--brand-warning) 24%, white 76%);
-  --ds-color-warning-fg: color-mix(in srgb, var(--brand-warning) 74%, #431407 26%);
+  --ds-color-warning: var(--brand-warning);
+  --ds-color-warning-hover: #92400e;
+  --ds-color-warning-subtle: #fff7ed;
+  --ds-color-warning-border: #fed7aa;
+  --ds-color-warning-fg: #92400e;
 
-  --ds-color-danger: color-mix(in srgb, var(--brand-danger) 94%, #450a0a 6%);
-  --ds-color-danger-hover: color-mix(in srgb, var(--brand-danger) 84%, #450a0a 16%);
-  --ds-color-danger-subtle: color-mix(in srgb, var(--brand-danger) 10%, white 90%);
-  --ds-color-danger-border: color-mix(in srgb, var(--brand-danger) 24%, white 76%);
-  --ds-color-danger-fg: color-mix(in srgb, var(--brand-danger) 72%, #450a0a 28%);
+  --ds-color-danger: var(--brand-danger);
+  --ds-color-danger-hover: #991b1b;
+  --ds-color-danger-subtle: #fef2f2;
+  --ds-color-danger-border: #fecaca;
+  --ds-color-danger-fg: #991b1b;
 
-  --ds-color-info: color-mix(in srgb, var(--brand-info) 94%, #0c3143 6%);
-  --ds-color-info-hover: color-mix(in srgb, var(--brand-info) 82%, #0c3143 18%);
-  --ds-color-info-subtle: color-mix(in srgb, var(--brand-info) 10%, white 90%);
-  --ds-color-info-border: color-mix(in srgb, var(--brand-info) 24%, white 76%);
-  --ds-color-info-fg: color-mix(in srgb, var(--brand-info) 72%, #0c3143 28%);
+  --ds-color-info: var(--brand-info);
+  --ds-color-info-hover: #075985;
+  --ds-color-info-subtle: #f0f9ff;
+  --ds-color-info-border: #bae6fd;
+  --ds-color-info-fg: #075985;
 
-  --ds-color-focus: var(--ds-color-action-primary);
-  --ds-color-focus-ring: color-mix(in srgb, var(--ds-color-action-primary) 22%, transparent);
+  --ds-color-focus: var(--brand-primary);
+  --ds-color-focus-ring: color-mix(
+    in srgb,
+    var(--brand-focus-ring) 55%,
+    transparent
+  );
 
-  /* APR — escala NR-26 / ANSI Z535 / ISO 31000: 5 níveis perceptualmente distintos */
-  --risk-negligible:  #1A7A35; /* Verde safety — risco ≤ 5, operação normal */
-  --risk-acceptable:  #2B9920; /* Verde médio — risco 6-9, monitorar */
-  --risk-attention:   #C89A00; /* Âmbar ANSI  — risco 10-15, plano de ação */
-  --risk-substantial: #C85D00; /* Laranja      — risco 16-20, intervenção urgente */
-  --risk-critical:    #C42626; /* Vermelho ANSI — risco ≥ 21, paralisação imediata */
+  /* APR — estados de risco permanecem fortes e distinguíveis */
+  --risk-negligible: #1a7a35;
+  --risk-acceptable: #2b9920;
+  --risk-attention: #c89a00;
+  --risk-substantial: #c85d00;
+  --risk-critical: #c42626;
 
-  --ds-color-overlay: rgba(4, 8, 20, 0.56);
+  --ds-color-overlay: rgba(15, 23, 42, 0.32);
   --ds-shell-backdrop:
     radial-gradient(
-      1100px circle at top left,
-      color-mix(in srgb, var(--brand-primary) 11%, transparent),
-      transparent 38%
+      960px circle at top left,
+      color-mix(in srgb, var(--brand-primary-soft) 72%, transparent),
+      transparent 48%
     ),
-    radial-gradient(
-      820px circle at top right,
-      color-mix(in srgb, var(--brand-info) 9%, transparent),
-      transparent 32%
-    ),
-    linear-gradient(180deg, #EEF3F8 0%, #FFFFFF 62%);
-  --ds-color-command-surface: var(--brand-card);
-  --ds-color-command-border: color-mix(in srgb, var(--brand-primary) 14%, white 86%);
+    linear-gradient(180deg, #ffffff 0%, #f6f8fb 100%);
+  --ds-color-command-surface: #ffffff;
+  --ds-color-command-border: #e2e8f0;
 
   --ds-gradient-brand: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--brand-primary) 92%, white 8%) 0%,
-    color-mix(in srgb, var(--brand-primary) 72%, var(--brand-info) 28%) 55%,
-    color-mix(in srgb, var(--brand-info) 74%, #0A4559 26%) 100%
+    var(--brand-primary) 0%,
+    var(--brand-primary-hover) 100%
   );
-  --ds-gradient-surface: linear-gradient(
-    180deg,
-    color-mix(in srgb, #ffffff 90%, var(--brand-background) 10%),
-    color-mix(in srgb, #ffffff 62%, var(--brand-background) 38%)
+  --ds-gradient-surface: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+
+  --ds-kpi-blue: linear-gradient(
+    135deg,
+    #2563eb 0%,
+    var(--brand-primary-hover) 100%
+  );
+  --ds-kpi-violet: linear-gradient(135deg, #0ea5e9 0%, var(--brand-info) 100%);
+  --ds-kpi-emerald: linear-gradient(
+    135deg,
+    #16a34a 0%,
+    var(--brand-success) 100%
+  );
+  --ds-kpi-amber: linear-gradient(
+    135deg,
+    #d97706 0%,
+    var(--brand-warning) 100%
+  );
+  --ds-kpi-danger: linear-gradient(
+    135deg,
+    #dc2626 0%,
+    var(--brand-danger) 100%
   );
 
-  --ds-kpi-blue: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 90%, white 10%), color-mix(in srgb, var(--brand-primary) 72%, var(--brand-info) 28%));
-  --ds-kpi-violet: linear-gradient(135deg, color-mix(in srgb, var(--brand-info) 80%, white 20%), color-mix(in srgb, var(--brand-info) 62%, var(--brand-primary) 38%));
-  --ds-kpi-emerald: linear-gradient(135deg, color-mix(in srgb, var(--brand-success) 90%, white 10%), color-mix(in srgb, var(--brand-success) 72%, var(--brand-secondary) 28%));
-  --ds-kpi-amber: linear-gradient(135deg, color-mix(in srgb, var(--brand-warning) 92%, white 8%), color-mix(in srgb, var(--brand-warning) 74%, var(--risk-substantial) 26%));
-  --ds-kpi-danger: linear-gradient(135deg, color-mix(in srgb, var(--brand-danger) 92%, white 8%), color-mix(in srgb, var(--brand-danger) 74%, #7f1d1d 26%));
+  --ds-kpi-blue-bg: #eff6ff;
+  --ds-kpi-blue-fg: #1d4ed8;
+  --ds-kpi-blue-border: #bfdbfe;
+  --ds-kpi-green-bg: #ecfdf3;
+  --ds-kpi-green-fg: #166534;
+  --ds-kpi-green-border: #bbf7d0;
+  --ds-kpi-amber-bg: #fff7ed;
+  --ds-kpi-amber-fg: #92400e;
+  --ds-kpi-amber-border: #fed7aa;
+  --ds-kpi-red-bg: #fef2f2;
+  --ds-kpi-red-fg: #991b1b;
+  --ds-kpi-red-border: #fecaca;
+  --ds-kpi-violet-bg: #f0f9ff;
+  --ds-kpi-violet-fg: #075985;
+  --ds-kpi-violet-border: #bae6fd;
+  --ds-kpi-teal-bg: #f8fafc;
+  --ds-kpi-teal-fg: #334155;
+  --ds-kpi-teal-border: #cbd5e1;
 
-  --ds-kpi-blue-bg: color-mix(in srgb, var(--brand-primary) 14%, white 86%);
-  --ds-kpi-blue-fg: color-mix(in srgb, var(--brand-primary) 82%, #0f172a 18%);
-  --ds-kpi-blue-border: color-mix(in srgb, var(--brand-primary) 30%, white 70%);
-  --ds-kpi-green-bg: color-mix(in srgb, var(--brand-success) 14%, white 86%);
-  --ds-kpi-green-fg: color-mix(in srgb, var(--brand-success) 82%, #052e16 18%);
-  --ds-kpi-green-border: color-mix(in srgb, var(--brand-success) 30%, white 70%);
-  --ds-kpi-amber-bg: color-mix(in srgb, var(--brand-warning) 16%, white 84%);
-  --ds-kpi-amber-fg: color-mix(in srgb, var(--brand-warning) 82%, #431407 18%);
-  --ds-kpi-amber-border: color-mix(in srgb, var(--brand-warning) 30%, white 70%);
-  --ds-kpi-red-bg: color-mix(in srgb, var(--brand-danger) 14%, white 86%);
-  --ds-kpi-red-fg: color-mix(in srgb, var(--brand-danger) 82%, #450a0a 18%);
-  --ds-kpi-red-border: color-mix(in srgb, var(--brand-danger) 30%, white 70%);
-  --ds-kpi-violet-bg: color-mix(in srgb, var(--brand-info) 13%, white 87%);
-  --ds-kpi-violet-fg: color-mix(in srgb, var(--brand-info) 82%, var(--brand-primary) 18%);
-  --ds-kpi-violet-border: color-mix(in srgb, var(--brand-info) 28%, white 72%);
-  --ds-kpi-teal-bg: color-mix(in srgb, var(--brand-secondary) 12%, white 88%);
-  --ds-kpi-teal-fg: color-mix(in srgb, var(--brand-secondary) 82%, #1f3d5d 18%);
-  --ds-kpi-teal-border: color-mix(in srgb, var(--brand-secondary) 28%, white 72%);
-
-  --ds-shadow-xs: 0 1px 2px rgba(17, 24, 39, 0.04);
-  --ds-shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.05), 0 8px 20px rgba(17, 24, 39, 0.04);
-  --ds-shadow-md: 0 10px 28px rgba(17, 24, 39, 0.08);
-  --ds-shadow-lg: 0 18px 40px rgba(17, 24, 39, 0.1);
-  --ds-shadow-xl: 0 24px 56px rgba(17, 24, 39, 0.12);
+  --ds-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --ds-shadow-sm:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.06);
+  --ds-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08);
+  --ds-shadow-lg: 0 18px 40px rgba(15, 23, 42, 0.1);
+  --ds-shadow-xl: 0 24px 56px rgba(15, 23, 42, 0.12);
 }

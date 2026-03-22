@@ -160,6 +160,8 @@ export function Header({
   };
 
   const showOfflineChip = syncingOfflineQueue || offlineQueueCount > 0;
+  const iconButtonClass =
+    'flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--component-navbar-border)] bg-[var(--component-navbar-chip-bg)] text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-xs)] transition-all hover:border-[var(--ds-color-border-default)] hover:bg-[var(--component-navbar-chip-hover-bg)] hover:text-[var(--ds-color-text-primary)]';
 
   return (
     <header className="ds-topbar">
@@ -168,7 +170,7 @@ export function Header({
           <button
             type="button"
             onClick={onOpenMobileNav}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)] xl:hidden"
+            className={`${iconButtonClass} xl:hidden`}
             aria-label="Abrir navegação"
           >
             <Menu className="h-5 w-5" />
@@ -224,19 +226,19 @@ export function Header({
               type="button"
               title="Notificações"
               onClick={handleOpen}
-              className="relative flex h-9 w-9 items-center justify-center rounded-lg text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
+              className={`relative ${iconButtonClass}`}
             >
               <Bell className="h-5 w-5" />
               {unreadCount > 0 ? (
-                <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--ds-color-danger)] text-[10px] font-bold text-white">
+                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-white bg-[var(--ds-color-danger)] px-1 text-[10px] font-bold text-white shadow-[var(--ds-shadow-xs)]">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               ) : null}
             </button>
 
             {showNotifications ? (
-              <div className="absolute right-0 z-50 mt-3 w-[20.5rem] overflow-hidden rounded-[1.2rem] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-lg)]">
-                <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] px-4 py-3.5">
+              <div className="absolute right-0 z-50 mt-3 w-[21.5rem] overflow-hidden rounded-[1.2rem] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-md)]">
+                <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/70 px-4 py-3.5">
                   <div>
                     <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Notificações</h3>
                     <p className="text-xs text-[var(--ds-color-text-muted)]">Eventos recentes da operação</p>
@@ -254,7 +256,7 @@ export function Header({
                         type="button"
                         onClick={() => !notification.read && handleMarkOne(notification.id)}
                         className={`w-full border-b border-[var(--ds-color-border-subtle)] px-4 py-3.5 text-left transition-colors hover:bg-[var(--ds-color-surface-muted)] ${
-                          !notification.read ? 'bg-[var(--ds-color-primary-subtle)]/55' : ''
+                          !notification.read ? 'border-l-[3px] border-l-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-primary-subtle)]/55' : ''
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -276,13 +278,13 @@ export function Header({
                     ))
                   ) : (
                     <div className="p-6 text-center">
-                      <CheckCircle className="mx-auto h-12 w-12 text-[var(--ds-color-border-strong)]" />
+                      <CheckCircle className="mx-auto h-12 w-12 text-[var(--ds-color-success)]" />
                       <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">Nenhuma notificação no momento.</p>
                     </div>
                   )}
                 </div>
 
-                <div className="bg-[var(--ds-color-surface-muted)] px-4 py-2.5 text-center">
+                <div className="bg-[color:var(--ds-color-surface-muted)]/75 px-4 py-2.5 text-center">
                   <button
                     type="button"
                     onClick={handleMarkAllAsRead}
@@ -300,7 +302,7 @@ export function Header({
             type="button"
             title={resolvedTheme === 'dark' ? 'Modo claro' : 'Modo escuro'}
             onClick={toggleTheme}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
+            className={iconButtonClass}
           >
             {resolvedTheme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
           </button>
@@ -308,7 +310,7 @@ export function Header({
           <button
             type="button"
             title={user?.nome}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--ds-color-action-primary)] text-[13px] font-bold text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[13px] font-bold text-[var(--ds-color-action-primary)] shadow-[var(--ds-shadow-xs)] transition-colors hover:bg-[var(--ds-color-primary-subtle-hover)]"
           >
             {userInitials || <User className="h-5 w-5" />}
           </button>

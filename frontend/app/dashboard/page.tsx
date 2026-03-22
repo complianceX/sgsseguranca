@@ -210,7 +210,7 @@ function KpiCard({
   return (
     <div
       className={cn(
-        "relative flex flex-col gap-3 overflow-hidden rounded-xl border bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-xs)]",
+        "relative flex flex-col gap-3 overflow-hidden rounded-2xl border bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-xs)]",
         t.border,
       )}
     >
@@ -334,7 +334,7 @@ function SectionHeader({
   trailing?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] px-5 py-3">
+    <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-5 py-3">
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
           {overline}
