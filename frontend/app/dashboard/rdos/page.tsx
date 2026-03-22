@@ -70,6 +70,8 @@ import {
 import { cn } from "@/lib/utils";
 import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { StoredFilesPanel } from "@/components/StoredFilesPanel";
+import { useDocumentVideos } from "@/hooks/useDocumentVideos";
+import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
 import { generateRdoPdf } from "@/lib/pdf/rdoGenerator";
 import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
 import { useAuth } from "@/context/AuthContext";
@@ -320,6 +322,33 @@ export default function RdosPage() {
     cancelado: 0,
   });
   const canManageRdo = hasPermission("can_manage_rdos");
+  const viewRdoLocked =
+    Boolean(viewRdo?.pdf_file_key) ||
+    viewRdo?.status === "aprovado" ||
+    viewRdo?.status === "cancelado";
+  const viewRdoLockMessage = viewRdo?.pdf_file_key
+    ? "O RDO já possui PDF final emitido."
+    : viewRdo?.status === "aprovado"
+      ? "O RDO está aprovado."
+      : viewRdo?.status === "cancelado"
+        ? "O RDO está cancelado."
+        : null;
+  const viewRdoVideos = useDocumentVideos({
+    documentId: viewRdo?.id,
+    enabled: Boolean(viewRdo?.id),
+    loadVideos: rdosService.listVideoAttachments,
+    uploadVideo: rdosService.uploadVideoAttachment,
+    removeVideo: rdosService.removeVideoAttachment,
+    getVideoAccess: rdosService.getVideoAttachmentAccess,
+    labels: {
+      loadError: "Não foi possível carregar os vídeos do RDO.",
+      uploadSuccess: "Vídeo anexado ao RDO.",
+      uploadError: "Não foi possível anexar o vídeo ao RDO.",
+      removeSuccess: "Vídeo removido do RDO.",
+      removeError: "Não foi possível remover o vídeo do RDO.",
+      accessError: "Não foi possível abrir o vídeo do RDO.",
+    },
+  });
 
   const getApiErrorMessage = useCallback((error: unknown) => {
     const message = (
@@ -2740,6 +2769,22 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   })()}
                 </div>
               </div>
+
+              <DocumentVideoPanel
+                title="Vídeos governados"
+                description="Anexe vídeos oficiais ao RDO para complementar a evidência operacional com acesso seguro."
+                documentId={viewRdo.id}
+                canManage={canManageRdo}
+                locked={viewRdoLocked}
+                lockMessage={viewRdoLockMessage}
+                attachments={viewRdoVideos.attachments}
+                loading={viewRdoVideos.loading}
+                uploading={viewRdoVideos.uploading}
+                removingId={viewRdoVideos.removingId}
+                onUpload={viewRdoVideos.handleUpload}
+                onRemove={viewRdoVideos.handleRemove}
+                resolveAccess={viewRdoVideos.resolveAccess}
+              />
             </div>
 
             {/* Footer */}

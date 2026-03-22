@@ -27,10 +27,8 @@ import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import {
-  assertUploadedVideo,
   cleanupUploadedTempFile,
   createTemporaryUploadOptions,
-  createGovernedVideoUploadOptions,
   readUploadedFileBuffer,
   validateFileMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
@@ -191,21 +189,6 @@ export class ChecklistsController {
     return this.checklistsService.getItemPhotoAccess(id, itemIndex, photoIndex);
   }
 
-  @Get(':id/videos')
-  @Authorize('can_view_checklists')
-  listVideoAttachments(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.checklistsService.listVideoAttachments(id);
-  }
-
-  @Get(':id/videos/:attachmentId/access')
-  @Authorize('can_view_checklists')
-  getVideoAttachmentAccess(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
-  ) {
-    return this.checklistsService.getVideoAttachmentAccess(id, attachmentId);
-  }
-
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_checklists')
@@ -315,40 +298,6 @@ export class ChecklistsController {
     } finally {
       await cleanupUploadedTempFile(file);
     }
-  }
-
-  @Post(':id/videos')
-  @UseInterceptors(FileInterceptor('file', createGovernedVideoUploadOptions()))
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_manage_checklists')
-  async uploadVideoAttachment(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @UploadedFile() file?: Express.Multer.File,
-  ) {
-    const videoFile = await assertUploadedVideo(
-      file,
-      'Vídeo não enviado para o checklist.',
-    );
-    try {
-      return await this.checklistsService.uploadVideoAttachment(
-        id,
-        await readUploadedFileBuffer(videoFile),
-        videoFile.originalname,
-        videoFile.mimetype,
-      );
-    } finally {
-      await cleanupUploadedTempFile(videoFile);
-    }
-  }
-
-  @Delete(':id/videos/:attachmentId')
-  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
-  @Authorize('can_manage_checklists')
-  removeVideoAttachment(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
-  ) {
-    return this.checklistsService.removeVideoAttachment(id, attachmentId);
   }
 
   @Delete(':id')

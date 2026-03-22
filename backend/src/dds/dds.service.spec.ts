@@ -5,6 +5,7 @@ import { Dds, DdsStatus } from './entities/dds.entity';
 import type { TenantService } from '../common/tenant/tenant.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import type { DocumentVideosService } from '../document-videos/document-videos.service';
 import type { SignaturesService } from '../signatures/signatures.service';
 import { Signature } from '../signatures/entities/signature.entity';
 import { Site } from '../sites/entities/site.entity';
@@ -50,6 +51,10 @@ describe('DdsService', () => {
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     'registerFinalDocument' | 'removeFinalDocumentReference'
+  >;
+  let documentVideosService: Pick<
+    DocumentVideosService,
+    'listByDocument' | 'uploadForDocument' | 'getAccess' | 'removeFromDocument'
   >;
   let signaturesService: Pick<
     SignaturesService,
@@ -141,6 +146,12 @@ describe('DdsService', () => {
       registerFinalDocument: jest.fn(),
       removeFinalDocumentReference: jest.fn(),
     };
+    documentVideosService = {
+      listByDocument: jest.fn(() => Promise.resolve([])),
+      uploadForDocument: jest.fn(),
+      getAccess: jest.fn(),
+      removeFromDocument: jest.fn(),
+    };
     signaturesService = {
       findByDocument: jest.fn(() => Promise.resolve([])),
       replaceDocumentSignatures: jest.fn(),
@@ -152,6 +163,7 @@ describe('DdsService', () => {
       { getTenantId: jest.fn(() => 'company-1') } as TenantService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
+      documentVideosService as DocumentVideosService,
       signaturesService as SignaturesService,
     );
   });
@@ -849,6 +861,7 @@ describe('DdsService', () => {
       { getTenantId: jest.fn(() => null) } as unknown as TenantService,
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
+      documentVideosService as DocumentVideosService,
       signaturesService as SignaturesService,
     );
 

@@ -235,10 +235,7 @@ export class InspectionsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const videoFile = await assertUploadedVideo(
-      file,
-      'Nenhum vídeo enviado.',
-    );
+    const videoFile = await assertUploadedVideo(file, 'Nenhum vídeo enviado.');
     try {
       return await this.inspectionsService.uploadVideoAttachment(
         id,

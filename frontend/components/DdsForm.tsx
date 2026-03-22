@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ddsService } from "@/services/ddsService";
+import { ddsService, type Dds } from "@/services/ddsService";
 import { sitesService, Site } from "@/services/sitesService";
 import { usersService, User } from "@/services/usersService";
 import { useForm } from "react-hook-form";
@@ -29,6 +29,8 @@ import { getFormErrorMessage } from "@/lib/error-handler";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useDocumentVideos } from "@/hooks/useDocumentVideos";
+import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
 
 const ddsSchema = z.object({
   tema: z.string().min(5, "O tema deve ter pelo menos 5 caracteres"),
@@ -137,6 +139,7 @@ export function DdsForm({ id }: DdsFormProps) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [currentDds, setCurrentDds] = useState<Dds | null>(null);
 
   // Signature States
   const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
@@ -190,6 +193,32 @@ export function DdsForm({ id }: DdsFormProps) {
     (user) => user.company_id === selectedCompanyId,
   );
   const selectedParticipantIds = watch("participants") || [];
+  const ddsVideoLocked = Boolean(currentDds?.pdf_file_key) ||
+    currentDds?.status === "arquivado" ||
+    Boolean(currentDds?.is_modelo);
+  const ddsVideoLockMessage = currentDds?.is_modelo
+    ? "Modelos de DDS não aceitam vídeos operacionais."
+    : currentDds?.pdf_file_key
+      ? "O DDS já possui PDF final emitido."
+      : currentDds?.status === "arquivado"
+        ? "O DDS está arquivado."
+        : null;
+  const documentVideos = useDocumentVideos({
+    documentId: id,
+    enabled: Boolean(id),
+    loadVideos: ddsService.listVideoAttachments,
+    uploadVideo: ddsService.uploadVideoAttachment,
+    removeVideo: ddsService.removeVideoAttachment,
+    getVideoAccess: ddsService.getVideoAttachmentAccess,
+    labels: {
+      loadError: "Não foi possível carregar os vídeos do DDS.",
+      uploadSuccess: "Vídeo anexado ao DDS.",
+      uploadError: "Não foi possível anexar o vídeo ao DDS.",
+      removeSuccess: "Vídeo removido do DDS.",
+      removeError: "Não foi possível remover o vídeo do DDS.",
+      accessError: "Não foi possível abrir o vídeo do DDS.",
+    },
+  });
 
   const handleAiSuggestion = async () => {
     if (!isAiEnabled()) {
@@ -266,6 +295,7 @@ export function DdsForm({ id }: DdsFormProps) {
             ddsService.findOne(id),
             signaturesService.findByDocument(id, "DDS"),
           ]);
+          setCurrentDds(dds);
 
           const participantSignatures: Record<
             string,
@@ -329,6 +359,7 @@ export function DdsForm({ id }: DdsFormProps) {
             }),
           );
         } else {
+          setCurrentDds(null);
           setInitialSignatureSnapshot(null);
         }
       } catch (error) {
@@ -563,12 +594,14 @@ export function DdsForm({ id }: DdsFormProps) {
       if (payload.conteudo === "") delete payload.conteudo;
 
       if (id) {
-        await ddsService.update(id, payload);
-        persistedDdsId = id;
+        const updatedDds = await ddsService.update(id, payload);
+        persistedDdsId = updatedDds.id;
+        setCurrentDds(updatedDds);
       } else {
         const newDds = await ddsService.create(payload);
         ddsId = newDds.id;
         persistedDdsId = newDds.id;
+        setCurrentDds(newDds);
       }
 
       const currentSignatureSnapshot = buildSignatureSnapshot({
@@ -1085,6 +1118,22 @@ export function DdsForm({ id }: DdsFormProps) {
             </div>
           )}
         </div>
+
+        <DocumentVideoPanel
+          title="Vídeos governados"
+          description="Anexe vídeos do DDS como evidência operacional governada, com acesso seguro e trilha auditável."
+          documentId={id}
+          canManage={canManageDds}
+          locked={ddsVideoLocked}
+          lockMessage={ddsVideoLockMessage}
+          attachments={documentVideos.attachments}
+          loading={documentVideos.loading}
+          uploading={documentVideos.uploading}
+          removingId={documentVideos.removingId}
+          onUpload={documentVideos.handleUpload}
+          onRemove={documentVideos.handleRemove}
+          resolveAccess={documentVideos.resolveAccess}
+        />
 
         <div className="flex justify-end space-x-4">
           <button

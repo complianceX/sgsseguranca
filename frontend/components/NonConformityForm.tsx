@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import {
   NC_STATUS_LABEL,
   NcStatus,
-  type NonConformity,
   nonConformitiesService,
   normalizeNcStatus,
   parseGovernedNcAttachmentReference,
@@ -21,8 +20,6 @@ import { getFormErrorMessage } from "@/lib/error-handler";
 import { attachPdfIfProvided } from "@/lib/document-upload";
 import { readSophieNcPreview, SophieNcPreview } from "@/lib/sophie-draft-storage";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useDocumentVideos } from "@/hooks/useDocumentVideos";
-import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
 
 const nonConformitySchema = z.object({
   codigo_nc: z.string().min(1, "O código é obrigatório"),
@@ -128,7 +125,6 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
   const [fetching, setFetching] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
-  const [currentNc, setCurrentNc] = useState<NonConformity | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [sophiePreview, setSophiePreview] = useState<SophieNcPreview | null>(null);
@@ -174,30 +170,6 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
     name: "anexos",
   });
   const watchedAnexos = watch("anexos") || [];
-  const watchedStatus = watch("status");
-  const normalizedStatus = normalizeNcStatus(watchedStatus);
-  const isNcReadOnly =
-    normalizedStatus === NcStatus.ENCERRADA || Boolean(currentNc?.pdf_file_key);
-  const ncLockMessage = currentNc?.pdf_file_key
-    ? "A não conformidade já possui PDF final emitido."
-    : normalizedStatus === NcStatus.ENCERRADA
-      ? "A não conformidade está encerrada."
-      : null;
-  const documentVideos = useDocumentVideos({
-    documentId: id,
-    loadVideos: nonConformitiesService.listVideoAttachments,
-    uploadVideo: nonConformitiesService.uploadVideoAttachment,
-    removeVideo: nonConformitiesService.removeVideoAttachment,
-    getVideoAccess: nonConformitiesService.getVideoAttachmentAccess,
-    labels: {
-      loadError: "Não foi possível carregar os vídeos da não conformidade.",
-      uploadSuccess: "Vídeo anexado à não conformidade.",
-      uploadError: "Não foi possível anexar o vídeo à não conformidade.",
-      removeSuccess: "Vídeo removido da não conformidade.",
-      removeError: "Não foi possível remover o vídeo da não conformidade.",
-      accessError: "Não foi possível abrir o vídeo da não conformidade.",
-    },
-  });
 
   const startCamera = async () => {
     try {
@@ -325,7 +297,6 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         setSites(sitesData);
         if (id) {
           const nonConformity = await nonConformitiesService.findOne(id);
-          setCurrentNc(nonConformity);
           reset({
             ...nonConformity,
             status: normalizeNcStatus(nonConformity.status),
@@ -395,7 +366,6 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
 
       if (id) {
         const updated = await nonConformitiesService.update(id, payload);
-        setCurrentNc(updated);
         await attachPdfIfProvided(
           updated.id,
           pdfFile,
@@ -404,7 +374,6 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         toast.success("Não conformidade atualizada com sucesso");
       } else {
         const created = await nonConformitiesService.create(payload);
-        setCurrentNc(created);
         await attachPdfIfProvided(
           created.id,
           pdfFile,
@@ -1557,23 +1526,6 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             })}
           </div>
 
-          <div className="mt-6">
-            <DocumentVideoPanel
-              title="Vídeos de evidência"
-              description="Anexe vídeos oficiais da não conformidade com governança e acesso seguro."
-              documentId={id}
-              canManage={canManageNc}
-              locked={isNcReadOnly}
-              lockMessage={ncLockMessage}
-              attachments={documentVideos.attachments}
-              loading={documentVideos.loading}
-              uploading={documentVideos.uploading}
-              removingId={documentVideos.removingId}
-              onUpload={documentVideos.handleUpload}
-              onRemove={documentVideos.handleRemove}
-              resolveAccess={documentVideos.resolveAccess}
-            />
-          </div>
         </div>
       </div>
 

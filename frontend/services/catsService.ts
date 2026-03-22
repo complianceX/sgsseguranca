@@ -1,10 +1,5 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
-import type {
-  GovernedDocumentVideoAccessResponse,
-  GovernedDocumentVideoAttachment,
-  GovernedDocumentVideoMutationResponse,
-} from "@/lib/videos/documentVideos";
 
 export type CatStatus = 'aberta' | 'investigacao' | 'fechada';
 export type CatTipo = 'tipico' | 'trajeto' | 'doenca_ocupacional' | 'outros';
@@ -203,49 +198,6 @@ export const catsService = {
       fileType: string;
       url: string;
     }>(`/cats/${id}/attachments/${attachmentId}/access`);
-    return response.data;
-  },
-
-  listVideoAttachments: async (id: string) => {
-    const response = await api.get<GovernedDocumentVideoAttachment[]>(
-      `/cats/${id}/videos`,
-    );
-    return response.data;
-  },
-
-  uploadVideoAttachment: async (
-    id: string,
-    file: File,
-  ): Promise<GovernedDocumentVideoMutationResponse> => {
-    const formData = new FormData();
-    formData.append("file", file);
-    const response = await api.post<GovernedDocumentVideoMutationResponse>(
-      `/cats/${id}/videos`,
-      formData,
-      {
-        headers: { "Content-Type": "multipart/form-data" },
-      },
-    );
-    return response.data;
-  },
-
-  getVideoAttachmentAccess: async (
-    id: string,
-    attachmentId: string,
-  ): Promise<GovernedDocumentVideoAccessResponse> => {
-    const response = await api.get<GovernedDocumentVideoAccessResponse>(
-      `/cats/${id}/videos/${attachmentId}/access`,
-    );
-    return response.data;
-  },
-
-  removeVideoAttachment: async (
-    id: string,
-    attachmentId: string,
-  ): Promise<GovernedDocumentVideoMutationResponse> => {
-    const response = await api.delete<GovernedDocumentVideoMutationResponse>(
-      `/cats/${id}/videos/${attachmentId}`,
-    );
     return response.data;
   },
 

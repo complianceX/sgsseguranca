@@ -33,6 +33,7 @@ import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
 import { DocumentVideosService } from '../document-videos/document-videos.service';
+import { RequestContext } from '../common/middleware/request-context.middleware';
 import {
   SIGNATURE_LEGAL_ASSURANCE,
   SIGNATURE_PROOF_SCOPES,

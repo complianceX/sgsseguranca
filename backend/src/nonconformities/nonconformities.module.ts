@@ -7,7 +7,6 @@ import { CommonModule } from '../common/common.module';
 import { Company } from '../companies/entities/company.entity';
 import { AuditModule } from '../audit/audit.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
-import { DocumentVideosModule } from '../document-videos/document-videos.module';
 import { Site } from '../sites/entities/site.entity';
 
 @Module({
@@ -16,7 +15,6 @@ import { Site } from '../sites/entities/site.entity';
     CommonModule,
     AuditModule,
     DocumentRegistryModule,
-    DocumentVideosModule,
   ],
   controllers: [NonConformitiesController],
   providers: [NonConformitiesService],

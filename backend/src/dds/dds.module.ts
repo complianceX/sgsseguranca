@@ -7,6 +7,7 @@ import { CommonModule } from '../common/common.module';
 import { AuthModule } from '../auth/auth.module';
 import { Company } from '../companies/entities/company.entity';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
+import { DocumentVideosModule } from '../document-videos/document-videos.module';
 import { SignaturesModule } from '../signatures/signatures.module';
 
 @Module({
@@ -15,6 +16,7 @@ import { SignaturesModule } from '../signatures/signatures.module';
     CommonModule,
     AuthModule,
     DocumentRegistryModule,
+    DocumentVideosModule,
     SignaturesModule,
   ],
   controllers: [DdsController],

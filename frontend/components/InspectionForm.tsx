@@ -51,6 +51,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { ErrorState, PageLoadingState } from "@/components/ui/state";
 import { useAuth } from "@/context/AuthContext";
 import { FormPageLayout } from "@/components/layout";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useDocumentVideos } from "@/hooks/useDocumentVideos";
+import { DocumentVideoPanel } from "@/components/document-videos/DocumentVideoPanel";
 import {
   buildInspectionDraftStorageKey,
   mergeInspectionDraftWithPrefill,
@@ -377,6 +380,8 @@ export function InspectionForm({ id }: InspectionFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const { hasPermission } = usePermissions();
+  const canManageInspections = hasPermission("can_manage_inspections");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const draftBootstrappedRef = useRef(false);
@@ -389,6 +394,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
   const [evidenceFiles, setEvidenceFiles] = useState<Record<number, File[]>>({});
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [inspectionHasFinalPdf, setInspectionHasFinalPdf] = useState(false);
   const [cameraTargetIndex, setCameraTargetIndex] = useState<number | null>(
     null,
   );
@@ -672,6 +678,22 @@ export function InspectionForm({ id }: InspectionFormProps) {
       ).length,
     [watchedRiscos],
   );
+  const documentVideos = useDocumentVideos({
+    documentId: id,
+    enabled: Boolean(id),
+    loadVideos: inspectionsService.listVideoAttachments,
+    uploadVideo: inspectionsService.uploadVideoAttachment,
+    removeVideo: inspectionsService.removeVideoAttachment,
+    getVideoAccess: inspectionsService.getVideoAttachmentAccess,
+    labels: {
+      loadError: "Não foi possível carregar os vídeos da inspeção.",
+      uploadSuccess: "Vídeo anexado ao relatório de inspeção.",
+      uploadError: "Não foi possível anexar o vídeo à inspeção.",
+      removeSuccess: "Vídeo removido da inspeção.",
+      removeError: "Não foi possível remover o vídeo da inspeção.",
+      accessError: "Não foi possível abrir o vídeo da inspeção.",
+    },
+  });
 
   const loadData = useCallback(async () => {
     try {
@@ -686,7 +708,10 @@ export function InspectionForm({ id }: InspectionFormProps) {
       setUsers(sortByName(usersData));
 
         if (id) {
-          const inspection = await inspectionsService.findOne(id);
+          const [inspection, pdfAccess] = await Promise.all([
+            inspectionsService.findOne(id),
+            inspectionsService.getPdfAccess(id),
+          ]);
           reset(
             buildDefaultValues({
               site_id: inspection.site_id,
@@ -705,9 +730,11 @@ export function InspectionForm({ id }: InspectionFormProps) {
               conclusao: inspection.conclusao || "",
             }),
           );
+          setInspectionHasFinalPdf(pdfAccess.hasFinalPdf);
           setEvidenceFiles({});
         } else {
           reset(buildDefaultValues());
+          setInspectionHasFinalPdf(false);
           setEvidenceFiles({});
         }
       } catch (error) {
@@ -2053,6 +2080,26 @@ export function InspectionForm({ id }: InspectionFormProps) {
                 {...register("conclusao")}
               />
             </div>
+
+            <DocumentVideoPanel
+              title="Vídeos governados"
+              description="Anexe vídeos oficiais do relatório de inspeção para complementar as evidências com storage governado."
+              documentId={id}
+              canManage={canManageInspections}
+              locked={inspectionHasFinalPdf}
+              lockMessage={
+                inspectionHasFinalPdf
+                  ? "O relatório de inspeção já possui PDF final emitido."
+                  : null
+              }
+              attachments={documentVideos.attachments}
+              loading={documentVideos.loading}
+              uploading={documentVideos.uploading}
+              removingId={documentVideos.removingId}
+              onUpload={documentVideos.handleUpload}
+              onRemove={documentVideos.handleRemove}
+              resolveAccess={documentVideos.resolveAccess}
+            />
             </div>
         </section>
 

@@ -13,7 +13,6 @@ import { UsersModule } from '../users/users.module';
 import { SitesModule } from '../sites/sites.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { FileParserModule } from '../document-import/file-parser.module';
-import { DocumentVideosModule } from '../document-videos/document-videos.module';
 
 @Module({
   imports: [
@@ -27,7 +26,6 @@ import { DocumentVideosModule } from '../document-videos/document-videos.module'
     SitesModule,
     DocumentRegistryModule,
     FileParserModule,
-    DocumentVideosModule,
   ],
   controllers: [ChecklistsController, PublicChecklistsController],
   providers: [ChecklistsService],

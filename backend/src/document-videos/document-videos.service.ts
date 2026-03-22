@@ -8,7 +8,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
 import * as path from 'path';
 import { IsNull, Repository } from 'typeorm';
-import { RequestContext } from '../common/middleware/request-context.middleware';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
@@ -338,10 +337,10 @@ export class DocumentVideosService {
     };
   }
 
-  private assertSupportedModule(module: string): asserts module is DocumentVideoModule {
-    if (
-      !DOCUMENT_VIDEO_MODULES.includes(module as DocumentVideoModule)
-    ) {
+  private assertSupportedModule(
+    module: string,
+  ): asserts module is DocumentVideoModule {
+    if (!DOCUMENT_VIDEO_MODULES.includes(module as DocumentVideoModule)) {
       throw new BadRequestException('Módulo de vídeo governado inválido.');
     }
   }
@@ -363,7 +362,9 @@ export class DocumentVideosService {
   }
 
   private sanitizeOriginalName(originalName?: string): string {
-    const baseName = path.basename(String(originalName || 'video-evidencia.mp4'));
+    const baseName = path.basename(
+      String(originalName || 'video-evidencia.mp4'),
+    );
     const sanitized = baseName.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 180);
     return sanitized || 'video-evidencia.mp4';
   }

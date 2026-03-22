@@ -36,9 +36,12 @@ import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import { DdsStatus } from './entities/dds.entity';
 import {
+  assertUploadedVideo,
   assertUploadedPdf,
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
+  createGovernedVideoUploadOptions,
+  readUploadedFileBuffer,
 } from '../common/interceptors/file-upload.interceptor';
 
 @Controller('dds')
@@ -214,6 +217,29 @@ export class DdsController {
     return this.ddsService.getPdfAccess(id);
   }
 
+  @Get(':id/videos')
+  @Authorize('can_view_dds')
+  listVideoAttachments(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.ddsService.listVideoAttachments(id);
+  }
+
+  @Get(':id/videos/:attachmentId/access')
+  @Authorize('can_view_dds')
+  getVideoAttachmentAccess(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    return this.ddsService.getVideoAttachmentAccess(
+      id,
+      attachmentId,
+      this.getRequestUserId(req),
+    );
+  }
+
   @Put(':id/signatures')
   @Roles(
     Role.ADMIN_GERAL,
@@ -259,6 +285,67 @@ export class DdsController {
     } finally {
       await cleanupUploadedTempFile(pdfFile);
     }
+  }
+
+  @Post(':id/videos')
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+  )
+  @Authorize('can_manage_dds')
+  @UseInterceptors(FileInterceptor('file', createGovernedVideoUploadOptions()))
+  async uploadVideoAttachment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const videoFile = await assertUploadedVideo(
+      file,
+      'Arquivo de vídeo não enviado.',
+    );
+    try {
+      return await this.ddsService.uploadVideoAttachment(
+        id,
+        {
+          buffer: await readUploadedFileBuffer(videoFile),
+          originalName: videoFile.originalname,
+          mimeType: videoFile.mimetype,
+        },
+        this.getRequestUserId(req),
+      );
+    } finally {
+      await cleanupUploadedTempFile(videoFile);
+    }
+  }
+
+  @Delete(':id/videos/:attachmentId')
+  @Roles(
+    Role.ADMIN_GERAL,
+    Role.ADMIN_EMPRESA,
+    Role.TST,
+    Role.SUPERVISOR,
+    Role.COLABORADOR,
+  )
+  @Authorize('can_manage_dds')
+  removeVideoAttachment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    return this.ddsService.removeVideoAttachment(
+      id,
+      attachmentId,
+      this.getRequestUserId(req),
+    );
   }
 
   /** Avança o status do DDS no workflow (rascunho → publicado → auditado → arquivado) */

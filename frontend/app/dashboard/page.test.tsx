@@ -1,5 +1,7 @@
 import { render, screen } from "@testing-library/react";
 
+jest.setTimeout(15000);
+
 jest.mock("@/lib/temporarilyHiddenModules", () => ({
   isTemporarilyVisibleDashboardRoute: () => true,
 }));

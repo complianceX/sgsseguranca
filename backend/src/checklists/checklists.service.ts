@@ -56,7 +56,6 @@ import { Company } from '../companies/entities/company.entity';
 import { getIsoWeekNumber } from '../common/utils/document-calendar.util';
 import { requestOpenAiChatCompletionResponse } from '../ai/openai-request.util';
 import { ChecklistItemValue } from './types/checklist-item.type';
-import { DocumentVideosService } from '../document-videos/document-videos.service';
 
 type ChecklistPdfAccessAvailability =
   | 'ready'
@@ -329,7 +328,6 @@ export class ChecklistsService {
     private readonly fileParserService: FileParserService,
     private readonly configService: ConfigService,
     private readonly integrationResilienceService: IntegrationResilienceService,
-    private readonly documentVideosService: DocumentVideosService,
   ) {}
 
   private readonly checklistListSelect: FindOptionsSelect<Checklist> = {
@@ -395,18 +393,6 @@ export class ChecklistsService {
         'Checklist com PDF final emitido. Edição bloqueada. Gere um novo checklist para alterar o documento.',
       );
     }
-  }
-
-  private assertChecklistVideoMutable(
-    checklist: Pick<Checklist, 'is_modelo' | 'pdf_file_key'>,
-  ) {
-    if (checklist.is_modelo) {
-      throw new BadRequestException(
-        'Modelos de checklist não aceitam vídeos operacionais.',
-      );
-    }
-
-    this.assertChecklistDocumentMutable(checklist);
   }
 
   private async assertChecklistReadyForFinalPdf(
@@ -1598,71 +1584,6 @@ export class ChecklistsService {
       photoIndex,
       payload: governedPhoto,
     });
-  }
-
-  async listVideoAttachments(id: string) {
-    const checklist = await this.findOneEntity(id);
-    return this.documentVideosService.listByDocument({
-      companyId: checklist.company_id,
-      module: 'checklist',
-      documentId: checklist.id,
-    });
-  }
-
-  async uploadVideoAttachment(
-    id: string,
-    buffer: Buffer,
-    originalName: string,
-    mimeType: string,
-  ) {
-    const checklist = await this.findOneEntity(id);
-    this.assertChecklistVideoMutable(checklist);
-    const result = await this.documentVideosService.uploadForDocument({
-      companyId: checklist.company_id,
-      module: 'checklist',
-      documentId: checklist.id,
-      buffer,
-      originalName,
-      mimeType,
-      uploadedById: RequestContext.getUserId() || undefined,
-    });
-    this.logChecklistEvent('checklist_video_uploaded', checklist, {
-      attachmentId: result.attachment.id,
-      mimeType: result.attachment.mime_type,
-      storageKey: result.attachment.storage_key,
-    });
-    return result;
-  }
-
-  async getVideoAttachmentAccess(id: string, attachmentId: string) {
-    const checklist = await this.findOneEntity(id);
-    const result = await this.documentVideosService.getAccess({
-      companyId: checklist.company_id,
-      module: 'checklist',
-      documentId: checklist.id,
-      attachmentId,
-    });
-    this.logChecklistEvent('checklist_video_accessed', checklist, {
-      attachmentId,
-      availability: result.availability,
-    });
-    return result;
-  }
-
-  async removeVideoAttachment(id: string, attachmentId: string) {
-    const checklist = await this.findOneEntity(id);
-    this.assertChecklistVideoMutable(checklist);
-    const result = await this.documentVideosService.removeFromDocument({
-      companyId: checklist.company_id,
-      module: 'checklist',
-      documentId: checklist.id,
-      attachmentId,
-      removedById: RequestContext.getUserId() || undefined,
-    });
-    this.logChecklistEvent('checklist_video_removed', checklist, {
-      attachmentId,
-    });
-    return result;
   }
 
   async sendEmail(id: string, to: string) {

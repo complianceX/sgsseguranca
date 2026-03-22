@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateDocumentVideoAttachments1709000000061
-  implements MigrationInterface
-{
+export class CreateDocumentVideoAttachments1709000000061 implements MigrationInterface {
   name = 'CreateDocumentVideoAttachments1709000000061';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

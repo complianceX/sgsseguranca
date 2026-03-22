@@ -9,6 +9,7 @@ import type { S3Service } from '../common/storage/s3.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { DocumentRegistryService } from '../document-registry/document-registry.service';
+import type { DocumentVideosService } from '../document-videos/document-videos.service';
 
 describe('InspectionsService', () => {
   let service: InspectionsService;
@@ -34,6 +35,10 @@ describe('InspectionsService', () => {
   let documentRegistryService: Pick<
     DocumentRegistryService,
     'findByCode' | 'findByDocument'
+  >;
+  let documentVideosService: Pick<
+    DocumentVideosService,
+    'listByDocument' | 'uploadForDocument' | 'getAccess' | 'removeFromDocument'
   >;
 
   beforeEach(() => {
@@ -73,6 +78,12 @@ describe('InspectionsService', () => {
       findByCode: jest.fn(),
       findByDocument: jest.fn(),
     };
+    documentVideosService = {
+      listByDocument: jest.fn(() => Promise.resolve([])),
+      uploadForDocument: jest.fn(),
+      getAccess: jest.fn(),
+      removeFromDocument: jest.fn(),
+    };
 
     service = new InspectionsService(
       inspectionsRepository as unknown as Repository<Inspection>,
@@ -87,6 +98,7 @@ describe('InspectionsService', () => {
       documentStorageService as DocumentStorageService,
       documentGovernanceService as DocumentGovernanceService,
       documentRegistryService as DocumentRegistryService,
+      documentVideosService as DocumentVideosService,
     );
   });
 

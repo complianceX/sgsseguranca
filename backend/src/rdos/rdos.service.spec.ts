@@ -16,6 +16,7 @@ import type { ForensicTrailService } from '../forensic-trail/forensic-trail.serv
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import type { AppendForensicTrailEventInput } from '../forensic-trail/forensic-trail.service';
 import type { SignatureTimestampService } from '../common/services/signature-timestamp.service';
+import type { DocumentVideosService } from '../document-videos/document-videos.service';
 
 const COMPANY_ID = 'company-1';
 const RDO_ID = '11111111-2222-3333-4444-555555555555';
@@ -97,6 +98,10 @@ describe('RdosService', () => {
   let signatureTimestampService: Pick<
     SignatureTimestampService,
     'issueFromHash'
+  >;
+  let documentVideosService: Pick<
+    DocumentVideosService,
+    'listByDocument' | 'uploadForDocument' | 'getAccess' | 'removeFromDocument'
   >;
   let siteScopedRepository: { exist: jest.Mock };
   let userScopedRepository: { exist: jest.Mock };
@@ -238,6 +243,12 @@ describe('RdosService', () => {
         timestamp_issued_at: issuedAt || '2026-03-16T12:00:00.000Z',
       })),
     };
+    documentVideosService = {
+      listByDocument: jest.fn(() => Promise.resolve([])),
+      uploadForDocument: jest.fn(),
+      getAccess: jest.fn(),
+      removeFromDocument: jest.fn(),
+    };
 
     service = new RdosService(
       repository as unknown as Repository<Rdo>,
@@ -249,6 +260,7 @@ describe('RdosService', () => {
       rdoAuditService as RdoAuditService,
       forensicTrailService as ForensicTrailService,
       signatureTimestampService as SignatureTimestampService,
+      documentVideosService as DocumentVideosService,
     );
   });
 

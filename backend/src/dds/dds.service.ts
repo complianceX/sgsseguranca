@@ -25,6 +25,7 @@ import {
   isS3DisabledUploadError,
 } from '../common/storage/storage-compensation.util';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
+import { DocumentVideosService } from '../document-videos/document-videos.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { Signature } from '../signatures/entities/signature.entity';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
@@ -66,6 +67,7 @@ export class DdsService {
     private tenantService: TenantService,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly documentVideosService: DocumentVideosService,
     private readonly signaturesService: SignaturesService,
   ) {}
 
@@ -579,6 +581,102 @@ export class DdsService {
     };
   }
 
+  async listVideoAttachments(id: string) {
+    const dds = await this.findOne(id);
+    return this.documentVideosService.listByDocument({
+      companyId: dds.company_id,
+      module: 'dds',
+      documentId: dds.id,
+    });
+  }
+
+  async uploadVideoAttachment(
+    id: string,
+    input: {
+      buffer: Buffer;
+      originalName: string;
+      mimeType: string;
+    },
+    actorId?: string,
+  ) {
+    const dds = await this.findOne(id);
+    this.assertDdsVideoMutable(dds);
+
+    const result = await this.documentVideosService.uploadForDocument({
+      companyId: dds.company_id,
+      module: 'dds',
+      documentId: dds.id,
+      buffer: input.buffer,
+      originalName: input.originalName,
+      mimeType: input.mimeType,
+      uploadedById: actorId,
+    });
+
+    this.logger.log({
+      event: 'dds_video_attachment_uploaded',
+      ddsId: dds.id,
+      companyId: dds.company_id,
+      attachmentId: result.attachment.id,
+      mimeType: result.attachment.mime_type,
+      storageKey: result.attachment.storage_key,
+      actorId: actorId || null,
+    });
+
+    return result;
+  }
+
+  async getVideoAttachmentAccess(
+    id: string,
+    attachmentId: string,
+    actorId?: string,
+  ) {
+    const dds = await this.findOne(id);
+    const result = await this.documentVideosService.getAccess({
+      companyId: dds.company_id,
+      module: 'dds',
+      documentId: dds.id,
+      attachmentId,
+    });
+
+    this.logger.log({
+      event: 'dds_video_attachment_accessed',
+      ddsId: dds.id,
+      companyId: dds.company_id,
+      attachmentId,
+      availability: result.availability,
+      actorId: actorId || null,
+    });
+
+    return result;
+  }
+
+  async removeVideoAttachment(
+    id: string,
+    attachmentId: string,
+    actorId?: string,
+  ) {
+    const dds = await this.findOne(id);
+    this.assertDdsVideoMutable(dds);
+
+    const result = await this.documentVideosService.removeFromDocument({
+      companyId: dds.company_id,
+      module: 'dds',
+      documentId: dds.id,
+      attachmentId,
+      removedById: actorId,
+    });
+
+    this.logger.log({
+      event: 'dds_video_attachment_removed',
+      ddsId: dds.id,
+      companyId: dds.company_id,
+      attachmentId,
+      actorId: actorId || null,
+    });
+
+    return result;
+  }
+
   async update(id: string, updateDdsDto: UpdateDdsDto): Promise<Dds> {
     const dds = await this.findOne(id);
     this.assertFinalDocumentMutable(dds);
@@ -810,6 +908,16 @@ export class DdsService {
     if (dds.status === DdsStatus.ARQUIVADO) {
       throw new BadRequestException(
         'DDS arquivado. Gere um novo DDS para retomar o fluxo operacional.',
+      );
+    }
+  }
+
+  private assertDdsVideoMutable(dds: Dds): void {
+    this.assertFinalDocumentMutable(dds);
+
+    if (dds.is_modelo) {
+      throw new BadRequestException(
+        'Modelos de DDS não aceitam evidências em vídeo. Gere um DDS operacional antes de anexar o vídeo.',
       );
     }
   }

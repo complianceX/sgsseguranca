@@ -17,7 +17,6 @@ import { cleanupUploadedFile } from '../common/storage/storage-compensation.util
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
-import { DocumentVideosService } from '../document-videos/document-videos.service';
 import {
   normalizeOffsetPagination,
   toOffsetPage,
@@ -56,7 +55,6 @@ export class CatsService {
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly documentRegistryService: DocumentRegistryService,
-    private readonly documentVideosService: DocumentVideosService,
     private readonly auditService: AuditService,
   ) {}
 
@@ -403,85 +401,6 @@ export class CatsService {
       fileType: attachment.file_type,
       url,
     };
-  }
-
-  async listVideoAttachments(id: string) {
-    const cat = await this.findOne(id);
-    return this.documentVideosService.listByDocument({
-      companyId: cat.company_id,
-      module: 'cat',
-      documentId: cat.id,
-    });
-  }
-
-  async uploadVideoAttachment(
-    id: string,
-    input: {
-      buffer: Buffer;
-      originalName: string;
-      mimeType: string;
-    },
-    actorId?: string,
-  ) {
-    const cat = await this.findOne(id);
-    this.assertCatVideoMutable(cat);
-    const result = await this.documentVideosService.uploadForDocument({
-      companyId: cat.company_id,
-      module: 'cat',
-      documentId: cat.id,
-      buffer: input.buffer,
-      originalName: input.originalName,
-      mimeType: input.mimeType,
-      uploadedById: actorId,
-    });
-    await this.writeAuditLog(AuditAction.UPDATE, cat, actorId, {
-      event: 'cat_video_attachment_uploaded',
-      attachmentId: result.attachment.id,
-      mimeType: result.attachment.mime_type,
-      storageKey: result.attachment.storage_key,
-    });
-    return result;
-  }
-
-  async getVideoAttachmentAccess(
-    id: string,
-    attachmentId: string,
-    actorId?: string,
-  ) {
-    const cat = await this.findOne(id);
-    const result = await this.documentVideosService.getAccess({
-      companyId: cat.company_id,
-      module: 'cat',
-      documentId: cat.id,
-      attachmentId,
-    });
-    await this.writeAuditLog(AuditAction.READ, cat, actorId, {
-      event: 'cat_video_attachment_accessed',
-      attachmentId,
-      availability: result.availability,
-    });
-    return result;
-  }
-
-  async removeVideoAttachment(
-    id: string,
-    attachmentId: string,
-    actorId?: string,
-  ) {
-    const cat = await this.findOne(id);
-    this.assertCatVideoMutable(cat);
-    const result = await this.documentVideosService.removeFromDocument({
-      companyId: cat.company_id,
-      module: 'cat',
-      documentId: cat.id,
-      attachmentId,
-      removedById: actorId,
-    });
-    await this.writeAuditLog(AuditAction.UPDATE, cat, actorId, {
-      event: 'cat_video_attachment_removed',
-      attachmentId,
-    });
-    return result;
   }
 
   async attachPdf(
@@ -924,22 +843,6 @@ export class CatsService {
     if (cat.status !== 'fechada') {
       throw new BadRequestException(
         'A CAT precisa estar fechada antes da emissão do PDF final governado.',
-      );
-    }
-  }
-
-  private assertCatVideoMutable(
-    cat: Pick<Cat, 'status' | 'pdf_file_key'>,
-  ): void {
-    if (cat.pdf_file_key) {
-      throw new BadRequestException(
-        'CAT com PDF final emitido não aceita novos vídeos.',
-      );
-    }
-
-    if (cat.status === 'fechada') {
-      throw new BadRequestException(
-        'CAT fechada não aceita novos vídeos por fluxo comum.',
       );
     }
   }
