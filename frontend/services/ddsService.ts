@@ -98,7 +98,7 @@ export interface DdsAttachFileResult {
   fileKey: string;
   folderPath: string;
   originalName: string;
-  storageMode: "s3" | "reference-only";
+  storageMode: "s3";
   degraded: boolean;
   message: string;
 }

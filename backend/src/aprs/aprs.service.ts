@@ -31,10 +31,7 @@ import { AprListItemDto } from './dto/apr-list-item.dto';
 import { RiskCalculationService } from '../common/services/risk-calculation.service';
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
-import {
-  cleanupUploadedFile,
-  isS3DisabledUploadError,
-} from '../common/storage/storage-compensation.util';
+import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { Site } from '../sites/entities/site.entity';
@@ -1255,21 +1252,12 @@ export class AprsService {
       id,
       file.originalname,
     );
-    let uploadedToStorage = false;
-
-    try {
-      await this.documentStorageService.uploadFile(
-        key,
-        file.buffer,
-        file.mimetype,
-      );
-      uploadedToStorage = true;
-    } catch (error) {
-      if (!isS3DisabledUploadError(error)) {
-        throw error;
-      }
-      this.logger.warn(`S3 desabilitado, armazenando referência local: ${key}`);
-    }
+    await this.documentStorageService.uploadFile(
+      key,
+      file.buffer,
+      file.mimetype,
+    );
+    const uploadedToStorage = true;
 
     const folder = `aprs/${apr.company_id}`;
     try {

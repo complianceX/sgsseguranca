@@ -14,6 +14,8 @@
 - [consulta-rapida/mapa-de-modulos.md](./consulta-rapida/mapa-de-modulos.md)
 - [consulta-rapida/modulos-e-regras.md](./consulta-rapida/modulos-e-regras.md)
 - [consulta-rapida/fluxos-documentais.md](./consulta-rapida/fluxos-documentais.md)
+- [consulta-rapida/pdfs-finais-e-storage.md](./consulta-rapida/pdfs-finais-e-storage.md)
+- [consulta-rapida/variaveis-ambiente-railway.md](./consulta-rapida/variaveis-ambiente-railway.md)
 - [consulta-rapida/seguranca-e-governanca.md](./consulta-rapida/seguranca-e-governanca.md)
 - [consulta-rapida/onde-alterar-o-que.md](./consulta-rapida/onde-alterar-o-que.md)
 - [consulta-rapida/troubleshooting.md](./consulta-rapida/troubleshooting.md)

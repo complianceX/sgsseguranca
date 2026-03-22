@@ -15,10 +15,7 @@ import {
 } from 'typeorm';
 import * as XLSX from 'xlsx';
 import { Pt, PtStatus, PT_ALLOWED_TRANSITIONS } from './entities/pt.entity';
-import {
-  cleanupUploadedFile,
-  isS3DisabledUploadError,
-} from '../common/storage/storage-compensation.util';
+import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { TenantService } from '../common/tenant/tenant.service';
 import { CreatePtDto } from './dto/create-pt.dto';
 import { UpdatePtDto } from './dto/update-pt.dto';
@@ -498,21 +495,12 @@ export class PtsService {
       id,
       file.originalname,
     );
-    let uploadedToStorage = false;
-
-    try {
-      await this.documentStorageService.uploadFile(
-        key,
-        file.buffer,
-        file.mimetype,
-      );
-      uploadedToStorage = true;
-    } catch (error) {
-      if (!isS3DisabledUploadError(error)) {
-        throw error;
-      }
-      this.logger.warn(`S3 desabilitado, armazenando referência local: ${key}`);
-    }
+    await this.documentStorageService.uploadFile(
+      key,
+      file.buffer,
+      file.mimetype,
+    );
+    const uploadedToStorage = true;
 
     const folder = `pts/${pt.company_id}`;
     try {

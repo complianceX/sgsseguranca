@@ -10,6 +10,12 @@ A ideia atual e:
 - diferenciar documento pronto de documento registrado sem signed URL
 - manter mensagem e metadados no contrato
 
+Observacao importante:
+
+- PDF final oficial deve ficar no storage oficial
+- nao deve existir fallback local tratado como documento final oficial
+- para detalhes praticos, consulte `pdfs-finais-e-storage.md`
+
 ## Read-only e lock
 
 Padrao esperado:

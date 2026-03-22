@@ -341,7 +341,7 @@ describe('PtsService', () => {
     );
   });
 
-  it('nao tenta limpar storage quando o fallback local da PT foi usado', async () => {
+  it('falha imediatamente quando o storage governado da PT está indisponível', async () => {
     const pt = {
       id: 'pt-1',
       company_id: 'company-1',
@@ -366,9 +366,12 @@ describe('PtsService', () => {
     } as Express.Multer.File;
 
     await expect(service.attachPdf('pt-1', file, 'user-1')).rejects.toThrow(
-      'governance failed',
+      'S3 is not enabled',
     );
 
+    expect(
+      documentGovernanceService.registerFinalDocument,
+    ).not.toHaveBeenCalled();
     expect(documentStorageService.deleteFile).not.toHaveBeenCalled();
   });
 

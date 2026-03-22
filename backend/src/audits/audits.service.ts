@@ -21,10 +21,7 @@ import {
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
-import {
-  cleanupUploadedFile,
-  isS3DisabledUploadError,
-} from '../common/storage/storage-compensation.util';
+import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 
 type AuditPdfAccessAvailability =
@@ -208,21 +205,12 @@ export class AuditsService {
       audit.id,
       file.originalname,
     );
-    let uploadedToStorage = false;
-
-    try {
-      await this.documentStorageService.uploadFile(
-        key,
-        file.buffer,
-        file.mimetype,
-      );
-      uploadedToStorage = true;
-    } catch (error) {
-      if (!isS3DisabledUploadError(error)) {
-        throw error;
-      }
-      this.logger.warn(`S3 desabilitado, armazenando referência local: ${key}`);
-    }
+    await this.documentStorageService.uploadFile(
+      key,
+      file.buffer,
+      file.mimetype,
+    );
+    const uploadedToStorage = true;
 
     const folder = `audits/${audit.company_id}`;
     try {

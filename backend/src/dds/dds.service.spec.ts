@@ -301,6 +301,43 @@ describe('DdsService', () => {
     });
   });
 
+  it('falha o anexo final quando o storage governado do DDS está indisponível', async () => {
+    repository.findOne.mockResolvedValue({
+      id: 'dds-1',
+      company_id: 'company-1',
+      tema: 'DDS Trabalho em Altura',
+      status: DdsStatus.PUBLICADO,
+      participants: [{ id: 'user-1' }],
+      data: new Date('2026-03-14T08:00:00.000Z'),
+      created_at: new Date('2026-03-14T07:00:00.000Z'),
+    } as Dds);
+    (signaturesService.findByDocument as jest.Mock).mockResolvedValue([
+      {
+        user_id: 'user-1',
+        type: 'digital',
+        signature_data: 'sig-1',
+      },
+    ]);
+    (documentStorageService.uploadFile as jest.Mock).mockRejectedValue(
+      new Error('S3 is not enabled'),
+    );
+
+    const file = {
+      originalname: 'dds-final.pdf',
+      mimetype: 'application/pdf',
+      buffer: Buffer.from('%PDF-dds'),
+    } as Express.Multer.File;
+
+    await expect(service.attachPdf('dds-1', file)).rejects.toThrow(
+      'S3 is not enabled',
+    );
+
+    expect(
+      documentGovernanceService.registerFinalDocument,
+    ).not.toHaveBeenCalled();
+    expect(documentStorageService.deleteFile).not.toHaveBeenCalled();
+  });
+
   it('rejeita criacao quando o site nao pertence a empresa do DDS', async () => {
     siteRepository.findOne.mockResolvedValueOnce(null);
 

@@ -12,6 +12,8 @@ Use estes arquivos como ponto de partida:
 - [mapa-de-modulos.md](./mapa-de-modulos.md): mapa dos modulos principais do produto
 - [modulos-e-regras.md](./modulos-e-regras.md): modulos principais, regras de governanca e pontos que ja foram endurecidos
 - [fluxos-documentais.md](./fluxos-documentais.md): PDF final, importacao, assinatura, registry, videos e trilha
+- [pdfs-finais-e-storage.md](./pdfs-finais-e-storage.md): onde ficam os PDFs oficiais, como o storage funciona e quais modulos ja estao endurecidos
+- [variaveis-ambiente-railway.md](./variaveis-ambiente-railway.md): quais variaveis do Railway sao obrigatorias, opcionais, de grafo e gerenciadas pela plataforma
 - [seguranca-e-governanca.md](./seguranca-e-governanca.md): tenant, RBAC, locks, storage e trilha forense
 - [onde-alterar-o-que.md](./onde-alterar-o-que.md): guia pratico para manutencao e evolucao
 - [troubleshooting.md](./troubleshooting.md): problemas comuns e onde investigar

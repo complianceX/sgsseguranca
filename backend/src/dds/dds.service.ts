@@ -20,10 +20,7 @@ import {
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
 import { DocumentStorageService } from '../common/services/document-storage.service';
-import {
-  cleanupUploadedFile,
-  isS3DisabledUploadError,
-} from '../common/storage/storage-compensation.util';
+import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentVideosService } from '../document-videos/document-videos.service';
 import { SignaturesService } from '../signatures/signatures.service';
@@ -235,7 +232,7 @@ export class DdsService {
     fileKey: string;
     folderPath: string;
     originalName: string;
-    storageMode: 's3' | 'reference-only';
+    storageMode: 's3';
     degraded: boolean;
     message: string;
   }> {
@@ -249,24 +246,13 @@ export class DdsService {
       id,
       file.originalname,
     );
-    let uploadedToStorage = false;
-    let storageMode: 's3' | 'reference-only' = 's3';
-
-    try {
-      await this.documentStorageService.uploadFile(
-        key,
-        file.buffer,
-        file.mimetype,
-      );
-      uploadedToStorage = true;
-    } catch (error) {
-      if (!isS3DisabledUploadError(error)) {
-        throw error;
-      }
-      // S3 desabilitado — armazena a referência sem upload real
-      this.logger.warn(`S3 desabilitado, armazenando referência local: ${key}`);
-      storageMode = 'reference-only';
-    }
+    const storageMode = 's3' as const;
+    await this.documentStorageService.uploadFile(
+      key,
+      file.buffer,
+      file.mimetype,
+    );
+    const uploadedToStorage = true;
 
     const folder = `dds/${companyId}`;
     try {
@@ -315,11 +301,8 @@ export class DdsService {
       folderPath: folder,
       originalName: file.originalname,
       storageMode,
-      degraded: storageMode === 'reference-only',
-      message:
-        storageMode === 'reference-only'
-          ? 'PDF final registrado sem URL segura imediata. O documento foi governado, mas o storage está em modo degradado.'
-          : 'PDF final do DDS emitido e registrado com sucesso.',
+      degraded: false,
+      message: 'PDF final do DDS emitido e registrado com sucesso.',
     };
   }
 
