@@ -1,5 +1,6 @@
 "use client";
 
+import axios from "axios";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type {
@@ -34,6 +35,45 @@ type UseDocumentVideosOptions = {
   };
 };
 
+function extractVideoApiMessage(error: unknown): string | undefined {
+  const normalize = (value: unknown): string | undefined => {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const normalized = normalize(item);
+        if (normalized) {
+          return normalized;
+        }
+      }
+      return undefined;
+    }
+
+    if (value && typeof value === "object") {
+      const objectValue = value as Record<string, unknown>;
+      return (
+        normalize(objectValue.message) ||
+        normalize(objectValue.error) ||
+        normalize(objectValue.details)
+      );
+    }
+
+    return undefined;
+  };
+
+  if (axios.isAxiosError(error)) {
+    return normalize(error.response?.data);
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return undefined;
+}
+
 export function useDocumentVideos({
   documentId,
   enabled = true,
@@ -59,7 +99,11 @@ export function useDocumentVideos({
       setAttachments(await loadVideos(documentId));
     } catch (error) {
       console.error("Erro ao carregar vídeos governados:", error);
-      toast.error(labels?.loadError || "Não foi possível carregar os vídeos anexados.");
+      toast.error(
+        extractVideoApiMessage(error) ||
+          labels?.loadError ||
+          "Não foi possível carregar os vídeos anexados.",
+      );
     } finally {
       setLoading(false);
     }
@@ -84,7 +128,11 @@ export function useDocumentVideos({
         return result;
       } catch (error) {
         console.error("Erro ao enviar vídeo governado:", error);
-        toast.error(labels?.uploadError || "Não foi possível anexar o vídeo.");
+        toast.error(
+          extractVideoApiMessage(error) ||
+            labels?.uploadError ||
+            "Não foi possível anexar o vídeo.",
+        );
         throw error;
       } finally {
         setUploading(false);
@@ -107,7 +155,11 @@ export function useDocumentVideos({
         return result;
       } catch (error) {
         console.error("Erro ao remover vídeo governado:", error);
-        toast.error(labels?.removeError || "Não foi possível remover o vídeo.");
+        toast.error(
+          extractVideoApiMessage(error) ||
+            labels?.removeError ||
+            "Não foi possível remover o vídeo.",
+        );
         throw error;
       } finally {
         setRemovingId(null);
@@ -130,7 +182,11 @@ export function useDocumentVideos({
         return result;
       } catch (error) {
         console.error("Erro ao resolver acesso ao vídeo governado:", error);
-        toast.error(labels?.accessError || "Não foi possível abrir o vídeo.");
+        toast.error(
+          extractVideoApiMessage(error) ||
+            labels?.accessError ||
+            "Não foi possível abrir o vídeo.",
+        );
         throw error;
       }
     },

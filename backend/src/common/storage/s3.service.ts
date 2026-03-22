@@ -53,19 +53,30 @@ export class S3Service {
   private readonly useS3: boolean;
 
   constructor(private configService: ConfigService) {
-    this.bucketName = this.configService.get<string>('AWS_S3_BUCKET') || '';
+    this.bucketName =
+      this.configService.get<string>('AWS_S3_BUCKET') ||
+      this.configService.get<string>('AWS_BUCKET_NAME') ||
+      '';
     this.region = this.configService.get<string>('AWS_REGION', 'us-east-1');
-    this.useS3 = this.configService.get<boolean>('USE_S3', false);
+    const endpoint =
+      this.configService.get<string>('AWS_S3_ENDPOINT') ||
+      this.configService.get<string>('AWS_ENDPOINT');
+    const forcePathStyle = /^true$/i.test(
+      this.configService.get<string>('S3_FORCE_PATH_STYLE', ''),
+    );
+    this.useS3 = Boolean(this.bucketName);
 
     if (this.useS3) {
       this.s3Client = new S3Client({
         region: this.region,
+        endpoint,
         credentials: {
           accessKeyId:
             this.configService.get<string>('AWS_ACCESS_KEY_ID') || '',
           secretAccessKey:
             this.configService.get<string>('AWS_SECRET_ACCESS_KEY') || '',
         },
+        forcePathStyle: forcePathStyle || Boolean(endpoint),
       });
       this.logger.log(`S3 Service initialized with bucket: ${this.bucketName}`);
     } else {

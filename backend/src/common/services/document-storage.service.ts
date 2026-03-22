@@ -83,7 +83,7 @@ export class DocumentStorageService {
   }
 
   private shouldUseLegacyS3(): boolean {
-    return /^true$/i.test(this.configService.get<string>('USE_S3', 'false'));
+    return Boolean(this.configService.get<string>('AWS_S3_BUCKET'));
   }
 
   private ensureStorageConfigured(
@@ -96,7 +96,7 @@ export class DocumentStorageService {
     throw new ServiceUnavailableException({
       error: 'DOCUMENT_STORAGE_UNAVAILABLE',
       message:
-        'Armazenamento documental indisponível. Configure o storage antes de emitir ou acessar PDFs finais.',
+        'Armazenamento documental indisponível. Configure o storage antes de anexar, emitir ou acessar artefatos governados.',
       details: {
         action,
         storageConfigured: false,
