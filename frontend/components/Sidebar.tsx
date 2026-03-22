@@ -194,7 +194,7 @@ export function Sidebar({
       >
         {/* Logo */}
         <div className="border-b border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-bg-soft)]/60 px-5 py-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-bg-soft)] px-3.5 py-3 shadow-[0_10px_24px_rgba(2,8,18,0.18)]">
             <Image src="/logo-gst-mark.svg" alt="Logo GST" width={26} height={26} priority />
             <div className="min-w-0">
               <h1 className="truncate text-[0.95rem] font-semibold tracking-[-0.02em] text-[var(--ds-color-sidebar-text)]">
@@ -246,15 +246,15 @@ export function Sidebar({
                             className={cn(
                               'mx-2 flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-[13px] font-medium transition-all',
                               active
-                                ? 'border-[color:var(--ds-color-primary-border)] bg-[color:var(--ds-color-sidebar-surface)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)]'
-                                : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:border-[color:var(--ds-color-sidebar-border)] hover:bg-[color:var(--ds-color-sidebar-bg-soft)] hover:text-[var(--ds-color-text-primary)]',
+                                ? 'border-[color:var(--ds-color-primary-border)] bg-[color:var(--brand-sidebar-hover)] text-[var(--ds-color-sidebar-text)] shadow-[0_12px_24px_rgba(2,8,18,0.22)]'
+                                : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:border-[color:var(--ds-color-sidebar-border)] hover:bg-[color:var(--brand-sidebar-hover)] hover:text-[var(--ds-color-sidebar-text)]',
                             )}
                           >
                             <Icon
                               className={cn(
                                 'h-4 w-4 shrink-0',
                                 active
-                                  ? 'text-[color:var(--ds-color-action-primary)]'
+                                  ? 'text-[color:var(--brand-primary-soft)]'
                                   : 'text-[var(--ds-color-sidebar-muted)]',
                               )}
                             />
@@ -279,7 +279,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={logout}
-            className="mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2.5 rounded-xl border border-transparent px-3.5 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-all hover:border-[color:var(--ds-color-danger-border)] hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
+            className="mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2.5 rounded-xl border border-transparent px-3.5 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-all hover:border-[color:var(--ds-color-danger-border)] hover:bg-[color:rgba(185,28,28,0.12)] hover:text-[color:var(--ds-color-sidebar-text)]"
           >
             <LogOut className="h-4 w-4 shrink-0" />
             Sair

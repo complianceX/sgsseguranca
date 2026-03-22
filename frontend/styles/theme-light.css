@@ -1,26 +1,26 @@
 :root[data-theme='light'],
 .theme-light {
-  /* Superfícies — branco dominante com neutros frios e discretos */
+  /* Superfícies — branco dominante com contraste mais firme */
   --ds-color-bg-canvas: var(--brand-background);
   --ds-color-bg-subtle: #f6f8fb;
   --ds-color-surface-base: var(--brand-card);
-  --ds-color-surface-elevated: #fbfcfe;
+  --ds-color-surface-elevated: #fcfdff;
   --ds-color-surface-overlay: #ffffff;
-  --ds-color-surface-muted: #f8fafc;
-  --ds-color-surface-sunken: #f1f5f9;
-  --ds-color-surface-muted-hover: #f2f6fa;
+  --ds-color-surface-muted: #f4f7fb;
+  --ds-color-surface-sunken: #edf2f7;
+  --ds-color-surface-muted-hover: #eef4fa;
 
-  /* Bordas — cinzas frios elegantes, com separação clara */
-  --ds-color-border-subtle: #e2e8f0;
-  --ds-color-border-default: #cbd5e1;
-  --ds-color-border-strong: #94a3b8;
-  --ds-color-border-focus: #60a5fa;
+  /* Bordas — mais firmes para tirar a UI do estado lavado */
+  --ds-color-border-subtle: #e4ebf3;
+  --ds-color-border-default: var(--brand-border-default);
+  --ds-color-border-strong: var(--brand-border-strong);
+  --ds-color-border-focus: var(--brand-primary);
 
-  /* Texto — leitura forte, limpa e corporativa */
+  /* Texto — contraste mais forte no conteúdo principal */
   --ds-color-text-primary: var(--brand-text-primary);
   --ds-color-text-secondary: var(--brand-text-secondary);
-  --ds-color-text-muted: #94a3b8;
-  --ds-color-text-disabled: #94a3b8;
+  --ds-color-text-muted: var(--brand-text-muted);
+  --ds-color-text-disabled: var(--brand-text-muted);
   --ds-color-text-inverse: #ffffff;
   --ds-color-text-link: var(--brand-primary);
 
@@ -28,27 +28,27 @@
   --ds-color-text-on-canvas-secondary: var(--ds-color-text-secondary);
   --ds-color-text-on-canvas-muted: var(--ds-color-text-muted);
 
-  /* Sidebar — painel claro, técnico e consistente com o canvas branco */
+  /* Sidebar — painel premium mais forte, sem competir com o conteúdo branco */
   --ds-color-sidebar-bg: var(--brand-sidebar);
-  --ds-color-sidebar-bg-soft: #ffffff;
-  --ds-color-sidebar-surface: var(--brand-primary-soft);
-  --ds-color-sidebar-text: #334155;
-  --ds-color-sidebar-muted: #64748b;
-  --ds-color-sidebar-border: #e2e8f0;
+  --ds-color-sidebar-bg-soft: #0b223b;
+  --ds-color-sidebar-surface: #102b49;
+  --ds-color-sidebar-text: var(--brand-sidebar-text);
+  --ds-color-sidebar-muted: var(--brand-sidebar-muted);
+  --ds-color-sidebar-border: var(--brand-sidebar-border);
 
   --ds-color-action-primary: var(--brand-primary);
   --ds-color-action-primary-hover: var(--brand-primary-hover);
   --ds-color-action-primary-active: var(--brand-primary-active);
   --ds-color-action-primary-foreground: #ffffff;
   --ds-color-primary-subtle: var(--brand-primary-soft);
-  --ds-color-primary-subtle-hover: #dbeafe;
-  --ds-color-primary-border: #bfdbfe;
+  --ds-color-primary-subtle-hover: #dce9ff;
+  --ds-color-primary-border: #b9d1ff;
 
   --ds-color-action-secondary: #ffffff;
-  --ds-color-action-secondary-hover: #f8fafc;
-  --ds-color-action-secondary-active: #f1f5f9;
+  --ds-color-action-secondary-hover: #f4f8fc;
+  --ds-color-action-secondary-active: #edf3f9;
   --ds-color-action-secondary-foreground: #334155;
-  --ds-color-action-secondary-border: #cbd5e1;
+  --ds-color-action-secondary-border: var(--brand-border-strong);
 
   --ds-color-accent: var(--brand-info);
   --ds-color-accent-hover: #075985;
@@ -82,7 +82,7 @@
   --ds-color-focus: var(--brand-primary);
   --ds-color-focus-ring: color-mix(
     in srgb,
-    var(--brand-focus-ring) 55%,
+    var(--brand-focus-ring) 64%,
     transparent
   );
 
@@ -97,7 +97,7 @@
   --ds-shell-backdrop:
     radial-gradient(
       960px circle at top left,
-      color-mix(in srgb, var(--brand-primary-soft) 72%, transparent),
+      color-mix(in srgb, var(--brand-primary-soft) 82%, transparent),
       transparent 48%
     ),
     linear-gradient(180deg, #ffffff 0%, #f6f8fb 100%);
@@ -133,30 +133,30 @@
     var(--brand-danger) 100%
   );
 
-  --ds-kpi-blue-bg: #eff6ff;
-  --ds-kpi-blue-fg: #1d4ed8;
-  --ds-kpi-blue-border: #bfdbfe;
-  --ds-kpi-green-bg: #ecfdf3;
+  --ds-kpi-blue-bg: #eaf2ff;
+  --ds-kpi-blue-fg: #1e40af;
+  --ds-kpi-blue-border: #bfd4ff;
+  --ds-kpi-green-bg: #edf9f1;
   --ds-kpi-green-fg: #166534;
-  --ds-kpi-green-border: #bbf7d0;
-  --ds-kpi-amber-bg: #fff7ed;
+  --ds-kpi-green-border: #c9ead2;
+  --ds-kpi-amber-bg: #fff4e6;
   --ds-kpi-amber-fg: #92400e;
-  --ds-kpi-amber-border: #fed7aa;
-  --ds-kpi-red-bg: #fef2f2;
+  --ds-kpi-amber-border: #f4d3a8;
+  --ds-kpi-red-bg: #fef0f2;
   --ds-kpi-red-fg: #991b1b;
-  --ds-kpi-red-border: #fecaca;
-  --ds-kpi-violet-bg: #f0f9ff;
+  --ds-kpi-red-border: #f3c8cd;
+  --ds-kpi-violet-bg: #eef6ff;
   --ds-kpi-violet-fg: #075985;
-  --ds-kpi-violet-border: #bae6fd;
-  --ds-kpi-teal-bg: #f8fafc;
+  --ds-kpi-violet-border: #c9dff7;
+  --ds-kpi-teal-bg: #f1f5f8;
   --ds-kpi-teal-fg: #334155;
-  --ds-kpi-teal-border: #cbd5e1;
+  --ds-kpi-teal-border: #d6e0ea;
 
-  --ds-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --ds-shadow-xs: 0 1px 2px rgba(11, 19, 36, 0.06);
   --ds-shadow-sm:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 4px 12px rgba(15, 23, 42, 0.06);
-  --ds-shadow-md: 0 10px 24px rgba(15, 23, 42, 0.08);
-  --ds-shadow-lg: 0 18px 40px rgba(15, 23, 42, 0.1);
-  --ds-shadow-xl: 0 24px 56px rgba(15, 23, 42, 0.12);
+    0 1px 2px rgba(11, 19, 36, 0.06),
+    0 8px 18px rgba(11, 19, 36, 0.08);
+  --ds-shadow-md: 0 16px 32px rgba(11, 19, 36, 0.1);
+  --ds-shadow-lg: 0 22px 46px rgba(11, 19, 36, 0.12);
+  --ds-shadow-xl: 0 28px 60px rgba(11, 19, 36, 0.14);
 }

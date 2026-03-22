@@ -123,21 +123,23 @@ export default function DashboardLayout({
         <Header onOpenMobileNav={() => setSidebarOpen(true)} />
         {/* Badge da empresa selecionada para Admin Geral */}
         {isAdminGeral && (
-          <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-info-subtle)]/55 px-5 py-2.5">
+          <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-info-subtle)] px-5 py-3 shadow-[inset_0_-1px_0_rgba(255,255,255,0.35)]">
             <div className="flex items-center gap-2 text-sm text-[var(--ds-color-text-secondary)]">
-              <Building2 className="h-4 w-4 text-[var(--ds-color-info)]" />
+              <span className="flex h-7 w-7 items-center justify-center rounded-xl border border-[var(--ds-color-info-border)] bg-white/75 shadow-[var(--ds-shadow-xs)]">
+                <Building2 className="h-4 w-4 text-[var(--ds-color-info)]" />
+              </span>
               {selectedTenant ? (
                 <span>
-                  Operando em: <span className="font-semibold text-[var(--ds-color-text-primary)]">{selectedTenant.companyName}</span>
+                  Operando em: <span className="font-semibold text-[var(--title)]">{selectedTenant.companyName}</span>
                 </span>
               ) : (
-                <span className="text-[var(--ds-color-warning)]">Nenhuma empresa selecionada</span>
+                <span className="font-medium text-[var(--ds-color-warning)]">Nenhuma empresa selecionada</span>
               )}
             </div>
             <button
               type="button"
               onClick={() => setSelectorOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-info-border)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-[11px] font-semibold text-[var(--ds-color-info-fg)] shadow-[var(--ds-shadow-xs)] transition-colors hover:bg-[var(--ds-color-info-subtle)] hover:text-[var(--ds-color-text-primary)]"
+              className="flex items-center gap-1.5 rounded-xl border border-[var(--ds-color-info-border)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-[11px] font-semibold text-[var(--ds-color-info-fg)] shadow-[var(--ds-shadow-xs)] transition-all hover:border-[var(--ds-color-action-primary)] hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-action-primary-active)]"
             >
               <ChevronsUpDown className="h-3.5 w-3.5" />
               Trocar empresa

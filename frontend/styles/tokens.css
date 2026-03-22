@@ -10,9 +10,9 @@
        · Leitura limpa, forte e orientada a software enterprise
 
      BACKGROUND #FFFFFF  White Ledger — canvas principal do sistema
-     SIDEBAR    #F8FAFC  Slate Panel  — navegação clara e estruturada
-     PRIMARY    #1D4ED8  Corporate Blue — CTA e destaque funcional
-     SECONDARY  #475569  Steel Text — apoio, filtros e contexto
+     SIDEBAR    #071A2F  Control Deck  — navegação premium com mais presença
+     PRIMARY    #2563EB  Corporate Blue — CTA e destaque funcional
+     SECONDARY  #526277  Steel Text — apoio, filtros e contexto
      ─── Status — semântica funcional, não decorativa ────────────
      SUCCESS    #15803D
      WARNING    #B45309
@@ -20,17 +20,24 @@
      INFO       #0369A1
   ══════════════════════════════════════════════════════════════ */
   --brand-background: #ffffff;
-  --brand-sidebar: #f8fafc;
+  --brand-sidebar: #071a2f;
+  --brand-sidebar-border: #17324d;
+  --brand-sidebar-text: #d8e4f2;
+  --brand-sidebar-muted: #8fa4bf;
+  --brand-sidebar-hover: #0d2743;
   --brand-card: #ffffff;
-  --brand-primary: #1d4ed8;
-  --brand-primary-hover: #1e40af;
-  --brand-primary-active: #1e3a8a;
+  --brand-primary: #2563eb;
+  --brand-primary-hover: #1d4ed8;
+  --brand-primary-active: #1e40af;
   --brand-primary-soft: #eaf2ff;
   --brand-focus-ring: #93c5fd;
-  --brand-secondary: #475569;
-  --brand-title: #0f172a;
-  --brand-text-primary: #1e293b;
-  --brand-text-secondary: #475569;
+  --brand-secondary: #526277;
+  --brand-title: #0b1324;
+  --brand-text-primary: #243447;
+  --brand-text-secondary: #526277;
+  --brand-text-muted: #7c8ca3;
+  --brand-border-default: #d9e2ec;
+  --brand-border-strong: #c5d0dd;
   --brand-success: #15803d;
   --brand-warning: #b45309;
   --brand-danger: #b91c1c;
@@ -149,48 +156,44 @@
   --component-shell-backdrop: var(--ds-shell-backdrop);
   --component-navbar-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-base) 84%,
-    var(--ds-color-surface-elevated) 16%
+    var(--ds-color-surface-base) 92%,
+    var(--ds-color-surface-elevated) 8%
   );
   --component-navbar-border: color-mix(
     in srgb,
-    var(--ds-color-border-subtle) 76%,
-    var(--ds-color-border-default) 24%
+    var(--ds-color-border-default) 72%,
+    var(--ds-color-border-strong) 28%
   );
   --component-navbar-chip-bg: color-mix(
     in srgb,
     var(--ds-color-surface-base) 76%,
-    var(--ds-color-surface-elevated) 24%
+    var(--ds-color-surface-muted) 24%
   );
-  --component-navbar-chip-text: var(--ds-color-text-secondary);
+  --component-navbar-chip-text: var(--ds-color-text-primary);
   --component-navbar-chip-hover-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-muted-hover) 56%,
-    var(--ds-color-surface-base) 44%
+    var(--ds-color-primary-subtle) 38%,
+    var(--ds-color-surface-base) 62%
   );
 
   --component-card-bg: var(--ds-color-surface-base);
   --component-card-bg-elevated: var(--ds-color-surface-elevated);
   --component-card-bg-muted: color-mix(
     in srgb,
-    var(--ds-color-surface-muted) 76%,
-    var(--ds-color-surface-base) 24%
+    var(--ds-color-surface-muted) 84%,
+    var(--ds-color-surface-base) 16%
   );
-  --component-card-border: var(--ds-color-border-subtle);
+  --component-card-border: var(--ds-color-border-default);
   --component-card-border-strong: var(--ds-color-border-strong);
-  --component-card-shadow: var(--ds-shadow-xs);
+  --component-card-shadow: var(--ds-shadow-sm);
   --component-card-shadow-elevated: var(--ds-shadow-md);
 
-  --component-field-bg: color-mix(
-    in srgb,
-    var(--ds-color-surface-base) 68%,
-    var(--ds-color-surface-elevated) 32%
-  );
+  --component-field-bg: var(--ds-color-surface-base);
   --component-field-bg-subtle: var(--ds-color-surface-muted);
-  --component-field-border: var(--ds-color-border-default);
-  --component-field-border-subtle: var(--ds-color-border-subtle);
+  --component-field-border: var(--ds-color-border-strong);
+  --component-field-border-subtle: var(--ds-color-border-default);
   --component-field-border-focus: var(--ds-color-focus);
-  --component-field-shadow: var(--ds-shadow-sm);
+  --component-field-shadow: var(--ds-shadow-xs);
   --component-field-shadow-focus: 0 0 0 4px var(--ds-color-focus-ring);
   --component-field-text: var(--ds-color-text-primary);
   --component-field-placeholder: var(--ds-color-text-muted);
@@ -200,11 +203,11 @@
   --component-button-primary-text: var(--ds-color-action-primary-foreground);
   --component-button-secondary-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-elevated) 78%,
-    var(--ds-color-surface-base) 22%
+    var(--ds-color-surface-base) 88%,
+    var(--ds-color-surface-muted) 12%
   );
   --component-button-secondary-bg-hover: var(--ds-color-action-secondary-hover);
-  --component-button-secondary-border: var(--ds-color-border-default);
+  --component-button-secondary-border: var(--ds-color-border-strong);
   --component-button-secondary-text: var(--ds-color-text-primary);
   --component-button-ghost-bg-hover: var(--ds-color-primary-subtle);
   --component-button-ghost-text: var(--ds-color-text-secondary);
@@ -217,37 +220,37 @@
 
   --component-badge-neutral-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-muted) 42%,
-    transparent
+    var(--ds-color-surface-muted) 82%,
+    var(--ds-color-surface-base) 18%
   );
   --component-badge-neutral-text: var(--ds-color-text-secondary);
 
   --component-table-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-base) 90%,
-    var(--ds-color-surface-elevated) 10%
+    var(--ds-color-surface-base) 95%,
+    var(--ds-color-surface-elevated) 5%
   );
   --component-table-header-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-muted) 64%,
-    var(--ds-color-surface-base) 36%
+    var(--ds-color-surface-muted) 82%,
+    var(--ds-color-surface-base) 18%
   );
-  --component-table-header-text: var(--ds-color-text-muted);
+  --component-table-header-text: var(--ds-color-text-secondary);
   --component-table-footer-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-muted) 56%,
-    var(--ds-color-surface-base) 44%
+    var(--ds-color-surface-muted) 70%,
+    var(--ds-color-surface-base) 30%
   );
-  --component-table-row-border: var(--ds-color-border-subtle);
+  --component-table-row-border: var(--ds-color-border-default);
   --component-table-row-hover: color-mix(
     in srgb,
-    var(--ds-color-action-primary) 10%,
-    var(--component-table-bg) 90%
+    var(--ds-color-action-primary) 7%,
+    var(--component-table-bg) 93%
   );
   --component-table-row-selected: color-mix(
     in srgb,
-    var(--ds-color-action-primary) 20%,
-    var(--component-table-bg) 80%
+    var(--ds-color-action-primary) 15%,
+    var(--component-table-bg) 85%
   );
 
   --component-command-overlay: var(--ds-color-overlay);

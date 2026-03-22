@@ -51,9 +51,7 @@ html[data-theme="light"] {
   }
 
   p,
-  span,
-  li,
-  td {
+  li {
     color: var(--ds-color-text-secondary);
     line-height: var(--ds-line-base);
   }
@@ -68,9 +66,9 @@ html[data-theme="light"] {
 
   table thead th {
     color: var(--component-table-header-text) !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important;
     background: var(--component-table-header-bg) !important;
-    border-bottom: 1px solid var(--component-table-row-border) !important;
+    border-bottom: 1px solid var(--ds-color-border-default) !important;
     text-transform: uppercase;
     font-size: var(--ds-text-2xs);
     letter-spacing: 0.07em;
@@ -80,17 +78,18 @@ html[data-theme="light"] {
   }
 
   table tbody td {
-    color: var(--ds-color-text-secondary) !important;
+    color: var(--ds-color-text-primary) !important;
     border-bottom: 1px solid var(--component-table-row-border);
     background-color: var(--component-table-bg);
     font-size: var(--ds-text-sm);
     line-height: 1.35;
+    font-weight: 500;
     padding-top: 0.75rem;
     padding-bottom: 0.75rem;
   }
 
   table tbody tr:nth-child(even) td {
-    background-color: color-mix(in srgb, var(--component-table-bg) 92%, var(--ds-color-bg-canvas) 8%);
+    background-color: color-mix(in srgb, var(--component-table-bg) 96%, var(--ds-color-bg-canvas) 4%);
   }
 
   table tbody tr:hover td {
@@ -100,7 +99,7 @@ html[data-theme="light"] {
   input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea {
-    border-color: var(--component-field-border-subtle) !important;
+    border-color: var(--component-field-border) !important;
     background: var(--component-field-bg) !important;
     color: var(--ds-color-text-primary) !important;
     font-weight: 500 !important;
@@ -113,7 +112,9 @@ html[data-theme="light"] {
       background-color var(--ds-motion-base);
     padding-top: 0.625rem !important;
     padding-bottom: 0.625rem !important;
-    box-shadow: inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
+      0 1px 2px rgba(11, 19, 36, 0.04);
   }
 
   input::placeholder,
@@ -127,14 +128,17 @@ html[data-theme="light"] {
   textarea:focus {
     border-color: var(--component-field-border-focus) !important;
     background: var(--ds-color-surface-base) !important;
-    box-shadow: inset 0 1px 0 color-mix(in srgb, white 10%, transparent), 0 0 0 4px var(--ds-color-focus-ring) !important;
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
+      0 0 0 4px var(--ds-color-focus-ring),
+      0 6px 16px rgba(37, 99, 235, 0.08) !important;
     outline: none !important;
   }
 
   input:not([type="checkbox"]):not([type="radio"]):hover,
   select:hover,
   textarea:hover {
-    border-color: color-mix(in srgb, var(--ds-color-border-strong) 84%, transparent) !important;
+    border-color: color-mix(in srgb, var(--ds-color-border-strong) 92%, transparent) !important;
     background: var(--component-field-bg-subtle) !important;
   }
 
@@ -221,12 +225,15 @@ html[data-theme="light"] {
     line-height: 1.35;
     transition:
       background-color var(--ds-motion-fast),
+      box-shadow var(--ds-motion-fast),
       opacity var(--ds-motion-fast);
     cursor: pointer;
+    box-shadow: 0 8px 16px rgba(37, 99, 235, 0.18);
   }
 
   .btn-primary:hover:not(:disabled) {
     background-color: var(--ds-color-action-primary-hover);
+    box-shadow: 0 10px 20px rgba(37, 99, 235, 0.22);
   }
 
   .btn-primary:disabled {
@@ -240,7 +247,7 @@ html[data-theme="light"] {
     gap: 0.375rem;
     background-color: var(--ds-color-surface-base);
     color: var(--ds-color-text-primary);
-    border: 1px solid var(--ds-color-border-subtle);
+    border: 1px solid var(--ds-color-border-default);
     border-radius: var(--ds-radius-md);
     padding: 0.5rem 1rem;
     font-size: var(--ds-text-sm);
@@ -254,7 +261,7 @@ html[data-theme="light"] {
 
   .btn-secondary:hover:not(:disabled) {
     background-color: var(--ds-color-surface-muted);
-    border-color: var(--ds-color-border-default);
+    border-color: var(--ds-color-border-strong);
   }
 
   .btn-secondary:disabled {
@@ -1523,12 +1530,12 @@ html[data-theme="light"] {
     border-bottom: 1px solid var(--component-navbar-border);
     background: color-mix(
       in srgb,
-      var(--component-navbar-bg) 94%,
-      white 6%
+      var(--component-navbar-bg) 97%,
+      white 3%
     );
-    backdrop-filter: blur(14px) saturate(118%);
+    backdrop-filter: blur(12px) saturate(114%);
     padding: 0.75rem 1.25rem;
-    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+    box-shadow: 0 8px 20px rgba(11, 19, 36, 0.06);
   }
 
   .ds-topbar-search {
@@ -1543,7 +1550,7 @@ html[data-theme="light"] {
     padding: 0 0.875rem;
     box-shadow:
       inset 0 1px 0 color-mix(in srgb, white 16%, transparent),
-      0 1px 2px rgba(15, 23, 42, 0.04);
+      0 2px 6px rgba(11, 19, 36, 0.05);
     transition:
       border-color var(--ds-motion-base),
       background-color var(--ds-motion-base),
@@ -1551,7 +1558,7 @@ html[data-theme="light"] {
   }
 
   .ds-topbar-search:hover {
-    border-color: color-mix(in srgb, var(--ds-color-border-strong) 78%, transparent);
+    border-color: color-mix(in srgb, var(--ds-color-border-strong) 88%, transparent);
     background: var(--component-navbar-chip-hover-bg);
   }
 
@@ -1574,12 +1581,12 @@ html[data-theme="light"] {
       box-shadow var(--ds-motion-base);
     box-shadow:
       inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
-      0 1px 2px rgba(15, 23, 42, 0.04);
+      0 2px 6px rgba(11, 19, 36, 0.05);
   }
 
   .ds-topbar-chip:hover {
     background: var(--component-navbar-chip-hover-bg);
-    border-color: color-mix(in srgb, var(--ds-color-border-strong) 78%, transparent);
+    border-color: color-mix(in srgb, var(--ds-color-border-strong) 88%, transparent);
     color: var(--ds-color-text-primary);
   }
 
@@ -1647,7 +1654,7 @@ html[data-theme="light"] {
   }
 
   .ds-stat-tile {
-    border: 1px solid var(--ds-color-border-subtle);
+    border: 1px solid var(--ds-color-border-default);
     border-radius: var(--ds-radius-xl);
     background: var(--ds-color-surface-base);
     padding: 0.9rem;
@@ -1656,9 +1663,9 @@ html[data-theme="light"] {
 
   .ds-section-card {
     background: var(--ds-color-surface-base);
-    border: 1px solid var(--ds-color-border-subtle);
+    border: 1px solid var(--ds-color-border-default);
     border-radius: var(--ds-radius-xl);
-    box-shadow: var(--ds-shadow-xs);
+    box-shadow: var(--ds-shadow-sm);
   }
 
   .ds-badge {
@@ -1705,11 +1712,11 @@ html[data-theme="light"] {
   .ds-kpi-card {
     border-radius: var(--ds-radius-xl);
     padding: 1.1rem 1.15rem;
-    border: 1px solid var(--ds-color-border-subtle);
+    border: 1px solid var(--ds-color-border-default);
     color: var(--ds-color-text-primary);
     box-shadow:
-      var(--ds-shadow-xs),
-      inset 0 1px 0 color-mix(in srgb, white 8%, transparent);
+      var(--ds-shadow-sm),
+      inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
     transition:
       border-color var(--ds-motion-base),
       box-shadow var(--ds-motion-base),
@@ -1717,8 +1724,8 @@ html[data-theme="light"] {
   }
 
   .ds-kpi-card:hover {
-    box-shadow: var(--ds-shadow-sm);
-    transform: translateY(-1px);
+    box-shadow: var(--ds-shadow-md);
+    transform: translateY(-2px);
   }
 
   .ds-kpi-card--primary {
@@ -2092,7 +2099,7 @@ html[data-theme="light"] {
   .ds-list-shell,
   .ds-crud-filter-card {
     overflow: hidden;
-    border: 1px solid var(--ds-color-border-subtle);
+    border: 1px solid var(--ds-color-border-default);
     border-radius: var(--ds-radius-xl);
     background: var(--ds-color-surface-base);
     box-shadow: var(--ds-shadow-sm);
@@ -2103,9 +2110,9 @@ html[data-theme="light"] {
     display: flex;
     flex-direction: column;
     gap: 0.9rem;
-    border-bottom: 1px solid var(--ds-color-border-subtle);
+    border-bottom: 1px solid var(--ds-color-border-default);
     padding: 1rem 1.1rem;
-    background: color-mix(in srgb, var(--ds-color-surface-muted) 54%, var(--ds-color-surface-base) 46%);
+    background: color-mix(in srgb, var(--ds-color-surface-muted) 74%, var(--ds-color-surface-base) 26%);
   }
 
   .ds-list-toolbar__row,
@@ -2134,9 +2141,9 @@ html[data-theme="light"] {
   }
 
   .ds-list-footer {
-    border-top: 1px solid var(--ds-color-border-subtle);
+    border-top: 1px solid var(--ds-color-border-default);
     padding: 0.9rem 1.1rem;
-    background: color-mix(in srgb, var(--ds-color-surface-muted) 34%, var(--ds-color-surface-base) 66%);
+    background: color-mix(in srgb, var(--ds-color-surface-muted) 54%, var(--ds-color-surface-base) 46%);
   }
 
   .ds-form-shell {
@@ -2145,10 +2152,11 @@ html[data-theme="light"] {
   }
 
   .ds-form-section {
-    border: 1px solid var(--ds-color-border-subtle);
+    border: 1px solid var(--ds-color-border-default);
     border-radius: var(--ds-radius-xl);
     background: var(--ds-color-surface-base);
     padding: 1.25rem;
+    box-shadow: var(--ds-shadow-xs);
   }
 
   .ds-form-section__header {
@@ -2156,7 +2164,7 @@ html[data-theme="light"] {
     flex-direction: column;
     gap: 0.75rem;
     padding-bottom: 1rem;
-    border-bottom: 1px solid var(--ds-color-border-subtle);
+    border-bottom: 1px solid var(--ds-color-border-default);
     margin-bottom: 1rem;
   }
 
@@ -2167,7 +2175,7 @@ html[data-theme="light"] {
   }
 
   .ds-form-array-item {
-    border: 1px solid var(--ds-color-border-subtle);
+    border: 1px solid var(--ds-color-border-default);
     border-radius: var(--ds-radius-lg);
     background: color-mix(
       in srgb,
@@ -2181,7 +2189,7 @@ html[data-theme="light"] {
     position: sticky;
     bottom: 1rem;
     z-index: 10;
-    border: 1px solid var(--ds-color-border-subtle);
+    border: 1px solid var(--ds-color-border-default);
     border-radius: var(--ds-radius-xl);
     background: color-mix(
       in srgb,

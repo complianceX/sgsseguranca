@@ -161,7 +161,7 @@ export function Header({
 
   const showOfflineChip = syncingOfflineQueue || offlineQueueCount > 0;
   const iconButtonClass =
-    'flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--component-navbar-border)] bg-[var(--component-navbar-chip-bg)] text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-xs)] transition-all hover:border-[var(--ds-color-border-default)] hover:bg-[var(--component-navbar-chip-hover-bg)] hover:text-[var(--ds-color-text-primary)]';
+    'flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--component-navbar-border)] bg-[var(--component-navbar-chip-bg)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)] transition-all hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--component-navbar-chip-hover-bg)] hover:text-[var(--ds-color-text-primary)]';
 
   return (
     <header className="ds-topbar">
@@ -237,8 +237,8 @@ export function Header({
             </button>
 
             {showNotifications ? (
-              <div className="absolute right-0 z-50 mt-3 w-[21.5rem] overflow-hidden rounded-[1.2rem] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-md)]">
-                <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/70 px-4 py-3.5">
+              <div className="absolute right-0 z-50 mt-3 w-[21.5rem] overflow-hidden rounded-[1.2rem] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-md)]">
+                <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)] px-4 py-3.5">
                   <div>
                     <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Notificações</h3>
                     <p className="text-xs text-[var(--ds-color-text-muted)]">Eventos recentes da operação</p>
@@ -256,7 +256,7 @@ export function Header({
                         type="button"
                         onClick={() => !notification.read && handleMarkOne(notification.id)}
                         className={`w-full border-b border-[var(--ds-color-border-subtle)] px-4 py-3.5 text-left transition-colors hover:bg-[var(--ds-color-surface-muted)] ${
-                          !notification.read ? 'border-l-[3px] border-l-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-primary-subtle)]/55' : ''
+                          !notification.read ? 'border-l-[3px] border-l-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-primary-subtle)]/78' : ''
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -284,7 +284,7 @@ export function Header({
                   )}
                 </div>
 
-                <div className="bg-[color:var(--ds-color-surface-muted)]/75 px-4 py-2.5 text-center">
+                <div className="bg-[color:var(--ds-color-surface-muted)] px-4 py-2.5 text-center">
                   <button
                     type="button"
                     onClick={handleMarkAllAsRead}
@@ -310,7 +310,7 @@ export function Header({
           <button
             type="button"
             title={user?.nome}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[13px] font-bold text-[var(--ds-color-action-primary)] shadow-[var(--ds-shadow-xs)] transition-colors hover:bg-[var(--ds-color-primary-subtle-hover)]"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--ds-color-primary-border)] bg-[var(--ds-color-primary-subtle)] text-[13px] font-bold text-[var(--ds-color-action-primary-active)] shadow-[var(--ds-shadow-xs)] transition-colors hover:bg-[var(--ds-color-primary-subtle-hover)]"
           >
             {userInitials || <User className="h-5 w-5" />}
           </button>

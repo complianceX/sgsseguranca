@@ -152,41 +152,46 @@ type KpiTone = "danger" | "warning" | "success" | "info" | "neutral";
 
 const KPI_TONE: Record<
   KpiTone,
-  { border: string; value: string; iconBg: string; icon: string; accent: string }
+  { card: string; border: string; value: string; iconBg: string; icon: string; accent: string }
 > = {
   danger: {
+    card: "bg-[var(--ds-color-danger-subtle)]/88",
     border: "border-[var(--ds-color-danger-border)]",
     value: "text-[var(--ds-color-danger)]",
-    iconBg: "bg-[var(--ds-color-danger-subtle)]",
+    iconBg: "bg-white/75",
     icon: "text-[var(--ds-color-danger-fg)]",
     accent: "bg-[var(--ds-color-danger)]",
   },
   warning: {
+    card: "bg-[var(--ds-color-warning-subtle)]/88",
     border: "border-[var(--ds-color-warning-border)]",
     value: "text-[var(--ds-color-warning)]",
-    iconBg: "bg-[var(--ds-color-warning-subtle)]",
+    iconBg: "bg-white/75",
     icon: "text-[var(--ds-color-warning-fg)]",
     accent: "bg-[var(--ds-color-warning)]",
   },
   success: {
+    card: "bg-[var(--ds-color-success-subtle)]/90",
     border: "border-[var(--ds-color-success-border)]",
     value: "text-[var(--ds-color-success)]",
-    iconBg: "bg-[var(--ds-color-success-subtle)]",
+    iconBg: "bg-white/75",
     icon: "text-[var(--ds-color-success-fg)]",
     accent: "bg-[var(--ds-color-success)]",
   },
   info: {
+    card: "bg-[var(--ds-color-info-subtle)]/90",
     border: "border-[var(--ds-color-info-border)]",
     value: "text-[var(--ds-color-info)]",
-    iconBg: "bg-[var(--ds-color-info-subtle)]",
+    iconBg: "bg-white/75",
     icon: "text-[var(--ds-color-info-fg)]",
     accent: "bg-[var(--ds-color-info)]",
   },
   neutral: {
-    border: "border-[var(--ds-color-border-subtle)]",
-    value: "text-[var(--ds-color-text-primary)]",
-    iconBg: "bg-[var(--ds-color-surface-muted)]",
-    icon: "text-[var(--ds-color-text-muted)]",
+    card: "bg-[var(--ds-color-surface-muted)]/92",
+    border: "border-[var(--ds-color-border-default)]",
+    value: "text-[var(--title)]",
+    iconBg: "bg-white/75",
+    icon: "text-[var(--ds-color-text-secondary)]",
     accent: "bg-[var(--ds-color-border-strong)]",
   },
 };
@@ -210,7 +215,8 @@ function KpiCard({
   return (
     <div
       className={cn(
-        "relative flex flex-col gap-3 overflow-hidden rounded-2xl border bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-xs)]",
+        "relative flex flex-col gap-3 overflow-hidden rounded-[1.35rem] border p-5 shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-0.5 hover:shadow-[var(--ds-shadow-md)]",
+        t.card,
         t.border,
       )}
     >
@@ -219,7 +225,7 @@ function KpiCard({
         className={cn("absolute inset-x-0 top-0 h-[3px]", t.accent)}
       />
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
           {label}
         </p>
         <span
@@ -232,7 +238,7 @@ function KpiCard({
         </span>
       </div>
       <div className="flex items-end gap-2">
-        <p className={cn("text-[28px] font-bold leading-none", t.value)}>
+        <p className={cn("text-[30px] font-extrabold leading-none tracking-[-0.04em]", t.value)}>
           {value == null ? (
             <span className="text-xl text-[var(--ds-color-text-muted)]">
               —
@@ -252,7 +258,7 @@ function KpiCard({
         )}
       </div>
       {sublabel && (
-        <p className="text-[11px] leading-tight text-[var(--ds-color-text-muted)]">
+        <p className="text-[11px] leading-tight text-[var(--ds-color-text-secondary)]">
           {sublabel}
         </p>
       )}
@@ -334,12 +340,12 @@ function SectionHeader({
   trailing?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-5 py-3">
+    <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
           {overline}
         </p>
-        <h2 className="text-[13px] font-semibold text-[var(--ds-color-text-primary)]">
+        <h2 className="text-[13px] font-semibold text-[var(--title)]">
           {title}
         </h2>
       </div>
@@ -517,7 +523,7 @@ export default function DashboardPage() {
       {/* ── 1. Header ──────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[22px] font-bold leading-tight text-[var(--ds-color-text-primary)]">
+          <h1 className="text-[24px] font-extrabold leading-tight tracking-[-0.03em] text-[var(--title)]">
             {greeting}
             {firstName ? `, ${firstName}` : ""}
           </h1>
@@ -532,7 +538,7 @@ export default function DashboardPage() {
             </p>
           )}
           {!loading && (
-            <div className="flex items-center gap-1.5 rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 shadow-[var(--ds-shadow-xs)]">
+            <div className="flex items-center gap-1.5 rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 shadow-[var(--ds-shadow-xs)]">
               <Clock className="h-3.5 w-3.5 text-[var(--ds-color-text-muted)]" />
               <span className="text-[11px] font-medium text-[var(--ds-color-text-muted)]">
                 {pendingQueue.summary.total} pendências
@@ -544,7 +550,7 @@ export default function DashboardPage() {
 
       {/* ── 2. Critical Alert Banner ───────────────────────────────── */}
       {!loading && pendingQueue.summary.critical > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-5 py-3.5 shadow-[var(--ds-shadow-xs)]">
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-5 py-3.5 shadow-[var(--ds-shadow-sm)]">
           <div className="flex items-center gap-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--ds-color-danger)] text-white">
               <ShieldAlert className="h-4 w-4" />
@@ -613,7 +619,7 @@ export default function DashboardPage() {
         {/* Fila de Prioridades */}
         <section
           id="priority-table"
-          className="overflow-hidden rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]"
+          className="overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]"
         >
           <SectionHeader
             overline="Fila de Prioridades"
@@ -719,8 +725,8 @@ export default function DashboardPage() {
         {/* Coluna lateral */}
         <div className="flex flex-col gap-5">
           {/* Score de Conformidade */}
-          <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
-            <div className="border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] px-5 py-3">
+          <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
+            <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
                 Score de Conformidade
               </p>
@@ -739,8 +745,8 @@ export default function DashboardPage() {
           </div>
 
           {/* Distribuição de Riscos */}
-          <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
-            <div className="border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] px-5 py-3">
+          <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
+            <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
                 Distribuição de Riscos
               </p>
@@ -803,8 +809,8 @@ export default function DashboardPage() {
           </div>
 
           {/* Fila por Categoria */}
-          <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
-            <div className="border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] px-5 py-3">
+          <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
+            <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
                 Fila por Categoria
               </p>
@@ -887,9 +893,9 @@ export default function DashboardPage() {
             <Link
               key={href}
               href={href}
-              className="group flex items-center justify-between rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-4 py-3 text-[13px] font-medium text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-xs)] transition-all hover:border-[var(--ds-color-primary-border)] hover:shadow-[var(--ds-shadow-sm)]"
+              className="group flex items-center justify-between rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-3 text-[13px] font-medium text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-xs)] transition-all hover:-translate-y-0.5 hover:border-[var(--ds-color-primary-border)] hover:bg-[var(--ds-color-primary-subtle)] hover:shadow-[var(--ds-shadow-sm)]"
             >
-              <span className="transition-colors group-hover:text-[var(--ds-color-text-primary)]">
+              <span className="transition-colors group-hover:text-[var(--title)]">
                 {label}
               </span>
               {badge > 0 && (
