@@ -40,6 +40,7 @@ import { createReadStream } from 'fs';
 import { readFile } from 'fs/promises';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { getInspectionInlineEvidenceMaxBytes } from '../common/services/pdf-runtime-config';
+import { DocumentVideosService } from '../document-videos/document-videos.service';
 
 export type InspectionPdfAccessAvailability =
   | 'ready'
@@ -83,6 +84,7 @@ export class InspectionsService {
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly documentRegistryService: DocumentRegistryService,
+    private readonly documentVideosService: DocumentVideosService,
   ) {
     this.tenantRepo = tenantRepositoryFactory.wrap(this.inspectionsRepository);
   }
@@ -778,6 +780,86 @@ export class InspectionsService {
       degraded: storageMode === 'inline-fallback',
       message,
     };
+  }
+
+  async listVideoAttachments(id: string, companyId: string) {
+    const inspection = await this.findOneEntity(id, companyId);
+    return this.documentVideosService.listByDocument({
+      companyId: inspection.company_id,
+      module: 'inspection',
+      documentId: inspection.id,
+    });
+  }
+
+  async uploadVideoAttachment(
+    id: string,
+    buffer: Buffer,
+    originalName: string,
+    mimeType: string,
+    companyId: string,
+  ) {
+    const inspection = await this.findOneEntity(id, companyId);
+    await this.assertInspectionDocumentMutable(inspection);
+    const result = await this.documentVideosService.uploadForDocument({
+      companyId: inspection.company_id,
+      module: 'inspection',
+      documentId: inspection.id,
+      buffer,
+      originalName,
+      mimeType,
+      uploadedById: RequestContext.getUserId() || undefined,
+    });
+    this.logInspectionEvent('log', 'inspection_video_attachment_uploaded', {
+      inspectionId: inspection.id,
+      companyId: inspection.company_id,
+      attachmentId: result.attachment.id,
+      mimeType: result.attachment.mime_type,
+      storageKey: result.attachment.storage_key,
+    });
+    return result;
+  }
+
+  async getVideoAttachmentAccess(
+    id: string,
+    attachmentId: string,
+    companyId: string,
+  ) {
+    const inspection = await this.findOneEntity(id, companyId);
+    const result = await this.documentVideosService.getAccess({
+      companyId: inspection.company_id,
+      module: 'inspection',
+      documentId: inspection.id,
+      attachmentId,
+    });
+    this.logInspectionEvent('log', 'inspection_video_attachment_accessed', {
+      inspectionId: inspection.id,
+      companyId: inspection.company_id,
+      attachmentId,
+      availability: result.availability,
+    });
+    return result;
+  }
+
+  async removeVideoAttachment(
+    id: string,
+    attachmentId: string,
+    companyId: string,
+  ) {
+    const inspection = await this.findOneEntity(id, companyId);
+    await this.assertInspectionDocumentMutable(inspection);
+    const result = await this.documentVideosService.removeFromDocument({
+      companyId: inspection.company_id,
+      module: 'inspection',
+      documentId: inspection.id,
+      attachmentId,
+      removedById: RequestContext.getUserId() || undefined,
+    });
+    this.logInspectionEvent('log', 'inspection_video_attachment_removed', {
+      inspectionId: inspection.id,
+      companyId: inspection.company_id,
+      attachmentId,
+    });
+    return result;
   }
 
   async savePdf(

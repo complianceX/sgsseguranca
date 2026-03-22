@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditModule } from '../audit/audit.module';
 import { CommonModule } from '../common/common.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
+import { DocumentVideosModule } from '../document-videos/document-videos.module';
 import { Site } from '../sites/entities/site.entity';
 import { User } from '../users/entities/user.entity';
 import { CatsController } from './cats.controller';
@@ -16,6 +17,7 @@ import { PublicCatsController } from './public-cats.controller';
     CommonModule,
     AuditModule,
     DocumentRegistryModule,
+    DocumentVideosModule,
   ],
   controllers: [CatsController, PublicCatsController],
   providers: [CatsService],

@@ -1,5 +1,10 @@
 import api from "@/lib/api";
 import type { GovernedPdfAccessResponse, GovernedPdfAccessAvailability } from "@/lib/api/generated/governed-contracts.client";
+import type {
+  GovernedDocumentVideoAccessResponse,
+  GovernedDocumentVideoAttachment,
+  GovernedDocumentVideoMutationResponse,
+} from "@/lib/videos/documentVideos";
 import { AxiosError } from "axios";
 import { Site } from "./sitesService";
 import { enqueueOfflineMutation } from "@/lib/offline-sync";
@@ -393,6 +398,49 @@ export const nonConformitiesService = {
   ): Promise<NonConformityAttachmentAccessResponse> => {
     const response = await api.get<NonConformityAttachmentAccessResponse>(
       `/nonconformities/${id}/attachments/${index}/access`,
+    );
+    return response.data;
+  },
+
+  listVideoAttachments: async (id: string) => {
+    const response = await api.get<GovernedDocumentVideoAttachment[]>(
+      `/nonconformities/${id}/videos`,
+    );
+    return response.data;
+  },
+
+  uploadVideoAttachment: async (
+    id: string,
+    file: File,
+  ): Promise<GovernedDocumentVideoMutationResponse> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<GovernedDocumentVideoMutationResponse>(
+      `/nonconformities/${id}/videos`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+    return response.data;
+  },
+
+  getVideoAttachmentAccess: async (
+    id: string,
+    attachmentId: string,
+  ): Promise<GovernedDocumentVideoAccessResponse> => {
+    const response = await api.get<GovernedDocumentVideoAccessResponse>(
+      `/nonconformities/${id}/videos/${attachmentId}/access`,
+    );
+    return response.data;
+  },
+
+  removeVideoAttachment: async (
+    id: string,
+    attachmentId: string,
+  ): Promise<GovernedDocumentVideoMutationResponse> => {
+    const response = await api.delete<GovernedDocumentVideoMutationResponse>(
+      `/nonconformities/${id}/videos/${attachmentId}`,
     );
     return response.data;
   },

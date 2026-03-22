@@ -22,8 +22,10 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Role } from '../auth/enums/roles.enum';
 import {
   assertUploadedPdf,
+  assertUploadedVideo,
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
+  createGovernedVideoUploadOptions,
   fileUploadOptions,
   readUploadedFileBuffer,
   validateFileMagicBytes,
@@ -193,6 +195,67 @@ export class CatsController {
     } finally {
       await cleanupUploadedTempFile(pdfFile);
     }
+  }
+
+  @Get(':id/videos')
+  @Authorize('can_view_cats')
+  listVideoAttachments(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.catsService.listVideoAttachments(id);
+  }
+
+  @Get(':id/videos/:attachmentId/access')
+  @Authorize('can_view_cats')
+  getVideoAttachmentAccess(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.catsService.getVideoAttachmentAccess(
+      id,
+      attachmentId,
+      req.user?.id,
+    );
+  }
+
+  @Post(':id/videos')
+  @UseInterceptors(FileInterceptor('file', createGovernedVideoUploadOptions()))
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_cats')
+  async uploadVideoAttachment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file?: Express.Multer.File,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const videoFile = await assertUploadedVideo(
+      file,
+      'Arquivo de vídeo não enviado.',
+    );
+    const buffer = await readUploadedFileBuffer(videoFile);
+
+    try {
+      return await this.catsService.uploadVideoAttachment(
+        id,
+        {
+          buffer,
+          originalName: videoFile.originalname,
+          mimeType: videoFile.mimetype,
+        },
+        req.user?.id,
+      );
+    } finally {
+      await cleanupUploadedTempFile(videoFile);
+    }
+  }
+
+  @Delete(':id/videos/:attachmentId')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_cats')
+  removeVideoAttachment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.catsService.removeVideoAttachment(id, attachmentId, req.user?.id);
   }
 
   @Delete(':id/attachments/:attachmentId')

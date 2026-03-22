@@ -63,3 +63,4 @@ frontend/coverage/
 coverage/
 tmp/
 temp/
+.playwright-cli/

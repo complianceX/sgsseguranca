@@ -104,6 +104,33 @@ function detectMimeFromMagicBytes(buffer: Buffer): string | null {
     return 'image/webp';
   }
 
+  if (
+    buffer.length >= 12 &&
+    buffer.subarray(4, 8).toString('ascii') === 'ftyp'
+  ) {
+    const brand = buffer.subarray(8, 12).toString('ascii');
+
+    if (
+      ['isom', 'iso2', 'mp41', 'mp42', 'avc1', 'M4V ', 'M4A '].includes(brand)
+    ) {
+      return 'video/mp4';
+    }
+
+    if (brand === 'qt  ') {
+      return 'video/quicktime';
+    }
+  }
+
+  if (
+    buffer.length >= 4 &&
+    buffer[0] === 0x1a &&
+    buffer[1] === 0x45 &&
+    buffer[2] === 0xdf &&
+    buffer[3] === 0xa3
+  ) {
+    return 'video/webm';
+  }
+
   // Office OpenXML containers (docx/xlsx) are ZIP archives.
   if (
     buffer.length >= 4 &&
@@ -201,6 +228,14 @@ export function validatePdfMagicBytes(buffer: Buffer): void {
   return validateFileMagicBytes(buffer, ['application/pdf']);
 }
 
+export function validateVideoMagicBytes(buffer: Buffer): void {
+  return validateFileMagicBytes(buffer, [
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+  ]);
+}
+
 export function createGovernedPdfUploadOptions(
   maxFileSize = 20 * 1024 * 1024,
 ): MulterOptions {
@@ -208,6 +243,28 @@ export function createGovernedPdfUploadOptions(
     maxFileSize,
     fileFilter: (_req, file, cb) => {
       if (file.mimetype !== 'application/pdf') {
+        return cb(null, false);
+      }
+
+      cb(null, true);
+    },
+  });
+}
+
+export function createGovernedVideoUploadOptions(
+  maxFileSize = 75 * 1024 * 1024,
+): MulterOptions {
+  return createTemporaryUploadOptions({
+    maxFileSize,
+    fileFilter: (_req, file, cb) => {
+      const allowed = [
+        'video/mp4',
+        'video/webm',
+        'video/quicktime',
+        'video/x-m4v',
+      ];
+
+      if (!allowed.includes(file.mimetype)) {
         return cb(null, false);
       }
 
@@ -255,6 +312,26 @@ export async function assertUploadedPdf(
 
   const buffer = await readUploadedFileBuffer(file, missingFileMessage);
   validatePdfMagicBytes(buffer);
+  return file;
+}
+
+export async function assertUploadedVideo(
+  file: Express.Multer.File | undefined,
+  missingFileMessage = 'Nenhum arquivo enviado',
+): Promise<Express.Multer.File> {
+  if (!file) {
+    throw new BadRequestException(missingFileMessage);
+  }
+
+  const allowed = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-m4v'];
+  if (!allowed.includes(file.mimetype)) {
+    throw new BadRequestException(
+      'Apenas arquivos de vídeo suportados são permitidos',
+    );
+  }
+
+  const buffer = await readUploadedFileBuffer(file, missingFileMessage);
+  validateVideoMagicBytes(buffer);
   return file;
 }
 

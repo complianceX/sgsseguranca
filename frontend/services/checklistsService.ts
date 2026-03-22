@@ -9,6 +9,11 @@ import {
   isOfflineRequestError,
   setOfflineCache,
 } from "@/lib/offline-cache";
+import type {
+  GovernedDocumentVideoAccessResponse,
+  GovernedDocumentVideoAttachment,
+  GovernedDocumentVideoMutationResponse,
+} from "@/lib/videos/documentVideos";
 
 export interface ChecklistItem {
   id?: string;
@@ -400,6 +405,51 @@ export const checklistsService = {
   ): Promise<ChecklistPhotoAccess> => {
     const response = await api.get<ChecklistPhotoAccess>(
       `/checklists/${id}/items/${itemIndex}/photos/${photoIndex}/access`,
+    );
+    return response.data;
+  },
+
+  listVideoAttachments: async (id: string) => {
+    const response = await api.get<GovernedDocumentVideoAttachment[]>(
+      `/checklists/${id}/videos`,
+    );
+    return response.data;
+  },
+
+  uploadVideoAttachment: async (
+    id: string,
+    file: File,
+  ): Promise<GovernedDocumentVideoMutationResponse> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<GovernedDocumentVideoMutationResponse>(
+      `/checklists/${id}/videos`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data;
+  },
+
+  getVideoAttachmentAccess: async (
+    id: string,
+    attachmentId: string,
+  ): Promise<GovernedDocumentVideoAccessResponse> => {
+    const response = await api.get<GovernedDocumentVideoAccessResponse>(
+      `/checklists/${id}/videos/${attachmentId}/access`,
+    );
+    return response.data;
+  },
+
+  removeVideoAttachment: async (
+    id: string,
+    attachmentId: string,
+  ): Promise<GovernedDocumentVideoMutationResponse> => {
+    const response = await api.delete<GovernedDocumentVideoMutationResponse>(
+      `/checklists/${id}/videos/${attachmentId}`,
     );
     return response.data;
   },

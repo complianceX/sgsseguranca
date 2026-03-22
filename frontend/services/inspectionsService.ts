@@ -6,6 +6,11 @@ import { User } from './usersService';
 import { fetchAllPages, PaginatedResponse } from './pagination';
 import { enqueueOfflineMutation } from '@/lib/offline-sync';
 import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
+import type {
+  GovernedDocumentVideoAccessResponse,
+  GovernedDocumentVideoAttachment,
+  GovernedDocumentVideoMutationResponse,
+} from "@/lib/videos/documentVideos";
 
 export interface Inspection {
   id: string;
@@ -264,6 +269,49 @@ export const inspectionsService = {
 
   getPdfAccess: async (id: string) => {
     const response = await api.get<InspectionPdfAccess>(`/inspections/${id}/pdf`);
+    return response.data;
+  },
+
+  listVideoAttachments: async (id: string) => {
+    const response = await api.get<GovernedDocumentVideoAttachment[]>(
+      `/inspections/${id}/videos`,
+    );
+    return response.data;
+  },
+
+  uploadVideoAttachment: async (
+    id: string,
+    file: File,
+  ): Promise<GovernedDocumentVideoMutationResponse> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<GovernedDocumentVideoMutationResponse>(
+      `/inspections/${id}/videos`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+    return response.data;
+  },
+
+  getVideoAttachmentAccess: async (
+    id: string,
+    attachmentId: string,
+  ): Promise<GovernedDocumentVideoAccessResponse> => {
+    const response = await api.get<GovernedDocumentVideoAccessResponse>(
+      `/inspections/${id}/videos/${attachmentId}/access`,
+    );
+    return response.data;
+  },
+
+  removeVideoAttachment: async (
+    id: string,
+    attachmentId: string,
+  ): Promise<GovernedDocumentVideoMutationResponse> => {
+    const response = await api.delete<GovernedDocumentVideoMutationResponse>(
+      `/inspections/${id}/videos/${attachmentId}`,
+    );
     return response.data;
   },
 

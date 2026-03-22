@@ -10,6 +10,7 @@ import { DocumentRegistryModule } from '../document-registry/document-registry.m
 import { AuthModule } from '../auth/auth.module';
 import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
 import { CommonModule } from '../common/common.module';
+import { DocumentVideosModule } from '../document-videos/document-videos.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { CommonModule } from '../common/common.module';
     AuthModule,
     ForensicTrailModule,
     CommonModule,
+    DocumentVideosModule,
   ],
   controllers: [RdosController],
   providers: [RdosService, RdoAuditService],

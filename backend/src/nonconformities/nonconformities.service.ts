@@ -27,6 +27,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { RequestContext } from '../common/middleware/request-context.middleware';
 import { Site } from '../sites/entities/site.entity';
+import { DocumentVideosService } from '../document-videos/document-videos.service';
 import {
   normalizeOffsetPagination,
   OffsetPage,
@@ -133,6 +134,7 @@ export class NonConformitiesService {
     private tenantService: TenantService,
     private readonly documentStorageService: DocumentStorageService,
     private readonly documentGovernanceService: DocumentGovernanceService,
+    private readonly documentVideosService: DocumentVideosService,
     private readonly auditService: AuditService,
   ) {}
 
@@ -160,6 +162,17 @@ export class NonConformitiesService {
     if (nc.pdf_file_key) {
       throw new BadRequestException(
         'Não conformidade com PDF final anexado. Edição bloqueada. Gere uma nova NC para alterar o documento.',
+      );
+    }
+  }
+
+  private assertNcVideoMutable(
+    nc: Pick<NonConformity, 'pdf_file_key' | 'status'>,
+  ): void {
+    this.assertNcDocumentMutable(nc);
+    if (this.normalizeStatus(nc.status) === NcStatus.ENCERRADA) {
+      throw new BadRequestException(
+        'Não conformidade encerrada não aceita novos vídeos por fluxo comum.',
       );
     }
   }
@@ -1280,6 +1293,84 @@ export class NonConformitiesService {
       });
       return response;
     }
+  }
+
+  async listVideoAttachments(id: string) {
+    const nc = await this.findOne(id);
+    return this.documentVideosService.listByDocument({
+      companyId: nc.company_id,
+      module: 'nonconformity',
+      documentId: nc.id,
+    });
+  }
+
+  async uploadVideoAttachment(
+    id: string,
+    input: {
+      buffer: Buffer;
+      originalName: string;
+      mimeType: string;
+    },
+  ) {
+    const nc = await this.findOne(id);
+    this.assertNcVideoMutable(nc);
+    const result = await this.documentVideosService.uploadForDocument({
+      companyId: nc.company_id,
+      module: 'nonconformity',
+      documentId: nc.id,
+      buffer: input.buffer,
+      originalName: input.originalName,
+      mimeType: input.mimeType,
+      uploadedById: RequestContext.getUserId() || undefined,
+    });
+    await this.logAudit(AuditAction.UPDATE, nc.id, nc, {
+      ...nc,
+      video_attachments_count: result.attachmentCount,
+    });
+    this.logNcEvent('log', 'nc_video_attachment_uploaded', {
+      entityId: nc.id,
+      attachmentId: result.attachment.id,
+      mimeType: result.attachment.mime_type,
+      storageKey: result.attachment.storage_key,
+    });
+    return result;
+  }
+
+  async getVideoAttachmentAccess(id: string, attachmentId: string) {
+    const nc = await this.findOne(id);
+    const result = await this.documentVideosService.getAccess({
+      companyId: nc.company_id,
+      module: 'nonconformity',
+      documentId: nc.id,
+      attachmentId,
+    });
+    this.logNcEvent('log', 'nc_video_attachment_accessed', {
+      entityId: nc.id,
+      attachmentId,
+      availability: result.availability,
+    });
+    return result;
+  }
+
+  async removeVideoAttachment(id: string, attachmentId: string) {
+    const nc = await this.findOne(id);
+    this.assertNcVideoMutable(nc);
+    const result = await this.documentVideosService.removeFromDocument({
+      companyId: nc.company_id,
+      module: 'nonconformity',
+      documentId: nc.id,
+      attachmentId,
+      removedById: RequestContext.getUserId() || undefined,
+    });
+    await this.logAudit(AuditAction.UPDATE, nc.id, nc, {
+      ...nc,
+      video_attachments_count: result.attachmentCount,
+    });
+    this.logNcEvent('log', 'nc_video_attachment_removed', {
+      entityId: nc.id,
+      attachmentId,
+    });
+    return result;
   }
 
   async attachPdf(

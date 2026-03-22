@@ -26,7 +26,9 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  assertUploadedVideo,
   cleanupUploadedTempFile,
+  createGovernedVideoUploadOptions,
   createTemporaryUploadOptions,
   fileUploadOptions,
   readUploadedFileBuffer,
@@ -145,6 +147,21 @@ export class NonConformitiesController {
     return this.nonConformitiesService.getAttachmentAccess(id, index);
   }
 
+  @Get(':id/videos')
+  @Authorize('can_manage_nc')
+  listVideoAttachments(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.nonConformitiesService.listVideoAttachments(id);
+  }
+
+  @Get(':id/videos/:attachmentId/access')
+  @Authorize('can_manage_nc')
+  getVideoAttachmentAccess(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+  ) {
+    return this.nonConformitiesService.getVideoAttachmentAccess(id, attachmentId);
+  }
+
   @Post(':id/file')
   @UseInterceptors(FileInterceptor('file', fileUploadOptions))
   @Authorize('can_manage_nc')
@@ -207,6 +224,39 @@ export class NonConformitiesController {
     } finally {
       await cleanupUploadedTempFile(file);
     }
+  }
+
+  @Post(':id/videos')
+  @UseInterceptors(FileInterceptor('file', createGovernedVideoUploadOptions()))
+  @Authorize('can_manage_nc')
+  async uploadVideoAttachment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const videoFile = await assertUploadedVideo(
+      file,
+      'Arquivo de vídeo não enviado',
+    );
+    const buffer = await readUploadedFileBuffer(videoFile);
+
+    try {
+      return await this.nonConformitiesService.uploadVideoAttachment(id, {
+        buffer,
+        originalName: videoFile.originalname,
+        mimeType: videoFile.mimetype,
+      });
+    } finally {
+      await cleanupUploadedTempFile(videoFile);
+    }
+  }
+
+  @Delete(':id/videos/:attachmentId')
+  @Authorize('can_manage_nc')
+  removeVideoAttachment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+  ) {
+    return this.nonConformitiesService.removeVideoAttachment(id, attachmentId);
   }
 
   @Patch(':id/status')

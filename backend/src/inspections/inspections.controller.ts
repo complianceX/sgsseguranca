@@ -32,9 +32,12 @@ import { Authorize } from '../auth/authorize.decorator';
 import type { Response } from 'express';
 import {
   assertUploadedPdf,
+  assertUploadedVideo,
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
+  createGovernedVideoUploadOptions,
   createTemporaryUploadOptions,
+  readUploadedFileBuffer,
 } from '../common/interceptors/file-upload.interceptor';
 
 @Controller('inspections')
@@ -152,6 +155,28 @@ export class InspectionsController {
     res.send(buffer);
   }
 
+  @Get(':id/videos')
+  @Authorize('can_view_inspections')
+  listVideoAttachments(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.inspectionsService.listVideoAttachments(
+      id,
+      this.getTenantIdOrThrow(),
+    );
+  }
+
+  @Get(':id/videos/:attachmentId/access')
+  @Authorize('can_view_inspections')
+  getVideoAttachmentAccess(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+  ) {
+    return this.inspectionsService.getVideoAttachmentAccess(
+      id,
+      attachmentId,
+      this.getTenantIdOrThrow(),
+    );
+  }
+
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_inspections')
@@ -200,6 +225,45 @@ export class InspectionsController {
     } finally {
       await cleanupUploadedTempFile(file);
     }
+  }
+
+  @Post(':id/videos')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_inspections')
+  @UseInterceptors(FileInterceptor('file', createGovernedVideoUploadOptions()))
+  async uploadVideoAttachment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const videoFile = await assertUploadedVideo(
+      file,
+      'Nenhum vídeo enviado.',
+    );
+    try {
+      return await this.inspectionsService.uploadVideoAttachment(
+        id,
+        await readUploadedFileBuffer(videoFile),
+        videoFile.originalname,
+        videoFile.mimetype,
+        this.getTenantIdOrThrow(),
+      );
+    } finally {
+      await cleanupUploadedTempFile(videoFile);
+    }
+  }
+
+  @Delete(':id/videos/:attachmentId')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_inspections')
+  removeVideoAttachment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+  ) {
+    return this.inspectionsService.removeVideoAttachment(
+      id,
+      attachmentId,
+      this.getTenantIdOrThrow(),
+    );
   }
 
   @Post(':id/file')

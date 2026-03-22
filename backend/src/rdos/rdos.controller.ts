@@ -38,8 +38,11 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import {
   assertUploadedPdf,
+  assertUploadedVideo,
   cleanupUploadedTempFile,
   createGovernedPdfUploadOptions,
+  createGovernedVideoUploadOptions,
+  readUploadedFileBuffer,
 } from '../common/interceptors/file-upload.interceptor';
 
 @Controller('rdos')
@@ -179,6 +182,21 @@ export class RdosController {
     return this.rdosService.getPdfAccess(id);
   }
 
+  @Get(':id/videos')
+  @Authorize('can_view_rdos')
+  listVideoAttachments(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.rdosService.listVideoAttachments(id);
+  }
+
+  @Get(':id/videos/:attachmentId/access')
+  @Authorize('can_view_rdos')
+  getVideoAttachmentAccess(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+  ) {
+    return this.rdosService.getVideoAttachmentAccess(id, attachmentId);
+  }
+
   @Patch(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_rdos')
@@ -253,6 +271,40 @@ export class RdosController {
     } finally {
       await cleanupUploadedTempFile(pdfFile);
     }
+  }
+
+  @Post(':id/videos')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_rdos')
+  @UseInterceptors(FileInterceptor('file', createGovernedVideoUploadOptions()))
+  async uploadVideoAttachment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const videoFile = await assertUploadedVideo(
+      file,
+      'Arquivo de vídeo não enviado.',
+    );
+    try {
+      return await this.rdosService.uploadVideoAttachment(
+        id,
+        await readUploadedFileBuffer(videoFile),
+        videoFile.originalname,
+        videoFile.mimetype,
+      );
+    } finally {
+      await cleanupUploadedTempFile(videoFile);
+    }
+  }
+
+  @Delete(':id/videos/:attachmentId')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_manage_rdos')
+  removeVideoAttachment(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
+  ) {
+    return this.rdosService.removeVideoAttachment(id, attachmentId);
   }
 
   @Post(':id/send-email')

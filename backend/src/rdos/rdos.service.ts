@@ -32,6 +32,7 @@ import { RdoAuditService } from './rdo-audit.service';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
+import { DocumentVideosService } from '../document-videos/document-videos.service';
 import {
   SIGNATURE_LEGAL_ASSURANCE,
   SIGNATURE_PROOF_SCOPES,
@@ -94,6 +95,7 @@ export class RdosService {
     private rdoAuditService: RdoAuditService,
     private readonly forensicTrailService: ForensicTrailService,
     private readonly signatureTimestampService: SignatureTimestampService,
+    private readonly documentVideosService: DocumentVideosService,
   ) {}
 
   private async assertCompanyScopedEntityId<
@@ -854,6 +856,71 @@ export class RdosService {
     };
   }
 
+  async listVideoAttachments(id: string) {
+    const rdo = await this.findOne(id);
+    return this.documentVideosService.listByDocument({
+      companyId: rdo.company_id,
+      module: 'rdo',
+      documentId: rdo.id,
+    });
+  }
+
+  async uploadVideoAttachment(
+    id: string,
+    buffer: Buffer,
+    originalName: string,
+    mimeType: string,
+  ) {
+    const rdo = await this.findOne(id);
+    await this.assertRdoVideoMutable(rdo);
+    const result = await this.documentVideosService.uploadForDocument({
+      companyId: rdo.company_id,
+      module: 'rdo',
+      documentId: rdo.id,
+      buffer,
+      originalName,
+      mimeType,
+      uploadedById: RequestContext.getUserId() || undefined,
+    });
+    this.logRdoEvent('rdo_video_attachment_uploaded', rdo, {
+      attachmentId: result.attachment.id,
+      mimeType: result.attachment.mime_type,
+      storageKey: result.attachment.storage_key,
+    });
+    return result;
+  }
+
+  async getVideoAttachmentAccess(id: string, attachmentId: string) {
+    const rdo = await this.findOne(id);
+    const result = await this.documentVideosService.getAccess({
+      companyId: rdo.company_id,
+      module: 'rdo',
+      documentId: rdo.id,
+      attachmentId,
+    });
+    this.logRdoEvent('rdo_video_attachment_accessed', rdo, {
+      attachmentId,
+      availability: result.availability,
+    });
+    return result;
+  }
+
+  async removeVideoAttachment(id: string, attachmentId: string) {
+    const rdo = await this.findOne(id);
+    await this.assertRdoVideoMutable(rdo);
+    const result = await this.documentVideosService.removeFromDocument({
+      companyId: rdo.company_id,
+      module: 'rdo',
+      documentId: rdo.id,
+      attachmentId,
+      removedById: RequestContext.getUserId() || undefined,
+    });
+    this.logRdoEvent('rdo_video_attachment_removed', rdo, {
+      attachmentId,
+    });
+    return result;
+  }
+
   async markPdfSaved(
     id: string,
     _body?: { filename?: string },
@@ -1240,6 +1307,18 @@ export class RdosService {
     if (registryEntry) {
       throw new BadRequestException(
         'RDO com PDF final emitido está bloqueado para edição. Gere um novo documento para alterar o conteúdo.',
+      );
+    }
+  }
+
+  private async assertRdoVideoMutable(
+    rdo: Pick<Rdo, 'id' | 'company_id' | 'status'>,
+  ): Promise<void> {
+    await this.assertRdoDocumentMutable(rdo);
+
+    if (rdo.status === 'aprovado' || rdo.status === 'cancelado') {
+      throw new BadRequestException(
+        'RDO aprovado ou cancelado não aceita novos vídeos por fluxo comum.',
       );
     }
   }

@@ -2,6 +2,11 @@ import api from "@/lib/api";
 import type { GovernedPdfAccessResponse, GovernedPdfAccessAvailability } from "@/lib/api/generated/governed-contracts.client";
 import { fetchAllPages, PaginatedResponse } from "./pagination";
 import { DocumentMailDispatchResponse } from "./mailService";
+import type {
+  GovernedDocumentVideoAccessResponse,
+  GovernedDocumentVideoAttachment,
+  GovernedDocumentVideoMutationResponse,
+} from "@/lib/videos/documentVideos";
 
 export interface MaoDeObraItem {
   funcao: string;
@@ -207,6 +212,49 @@ export const rdosService = {
 
   getPdfAccess: async (id: string): Promise<RdoPdfAccessResponse> => {
     const response = await api.get<RdoPdfAccessResponse>(`/rdos/${id}/pdf`);
+    return response.data;
+  },
+
+  listVideoAttachments: async (id: string) => {
+    const response = await api.get<GovernedDocumentVideoAttachment[]>(
+      `/rdos/${id}/videos`,
+    );
+    return response.data;
+  },
+
+  uploadVideoAttachment: async (
+    id: string,
+    file: File,
+  ): Promise<GovernedDocumentVideoMutationResponse> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post<GovernedDocumentVideoMutationResponse>(
+      `/rdos/${id}/videos`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+    return response.data;
+  },
+
+  getVideoAttachmentAccess: async (
+    id: string,
+    attachmentId: string,
+  ): Promise<GovernedDocumentVideoAccessResponse> => {
+    const response = await api.get<GovernedDocumentVideoAccessResponse>(
+      `/rdos/${id}/videos/${attachmentId}/access`,
+    );
+    return response.data;
+  },
+
+  removeVideoAttachment: async (
+    id: string,
+    attachmentId: string,
+  ): Promise<GovernedDocumentVideoMutationResponse> => {
+    const response = await api.delete<GovernedDocumentVideoMutationResponse>(
+      `/rdos/${id}/videos/${attachmentId}`,
+    );
     return response.data;
   },
 
