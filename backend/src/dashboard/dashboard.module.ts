@@ -21,6 +21,7 @@ import { Inspection } from '../inspections/entities/inspection.entity';
 import { NonConformitiesModule } from '../nonconformities/nonconformities.module';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 import { Notification } from '../notifications/entities/notification.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PtsModule } from '../pts/pts.module';
 import { Pt } from '../pts/entities/pt.entity';
 import { RdosModule } from '../rdos/rdos.module';
@@ -34,6 +35,7 @@ import { MedicalExam } from '../medical-exams/entities/medical-exam.entity';
 import { DashboardController } from './dashboard.controller';
 import { DashboardDocumentPendencyOperationsService } from './dashboard-document-pendency-operations.service';
 import { DashboardDocumentPendenciesService } from './dashboard-document-pendencies.service';
+import { DashboardOperationalNotifierService } from './dashboard-operational-notifier.service';
 import { DashboardPendingQueueService } from './dashboard-pending-queue.service';
 import { DashboardService } from './dashboard.service';
 import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
@@ -48,6 +50,7 @@ import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
     DocumentImportModule,
     InspectionsModule,
     NonConformitiesModule,
+    NotificationsModule,
     PtsModule,
     RdosModule,
     TypeOrmModule.forFeature([
@@ -81,6 +84,7 @@ import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
     DashboardPendingQueueService,
     DashboardDocumentPendencyOperationsService,
     DashboardDocumentPendenciesService,
+    DashboardOperationalNotifierService,
   ],
   exports: [DashboardService],
 })

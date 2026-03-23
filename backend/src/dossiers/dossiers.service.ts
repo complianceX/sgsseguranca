@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomUUID } from 'crypto';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import JSZip from 'jszip';
 import { In, Repository } from 'typeorm';
 import { Apr } from '../aprs/entities/apr.entity';
 import { Audit } from '../audits/entities/audit.entity';
@@ -73,6 +74,27 @@ interface DossierPendingGovernedDocumentLine {
   pendencia: string;
 }
 
+interface DossierGovernedArtifact {
+  modulo: GovernedDossierModule;
+  modulo_label: string;
+  entityId: string;
+  referencia: string;
+  codigo_documento: string | null;
+  arquivo: string;
+  disponibilidade: 'ready' | 'registered_without_signed_url';
+  emitido_em: string | null;
+  fileKey: string;
+  fileHash: string | null;
+}
+
+type DossierInclusionPolicy = {
+  officialDocuments: string;
+  pendingOfficialDocuments: string;
+  supportingAttachments: string;
+  zipBundle: string;
+  notes: string[];
+};
+
 interface EmployeeDossierPdfData {
   user: User;
   trainings: Training[];
@@ -91,6 +113,7 @@ interface EmployeeDossierBundle {
   attachmentLines: DossierAttachmentLine[];
   governedDocumentLines: DossierGovernedDocumentLine[];
   pendingGovernedDocumentLines: DossierPendingGovernedDocumentLine[];
+  governedArtifacts: DossierGovernedArtifact[];
   truncation: DossierTruncationInfo;
 }
 
@@ -111,6 +134,7 @@ interface SiteDossierBundle {
   attachmentLines: DossierAttachmentLine[];
   governedDocumentLines: DossierGovernedDocumentLine[];
   pendingGovernedDocumentLines: DossierPendingGovernedDocumentLine[];
+  governedArtifacts: DossierGovernedArtifact[];
   truncation: DossierTruncationInfo;
 }
 
@@ -154,6 +178,7 @@ type DossierDocumentInfo = {
   generatedAt: string;
   summary: DossierDocumentSummary;
   truncation: DossierTruncationInfo;
+  inclusionPolicy: DossierInclusionPolicy;
 };
 
 export type EmployeeDossierContext = DossierDocumentInfo & {
@@ -494,6 +519,38 @@ export class DossiersService {
     return { filename, buffer };
   }
 
+  async generateEmployeeBundleArchive(userId: string): Promise<{
+    filename: string;
+    buffer: Buffer;
+  }> {
+    const bundle = await this.loadEmployeeDossierBundle(userId);
+    const context = await this.getEmployeeDossierContext(userId);
+
+    return this.buildDossierBundleArchive({
+      filenameBase: `dossie_colaborador_${bundle.user.nome}`,
+      dossierCode: context.code,
+      context,
+      officialArtifacts: bundle.governedArtifacts,
+      generatedAt: context.generatedAt,
+    });
+  }
+
+  async generateSiteBundleArchive(siteId: string): Promise<{
+    filename: string;
+    buffer: Buffer;
+  }> {
+    const bundle = await this.loadSiteDossierBundle(siteId);
+    const context = await this.getSiteDossierContext(siteId);
+
+    return this.buildDossierBundleArchive({
+      filenameBase: `dossie_site_${bundle.site.nome}`,
+      dossierCode: context.code,
+      context,
+      officialArtifacts: bundle.governedArtifacts,
+      generatedAt: context.generatedAt,
+    });
+  }
+
   async getEmployeeDossierContext(
     userId: string,
   ): Promise<EmployeeDossierContext> {
@@ -537,6 +594,7 @@ export class DossiersService {
         supportingAttachments: attachmentLines.length,
       },
       truncation,
+      inclusionPolicy: this.buildInclusionPolicy(),
       subject: {
         id: user.id,
         nome: user.nome,
@@ -631,6 +689,7 @@ export class DossiersService {
         supportingAttachments: attachmentLines.length,
       },
       truncation,
+      inclusionPolicy: this.buildInclusionPolicy(),
       subject: {
         id: site.id,
         nome: site.nome,
@@ -921,6 +980,7 @@ export class DossiersService {
   ): Promise<{
     governedDocumentLines: DossierGovernedDocumentLine[];
     pendingGovernedDocumentLines: DossierPendingGovernedDocumentLine[];
+    governedArtifacts: DossierGovernedArtifact[];
   }> {
     const seen = new Set<string>();
     const uniqueCandidates = candidates.filter((candidate) => {
@@ -985,20 +1045,39 @@ export class DossiersService {
             disponibilidade: availability,
             emitido_em: this.serializeDate(registryEntry.created_at),
           },
+          artifact: {
+            modulo: candidate.modulo,
+            modulo_label: this.getGovernedModuleLabel(candidate.modulo),
+            entityId: candidate.entityId,
+            referencia: candidate.referencia,
+            codigo_documento: registryEntry.document_code || null,
+            arquivo:
+              registryEntry.original_name ||
+              candidate.fallbackFileName ||
+              registryEntry.file_key.split('/').pop() ||
+              'documento.pdf',
+            disponibilidade: availability,
+            emitido_em: this.serializeDate(registryEntry.created_at),
+            fileKey: registryEntry.file_key,
+            fileHash: registryEntry.file_hash || null,
+          },
         };
       }),
     );
 
     const governedDocumentLines = results
-      .filter(
-        (
-          result,
-        ): result is {
-          kind: 'governed';
-          value: DossierGovernedDocumentLine;
-        } => result.kind === 'governed',
+      .flatMap((result) => (result.kind === 'governed' ? [result.value] : []))
+      .sort((left, right) =>
+        `${left.modulo_label}:${left.referencia}`.localeCompare(
+          `${right.modulo_label}:${right.referencia}`,
+          'pt-BR',
+        ),
+      );
+
+    const governedArtifacts = results
+      .flatMap((result) =>
+        result.kind === 'governed' ? [result.artifact] : [],
       )
-      .map((result) => result.value)
       .sort((left, right) =>
         `${left.modulo_label}:${left.referencia}`.localeCompare(
           `${right.modulo_label}:${right.referencia}`,
@@ -1026,6 +1105,7 @@ export class DossiersService {
     return {
       governedDocumentLines,
       pendingGovernedDocumentLines,
+      governedArtifacts,
     };
   }
 
@@ -1238,23 +1318,26 @@ export class DossiersService {
       pts,
       cats,
     );
-    const { governedDocumentLines, pendingGovernedDocumentLines } =
-      await this.collectGovernedDocumentLines(companyId, [
-        ...pts.map((pt) => ({
-          modulo: 'pt' as const,
-          entityId: pt.id,
-          referencia: pt.numero,
-          statusAtual: pt.status,
-          fallbackFileName: pt.pdf_original_name || null,
-        })),
-        ...cats.map((cat) => ({
-          modulo: 'cat' as const,
-          entityId: cat.id,
-          referencia: cat.numero,
-          statusAtual: cat.status,
-          fallbackFileName: cat.pdf_original_name || null,
-        })),
-      ]);
+    const {
+      governedDocumentLines,
+      pendingGovernedDocumentLines,
+      governedArtifacts,
+    } = await this.collectGovernedDocumentLines(companyId, [
+      ...pts.map((pt) => ({
+        modulo: 'pt' as const,
+        entityId: pt.id,
+        referencia: pt.numero,
+        statusAtual: pt.status,
+        fallbackFileName: pt.pdf_original_name || null,
+      })),
+      ...cats.map((cat) => ({
+        modulo: 'cat' as const,
+        entityId: cat.id,
+        referencia: cat.numero,
+        statusAtual: cat.status,
+        fallbackFileName: cat.pdf_original_name || null,
+      })),
+    ]);
 
     return {
       user,
@@ -1265,6 +1348,7 @@ export class DossiersService {
       attachmentLines,
       governedDocumentLines,
       pendingGovernedDocumentLines,
+      governedArtifacts,
       truncation: this.buildTruncationInfo({
         trainings: trainings.length >= DOSSIER_RECORD_LIMIT,
         assignments: assignments.length >= DOSSIER_RECORD_LIMIT,
@@ -1389,72 +1473,75 @@ export class DossiersService {
       pts,
       cats,
     );
-    const { governedDocumentLines, pendingGovernedDocumentLines } =
-      await this.collectGovernedDocumentLines(companyId, [
-        ...aprs.map((apr) => ({
-          modulo: 'apr' as const,
-          entityId: apr.id,
-          referencia: apr.numero,
-          statusAtual: apr.status,
-          fallbackFileName: apr.pdf_original_name || null,
-        })),
-        ...pts.map((pt) => ({
-          modulo: 'pt' as const,
-          entityId: pt.id,
-          referencia: pt.numero,
-          statusAtual: pt.status,
-          fallbackFileName: pt.pdf_original_name || null,
-        })),
-        ...dds.map((dds) => ({
-          modulo: 'dds' as const,
-          entityId: dds.id,
-          referencia: dds.tema,
-          statusAtual: dds.status,
-          fallbackFileName: dds.pdf_original_name || null,
-        })),
-        ...rdos.map((rdo) => ({
-          modulo: 'rdo' as const,
-          entityId: rdo.id,
-          referencia: rdo.numero,
-          statusAtual: rdo.status,
-          fallbackFileName: rdo.pdf_original_name || null,
-        })),
-        ...inspections.map((inspection) => ({
-          modulo: 'inspection' as const,
-          entityId: inspection.id,
-          referencia: `${inspection.tipo_inspecao} - ${inspection.setor_area}`,
-          statusAtual: null,
-          fallbackFileName: null,
-        })),
-        ...checklists.map((checklist) => ({
-          modulo: 'checklist' as const,
-          entityId: checklist.id,
-          referencia: checklist.titulo,
-          statusAtual: checklist.status,
-          fallbackFileName: checklist.pdf_original_name || null,
-        })),
-        ...cats.map((cat) => ({
-          modulo: 'cat' as const,
-          entityId: cat.id,
-          referencia: cat.numero,
-          statusAtual: cat.status,
-          fallbackFileName: cat.pdf_original_name || null,
-        })),
-        ...audits.map((audit) => ({
-          modulo: 'audit' as const,
-          entityId: audit.id,
-          referencia: audit.titulo,
-          statusAtual: null,
-          fallbackFileName: audit.pdf_original_name || null,
-        })),
-        ...nonconformities.map((nonconformity) => ({
-          modulo: 'nonconformity' as const,
-          entityId: nonconformity.id,
-          referencia: nonconformity.codigo_nc,
-          statusAtual: nonconformity.status,
-          fallbackFileName: nonconformity.pdf_original_name || null,
-        })),
-      ]);
+    const {
+      governedDocumentLines,
+      pendingGovernedDocumentLines,
+      governedArtifacts,
+    } = await this.collectGovernedDocumentLines(companyId, [
+      ...aprs.map((apr) => ({
+        modulo: 'apr' as const,
+        entityId: apr.id,
+        referencia: apr.numero,
+        statusAtual: apr.status,
+        fallbackFileName: apr.pdf_original_name || null,
+      })),
+      ...pts.map((pt) => ({
+        modulo: 'pt' as const,
+        entityId: pt.id,
+        referencia: pt.numero,
+        statusAtual: pt.status,
+        fallbackFileName: pt.pdf_original_name || null,
+      })),
+      ...dds.map((dds) => ({
+        modulo: 'dds' as const,
+        entityId: dds.id,
+        referencia: dds.tema,
+        statusAtual: dds.status,
+        fallbackFileName: dds.pdf_original_name || null,
+      })),
+      ...rdos.map((rdo) => ({
+        modulo: 'rdo' as const,
+        entityId: rdo.id,
+        referencia: rdo.numero,
+        statusAtual: rdo.status,
+        fallbackFileName: rdo.pdf_original_name || null,
+      })),
+      ...inspections.map((inspection) => ({
+        modulo: 'inspection' as const,
+        entityId: inspection.id,
+        referencia: `${inspection.tipo_inspecao} - ${inspection.setor_area}`,
+        statusAtual: null,
+        fallbackFileName: null,
+      })),
+      ...checklists.map((checklist) => ({
+        modulo: 'checklist' as const,
+        entityId: checklist.id,
+        referencia: checklist.titulo,
+        statusAtual: checklist.status,
+        fallbackFileName: checklist.pdf_original_name || null,
+      })),
+      ...cats.map((cat) => ({
+        modulo: 'cat' as const,
+        entityId: cat.id,
+        referencia: cat.numero,
+        statusAtual: cat.status,
+        fallbackFileName: cat.pdf_original_name || null,
+      })),
+      ...audits.map((audit) => ({
+        modulo: 'audit' as const,
+        entityId: audit.id,
+        referencia: audit.titulo,
+        statusAtual: null,
+        fallbackFileName: audit.pdf_original_name || null,
+      })),
+      ...nonconformities.map((nonconformity) => ({
+        modulo: 'nonconformity' as const,
+        entityId: nonconformity.id,
+        referencia: nonconformity.codigo_nc,
+        statusAtual: nonconformity.status,
+        fallbackFileName: nonconformity.pdf_original_name || null,
+      })),
+    ]);
 
     return {
       site,
@@ -1473,6 +1560,7 @@ export class DossiersService {
       attachmentLines,
       governedDocumentLines,
       pendingGovernedDocumentLines,
+      governedArtifacts,
       truncation: this.buildTruncationInfo({
         trainings: trainings.length >= DOSSIER_RECORD_LIMIT,
         assignments: assignments.length >= DOSSIER_RECORD_LIMIT,
@@ -1481,6 +1569,125 @@ export class DossiersService {
         workers: users.length >= DOSSIER_RECORD_LIMIT,
       }),
     };
+  }
+
+  private buildInclusionPolicy(): DossierInclusionPolicy {
+    return {
+      officialDocuments:
+        'Entram automaticamente apenas documentos oficiais governados já registrados no document registry com PDF final válido.',
+      pendingOfficialDocuments:
+        'Documentos sem PDF final governado não entram como arquivo físico; aparecem somente como pendência explícita no contexto e no manifesto.',
+      supportingAttachments:
+        'Anexos complementares permanecem separados dos documentos oficiais e nunca substituem artefatos governados de fechamento.',
+      zipBundle:
+        'O ZIP do dossiê inclui manifesto, contexto serializado e somente artefatos oficiais governados disponíveis no storage.',
+      notes: [
+        'Estado degradado não é tratado como saudável.',
+        'Ausência de artefato oficial continua visível no manifesto.',
+        'A mesma storage key governada é preservada como referência do bundle.',
+      ],
+    };
+  }
+
+  private async buildDossierBundleArchive(input: {
+    filenameBase: string;
+    dossierCode: string;
+    context: EmployeeDossierContext | SiteDossierContext;
+    officialArtifacts: DossierGovernedArtifact[];
+    generatedAt: string;
+  }): Promise<{ filename: string; buffer: Buffer }> {
+    const zip = new JSZip();
+    const manifest = {
+      dossierCode: input.dossierCode,
+      kind: input.context.kind,
+      generatedAt: input.generatedAt,
+      companyId: input.context.companyId,
+      companyName: input.context.companyName,
+      summary: input.context.summary,
+      inclusionPolicy: input.context.inclusionPolicy,
+      officialDocuments: input.officialArtifacts.map((artifact) => ({
+        modulo: artifact.modulo,
+        moduloLabel: artifact.modulo_label,
+        referencia: artifact.referencia,
+        documentCode: artifact.codigo_documento,
+        fileName: artifact.arquivo,
+        availability: artifact.disponibilidade,
+        emittedAt: artifact.emitido_em,
+        fileHash: artifact.fileHash,
+        fileKey: artifact.fileKey,
+      })),
+      pendingOfficialDocuments: input.context.pendingGovernedDocumentLines,
+      supportingAttachments: input.context.attachmentLines.map(
+        (attachment) => ({
+          tipo: attachment.tipo,
+          referencia: attachment.referencia,
+          arquivo: attachment.arquivo,
+          url: attachment.url,
+        }),
+      ),
+    };
+
+    zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+    zip.file('contexto-dossie.json', JSON.stringify(input.context, null, 2));
+
+    const officialFolder = zip.folder('documentos-oficiais');
+    if (!officialFolder) {
+      throw new Error(
+        'Não foi possível inicializar a pasta de documentos oficiais do bundle.',
+      );
+    }
+
+    await Promise.all(
+      input.officialArtifacts.map(async (artifact, index) => {
+        const safeName = this.sanitizeBundleFileName(
+          artifact.arquivo || `${artifact.modulo}-${artifact.entityId}.pdf`,
+          index,
+        );
+        const buffer = await this.storageService.downloadFileBuffer(
+          artifact.fileKey,
+        );
+        officialFolder.file(safeName, buffer);
+      }),
+    );
+
+    const filename = `${this.sanitizeBundleBaseName(input.filenameBase)}__${new Date(
+      input.generatedAt,
+    )
+      .toISOString()
+      .slice(0, 10)}.zip`;
+
+    return {
+      filename,
+      buffer: await zip.generateAsync({
+        type: 'nodebuffer',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 },
+      }),
+    };
+  }
+
+  private sanitizeBundleBaseName(value: string): string {
+    return value
+      .normalize('NFKD')
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .toLowerCase()
+      .slice(0, 80);
+  }
+
+  private sanitizeBundleFileName(value: string, index: number): string {
+    const sanitized = value
+      .normalize('NFKD')
+      .replace(/[^\w.\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '_');
+
+    if (!sanitized) {
+      return `documento_${index + 1}.pdf`;
+    }
+
+    return `${String(index + 1).padStart(2, '0')}_${sanitized}`;
   }
 
   private buildEmployeeDossierCode(userId: string): string {

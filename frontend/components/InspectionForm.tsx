@@ -395,6 +395,9 @@ export function InspectionForm({ id }: InspectionFormProps) {
   const [sites, setSites] = useState<Site[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [inspectionHasFinalPdf, setInspectionHasFinalPdf] = useState(false);
+  const inspectionReadOnlyMessage = inspectionHasFinalPdf
+    ? "Este relatório já possui PDF final governado e entrou em modo somente leitura."
+    : null;
   const [cameraTargetIndex, setCameraTargetIndex] = useState<number | null>(
     null,
   );
@@ -1118,6 +1121,14 @@ export function InspectionForm({ id }: InspectionFormProps) {
           isFieldMode && "mx-auto max-w-5xl space-y-4 pb-32",
         )}
       >
+        {inspectionReadOnlyMessage ? (
+          <div className="rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[var(--ds-color-text-secondary)]">
+            <p className="font-semibold text-[var(--ds-color-text-primary)]">
+              Relatório travado para edição
+            </p>
+            <p className="mt-1">{inspectionReadOnlyMessage}</p>
+          </div>
+        ) : null}
         <FormPageLayout
           eyebrow={isFieldMode ? "Modo campo" : "Inspeção operacional"}
           title={
@@ -1216,7 +1227,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                       onInvalid,
                     )();
                   }}
-                  disabled={loading || isSubmitting}
+                  disabled={inspectionHasFinalPdf || loading || isSubmitting}
                   size={isFieldMode ? "lg" : "md"}
                   className={cn(isFieldMode && "col-span-1")}
                 >
@@ -1226,6 +1237,7 @@ export function InspectionForm({ id }: InspectionFormProps) {
                 <Button
                   type="submit"
                   loading={loading || isSubmitting}
+                  disabled={inspectionHasFinalPdf}
                   size={isFieldMode ? "lg" : "md"}
                   className={cn(isFieldMode && "col-span-1")}
                 >
@@ -1237,6 +1249,10 @@ export function InspectionForm({ id }: InspectionFormProps) {
           }
         >
 
+        <fieldset
+          disabled={inspectionHasFinalPdf}
+          className={cn("space-y-6", inspectionHasFinalPdf && "opacity-80")}
+        >
         {submitError ? (
           <div className="rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-danger)]/30 bg-[color:var(--ds-color-danger)]/10 px-4 py-3 text-sm text-[var(--ds-color-text-primary)]">
             <div className="flex items-start gap-3">
@@ -2102,6 +2118,8 @@ export function InspectionForm({ id }: InspectionFormProps) {
             />
             </div>
         </section>
+
+        </fieldset>
 
         </FormPageLayout>
       </form>

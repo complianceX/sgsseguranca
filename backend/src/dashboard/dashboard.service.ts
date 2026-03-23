@@ -23,6 +23,7 @@ import {
   DashboardDocumentPendencyOperationsService,
   DashboardDocumentPendencyResolvedActionResponse,
 } from './dashboard-document-pendency-operations.service';
+import { DashboardOperationalNotifierService } from './dashboard-operational-notifier.service';
 import { DashboardPendingQueueService } from './dashboard-pending-queue.service';
 
 type InspectionActionItem = {
@@ -83,6 +84,7 @@ export class DashboardService {
     private readonly dashboardPendingQueueService: DashboardPendingQueueService,
     private readonly dashboardDocumentPendenciesService: DashboardDocumentPendenciesService,
     private readonly dashboardDocumentPendencyOperationsService: DashboardDocumentPendencyOperationsService,
+    private readonly dashboardOperationalNotifierService: DashboardOperationalNotifierService,
   ) {}
 
   async getSummary(companyId: string) {
@@ -867,12 +869,23 @@ export class DashboardService {
     };
   }
 
-  async getPendingQueue(companyId: string) {
-    return this.dashboardPendingQueueService.getPendingQueue(companyId);
+  async getPendingQueue(input: { companyId: string; userId?: string }) {
+    const queue = await this.dashboardPendingQueueService.getPendingQueue(
+      input.companyId,
+    );
+
+    await this.dashboardOperationalNotifierService.notifyPendingQueue({
+      userId: input.userId,
+      companyId: input.companyId,
+      queue,
+    });
+
+    return queue;
   }
 
   async getDocumentPendencies(input: {
     companyId?: string;
+    userId?: string;
     isSuperAdmin?: boolean;
     permissions?: string[];
     filters?: {
@@ -888,12 +901,22 @@ export class DashboardService {
       limit?: number;
     };
   }) {
-    return this.dashboardDocumentPendenciesService.getDocumentPendencies({
-      currentCompanyId: input.companyId,
-      isSuperAdmin: input.isSuperAdmin,
-      permissions: input.permissions,
-      filters: input.filters,
+    const response =
+      await this.dashboardDocumentPendenciesService.getDocumentPendencies({
+        currentCompanyId: input.companyId,
+        isSuperAdmin: input.isSuperAdmin,
+        permissions: input.permissions,
+        filters: input.filters,
+      });
+
+    await this.dashboardOperationalNotifierService.notifyDocumentPendencies({
+      userId: input.userId,
+      companyId:
+        response.filtersApplied.companyId || input.companyId || undefined,
+      response,
     });
+
+    return response;
   }
 
   async resolveDocumentPendencyAction(input: {

@@ -87,13 +87,14 @@ export class DashboardController {
   getPendingQueue(
     @Req()
     req: {
-      user?: { company_id?: string };
+      user?: { id?: string; userId?: string; company_id?: string };
       tenant?: { companyId?: string };
     },
   ) {
-    return this.dashboardService.getPendingQueue(
-      req.tenant?.companyId || req.user?.company_id || '',
-    );
+    return this.dashboardService.getPendingQueue({
+      companyId: req.tenant?.companyId || req.user?.company_id || '',
+      userId: req.user?.userId || req.user?.id,
+    });
   }
 
   @Get('document-pendencies')
@@ -126,6 +127,7 @@ export class DashboardController {
   ) {
     return this.dashboardService.getDocumentPendencies({
       companyId: req.tenant?.companyId || req.user?.company_id || '',
+      userId: req.user?.userId || req.user?.id,
       isSuperAdmin: req.user?.profile?.nome === 'Administrador Geral',
       permissions: req.user?.permissions || [],
       filters: {

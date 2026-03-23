@@ -26,6 +26,12 @@ type AuditActionItem = {
 
 type PendingQueuePriority = 'critical' | 'high' | 'medium';
 type PendingQueueCategory = 'documents' | 'health' | 'actions';
+type PendingQueueSlaStatus =
+  | 'breached'
+  | 'due_today'
+  | 'due_soon'
+  | 'on_track'
+  | 'unscheduled';
 
 type PendingQueueItem = {
   id: string;
@@ -40,6 +46,10 @@ type PendingQueueItem = {
   siteId: string | null;
   site: string | null;
   dueDate: Date | string | null;
+  slaStatus: PendingQueueSlaStatus;
+  daysToDue: number | null;
+  overdueByDays: number | null;
+  breached: boolean;
   href: string;
 };
 
@@ -222,60 +232,72 @@ export class DashboardPendingQueueService {
       .map((chunk) => chunk.source);
 
     const sortedQueueItems: PendingQueueItem[] = [
-      ...pendingAprsChunk.data.map((item) => ({
-        id: `apr-${item.id}`,
-        sourceId: item.id,
-        module: 'APR',
-        category: 'documents' as const,
-        title: item.titulo,
-        description: `APR aguardando fechamento ou aprovação${item.site?.nome ? ` em ${item.site.nome}` : ''}.`,
-        priority: this.resolveDocumentPriority(
-          item.residual_risk,
-          item.data_inicio,
-          now,
-        ),
-        status: item.status,
-        responsible: item.elaborador?.nome || null,
-        siteId: item.site?.id || null,
-        site: item.site?.nome || null,
-        dueDate: item.data_inicio,
-        href: `/dashboard/aprs/edit/${item.id}`,
-      })),
-      ...pendingPtsChunk.data.map((item) => ({
-        id: `pt-${item.id}`,
-        sourceId: item.id,
-        module: 'PT',
-        category: 'documents' as const,
-        title: item.titulo,
-        description: `Permissão de trabalho aguardando liberação${item.site?.nome ? ` em ${item.site.nome}` : ''}.`,
-        priority: this.resolvePtPriority(
-          item.status,
-          item.residual_risk,
-          item.data_hora_fim,
-          now,
-        ),
-        status: item.status,
-        responsible: item.responsavel?.nome || null,
-        siteId: item.site?.id || null,
-        site: item.site?.nome || null,
-        dueDate: item.data_hora_fim,
-        href: `/dashboard/pts/edit/${item.id}`,
-      })),
-      ...pendingChecklistsChunk.data.map((item) => ({
-        id: `checklist-${item.id}`,
-        sourceId: item.id,
-        module: 'Checklist',
-        category: 'documents' as const,
-        title: item.titulo,
-        description: `Checklist pendente de conclusão${item.site?.nome ? ` em ${item.site.nome}` : ''}.`,
-        priority: this.resolveChecklistPriority(item.data, now),
-        status: item.status,
-        responsible: item.inspetor?.nome || null,
-        siteId: item.site?.id || null,
-        site: item.site?.nome || null,
-        dueDate: item.data,
-        href: `/dashboard/checklists/edit/${item.id}`,
-      })),
+      ...pendingAprsChunk.data.map((item) => {
+        const dueDate = item.data_inicio;
+        return {
+          id: `apr-${item.id}`,
+          sourceId: item.id,
+          module: 'APR',
+          category: 'documents' as const,
+          title: item.titulo,
+          description: `APR aguardando fechamento ou aprovação${item.site?.nome ? ` em ${item.site.nome}` : ''}.`,
+          priority: this.resolveDocumentPriority(
+            item.residual_risk,
+            dueDate,
+            now,
+          ),
+          status: item.status,
+          responsible: item.elaborador?.nome || null,
+          siteId: item.site?.id || null,
+          site: item.site?.nome || null,
+          dueDate,
+          ...this.buildSlaContext(dueDate, now),
+          href: `/dashboard/aprs/edit/${item.id}`,
+        };
+      }),
+      ...pendingPtsChunk.data.map((item) => {
+        const dueDate = item.data_hora_fim;
+        return {
+          id: `pt-${item.id}`,
+          sourceId: item.id,
+          module: 'PT',
+          category: 'documents' as const,
+          title: item.titulo,
+          description: `Permissão de trabalho aguardando liberação${item.site?.nome ? ` em ${item.site.nome}` : ''}.`,
+          priority: this.resolvePtPriority(
+            item.status,
+            item.residual_risk,
+            dueDate,
+            now,
+          ),
+          status: item.status,
+          responsible: item.responsavel?.nome || null,
+          siteId: item.site?.id || null,
+          site: item.site?.nome || null,
+          dueDate,
+          ...this.buildSlaContext(dueDate, now),
+          href: `/dashboard/pts/edit/${item.id}`,
+        };
+      }),
+      ...pendingChecklistsChunk.data.map((item) => {
+        const dueDate = item.data;
+        return {
+          id: `checklist-${item.id}`,
+          sourceId: item.id,
+          module: 'Checklist',
+          category: 'documents' as const,
+          title: item.titulo,
+          description: `Checklist pendente de conclusão${item.site?.nome ? ` em ${item.site.nome}` : ''}.`,
+          priority: this.resolveChecklistPriority(dueDate, now),
+          status: item.status,
+          responsible: item.inspetor?.nome || null,
+          siteId: item.site?.id || null,
+          site: item.site?.nome || null,
+          dueDate,
+          ...this.buildSlaContext(dueDate, now),
+          href: `/dashboard/checklists/edit/${item.id}`,
+        };
+      }),
       ...openNonConformitiesChunk.data.map((item) => {
         const dueDate =
           item.acao_definitiva_prazo ||
@@ -304,50 +326,59 @@ export class DashboardPendingQueueService {
           siteId: item.site?.id || null,
           site: item.site?.nome || null,
           dueDate,
+          ...this.buildSlaContext(dueDate, now),
           href: `/dashboard/nonconformities/edit/${item.id}`,
         };
       }),
-      ...trainingAttentionChunk.data.map((item) => ({
-        id: `training-${item.id}`,
-        sourceId: item.id,
-        module: 'Treinamento',
-        category: 'health' as const,
-        title: item.nome,
-        description: `Treinamento de ${item.user?.nome || 'colaborador'} com vencimento monitorado.`,
-        priority: this.resolveTrainingPriority(
-          item.data_vencimento,
-          item.bloqueia_operacao_quando_vencido,
-          now,
-        ),
-        status: new Date(item.data_vencimento) < now ? 'Vencido' : 'Vencendo',
-        responsible: item.user?.nome || null,
-        siteId: null,
-        site: null,
-        dueDate: item.data_vencimento,
-        href: `/dashboard/trainings/edit/${item.id}`,
-      })),
-      ...medicalExamAttentionChunk.data.map((item) => ({
-        id: `medical-${item.id}`,
-        sourceId: item.id,
-        module: 'ASO',
-        category: 'health' as const,
-        title: `${item.tipo_exame} - ${item.user?.nome || 'colaborador'}`,
-        description:
-          item.resultado === 'inapto'
-            ? 'Exame ocupacional com resultado inapto exige atuação imediata.'
-            : 'Exame ocupacional em vencimento próximo ou já vencido.',
-        priority: this.resolveMedicalExamPriority(
-          item.resultado,
-          item.data_vencimento,
-          now,
-        ),
-        status: item.resultado,
-        responsible: item.user?.nome || null,
-        siteId: null,
-        site: null,
-        dueDate: item.data_vencimento,
-        href: '/dashboard/medical-exams',
-      })),
+      ...trainingAttentionChunk.data.map((item) => {
+        const dueDate = item.data_vencimento;
+        return {
+          id: `training-${item.id}`,
+          sourceId: item.id,
+          module: 'Treinamento',
+          category: 'health' as const,
+          title: item.nome,
+          description: `Treinamento de ${item.user?.nome || 'colaborador'} com vencimento monitorado.`,
+          priority: this.resolveTrainingPriority(
+            dueDate,
+            item.bloqueia_operacao_quando_vencido,
+            now,
+          ),
+          status: new Date(dueDate) < now ? 'Vencido' : 'Vencendo',
+          responsible: item.user?.nome || null,
+          siteId: null,
+          site: null,
+          dueDate,
+          ...this.buildSlaContext(dueDate, now),
+          href: `/dashboard/trainings/edit/${item.id}`,
+        };
+      }),
+      ...medicalExamAttentionChunk.data.map((item) => {
+        const dueDate = item.data_vencimento;
+        return {
+          id: `medical-${item.id}`,
+          sourceId: item.id,
+          module: 'ASO',
+          category: 'health' as const,
+          title: `${item.tipo_exame} - ${item.user?.nome || 'colaborador'}`,
+          description:
+            item.resultado === 'inapto'
+              ? 'Exame ocupacional com resultado inapto exige atuação imediata.'
+              : 'Exame ocupacional em vencimento próximo ou já vencido.',
+          priority: this.resolveMedicalExamPriority(
+            item.resultado,
+            dueDate,
+            now,
+          ),
+          status: item.resultado,
+          responsible: item.user?.nome || null,
+          siteId: null,
+          site: null,
+          dueDate,
+          ...this.buildSlaContext(dueDate, now),
+          href: '/dashboard/medical-exams',
+        };
+      }),
       ...inspectionActionsChunk.data.flatMap((inspection) =>
         (inspection.plano_acao || [])
           .filter((action: InspectionActionItem) =>
@@ -367,6 +398,7 @@ export class DashboardPendingQueueService {
             siteId: inspection.site?.id || null,
             site: inspection.site?.nome || null,
             dueDate: action.prazo || null,
+            ...this.buildSlaContext(action.prazo || null, now),
             href: `/dashboard/inspections/edit/${inspection.id}`,
           })),
       ),
@@ -388,6 +420,7 @@ export class DashboardPendingQueueService {
             siteId: audit.site?.id || null,
             site: audit.site?.nome || null,
             dueDate: action.prazo || null,
+            ...this.buildSlaContext(action.prazo || null, now),
             href: `/dashboard/audits/edit/${audit.id}`,
           })),
       ),
@@ -416,6 +449,13 @@ export class DashboardPendingQueueService {
           .length,
         actions: sortedQueueItems.filter((item) => item.category === 'actions')
           .length,
+        slaBreached: sortedQueueItems.filter((item) => item.breached).length,
+        slaDueToday: sortedQueueItems.filter(
+          (item) => item.slaStatus === 'due_today',
+        ).length,
+        slaDueSoon: sortedQueueItems.filter(
+          (item) => item.slaStatus === 'due_soon',
+        ).length,
       },
       items: queueItems,
     };
@@ -433,6 +473,9 @@ export class DashboardPendingQueueService {
         documents: 0,
         health: 0,
         actions: 0,
+        slaBreached: 0,
+        slaDueToday: 0,
+        slaDueSoon: 0,
       },
       items: [] as PendingQueueItem[],
     };
@@ -583,6 +626,75 @@ export class DashboardPendingQueueService {
     }
 
     return 'high';
+  }
+
+  private buildSlaContext(
+    dueDate: string | Date | null | undefined,
+    now: Date,
+  ): Pick<
+    PendingQueueItem,
+    'slaStatus' | 'daysToDue' | 'overdueByDays' | 'breached'
+  > {
+    if (!dueDate) {
+      return {
+        slaStatus: 'unscheduled',
+        daysToDue: null,
+        overdueByDays: null,
+        breached: false,
+      };
+    }
+
+    const resolvedDueDate = new Date(dueDate);
+    if (Number.isNaN(resolvedDueDate.getTime())) {
+      return {
+        slaStatus: 'unscheduled',
+        daysToDue: null,
+        overdueByDays: null,
+        breached: false,
+      };
+    }
+
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    const dueDay = new Date(resolvedDueDate);
+    dueDay.setHours(0, 0, 0, 0);
+    const diffInDays = Math.round(
+      (dueDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    if (diffInDays < 0) {
+      return {
+        slaStatus: 'breached',
+        daysToDue: diffInDays,
+        overdueByDays: Math.abs(diffInDays),
+        breached: true,
+      };
+    }
+
+    if (diffInDays === 0) {
+      return {
+        slaStatus: 'due_today',
+        daysToDue: 0,
+        overdueByDays: null,
+        breached: false,
+      };
+    }
+
+    if (diffInDays <= 3) {
+      return {
+        slaStatus: 'due_soon',
+        daysToDue: diffInDays,
+        overdueByDays: null,
+        breached: false,
+      };
+    }
+
+    return {
+      slaStatus: 'on_track',
+      daysToDue: diffInDays,
+      overdueByDays: null,
+      breached: false,
+    };
   }
 
   private isPendingActionStatus(status: string | null | undefined) {

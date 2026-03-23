@@ -45,6 +45,9 @@ const EMPTY_PENDING_QUEUE: DashboardPendingQueueResponse = {
     documents: 0,
     health: 0,
     actions: 0,
+    slaBreached: 0,
+    slaDueToday: 0,
+    slaDueSoon: 0,
   },
   items: [],
 };
@@ -145,6 +148,34 @@ const PRIORITY_CONFIG = {
     label: "Médio",
   },
 };
+
+const SLA_CONFIG = {
+  breached: {
+    label: 'SLA vencido',
+    className:
+      'bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger-fg)] border border-[var(--ds-color-danger-border)]',
+  },
+  due_today: {
+    label: 'Vence hoje',
+    className:
+      'bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning-fg)] border border-[var(--ds-color-warning-border)]',
+  },
+  due_soon: {
+    label: 'Vence em breve',
+    className:
+      'bg-[var(--ds-color-info-subtle)] text-[var(--ds-color-info-fg)] border border-[var(--ds-color-info-border)]',
+  },
+  on_track: {
+    label: 'Dentro do SLA',
+    className:
+      'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success-fg)] border border-[var(--ds-color-success-border)]',
+  },
+  unscheduled: {
+    label: 'Sem SLA',
+    className:
+      'bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-muted)] border border-[var(--ds-color-border-default)]',
+  },
+} as const;
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
 
@@ -486,12 +517,6 @@ export default function DashboardPage() {
   const dateLabel = format(now, "EEEE, d 'de' MMMM", { locale: ptBR });
   const firstName = (user?.nome ?? "").split(" ")[0];
 
-  const totalPendingApprovals =
-    pendingApprovals.aprs +
-    pendingApprovals.pts +
-    pendingApprovals.checklists +
-    pendingApprovals.nonconformities;
-
   const priorityItems = useMemo(
     () =>
       pendingQueue.items
@@ -515,9 +540,6 @@ export default function DashboardPage() {
   const docHealthTotal =
     pendingQueue.summary.documents + pendingQueue.summary.health;
   const docHealthTone: KpiTone = docHealthTotal > 0 ? "warning" : "success";
-  const approvalTone: KpiTone =
-    totalPendingApprovals > 0 ? "info" : "success";
-
   return (
     <div className="space-y-6">
       {/* ── 1. Header ──────────────────────────────────────────────── */}
@@ -599,18 +621,18 @@ export default function DashboardPage() {
           trend={criticalHighTotal > 0 ? "up" : "stable"}
         />
         <KpiCard
+          label="SLA operacional"
+          value={loading ? null : pendingQueue.summary.slaBreached}
+          sublabel={`${pendingQueue.summary.slaDueToday} vencem hoje · ${pendingQueue.summary.slaDueSoon} próximos`}
+          tone={pendingQueue.summary.slaBreached > 0 ? "danger" : pendingQueue.summary.slaDueToday > 0 ? "warning" : "success"}
+          icon={Clock}
+        />
+        <KpiCard
           label="Documentos e saúde"
           value={loading ? null : docHealthTotal}
           sublabel={`${pendingQueue.summary.documents} docs · ${pendingQueue.summary.health} saúde`}
           tone={docHealthTone}
           icon={FileText}
-        />
-        <KpiCard
-          label="Aprovações pendentes"
-          value={loading ? null : totalPendingApprovals}
-          sublabel={`APR ${pendingApprovals.aprs} · PT ${pendingApprovals.pts} · NC ${pendingApprovals.nonconformities}`}
-          tone={approvalTone}
-          icon={CheckCircle2}
         />
       </div>
 
@@ -681,6 +703,14 @@ export default function DashboardPage() {
                           <span className="inline-flex items-center rounded bg-[var(--ds-color-surface-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--ds-color-text-muted)]">
                             {MODULE_LABELS[item.module] ?? item.module}
                           </span>
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                              SLA_CONFIG[item.slaStatus].className,
+                            )}
+                          >
+                            {SLA_CONFIG[item.slaStatus].label}
+                          </span>
                           {item.site && (
                             <span className="text-[10px] text-[var(--ds-color-text-muted)]">
                               {item.site}
@@ -707,6 +737,16 @@ export default function DashboardPage() {
                             {due.label}
                           </p>
                         )}
+                        {item.daysToDue != null && item.slaStatus === "on_track" ? (
+                          <p className="mt-0.5 text-[10px] text-[var(--ds-color-text-muted)]">
+                            {item.daysToDue}d para o SLA
+                          </p>
+                        ) : null}
+                        {item.overdueByDays != null ? (
+                          <p className="mt-0.5 text-[10px] font-semibold text-[var(--ds-color-danger)]">
+                            {item.overdueByDays}d fora do SLA
+                          </p>
+                        ) : null}
                         {item.responsible && (
                           <p className="mt-0.5 text-[10px] text-[var(--ds-color-text-muted)]">
                             {item.responsible}

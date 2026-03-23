@@ -7,12 +7,14 @@ import {
   ParseUUIDPipe,
   Post,
   Req,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
@@ -59,10 +61,36 @@ export class DossiersController {
     return this.dossiersService.getEmployeeDossierContext(userId);
   }
 
+  @Get('employee/:userId/bundle')
+  @Authorize('can_view_dossiers')
+  async downloadEmployeeBundle(
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { filename, buffer } =
+      await this.dossiersService.generateEmployeeBundleArchive(userId);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return new StreamableFile(buffer);
+  }
+
   @Get('site/:siteId/context')
   @Authorize('can_view_dossiers')
   getSiteContext(@Param('siteId', new ParseUUIDPipe()) siteId: string) {
     return this.dossiersService.getSiteDossierContext(siteId);
+  }
+
+  @Get('site/:siteId/bundle')
+  @Authorize('can_view_dossiers')
+  async downloadSiteBundle(
+    @Param('siteId', new ParseUUIDPipe()) siteId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { filename, buffer } =
+      await this.dossiersService.generateSiteBundleArchive(siteId);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return new StreamableFile(buffer);
   }
 
   @Get('employee/:userId/pdf/access')

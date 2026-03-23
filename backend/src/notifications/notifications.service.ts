@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThanOrEqual, Repository } from 'typeorm';
 import { Notification } from './entities/notification.entity';
 import { NotificationsGateway } from './notifications.gateway';
 
@@ -25,6 +25,38 @@ export class NotificationsService {
     this.gateway.sendToUser(data.userId, 'notification', notification);
 
     return notification;
+  }
+
+  async createDeduped(data: {
+    userId: string;
+    type: string;
+    title: string;
+    message: string;
+    data?: Record<string, unknown>;
+    dedupeWindowMinutes?: number;
+  }) {
+    const dedupeWindowMinutes = Math.max(1, data.dedupeWindowMinutes ?? 360);
+    const dedupeThreshold = new Date(
+      Date.now() - dedupeWindowMinutes * 60 * 1000,
+    );
+
+    const existing = await this.repo.findOne({
+      where: {
+        userId: data.userId,
+        type: data.type,
+        title: data.title,
+        createdAt: MoreThanOrEqual(dedupeThreshold),
+      },
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+
+    if (existing) {
+      return existing;
+    }
+
+    return this.create(data);
   }
 
   async markAsRead(id: string, userId: string) {

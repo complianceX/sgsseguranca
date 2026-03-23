@@ -54,6 +54,14 @@ interface DossierSummary {
   supportingAttachments: number;
 }
 
+interface DossierInclusionPolicy {
+  officialDocuments: string;
+  pendingOfficialDocuments: string;
+  supportingAttachments: string;
+  zipBundle: string;
+  notes: string[];
+}
+
 interface DossierTruncationDatasets {
   trainings: boolean;
   assignments: boolean;
@@ -77,6 +85,7 @@ interface DossierBaseContext {
   generatedAt: string;
   summary: DossierSummary;
   truncation: DossierTruncationInfo;
+  inclusionPolicy: DossierInclusionPolicy;
   attachmentLines: DossierAttachmentLine[];
   governedDocumentLines: DossierGovernedDocumentLine[];
   pendingGovernedDocumentLines: DossierPendingGovernedDocumentLine[];
@@ -227,6 +236,17 @@ async function openPdfUrl(url: string, fallbackFilename: string) {
   URL.revokeObjectURL(objectUrl);
 }
 
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
 export const dossiersService = {
   getEmployeeContext: async (userId: string) => {
     const response = await api.get<EmployeeDossierContext>(
@@ -350,5 +370,22 @@ export const dossiersService = {
       finalAccess.originalName || filename || `dossie_unidade_${siteId}.pdf`,
     );
     return finalAccess;
+  },
+
+  downloadEmployeeBundle: async (userId: string) => {
+    const response = await api.get<Blob>(
+      `/dossiers/employee/${userId}/bundle`,
+      {
+        responseType: 'blob',
+      },
+    );
+    triggerBlobDownload(response.data, `dossie_colaborador_${userId}.zip`);
+  },
+
+  downloadSiteBundle: async (siteId: string) => {
+    const response = await api.get<Blob>(`/dossiers/site/${siteId}/bundle`, {
+      responseType: 'blob',
+    });
+    triggerBlobDownload(response.data, `dossie_site_${siteId}.zip`);
   },
 };

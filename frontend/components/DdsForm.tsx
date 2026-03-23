@@ -193,6 +193,13 @@ export function DdsForm({ id }: DdsFormProps) {
     (user) => user.company_id === selectedCompanyId,
   );
   const selectedParticipantIds = watch("participants") || [];
+  const ddsReadOnly = Boolean(currentDds?.pdf_file_key) ||
+    currentDds?.status === "arquivado";
+  const ddsReadOnlyMessage = currentDds?.pdf_file_key
+    ? "Este DDS já possui PDF final governado e está em modo somente leitura."
+    : currentDds?.status === "arquivado"
+      ? "Este DDS está arquivado e não aceita novas alterações pelo fluxo comum."
+      : null;
   const ddsVideoLocked = Boolean(currentDds?.pdf_file_key) ||
     currentDds?.status === "arquivado" ||
     Boolean(currentDds?.is_modelo);
@@ -781,6 +788,18 @@ export function DdsForm({ id }: DdsFormProps) {
             {submitError}
           </div>
         )}
+        {ddsReadOnlyMessage ? (
+          <div className="rounded-xl border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[var(--ds-color-text-secondary)]">
+            <p className="font-semibold text-[var(--ds-color-text-primary)]">
+              Documento travado para edição
+            </p>
+            <p className="mt-1">{ddsReadOnlyMessage}</p>
+          </div>
+        ) : null}
+        <fieldset
+          disabled={ddsReadOnly}
+          className={`space-y-8 ${ddsReadOnly ? "opacity-80" : ""}`}
+        >
         <div className="sst-card p-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
@@ -790,7 +809,7 @@ export function DdsForm({ id }: DdsFormProps) {
               <button
                 type="button"
                 onClick={handleAiSuggestion}
-                disabled={suggesting}
+                disabled={suggesting || ddsReadOnly}
                 className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-bold text-white shadow-md transition-all hover:brightness-110 disabled:opacity-50"
               >
                 {suggesting ? (
@@ -1045,6 +1064,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 accept="image/*"
                 aria-label="Selecionar fotos da equipe para o DDS"
                 multiple
+                disabled={ddsReadOnly}
                 className="hidden"
                 onChange={handleTeamPhotoChange}
               />
@@ -1145,13 +1165,14 @@ export function DdsForm({ id }: DdsFormProps) {
           </button>
           <button
             type="submit"
-            disabled={loading || isSubmitting || !isValid}
+            disabled={ddsReadOnly || loading || isSubmitting || !isValid}
             className="flex items-center space-x-2 rounded-lg bg-[var(--ds-color-action-primary)] px-6 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             <span>{loading ? "Salvando..." : "Salvar DDS"}</span>
           </button>
         </div>
+        </fieldset>
       </form>
 
       {isSignatureModalOpen && currentSigningUser && (

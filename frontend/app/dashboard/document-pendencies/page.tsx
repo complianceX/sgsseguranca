@@ -1,8 +1,14 @@
-'use client';
+"use client";
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowUpRight,
   FileWarning,
@@ -11,30 +17,30 @@ import {
   RotateCcw,
   ShieldAlert,
   TriangleAlert,
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { toast } from 'sonner';
-import { useAuth } from '@/context/AuthContext';
-import { selectedTenantStore } from '@/lib/selectedTenantStore';
-import { companiesService, type Company } from '@/services/companiesService';
-import { sitesService, type Site } from '@/services/sitesService';
+} from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
+import { useAuth } from "@/context/AuthContext";
+import { selectedTenantStore } from "@/lib/selectedTenantStore";
+import { companiesService, type Company } from "@/services/companiesService";
+import { sitesService, type Site } from "@/services/sitesService";
 import {
   dashboardService,
   type DashboardDocumentPendencyAllowedAction,
   type DashboardDocumentPendenciesResponse,
   type DashboardDocumentPendencyItem,
   type DocumentPendencyCriticality,
-} from '@/services/dashboardService';
-import { ListPageLayout } from '@/components/layout';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+} from "@/services/dashboardService";
+import { ListPageLayout } from "@/components/layout";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   EmptyState,
   ErrorState,
   InlineLoadingState,
   PageLoadingState,
-} from '@/components/ui/state';
+} from "@/components/ui/state";
 import {
   Table,
   TableBody,
@@ -42,84 +48,86 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { PaginationControls } from '@/components/PaginationControls';
-import { cn } from '@/lib/utils';
+} from "@/components/ui/table";
+import { PaginationControls } from "@/components/PaginationControls";
+import { cn } from "@/lib/utils";
 
 const inputClassName =
-  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
+  "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
 
 const criticalityOptions: Array<{
   value: DocumentPendencyCriticality;
   label: string;
 }> = [
-  { value: 'critical', label: 'Crítico' },
-  { value: 'high', label: 'Alto' },
-  { value: 'medium', label: 'Médio' },
-  { value: 'low', label: 'Baixo' },
+  { value: "critical", label: "Crítico" },
+  { value: "high", label: "Alto" },
+  { value: "medium", label: "Médio" },
+  { value: "low", label: "Baixo" },
 ];
 
 const moduleOptions = [
-  { value: 'apr', label: 'APR' },
-  { value: 'pt', label: 'PT' },
-  { value: 'dds', label: 'DDS' },
-  { value: 'checklist', label: 'Checklist' },
-  { value: 'inspection', label: 'Inspeção' },
-  { value: 'rdo', label: 'RDO' },
-  { value: 'cat', label: 'CAT' },
-  { value: 'audit', label: 'Auditoria' },
-  { value: 'nonconformity', label: 'Não conformidade' },
-  { value: 'document-import', label: 'Importação documental' },
+  { value: "apr", label: "APR" },
+  { value: "pt", label: "PT" },
+  { value: "dds", label: "DDS" },
+  { value: "checklist", label: "Checklist" },
+  { value: "inspection", label: "Inspeção" },
+  { value: "rdo", label: "RDO" },
+  { value: "cat", label: "CAT" },
+  { value: "audit", label: "Auditoria" },
+  { value: "nonconformity", label: "Não conformidade" },
+  { value: "document-import", label: "Importação documental" },
 ];
 
 function getCriticalityBadgeVariant(criticality: DocumentPendencyCriticality) {
   switch (criticality) {
-    case 'critical':
-      return 'danger' as const;
-    case 'high':
-      return 'warning' as const;
-    case 'medium':
-      return 'info' as const;
+    case "critical":
+      return "danger" as const;
+    case "high":
+      return "warning" as const;
+    case "medium":
+      return "info" as const;
     default:
-      return 'neutral' as const;
+      return "neutral" as const;
   }
 }
 
-function getTypeBadgeVariant(type: DashboardDocumentPendencyItem['type']) {
+function getTypeBadgeVariant(type: DashboardDocumentPendencyItem["type"]) {
   switch (type) {
-    case 'missing_final_pdf':
-    case 'failed_import':
-      return 'danger' as const;
-    case 'missing_required_signature':
-    case 'unavailable_governed_video':
-      return 'warning' as const;
-    case 'degraded_document_availability':
-    case 'unavailable_governed_attachment':
-      return 'info' as const;
+    case "missing_final_pdf":
+    case "failed_import":
+      return "danger" as const;
+    case "missing_required_signature":
+    case "unavailable_governed_video":
+      return "warning" as const;
+    case "degraded_document_availability":
+    case "unavailable_governed_attachment":
+      return "info" as const;
     default:
-      return 'neutral' as const;
+      return "neutral" as const;
   }
 }
 
-function getActionButtonVariant(action: DashboardDocumentPendencyAllowedAction) {
-  if (action.key === 'retry_import') {
-    return 'secondary' as const;
+function getActionButtonVariant(
+  action: DashboardDocumentPendencyAllowedAction,
+) {
+  if (action.key === "retry_import") {
+    return "secondary" as const;
   }
 
   if (
-    action.key === 'open_final_pdf' ||
-    action.key === 'open_governed_video' ||
-    action.key === 'open_governed_attachment'
+    action.key === "open_final_pdf" ||
+    action.key === "open_governed_video" ||
+    action.key === "open_governed_attachment"
   ) {
-    return 'outline' as const;
+    return "outline" as const;
   }
 
-  return 'ghost' as const;
+  return "ghost" as const;
 }
 
 function formatRelevantDate(value: string | null) {
   if (!value) {
-    return 'Sem data operacional';
+    return "Sem data operacional";
   }
 
   try {
@@ -127,7 +135,7 @@ function formatRelevantDate(value: string | null) {
       locale: ptBR,
     });
   } catch {
-    return 'Data inválida';
+    return "Data inválida";
   }
 }
 
@@ -143,16 +151,16 @@ export default function DocumentPendenciesPage() {
   const [loadingCompanies, setLoadingCompanies] = useState(false);
   const [loadingSites, setLoadingSites] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [companySearch, setCompanySearch] = useState('');
+  const [companySearch, setCompanySearch] = useState("");
   const [companyId, setCompanyId] = useState(
-    () => selectedTenantStore.get()?.companyId || '',
+    () => selectedTenantStore.get()?.companyId || "",
   );
-  const [siteId, setSiteId] = useState('');
-  const [module, setModule] = useState('');
-  const [status, setStatus] = useState('');
-  const [criticality, setCriticality] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [siteId, setSiteId] = useState("");
+  const [module, setModule] = useState("");
+  const [status, setStatus] = useState("");
+  const [criticality, setCriticality] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [runningActionId, setRunningActionId] = useState<string | null>(null);
   const deferredCompanySearch = useDeferredValue(companySearch);
@@ -172,8 +180,11 @@ export default function DocumentPendenciesPage() {
       });
       setCompanies(response.data);
     } catch (loadError) {
-      console.error('Erro ao carregar empresas da central documental:', loadError);
-      toast.error('Erro ao carregar empresas disponíveis.');
+      console.error(
+        "Erro ao carregar empresas da central documental:",
+        loadError,
+      );
+      toast.error("Erro ao carregar empresas disponíveis.");
     } finally {
       setLoadingCompanies(false);
     }
@@ -182,7 +193,7 @@ export default function DocumentPendenciesPage() {
   const loadSites = useCallback(async () => {
     if (!companyId) {
       setSites([]);
-      setSiteId('');
+      setSiteId("");
       return;
     }
 
@@ -191,8 +202,11 @@ export default function DocumentPendenciesPage() {
       const nextSites = await sitesService.findAll(companyId);
       setSites(nextSites);
     } catch (loadError) {
-      console.error('Erro ao carregar obras/setores da central documental:', loadError);
-      toast.error('Erro ao carregar obras e setores.');
+      console.error(
+        "Erro ao carregar obras/setores da central documental:",
+        loadError,
+      );
+      toast.error("Erro ao carregar obras e setores.");
     } finally {
       setLoadingSites(false);
     }
@@ -217,9 +231,12 @@ export default function DocumentPendenciesPage() {
       });
       setData(response);
     } catch (loadError) {
-      console.error('Erro ao carregar central de pendências documentais:', loadError);
+      console.error(
+        "Erro ao carregar central de pendências documentais:",
+        loadError,
+      );
       setError(
-        'Não foi possível carregar a central de pendências documentais.',
+        "Não foi possível carregar a central de pendências documentais.",
       );
     } finally {
       setLoading(false);
@@ -253,27 +270,27 @@ export default function DocumentPendenciesPage() {
   const metrics = useMemo(() => {
     return [
       {
-        label: 'Pendências totais',
+        label: "Pendências totais",
         value: data?.summary.total ?? 0,
-        note: 'Pendências operacionais no recorte aplicado.',
+        note: "Pendências operacionais no recorte aplicado.",
       },
       {
-        label: 'Críticas',
+        label: "Críticas",
         value: data?.summary.byCriticality.critical ?? 0,
-        note: 'Impactam fechamento oficial ou conformidade imediata.',
-        tone: 'danger' as const,
+        note: "Impactam fechamento oficial ou conformidade imediata.",
+        tone: "danger" as const,
       },
       {
-        label: 'Altas',
+        label: "Altas",
         value: data?.summary.byCriticality.high ?? 0,
-        note: 'Exigem ação prioritária da operação.',
-        tone: 'warning' as const,
+        note: "Exigem ação prioritária da operação.",
+        tone: "warning" as const,
       },
       {
-        label: 'Médias',
+        label: "Médias",
         value: data?.summary.byCriticality.medium ?? 0,
-        note: 'Precisam de acompanhamento antes do fechamento.',
-        tone: 'primary' as const,
+        note: "Precisam de acompanhamento antes do fechamento.",
+        tone: "primary" as const,
       },
     ];
   }, [data]);
@@ -296,26 +313,26 @@ export default function DocumentPendenciesPage() {
   const activeCompanyName = useMemo(() => {
     if (!companyId) {
       return isAdminGeral
-        ? 'Todas as empresas autorizadas'
-        : selectedTenantStore.get()?.companyName || 'Empresa atual';
+        ? "Todas as empresas autorizadas"
+        : selectedTenantStore.get()?.companyName || "Empresa atual";
     }
     return (
       companies.find((item) => item.id === companyId)?.razao_social ||
       selectedTenantStore.get()?.companyName ||
-      'Empresa filtrada'
+      "Empresa filtrada"
     );
   }, [companies, companyId, isAdminGeral]);
 
   const handleClearFilters = () => {
-    setSiteId('');
-    setModule('');
-    setStatus('');
-    setCriticality('');
-    setDateFrom('');
-    setDateTo('');
+    setSiteId("");
+    setModule("");
+    setStatus("");
+    setCriticality("");
+    setDateFrom("");
+    setDateTo("");
     setPage(1);
     if (isAdminGeral) {
-      setCompanyId(selectedTenantStore.get()?.companyId || '');
+      setCompanyId(selectedTenantStore.get()?.companyId || "");
     }
   };
 
@@ -325,7 +342,7 @@ export default function DocumentPendenciesPage() {
       action: DashboardDocumentPendencyAllowedAction,
     ) => {
       if (!action.enabled) {
-        toast.error(action.reason || 'Ação indisponível para esta pendência.');
+        toast.error(action.reason || "Ação indisponível para esta pendência.");
         return;
       }
 
@@ -333,9 +350,9 @@ export default function DocumentPendenciesPage() {
       setRunningActionId(actionRunId);
 
       try {
-        if (action.kind === 'route' && action.href) {
-          if (action.key === 'open_public_validation') {
-            window.open(action.href, '_blank', 'noopener,noreferrer');
+        if (action.kind === "route" && action.href) {
+          if (action.key === "open_public_validation") {
+            window.open(action.href, "_blank", "noopener,noreferrer");
             return;
           }
 
@@ -343,9 +360,9 @@ export default function DocumentPendenciesPage() {
           return;
         }
 
-        if (action.key === 'retry_import') {
+        if (action.key === "retry_import") {
           if (!item.documentId) {
-            throw new Error('Importação sem identificador válido para retry.');
+            throw new Error("Importação sem identificador válido para retry.");
           }
 
           const response = await dashboardService.retryDocumentPendencyImport(
@@ -353,60 +370,65 @@ export default function DocumentPendenciesPage() {
           );
           toast.success(
             response?.message ||
-              'Importação reenfileirada com sucesso para nova tentativa.',
+              "Importação reenfileirada com sucesso para nova tentativa.",
           );
           await loadPendencies();
           return;
         }
 
         if (
-          action.key === 'open_final_pdf' ||
-          action.key === 'open_governed_video' ||
-          action.key === 'open_governed_attachment'
+          action.key === "open_final_pdf" ||
+          action.key === "open_governed_video" ||
+          action.key === "open_governed_attachment"
         ) {
           if (!item.documentId) {
             throw new Error(
-              'Documento sem identificador válido para resolver o artefato oficial.',
+              "Documento sem identificador válido para resolver o artefato oficial.",
             );
           }
 
-          const resolved = await dashboardService.resolveDocumentPendencyAction({
-            actionKey: action.key,
-            module: item.module,
-            documentId: item.documentId,
-            attachmentId:
-              typeof item.metadata.attachmentId === 'string'
-                ? item.metadata.attachmentId
-                : undefined,
-            attachmentIndex:
-              typeof item.metadata.attachmentIndex === 'number'
-                ? item.metadata.attachmentIndex
-                : undefined,
-          });
+          const resolved = await dashboardService.resolveDocumentPendencyAction(
+            {
+              actionKey: action.key,
+              module: item.module,
+              documentId: item.documentId,
+              attachmentId:
+                typeof item.metadata.attachmentId === "string"
+                  ? item.metadata.attachmentId
+                  : undefined,
+              attachmentIndex:
+                typeof item.metadata.attachmentIndex === "number"
+                  ? item.metadata.attachmentIndex
+                  : undefined,
+            },
+          );
 
           if (!resolved.url) {
             toast.error(
               resolved.message ||
-                'O artefato oficial ainda não está disponível para abertura segura.',
+                "O artefato oficial ainda não está disponível para abertura segura.",
             );
             await loadPendencies();
             return;
           }
 
-          window.open(resolved.url, '_blank', 'noopener,noreferrer');
+          window.open(resolved.url, "_blank", "noopener,noreferrer");
           if (resolved.message) {
             toast.success(resolved.message);
           }
           return;
         }
 
-        toast.error('Ação operacional ainda não suportada pela central.');
+        toast.error("Ação operacional ainda não suportada pela central.");
       } catch (actionError) {
-        console.error('Erro ao executar ação operacional da pendência:', actionError);
+        console.error(
+          "Erro ao executar ação operacional da pendência:",
+          actionError,
+        );
         const message =
           actionError instanceof Error
             ? actionError.message
-            : 'Não foi possível concluir a ação operacional.';
+            : "Não foi possível concluir a ação operacional.";
         toast.error(message);
       } finally {
         setRunningActionId((current) =>
@@ -489,7 +511,7 @@ export default function DocumentPendenciesPage() {
                   value={companyId}
                   onChange={(event) => {
                     setCompanyId(event.target.value);
-                    setSiteId('');
+                    setSiteId("");
                     setPage(1);
                   }}
                   className={inputClassName}
@@ -623,8 +645,8 @@ export default function DocumentPendenciesPage() {
       <div className="space-y-4">
         {data?.degraded ? (
           <div className="alert-warning rounded-[var(--ds-radius-lg)] px-4 py-3 text-sm">
-            A central foi carregada com ressalvas. Fontes parcialmente indisponíveis:{' '}
-            {data.failedSources.join(', ')}.
+            A central foi carregada com ressalvas. Fontes parcialmente
+            indisponíveis: {data.failedSources.join(", ")}.
           </div>
         ) : null}
 
@@ -683,131 +705,163 @@ export default function DocumentPendenciesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(data?.items || []).map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="align-top">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={getTypeBadgeVariant(item.type)}>
-                          {item.typeLabel}
-                        </Badge>
-                        {item.documentCode ? (
-                          <Badge variant="neutral">{item.documentCode}</Badge>
-                        ) : null}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-[var(--ds-color-text-primary)]">
-                          {item.title || 'Documento sem título operacional'}
-                        </p>
-                        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                          {item.message}
-                        </p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="align-top">
-                    <div className="space-y-2">
-                      <Badge variant="info">{item.moduleLabel}</Badge>
-                      <div className="text-xs text-[var(--ds-color-text-muted)]">
-                        <p>Disponibilidade: {item.availabilityStatus || 'n/a'}</p>
-                        <p>Assinatura: {item.signatureStatus || 'n/a'}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="align-top">
-                    <div className="space-y-1">
-                      <p className="font-medium text-[var(--ds-color-text-primary)]">
-                        {item.companyName || item.companyId}
-                      </p>
-                      <p className="text-sm text-[var(--ds-color-text-secondary)]">
-                        {item.siteName || 'Sem site vinculado'}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="align-top">
-                    <div className="space-y-1 text-sm">
-                      <p className="font-medium text-[var(--ds-color-text-primary)]">
-                        {item.status || 'Sem status'}
-                      </p>
-                      <p className="text-[var(--ds-color-text-secondary)]">
-                        {item.documentStatus || 'Sem status documental'}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="align-top">
-                    <Badge variant={getCriticalityBadgeVariant(item.criticality)}>
-                      {criticalityOptions.find((option) => option.value === item.criticality)?.label ||
-                        item.criticality}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="align-top">
-                    <div className="flex items-start gap-2 text-sm text-[var(--ds-color-text-secondary)]">
-                      <TriangleAlert className="mt-0.5 h-4 w-4 text-[var(--ds-color-warning)]" />
-                      <span>{formatRelevantDate(item.relevantDate)}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="align-top text-right">
-                    {item.allowedActions.length > 0 ? (
-                      <div className="flex flex-wrap justify-end gap-2">
-                        {item.allowedActions.map((action) => {
-                          const key = `${item.id}:${action.key}`;
-                          const isRunning = runningActionId === key;
+              {(data?.items || []).map((item) => {
+                const rowActions = [...item.allowedActions];
+                const hasPublicValidationAction = rowActions.some(
+                  (action) => action.key === "open_public_validation",
+                );
 
-                          if (action.kind === 'route' && action.href && action.enabled) {
-                            const openInNewTab =
-                              action.key === 'open_public_validation';
+                if (item.publicValidationUrl && !hasPublicValidationAction) {
+                  rowActions.push({
+                    key: "open_public_validation",
+                    label: "Validar documento",
+                    kind: "route",
+                    enabled: true,
+                    href: item.publicValidationUrl,
+                  });
+                }
+
+                return (
+                  <TableRow key={item.id}>
+                    <TableCell className="align-top">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={getTypeBadgeVariant(item.type)}>
+                            {item.typeLabel}
+                          </Badge>
+                          {item.documentCode ? (
+                            <Badge variant="neutral">{item.documentCode}</Badge>
+                          ) : null}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-[var(--ds-color-text-primary)]">
+                            {item.title || "Documento sem título operacional"}
+                          </p>
+                          <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                            {item.message}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <div className="space-y-2">
+                        <Badge variant="info">{item.moduleLabel}</Badge>
+                        <div className="text-xs text-[var(--ds-color-text-muted)]">
+                          <p>
+                            Disponibilidade: {item.availabilityStatus || "n/a"}
+                          </p>
+                          <p>Assinatura: {item.signatureStatus || "n/a"}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <div className="space-y-1">
+                        <p className="font-medium text-[var(--ds-color-text-primary)]">
+                          {item.companyName || item.companyId}
+                        </p>
+                        <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                          {item.siteName || "Sem site vinculado"}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <div className="space-y-1 text-sm">
+                        <p className="font-medium text-[var(--ds-color-text-primary)]">
+                          {item.status || "Sem status"}
+                        </p>
+                        <p className="text-[var(--ds-color-text-secondary)]">
+                          {item.documentStatus || "Sem status documental"}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <Badge
+                        variant={getCriticalityBadgeVariant(item.criticality)}
+                      >
+                        {criticalityOptions.find(
+                          (option) => option.value === item.criticality,
+                        )?.label || item.criticality}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <div className="flex items-start gap-2 text-sm text-[var(--ds-color-text-secondary)]">
+                        <TriangleAlert className="mt-0.5 h-4 w-4 text-[var(--ds-color-warning)]" />
+                        <span>{formatRelevantDate(item.relevantDate)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="align-top text-right">
+                      {rowActions.length > 0 ? (
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {rowActions.map((action) => {
+                            const key = `${item.id}:${action.key}`;
+                            const isRunning = runningActionId === key;
+
+                            if (
+                              action.kind === "route" &&
+                              action.href &&
+                              action.enabled
+                            ) {
+                              const openInNewTab =
+                                action.key === "open_public_validation";
+
+                              return (
+                                <Link
+                                  key={key}
+                                  href={action.href}
+                                  target={openInNewTab ? "_blank" : undefined}
+                                  rel={
+                                    openInNewTab
+                                      ? "noopener noreferrer"
+                                      : undefined
+                                  }
+                                  className={cn(
+                                    buttonVariants({
+                                      variant: getActionButtonVariant(action),
+                                      size: "sm",
+                                    }),
+                                    "inline-flex items-center gap-2 whitespace-nowrap",
+                                  )}
+                                >
+                                  <span>{action.label}</span>
+                                  <ArrowUpRight className="h-4 w-4" />
+                                </Link>
+                              );
+                            }
 
                             return (
-                              <Link
+                              <Button
                                 key={key}
-                                href={action.href}
-                                target={openInNewTab ? '_blank' : undefined}
-                                rel={openInNewTab ? 'noopener noreferrer' : undefined}
-                                className={cn(
-                                  buttonVariants({
-                                    variant: getActionButtonVariant(action),
-                                    size: 'sm',
-                                  }),
-                                  'inline-flex items-center gap-2 whitespace-nowrap',
-                                )}
+                                type="button"
+                                size="sm"
+                                variant={getActionButtonVariant(action)}
+                                loading={isRunning}
+                                disabled={!action.enabled || isRunning}
+                                title={action.reason || undefined}
+                                leftIcon={
+                                  action.key === "retry_import" ? (
+                                    <RotateCcw className="h-4 w-4" />
+                                  ) : (
+                                    <ArrowUpRight className="h-4 w-4" />
+                                  )
+                                }
+                                onClick={() =>
+                                  void handleOperationalAction(item, action)
+                                }
                               >
-                                <span>{action.label}</span>
-                                <ArrowUpRight className="h-4 w-4" />
-                              </Link>
+                                {action.label}
+                              </Button>
                             );
-                          }
-
-                          return (
-                            <Button
-                              key={key}
-                              type="button"
-                              size="sm"
-                              variant={getActionButtonVariant(action)}
-                              loading={isRunning}
-                              disabled={!action.enabled || isRunning}
-                              title={action.reason || undefined}
-                              leftIcon={
-                                action.key === 'retry_import' ? (
-                                  <RotateCcw className="h-4 w-4" />
-                                ) : (
-                                  <ArrowUpRight className="h-4 w-4" />
-                                )
-                              }
-                              onClick={() => void handleOperationalAction(item, action)}
-                            >
-                              {action.label}
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <span className="text-sm text-[var(--ds-color-text-muted)]">
-                        Sem ação direta
-                      </span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                          })}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-[var(--ds-color-text-muted)]">
+                          Sem ação direta
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}

@@ -179,6 +179,9 @@ export interface DashboardPendingQueueResponse {
     documents: number;
     health: number;
     actions: number;
+    slaBreached: number;
+    slaDueToday: number;
+    slaDueSoon: number;
   };
   items: Array<{
     id: string;
@@ -193,6 +196,15 @@ export interface DashboardPendingQueueResponse {
     siteId: string | null;
     site: string | null;
     dueDate: string | null;
+    slaStatus:
+      | "breached"
+      | "due_today"
+      | "due_soon"
+      | "on_track"
+      | "unscheduled";
+    daysToDue: number | null;
+    overdueByDays: number | null;
+    breached: boolean;
     href: string;
   }>;
 }
@@ -351,6 +363,9 @@ export const dashboardService = {
             documents: 0,
             health: 0,
             actions: 0,
+            slaBreached: 0,
+            slaDueToday: 0,
+            slaDueSoon: 0,
           },
           items: [],
         } satisfies DashboardPendingQueueResponse;

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   isPtOfflineSignatureBlockedError,
   PtPreApprovalHistoryEntry,
+  Pt,
   ptsService,
 } from '@/services/ptsService';
 import { aprsService, Apr } from '@/services/aprsService';
@@ -349,6 +350,7 @@ export function PtForm({ id }: PtFormProps) {
   const [persistedSignatures, setPersistedSignatures] = useState<
     Record<string, { id?: string; data: string; type: string }>
   >({});
+  const [currentPt, setCurrentPt] = useState<Pt | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [draftRestored, setDraftRestored] = useState(false);
   const [sophieSuggestedRisks, setSophieSuggestedRisks] = useState<SophieDraftRiskSuggestion[]>([]);
@@ -459,6 +461,14 @@ export function PtForm({ id }: PtFormProps) {
   const selectedSite = filteredSites.find((site) => site.id === selectedSiteId);
   const selectedResponsavel = filteredUsers.find((responsavel) => responsavel.id === selectedResponsavelId);
   const selectedApr = filteredAprs.find((apr) => apr.id === selectedAprId);
+  const isPtReadOnly =
+    Boolean(currentPt?.pdf_file_key) ||
+    (Boolean(id) && currentPt?.status !== 'Pendente');
+  const ptReadOnlyMessage = currentPt?.pdf_file_key
+    ? 'Esta PT já possui PDF final governado e entrou em modo somente leitura.'
+    : currentPt?.status && currentPt.status !== 'Pendente'
+      ? `A PT está com status ${currentPt.status} e não aceita mais alterações por fluxo comum.`
+      : null;
   const canManageMail = hasPermission('can_manage_mail');
   const rapidRiskChecklist =
     watch('analise_risco_rapida_checklist') ?? initialChecklists.analise_risco_rapida_checklist;
@@ -1115,6 +1125,7 @@ export function PtForm({ id }: PtFormProps) {
             ptsService.getPreApprovalHistory(id).catch(() => []),
           ]);
           setPreApprovalHistory(history);
+          setCurrentPt(pt);
 
           // Pre-populate signatures state from backend
           const sigMap: Record<string, { data: string; type: string }> = {};
@@ -1190,6 +1201,7 @@ export function PtForm({ id }: PtFormProps) {
           setSophieMandatoryChecklists([]);
           setSophieRiskLevel('');
         } else if (draftStorageKey && typeof window !== 'undefined') {
+          setCurrentPt(null);
           setPreApprovalHistory([]);
           setPersistedSignatures({});
           const rawDraft =
@@ -1662,6 +1674,16 @@ export function PtForm({ id }: PtFormProps) {
           })}
           className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]"
         >
+          {ptReadOnlyMessage ? (
+            <div className="xl:col-span-2 rounded-[var(--ds-radius-xl)] border border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning-subtle)] px-5 py-4 text-sm text-[var(--ds-color-text-secondary)]">
+              <p className="font-semibold text-[var(--ds-color-text-primary)]">
+                Documento travado para edição
+              </p>
+              <p className="mt-1">
+                {ptReadOnlyMessage} Use o PDF final, a validação pública ou uma nova versão quando aplicável.
+              </p>
+            </div>
+          ) : null}
           <aside className="space-y-3 xl:sticky xl:top-28 xl:self-start">
             <div className="ds-form-section overflow-hidden p-0">
               <div className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/16 px-5 py-4">
@@ -1802,7 +1824,10 @@ export function PtForm({ id }: PtFormProps) {
             ) : null}
           </aside>
 
-          <div className="space-y-6">
+          <fieldset
+            disabled={isPtReadOnly}
+            className={cn('space-y-6', isPtReadOnly && 'opacity-80')}
+          >
             <div className="ds-form-section">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -2125,6 +2150,7 @@ export function PtForm({ id }: PtFormProps) {
                     variant="outline"
                     leftIcon={<Save className="h-4 w-4" />}
                     onClick={saveDraftSnapshot}
+                    disabled={isPtReadOnly}
                     className={cn(isFieldMode && "min-h-12")}
                   >
                     Salvar rascunho
@@ -2136,6 +2162,7 @@ export function PtForm({ id }: PtFormProps) {
                     variant="outline"
                     leftIcon={<Mail className="h-4 w-4" />}
                     onClick={handleSendEmail}
+                    disabled={isPtReadOnly && !currentPt?.pdf_file_key}
                     className={cn(isFieldMode && "min-h-12")}
                   >
                     Enviar por e-mail
@@ -2147,6 +2174,7 @@ export function PtForm({ id }: PtFormProps) {
                     type="button"
                     rightIcon={<ArrowRight className="h-4 w-4" />}
                     onClick={nextStep}
+                    disabled={isPtReadOnly}
                     className={cn(isFieldMode && "min-h-12")}
                   >
                     Próximo
@@ -2155,6 +2183,7 @@ export function PtForm({ id }: PtFormProps) {
                   <Button
                     type="submit"
                     loading={loading}
+                    disabled={isPtReadOnly}
                     leftIcon={!loading ? <Save className="h-4 w-4" /> : undefined}
                     className={cn(isFieldMode && "min-h-12")}
                   >
@@ -2163,7 +2192,7 @@ export function PtForm({ id }: PtFormProps) {
                 )}
               </div>
             </div>
-          </div>
+          </fieldset>
         </form>
       </FormProvider>
 

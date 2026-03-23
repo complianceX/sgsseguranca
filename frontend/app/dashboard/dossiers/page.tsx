@@ -2,11 +2,15 @@
 
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { dossiersService } from '@/services/dossiersService';
+import {
+  dossiersService,
+  type EmployeeDossierContext,
+  type SiteDossierContext,
+} from '@/services/dossiersService';
 import { sitesService, Site } from '@/services/sitesService';
 import { usersService, User } from '@/services/usersService';
 import { useAuth } from '@/context/AuthContext';
-import { FileDown } from 'lucide-react';
+import { Archive, FileDown, ShieldCheck, TriangleAlert } from 'lucide-react';
 
 export default function DossiersPage() {
   const { loading: authLoading, hasPermission } = useAuth();
@@ -16,7 +20,7 @@ export default function DossiersPage() {
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
-  const [downloading, setDownloading] = useState<null | 'employee' | 'site' | 'contract'>(
+  const [downloading, setDownloading] = useState<null | 'employee' | 'site' | 'employee-bundle' | 'site-bundle'>(
     null,
   );
   const [userSearch, setUserSearch] = useState('');
@@ -25,6 +29,12 @@ export default function DossiersPage() {
   const deferredSiteSearch = useDeferredValue(siteSearch);
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedSiteId, setSelectedSiteId] = useState('');
+  const [employeeContext, setEmployeeContext] =
+    useState<EmployeeDossierContext | null>(null);
+  const [siteContext, setSiteContext] = useState<SiteDossierContext | null>(
+    null,
+  );
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     if (!canViewDossiers) {
@@ -86,6 +96,66 @@ export default function DossiersPage() {
 
     void loadUsers();
   }, [canViewDossiers, deferredUserSearch]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadPreview() {
+      if (!selectedUserId) {
+        setEmployeeContext(null);
+        return;
+      }
+
+      try {
+        setPreviewLoading(true);
+        const context = await dossiersService.getEmployeeContext(selectedUserId);
+        if (active) {
+          setEmployeeContext(context);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar contexto de dossiê do colaborador:', error);
+      } finally {
+        if (active) {
+          setPreviewLoading(false);
+        }
+      }
+    }
+
+    void loadPreview();
+    return () => {
+      active = false;
+    };
+  }, [selectedUserId]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadPreview() {
+      if (!selectedSiteId) {
+        setSiteContext(null);
+        return;
+      }
+
+      try {
+        setPreviewLoading(true);
+        const context = await dossiersService.getSiteContext(selectedSiteId);
+        if (active) {
+          setSiteContext(context);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar contexto de dossiê da obra/setor:', error);
+      } finally {
+        if (active) {
+          setPreviewLoading(false);
+        }
+      }
+    }
+
+    void loadPreview();
+    return () => {
+      active = false;
+    };
+  }, [selectedSiteId]);
 
   const availableUsers = useMemo(() => {
     if (!selectedUser) {
@@ -154,6 +224,54 @@ export default function DossiersPage() {
     }
   };
 
+  const downloadEmployeeBundle = async () => {
+    if (!canViewDossiers) {
+      toast.error('Voce nao tem permissao para gerar dossie.');
+      return;
+    }
+
+    if (!selectedUserId) {
+      toast.error('Selecione um colaborador.');
+      return;
+    }
+
+    try {
+      setDownloading('employee-bundle');
+      await dossiersService.downloadEmployeeBundle(selectedUserId);
+      toast.success('Pacote ZIP do dossie do colaborador gerado.');
+    } catch (error) {
+      console.error('Erro ao gerar bundle do dossie colaborador:', error);
+      toast.error('Falha ao gerar o pacote ZIP do dossie do colaborador.');
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const downloadSiteBundle = async () => {
+    if (!canViewDossiers) {
+      toast.error('Voce nao tem permissao para gerar dossie.');
+      return;
+    }
+
+    if (!selectedSiteId) {
+      toast.error('Selecione uma obra/setor.');
+      return;
+    }
+
+    try {
+      setDownloading('site-bundle');
+      await dossiersService.downloadSiteBundle(selectedSiteId);
+      toast.success('Pacote ZIP do dossie da obra/setor gerado.');
+    } catch (error) {
+      console.error('Erro ao gerar bundle do dossie da obra/setor:', error);
+      toast.error('Falha ao gerar o pacote ZIP do dossie da obra/setor.');
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const activeContext = employeeContext || siteContext;
+
   if (authLoading) {
     return (
       <div className="ds-system-scope">
@@ -182,7 +300,7 @@ export default function DossiersPage() {
       <div className="rounded-xl border bg-white p-4 shadow-sm">
         <h1 className="text-2xl font-bold text-gray-900">Dossies de SST</h1>
         <p className="text-gray-500">
-          Geração automatica de PDF unico por colaborador e obra/setor.
+          Geração automatica de PDF oficial e pacote ZIP auditável por colaborador e obra/setor.
         </p>
       </div>
 
@@ -227,6 +345,17 @@ export default function DossiersPage() {
             <FileDown className="mr-2 h-4 w-4" />
             {downloading === 'employee' ? 'Gerando...' : 'Baixar PDF'}
           </button>
+          <button
+            type="button"
+            onClick={() => void downloadEmployeeBundle()}
+            disabled={loading || downloading !== null}
+            className="mt-3 flex w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            <Archive className="mr-2 h-4 w-4" />
+            {downloading === 'employee-bundle'
+              ? 'Empacotando...'
+              : 'Baixar ZIP + manifesto'}
+          </button>
         </div>
 
         <div className="rounded-xl border bg-white p-4 shadow-sm">
@@ -269,6 +398,96 @@ export default function DossiersPage() {
             <FileDown className="mr-2 h-4 w-4" />
             {downloading === 'site' ? 'Gerando...' : 'Baixar PDF'}
           </button>
+          <button
+            type="button"
+            onClick={() => void downloadSiteBundle()}
+            disabled={loading || downloading !== null}
+            className="mt-3 flex w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            <Archive className="mr-2 h-4 w-4" />
+            {downloading === 'site-bundle'
+              ? 'Empacotando...'
+              : 'Baixar ZIP + manifesto'}
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-slate-700" />
+            <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Política de inclusão oficial
+            </p>
+          </div>
+          <div className="mt-4 space-y-3 text-sm text-slate-600">
+            <p>
+              Documentos oficiais entram no dossiê somente quando já existem no registry governado com PDF final válido.
+            </p>
+            <p>
+              Pendências oficiais continuam explícitas no manifesto e nunca são tratadas como documento saudável.
+            </p>
+            <p>
+              Anexos complementares permanecem separados dos documentos oficiais e não substituem evidências governadas.
+            </p>
+            <p>
+              O ZIP inclui contexto serializado, manifesto e apenas artefatos oficiais resolvíveis pelo storage governado.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
+          <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Prévia do recorte atual
+          </p>
+          {previewLoading ? (
+            <p className="mt-3 text-sm text-gray-500">Atualizando contexto do dossiê...</p>
+          ) : activeContext ? (
+            <div className="mt-4 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <MetricCard
+                  label="Oficiais"
+                  value={activeContext.summary.officialDocuments}
+                />
+                <MetricCard
+                  label="Pendentes"
+                  value={activeContext.summary.pendingOfficialDocuments}
+                  tone="warning"
+                />
+                <MetricCard
+                  label="Apoio"
+                  value={activeContext.summary.supportingAttachments}
+                />
+                <MetricCard
+                  label="Código"
+                  value={activeContext.code}
+                />
+              </div>
+              {activeContext.pendingGovernedDocumentLines.length > 0 ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800">
+                  <div className="mb-2 flex items-center gap-2 font-semibold">
+                    <TriangleAlert className="h-4 w-4" />
+                    Pendências oficiais do recorte
+                  </div>
+                  <ul className="space-y-1">
+                    {activeContext.pendingGovernedDocumentLines.slice(0, 4).map((item) => (
+                      <li key={`${item.modulo}-${item.referencia}`}>
+                        {item.modulo_label}: {item.referencia} — {item.pendencia}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs text-emerald-800">
+                  Todos os documentos oficiais já resolvidos para o recorte selecionado.
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-gray-500">
+              Selecione um colaborador ou uma obra/setor para pré-visualizar o recorte governado do dossiê.
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -277,4 +496,29 @@ export default function DossiersPage() {
 
 function dedupeById<T extends { id: string }>(items: T[]) {
   return Array.from(new Map(items.map((item) => [item.id, item])).values());
+}
+
+function MetricCard({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  value: string | number;
+  tone?: 'default' | 'warning';
+}) {
+  return (
+    <div
+      className={`rounded-lg border px-3 py-3 ${
+        tone === 'warning'
+          ? 'border-amber-200 bg-amber-50'
+          : 'border-slate-200 bg-slate-50'
+      }`}
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+    </div>
+  );
 }
