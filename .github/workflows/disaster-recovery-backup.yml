@@ -1,0 +1,113 @@
+name: Disaster Recovery Backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * *"
+
+jobs:
+  backup-database:
+    name: Backup Database
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run governed backup
+        env:
+          NODE_ENV: production
+          DATABASE_URL: ${{ secrets.DR_BACKUP_DATABASE_URL }}
+          DATABASE_SSL: ${{ secrets.DR_BACKUP_DATABASE_SSL }}
+          DATABASE_SSL_ALLOW_INSECURE: ${{ secrets.DR_BACKUP_DATABASE_SSL_ALLOW_INSECURE }}
+          REDIS_DISABLED: "true"
+          JWT_SECRET: ${{ secrets.DR_PLACEHOLDER_JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.DR_PLACEHOLDER_JWT_REFRESH_SECRET }}
+          CORS_ALLOWED_ORIGINS: https://example.invalid
+          AWS_ACCESS_KEY_ID: REDACTED
+          AWS_SECRET_ACCESS_KEY: REDACTED
+          AWS_BUCKET_NAME: ${{ secrets.DR_BACKUP_AWS_BUCKET_NAME }}
+          AWS_REGION: ${{ secrets.DR_BACKUP_AWS_REGION }}
+          AWS_ENDPOINT: ${{ secrets.DR_BACKUP_AWS_ENDPOINT }}
+          DR_BACKUP_RETENTION_DAYS: ${{ vars.DR_BACKUP_RETENTION_DAYS }}
+          DR_STORAGE_BACKUP_PREFIX: ${{ vars.DR_STORAGE_BACKUP_PREFIX }}
+          DR_ENVIRONMENT_NAME: production
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DR backup skipped: DR_BACKUP_DATABASE_URL not configured." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          if [ -z "$JWT_SECRET" ] || [ -z "$JWT_REFRESH_SECRET" ]; then
+            echo "DR backup skipped: placeholder JWT secrets not configured." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          npm run dr:backup -- --trigger-source=github-actions --upload-to-storage
+
+      - name: Replicate governed storage to secondary bucket
+        env:
+          NODE_ENV: production
+          DATABASE_URL: ${{ secrets.DR_BACKUP_DATABASE_URL }}
+          DATABASE_SSL: ${{ secrets.DR_BACKUP_DATABASE_SSL }}
+          DATABASE_SSL_ALLOW_INSECURE: ${{ secrets.DR_BACKUP_DATABASE_SSL_ALLOW_INSECURE }}
+          REDIS_DISABLED: "true"
+          JWT_SECRET: ${{ secrets.DR_PLACEHOLDER_JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.DR_PLACEHOLDER_JWT_REFRESH_SECRET }}
+          CORS_ALLOWED_ORIGINS: https://example.invalid
+          AWS_ACCESS_KEY_ID: REDACTED
+          AWS_SECRET_ACCESS_KEY: REDACTED
+          AWS_BUCKET_NAME: ${{ secrets.DR_BACKUP_AWS_BUCKET_NAME }}
+          AWS_REGION: ${{ secrets.DR_BACKUP_AWS_REGION }}
+          AWS_ENDPOINT: ${{ secrets.DR_BACKUP_AWS_ENDPOINT }}
+          DR_STORAGE_REPLICA_ACCESS_KEY_ID: ${{ secrets.DR_STORAGE_REPLICA_ACCESS_KEY_ID }}
+          DR_STORAGE_REPLICA_SECRET_ACCESS_KEY: ${{ secrets.DR_STORAGE_REPLICA_SECRET_ACCESS_KEY }}
+          DR_STORAGE_REPLICA_BUCKET: ${{ secrets.DR_STORAGE_REPLICA_BUCKET }}
+          DR_STORAGE_REPLICA_REGION: ${{ secrets.DR_STORAGE_REPLICA_REGION }}
+          DR_STORAGE_REPLICA_ENDPOINT: ${{ secrets.DR_STORAGE_REPLICA_ENDPOINT }}
+          DR_STORAGE_REPLICA_FORCE_PATH_STYLE: ${{ vars.DR_STORAGE_REPLICA_FORCE_PATH_STYLE }}
+          DR_ENVIRONMENT_NAME: production
+          DR_STORAGE_PROTECTION_LIMIT_PER_SOURCE: ${{ vars.DR_STORAGE_PROTECTION_LIMIT_PER_SOURCE }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DR storage protection skipped: DR_BACKUP_DATABASE_URL not configured." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          if [ -z "$JWT_SECRET" ] || [ -z "$JWT_REFRESH_SECRET" ]; then
+            echo "DR storage protection skipped: placeholder JWT secrets not configured." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          if [ -z "$DR_STORAGE_REPLICA_BUCKET" ]; then
+            echo "DR storage protection skipped: replica bucket not configured." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          LIMIT_ARG=""
+          if [ -n "$DR_STORAGE_PROTECTION_LIMIT_PER_SOURCE" ]; then
+            LIMIT_ARG="--limit-per-source=$DR_STORAGE_PROTECTION_LIMIT_PER_SOURCE"
+          fi
+
+          npm run dr:protect-storage -- --trigger-source=github-actions --execute $LIMIT_ARG
+
+      - name: Upload DR artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: disaster-recovery-backup
+          path: backend/output/disaster-recovery
+          if-no-files-found: ignore
+          retention-days: 30

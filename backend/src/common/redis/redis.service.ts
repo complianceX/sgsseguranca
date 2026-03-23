@@ -42,6 +42,20 @@ export class RedisService {
     await this.client.multi().del(key).srem(setKey, tokenHash).exec();
   }
 
+  private getConsumedTokenKey(userId: string, tokenHash: string): string {
+    return `consumed:${userId}:${tokenHash}`;
+  }
+
+  /**
+   * Checks if a token hash was already consumed (rotated). A hit means
+   * someone is replaying an old refresh token — possible session hijacking.
+   */
+  async isTokenConsumed(userId: string, tokenHash: string): Promise<boolean> {
+    const key = this.getConsumedTokenKey(userId, tokenHash);
+    const result = await this.client.exists(key);
+    return result === 1;
+  }
+
   /**
    * Consome atomicamente um refresh token antigo via Lua script.
    *
@@ -49,6 +63,10 @@ export class RedisService {
    * GET e DEL acontecem na mesma execução Lua, indivisível no Redis.
    * Se duas requisições concorrentes chegarem com o mesmo token,
    * apenas uma receberá o valor de volta — a outra receberá null.
+   *
+   * Após consumo bem-sucedido, armazena um "tombstone" por 7 dias.
+   * Se o mesmo token for apresentado novamente (replay), o tombstone
+   * permite detectar reuse e disparar revogação total (session hijacking).
    *
    * Retorna o valor armazenado (ex.: '1' ou JSON com ua hash),
    * ou null se o token não existir / já tiver sido consumido.
@@ -59,8 +77,10 @@ export class RedisService {
   ): Promise<string | null> {
     const key = this.getRefreshTokenKey(userId, tokenHash);
     const setKey = this.getRefreshTokenSetKey(userId);
+    const consumedKey = this.getConsumedTokenKey(userId, tokenHash);
+    const tombstoneTtl = 7 * 24 * 3600; // 7 days
 
-    // Lua: GET + DEL + SREM em uma única operação atômica.
+    // Lua: GET + DEL + SREM + SET tombstone em uma única operação atômica.
     const script = `
       local val = redis.call('GET', KEYS[1])
       if val == false then
@@ -68,10 +88,19 @@ export class RedisService {
       end
       redis.call('DEL', KEYS[1])
       redis.call('SREM', KEYS[2], ARGV[1])
+      redis.call('SETEX', KEYS[3], ARGV[2], '1')
       return val
     `;
 
-    const result = await this.client.eval(script, 2, key, setKey, tokenHash);
+    const result = await this.client.eval(
+      script,
+      3,
+      key,
+      setKey,
+      consumedKey,
+      tokenHash,
+      String(tombstoneTtl),
+    );
     return typeof result === 'string' ? result : null;
   }
 

@@ -79,6 +79,57 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
 
+  lockfile-integrity:
+    name: Lockfile Integrity Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        directory: ['backend', 'frontend']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify lockfile is in sync with package.json
+        working-directory: ./${{ matrix.directory }}
+        run: npm ci --ignore-scripts
+
+  sbom-generation:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        directory: ['backend', 'frontend']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: ./${{ matrix.directory }}
+        run: npm ci --ignore-scripts
+
+      - name: Generate CycloneDX SBOM
+        working-directory: ./${{ matrix.directory }}
+        run: npx @cyclonedx/cyclonedx-npm --output-file ../sbom-${{ matrix.directory }}.json --spec-version 1.5
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.directory }}
+          path: sbom-${{ matrix.directory }}.json
+          retention-days: 90
+
   docker-security:
     name: Docker Security Scan
     runs-on: ubuntu-latest

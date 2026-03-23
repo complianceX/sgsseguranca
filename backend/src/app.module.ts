@@ -72,6 +72,7 @@ import { ObservabilityModule } from './common/observability/observability.module
 import { RbacModule } from './rbac/rbac.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DocumentRegistryModule } from './document-registry/document-registry.module';
+import { DisasterRecoveryModule } from './disaster-recovery/disaster-recovery.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { SystemThemeModule } from './system-theme/system-theme.module';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
@@ -95,6 +96,8 @@ import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
+import { SecurityAuditModule } from './common/security/security-audit.module';
+import { SecurityActionInterceptor } from './common/security/security-action.interceptor';
 import { isRedisDisabled } from './queue/redis-disabled-queue';
 
 const queueInfraModules = isRedisDisabled
@@ -761,8 +764,10 @@ const validationSchema = Joi.object({
     RbacModule,
     DashboardModule,
     DocumentRegistryModule,
+    DisasterRecoveryModule,
     CalendarModule,
     SystemThemeModule,
+    SecurityAuditModule,
   ],
   controllers: [AppController],
   providers: [
@@ -796,6 +801,10 @@ const validationSchema = Joi.object({
     {
       provide: APP_INTERCEPTOR,
       useClass: TimeoutInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: SecurityActionInterceptor,
     },
     IdempotencyService,
   ],

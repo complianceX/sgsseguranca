@@ -7,6 +7,7 @@ import {
   Req,
   NotFoundException,
   ParseUUIDPipe,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -19,6 +20,8 @@ import { Repository } from 'typeorm';
 import { UserSession } from '../entities/user-session.entity';
 import { JwtAuthGuard } from '../jwt-auth.guard';
 import { RedisService } from '../../common/redis/redis.service';
+import { SecurityAuditService } from '../../common/security/security-audit.service';
+import { TenantOptional } from '../../common/decorators/tenant-optional.decorator';
 
 interface SessionRequest {
   user: {
@@ -30,11 +33,15 @@ interface SessionRequest {
 @ApiBearerAuth()
 @Controller('sessions')
 @UseGuards(JwtAuthGuard)
+@TenantOptional()
 export class SessionsController {
+  private readonly logger = new Logger(SessionsController.name);
+
   constructor(
     @InjectRepository(UserSession)
     private userSessionRepository: Repository<UserSession>,
     private redisService: RedisService,
+    private securityAudit: SecurityAuditService,
   ) {}
 
   @Get()
@@ -57,7 +64,7 @@ export class SessionsController {
           .replace(/^, /, '')
           .replace(/, $/, ''),
       lastActive: session.last_active,
-      isCurrent: false, // Can't easily determine current without passing session ID in JWT, but for now we list all
+      createdAt: session.created_at,
     }));
   }
 
@@ -78,15 +85,16 @@ export class SessionsController {
       throw new NotFoundException('Session not found');
     }
 
-    // Revoke session
     session.is_active = false;
     await this.userSessionRepository.save(session);
 
-    // If linked to a refresh token, revoke it too
+    // Revoke the linked refresh token in Redis
     if (session.token_hash) {
-      // RefreshTokenService was removed because it was missing.
-      // In a real scenario, we would revoke the token in Redis or DB here.
+      await this.redisService.revokeRefreshToken(userId, session.token_hash);
     }
+
+    this.securityAudit.sessionRevoked(userId, id, userId);
+    this.logger.log({ event: 'session_revoked', userId, sessionId: id });
 
     return { message: 'Session revoked' };
   }
@@ -97,22 +105,16 @@ export class SessionsController {
   async removeAllOthers(@Req() req: SessionRequest) {
     const userId = req.user.userId;
 
-    // In a real implementation, we would identify the current session ID from the token claims
-    // and exclude it. Since we don't have session ID in JWT yet, this might revoke all.
-    // So we should be careful.
-
-    // For now, let's just revoke all active sessions for this user in DB
     await this.userSessionRepository.update(
       { user_id: userId, is_active: true },
       { is_active: false },
     );
 
-    // And clear Redis sessions
-    await this.redisService.clearAllSessions(userId);
+    // Revoke all refresh tokens in Redis
+    await this.redisService.clearAllRefreshTokens(userId);
 
-    // And revoke all refresh tokens
-    // We need a method in RefreshTokenService for this
-    // await this.refreshTokenService.revokeAllUserRefreshTokens(userId);
+    this.securityAudit.sessionRevoked(userId, 'all', userId);
+    this.logger.log({ event: 'all_sessions_revoked', userId });
 
     return { message: 'All sessions revoked' };
   }

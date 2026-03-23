@@ -6,6 +6,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Readable } from 'stream';
@@ -231,6 +232,47 @@ export class S3Service {
       }
       throw error;
     }
+  }
+
+  async listKeys(
+    prefix: string,
+    options?: { maxKeys?: number },
+  ): Promise<string[]> {
+    if (!this.useS3) {
+      throw new Error('S3 is not enabled');
+    }
+
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+    const maxKeys = options?.maxKeys;
+
+    do {
+      const command = new ListObjectsV2Command({
+        Bucket: this.bucketName,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+        MaxKeys:
+          maxKeys && maxKeys > 0
+            ? Math.min(1000, Math.max(1, maxKeys - keys.length))
+            : undefined,
+      });
+
+      const response = await this.s3Client.send(command);
+      for (const object of response.Contents || []) {
+        if (object.Key) {
+          keys.push(object.Key);
+        }
+      }
+
+      continuationToken = response.IsTruncated
+        ? response.NextContinuationToken
+        : undefined;
+    } while (
+      continuationToken &&
+      (!maxKeys || maxKeys <= 0 || keys.length < maxKeys)
+    );
+
+    return maxKeys && maxKeys > 0 ? keys.slice(0, maxKeys) : keys;
   }
 
   /**

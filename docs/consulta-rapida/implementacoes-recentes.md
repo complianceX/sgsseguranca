@@ -18,6 +18,7 @@ As ultimas rodadas focaram em cinco trilhas principais:
 3. videos governados
 4. assinatura verificavel e dossie governado
 5. central de pendencias documentais
+6. backup, restore e disaster recovery
 
 O objetivo comum dessas rodadas foi tirar ambiguidade operacional, reduzir fluxo duplo invisivel e deixar o backend como autoridade final.
 
@@ -327,6 +328,101 @@ Onde olhar:
 
 - `docs/consulta-rapida/variaveis-ambiente-railway.md`
 - `docs/consulta-rapida/pdfs-finais-e-storage.md`
+
+## 10. Backup, restore e disaster recovery
+
+O que foi feito:
+
+- foi criada uma base real de disaster recovery dentro do repositório
+- backup, restore e integridade passaram a ter scripts e runbook próprios
+
+Passo a passo:
+
+1. foi criado um modulo de disaster recovery no backend
+2. passou a existir tabela de execucao:
+   - `disaster_recovery_executions`
+3. o sistema ganhou servico para registrar:
+   - backup
+   - restore
+   - scanner de integridade
+4. foram criados scripts:
+   - `dr-backup`
+   - `dr-restore`
+   - `dr-integrity-scan`
+5. o storage governado passou a expor operacoes de:
+   - `fileExists`
+   - `listKeys`
+6. foi implementado scanner para detectar:
+   - documento oficial no registry sem artefato
+   - hash divergente
+   - video governado ausente
+   - anexo governado ausente
+   - evidencia da APR ausente
+   - artefato orfao nos prefixes suportados
+7. o restore passou a ter:
+   - dry-run
+   - bloqueio forte para producao
+   - validacao SQL pos-restore
+   - integridade pos-restore opcional/automatizavel
+8. foi criado workflow agendado de backup no GitHub Actions
+9. foi criado runbook de disaster recovery com RPO/RTO iniciais
+
+Resultado:
+
+- o sistema ficou mais resiliente e mais auditavel
+- agora existe prova operacional de backup/restore, e nao apenas ideia ou documento solto
+
+Onde olhar:
+
+- `backend/src/disaster-recovery`
+- `backend/scripts/dr-backup.ts`
+- `backend/scripts/dr-restore.ts`
+- `backend/scripts/dr-integrity-scan.ts`
+- `.github/workflows/disaster-recovery-backup.yml`
+- `docs/consulta-rapida/disaster-recovery-e-backup.md`
+
+## 11. Protecao do storage governado e recovery em ambiente separado
+
+O que foi feito:
+
+- o DR ganhou protecao real de artefatos oficiais via bucket secundario
+- o sistema passou a ter orquestrador de recovery validado em ambiente separado
+
+Passo a passo:
+
+1. foi escolhida uma estrategia realista de:
+   - replicacao para bucket secundario compativel com S3/R2
+2. foi criado servico para storage de replica
+3. foi criado servico para copiar artefatos governados da origem para a replica
+4. a copia passou a:
+   - preservar a mesma `storage key`
+   - calcular `sha256`
+   - evitar overwrite por padrao
+5. foi criado comando:
+   - `dr:protect-storage`
+6. foi criado orquestrador:
+   - `dr:recover-environment`
+7. o recovery passou a:
+   - restaurar banco alvo
+   - apontar scanner para storage primario ou replica
+   - validar hashes e orfaos pos-restore
+8. o runtime de recovery passou a mapear ambientes como `recovery` para `NODE_ENV=staging`, preservando o rotulo real em `DR_ENVIRONMENT_NAME`
+9. o workflow de backup foi evoluido para poder acionar tambem a replicacao de storage
+
+Resultado:
+
+- documentos oficiais, videos e anexos governados podem ser protegidos fora do bucket principal
+- o restore em ambiente separado ficou orquestravel de ponta a ponta
+- a prova de integridade pos-restore ficou mais forte
+
+Onde olhar:
+
+- `backend/src/disaster-recovery/disaster-recovery-replica-storage.service.ts`
+- `backend/src/disaster-recovery/disaster-recovery-storage-protection.service.ts`
+- `backend/scripts/dr-protect-storage.ts`
+- `backend/scripts/dr-recover-environment.ts`
+- `.github/workflows/disaster-recovery-backup.yml`
+- `docs/consulta-rapida/disaster-recovery-e-backup.md`
 
 ## Como consultar rapidamente o que foi feito
 

@@ -301,6 +301,22 @@ export class AuthService {
       oldHash,
     );
     if (!stored) {
+      // Reuse detection: if this token was already consumed (rotated), someone
+      // is replaying an old token. This indicates possible session hijacking.
+      // Revoke ALL tokens for this user as a defensive measure.
+      const wasConsumed = await this.redisService.isTokenConsumed(
+        payload.sub,
+        oldHash,
+      );
+      if (wasConsumed) {
+        this.logger.error({
+          event: 'refresh_token_reuse_detected',
+          userId: payload.sub,
+          action: 'revoking_all_sessions',
+          reason: 'Possible session hijacking — rotated refresh token replayed',
+        });
+        await this.redisService.clearAllRefreshTokens(payload.sub);
+      }
       throw new UnauthorizedException('Refresh token revogado ou já utilizado');
     }
 

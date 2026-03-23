@@ -59,6 +59,7 @@ backend/dist/
 # Cobertura e arquivos temporários locais
 backend/coverage/
 backend/lint-report-*.json
+backend/output/disaster-recovery/
 frontend/coverage/
 coverage/
 tmp/

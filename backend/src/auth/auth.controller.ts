@@ -30,6 +30,7 @@ import {
   getRefreshTokenCookieOptions,
 } from './auth-security.config';
 import { SetSignaturePinDto } from './dto/set-signature-pin.dto';
+import { ConfirmPasswordDto } from './dto/confirm-password.dto';
 import type {
   AuthMeResponseDto,
   AuthSessionResponseDto,
@@ -37,6 +38,11 @@ import type {
   SignaturePinConfiguredResponseDto,
   SignaturePinStatusResponseDto,
 } from './dto/auth-response.dto';
+import { SecurityAuditService } from '../common/security/security-audit.service';
+import { Inject } from '@nestjs/common';
+import { REDIS_CLIENT } from '../common/redis/redis.constants';
+import type { Redis } from 'ioredis';
+import * as crypto from 'crypto';
 
 const isProd = process.env.NODE_ENV === 'production';
 const LOGIN_THROTTLE_LIMIT = Number(
@@ -64,6 +70,8 @@ export class AuthController {
     private usersService: UsersService,
     private bruteForceService: BruteForceService,
     private rbacService: RbacService,
+    private securityAudit: SecurityAuditService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
   @Public()
@@ -91,6 +99,11 @@ export class AuthController {
       throw new UnauthorizedException('Credenciais inválidas');
     }
     this.logger.log({ event: 'login_success', userId: user.id });
+    this.securityAudit.loginSuccess(
+      user.id,
+      tracker ?? undefined,
+      String(req.headers['user-agent'] || ''),
+    );
     await this.bruteForceService.reset(tracker);
     await this.bruteForceService.resetCpf(body.cpf);
 
@@ -219,6 +232,50 @@ export class AuthController {
     const user = await this.usersService.findOne(req.user.userId);
     const access = await this.rbacService.getUserAccess(req.user.userId);
     return { user, roles: access.roles, permissions: access.permissions };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Step-up authentication: confirm password to get a short-lived token
+  // for sensitive operations (signatures, approvals, deletions, exports).
+  // ---------------------------------------------------------------------------
+
+  @Throttle({
+    default: {
+      limit: CHANGE_PASSWORD_THROTTLE_LIMIT,
+      ttl: CHANGE_PASSWORD_THROTTLE_TTL,
+    },
+  })
+  @TenantOptional()
+  @UseGuards(JwtAuthGuard)
+  @Post('confirm-password')
+  async confirmPassword(
+    @Request() req: AuthenticatedRequest,
+    @Body() body: ConfirmPasswordDto,
+  ): Promise<{ stepUpToken: string; expiresIn: number }> {
+    if (!req.user?.userId) {
+      throw new UnauthorizedException('Usuário não autenticado');
+    }
+    const user = await this.usersService.findOneWithPassword(req.user.userId);
+    if (!user?.password) {
+      throw new UnauthorizedException('Usuário sem senha definida');
+    }
+    const { PasswordService } =
+      await import('../common/services/password.service');
+    const pwService = new PasswordService();
+    const match = await pwService.compare(body.password, user.password);
+    if (!match) {
+      this.securityAudit.stepUpFailed(req.user.userId, 'wrong_password');
+      throw new UnauthorizedException('Senha incorreta');
+    }
+
+    const stepUpToken = crypto.randomBytes(32).toString('hex');
+    const ttlSeconds = 600; // 10 minutes
+    const redisKey = `stepup:${req.user.userId}:${stepUpToken}`;
+    await this.redis.setex(redisKey, ttlSeconds, '1');
+
+    this.securityAudit.stepUpIssued(req.user.userId, 'confirm-password');
+
+    return { stepUpToken, expiresIn: ttlSeconds };
   }
 
   // ---------------------------------------------------------------------------
