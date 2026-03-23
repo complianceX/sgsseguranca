@@ -3,6 +3,7 @@ import { SendMailModal } from './SendMailModal';
 
 const sendStoredDocumentMock = jest.fn();
 const sendUploadedDocumentMock = jest.fn();
+const extractMailDispatchErrorMessageMock = jest.fn();
 
 jest.mock('@/services/mailService', () => ({
   mailService: {
@@ -10,12 +11,15 @@ jest.mock('@/services/mailService', () => ({
     sendUploadedDocument: (...args: unknown[]) =>
       sendUploadedDocumentMock(...args),
   },
+  extractMailDispatchErrorMessage: (...args: unknown[]) =>
+    extractMailDispatchErrorMessageMock(...args),
 }));
 
 describe('SendMailModal', () => {
   beforeEach(() => {
     sendStoredDocumentMock.mockReset();
     sendUploadedDocumentMock.mockReset();
+    extractMailDispatchErrorMessageMock.mockReset();
   });
 
   it('usa o fluxo de documento armazenado quando o PDF final governado existe', async () => {

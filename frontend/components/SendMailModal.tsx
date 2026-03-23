@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import {
   DocumentMailDispatchResponse,
+  extractMailDispatchErrorMessage,
   mailService,
 } from '@/services/mailService';
 import {
@@ -24,24 +25,6 @@ interface SendMailModalProps {
     documentId: string;
     documentType: string;
   };
-}
-
-function getMailErrorMessage(error: unknown) {
-  const message = (
-    error as
-      | { response?: { data?: { message?: string | string[] } } }
-      | undefined
-  )?.response?.data?.message;
-
-  if (Array.isArray(message)) {
-    return message.join(' ');
-  }
-
-  if (typeof message === 'string' && message.trim()) {
-    return message;
-  }
-
-  return 'Erro ao enviar e-mail. Tente novamente.';
 }
 
 export function SendMailModal({
@@ -91,12 +74,18 @@ export function SendMailModal({
         throw new Error('Nenhum documento disponível para envio.');
       }
 
-      toast.success(result.message);
+      if (result.deliveryMode === 'queued') {
+        toast.info(result.message);
+      } else if (result.fallbackUsed && !result.isOfficial) {
+        toast.warning(result.message);
+      } else {
+        toast.success(result.message);
+      }
       onClose();
       setEmail('');
     } catch (error) {
       console.error('Erro ao enviar e-mail:', error);
-      toast.error(getMailErrorMessage(error));
+      toast.error(await extractMailDispatchErrorMessage(error));
     } finally {
       setSending(false);
     }

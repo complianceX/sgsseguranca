@@ -424,13 +424,18 @@ Onde olhar:
 - `.github/workflows/disaster-recovery-backup.yml`
 - `docs/consulta-rapida/disaster-recovery-e-backup.md`
 
-## 12. Envio de e-mail por fila com Worker e SMTP
+## 12. Envio de e-mail por fila com Worker e Brevo API
 
 O que foi feito:
 
-- o envio de e-mail deixou de depender da Brevo API em producao
+- o envio de e-mail passou a ter caminho canonico claro em producao:
+  - `Backend` enfileira
+  - `Worker` consome
+  - `MailService` envia via Brevo API
 - foi criado e ajustado o `Worker` no Railway para realmente consumir a fila de e-mails
-- o sistema passou a usar SMTP como provedor ativo de envio
+- o sistema passou a sinalizar melhor falhas operacionais do provedor, especialmente:
+  - IP nao autorizado na Brevo
+  - circuit breaker aberto apos falhas consecutivas
 
 Passo a passo:
 
@@ -444,39 +449,51 @@ Passo a passo:
    - `CacheModule`
    - `RbacModule`
    - `SecurityAuditModule`
-5. foi identificado que o provedor ativo era a Brevo API porque `BREVO_API_KEY` estava presente
-6. como a Brevo API estava bloqueando o IP de saida do Railway, o sistema foi trocado para SMTP removendo `BREVO_API_KEY` do:
-   - `Backend`
-   - `Worker`
-7. foi validado que ambos os servicos passaram a enxergar:
-   - `provider = smtp`
-   - `hasBrevo = false`
-   - `hasSmtp = true`
-8. foi executada verificacao SMTP sem disparar e-mail real:
-   - `SMTP_VERIFY_OK`
+5. foi confirmado que o provedor principal correto do projeto e a Brevo API quando `BREVO_API_KEY` existe
+6. foi identificado nos logs do `Worker` que a Brevo bloqueava IPs variaveis de saida do Railway em:
+   - `Security > Authorised IPs`
+7. os IPs bloqueados foram auditados e autorizados na Brevo
+8. foi executado teste real controlado a partir do runtime do Railway para validar:
+   - `provider = brevo`
+   - resposta `201` da Brevo
+   - `messageId` real aceito pelo provedor
+9. o backend passou a normalizar melhor os erros operacionais do provedor para:
+   - `BREVO_IP_NOT_AUTHORIZED`
+   - `MAIL_PROVIDER_CIRCUIT_OPEN`
+   - `MAIL_PROVIDER_TIMEOUT`
+10. o frontend passou a distinguir melhor:
+   - envio `queued`
+   - envio `sent`
+   - fallback local/degradado
+   - erro operacional claro quando a Brevo bloquear o IP ou a integracao entrar em protecao
 
 Como o fluxo ficou:
 
 1. o usuario solicita envio no sistema
 2. o backend cria um job na fila `mail`
 3. o `Worker` consome o job
-4. o `MailService` envia usando SMTP
+4. o `MailService` envia usando Brevo API
 5. o destinatario recebe o e-mail se o documento tambem passar nas regras de governanca
 
 Resultado:
 
-- o sistema nao depende mais da Brevo API para enviar e-mail em producao
-- o worker passou a existir e processar os jobs corretamente
-- o envio agora usa SMTP autenticado, com validacao real de conexao
+- o `Worker` passou a existir e processar os jobs corretamente
+- o sistema voltou a operar com Brevo API como caminho principal
+- falhas de IP bloqueado e circuit breaker ficaram mais claras para a operacao
+- o fluxo ficou mais auditavel entre request, fila, worker e provedor
 
 Observacoes operacionais:
 
-- o sistema continua usando a infraestrutura da Brevo, mas agora via SMTP e nao via API
+- o Railway pode variar o IP de saida; por isso a Brevo pode voltar a bloquear um novo IP em algum momento
+- quando isso acontecer, olhar primeiro:
+  - logs do `Worker`
+  - `Brevo > Security > Authorised IPs`
 - jobs antigos falhados nao se reenviam sozinhos; o teste correto e criar um novo envio
 - se voltar a falhar, diagnosticar:
   - `Worker` rodando
   - fila `mail`
-  - credenciais SMTP
+  - `BREVO_API_KEY`
+  - `Authorised IPs` da Brevo
   - logs do `MailService`
 
 Onde olhar:

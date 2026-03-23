@@ -83,14 +83,14 @@ Verifique nesta ordem:
    - `npm run start:worker`
 3. a fila `mail` esta sendo consumida
 4. o provedor ativo de envio
-5. se as credenciais SMTP autenticam corretamente
+5. se a Brevo API esta aceitando o IP de saida atual do Railway
 
 Diagnostico atual do projeto:
 
 - o backend apenas enfileira o envio
 - o processamento real acontece no `Worker`
-- o sistema hoje usa SMTP quando `BREVO_API_KEY` nao existe
-- se `BREVO_API_KEY` voltar ao ambiente, a prioridade muda e o sistema volta a tentar Brevo API
+- o fluxo canonico atual usa `BREVO_API_KEY`, portanto o provedor principal e a Brevo API
+- SMTP so deve ser tratado como contingencia, nao como caminho principal de producao
 
 Como saber qual provedor esta ativo:
 
@@ -102,6 +102,7 @@ O que checar no Railway:
 - servico `Backend`
 - servico `Worker`
 - variaveis:
+  - `BREVO_API_KEY`
   - `MAIL_HOST`
   - `MAIL_PORT`
   - `MAIL_USER`
@@ -109,12 +110,31 @@ O que checar no Railway:
   - `MAIL_SECURE`
   - `MAIL_FROM_EMAIL`
   - `MAIL_FROM_NAME`
-- ausencia de `BREVO_API_KEY` se a estrategia atual for SMTP
+
+O que checar na Brevo:
+
+- `Security > Authorised IPs`
+- se o IP de saida do Railway apareceu como nao autorizado
+- se o IP foi realmente movido para a lista de autorizados
+
+Sintomas comuns e causa raiz:
+
+- request `201` no backend, PDF salvo e job criado, mas o e-mail nao chega
+  - normalmente indica fila/worker ou falha do provedor, nao problema do PDF
+- log com `Brevo bloqueou o IP de saída do servidor (...)`
+  - causa raiz: IP atual do Railway nao autorizado em `Brevo > Security > Authorised IPs`
+- log com `Circuit breaker integration:brevo_email is OPEN`
+  - a integracao entrou em protecao apos falhas consecutivas; aguarde a janela de reset e confirme os IPs autorizados
+- job `queued` com `attemptsMade = 0`
+  - normalmente indica que o `Worker` nao esta consumindo a fila
+- job falhado apos consumir a fila
+  - normalmente indica problema real no provedor (Brevo/IP, timeout ou credencial)
 
 Se houver jobs antigos com falha:
 
-- eles nao se reenviam automaticamente
+- eles nao se reenviam automaticamente depois que esgotam as tentativas
 - depois da correcao, crie um novo envio para validar o fluxo
+- so depois disso vale reprocessar manualmente os jobs falhados
 
 Onde olhar no codigo:
 

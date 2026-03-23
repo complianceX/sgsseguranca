@@ -3,7 +3,10 @@ import { Mail, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { DocumentMailDispatchResponse } from '@/services/mailService';
+import {
+  DocumentMailDispatchResponse,
+  extractMailDispatchErrorMessage,
+} from '@/services/mailService';
 import {
   ModalBody,
   ModalFooter,
@@ -37,15 +40,20 @@ export function DocumentEmailModal({
     try {
       setSending(true);
       const result = await onSend(email);
-      toast.success(
+      const message =
         result?.message ||
-          'Solicitação recebida. O documento será enviado por e-mail em instantes.',
-      );
+        'Solicitação recebida. O documento será enviado por e-mail em instantes.';
+
+      if (result?.deliveryMode === 'queued') {
+        toast.info(message);
+      } else {
+        toast.success(message);
+      }
       onClose();
       setEmail('');
     } catch (error) {
       console.error('Erro ao enviar e-mail:', error);
-      toast.error('Erro ao enviar e-mail. Tente novamente.');
+      toast.error(await extractMailDispatchErrorMessage(error));
     } finally {
       setSending(false);
     }

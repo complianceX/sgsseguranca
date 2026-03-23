@@ -69,6 +69,18 @@ type MailDeliveryResult = {
   raw: unknown;
 };
 
+type MailFailureDetails = {
+  message: string;
+  code:
+    | 'MAIL_DELIVERY_FAILED'
+    | 'MAIL_PROVIDER_TIMEOUT'
+    | 'MAIL_PROVIDER_CIRCUIT_OPEN'
+    | 'BREVO_IP_NOT_AUTHORIZED';
+  provider?: MailProvider;
+  blockedIp?: string;
+  retryAfterSeconds?: number;
+};
+
 type SendMailMetadata = {
   html?: string;
   filename?: string;
@@ -622,7 +634,7 @@ export class MailService {
         attachments,
       });
     } catch (error) {
-      const message = this.extractErrorMessage(error);
+      const failure = this.normalizeMailFailure(error);
 
       await this.persistMailLogSafely(
         {
@@ -633,7 +645,7 @@ export class MailService {
           filename: metadata?.filename || 'alerta',
           using_test_account: false,
           status: 'error',
-          error_message: message,
+          error_message: failure.message,
         },
         {
           event: 'mail_log_persist_failed_after_send_error',
@@ -648,14 +660,23 @@ export class MailService {
           event: 'mail_failed',
           companyId: context?.companyId,
           userId: context?.userId,
-          error: message,
+          provider: failure.provider,
+          code: failure.code,
+          blockedIp: failure.blockedIp,
+          retryAfterSeconds: failure.retryAfterSeconds,
+          error: failure.message,
         },
         error instanceof Error ? error.stack : undefined,
       );
 
-      throw new ServiceUnavailableException(
-        `Falha ao enviar e-mail para ${to}: ${message}`,
-      );
+      throw new ServiceUnavailableException({
+        message: failure.message,
+        code: failure.code,
+        provider: failure.provider,
+        blockedIp: failure.blockedIp,
+        retryAfterSeconds: failure.retryAfterSeconds,
+        degraded: true,
+      });
     }
 
     const usingTestAccount =
@@ -817,9 +838,9 @@ export class MailService {
                 /unrecognised ip address/i.test(message))
             ) {
               const ipMatch = message.match(
-                /unrecognised ip address\s+([0-9]{1,3}(?:\.[0-9]{1,3}){3})/i,
+                /unrecognised ip address\s+([0-9a-f:.]+)/i,
               );
-              const blockedIp = ipMatch?.[1];
+              const blockedIp = ipMatch?.[1]?.replace(/[.)\s]+$/g, '');
               throw new Error(
                 `Brevo bloqueou o IP de saída do servidor (${blockedIp || 'desconhecido'}). Autorize este IP em Brevo (Security > Authorised IPs) e tente novamente.`,
               );
@@ -1622,6 +1643,59 @@ export class MailService {
       return fallback;
     }
     return parsed;
+  }
+
+  private normalizeMailFailure(error: unknown): MailFailureDetails {
+    const message =
+      this.extractErrorMessage(error).trim() || 'Erro desconhecido';
+    const blockedIpMatch = message.match(
+      /Brevo bloqueou o IP de saída do servidor \(([^)]+)\)/i,
+    );
+
+    if (blockedIpMatch) {
+      const blockedIp = blockedIpMatch[1].replace(/[.)\s]+$/g, '');
+      return {
+        message: `Brevo bloqueou o IP de saída do servidor (${blockedIp}). Autorize este IP em Brevo > Security > Authorised IPs e tente novamente.`,
+        code: 'BREVO_IP_NOT_AUTHORIZED',
+        provider: 'brevo',
+        blockedIp,
+      };
+    }
+
+    const circuitBreakerMatch = message.match(
+      /Circuit breaker integration:brevo_email is OPEN(?:\.\s*Retry after\s*(\d+)ms\.)?/i,
+    );
+    if (circuitBreakerMatch) {
+      const retryAfterMs = Number(circuitBreakerMatch[1] || '30000');
+      const retryAfterSeconds = Number.isFinite(retryAfterMs)
+        ? Math.max(1, Math.ceil(retryAfterMs / 1000))
+        : 30;
+
+      return {
+        message:
+          'A integracao de e-mail com a Brevo entrou em protecao apos falhas recentes. Aguarde alguns instantes e confirme os Authorised IPs da conta antes de tentar novamente.',
+        code: 'MAIL_PROVIDER_CIRCUIT_OPEN',
+        provider: 'brevo',
+        retryAfterSeconds,
+      };
+    }
+
+    if (
+      /ETIMEDOUT|UND_ERR_CONNECT_TIMEOUT|timeout|timed out|socket hang up|connection reset/i.test(
+        message,
+      )
+    ) {
+      return {
+        message:
+          'A integracao de e-mail nao respondeu a tempo. O envio nao foi concluido. Tente novamente em instantes e valide a conectividade do provedor.',
+        code: 'MAIL_PROVIDER_TIMEOUT',
+      };
+    }
+
+    return {
+      message,
+      code: 'MAIL_DELIVERY_FAILED',
+    };
   }
 
   private selectCompanyBatch<T extends { id: string }>(

@@ -377,7 +377,7 @@ describe('MailService', () => {
       (globalThis as unknown as { fetch: unknown }).fetch = originalFetch;
     });
 
-    it('retorna erro claro quando Brevo bloqueia IP nao autorizado', async () => {
+    it('retorna erro estruturado quando Brevo bloqueia IP nao autorizado', async () => {
       const originalFetch = globalThis.fetch;
       const fetchMock = jest.fn().mockResolvedValue({
         ok: false,
@@ -445,16 +445,235 @@ describe('MailService', () => {
       }).compile();
 
       const brevoService = module.get<MailService>(MailService);
-      await expect(
-        brevoService.sendMailSimple(
+      let error: unknown;
+      try {
+        await brevoService.sendMailSimple(
           'destinatario@example.com',
           'Assunto',
           'Texto',
-        ),
-      ).rejects.toThrow('34.91.234.172');
+        );
+      } catch (caughtError) {
+        error = caughtError;
+      }
+
+      if (!(error instanceof ServiceUnavailableException)) {
+        throw new Error('A excecao estruturada da Brevo nao foi retornada.');
+      }
+
+      const response: unknown = error.getResponse();
+      if (!isRecord(response)) {
+        throw new Error('A resposta estruturada da Brevo nao foi retornada.');
+      }
+
+      expect(response).toMatchObject({
+        code: 'BREVO_IP_NOT_AUTHORIZED',
+        provider: 'brevo',
+        blockedIp: '34.91.234.172',
+        degraded: true,
+      });
+      expect(
+        typeof response.message === 'string' ? response.message : '',
+      ).toContain('34.91.234.172');
 
       await module.close();
       (globalThis as unknown as { fetch: unknown }).fetch = originalFetch;
+    });
+
+    it('extrai IPv6 bloqueado da Brevo de forma estruturada', async () => {
+      const originalFetch = globalThis.fetch;
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({
+              message:
+                'We have detected you are using an unrecognised IP address 2804:14c:5bb1:5ad0:d402:6b23:d241:db8c. If you performed this action make sure to add the new IP address in this link: https://app.brevo.com/security/authorised_ips',
+              code: 'unauthorized',
+            }),
+          ),
+      });
+      (globalThis as unknown as { fetch: unknown }).fetch =
+        fetchMock as unknown;
+
+      const brevoConfigService = {
+        get: jest.fn((key: string) => {
+          if (key === 'BREVO_API_KEY') return 'brevo-key';
+          if (key === 'MAIL_FROM_EMAIL') return 'test@example.com';
+          if (key === 'MAIL_FROM_NAME') return 'GST';
+          if (key === 'BREVO_EMAIL_TIMEOUT_MS') return '30000';
+          return null;
+        }),
+      };
+
+      const module = await Test.createTestingModule({
+        providers: [
+          MailService,
+          { provide: ConfigService, useValue: brevoConfigService },
+          {
+            provide: getRepositoryToken(MailLog),
+            useValue: mockMailLogRepository,
+          },
+          {
+            provide: getRepositoryToken(Cat),
+            useValue: mockCatsRepository,
+          },
+          {
+            provide: DocumentStorageService,
+            useValue: mockDocumentStorageService,
+          },
+          { provide: EpisService, useValue: mockDomainService },
+          { provide: TrainingsService, useValue: mockDomainService },
+          { provide: PtsService, useValue: mockDomainService },
+          { provide: AprsService, useValue: mockDomainService },
+          { provide: ChecklistsService, useValue: mockDomainService },
+          { provide: NonConformitiesService, useValue: mockDomainService },
+          { provide: DdsService, useValue: mockDomainService },
+          { provide: InspectionsService, useValue: mockDomainService },
+          { provide: AuditsService, useValue: mockDomainService },
+          { provide: RdosService, useValue: mockDomainService },
+          { provide: CompaniesService, useValue: mockDomainService },
+          { provide: TenantService, useValue: mockTenantService },
+          { provide: ReportsService, useValue: mockDomainService },
+          {
+            provide: IntegrationResilienceService,
+            useValue: mockIntegrationResilienceService,
+          },
+          {
+            provide: DistributedLockService,
+            useValue: mockDistributedLockService,
+          },
+        ],
+      }).compile();
+
+      const brevoService = module.get<MailService>(MailService);
+      let error: unknown;
+      try {
+        await brevoService.sendMailSimple(
+          'destinatario@example.com',
+          'Assunto',
+          'Texto',
+        );
+      } catch (caughtError) {
+        error = caughtError;
+      }
+
+      if (!(error instanceof ServiceUnavailableException)) {
+        throw new Error(
+          'A excecao estruturada da Brevo com IPv6 nao foi retornada.',
+        );
+      }
+
+      const response: unknown = error.getResponse();
+      if (!isRecord(response)) {
+        throw new Error(
+          'A resposta estruturada da Brevo com IPv6 nao foi retornada.',
+        );
+      }
+
+      expect(response).toMatchObject({
+        code: 'BREVO_IP_NOT_AUTHORIZED',
+        blockedIp: '2804:14c:5bb1:5ad0:d402:6b23:d241:db8c',
+      });
+
+      await module.close();
+      (globalThis as unknown as { fetch: unknown }).fetch = originalFetch;
+    });
+
+    it('retorna erro operacional claro quando o circuit breaker da Brevo esta aberto', async () => {
+      const brevoConfigService = {
+        get: jest.fn((key: string) => {
+          if (key === 'BREVO_API_KEY') return 'brevo-key';
+          if (key === 'MAIL_FROM_EMAIL') return 'test@example.com';
+          if (key === 'MAIL_FROM_NAME') return 'GST';
+          if (key === 'BREVO_EMAIL_TIMEOUT_MS') return '30000';
+          return null;
+        }),
+      };
+      const brevoIntegrationService = {
+        execute: jest
+          .fn()
+          .mockRejectedValue(
+            new Error(
+              'Circuit breaker integration:brevo_email is OPEN. Retry after 30000ms.',
+            ),
+          ),
+      };
+
+      const module = await Test.createTestingModule({
+        providers: [
+          MailService,
+          { provide: ConfigService, useValue: brevoConfigService },
+          {
+            provide: getRepositoryToken(MailLog),
+            useValue: mockMailLogRepository,
+          },
+          {
+            provide: getRepositoryToken(Cat),
+            useValue: mockCatsRepository,
+          },
+          {
+            provide: DocumentStorageService,
+            useValue: mockDocumentStorageService,
+          },
+          { provide: EpisService, useValue: mockDomainService },
+          { provide: TrainingsService, useValue: mockDomainService },
+          { provide: PtsService, useValue: mockDomainService },
+          { provide: AprsService, useValue: mockDomainService },
+          { provide: ChecklistsService, useValue: mockDomainService },
+          { provide: NonConformitiesService, useValue: mockDomainService },
+          { provide: DdsService, useValue: mockDomainService },
+          { provide: InspectionsService, useValue: mockDomainService },
+          { provide: AuditsService, useValue: mockDomainService },
+          { provide: RdosService, useValue: mockDomainService },
+          { provide: CompaniesService, useValue: mockDomainService },
+          { provide: TenantService, useValue: mockTenantService },
+          { provide: ReportsService, useValue: mockDomainService },
+          {
+            provide: IntegrationResilienceService,
+            useValue: brevoIntegrationService,
+          },
+          {
+            provide: DistributedLockService,
+            useValue: mockDistributedLockService,
+          },
+        ],
+      }).compile();
+
+      const brevoService = module.get<MailService>(MailService);
+      let error: unknown;
+      try {
+        await brevoService.sendMailSimple(
+          'destinatario@example.com',
+          'Assunto',
+          'Texto',
+        );
+      } catch (caughtError) {
+        error = caughtError;
+      }
+
+      if (!(error instanceof ServiceUnavailableException)) {
+        throw new Error(
+          'A excecao estruturada de circuit breaker nao foi retornada.',
+        );
+      }
+
+      expect(error.getResponse()).toMatchObject({
+        code: 'MAIL_PROVIDER_CIRCUIT_OPEN',
+        provider: 'brevo',
+        retryAfterSeconds: 30,
+      });
+
+      const createdLog = mailLogRepository.create.mock.calls.at(-1)?.[0];
+      if (!isRecord(createdLog)) {
+        throw new Error('Log de erro de circuit breaker nao foi criado.');
+      }
+
+      expect(createdLog.error_message).toContain(
+        'integracao de e-mail com a Brevo entrou em protecao',
+      );
+
+      await module.close();
     });
 
     it('usa timeout configurado para SMTP no transporte e no wrapper resiliente', async () => {
