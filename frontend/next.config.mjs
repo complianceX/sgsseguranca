@@ -63,10 +63,12 @@ function buildCsp() {
     'https://api.elevenlabs.io',
     'wss://api.elevenlabs.io',
   ].filter(Boolean));
-  // Production: strict-dynamic with nonce (Next.js 15+ injects nonce automatically).
-  // Dev: unsafe-eval needed for HMR/fast-refresh.
+  // Em produção usamos allowlist explícita + inline controlado.
+  // O app usa App Router e bootstrap inline do Next.js; sem nonce por request,
+  // `strict-dynamic` bloqueia os próprios bundles e deixa a tela branca.
+  // Em dev, unsafe-eval continua necessário para HMR/fast-refresh.
   const scriptSrc = isProd
-    ? ["'self'", "'strict-dynamic'", 'https://unpkg.com']
+    ? ["'self'", "'unsafe-inline'", 'https://unpkg.com']
     : ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://unpkg.com'];
   const scriptSrcStr = scriptSrc.join(' ');
   const directives = [

@@ -5,13 +5,21 @@ export default function manifest(): MetadataRoute.Manifest {
     name: '<GST> GESTÃO DE SEGURANÇA DO TRABALHO',
     short_name: 'GST',
     description: 'Sistema inteligente de gestão de Segurança e Saúde no Trabalho',
-    start_url: '/login',
+    lang: 'pt-BR',
+    start_url: '/dashboard',
     scope: '/',
     display: 'standalone',
     background_color: '#EEF3F8',
     theme_color: '#1E5EFF',
-    orientation: 'portrait',
+    orientation: 'portrait-primary',
+    categories: ['business', 'productivity'],
     icons: [
+      {
+        src: '/icon-192.svg',
+        sizes: '192x192',
+        type: 'image/svg+xml',
+        purpose: 'any',
+      },
       {
         src: '/icon-512.svg',
         sizes: 'any',
@@ -23,6 +31,29 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: '512x512',
         type: 'image/svg+xml',
         purpose: 'maskable',
+      },
+    ],
+    shortcuts: [
+      {
+        name: 'Dashboard',
+        short_name: 'Dashboard',
+        description: 'Ir para o dashboard principal',
+        url: '/dashboard',
+        icons: [{ src: '/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' }],
+      },
+      {
+        name: 'Calendário SST',
+        short_name: 'Calendário',
+        description: 'Ver calendário de eventos SST',
+        url: '/dashboard/calendar',
+        icons: [{ src: '/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' }],
+      },
+      {
+        name: 'Treinamentos',
+        short_name: 'Treinamentos',
+        description: 'Gerenciar treinamentos',
+        url: '/dashboard/trainings',
+        icons: [{ src: '/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' }],
       },
     ],
   };
