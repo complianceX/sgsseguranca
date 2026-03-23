@@ -25,7 +25,7 @@ import { aiService } from "@/services/aiService";
 import { isAiEnabled } from "@/lib/featureFlags";
 import { SignatureModal } from "../app/dashboard/checklists/components/SignatureModal";
 import { signaturesService } from "@/services/signaturesService";
-import { getFormErrorMessage } from "@/lib/error-handler";
+import { extractApiErrorMessage, getFormErrorMessage } from "@/lib/error-handler";
 import { selectedTenantStore } from "@/lib/selectedTenantStore";
 import { sessionStore } from "@/lib/sessionStore";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -254,15 +254,27 @@ export function DdsForm({ id }: DdsFormProps) {
   useEffect(() => {
     async function loadData() {
       try {
-        const [siteData, userData] = await Promise.all([
+        const [siteResult, userResult] = await Promise.allSettled([
           sitesService.findAll(),
           usersService.findAll(),
         ]);
+        const siteData = siteResult.status === "fulfilled" ? siteResult.value : [];
+        const userData = userResult.status === "fulfilled" ? userResult.value : [];
+        const failedCatalogs = [
+          siteResult.status === "rejected" ? "sites" : null,
+          userResult.status === "rejected" ? "usuários" : null,
+        ].filter(Boolean);
         let companiesData: Company[] = [];
         try {
           companiesData = await companiesService.findAll();
         } catch {
           // sem permissão para listar empresas — seguir com lista vazia
+        }
+
+        if (failedCatalogs.length > 0) {
+          toast.warning(
+            `Parte do catálogo do DDS não pôde ser carregada: ${failedCatalogs.join(", ")}.`,
+          );
         }
 
         const fallbackCompanyId = isUuidLike(prefillCompanyId)
@@ -298,10 +310,24 @@ export function DdsForm({ id }: DdsFormProps) {
         setUsers(userData);
 
         if (id) {
-          const [dds, existingSignatures] = await Promise.all([
+          const [ddsResult, signaturesResult] = await Promise.allSettled([
             ddsService.findOne(id),
             signaturesService.findByDocument(id, "DDS"),
           ]);
+          if (ddsResult.status !== "fulfilled") {
+            throw ddsResult.reason;
+          }
+          const dds = ddsResult.value;
+          const existingSignatures =
+            signaturesResult.status === "fulfilled" ? signaturesResult.value : [];
+          if (signaturesResult.status === "rejected") {
+            toast.warning(
+              await extractApiErrorMessage(
+                signaturesResult.reason,
+                "Assinaturas existentes não puderam ser carregadas agora. O formulário foi aberto em modo degradado.",
+              ),
+            );
+          }
           setCurrentDds(dds);
 
           const participantSignatures: Record<
@@ -371,7 +397,12 @@ export function DdsForm({ id }: DdsFormProps) {
         }
       } catch (error) {
         console.error("Erro ao carregar dados:", error);
-        toast.error("Erro ao carregar dados para o formulário.");
+        toast.error(
+          getFormErrorMessage(error, {
+            fallback: "Erro ao carregar dados para o formulário.",
+            server: "O DDS não pôde ser carregado agora.",
+          }),
+        );
       } finally {
         setFetching(false);
       }

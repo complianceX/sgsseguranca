@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/table";
 import { PaginationControls } from "@/components/PaginationControls";
 import { cn } from "@/lib/utils";
+import { extractApiErrorMessage } from "@/lib/error-handler";
 
 const inputClassName =
   "w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-sm text-[var(--ds-color-text-primary)] transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]";
@@ -184,7 +185,12 @@ export default function DocumentPendenciesPage() {
         "Erro ao carregar empresas da central documental:",
         loadError,
       );
-      toast.error("Erro ao carregar empresas disponíveis.");
+      toast.error(
+        await extractApiErrorMessage(
+          loadError,
+          "Não foi possível carregar as empresas disponíveis.",
+        ),
+      );
     } finally {
       setLoadingCompanies(false);
     }
@@ -206,7 +212,12 @@ export default function DocumentPendenciesPage() {
         "Erro ao carregar obras/setores da central documental:",
         loadError,
       );
-      toast.error("Erro ao carregar obras e setores.");
+      toast.error(
+        await extractApiErrorMessage(
+          loadError,
+          "Não foi possível carregar obras e setores.",
+        ),
+      );
     } finally {
       setLoadingSites(false);
     }
@@ -236,7 +247,10 @@ export default function DocumentPendenciesPage() {
         loadError,
       );
       setError(
-        "Não foi possível carregar a central de pendências documentais.",
+        await extractApiErrorMessage(
+          loadError,
+          "Não foi possível carregar a central de pendências documentais.",
+        ),
       );
     } finally {
       setLoading(false);
@@ -425,10 +439,10 @@ export default function DocumentPendenciesPage() {
           "Erro ao executar ação operacional da pendência:",
           actionError,
         );
-        const message =
-          actionError instanceof Error
-            ? actionError.message
-            : "Não foi possível concluir a ação operacional.";
+        const message = await extractApiErrorMessage(
+          actionError,
+          "Não foi possível concluir a ação operacional.",
+        );
         toast.error(message);
       } finally {
         setRunningActionId((current) =>

@@ -32,6 +32,7 @@ import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
+import { extractApiErrorMessage } from '@/lib/error-handler';
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const SendMailModal = dynamic(
@@ -184,6 +185,8 @@ export default function ReportsPage() {
   const [generating, setGenerating] = useState(false);
   const [loadingOperations, setLoadingOperations] = useState(true);
   const [refreshingOperations, setRefreshingOperations] = useState(false);
+  const [reportsError, setReportsError] = useState<string | null>(null);
+  const [operationsWarning, setOperationsWarning] = useState<string | null>(null);
   const [queueStats, setQueueStats] = useState<ReportQueueStats>(EMPTY_QUEUE_STATS);
   const [jobs, setJobs] = useState<ReportQueueJob[]>([]);
   const [mailLogs, setMailLogs] = useState<MailLogItem[]>([]);
@@ -199,13 +202,19 @@ export default function ReportsPage() {
   const loadReports = useCallback(async () => {
     try {
       setLoading(true);
+      setReportsError(null);
       const response = await reportsService.findPaginated({ page, limit: 9 });
       setReports(response.data);
       setTotal(response.total);
       setLastPage(response.lastPage);
     } catch (error) {
       console.error('Erro ao carregar relatórios:', error);
-      toast.error('Erro ao carregar lista de relatórios.');
+      setReportsError(
+        await extractApiErrorMessage(
+          error,
+          'Não foi possível carregar a lista de relatórios.',
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -220,6 +229,7 @@ export default function ReportsPage() {
       }
 
       try {
+        setOperationsWarning(null);
         const operations = await Promise.allSettled([
           reportsService.getQueueStats(),
           reportsService.getJobs(10),
@@ -227,27 +237,55 @@ export default function ReportsPage() {
         ]);
 
         const [statsResult, jobsResult, mailResult] = operations;
+        const failedSources: string[] = [];
 
         if (statsResult.status === 'fulfilled') {
           setQueueStats(statsResult.value);
+        } else {
+          failedSources.push('estatísticas da fila');
+          if (mode === 'initial') {
+            setQueueStats(EMPTY_QUEUE_STATS);
+          }
         }
 
         if (jobsResult.status === 'fulfilled') {
           setJobs(jobsResult.value.items || []);
+        } else {
+          failedSources.push('jobs recentes');
+          if (mode === 'initial') {
+            setJobs([]);
+          }
         }
 
         if (canViewMail) {
           if (mailResult.status === 'fulfilled' && mailResult.value) {
             setMailLogs(mailResult.value.items || []);
             setMailLogsTotal(mailResult.value.total || 0);
+          } else if (mailResult.status === 'rejected') {
+            failedSources.push('logs de e-mail');
+            if (mode === 'initial') {
+              setMailLogs([]);
+              setMailLogsTotal(0);
+            }
           }
         } else {
           setMailLogs([]);
           setMailLogsTotal(0);
         }
+
+        if (failedSources.length > 0) {
+          setOperationsWarning(
+            `Central operacional carregada com ressalvas: ${failedSources.join(', ')}.`,
+          );
+        }
       } catch (error) {
         console.error('Erro ao carregar centro operacional de relatórios:', error);
-        toast.error('Erro ao atualizar fila de PDF e envios de e-mail.');
+        setOperationsWarning(
+          await extractApiErrorMessage(
+            error,
+            'Não foi possível atualizar a fila de PDF e os envios de e-mail.',
+          ),
+        );
       } finally {
         if (mode === 'initial') {
           setLoadingOperations(false);
@@ -322,7 +360,12 @@ export default function ReportsPage() {
       toast.warning('O relatório continua processando. Acompanhe pela central de jobs.');
     } catch (error) {
       console.error('Erro ao gerar relatório:', error);
-      toast.error('Erro ao gerar relatório mensal.');
+      toast.error(
+        await extractApiErrorMessage(
+          error,
+          'Não foi possível gerar o relatório mensal.',
+        ),
+      );
     } finally {
       setGenerating(false);
       await loadOperations('refresh');
@@ -330,7 +373,18 @@ export default function ReportsPage() {
   }
 
   async function handleRefreshCenter() {
-    await Promise.all([loadReports(), loadOperations('refresh')]);
+    try {
+      await Promise.all([loadReports(), loadOperations('refresh')]);
+      toast.success('Central de relatórios atualizada.');
+    } catch (error) {
+      console.error('Erro ao atualizar central de relatórios:', error);
+      toast.error(
+        await extractApiErrorMessage(
+          error,
+          'Não foi possível atualizar a central de relatórios.',
+        ),
+      );
+    }
   }
 
   async function handleDelete(id: string) {
@@ -347,7 +401,12 @@ export default function ReportsPage() {
       await loadOperations('refresh');
     } catch (error) {
       console.error('Erro ao excluir relatório:', error);
-      toast.error('Erro ao excluir relatório.');
+      toast.error(
+        await extractApiErrorMessage(
+          error,
+          'Não foi possível excluir o relatório.',
+        ),
+      );
     }
   }
 
@@ -359,7 +418,12 @@ export default function ReportsPage() {
       toast.success('Logs de e-mail exportados com sucesso.');
     } catch (error) {
       console.error('Erro ao exportar logs de e-mail:', error);
-      toast.error('Erro ao exportar logs de e-mail.');
+      toast.error(
+        await extractApiErrorMessage(
+          error,
+          'Não foi possível exportar os logs de e-mail.',
+        ),
+      );
     } finally {
       setExportingMailLogs(false);
     }
@@ -381,7 +445,12 @@ export default function ReportsPage() {
       await loadOperations('refresh');
     } catch (error) {
       console.error('Erro ao reenfileirar relatório mensal:', error);
-      toast.error('Não foi possível reenfileirar o relatório mensal.');
+      toast.error(
+        await extractApiErrorMessage(
+          error,
+          'Não foi possível reenfileirar o relatório mensal.',
+        ),
+      );
     } finally {
       setRefreshingOperations(false);
     }
@@ -397,7 +466,12 @@ export default function ReportsPage() {
       toast.success('PDF gerado com sucesso.');
     } catch (error) {
       console.error('Erro ao gerar PDF:', error);
-      toast.error('Erro ao gerar PDF do relatório.');
+      toast.error(
+        await extractApiErrorMessage(
+          error,
+          'Não foi possível gerar o PDF do relatório.',
+        ),
+      );
     }
   }
 
@@ -428,7 +502,12 @@ export default function ReportsPage() {
       });
     } catch (error) {
       console.error('Erro ao imprimir relatório:', error);
-      toast.error('Erro ao preparar impressão do relatório.');
+      toast.error(
+        await extractApiErrorMessage(
+          error,
+          'Não foi possível preparar a impressão do relatório.',
+        ),
+      );
     }
   }
 
@@ -454,7 +533,12 @@ export default function ReportsPage() {
       setIsMailModalOpen(true);
     } catch (error) {
       console.error('Erro ao preparar e-mail:', error);
-      toast.error('Erro ao preparar o documento para envio.');
+      toast.error(
+        await extractApiErrorMessage(
+          error,
+          'Não foi possível preparar o documento para envio.',
+        ),
+      );
     }
   }
 
@@ -508,6 +592,18 @@ export default function ReportsPage() {
           </div>
         </CardHeader>
       </Card>
+
+      {reportsError ? (
+        <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger-fg)]">
+          {reportsError}
+        </div>
+      ) : null}
+
+      {operationsWarning ? (
+        <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[var(--ds-color-warning-fg)]">
+          {operationsWarning}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
         <SummaryCard

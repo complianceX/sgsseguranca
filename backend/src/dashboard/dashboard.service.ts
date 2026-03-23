@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Apr } from '../aprs/entities/apr.entity';
@@ -55,6 +55,8 @@ function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+
   constructor(
     @InjectRepository(Apr)
     private readonly aprsRepository: Repository<Apr>,
@@ -735,25 +737,32 @@ export class DashboardService {
       0,
     );
 
-    const monthlyRiskTrend = await this.monthlySnapshotsRepository.find({
-      where: { company_id: companyId },
-      order: { month: 'ASC' },
-      take: 12,
-    });
-
-    const monthlyNc = await this.nonConformitiesRepository
-      .createQueryBuilder('nc')
-      .select(
-        "to_char(date_trunc('month', nc.data_identificacao), 'YYYY-MM')",
-        'month',
-      )
-      .addSelect('COUNT(nc.id)', 'count')
-      .where('nc.company_id = :companyId', { companyId })
-      .andWhere('nc.data_identificacao >= :monthStart', { monthStart })
-      .andWhere('nc.data_identificacao < :nextMonth', { nextMonth })
-      .groupBy("date_trunc('month', nc.data_identificacao)")
-      .orderBy("date_trunc('month', nc.data_identificacao)", 'ASC')
-      .getRawMany<{ month: string; count: string }>();
+    const [monthlyRiskTrend, monthlyNc] = await Promise.all([
+      safe(
+        this.monthlySnapshotsRepository.find({
+          where: { company_id: companyId },
+          order: { month: 'ASC' },
+          take: 12,
+        }),
+        [],
+      ),
+      safe(
+        this.nonConformitiesRepository
+          .createQueryBuilder('nc')
+          .select(
+            "to_char(date_trunc('month', nc.data_identificacao), 'YYYY-MM')",
+            'month',
+          )
+          .addSelect('COUNT(nc.id)', 'count')
+          .where('nc.company_id = :companyId', { companyId })
+          .andWhere('nc.data_identificacao >= :monthStart', { monthStart })
+          .andWhere('nc.data_identificacao < :nextMonth', { nextMonth })
+          .groupBy("date_trunc('month', nc.data_identificacao)")
+          .orderBy("date_trunc('month', nc.data_identificacao)", 'ASC')
+          .getRawMany<{ month: string; count: string }>(),
+        [],
+      ),
+    ]);
 
     return {
       leading: {
@@ -799,25 +808,32 @@ export class DashboardService {
   }
 
   async getHeatmap(companyId: string) {
-    const snapshots = await this.monthlySnapshotsRepository
-      .createQueryBuilder('snapshot')
-      .select('snapshot.site_id', 'site_id')
-      .addSelect('AVG(snapshot.risk_score)', 'risk_score')
-      .addSelect('SUM(snapshot.nc_count)', 'nc_count')
-      .addSelect('AVG(snapshot.training_compliance)', 'training_compliance')
-      .where('snapshot.company_id = :companyId', { companyId })
-      .groupBy('snapshot.site_id')
-      .getRawMany<{
-        site_id: string;
-        risk_score: string;
-        nc_count: string;
-        training_compliance: string;
-      }>();
-
-    const sites = await this.sitesRepository.find({
-      where: { company_id: companyId },
-      select: ['id', 'nome'],
-    });
+    const [snapshots, sites] = await Promise.all([
+      safe(
+        this.monthlySnapshotsRepository
+          .createQueryBuilder('snapshot')
+          .select('snapshot.site_id', 'site_id')
+          .addSelect('AVG(snapshot.risk_score)', 'risk_score')
+          .addSelect('SUM(snapshot.nc_count)', 'nc_count')
+          .addSelect('AVG(snapshot.training_compliance)', 'training_compliance')
+          .where('snapshot.company_id = :companyId', { companyId })
+          .groupBy('snapshot.site_id')
+          .getRawMany<{
+            site_id: string;
+            risk_score: string;
+            nc_count: string;
+            training_compliance: string;
+          }>(),
+        [],
+      ),
+      safe(
+        this.sitesRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'nome'],
+        }),
+        [],
+      ),
+    ]);
     const siteNameById = new Map(sites.map((site) => [site.id, site.nome]));
 
     if (snapshots.length > 0) {
@@ -830,14 +846,21 @@ export class DashboardService {
       }));
     }
 
-    const fallbackRows = await this.aprsRepository
-      .createQueryBuilder('apr')
-      .select('apr.site_id', 'site_id')
-      .addSelect('AVG(COALESCE(apr.initial_risk, 0))', 'risk_score')
-      .addSelect('COUNT(apr.id)', 'apr_count')
-      .where('apr.company_id = :companyId', { companyId })
-      .groupBy('apr.site_id')
-      .getRawMany<{ site_id: string; risk_score: string; apr_count: string }>();
+    const fallbackRows = await safe(
+      this.aprsRepository
+        .createQueryBuilder('apr')
+        .select('apr.site_id', 'site_id')
+        .addSelect('AVG(COALESCE(apr.initial_risk, 0))', 'risk_score')
+        .addSelect('COUNT(apr.id)', 'apr_count')
+        .where('apr.company_id = :companyId', { companyId })
+        .groupBy('apr.site_id')
+        .getRawMany<{
+          site_id: string;
+          risk_score: string;
+          apr_count: string;
+        }>(),
+      [],
+    );
 
     return fallbackRows.map((row) => ({
       site_id: row.site_id,
@@ -859,44 +882,59 @@ export class DashboardService {
       expiringMedicalExams,
       expiringTrainings,
     ] = await Promise.all([
-      this.ptsRepository.find({
-        where: { company_id: companyId, status: 'Pendente' },
-        relations: ['site', 'responsavel'],
-        order: { created_at: 'ASC' },
-        take: 10,
-      }),
-      this.nonConformitiesRepository.find({
-        where: { company_id: companyId },
-        relations: ['site'],
-        order: { created_at: 'DESC' },
-        take: 30,
-      }),
-      this.inspectionsRepository.find({
-        where: { company_id: companyId },
-        relations: ['site', 'responsavel'],
-        order: { data_inspecao: 'ASC' },
-        take: 30,
-      }),
-      this.medicalExamsRepository
-        .createQueryBuilder('exam')
-        .leftJoinAndSelect('exam.user', 'user')
-        .where('exam.company_id = :companyId', { companyId })
-        .andWhere('exam.data_vencimento BETWEEN :now AND :nextWeek', {
-          now,
-          nextWeek,
-        })
-        .orderBy('exam.data_vencimento', 'ASC')
-        .getMany(),
-      this.trainingsRepository
-        .createQueryBuilder('training')
-        .leftJoinAndSelect('training.user', 'user')
-        .where('training.company_id = :companyId', { companyId })
-        .andWhere('training.data_vencimento BETWEEN :now AND :nextWeek', {
-          now,
-          nextWeek,
-        })
-        .orderBy('training.data_vencimento', 'ASC')
-        .getMany(),
+      safe(
+        this.ptsRepository.find({
+          where: { company_id: companyId, status: 'Pendente' },
+          relations: ['site', 'responsavel'],
+          order: { created_at: 'ASC' },
+          take: 10,
+        }),
+        [],
+      ),
+      safe(
+        this.nonConformitiesRepository.find({
+          where: { company_id: companyId },
+          relations: ['site'],
+          order: { created_at: 'DESC' },
+          take: 30,
+        }),
+        [],
+      ),
+      safe(
+        this.inspectionsRepository.find({
+          where: { company_id: companyId },
+          relations: ['site', 'responsavel'],
+          order: { data_inspecao: 'ASC' },
+          take: 30,
+        }),
+        [],
+      ),
+      safe(
+        this.medicalExamsRepository
+          .createQueryBuilder('exam')
+          .leftJoinAndSelect('exam.user', 'user')
+          .where('exam.company_id = :companyId', { companyId })
+          .andWhere('exam.data_vencimento BETWEEN :now AND :nextWeek', {
+            now,
+            nextWeek,
+          })
+          .orderBy('exam.data_vencimento', 'ASC')
+          .getMany(),
+        [],
+      ),
+      safe(
+        this.trainingsRepository
+          .createQueryBuilder('training')
+          .leftJoinAndSelect('training.user', 'user')
+          .where('training.company_id = :companyId', { companyId })
+          .andWhere('training.data_vencimento BETWEEN :now AND :nextWeek', {
+            now,
+            nextWeek,
+          })
+          .orderBy('training.data_vencimento', 'ASC')
+          .getMany(),
+        [],
+      ),
     ]);
 
     const criticalNonConformities = nonConformities.filter((item) => {
@@ -990,11 +1028,19 @@ export class DashboardService {
       input.companyId,
     );
 
-    await this.dashboardOperationalNotifierService.notifyPendingQueue({
-      userId: input.userId,
-      companyId: input.companyId,
-      queue,
-    });
+    try {
+      await this.dashboardOperationalNotifierService.notifyPendingQueue({
+        userId: input.userId,
+        companyId: input.companyId,
+        queue,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `[dashboard.pending-queue] Falha ao enviar notificações operacionais: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
 
     return queue;
   }
@@ -1025,12 +1071,20 @@ export class DashboardService {
         filters: input.filters,
       });
 
-    await this.dashboardOperationalNotifierService.notifyDocumentPendencies({
-      userId: input.userId,
-      companyId:
-        response.filtersApplied.companyId || input.companyId || undefined,
-      response,
-    });
+    try {
+      await this.dashboardOperationalNotifierService.notifyDocumentPendencies({
+        userId: input.userId,
+        companyId:
+          response.filtersApplied.companyId || input.companyId || undefined,
+        response,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `[dashboard.document-pendencies] Falha ao enviar notificações operacionais: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
 
     return response;
   }

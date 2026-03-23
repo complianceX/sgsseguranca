@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import { extractApiErrorMessage } from '@/lib/error-handler';
 
 export interface DossierAttachmentLine {
   tipo: string;
@@ -225,6 +226,11 @@ async function openPdfUrl(url: string, fallbackFilename: string) {
   }
 
   const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `Não foi possível abrir o PDF oficial (${response.status}).`,
+    );
+  }
   const blob = await response.blob();
   const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -245,6 +251,14 @@ function triggerBlobDownload(blob: Blob, filename: string) {
   link.click();
   link.remove();
   URL.revokeObjectURL(objectUrl);
+}
+
+async function rethrowFriendlyBlobError(
+  error: unknown,
+  fallback: string,
+): Promise<never> {
+  const message = await extractApiErrorMessage(error, fallback);
+  throw new Error(message);
 }
 
 export const dossiersService = {
@@ -373,19 +387,33 @@ export const dossiersService = {
   },
 
   downloadEmployeeBundle: async (userId: string) => {
-    const response = await api.get<Blob>(
-      `/dossiers/employee/${userId}/bundle`,
-      {
-        responseType: 'blob',
-      },
-    );
-    triggerBlobDownload(response.data, `dossie_colaborador_${userId}.zip`);
+    try {
+      const response = await api.get<Blob>(
+        `/dossiers/employee/${userId}/bundle`,
+        {
+          responseType: 'blob',
+        },
+      );
+      triggerBlobDownload(response.data, `dossie_colaborador_${userId}.zip`);
+    } catch (error) {
+      await rethrowFriendlyBlobError(
+        error,
+        'Falha ao gerar o pacote ZIP do dossiê do colaborador.',
+      );
+    }
   },
 
   downloadSiteBundle: async (siteId: string) => {
-    const response = await api.get<Blob>(`/dossiers/site/${siteId}/bundle`, {
-      responseType: 'blob',
-    });
-    triggerBlobDownload(response.data, `dossie_site_${siteId}.zip`);
+    try {
+      const response = await api.get<Blob>(`/dossiers/site/${siteId}/bundle`, {
+        responseType: 'blob',
+      });
+      triggerBlobDownload(response.data, `dossie_site_${siteId}.zip`);
+    } catch (error) {
+      await rethrowFriendlyBlobError(
+        error,
+        'Falha ao gerar o pacote ZIP do dossiê da obra/setor.',
+      );
+    }
   },
 };

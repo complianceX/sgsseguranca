@@ -1597,6 +1597,96 @@ export class DossiersService {
     generatedAt: string;
   }): Promise<{ filename: string; buffer: Buffer }> {
     const zip = new JSZip();
+    const officialFolder = zip.folder('documentos-oficiais');
+    if (!officialFolder) {
+      throw new Error(
+        'Não foi possível inicializar a pasta de documentos oficiais do bundle.',
+      );
+    }
+
+    const officialArtifactResults = await Promise.allSettled(
+      input.officialArtifacts.map(async (artifact, index) => {
+        const safeName = this.sanitizeBundleFileName(
+          artifact.arquivo || `${artifact.modulo}-${artifact.entityId}.pdf`,
+          index,
+        );
+        const buffer = await this.storageService.downloadFileBuffer(
+          artifact.fileKey,
+        );
+
+        return {
+          artifact,
+          safeName,
+          buffer,
+        };
+      }),
+    );
+
+    const includedOfficialDocuments: Array<{
+      modulo: GovernedDossierModule;
+      moduloLabel: string;
+      referencia: string;
+      documentCode: string | null;
+      fileName: string;
+      availability: 'ready' | 'registered_without_signed_url';
+      emittedAt: string | null;
+      fileHash: string | null;
+      fileKey: string;
+    }> = [];
+    const missingOfficialDocuments: Array<{
+      modulo: GovernedDossierModule;
+      moduloLabel: string;
+      referencia: string;
+      documentCode: string | null;
+      fileName: string;
+      availability: 'ready' | 'registered_without_signed_url';
+      fileKey: string;
+      reason: string;
+    }> = [];
+
+    officialArtifactResults.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        officialFolder.file(result.value.safeName, result.value.buffer);
+        includedOfficialDocuments.push({
+          modulo: result.value.artifact.modulo,
+          moduloLabel: result.value.artifact.modulo_label,
+          referencia: result.value.artifact.referencia,
+          documentCode: result.value.artifact.codigo_documento,
+          fileName: result.value.safeName,
+          availability: result.value.artifact.disponibilidade,
+          emittedAt: result.value.artifact.emitido_em,
+          fileHash: result.value.artifact.fileHash,
+          fileKey: result.value.artifact.fileKey,
+        });
+        return;
+      }
+
+      const artifact = input.officialArtifacts[index];
+      const safeName = this.sanitizeBundleFileName(
+        artifact.arquivo || `${artifact.modulo}-${artifact.entityId}.pdf`,
+        index,
+      );
+      const reason =
+        result.reason instanceof Error
+          ? result.reason.message
+          : String(result.reason);
+
+      this.logger.warn(
+        `Falha ao anexar artefato oficial ao bundle do dossiê ${input.dossierCode}: ${artifact.modulo}:${artifact.entityId} (${artifact.fileKey}) -> ${reason}`,
+      );
+
+      missingOfficialDocuments.push({
+        modulo: artifact.modulo,
+        moduloLabel: artifact.modulo_label,
+        referencia: artifact.referencia,
+        documentCode: artifact.codigo_documento,
+        fileName: safeName,
+        availability: artifact.disponibilidade,
+        fileKey: artifact.fileKey,
+        reason,
+      });
+    });
+
     const manifest = {
       dossierCode: input.dossierCode,
       kind: input.context.kind,
@@ -1605,6 +1695,12 @@ export class DossiersService {
       companyName: input.context.companyName,
       summary: input.context.summary,
       inclusionPolicy: input.context.inclusionPolicy,
+      bundleStatus: {
+        requestedOfficialDocuments: input.officialArtifacts.length,
+        includedOfficialDocuments: includedOfficialDocuments.length,
+        missingOfficialDocuments: missingOfficialDocuments.length,
+        degraded: missingOfficialDocuments.length > 0,
+      },
       officialDocuments: input.officialArtifacts.map((artifact) => ({
         modulo: artifact.modulo,
         moduloLabel: artifact.modulo_label,
@@ -1616,6 +1712,8 @@ export class DossiersService {
         fileHash: artifact.fileHash,
         fileKey: artifact.fileKey,
       })),
+      includedOfficialDocuments,
+      missingOfficialDocuments,
       pendingOfficialDocuments: input.context.pendingGovernedDocumentLines,
       supportingAttachments: input.context.attachmentLines.map(
         (attachment) => ({
@@ -1629,26 +1727,12 @@ export class DossiersService {
 
     zip.file('manifest.json', JSON.stringify(manifest, null, 2));
     zip.file('contexto-dossie.json', JSON.stringify(input.context, null, 2));
-
-    const officialFolder = zip.folder('documentos-oficiais');
-    if (!officialFolder) {
-      throw new Error(
-        'Não foi possível inicializar a pasta de documentos oficiais do bundle.',
+    if (missingOfficialDocuments.length > 0) {
+      zip.file(
+        'falhas-documentos-oficiais.json',
+        JSON.stringify(missingOfficialDocuments, null, 2),
       );
     }
-
-    await Promise.all(
-      input.officialArtifacts.map(async (artifact, index) => {
-        const safeName = this.sanitizeBundleFileName(
-          artifact.arquivo || `${artifact.modulo}-${artifact.entityId}.pdf`,
-          index,
-        );
-        const buffer = await this.storageService.downloadFileBuffer(
-          artifact.fileKey,
-        );
-        officialFolder.file(safeName, buffer);
-      }),
-    );
 
     const filename = `${this.sanitizeBundleBaseName(input.filenameBase)}__${new Date(
       input.generatedAt,

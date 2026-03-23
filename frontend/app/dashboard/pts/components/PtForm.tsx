@@ -39,6 +39,7 @@ import { toast } from 'sonner';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isAiEnabled } from '@/lib/featureFlags';
 import { cn } from '@/lib/utils';
+import { extractApiErrorMessage } from '@/lib/error-handler';
 import {
   getPtFocusLabel,
   PtFocusTarget,
@@ -1119,11 +1120,34 @@ export function PtForm({ id }: PtFormProps) {
 
         if (id) {
           setPreApprovalHistoryLoading(true);
-          const [pt, sigs, history] = await Promise.all([
+          const [ptResult, sigsResult, historyResult] = await Promise.allSettled([
             ptsService.findOne(id),
             signaturesService.findByDocument(id, 'PT'),
-            ptsService.getPreApprovalHistory(id).catch(() => []),
+            ptsService.getPreApprovalHistory(id),
           ]);
+          if (ptResult.status !== 'fulfilled') {
+            throw ptResult.reason;
+          }
+          const pt = ptResult.value;
+          const sigs = sigsResult.status === 'fulfilled' ? sigsResult.value : [];
+          const history =
+            historyResult.status === 'fulfilled' ? historyResult.value : [];
+          if (sigsResult.status === 'rejected') {
+            toast.warning(
+              await extractApiErrorMessage(
+                sigsResult.reason,
+                'As assinaturas existentes não puderam ser carregadas agora. A PT foi aberta com dados parciais.',
+              ),
+            );
+          }
+          if (historyResult.status === 'rejected') {
+            toast.warning(
+              await extractApiErrorMessage(
+                historyResult.reason,
+                'O histórico de pré-aprovação não pôde ser carregado agora.',
+              ),
+            );
+          }
           setPreApprovalHistory(history);
           setCurrentPt(pt);
 
@@ -1274,7 +1298,7 @@ export function PtForm({ id }: PtFormProps) {
       }
 
       try {
-        const [aprPage, sitePage, userPage] = await Promise.all([
+        const [aprResult, siteResult, userResult] = await Promise.allSettled([
           aprsService.findPaginated({
             page: 1,
             limit: 100,
@@ -1291,10 +1315,18 @@ export function PtForm({ id }: PtFormProps) {
             companyId: selectedCompanyId,
           }),
         ]);
+        const failedCatalogs = [
+          aprResult.status === 'rejected' ? 'APRs' : null,
+          siteResult.status === 'rejected' ? 'sites' : null,
+          userResult.status === 'rejected' ? 'usuários' : null,
+        ].filter(Boolean);
 
-        let nextAprs = aprPage.data;
-        let nextSites = sitePage.data;
-        let nextUsers = userPage.data;
+        let nextAprs =
+          aprResult.status === 'fulfilled' ? aprResult.value.data : [];
+        let nextSites =
+          siteResult.status === 'fulfilled' ? siteResult.value.data : [];
+        let nextUsers =
+          userResult.status === 'fulfilled' ? userResult.value.data : [];
 
         if (selectedAprId && !nextAprs.some((apr) => apr.id === selectedAprId)) {
           try {
@@ -1302,7 +1334,9 @@ export function PtForm({ id }: PtFormProps) {
             if (currentApr.company_id === selectedCompanyId) {
               nextAprs = dedupeById([currentApr, ...nextAprs]);
             }
-          } catch {}
+          } catch (error) {
+            console.warn('Falha ao carregar APR selecionada para fallback da PT:', error);
+          }
         }
 
         if (
@@ -1314,7 +1348,9 @@ export function PtForm({ id }: PtFormProps) {
             if (currentSite.company_id === selectedCompanyId) {
               nextSites = dedupeById([currentSite, ...nextSites]);
             }
-          } catch {}
+          } catch (error) {
+            console.warn('Falha ao carregar site selecionado para fallback da PT:', error);
+          }
         }
 
         const requiredUserIds = Array.from(
@@ -1347,27 +1383,44 @@ export function PtForm({ id }: PtFormProps) {
           ]);
         }
 
-        setAprs((prev) =>
-          dedupeById([
-            ...prev.filter((apr) => apr.company_id === selectedCompanyId),
-            ...nextAprs,
-          ]),
-        );
-        setSites((prev) =>
-          dedupeById([
-            ...prev.filter((site) => site.company_id === selectedCompanyId),
-            ...nextSites,
-          ]),
-        );
-        setUsers((prev) =>
-          dedupeById([
-            ...prev.filter((currentUser) => currentUser.company_id === selectedCompanyId),
-            ...nextUsers,
-          ]),
-        );
+        if (aprResult.status === 'fulfilled' || nextAprs.length > 0) {
+          setAprs((prev) =>
+            dedupeById([
+              ...prev.filter((apr) => apr.company_id === selectedCompanyId),
+              ...nextAprs,
+            ]),
+          );
+        }
+        if (siteResult.status === 'fulfilled' || nextSites.length > 0) {
+          setSites((prev) =>
+            dedupeById([
+              ...prev.filter((site) => site.company_id === selectedCompanyId),
+              ...nextSites,
+            ]),
+          );
+        }
+        if (userResult.status === 'fulfilled' || nextUsers.length > 0) {
+          setUsers((prev) =>
+            dedupeById([
+              ...prev.filter((currentUser) => currentUser.company_id === selectedCompanyId),
+              ...nextUsers,
+            ]),
+          );
+        }
+
+        if (failedCatalogs.length > 0) {
+          console.warn(
+            `Parte dos catálogos da PT não pôde ser carregada: ${failedCatalogs.join(', ')}.`,
+          );
+        }
       } catch (error) {
         console.error('Erro ao carregar catálogos da PT:', error);
-        toast.error('Erro ao carregar catálogos da PT.');
+        toast.error(
+          await extractApiErrorMessage(
+            error,
+            'Não foi possível carregar os catálogos da PT.',
+          ),
+        );
       }
     }
 

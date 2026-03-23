@@ -95,6 +95,37 @@ function normalizeUnknownMessage(value: unknown): string | undefined {
   return undefined;
 }
 
+async function normalizeBlobMessage(value: Blob): Promise<string | undefined> {
+  try {
+    const rawText = (await value.text()).trim();
+    if (!rawText) {
+      return undefined;
+    }
+
+    try {
+      const parsed = JSON.parse(rawText) as unknown;
+      return normalizeUnknownMessage(parsed) || rawText;
+    } catch {
+      return rawText;
+    }
+  } catch {
+    return undefined;
+  }
+}
+
+async function normalizeAsyncApiMessage(value: unknown): Promise<string | undefined> {
+  if (
+    value &&
+    typeof value === 'object' &&
+    'text' in value &&
+    typeof (value as { text?: unknown }).text === 'function'
+  ) {
+    return normalizeBlobMessage(value as Blob);
+  }
+
+  return normalizeUnknownMessage(value);
+}
+
 export function getFormErrorMessage(
   error: unknown,
   messages: FormErrorMessages,
@@ -120,6 +151,50 @@ export function getFormErrorMessage(
       return messages.server || messages.fallback || 'Erro interno do servidor.';
     default:
       return messages.fallback || 'Falha na operação. Tente novamente.';
+  }
+}
+
+export async function extractApiErrorMessage(
+  error: unknown,
+  fallback = 'Falha na operação. Tente novamente.',
+): Promise<string> {
+  if (!axios.isAxiosError(error)) {
+    if (error instanceof Error && error.message.trim().length > 0) {
+      return error.message;
+    }
+
+    return fallback;
+  }
+
+  const status = error.response?.status;
+  const normalizedMessage = await normalizeAsyncApiMessage(error.response?.data);
+
+  switch (status) {
+    case 400:
+    case 422:
+      return normalizedMessage || 'Dados inválidos. Verifique as informações enviadas.';
+    case 401:
+      return 'Sessão expirada. Faça login novamente.';
+    case 403:
+      return 'Você não tem permissão para realizar esta ação.';
+    case 404:
+      return normalizedMessage || 'O recurso solicitado não foi encontrado.';
+    case 409:
+      return normalizedMessage || 'A operação entrou em conflito com o estado atual do documento.';
+    case 429:
+      return normalizedMessage || 'Muitas requisições. Aguarde alguns instantes e tente novamente.';
+    case 500:
+      return normalizedMessage || 'Erro interno no servidor. Tente novamente em instantes.';
+    case 502:
+    case 503:
+    case 504:
+      return normalizedMessage || 'O serviço está temporariamente indisponível. Tente novamente em breve.';
+    default:
+      return (
+        normalizedMessage ||
+        error.message ||
+        fallback
+      );
   }
 }
 

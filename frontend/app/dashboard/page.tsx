@@ -599,6 +599,15 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {!loading && pendingQueue.degraded && (
+        <div className="rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-5 py-3.5 text-sm text-[var(--ds-color-warning-fg)] shadow-[var(--ds-shadow-xs)]">
+          A fila operacional foi carregada com ressalvas.
+          {pendingQueue.failedSources?.length
+            ? ` Fontes indisponíveis: ${pendingQueue.failedSources.join(", ")}.`
+            : ''}
+        </div>
+      )}
+
       {/* ── 3. KPI Cards ───────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiCard

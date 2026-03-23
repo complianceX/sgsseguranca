@@ -10,7 +10,10 @@ import {
 import { sitesService, Site } from '@/services/sitesService';
 import { usersService, User } from '@/services/usersService';
 import { useAuth } from '@/context/AuthContext';
+import { extractApiErrorMessage } from '@/lib/error-handler';
 import { Archive, FileDown, ShieldCheck, TriangleAlert } from 'lucide-react';
+
+type PreviewTarget = 'employee' | 'site' | null;
 
 export default function DossiersPage() {
   const { loading: authLoading, hasPermission } = useAuth();
@@ -34,7 +37,13 @@ export default function DossiersPage() {
   const [siteContext, setSiteContext] = useState<SiteDossierContext | null>(
     null,
   );
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const [activePreviewTarget, setActivePreviewTarget] =
+    useState<PreviewTarget>(null);
+  const [employeePreviewLoading, setEmployeePreviewLoading] = useState(false);
+  const [sitePreviewLoading, setSitePreviewLoading] = useState(false);
+  const [employeePreviewError, setEmployeePreviewError] =
+    useState<string | null>(null);
+  const [sitePreviewError, setSitePreviewError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!canViewDossiers) {
@@ -65,7 +74,12 @@ export default function DossiersPage() {
         setSites(nextSites);
       } catch (error) {
         console.error('Erro ao carregar dossies:', error);
-        toast.error('Erro ao carregar dados para emissao de dossie.');
+        toast.error(
+          await extractApiErrorMessage(
+            error,
+            'Erro ao carregar dados para emissão de dossiê.',
+          ),
+        );
       } finally {
         setLoading(false);
       }
@@ -90,7 +104,12 @@ export default function DossiersPage() {
         setUserOptions(usersPage.data);
       } catch (error) {
         console.error('Erro ao carregar colaboradores para dossie:', error);
-        toast.error('Erro ao carregar colaboradores para dossie.');
+        toast.error(
+          await extractApiErrorMessage(
+            error,
+            'Erro ao carregar colaboradores para dossiê.',
+          ),
+        );
       }
     };
 
@@ -103,20 +122,31 @@ export default function DossiersPage() {
     async function loadPreview() {
       if (!selectedUserId) {
         setEmployeeContext(null);
+        setEmployeePreviewError(null);
+        setEmployeePreviewLoading(false);
         return;
       }
 
       try {
-        setPreviewLoading(true);
+        setEmployeePreviewLoading(true);
+        setEmployeePreviewError(null);
         const context = await dossiersService.getEmployeeContext(selectedUserId);
         if (active) {
           setEmployeeContext(context);
         }
       } catch (error) {
         console.error('Erro ao carregar contexto de dossiê do colaborador:', error);
+        if (active) {
+          const message = await extractApiErrorMessage(
+            error,
+            'Não foi possível carregar a prévia do dossiê do colaborador.',
+          );
+          setEmployeeContext(null);
+          setEmployeePreviewError(message);
+        }
       } finally {
         if (active) {
-          setPreviewLoading(false);
+          setEmployeePreviewLoading(false);
         }
       }
     }
@@ -133,20 +163,31 @@ export default function DossiersPage() {
     async function loadPreview() {
       if (!selectedSiteId) {
         setSiteContext(null);
+        setSitePreviewError(null);
+        setSitePreviewLoading(false);
         return;
       }
 
       try {
-        setPreviewLoading(true);
+        setSitePreviewLoading(true);
+        setSitePreviewError(null);
         const context = await dossiersService.getSiteContext(selectedSiteId);
         if (active) {
           setSiteContext(context);
         }
       } catch (error) {
         console.error('Erro ao carregar contexto de dossiê da obra/setor:', error);
+        if (active) {
+          const message = await extractApiErrorMessage(
+            error,
+            'Não foi possível carregar a prévia do dossiê da obra/setor.',
+          );
+          setSiteContext(null);
+          setSitePreviewError(message);
+        }
       } finally {
         if (active) {
-          setPreviewLoading(false);
+          setSitePreviewLoading(false);
         }
       }
     }
@@ -156,6 +197,21 @@ export default function DossiersPage() {
       active = false;
     };
   }, [selectedSiteId]);
+
+  useEffect(() => {
+    if (activePreviewTarget) {
+      return;
+    }
+
+    if (selectedUserId) {
+      setActivePreviewTarget('employee');
+      return;
+    }
+
+    if (selectedSiteId) {
+      setActivePreviewTarget('site');
+    }
+  }, [activePreviewTarget, selectedSiteId, selectedUserId]);
 
   const availableUsers = useMemo(() => {
     if (!selectedUser) {
@@ -171,6 +227,24 @@ export default function DossiersPage() {
 
     return [selectedSite, ...sites.filter((item) => item.id !== selectedSite.id)];
   }, [selectedSite, sites]);
+  const activeContext =
+    activePreviewTarget === 'employee'
+      ? employeeContext
+      : activePreviewTarget === 'site'
+        ? siteContext
+        : null;
+  const activePreviewLoading =
+    activePreviewTarget === 'employee'
+      ? employeePreviewLoading
+      : activePreviewTarget === 'site'
+        ? sitePreviewLoading
+        : false;
+  const activePreviewError =
+    activePreviewTarget === 'employee'
+      ? employeePreviewError
+      : activePreviewTarget === 'site'
+        ? sitePreviewError
+        : null;
 
   const downloadEmployee = async () => {
     if (!canViewDossiers) {
@@ -188,10 +262,10 @@ export default function DossiersPage() {
       toast.success('Dossie do colaborador gerado.');
     } catch (error) {
       console.error('Erro ao gerar dossie colaborador:', error);
-      const message =
-        error instanceof Error && error.message
-          ? error.message
-          : 'Falha ao gerar dossie do colaborador.';
+      const message = await extractApiErrorMessage(
+        error,
+        'Falha ao gerar dossiê do colaborador.',
+      );
       toast.error(message);
     } finally {
       setDownloading(null);
@@ -214,10 +288,10 @@ export default function DossiersPage() {
       toast.success('Dossie da obra/setor gerado.');
     } catch (error) {
       console.error('Erro ao gerar dossie obra:', error);
-      const message =
-        error instanceof Error && error.message
-          ? error.message
-          : 'Falha ao gerar dossie da obra/setor.';
+      const message = await extractApiErrorMessage(
+        error,
+        'Falha ao gerar dossiê da obra/setor.',
+      );
       toast.error(message);
     } finally {
       setDownloading(null);
@@ -241,7 +315,12 @@ export default function DossiersPage() {
       toast.success('Pacote ZIP do dossie do colaborador gerado.');
     } catch (error) {
       console.error('Erro ao gerar bundle do dossie colaborador:', error);
-      toast.error('Falha ao gerar o pacote ZIP do dossie do colaborador.');
+      toast.error(
+        await extractApiErrorMessage(
+          error,
+          'Falha ao gerar o pacote ZIP do dossiê do colaborador.',
+        ),
+      );
     } finally {
       setDownloading(null);
     }
@@ -264,13 +343,16 @@ export default function DossiersPage() {
       toast.success('Pacote ZIP do dossie da obra/setor gerado.');
     } catch (error) {
       console.error('Erro ao gerar bundle do dossie da obra/setor:', error);
-      toast.error('Falha ao gerar o pacote ZIP do dossie da obra/setor.');
+      toast.error(
+        await extractApiErrorMessage(
+          error,
+          'Falha ao gerar o pacote ZIP do dossiê da obra/setor.',
+        ),
+      );
     } finally {
       setDownloading(null);
     }
   };
-
-  const activeContext = employeeContext || siteContext;
 
   if (authLoading) {
     return (
@@ -325,6 +407,9 @@ export default function DossiersPage() {
                 availableUsers.find((item) => item.id === value) || null,
               );
               setSelectedUserId(value);
+              setActivePreviewTarget(
+                value ? 'employee' : selectedSiteId ? 'site' : null,
+              );
             }}
             disabled={loading}
             className="mt-3 w-full rounded-md border px-3 py-2 text-sm"
@@ -378,6 +463,9 @@ export default function DossiersPage() {
                 availableSites.find((item) => item.id === value) || null,
               );
               setSelectedSiteId(value);
+              setActivePreviewTarget(
+                value ? 'site' : selectedUserId ? 'employee' : null,
+              );
             }}
             disabled={loading}
             className="mt-3 w-full rounded-md border px-3 py-2 text-sm"
@@ -440,8 +528,13 @@ export default function DossiersPage() {
           <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Prévia do recorte atual
           </p>
-          {previewLoading ? (
+          {activePreviewLoading ? (
             <p className="mt-3 text-sm text-gray-500">Atualizando contexto do dossiê...</p>
+          ) : activePreviewError ? (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">
+              <p className="font-semibold text-red-900">Prévia indisponível</p>
+              <p className="mt-1">{activePreviewError}</p>
+            </div>
           ) : activeContext ? (
             <div className="mt-4 space-y-4">
               <div className="grid grid-cols-2 gap-3">
