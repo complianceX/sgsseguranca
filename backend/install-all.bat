@@ -81,8 +81,8 @@ echo Sistema pronto para uso!
 echo ========================================
 echo.
 echo Documentacao:
-echo - INSTALL_INSTRUCTIONS.md
-echo - IMPLEMENTATION_COMPLETE.md
-echo - QUICK_WINS.md
+echo - ..\docs\consulta-rapida\README.md
+echo - ..\docs\consulta-rapida\implementacoes-recentes.md
+echo - ..\prompts\INDEX.md
 echo.
 pause

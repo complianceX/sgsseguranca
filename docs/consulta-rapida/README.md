@@ -6,12 +6,14 @@ Use estes arquivos como ponto de partida:
 
 - [visao-geral.md](./visao-geral.md): o que o sistema e, como ele esta dividido e quais blocos sao mais importantes
 - [arquitetura-e-stack.md](./arquitetura-e-stack.md): stack, runtime, processos e infraestrutura principal
+- [arquitetura-e-rotas.md](./arquitetura-e-rotas.md): desenho macro da arquitetura e mapa completo de rotas do frontend e backend
 - [frontend-operacional.md](./frontend-operacional.md): como o frontend esta organizado e onde tocar em UI
 - [backend-operacional.md](./backend-operacional.md): como o backend esta organizado e onde tocar em API e dominio
 - [onde-fica-cada-coisa.md](./onde-fica-cada-coisa.md): mapa rapido de arquivos e pastas
 - [mapa-de-modulos.md](./mapa-de-modulos.md): mapa dos modulos principais do produto
 - [modulos-e-regras.md](./modulos-e-regras.md): modulos principais, regras de governanca e pontos que ja foram endurecidos
 - [fluxos-documentais.md](./fluxos-documentais.md): PDF final, importacao, assinatura, registry, videos e trilha
+- [implementacoes-recentes.md](./implementacoes-recentes.md): linha do tempo e passo a passo do que foi implementado nas ultimas rodadas
 - [pdfs-finais-e-storage.md](./pdfs-finais-e-storage.md): onde ficam os PDFs oficiais, como o storage funciona e quais modulos ja estao endurecidos
 - [variaveis-ambiente-railway.md](./variaveis-ambiente-railway.md): quais variaveis do Railway sao obrigatorias, opcionais, de grafo e gerenciadas pela plataforma
 - [seguranca-e-governanca.md](./seguranca-e-governanca.md): tenant, RBAC, locks, storage e trilha forense
@@ -37,3 +39,15 @@ Esta base agora ja cobre boa parte do dia a dia e pode continuar crescendo. Expa
 - mapa de APIs
 - contratos de frontend/backend
 - checklist de deploy e homologacao
+
+## Relacao com a pasta prompts
+
+Os resumos canonicos do sistema agora ficam aqui em `docs/consulta-rapida`.
+
+A pasta `prompts` foi reduzida para manter apenas:
+
+- prompts reutilizaveis
+- checklists
+- guias operacionais complementares
+
+Se voce encontrar um resumo antigo em `prompts`, trate `docs/consulta-rapida` como a fonte de verdade mais atual.

@@ -1,5 +1,9 @@
 # Mapa de Modulos
 
+Para o desenho macro do sistema e a arvore completa de rotas, consulte tambem:
+
+- [arquitetura-e-rotas.md](./arquitetura-e-rotas.md)
+
 ## Modulos documentais principais
 
 | Dominio | Frontend | Backend | Observacao |

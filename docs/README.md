@@ -8,12 +8,14 @@
 - [consulta-rapida/README.md](./consulta-rapida/README.md)
 - [consulta-rapida/visao-geral.md](./consulta-rapida/visao-geral.md)
 - [consulta-rapida/arquitetura-e-stack.md](./consulta-rapida/arquitetura-e-stack.md)
+- [consulta-rapida/arquitetura-e-rotas.md](./consulta-rapida/arquitetura-e-rotas.md)
 - [consulta-rapida/frontend-operacional.md](./consulta-rapida/frontend-operacional.md)
 - [consulta-rapida/backend-operacional.md](./consulta-rapida/backend-operacional.md)
 - [consulta-rapida/onde-fica-cada-coisa.md](./consulta-rapida/onde-fica-cada-coisa.md)
 - [consulta-rapida/mapa-de-modulos.md](./consulta-rapida/mapa-de-modulos.md)
 - [consulta-rapida/modulos-e-regras.md](./consulta-rapida/modulos-e-regras.md)
 - [consulta-rapida/fluxos-documentais.md](./consulta-rapida/fluxos-documentais.md)
+- [consulta-rapida/implementacoes-recentes.md](./consulta-rapida/implementacoes-recentes.md)
 - [consulta-rapida/pdfs-finais-e-storage.md](./consulta-rapida/pdfs-finais-e-storage.md)
 - [consulta-rapida/variaveis-ambiente-railway.md](./consulta-rapida/variaveis-ambiente-railway.md)
 - [consulta-rapida/seguranca-e-governanca.md](./consulta-rapida/seguranca-e-governanca.md)
@@ -21,6 +23,9 @@
 - [consulta-rapida/troubleshooting.md](./consulta-rapida/troubleshooting.md)
 - [consulta-rapida/faq.md](./consulta-rapida/faq.md)
 - [consulta-rapida/comandos-e-validacao.md](./consulta-rapida/comandos-e-validacao.md)
+
+## Prompts e Guias Operacionais
+- [../prompts/INDEX.md](../prompts/INDEX.md)
 
 ## Conventions
 - [conventions/frontend.md](./conventions/frontend.md)
