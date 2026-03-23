@@ -44,6 +44,15 @@ type InspectionRiskItem = {
   classificacao_risco?: string;
 };
 
+/**
+ * Wraps a promise so that failures return a fallback value instead of
+ * propagating.  This allows Promise.all() to complete even when individual
+ * queries fail — the dashboard degrades gracefully instead of crashing.
+ */
+function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
+  return promise.catch(() => fallback);
+}
+
 @Injectable()
 export class DashboardService {
   constructor(
@@ -126,162 +135,248 @@ export class DashboardService {
       siteComplianceRows,
       recentReports,
     ] = await Promise.all([
-      this.usersRepository.count({ where: { company_id: companyId } }),
-      this.companiesRepository.count(),
-      this.sitesRepository.count({ where: { company_id: companyId } }),
-      this.checklistsRepository.count({ where: { company_id: companyId } }),
-      this.aprsRepository.count({ where: { company_id: companyId } }),
-      this.ptsRepository.count({ where: { company_id: companyId } }),
-      this.episRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'nome', 'ca', 'validade_ca'],
-        order: { validade_ca: 'ASC' },
-      }),
-      this.trainingsRepository
-        .createQueryBuilder('training')
-        .leftJoinAndSelect('training.user', 'user')
-        .where('training.company_id = :companyId', { companyId })
-        .orderBy('training.data_vencimento', 'ASC')
-        .getMany(),
-      this.aprsRepository.count({
-        where: { company_id: companyId, status: 'Pendente' },
-      }),
-      this.ptsRepository.count({
-        where: { company_id: companyId, status: 'Pendente' },
-      }),
-      this.checklistsRepository.count({
-        where: { company_id: companyId, status: 'Pendente' },
-      }),
-      this.nonConformitiesRepository
-        .createQueryBuilder('nc')
-        .where('nc.company_id = :companyId', { companyId })
-        .andWhere(
-          "LOWER(COALESCE(nc.status, '')) NOT IN (:...closedStatuses)",
-          {
-            closedStatuses: ['encerrada', 'concluída', 'concluida', 'fechada'],
-          },
-        )
-        .getCount(),
-      this.inspectionsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'setor_area', 'plano_acao'],
-      }),
-      this.auditsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'titulo', 'plano_acao'],
-      }),
-      this.nonConformitiesRepository.find({
-        where: { company_id: companyId },
-        select: [
-          'id',
-          'codigo_nc',
-          'status',
-          'acao_imediata_descricao',
-          'acao_imediata_responsavel',
-          'acao_imediata_data',
-          'acao_imediata_status',
-          'acao_definitiva_descricao',
-          'acao_definitiva_responsavel',
-          'acao_definitiva_prazo',
-          'acao_definitiva_data_prevista',
-        ],
-      }),
-      this.inspectionsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'perigos_riscos'],
-      }),
-      this.nonConformitiesRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'risco_nivel'],
-      }),
-      this.inspectionsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'evidencias'],
-      }),
-      this.nonConformitiesRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'anexos'],
-      }),
-      this.auditsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'resultados_nao_conformidades'],
-      }),
-      this.aprsRepository.count({
-        where: { company_id: companyId, is_modelo: true },
-      }),
-      this.ddsRepository.count({
-        where: { company_id: companyId, is_modelo: true },
-      }),
-      this.checklistsRepository.count({
-        where: { company_id: companyId, is_modelo: true },
-      }),
-      this.aprsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'titulo', 'created_at', 'updated_at'],
-        order: { updated_at: 'DESC' },
-        take: 5,
-      }),
-      this.ptsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'titulo', 'created_at', 'updated_at'],
-        order: { updated_at: 'DESC' },
-        take: 5,
-      }),
-      this.checklistsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'titulo', 'created_at', 'updated_at'],
-        order: { updated_at: 'DESC' },
-        take: 5,
-      }),
-      this.inspectionsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'setor_area', 'created_at', 'updated_at'],
-        order: { updated_at: 'DESC' },
-        take: 5,
-      }),
-      this.auditsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'titulo', 'created_at', 'updated_at'],
-        order: { updated_at: 'DESC' },
-        take: 5,
-      }),
-      this.nonConformitiesRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'codigo_nc', 'created_at', 'updated_at'],
-        order: { updated_at: 'DESC' },
-        take: 5,
-      }),
-      this.trainingsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'nome', 'data_conclusao'],
-        order: { data_conclusao: 'DESC' },
-        take: 5,
-      }),
-      this.checklistsRepository
-        .createQueryBuilder('checklist')
-        .leftJoin('checklist.site', 'site')
-        .select('checklist.site_id', 'site_id')
-        .addSelect("COALESCE(site.nome, 'Sem obra')", 'site_name')
-        .addSelect('COUNT(checklist.id)', 'total')
-        .addSelect(
-          "SUM(CASE WHEN checklist.status = 'Conforme' THEN 1 ELSE 0 END)",
-          'conformes',
-        )
-        .where('checklist.company_id = :companyId', { companyId })
-        .groupBy('checklist.site_id')
-        .addGroupBy('site.nome')
-        .getRawMany<{
-          site_id: string | null;
-          site_name: string;
-          total: string;
-          conformes: string;
-        }>(),
-      this.reportsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'titulo', 'mes', 'ano', 'created_at'],
-        order: { created_at: 'DESC' },
-        take: 4,
-      }),
+      safe(this.usersRepository.count({ where: { company_id: companyId } }), 0),
+      safe(this.companiesRepository.count(), 0),
+      safe(this.sitesRepository.count({ where: { company_id: companyId } }), 0),
+      safe(
+        this.checklistsRepository.count({ where: { company_id: companyId } }),
+        0,
+      ),
+      safe(this.aprsRepository.count({ where: { company_id: companyId } }), 0),
+      safe(this.ptsRepository.count({ where: { company_id: companyId } }), 0),
+      safe(
+        this.episRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'nome', 'ca', 'validade_ca'],
+          order: { validade_ca: 'ASC' },
+        }),
+        [],
+      ),
+      safe(
+        this.trainingsRepository
+          .createQueryBuilder('training')
+          .leftJoinAndSelect('training.user', 'user')
+          .where('training.company_id = :companyId', { companyId })
+          .orderBy('training.data_vencimento', 'ASC')
+          .getMany(),
+        [],
+      ),
+      safe(
+        this.aprsRepository.count({
+          where: { company_id: companyId, status: 'Pendente' },
+        }),
+        0,
+      ),
+      safe(
+        this.ptsRepository.count({
+          where: { company_id: companyId, status: 'Pendente' },
+        }),
+        0,
+      ),
+      safe(
+        this.checklistsRepository.count({
+          where: { company_id: companyId, status: 'Pendente' },
+        }),
+        0,
+      ),
+      safe(
+        this.nonConformitiesRepository
+          .createQueryBuilder('nc')
+          .where('nc.company_id = :companyId', { companyId })
+          .andWhere(
+            "LOWER(COALESCE(nc.status, '')) NOT IN (:...closedStatuses)",
+            {
+              closedStatuses: [
+                'encerrada',
+                'concluída',
+                'concluida',
+                'fechada',
+              ],
+            },
+          )
+          .getCount(),
+        0,
+      ),
+      safe(
+        this.inspectionsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'setor_area', 'plano_acao'],
+        }),
+        [],
+      ),
+      safe(
+        this.auditsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'titulo', 'plano_acao'],
+        }),
+        [],
+      ),
+      safe(
+        this.nonConformitiesRepository.find({
+          where: { company_id: companyId },
+          select: [
+            'id',
+            'codigo_nc',
+            'status',
+            'acao_imediata_descricao',
+            'acao_imediata_responsavel',
+            'acao_imediata_data',
+            'acao_imediata_status',
+            'acao_definitiva_descricao',
+            'acao_definitiva_responsavel',
+            'acao_definitiva_prazo',
+            'acao_definitiva_data_prevista',
+          ],
+        }),
+        [],
+      ),
+      safe(
+        this.inspectionsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'perigos_riscos'],
+        }),
+        [],
+      ),
+      safe(
+        this.nonConformitiesRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'risco_nivel'],
+        }),
+        [],
+      ),
+      safe(
+        this.inspectionsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'evidencias'],
+        }),
+        [],
+      ),
+      safe(
+        this.nonConformitiesRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'anexos'],
+        }),
+        [],
+      ),
+      safe(
+        this.auditsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'resultados_nao_conformidades'],
+        }),
+        [],
+      ),
+      safe(
+        this.aprsRepository.count({
+          where: { company_id: companyId, is_modelo: true },
+        }),
+        0,
+      ),
+      safe(
+        this.ddsRepository.count({
+          where: { company_id: companyId, is_modelo: true },
+        }),
+        0,
+      ),
+      safe(
+        this.checklistsRepository.count({
+          where: { company_id: companyId, is_modelo: true },
+        }),
+        0,
+      ),
+      safe(
+        this.aprsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'titulo', 'created_at', 'updated_at'],
+          order: { updated_at: 'DESC' },
+          take: 5,
+        }),
+        [],
+      ),
+      safe(
+        this.ptsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'titulo', 'created_at', 'updated_at'],
+          order: { updated_at: 'DESC' },
+          take: 5,
+        }),
+        [],
+      ),
+      safe(
+        this.checklistsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'titulo', 'created_at', 'updated_at'],
+          order: { updated_at: 'DESC' },
+          take: 5,
+        }),
+        [],
+      ),
+      safe(
+        this.inspectionsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'setor_area', 'created_at', 'updated_at'],
+          order: { updated_at: 'DESC' },
+          take: 5,
+        }),
+        [],
+      ),
+      safe(
+        this.auditsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'titulo', 'created_at', 'updated_at'],
+          order: { updated_at: 'DESC' },
+          take: 5,
+        }),
+        [],
+      ),
+      safe(
+        this.nonConformitiesRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'codigo_nc', 'created_at', 'updated_at'],
+          order: { updated_at: 'DESC' },
+          take: 5,
+        }),
+        [],
+      ),
+      safe(
+        this.trainingsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'nome', 'data_conclusao'],
+          order: { data_conclusao: 'DESC' },
+          take: 5,
+        }),
+        [],
+      ),
+      safe(
+        this.checklistsRepository
+          .createQueryBuilder('checklist')
+          .leftJoin('checklist.site', 'site')
+          .select('checklist.site_id', 'site_id')
+          .addSelect("COALESCE(site.nome, 'Sem obra')", 'site_name')
+          .addSelect('COUNT(checklist.id)', 'total')
+          .addSelect(
+            "SUM(CASE WHEN checklist.status = 'Conforme' THEN 1 ELSE 0 END)",
+            'conformes',
+          )
+          .where('checklist.company_id = :companyId', { companyId })
+          .groupBy('checklist.site_id')
+          .addGroupBy('site.nome')
+          .getRawMany<{
+            site_id: string | null;
+            site_name: string;
+            total: string;
+            conformes: string;
+          }>(),
+        [],
+      ),
+      safe(
+        this.reportsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'titulo', 'mes', 'ano', 'created_at'],
+          order: { created_at: 'DESC' },
+          take: 4,
+        }),
+        [],
+      ),
     ]);
 
     const filteredExpiringEpis = expiringEpis
@@ -542,42 +637,63 @@ export class DashboardService {
       blockedPts,
       unreadAlerts,
     ] = await Promise.all([
-      this.aprsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'data_inicio', 'created_at'],
-      }),
-      this.inspectionsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'plano_acao'],
-      }),
-      this.trainingsRepository.find({
-        where: { company_id: companyId },
-        select: ['id', 'data_vencimento'],
-      }),
-      this.nonConformitiesRepository
-        .createQueryBuilder('nc')
-        .select('nc.codigo_nc', 'codigo_nc')
-        .addSelect('COUNT(nc.id)', 'total')
-        .where('nc.company_id = :companyId', { companyId })
-        .groupBy('nc.codigo_nc')
-        .having('COUNT(nc.id) > 1')
-        .getRawMany<{ codigo_nc: string; total: string }>(),
-      this.catsRepository.count({
-        where: { company_id: companyId },
-      }),
-      this.ptsRepository.count({
-        where: {
-          company_id: companyId,
-          status: 'Pendente',
-          residual_risk: 'CRITICAL',
-          control_evidence: false,
-        },
-      }),
-      this.notificationsRepository.find({
-        where: { read: false },
-        order: { createdAt: 'DESC' },
-        take: 10,
-      }),
+      safe(
+        this.aprsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'data_inicio', 'created_at'],
+        }),
+        [],
+      ),
+      safe(
+        this.inspectionsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'plano_acao'],
+        }),
+        [],
+      ),
+      safe(
+        this.trainingsRepository.find({
+          where: { company_id: companyId },
+          select: ['id', 'data_vencimento'],
+        }),
+        [],
+      ),
+      safe(
+        this.nonConformitiesRepository
+          .createQueryBuilder('nc')
+          .select('nc.codigo_nc', 'codigo_nc')
+          .addSelect('COUNT(nc.id)', 'total')
+          .where('nc.company_id = :companyId', { companyId })
+          .groupBy('nc.codigo_nc')
+          .having('COUNT(nc.id) > 1')
+          .getRawMany<{ codigo_nc: string; total: string }>(),
+        [],
+      ),
+      safe(
+        this.catsRepository.count({
+          where: { company_id: companyId },
+        }),
+        0,
+      ),
+      safe(
+        this.ptsRepository.count({
+          where: {
+            company_id: companyId,
+            status: 'Pendente',
+            residual_risk: 'CRITICAL',
+            control_evidence: false,
+          },
+        }),
+        0,
+      ),
+      safe(
+        this.notificationsRepository.find({
+          where: { read: false },
+          order: { createdAt: 'DESC' },
+          take: 10,
+        }),
+        [],
+      ),
     ]);
 
     const aprBeforeTaskCount = aprs.filter((item) => {

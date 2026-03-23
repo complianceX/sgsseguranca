@@ -14,6 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { toast } from 'sonner';
 
 const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -52,7 +53,10 @@ export default function CalendarPage() {
     calendarService
       .getEvents(year, month)
       .then((response) => setEvents(response.data))
-      .catch(() => setEvents([]))
+      .catch(() => {
+        setEvents([]);
+        toast.error('Não foi possível carregar os eventos do calendário.');
+      })
       .finally(() => setLoading(false));
   }, [year, month]);
 

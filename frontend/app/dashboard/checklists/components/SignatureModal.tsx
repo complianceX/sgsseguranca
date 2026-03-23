@@ -71,7 +71,10 @@ export function SignatureModal({ isOpen, onClose, onSave, userName }: SignatureM
     if (activeTab === 'hmac' && isOpen && hasPin === null) {
       signaturesService.getSignaturePinStatus()
         .then((r) => setHasPin(r.has_pin))
-        .catch(() => setHasPin(false));
+        .catch(() => {
+          setHasPin(false);
+          toast.error('Não foi possível verificar o status do PIN.');
+        });
     }
   }, [activeTab, isOpen, hasPin]);
 

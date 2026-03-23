@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Building2, Search, LogOut, ChevronRight, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { companiesService, Company } from '@/services/companiesService';
 import { selectedTenantStore } from '@/lib/selectedTenantStore';
 import { Input } from './ui/input';
@@ -32,7 +33,10 @@ export default function CompanySelectorModal({ open, onSelect, onLogout, current
     setLoading(true);
     companiesService.findAll()
       .then((data) => setCompanies(data ?? []))
-      .catch(() => setCompanies([]))
+      .catch(() => {
+        setCompanies([]);
+        toast.error('Não foi possível carregar a lista de empresas.');
+      })
       .finally(() => setLoading(false));
   }, [open]);
 

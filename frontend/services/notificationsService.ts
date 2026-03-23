@@ -1,4 +1,5 @@
-import api from '@/lib/api';
+import api from "@/lib/api";
+import { AxiosError } from "axios";
 
 export interface AppNotification {
   id: string;
@@ -18,16 +19,63 @@ interface FindAllResponse {
   limit: number;
 }
 
+function readRetryAfterHeader(
+  error: AxiosError,
+): string | number | string[] | undefined {
+  const headers = error.response?.headers;
+
+  if (!headers) {
+    return undefined;
+  }
+
+  if (typeof headers.get === "function") {
+    const headerValue = headers.get("retry-after");
+    return typeof headerValue === "string" ? headerValue : undefined;
+  }
+
+  const headerValue = headers["retry-after"];
+
+  if (
+    typeof headerValue === "string" ||
+    typeof headerValue === "number" ||
+    Array.isArray(headerValue)
+  ) {
+    return headerValue;
+  }
+
+  return undefined;
+}
+
+export function getRetryAfterMsFromError(
+  error: unknown,
+  fallbackMs = 60_000,
+): number | null {
+  if (!(error instanceof AxiosError) || error.response?.status !== 429) {
+    return null;
+  }
+
+  const headerValue = readRetryAfterHeader(error);
+  const retryAfterSeconds = Array.isArray(headerValue)
+    ? Number.parseInt(headerValue[0] || "", 10)
+    : Number.parseInt(String(headerValue || ""), 10);
+
+  if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+    return retryAfterSeconds * 1000;
+  }
+
+  return fallbackMs;
+}
+
 export const notificationsService = {
   async findAll(page = 1, limit = 20): Promise<FindAllResponse> {
-    const res = await api.get<FindAllResponse>('/notifications', {
+    const res = await api.get<FindAllResponse>("/notifications", {
       params: { page, limit },
     });
     return res.data;
   },
 
   async getUnreadCount(): Promise<{ count: number }> {
-    const res = await api.get<{ count: number }>('/notifications/unread-count');
+    const res = await api.get<{ count: number }>("/notifications/unread-count");
     return res.data;
   },
 
@@ -36,6 +84,6 @@ export const notificationsService = {
   },
 
   async markAllAsRead(): Promise<void> {
-    await api.post('/notifications/read-all');
+    await api.post("/notifications/read-all");
   },
 };

@@ -2,14 +2,14 @@ import { Injectable, Inject } from '@nestjs/common';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import { Redis } from 'ioredis';
 
-interface TenantRateLimitConfig {
+export interface TenantRateLimitConfig {
   requestsPerMinute: number;
   requestsPerHour: number;
   burstSize: number; // Permitir burst de N requisições
 }
 
 // Planos padrão
-const PLAN_LIMITS: Record<string, TenantRateLimitConfig> = {
+export const PLAN_LIMITS = {
   FREE: {
     requestsPerMinute: 10,
     requestsPerHour: 100,
@@ -30,7 +30,37 @@ const PLAN_LIMITS: Record<string, TenantRateLimitConfig> = {
     requestsPerHour: 100000,
     burstSize: 500,
   },
-};
+} as const satisfies Record<string, TenantRateLimitConfig>;
+
+export type TenantRateLimitPlan = keyof typeof PLAN_LIMITS;
+
+const DEFAULT_TENANT_RATE_LIMIT_PLAN: TenantRateLimitPlan = 'STARTER';
+
+export function resolveDefaultTenantRateLimitPlan(
+  env: NodeJS.ProcessEnv = process.env,
+): TenantRateLimitPlan {
+  const configured = env.TENANT_RATE_LIMIT_DEFAULT_PLAN?.trim().toUpperCase();
+
+  if (configured && configured in PLAN_LIMITS) {
+    return configured as TenantRateLimitPlan;
+  }
+
+  return DEFAULT_TENANT_RATE_LIMIT_PLAN;
+}
+
+export function normalizeTenantRateLimitPlan(
+  value: unknown,
+  fallback: TenantRateLimitPlan = resolveDefaultTenantRateLimitPlan(),
+): TenantRateLimitPlan {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const normalized = value.trim().toUpperCase();
+  return normalized in PLAN_LIMITS
+    ? (normalized as TenantRateLimitPlan)
+    : fallback;
+}
 
 @Injectable()
 export class TenantRateLimitService {
@@ -38,7 +68,7 @@ export class TenantRateLimitService {
 
   async checkLimit(
     companyId: string,
-    plan: keyof typeof PLAN_LIMITS = 'STARTER',
+    plan: TenantRateLimitPlan = resolveDefaultTenantRateLimitPlan(),
   ): Promise<{
     allowed: boolean;
     remaining: number;

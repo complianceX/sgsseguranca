@@ -227,7 +227,10 @@ export class S3Service {
       await this.s3Client.send(command);
       return true;
     } catch (error) {
-      if (error instanceof Error && error.name === 'NotFound') {
+      const name = error instanceof Error ? error.name : '';
+      const code = (error as { $metadata?: { httpStatusCode?: number } })
+        ?.$metadata?.httpStatusCode;
+      if (name === 'NotFound' || name === 'NoSuchKey' || code === 404) {
         return false;
       }
       throw error;

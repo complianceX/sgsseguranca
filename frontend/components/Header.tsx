@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   Bell,
@@ -14,20 +14,21 @@ import {
   X,
   AlertTriangle,
   CheckCircle,
-} from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
-import { useTheme } from '@/components/ThemeProvider';
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { notificationsService, AppNotification } from '@/services/notificationsService';
-import { flushOfflineQueue, getOfflineQueueCount } from '@/lib/offline-sync';
+} from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/components/ThemeProvider";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import {
+  notificationsService,
+  AppNotification,
+  getRetryAfterMsFromError,
+} from "@/services/notificationsService";
+import { flushOfflineQueue, getOfflineQueueCount } from "@/lib/offline-sync";
 
 const POLL_INTERVAL_MS = 30_000;
+const RATE_LIMIT_BACKOFF_MS = 60_000;
 
-export function Header({
-  onOpenMobileNav,
-}: {
-  onOpenMobileNav?: () => void;
-}) {
+export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   const { user } = useAuth();
   const { resolvedTheme, toggleTheme } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -36,22 +37,35 @@ export function Header({
   const [markingAll, setMarkingAll] = useState(false);
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [syncingOfflineQueue, setSyncingOfflineQueue] = useState(false);
+  const [unreadPollDelayMs, setUnreadPollDelayMs] = useState(POLL_INTERVAL_MS);
 
   const handleOpen = () => setShowNotifications((v) => !v);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const userInitials = useMemo(() => {
     const raw = user?.nome?.trim();
-    if (!raw) return 'GST';
+    if (!raw) return "GST";
     const parts = raw.split(/\s+/).slice(0, 2);
-    return parts.map((part) => part[0]?.toUpperCase()).join('');
+    return parts.map((part) => part[0]?.toUpperCase()).join("");
   }, [user?.nome]);
 
   const loadUnreadCount = useCallback(async () => {
     try {
       const res = await notificationsService.getUnreadCount();
       setUnreadCount(res.count);
-    } catch {
+      setUnreadPollDelayMs((current) =>
+        current === POLL_INTERVAL_MS ? current : POLL_INTERVAL_MS,
+      );
+    } catch (error) {
+      const retryAfterMs = getRetryAfterMsFromError(
+        error,
+        RATE_LIMIT_BACKOFF_MS,
+      );
+
+      if (retryAfterMs) {
+        setUnreadPollDelayMs((current) => Math.max(current, retryAfterMs));
+      }
+
       // silencioso
     }
   }, []);
@@ -67,9 +81,41 @@ export function Header({
 
   useEffect(() => {
     loadUnreadCount();
-    const interval = setInterval(loadUnreadCount, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
   }, [loadUnreadCount]);
+
+  useEffect(() => {
+    let timeoutId: number | null = null;
+    let cancelled = false;
+
+    const scheduleNext = () => {
+      timeoutId = window.setTimeout(async () => {
+        if (!cancelled && document.visibilityState === "visible") {
+          await loadUnreadCount();
+        }
+
+        if (!cancelled) {
+          scheduleNext();
+        }
+      }, unreadPollDelayMs);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void loadUnreadCount();
+      }
+    };
+
+    scheduleNext();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [loadUnreadCount, unreadPollDelayMs]);
 
   useEffect(() => {
     const updateCount = async () => {
@@ -82,14 +128,32 @@ export function Header({
     };
 
     void updateCount();
-    window.addEventListener('app:offline-queue-updated', updateCount as EventListener);
-    window.addEventListener('app:offline-sync-started', onSyncStarted as EventListener);
-    window.addEventListener('app:offline-sync-completed', onSyncCompleted as EventListener);
+    window.addEventListener(
+      "app:offline-queue-updated",
+      updateCount as EventListener,
+    );
+    window.addEventListener(
+      "app:offline-sync-started",
+      onSyncStarted as EventListener,
+    );
+    window.addEventListener(
+      "app:offline-sync-completed",
+      onSyncCompleted as EventListener,
+    );
 
     return () => {
-      window.removeEventListener('app:offline-queue-updated', updateCount as EventListener);
-      window.removeEventListener('app:offline-sync-started', onSyncStarted as EventListener);
-      window.removeEventListener('app:offline-sync-completed', onSyncCompleted as EventListener);
+      window.removeEventListener(
+        "app:offline-queue-updated",
+        updateCount as EventListener,
+      );
+      window.removeEventListener(
+        "app:offline-sync-started",
+        onSyncStarted as EventListener,
+      );
+      window.removeEventListener(
+        "app:offline-sync-completed",
+        onSyncCompleted as EventListener,
+      );
     };
   }, []);
 
@@ -99,20 +163,25 @@ export function Header({
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(event.target as Node)
+      ) {
         setShowNotifications(false);
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleMarkAllAsRead = async () => {
     setMarkingAll(true);
     try {
       await notificationsService.markAllAsRead();
-      setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true })));
+      setNotifications((prev) =>
+        prev.map((notification) => ({ ...notification, read: true })),
+      );
       setUnreadCount(0);
     } finally {
       setMarkingAll(false);
@@ -123,7 +192,11 @@ export function Header({
     try {
       await notificationsService.markAsRead(id);
       setNotifications((prev) =>
-        prev.map((notification) => (notification.id === id ? { ...notification, read: true } : notification)),
+        prev.map((notification) =>
+          notification.id === id
+            ? { ...notification, read: true }
+            : notification,
+        ),
       );
       setUnreadCount((current) => Math.max(0, current - 1));
     } catch {
@@ -133,12 +206,18 @@ export function Header({
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'warning':
-        return <AlertTriangle className="h-5 w-5 text-[var(--ds-color-warning)]" />;
-      case 'danger':
-        return <AlertTriangle className="h-5 w-5 text-[var(--ds-color-danger)]" />;
-      case 'success':
-        return <CheckCircle className="h-5 w-5 text-[var(--ds-color-success)]" />;
+      case "warning":
+        return (
+          <AlertTriangle className="h-5 w-5 text-[var(--ds-color-warning)]" />
+        );
+      case "danger":
+        return (
+          <AlertTriangle className="h-5 w-5 text-[var(--ds-color-danger)]" />
+        );
+      case "success":
+        return (
+          <CheckCircle className="h-5 w-5 text-[var(--ds-color-success)]" />
+        );
       default:
         return <Info className="h-5 w-5 text-[var(--ds-color-info)]" />;
     }
@@ -146,24 +225,24 @@ export function Header({
 
   const formatDate = (iso: string) => {
     try {
-      return new Date(iso).toLocaleString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
+      return new Date(iso).toLocaleString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
       });
     } catch {
-      return '';
+      return "";
     }
   };
 
   const openCommandPalette = () => {
-    window.dispatchEvent(new CustomEvent('app:command-palette-open'));
+    window.dispatchEvent(new CustomEvent("app:command-palette-open"));
   };
 
   const showOfflineChip = syncingOfflineQueue || offlineQueueCount > 0;
   const iconButtonClass =
-    'flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--component-navbar-border)] bg-[var(--component-navbar-chip-bg)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)] transition-all hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--component-navbar-chip-hover-bg)] hover:text-[var(--ds-color-text-primary)]';
+    "flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--component-navbar-border)] bg-[var(--component-navbar-chip-bg)] text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-xs)] transition-all hover:border-[var(--ds-color-border-strong)] hover:bg-[var(--component-navbar-chip-hover-bg)] hover:text-[var(--ds-color-text-primary)]";
 
   return (
     <header className="ds-topbar">
@@ -219,7 +298,9 @@ export function Header({
               ) : (
                 <WifiOff className="h-4 w-4 text-[var(--ds-color-warning)]" />
               )}
-              {syncingOfflineQueue ? 'Sincronizando' : `${offlineQueueCount} offline`}
+              {syncingOfflineQueue
+                ? "Sincronizando"
+                : `${offlineQueueCount} offline`}
             </button>
           ) : null}
 
@@ -233,7 +314,7 @@ export function Header({
               <Bell className="h-5 w-5" />
               {unreadCount > 0 ? (
                 <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-white bg-[var(--ds-color-danger)] px-1 text-[10px] font-bold text-white shadow-[var(--ds-shadow-xs)]">
-                  {unreadCount > 9 ? '9+' : unreadCount}
+                  {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               ) : null}
             </button>
@@ -242,10 +323,18 @@ export function Header({
               <div className="absolute right-0 z-50 mt-3 w-[21.5rem] overflow-hidden rounded-[1.2rem] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-md)]">
                 <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)] px-4 py-3.5">
                   <div>
-                    <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">Notificações</h3>
-                    <p className="text-xs text-[var(--ds-color-text-muted)]">Eventos recentes da operação</p>
+                    <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                      Notificações
+                    </h3>
+                    <p className="text-xs text-[var(--ds-color-text-muted)]">
+                      Eventos recentes da operação
+                    </p>
                   </div>
-                  <button type="button" title="Fechar" onClick={() => setShowNotifications(false)}>
+                  <button
+                    type="button"
+                    title="Fechar"
+                    onClick={() => setShowNotifications(false)}
+                  >
                     <X className="h-4 w-4 text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)]" />
                   </button>
                 </div>
@@ -256,21 +345,33 @@ export function Header({
                       <button
                         key={notification.id}
                         type="button"
-                        onClick={() => !notification.read && handleMarkOne(notification.id)}
+                        onClick={() =>
+                          !notification.read && handleMarkOne(notification.id)
+                        }
                         className={`w-full border-b border-[var(--ds-color-border-subtle)] px-4 py-3.5 text-left transition-colors hover:bg-[var(--ds-color-surface-muted)] ${
-                          !notification.read ? 'border-l-[3px] border-l-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-primary-subtle)]/78' : ''
+                          !notification.read
+                            ? "border-l-[3px] border-l-[var(--ds-color-action-primary)] bg-[color:var(--ds-color-primary-subtle)]/78"
+                            : ""
                         }`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className="mt-0.5 shrink-0">{getIcon(notification.type)}</div>
+                          <div className="mt-0.5 shrink-0">
+                            {getIcon(notification.type)}
+                          </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
-                              <p className={`truncate text-sm font-semibold ${notification.read ? 'text-[var(--ds-color-text-secondary)]' : 'text-[var(--ds-color-text-primary)]'}`}>
+                              <p
+                                className={`truncate text-sm font-semibold ${notification.read ? "text-[var(--ds-color-text-secondary)]" : "text-[var(--ds-color-text-primary)]"}`}
+                              >
                                 {notification.title}
                               </p>
-                              {!notification.read ? <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--ds-color-info)]" /> : null}
+                              {!notification.read ? (
+                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--ds-color-info)]" />
+                              ) : null}
                             </div>
-                            <p className="mt-1 line-clamp-2 text-xs text-[var(--ds-color-text-muted)]">{notification.message}</p>
+                            <p className="mt-1 line-clamp-2 text-xs text-[var(--ds-color-text-muted)]">
+                              {notification.message}
+                            </p>
                             <p className="mt-2 text-[10px] uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]/70">
                               {formatDate(notification.createdAt)}
                             </p>
@@ -281,7 +382,9 @@ export function Header({
                   ) : (
                     <div className="p-6 text-center">
                       <CheckCircle className="mx-auto h-12 w-12 text-[var(--ds-color-success)]" />
-                      <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">Nenhuma notificação no momento.</p>
+                      <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                        Nenhuma notificação no momento.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -293,7 +396,7 @@ export function Header({
                     disabled={markingAll || unreadCount === 0}
                     className="text-xs font-semibold text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {markingAll ? 'Marcando...' : 'Marcar todas como lidas'}
+                    {markingAll ? "Marcando..." : "Marcar todas como lidas"}
                   </button>
                 </div>
               </div>
@@ -302,11 +405,15 @@ export function Header({
 
           <button
             type="button"
-            title={resolvedTheme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+            title={resolvedTheme === "dark" ? "Modo claro" : "Modo escuro"}
             onClick={toggleTheme}
             className={iconButtonClass}
           >
-            {resolvedTheme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+            {resolvedTheme === "dark" ? (
+              <Sun className="h-[18px] w-[18px]" />
+            ) : (
+              <Moon className="h-[18px] w-[18px]" />
+            )}
           </button>
 
           <button

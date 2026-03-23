@@ -4,34 +4,30 @@ import {
   ExecutionContext,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Response } from 'express';
 import { TenantService } from '../tenant/tenant.service';
-import { TenantRateLimitService } from '../rate-limit/tenant-rate-limit.service';
+import {
+  normalizeTenantRateLimitPlan,
+  TenantRateLimitPlan,
+  TenantRateLimitService,
+} from '../rate-limit/tenant-rate-limit.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { TenantRequest } from '../middleware/tenant.middleware';
 
-type TenantRateLimitPlan = Parameters<TenantRateLimitService['checkLimit']>[1];
-type TenantRateLimitRequest = {
-  user?: {
-    plan?: string;
-  };
+type TenantRateLimitRequest = TenantRequest & {
+  method?: string;
+  originalUrl?: string;
+  url?: string;
+  ip?: string;
 };
 
-const RATE_LIMIT_PLANS = new Set<TenantRateLimitPlan>([
-  'FREE',
-  'STARTER',
-  'PROFESSIONAL',
-  'ENTERPRISE',
-]);
-
-const getTenantPlan = (
+export const getTenantPlan = (
   request: TenantRateLimitRequest,
 ): TenantRateLimitPlan => {
-  const plan = request.user?.plan;
-  return plan && RATE_LIMIT_PLANS.has(plan as TenantRateLimitPlan)
-    ? (plan as TenantRateLimitPlan)
-    : 'FREE';
+  return normalizeTenantRateLimitPlan(request.tenant?.plan);
 };
 
 /**
@@ -41,11 +37,14 @@ const getTenantPlan = (
  * - Responde com 429 Too Many Requests + headers informativos
  * - Rotas públicas (@Public()) são ignoradas
  *
- * O plano padrão é 'FREE' (menor permissão). Para planos diferenciados por tenant,
- * adicione o campo `plan` no JWT payload e passe via `request.user.plan`.
+ * O plano padrão operacional é configurável por TENANT_RATE_LIMIT_DEFAULT_PLAN
+ * e, na ausência de configuração, cai para STARTER. Se no futuro o token carregar
+ * um plano explícito, o middleware de tenant já propaga esse valor com segurança.
  */
 @Injectable()
 export class TenantRateLimitGuard implements CanActivate {
+  private readonly logger = new Logger(TenantRateLimitGuard.name);
+
   constructor(
     private readonly tenantService: TenantService,
     private readonly rateLimitService: TenantRateLimitService,
@@ -71,6 +70,7 @@ export class TenantRateLimitGuard implements CanActivate {
     const result = await this.rateLimitService.checkLimit(companyId, plan);
 
     const response = context.switchToHttp().getResponse<Response>();
+    response.setHeader('X-RateLimit-Plan', plan);
     response.setHeader('X-RateLimit-Remaining', String(result.remaining));
     response.setHeader('X-RateLimit-Reset', String(result.resetAt));
 
@@ -78,6 +78,19 @@ export class TenantRateLimitGuard implements CanActivate {
       if (result.retryAfter) {
         response.setHeader('Retry-After', String(result.retryAfter));
       }
+
+      this.logger.warn({
+        event: 'tenant_rate_limit_exceeded',
+        companyId,
+        plan,
+        method: request.method,
+        path: request.originalUrl || request.url,
+        ip: request.ip,
+        retryAfter: result.retryAfter ?? null,
+        remaining: result.remaining,
+        resetAt: result.resetAt,
+        timestamp: new Date().toISOString(),
+      });
 
       throw new HttpException(
         {

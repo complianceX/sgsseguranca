@@ -200,7 +200,9 @@ export default function MedicalExamsPage() {
             return [user, ...current];
           });
         })
-        .catch(() => {});
+        .catch(() => {
+          // User may have been deleted — non-critical, form still works
+        });
     }
 
     setEditId(exam.id);

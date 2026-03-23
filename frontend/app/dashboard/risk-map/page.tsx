@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { sitesService } from '@/services/sitesService';
 import { Map } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   BarChart,
   Bar,
@@ -78,7 +79,9 @@ export default function RiskMapPage() {
       .then((res) => {
         setSites(res.data);
       })
-      .catch(() => {});
+      .catch(() => {
+        toast.error('Não foi possível carregar a lista de obras.');
+      });
   }, []);
 
   const cellMap: Record<string, { count: number; categorias: string[] }> = {};

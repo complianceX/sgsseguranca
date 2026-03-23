@@ -11,6 +11,10 @@ import { TenantService } from '../tenant/tenant.service';
 import { Role } from '../../auth/enums/roles.enum';
 import { DataSource } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
+import {
+  normalizeTenantRateLimitPlan,
+  TenantRateLimitPlan,
+} from '../rate-limit/tenant-rate-limit.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject } from '@nestjs/common';
 import type { Cache } from 'cache-manager';
@@ -20,6 +24,7 @@ interface JwtPayload {
   sub?: string;
   company_id?: string;
   cpf?: string;
+  plan?: string;
   // profile deve ser sempre { nome } (formato normalizado desde auth.service.ts login()).
   // O union com string é mantido apenas para compatibilidade de leitura de tokens legados,
   // mas string nunca concede privilégios — veja a lógica de extração abaixo.
@@ -29,6 +34,7 @@ interface JwtPayload {
 type TenantInfo = {
   companyId?: string;
   isSuperAdmin: boolean;
+  plan: TenantRateLimitPlan;
 };
 
 export interface TenantRequest extends Request {
@@ -67,6 +73,8 @@ export class TenantMiddleware implements NestMiddleware {
 
     let companyId: string | undefined;
     let isSuperAdmin = false;
+    let tenantPlan: TenantRateLimitPlan =
+      normalizeTenantRateLimitPlan(undefined);
 
     if (token) {
       try {
@@ -77,6 +85,7 @@ export class TenantMiddleware implements NestMiddleware {
         }
 
         companyId = payload.company_id;
+        tenantPlan = normalizeTenantRateLimitPlan(payload.plan);
 
         // Extração defensiva do profile: somente a forma objeto { nome } é aceita
         // para determinar privilégios. Tokens legados com profile como string simples
@@ -186,10 +195,11 @@ export class TenantMiddleware implements NestMiddleware {
     }
 
     // Expor no request (facilita uso em controllers/guards sem depender de req.user).
-    req.tenant = { companyId, isSuperAdmin };
+    req.tenant = { companyId, isSuperAdmin, plan: tenantPlan };
     const requestContext = requestContextStorage.getStore();
     if (requestContext) {
       requestContext.set('companyId', companyId);
+      requestContext.set('tenantPlan', tenantPlan);
     }
 
     // Propaga o contexto para toda a cadeia async desta requisição via Node.js
