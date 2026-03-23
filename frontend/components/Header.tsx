@@ -72,14 +72,16 @@ export function Header({
   }, [loadUnreadCount]);
 
   useEffect(() => {
-    const updateCount = () => setOfflineQueueCount(getOfflineQueueCount());
+    const updateCount = async () => {
+      setOfflineQueueCount(await getOfflineQueueCount());
+    };
     const onSyncStarted = () => setSyncingOfflineQueue(true);
     const onSyncCompleted = () => {
       setSyncingOfflineQueue(false);
-      updateCount();
+      void updateCount();
     };
 
-    updateCount();
+    void updateCount();
     window.addEventListener('app:offline-queue-updated', updateCount as EventListener);
     window.addEventListener('app:offline-sync-started', onSyncStarted as EventListener);
     window.addEventListener('app:offline-sync-completed', onSyncCompleted as EventListener);

@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
-import * as XLSX from 'xlsx';
+import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import { ServiceOrder } from './entities/service-order.entity';
 import { CreateServiceOrderDto } from './dto/create-service-order.dto';
 import { UpdateServiceOrderDto } from './dto/update-service-order.dto';
@@ -197,9 +197,6 @@ export class ServiceOrdersService {
         : '',
     }));
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Ordens de Serviço');
-    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+    return jsonToExcelBuffer(rows, 'Ordens de Serviço');
   }
 }

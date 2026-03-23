@@ -197,6 +197,117 @@ export interface DashboardPendingQueueResponse {
   }>;
 }
 
+export type DocumentPendencyCriticality =
+  | "critical"
+  | "high"
+  | "medium"
+  | "low";
+
+export type DocumentPendencyType =
+  | "missing_final_pdf"
+  | "missing_required_signature"
+  | "degraded_document_availability"
+  | "failed_import"
+  | "unavailable_governed_video"
+  | "unavailable_governed_attachment";
+
+export type DocumentPendencyActionKey =
+  | "open_document"
+  | "open_final_pdf"
+  | "open_public_validation"
+  | "retry_import"
+  | "open_replacement_document"
+  | "open_governed_video"
+  | "open_governed_attachment";
+
+export interface DashboardDocumentPendencyAllowedAction {
+  key: DocumentPendencyActionKey;
+  label: string;
+  kind: "route" | "resolve" | "mutation";
+  enabled: boolean;
+  href?: string | null;
+  reason?: string | null;
+}
+
+export interface DashboardDocumentPendencyItem {
+  id: string;
+  type: DocumentPendencyType;
+  typeLabel: string;
+  module: string;
+  moduleLabel: string;
+  companyId: string;
+  companyName: string | null;
+  siteId: string | null;
+  siteName: string | null;
+  documentId: string | null;
+  documentCode: string | null;
+  title: string | null;
+  status: string | null;
+  documentStatus: string | null;
+  signatureStatus: string | null;
+  availabilityStatus: string | null;
+  criticality: DocumentPendencyCriticality;
+  priority: DocumentPendencyCriticality;
+  relevantDate: string | null;
+  message: string;
+  action: {
+    label: string;
+    href: string;
+  } | null;
+  allowedActions: DashboardDocumentPendencyAllowedAction[];
+  suggestedRoute: string | null;
+  suggestedRouteParams: Record<string, string | number | boolean | null> | null;
+  publicValidationUrl: string | null;
+  retryAllowed: boolean;
+  replacementDocumentId: string | null;
+  replacementRoute: string | null;
+  metadata: Record<string, string | number | boolean | null>;
+}
+
+export interface DashboardDocumentPendencyResolvedActionResponse {
+  actionKey: DocumentPendencyActionKey;
+  url: string | null;
+  availability: string | null;
+  message: string | null;
+  fileName: string | null;
+  fileType: string | null;
+}
+
+export interface DashboardDocumentPendenciesResponse {
+  degraded: boolean;
+  failedSources: string[];
+  summary: {
+    total: number;
+    byCriticality: Record<DocumentPendencyCriticality, number>;
+    byType: Array<{
+      type: DocumentPendencyType;
+      label: string;
+      total: number;
+    }>;
+    byModule: Array<{
+      module: string;
+      label: string;
+      total: number;
+    }>;
+  };
+  filtersApplied: {
+    companyId?: string;
+    siteId?: string;
+    module?: string;
+    criticality?: DocumentPendencyCriticality;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  };
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    lastPage: number;
+  };
+  items: DashboardDocumentPendencyItem[];
+}
+
 export const dashboardService = {
   getSummary: async () => {
     const response =
@@ -246,5 +357,56 @@ export const dashboardService = {
       }
       throw error;
     }
+  },
+
+  getDocumentPendencies: async (filters?: {
+    companyId?: string;
+    siteId?: string;
+    module?: string;
+    priority?: DocumentPendencyCriticality;
+    criticality?: DocumentPendencyCriticality;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const response = await api.get<DashboardDocumentPendenciesResponse>(
+      "/dashboard/document-pendencies",
+      {
+        params: {
+          ...(filters?.companyId ? { companyId: filters.companyId } : {}),
+          ...(filters?.siteId ? { siteId: filters.siteId } : {}),
+          ...(filters?.module ? { module: filters.module } : {}),
+          ...(filters?.priority ? { priority: filters.priority } : {}),
+          ...(filters?.criticality ? { criticality: filters.criticality } : {}),
+          ...(filters?.status ? { status: filters.status } : {}),
+          ...(filters?.dateFrom ? { dateFrom: filters.dateFrom } : {}),
+          ...(filters?.dateTo ? { dateTo: filters.dateTo } : {}),
+          ...(filters?.page ? { page: filters.page } : {}),
+          ...(filters?.limit ? { limit: filters.limit } : {}),
+        },
+      },
+    );
+    return response.data;
+  },
+
+  resolveDocumentPendencyAction: async (payload: {
+    actionKey: "open_final_pdf" | "open_governed_video" | "open_governed_attachment";
+    module: string;
+    documentId: string;
+    attachmentId?: string;
+    attachmentIndex?: number;
+  }) => {
+    const response = await api.post<DashboardDocumentPendencyResolvedActionResponse>(
+      "/dashboard/document-pendencies/actions/resolve",
+      payload,
+    );
+    return response.data;
+  },
+
+  retryDocumentPendencyImport: async (documentId: string) => {
+    const response = await api.post(`/dashboard/document-pendencies/imports/${documentId}/retry`);
+    return response.data;
   },
 };

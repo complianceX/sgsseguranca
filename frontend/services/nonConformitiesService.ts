@@ -308,7 +308,7 @@ export const nonConformitiesService = {
         throw error;
       }
 
-      const queued = enqueueOfflineMutation({
+      const queued = await enqueueOfflineMutation({
         url: "/nonconformities",
         method: "post",
         data,
@@ -338,7 +338,7 @@ export const nonConformitiesService = {
         throw error;
       }
 
-      const queued = enqueueOfflineMutation({
+      const queued = await enqueueOfflineMutation({
         url: `/nonconformities/${id}`,
         method: "patch",
         data,

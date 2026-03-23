@@ -1,6 +1,13 @@
 import {
+  Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
   Req,
   UseGuards,
   UseInterceptors,
@@ -11,6 +18,7 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { Authorize } from '../auth/authorize.decorator';
 import { DashboardService } from './dashboard.service';
+import { ResolveDocumentPendencyActionDto } from './dto/resolve-document-pendency-action.dto';
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -86,5 +94,101 @@ export class DashboardController {
     return this.dashboardService.getPendingQueue(
       req.tenant?.companyId || req.user?.company_id || '',
     );
+  }
+
+  @Get('document-pendencies')
+  @Authorize('can_view_dashboard')
+  getDocumentPendencies(
+    @Req()
+    req: {
+      user?: {
+        id?: string;
+        userId?: string;
+        company_id?: string;
+        permissions?: string[];
+        profile?: { nome?: string };
+      };
+      tenant?: { companyId?: string };
+    },
+    @Query()
+    query: {
+      companyId?: string;
+      siteId?: string;
+      module?: string;
+      priority?: string;
+      criticality?: string;
+      status?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      page?: string;
+      limit?: string;
+    },
+  ) {
+    return this.dashboardService.getDocumentPendencies({
+      companyId: req.tenant?.companyId || req.user?.company_id || '',
+      isSuperAdmin: req.user?.profile?.nome === 'Administrador Geral',
+      permissions: req.user?.permissions || [],
+      filters: {
+        companyId: query.companyId,
+        siteId: query.siteId,
+        module: query.module,
+        priority: query.priority,
+        criticality: query.criticality,
+        status: query.status,
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+        page: query.page ? Number(query.page) : undefined,
+        limit: query.limit ? Number(query.limit) : undefined,
+      },
+    });
+  }
+
+  @Post('document-pendencies/actions/resolve')
+  @HttpCode(HttpStatus.OK)
+  @Authorize('can_view_dashboard')
+  resolveDocumentPendencyAction(
+    @Req()
+    req: {
+      user?: {
+        id?: string;
+        userId?: string;
+        company_id?: string;
+        permissions?: string[];
+      };
+      tenant?: { companyId?: string };
+    },
+    @Body() body: ResolveDocumentPendencyActionDto,
+  ) {
+    return this.dashboardService.resolveDocumentPendencyAction({
+      actionKey: body.actionKey,
+      module: body.module,
+      documentId: body.documentId,
+      attachmentId: body.attachmentId,
+      attachmentIndex: body.attachmentIndex,
+      companyId: req.tenant?.companyId || req.user?.company_id || '',
+      actorId: req.user?.userId || req.user?.id,
+      permissions: req.user?.permissions || [],
+    });
+  }
+
+  @Post('document-pendencies/imports/:id/retry')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Authorize('can_import_documents')
+  retryDocumentPendencyImport(
+    @Req()
+    req: {
+      user?: {
+        id?: string;
+        userId?: string;
+        permissions?: string[];
+      };
+    },
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.dashboardService.retryDocumentPendencyImport({
+      documentId: id,
+      actorId: req.user?.userId || req.user?.id,
+      permissions: req.user?.permissions || [],
+    });
   }
 }

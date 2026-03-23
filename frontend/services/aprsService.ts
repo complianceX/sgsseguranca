@@ -283,7 +283,7 @@ export const aprsService = {
         throw error;
       }
 
-      const queued = enqueueOfflineMutation({
+      const queued = await enqueueOfflineMutation({
         url: "/aprs",
         method: "post",
         data,
@@ -312,7 +312,7 @@ export const aprsService = {
         throw error;
       }
 
-      const queued = enqueueOfflineMutation({
+      const queued = await enqueueOfflineMutation({
         url: `/aprs/${id}`,
         method: "patch",
         data,

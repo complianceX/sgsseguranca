@@ -45,9 +45,14 @@ function buildExecutiveSummary(context: DossierContext) {
         { label: "PTs", value: context.summary.pts, tone: "warning" as const },
         { label: "CATs", value: context.summary.cats, tone: "danger" as const },
         {
-          label: "Anexos",
-          value: context.summary.attachments,
+          label: "Oficiais",
+          value: context.summary.officialDocuments,
           tone: "info" as const,
+        },
+        {
+          label: "Pendências",
+          value: context.summary.pendingOfficialDocuments,
+          tone: "warning" as const,
         },
       ],
     };
@@ -78,8 +83,16 @@ function buildExecutiveSummary(context: DossierContext) {
         value: context.summary.assignments,
         tone: "success" as const,
       },
-      { label: "PTs", value: context.summary.pts, tone: "warning" as const },
-      { label: "CATs", value: context.summary.cats, tone: "danger" as const },
+      {
+        label: "Oficiais",
+        value: context.summary.officialDocuments,
+        tone: "info" as const,
+      },
+      {
+        label: "Pendências",
+        value: context.summary.pendingOfficialDocuments,
+        tone: "warning" as const,
+      },
     ],
   };
 }
@@ -315,7 +328,57 @@ export async function drawDossierBlueprint(
   }
 
   drawSemanticTable(ctx, {
-    title: "Índice de anexos e documentos relacionados",
+    title: "Índice de documentos oficiais governados",
+    tone: "default",
+    autoTable,
+    head: [["Módulo", "Referência", "Código", "Arquivo", "Disponibilidade"]],
+    body:
+      context.governedDocumentLines.length > 0
+        ? context.governedDocumentLines.map((item) => [
+            item.modulo_label,
+            item.referencia,
+            item.codigo_documento || "-",
+            item.arquivo,
+            item.disponibilidade === "ready"
+              ? "Pronto"
+              : "Registrado sem URL assinada",
+          ])
+        : [["-", "-", "-", "-", "Nenhum documento oficial governado relacionado"]],
+    semanticRules: { profile: "audit", columns: [0, 4] },
+    overrides: {
+      styles: { fontSize: 7.6, cellPadding: 2 },
+      columnStyles: {
+        2: { cellWidth: 38 },
+        3: { cellWidth: 48 },
+      },
+    },
+  });
+
+  drawSemanticTable(ctx, {
+    title: "Pendências documentais oficiais",
+    tone: "risk",
+    autoTable,
+    head: [["Módulo", "Referência", "Status atual", "Pendência"]],
+    body:
+      context.pendingGovernedDocumentLines.length > 0
+        ? context.pendingGovernedDocumentLines.map((item) => [
+            item.modulo_label,
+            item.referencia,
+            item.status_atual || "-",
+            item.pendencia,
+          ])
+        : [["-", "-", "-", "Nenhuma pendência documental oficial identificada"]],
+    semanticRules: { profile: "audit", columns: [0, 2] },
+    overrides: {
+      styles: { fontSize: 7.6, cellPadding: 2 },
+      columnStyles: {
+        3: { cellWidth: 62 },
+      },
+    },
+  });
+
+  drawSemanticTable(ctx, {
+    title: "Índice de anexos de apoio e referências complementares",
     tone: "default",
     autoTable,
     head: [["Tipo", "Referência", "Arquivo", "URL/Chave"]],
@@ -327,7 +390,7 @@ export async function drawDossierBlueprint(
             item.arquivo,
             item.url,
           ])
-        : [["-", "-", "-", "Nenhum anexo relacionado"]],
+        : [["-", "-", "-", "Nenhum anexo complementar relacionado"]],
     semanticRules: { profile: "audit", columns: [0] },
     overrides: {
       styles: { fontSize: 7.6, cellPadding: 2 },
@@ -342,8 +405,8 @@ export async function drawDossierBlueprint(
     title: "Síntese institucional",
     content:
       context.kind === "employee"
-        ? `Dossiê consolidado do colaborador ${context.subject.nome}, com visão executiva de capacitações, EPIs, permissões críticas, CATs e evidências anexas.`
-        : `Dossiê consolidado da unidade ${context.subject.nome}, com visão executiva de efetivo, treinamentos, EPIs, permissões de trabalho, CATs e evidências vinculadas ao escopo.`,
+        ? `Dossiê consolidado do colaborador ${context.subject.nome}, distinguindo documentos oficiais governados, pendências documentais e anexos complementares sob trilha institucional.`
+        : `Dossiê consolidado da unidade ${context.subject.nome}, distinguindo documentos oficiais governados, pendências documentais e anexos complementares do escopo operacional.`,
   });
 
   await drawGovernanceClosingBlock(ctx, {

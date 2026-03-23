@@ -18,6 +18,11 @@ import { Site } from '../sites/entities/site.entity';
 import { Training } from '../trainings/entities/training.entity';
 import { User } from '../users/entities/user.entity';
 import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
+import { DashboardDocumentPendenciesService } from './dashboard-document-pendencies.service';
+import {
+  DashboardDocumentPendencyOperationsService,
+  DashboardDocumentPendencyResolvedActionResponse,
+} from './dashboard-document-pendency-operations.service';
 import { DashboardPendingQueueService } from './dashboard-pending-queue.service';
 
 type InspectionActionItem = {
@@ -76,6 +81,8 @@ export class DashboardService {
     @InjectRepository(MedicalExam)
     private readonly medicalExamsRepository: Repository<MedicalExam>,
     private readonly dashboardPendingQueueService: DashboardPendingQueueService,
+    private readonly dashboardDocumentPendenciesService: DashboardDocumentPendenciesService,
+    private readonly dashboardDocumentPendencyOperationsService: DashboardDocumentPendencyOperationsService,
   ) {}
 
   async getSummary(companyId: string) {
@@ -862,6 +869,70 @@ export class DashboardService {
 
   async getPendingQueue(companyId: string) {
     return this.dashboardPendingQueueService.getPendingQueue(companyId);
+  }
+
+  async getDocumentPendencies(input: {
+    companyId?: string;
+    isSuperAdmin?: boolean;
+    permissions?: string[];
+    filters?: {
+      companyId?: string;
+      siteId?: string;
+      module?: string;
+      priority?: string;
+      criticality?: string;
+      status?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      page?: number;
+      limit?: number;
+    };
+  }) {
+    return this.dashboardDocumentPendenciesService.getDocumentPendencies({
+      currentCompanyId: input.companyId,
+      isSuperAdmin: input.isSuperAdmin,
+      permissions: input.permissions,
+      filters: input.filters,
+    });
+  }
+
+  async resolveDocumentPendencyAction(input: {
+    actionKey:
+      | 'open_final_pdf'
+      | 'open_governed_video'
+      | 'open_governed_attachment';
+    module: string;
+    documentId: string;
+    attachmentId?: string;
+    attachmentIndex?: number;
+    companyId?: string;
+    actorId?: string;
+    permissions?: string[];
+  }): Promise<DashboardDocumentPendencyResolvedActionResponse> {
+    return this.dashboardDocumentPendencyOperationsService.resolveAction({
+      actionKey: input.actionKey,
+      module: input.module,
+      documentId: input.documentId,
+      attachmentId: input.attachmentId,
+      attachmentIndex: input.attachmentIndex,
+      currentCompanyId: input.companyId,
+      actorId: input.actorId,
+      permissions: input.permissions,
+    });
+  }
+
+  async retryDocumentPendencyImport(input: {
+    documentId: string;
+    actorId?: string;
+    permissions?: string[];
+  }) {
+    return this.dashboardDocumentPendencyOperationsService.retryImport(
+      input.documentId,
+      {
+        actorId: input.actorId,
+        permissions: input.permissions,
+      },
+    );
   }
 
   private toPercent(value: number, total: number): number {

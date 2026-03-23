@@ -31,7 +31,7 @@ const getTenantPlan = (
   const plan = request.user?.plan;
   return plan && RATE_LIMIT_PLANS.has(plan as TenantRateLimitPlan)
     ? (plan as TenantRateLimitPlan)
-    : 'PROFESSIONAL';
+    : 'FREE';
 };
 
 /**
@@ -41,7 +41,7 @@ const getTenantPlan = (
  * - Responde com 429 Too Many Requests + headers informativos
  * - Rotas públicas (@Public()) são ignoradas
  *
- * O plano padrão é 'PROFESSIONAL'. Para planos diferenciados por tenant,
+ * O plano padrão é 'FREE' (menor permissão). Para planos diferenciados por tenant,
  * adicione o campo `plan` no JWT payload e passe via `request.user.plan`.
  */
 @Injectable()

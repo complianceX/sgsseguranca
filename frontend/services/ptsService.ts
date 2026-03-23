@@ -314,7 +314,7 @@ export const ptsService = {
         throw createPtOfflineSignatureBlockedError();
       }
 
-      const queued = enqueueOfflineMutation({
+      const queued = await enqueueOfflineMutation({
         url: '/pts',
         method: 'post',
         data,
@@ -349,7 +349,7 @@ export const ptsService = {
         throw createPtOfflineSignatureBlockedError();
       }
 
-      const queued = enqueueOfflineMutation({
+      const queued = await enqueueOfflineMutation({
         url: `/pts/${id}`,
         method: 'patch',
         data,

@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import { aoaToExcelBuffer } from '../common/utils/excel.util';
 import { AprExcelService } from './apr-excel.service';
 import { AprRiskMatrixService } from './apr-risk-matrix.service';
 import type { Apr } from './entities/apr.entity';
@@ -10,42 +10,41 @@ describe('AprExcelService', () => {
     service = new AprExcelService(new AprRiskMatrixService());
   });
 
-  it('gera preview estruturado da planilha APR e recalcula categoria no backend', () => {
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.aoa_to_sheet([
-      ['Código APR', 'APR-2026-002'],
-      ['Título', 'APR importada'],
-      ['Data Emissão', '2026-03-19'],
-      ['Data Revisão', '2026-03-25'],
-      [],
-      [
-        'Atividade/Processo',
-        'Condição Perigosa',
-        'Probabilidade',
-        'Severidade',
-        'Medidas de Controle',
-        'Responsável',
-        'Prazo',
-        'Status',
-      ],
-      [
-        'Içamento',
-        'Carga suspensa',
-        3,
-        3,
-        'Isolar área',
-        'TST',
-        '2026-03-20',
-        'Aberta',
-      ],
+  it('gera preview estruturado da planilha APR e recalcula categoria no backend', async () => {
+    const buffer = await aoaToExcelBuffer([
+      {
+        name: 'APR',
+        rows: [
+          ['Código APR', 'APR-2026-002'],
+          ['Título', 'APR importada'],
+          ['Data Emissão', '2026-03-19'],
+          ['Data Revisão', '2026-03-25'],
+          [],
+          [
+            'Atividade/Processo',
+            'Condição Perigosa',
+            'Probabilidade',
+            'Severidade',
+            'Medidas de Controle',
+            'Responsável',
+            'Prazo',
+            'Status',
+          ],
+          [
+            'Içamento',
+            'Carga suspensa',
+            3,
+            3,
+            'Isolar área',
+            'TST',
+            '2026-03-20',
+            'Aberta',
+          ],
+        ],
+      },
     ]);
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'APR');
 
-    const buffer = Buffer.from(
-      XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }),
-    ) as Buffer<ArrayBufferLike>;
-
-    const preview = service.previewImport(buffer, 'apr.xlsx');
+    const preview = await service.previewImport(buffer, 'apr.xlsx');
 
     expect(preview.errors).toEqual([]);
     expect(preview.importedRows).toBe(1);
@@ -62,29 +61,33 @@ describe('AprExcelService', () => {
     });
   });
 
-  it('sinaliza erro quando colunas obrigatorias da matriz APR nao existem', () => {
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.aoa_to_sheet([
-      ['Título', 'APR sem colunas obrigatórias'],
-      [],
-      ['Descrição', 'Observação'],
-      ['linha', 'sem matriz'],
+  it('sinaliza erro quando colunas obrigatorias da matriz APR nao existem', async () => {
+    const buffer = await aoaToExcelBuffer([
+      {
+        name: 'APR',
+        rows: [
+          ['Título', 'APR sem colunas obrigatórias'],
+          [],
+          ['Descrição', 'Observação'],
+          ['linha', 'sem matriz'],
+        ],
+      },
     ]);
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'APR');
 
-    const buffer = Buffer.from(
-      XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }),
-    ) as Buffer<ArrayBufferLike>;
-
-    expect(() => service.previewImport(buffer, 'apr-invalida.xlsx')).toThrow(
+    await expect(
+      service.previewImport(buffer, 'apr-invalida.xlsx'),
+    ).rejects.toThrow(
       'Não foi possível localizar a tabela de riscos na planilha.',
     );
   });
 
-  it('gera template corporativo que pode ser importado novamente sem ajustes manuais no parser', () => {
-    const workbook = service.buildTemplateWorkbook();
+  it('gera template corporativo que pode ser importado novamente sem ajustes manuais no parser', async () => {
+    const templateBuffer = await service.buildTemplateWorkbook();
 
-    const preview = service.previewImport(workbook, 'apr-template.xlsx');
+    const preview = await service.previewImport(
+      templateBuffer,
+      'apr-template.xlsx',
+    );
 
     expect(preview.errors).toEqual([]);
     expect(preview.importedRows).toBe(1);
@@ -100,8 +103,8 @@ describe('AprExcelService', () => {
     });
   });
 
-  it('faz roundtrip da planilha exportada pela propria APR com resumo em outra aba', () => {
-    const workbook = service.buildDetailWorkbook({
+  it('faz roundtrip da planilha exportada pela propria APR com resumo em outra aba', async () => {
+    const detailBuffer = await service.buildDetailWorkbook({
       id: 'apr-1',
       numero: 'APR-2026-010',
       titulo: 'APR exportada',
@@ -138,7 +141,10 @@ describe('AprExcelService', () => {
       ],
     } as unknown as Apr);
 
-    const preview = service.previewImport(workbook, 'apr-exportada.xlsx');
+    const preview = await service.previewImport(
+      detailBuffer,
+      'apr-exportada.xlsx',
+    );
 
     expect(preview.errors).toEqual([]);
     expect(preview.sheetName).toBe('Riscos APR');

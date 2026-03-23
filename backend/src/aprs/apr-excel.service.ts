@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import * as XLSX from 'xlsx';
+import { readExcelBuffer, aoaToExcelBuffer } from '../common/utils/excel.util';
 import { Apr } from './entities/apr.entity';
 import { AprRiskItem } from './entities/apr-risk-item.entity';
 import { AprExcelImportPreviewDto } from './dto/apr-excel-import-preview.dto';
@@ -215,23 +215,6 @@ export class AprExcelService {
     ).padStart(2, '0')}/${parsed.getUTCFullYear()}`;
   }
 
-  private toWorkbookBuffer(workbook: XLSX.WorkBook): Buffer {
-    const output = XLSX.write(workbook, {
-      type: 'buffer',
-      bookType: 'xlsx',
-    }) as unknown;
-
-    if (Buffer.isBuffer(output)) {
-      return output;
-    }
-
-    if (output instanceof Uint8Array) {
-      return Buffer.from(output);
-    }
-
-    throw new BadRequestException('Falha ao gerar workbook da APR.');
-  }
-
   private normalizeLabel(value: unknown): string {
     const scalarValue =
       value instanceof Date ||
@@ -320,28 +303,18 @@ export class AprExcelService {
     ).find(([, aliases]) => aliases.includes(label))?.[0];
   }
 
-  private getWorkbookSheets(buffer: Buffer): WorksheetData[] {
-    const workbook = XLSX.read(buffer, {
-      type: 'buffer',
-      cellDates: true,
-      raw: false,
-    });
-    if (!workbook.SheetNames.length) {
+  private async getWorkbookSheets(buffer: Buffer): Promise<WorksheetData[]> {
+    const rawSheets = await readExcelBuffer(buffer);
+
+    if (rawSheets.length === 0) {
       throw new BadRequestException(
         'A planilha enviada está vazia ou não possui abas válidas.',
       );
     }
 
-    const sheets = workbook.SheetNames.map((sheetName) => {
-      const worksheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json<WorksheetRow>(worksheet, {
-        header: 1,
-        raw: false,
-        defval: '',
-        blankrows: false,
-      });
-      return { sheetName, rows };
-    }).filter((sheet) => Array.isArray(sheet.rows) && sheet.rows.length > 0);
+    const sheets = rawSheets.filter(
+      (sheet) => Array.isArray(sheet.rows) && sheet.rows.length > 0,
+    );
 
     if (sheets.length === 0) {
       throw new BadRequestException(
@@ -349,7 +322,7 @@ export class AprExcelService {
       );
     }
 
-    return sheets;
+    return sheets.map((s) => ({ sheetName: s.sheetName, rows: s.rows }));
   }
 
   private detectTableHeader(rows: WorksheetRow[]): {
@@ -413,8 +386,11 @@ export class AprExcelService {
     return metadata;
   }
 
-  previewImport(buffer: Buffer, fileName: string): AprExcelImportPreviewDto {
-    const sheets = this.getWorkbookSheets(buffer);
+  async previewImport(
+    buffer: Buffer,
+    fileName: string,
+  ): Promise<AprExcelImportPreviewDto> {
+    const sheets = await this.getWorkbookSheets(buffer);
     const metadata = sheets.reduce<Partial<Record<MetadataField, string>>>(
       (acc, sheet) => ({
         ...this.extractMetadataFromRows(sheet.rows),
@@ -571,7 +547,7 @@ export class AprExcelService {
     };
   }
 
-  buildTemplateWorkbook(): Buffer {
+  async buildTemplateWorkbook(): Promise<Buffer> {
     const rows = [
       ['Código APR', 'APR-2026-001'],
       ['Título', 'Inspeção de atividade crítica'],
@@ -614,28 +590,16 @@ export class AprExcelService {
       ],
     ];
 
-    const worksheet = XLSX.utils.aoa_to_sheet(rows);
-    worksheet['!cols'] = [
-      { wch: 22 },
-      { wch: 32 },
-      { wch: 24 },
-      { wch: 28 },
-      { wch: 26 },
-      { wch: 16 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 20 },
-      { wch: 24 },
-      { wch: 18 },
-      { wch: 16 },
-    ];
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Template APR');
-    return this.toWorkbookBuffer(workbook);
+    return aoaToExcelBuffer([
+      {
+        name: 'Template APR',
+        rows,
+        colWidths: [22, 32, 24, 28, 26, 16, 12, 12, 20, 24, 18, 16],
+      },
+    ]);
   }
 
-  buildDetailWorkbook(apr: Apr): Buffer {
+  async buildDetailWorkbook(apr: Apr): Promise<Buffer> {
     const riskItems = Array.isArray(apr.risk_items) ? apr.risk_items : [];
     const summaryRows = [
       ['Relatório APR'],
@@ -655,10 +619,6 @@ export class AprExcelService {
       ],
       ['Versão', apr.versao ?? 1],
     ];
-
-    const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
-    summarySheet['!cols'] = [{ wch: 24 }, { wch: 68 }];
-    summarySheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }];
 
     const riskRows = [
       [
@@ -695,24 +655,6 @@ export class AprExcelService {
       ]),
     ];
 
-    const riskSheet = XLSX.utils.aoa_to_sheet(riskRows);
-    riskSheet['!cols'] = [
-      { wch: 8 },
-      { wch: 24 },
-      { wch: 22 },
-      { wch: 24 },
-      { wch: 28 },
-      { wch: 24 },
-      { wch: 14 },
-      { wch: 12 },
-      { wch: 10 },
-      { wch: 16 },
-      { wch: 34 },
-      { wch: 20 },
-      { wch: 14 },
-      { wch: 16 },
-    ];
-
     const matrixRows = [
       ['Matriz de Risco APR'],
       [],
@@ -722,15 +664,24 @@ export class AprExcelService {
         .map((rule) => [rule.scores.join(', '), rule.category, rule.priority]),
     ];
 
-    const matrixSheet = XLSX.utils.aoa_to_sheet(matrixRows);
-    matrixSheet['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 28 }];
-    matrixSheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Resumo APR');
-    XLSX.utils.book_append_sheet(workbook, riskSheet, 'Riscos APR');
-    XLSX.utils.book_append_sheet(workbook, matrixSheet, 'Matriz APR');
-
-    return this.toWorkbookBuffer(workbook);
+    return aoaToExcelBuffer([
+      {
+        name: 'Resumo APR',
+        rows: summaryRows,
+        colWidths: [24, 68],
+        merges: [{ startRow: 1, startCol: 1, endRow: 1, endCol: 2 }],
+      },
+      {
+        name: 'Riscos APR',
+        rows: riskRows,
+        colWidths: [8, 24, 22, 24, 28, 24, 14, 12, 10, 16, 34, 20, 14, 16],
+      },
+      {
+        name: 'Matriz APR',
+        rows: matrixRows,
+        colWidths: [12, 18, 28],
+        merges: [{ startRow: 1, startCol: 1, endRow: 1, endCol: 3 }],
+      },
+    ]);
   }
 }

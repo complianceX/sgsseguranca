@@ -198,7 +198,7 @@ export const checklistsService = {
         throw error;
       }
 
-      const queued = enqueueOfflineMutation({
+      const queued = await enqueueOfflineMutation({
         url: "/checklists",
         method: "post",
         data,
@@ -230,7 +230,7 @@ export const checklistsService = {
         throw error;
       }
 
-      const queued = enqueueOfflineMutation({
+      const queued = await enqueueOfflineMutation({
         url: `/checklists/${id}`,
         method: "patch",
         data,
@@ -320,7 +320,7 @@ export const checklistsService = {
         throw error;
       }
 
-      const queued = enqueueOfflineMutation({
+      const queued = await enqueueOfflineMutation({
         url: `/checklists/fill-from-template/${templateId}`,
         method: "post",
         data,

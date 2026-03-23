@@ -50,24 +50,33 @@ export class TenantGuard implements CanActivate {
     }
 
     if (!tenantId) {
-      // Observabilidade/auditoria: não revela detalhes ao client, mas ajuda a detectar problemas
-      // de contexto (ex.: ADMIN_GERAL sem x-company-id quando flag exige tenant explícito).
       const req = context.switchToHttp().getRequest<{
         ip?: string;
         originalUrl?: string;
         url?: string;
+        method?: string;
         headers?: Record<string, unknown>;
       }>();
       const headerCompanyId = req?.headers?.['x-company-id'] as
         | string
         | undefined;
+      const userAgent = req?.headers?.['user-agent'] as string | undefined;
+
+      // Forensic audit trail: log enough context for incident investigation
+      // without leaking sensitive data (no tokens, no passwords).
       this.logger.warn({
-        event: 'missing_tenant_context',
+        event: 'cross_tenant_access_denied',
+        reason: isSuperAdmin
+          ? 'super_admin_missing_explicit_tenant'
+          : 'missing_tenant_context',
         isSuperAdmin,
         requireExplicitForSuperAdmin,
-        headerCompanyId,
+        headerCompanyId: headerCompanyId || null,
         ip: req?.ip,
+        method: req?.method,
         path: req?.originalUrl || req?.url,
+        userAgent: userAgent?.slice(0, 200),
+        timestamp: new Date().toISOString(),
       });
       throw new UnauthorizedException(
         'Contexto de empresa não identificado. Faça login novamente ou selecione uma empresa.',

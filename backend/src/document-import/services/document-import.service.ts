@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -466,6 +467,141 @@ export class DocumentImportService {
   async getDocumentStatus(documentId: string): Promise<DocumentImport | null> {
     const tenantId = this.tenantService.getTenantId();
     return this.getDocumentStatusEntity(documentId, tenantId);
+  }
+
+  async retryDocumentProcessing(
+    documentId: string,
+    requestedByUserId?: string,
+  ): Promise<DocumentImportEnqueueResponseDto> {
+    const record = await this.getDocumentForProcessing(documentId);
+
+    if (!record) {
+      throw new NotFoundException('Importação documental não encontrada.');
+    }
+
+    this.assertTenantAccess(record.empresaId);
+
+    if (record.status !== DocumentImportStatus.DEAD_LETTER) {
+      throw new ConflictException(
+        'Somente importações em dead-letter podem ser reenfileiradas com segurança.',
+      );
+    }
+
+    if (!record.arquivoStaging || record.arquivoStaging.length === 0) {
+      throw new ConflictException(
+        'O arquivo de staging não está mais disponível para reenfileirar esta importação.',
+      );
+    }
+
+    const statusUrl = this.buildStatusUrl(record.id);
+    const retryRequestedAt = new Date().toISOString();
+    const retryJobId = `document-import:${record.id}:retry:${Date.now()}`;
+    const preEnqueueMetadata = this.mergeMetadata(record.metadata, {
+      queue: {
+        statusUrl,
+        timeoutMs: getDocumentImportJobTimeoutMs(),
+        attempts: getDocumentImportJobAttempts(),
+        lastQueueState: 'retry_enqueueing',
+        retryRequestedAt,
+      },
+    });
+
+    await this.documentImportRepository.update(
+      { id: record.id, empresaId: record.empresaId },
+      {
+        status: DocumentImportStatus.QUEUED,
+        processingJobId: retryJobId,
+        mensagemErro: null,
+        deadLetteredAt: null,
+        metadata: preEnqueueMetadata,
+      },
+    );
+
+    try {
+      const job = await this.documentImportQueue.add(
+        'process-document-import',
+        {
+          documentId: record.id,
+          companyId: record.empresaId,
+          requestedByUserId,
+        } satisfies DocumentImportQueueJobData,
+        {
+          ...documentImportJobOptions,
+          jobId: retryJobId,
+        },
+      );
+
+      const resolvedJobId = String(job.id);
+      const queuedMetadata = this.mergeMetadata(preEnqueueMetadata, {
+        queue: {
+          statusUrl,
+          timeoutMs: getDocumentImportJobTimeoutMs(),
+          attempts: getDocumentImportJobAttempts(),
+          lastQueueState: 'waiting',
+          retryRequestedAt,
+          enqueuedAt: new Date().toISOString(),
+        },
+      });
+
+      await this.documentImportRepository.update(
+        { id: record.id, empresaId: record.empresaId },
+        {
+          processingJobId: resolvedJobId,
+          metadata: queuedMetadata,
+        },
+      );
+
+      this.logger.log(
+        `Importação ${record.id} reenfileirada com sucesso para empresa ${record.empresaId}.`,
+      );
+
+      return toDocumentImportEnqueueResponseDto({
+        documentId: record.id,
+        status: DocumentImportStatus.QUEUED,
+        statusUrl,
+        job: {
+          jobId: resolvedJobId,
+          queueState: 'waiting',
+          attemptsMade: record.processingAttempts || 0,
+          maxAttempts: getDocumentImportJobAttempts(),
+          lastAttemptAt: record.lastAttemptAt,
+          deadLettered: false,
+        },
+        queued: true,
+        reused: false,
+        replayState: 'new',
+        idempotencyKey: record.idempotencyKey,
+        message: 'Importação reenfileirada para nova tentativa operacional.',
+      });
+    } catch (error) {
+      const queueFailureMessage =
+        error instanceof Error
+          ? error.message
+          : 'Fila de importação indisponível no momento.';
+
+      await this.markAsFailed(
+        record.id,
+        record.empresaId,
+        `Não foi possível reenfileirar a importação: ${queueFailureMessage}`,
+        {
+          status: DocumentImportStatus.DEAD_LETTER,
+          queueState: 'retry_enqueue_failed',
+          deadLetteredAt: new Date(),
+          clearStaging: false,
+        },
+      );
+
+      throw new ServiceUnavailableException({
+        message:
+          'Fila de importação indisponível. A operação continuou em dead-letter.',
+        documentId: record.id,
+        statusUrl,
+        details: {
+          queue: 'document-import',
+          error: queueFailureMessage,
+        },
+      });
+    }
   }
 
   async getDocumentsByEmpresa(empresaId: string): Promise<DocumentImport[]> {

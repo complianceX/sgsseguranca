@@ -78,18 +78,21 @@ export class AuthController {
   ): Promise<AuthSessionResponseDto> {
     const tracker = getRequestIp(req);
     await this.bruteForceService.assertAllowed(tracker);
+    await this.bruteForceService.assertCpfAllowed(body.cpf);
     const user = (await this.authService.validateUser(
       body.cpf,
       body.password,
     )) as User;
     if (!user) {
       await this.bruteForceService.registerFailure(tracker);
+      await this.bruteForceService.registerCpfFailure(body.cpf);
       const maskedCpf = body.cpf.replace(/\d(?=\d{2})/g, '*');
       this.logger.warn({ event: 'login_failed', cpf: maskedCpf });
       throw new UnauthorizedException('Credenciais inválidas');
     }
     this.logger.log({ event: 'login_success', userId: user.id });
     await this.bruteForceService.reset(tracker);
+    await this.bruteForceService.resetCpf(body.cpf);
 
     const result = await this.authService.login(user, {
       userAgent: String(req.headers['user-agent'] || ''),

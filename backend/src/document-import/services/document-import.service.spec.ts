@@ -291,6 +291,83 @@ describe('DocumentImportService', () => {
     });
   });
 
+  it('reenfileira importação em dead-letter com staging preservado', async () => {
+    queryBuilder.getOne.mockResolvedValue(
+      makeDocumentImport({
+        id: DOCUMENT_ID,
+        status: DocumentImportStatus.DEAD_LETTER,
+        processingJobId: 'job-dead-letter',
+        processingAttempts: 3,
+        deadLetteredAt: new Date('2026-03-20T10:05:00.000Z'),
+        mensagemErro: 'parse timeout',
+      }),
+    );
+    queue.add.mockResolvedValue({ id: 'retry-job-1' });
+
+    const result = await service.retryDocumentProcessing(DOCUMENT_ID, 'user-1');
+
+    const [jobName, jobData, jobOptions] = queue.add.mock.calls[0] as [
+      string,
+      {
+        documentId: string;
+        companyId: string;
+        requestedByUserId?: string;
+      },
+      {
+        jobId?: string;
+      },
+    ];
+
+    expect(jobName).toBe('process-document-import');
+    expect(jobData).toEqual({
+      documentId: DOCUMENT_ID,
+      companyId: COMPANY_ID,
+      requestedByUserId: 'user-1',
+    });
+    expect(String(jobOptions.jobId)).toContain(
+      `document-import:${DOCUMENT_ID}:retry:`,
+    );
+    expect(repository.update).toHaveBeenCalledWith(
+      { id: DOCUMENT_ID, empresaId: COMPANY_ID },
+      expect.objectContaining({
+        status: DocumentImportStatus.QUEUED,
+        mensagemErro: null,
+        deadLetteredAt: null,
+      }),
+    );
+    expect(result).toMatchObject({
+      success: true,
+      queued: true,
+      documentId: DOCUMENT_ID,
+      status: DocumentImportStatus.QUEUED,
+      replayState: 'new',
+      reused: false,
+      job: {
+        jobId: 'retry-job-1',
+        queueState: 'waiting',
+        deadLettered: false,
+      },
+    });
+  });
+
+  it('bloqueia retry de importações que não estão em dead-letter', async () => {
+    queryBuilder.getOne.mockResolvedValue(
+      makeDocumentImport({
+        id: DOCUMENT_ID,
+        status: DocumentImportStatus.FAILED,
+        mensagemErro: 'enqueue failed',
+      }),
+    );
+
+    await expect(
+      service.retryDocumentProcessing(DOCUMENT_ID, 'user-1'),
+    ).rejects.toThrow(
+      'Somente importações em dead-letter podem ser reenfileiradas com segurança.',
+    );
+
+    expect(queue.add).not.toHaveBeenCalled();
+  });
+
   it('reutiliza a operação em andamento quando a mesma idempotency key é reenviada', async () => {
     repository.findOne.mockResolvedValueOnce(
       makeDocumentImport({

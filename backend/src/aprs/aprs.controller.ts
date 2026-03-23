@@ -166,8 +166,8 @@ export class AprsController {
     'Content-Disposition',
     'attachment; filename="apr-template-importacao.xlsx"',
   )
-  exportExcelTemplate(): StreamableFile {
-    const buffer = this.aprsService.exportExcelTemplate();
+  async exportExcelTemplate(): Promise<StreamableFile> {
+    const buffer = await this.aprsService.exportExcelTemplate();
     return new StreamableFile(buffer);
   }
 

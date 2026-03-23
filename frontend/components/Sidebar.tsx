@@ -83,6 +83,11 @@ const menuSections: MenuSection[] = [
     defaultOpen: false,
     items: [
       { icon: AlertCircle, label: 'CATs', href: '/dashboard/cats' },
+      {
+        icon: Shield,
+        label: 'Pendências documentais',
+        href: '/dashboard/document-pendencies',
+      },
       { icon: Map, label: 'Mapa de risco', href: '/dashboard/risk-map' },
       { icon: CheckSquare, label: 'Ações corretivas', href: '/dashboard/corrective-actions' },
       { icon: Upload, label: 'Importar com IA', href: '/dashboard/documentos/importar' },
@@ -134,6 +139,7 @@ export function Sidebar({
             '/dashboard/kpis',
             '/dashboard/executive',
             '/dashboard/reports',
+            '/dashboard/document-pendencies',
           ].includes(href);
 
           if (needsDashboardPermission && !hasPermission('can_view_dashboard')) {

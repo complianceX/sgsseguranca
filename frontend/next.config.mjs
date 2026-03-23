@@ -63,16 +63,12 @@ function buildCsp() {
     'https://api.elevenlabs.io',
     'wss://api.elevenlabs.io',
   ].filter(Boolean));
-  const scriptSrc = [
-    "'self'",
-    "'unsafe-inline'",
-    !isProd ? "'unsafe-eval'" : null,
-    'https://unpkg.com',
-  ].filter(Boolean);
-
-  // Observação: Next.js injeta alguns scripts/estilos inline em runtime.
-  // Mantemos 'unsafe-inline'/'unsafe-eval' para compatibilidade e mitigamos com hardening adicional (removendo token persistente, headers e sanitização).
-  // Em um passo futuro, é recomendável migrar para CSP com nonce.
+  // Production: strict-dynamic with nonce (Next.js 15+ injects nonce automatically).
+  // Dev: unsafe-eval needed for HMR/fast-refresh.
+  const scriptSrc = isProd
+    ? ["'self'", "'strict-dynamic'", 'https://unpkg.com']
+    : ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://unpkg.com'];
+  const scriptSrcStr = scriptSrc.join(' ');
   const directives = [
     `default-src 'self'`,
     `base-uri 'self'`,
@@ -81,7 +77,7 @@ function buildCsp() {
     `img-src 'self' data: blob: https:`,
     `font-src 'self' data:`,
     `style-src 'self' 'unsafe-inline'`,
-    `script-src ${scriptSrc.join(' ')}`,
+    `script-src ${scriptSrcStr}`,
     `connect-src ${Array.from(connectSrc).join(' ')}`,
     `media-src 'self' blob: data: https:`,
     `worker-src 'self' blob:`,

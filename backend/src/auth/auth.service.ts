@@ -23,6 +23,7 @@ import {
   isInfiniteTtl,
   getRefreshTokenTtl,
   getRefreshTokenTtlDays,
+  getMaxActiveSessionsPerUser,
 } from './auth-security.config';
 
 const RESET_TOKEN_TTL_SECONDS = 3600; // 1 hora
@@ -222,6 +223,22 @@ export class AuthService {
         ttlSeconds,
         storedValue,
       );
+
+      // Enforce max active sessions per user — evict oldest if exceeded
+      const maxSessions = getMaxActiveSessionsPerUser();
+      const evicted = await this.redisService.enforceMaxSessions(
+        user.id,
+        maxSessions,
+      );
+      if (evicted.length > 0) {
+        this.logger.log({
+          event: 'sessions_evicted',
+          userId: user.id,
+          evictedCount: evicted.length,
+          maxSessions,
+          reason: 'max_active_sessions_exceeded',
+        });
+      }
     } catch (err) {
       this.logger.warn(
         `Falha ao registrar refresh token no Redis: ${
@@ -415,6 +432,12 @@ export class AuthService {
   }
 
   async forgotPassword(cpf: string): Promise<{ message: string }> {
+    // Random delay (200-500ms) to mitigate timing-based user enumeration.
+    // Applied before any logic so total response time is uniform regardless
+    // of whether the CPF exists or not.
+    const jitterMs = 200 + Math.floor(Math.random() * 300);
+    const start = Date.now();
+
     const normalizedCpf = CpfUtil.normalize(cpf);
 
     // Busca o usuário ignorando RLS (rota pública, sem contexto de tenant)
@@ -504,6 +527,13 @@ export class AuthService {
       );
     }
 
+    // Pad response time to the jitter target so user-exists and user-not-found
+    // paths have indistinguishable latency.
+    const elapsed = Date.now() - start;
+    if (elapsed < jitterMs) {
+      await new Promise((resolve) => setTimeout(resolve, jitterMs - elapsed));
+    }
+
     return { message: successMsg };
   }
 
@@ -512,7 +542,15 @@ export class AuthService {
     newPassword: string,
   ): Promise<{ message: string }> {
     const redisKey = `reset_password:${token}`;
-    const userId = await this.redisService.getClient().get(redisKey);
+
+    // Atomic single-use: delete and return in one operation to prevent replay
+    const userId = await this.redisService
+      .getClient()
+      .pipeline()
+      .get(redisKey)
+      .del(redisKey)
+      .exec()
+      .then((results) => (results?.[0]?.[1] as string) || null);
 
     if (!userId) {
       throw new BadRequestException(
@@ -533,8 +571,7 @@ export class AuthService {
       await manager.update(User, { id: userId }, { password: hashedPassword });
     });
 
-    // Invalida o token após uso
-    await this.redisService.getClient().del(redisKey);
+    // Token já invalidado atomicamente no início (pipeline get+del)
 
     // Invalida todos os refresh tokens — o usuário precisará fazer login novamente
     await this.redisService.clearAllRefreshTokens(userId);

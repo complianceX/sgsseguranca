@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as XLSX from 'xlsx';
+import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import { MedicalExam } from './entities/medical-exam.entity';
 import { CreateMedicalExamDto } from './dto/create-medical-exam.dto';
 import { UpdateMedicalExamDto } from './dto/update-medical-exam.dto';
@@ -190,9 +190,6 @@ export class MedicalExamsService {
       };
     });
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Exames');
-    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+    return jsonToExcelBuffer(rows, 'Exames');
   }
 }

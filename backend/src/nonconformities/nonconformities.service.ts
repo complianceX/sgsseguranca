@@ -12,7 +12,7 @@ import {
   QueryFailedError,
   Repository,
 } from 'typeorm';
-import * as XLSX from 'xlsx';
+import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import { NonConformity } from './entities/nonconformity.entity';
 import {
   CreateNonConformityDto,
@@ -1438,10 +1438,7 @@ export class NonConformitiesService {
       'Criado em': new Date(n.created_at).toLocaleDateString('pt-BR'),
     }));
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Não Conformidades');
-    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+    return jsonToExcelBuffer(rows, 'Não Conformidades');
   }
 
   private async logAudit(

@@ -1,6 +1,12 @@
 const { spawnSync } = require('node:child_process');
 
-const env = { ...process.env };
+const env = { ...process.env, NODE_ENV: 'production' };
+
+// __NEXT_PRIVATE_STANDALONE_CONFIG is set at runtime by Next.js standalone
+// output or by previous builds. It serializes the config as JSON (stripping
+// functions like generateBuildId), which causes builds to fail. It must never
+// leak into the build process.
+delete env.__NEXT_PRIVATE_STANDALONE_CONFIG;
 
 if (process.platform === 'win32') {
   // Em Windows, o Next 15 está falhando de forma intermitente ao spawnar

@@ -196,7 +196,7 @@ export const inspectionsService = {
         throw error;
       }
 
-      const queued = enqueueOfflineMutation({
+      const queued = await enqueueOfflineMutation({
         url: '/inspections',
         method: 'post',
         data,
@@ -223,7 +223,7 @@ export const inspectionsService = {
         throw error;
       }
 
-      const queued = enqueueOfflineMutation({
+      const queued = await enqueueOfflineMutation({
         url: `/inspections/${id}`,
         method: 'patch',
         data,

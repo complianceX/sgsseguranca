@@ -11,6 +11,8 @@ import type { AppendForensicTrailEventInput } from '../forensic-trail/forensic-t
 import type { DataSource } from 'typeorm';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { Dds } from '../dds/entities/dds.entity';
+import { Cat } from '../cats/entities/cat.entity';
+import { Inspection } from '../inspections/entities/inspection.entity';
 import {
   SIGNATURE_PROOF_SCOPES,
   SIGNATURE_VERIFICATION_MODES,
@@ -73,6 +75,12 @@ describe('SignaturesService', () => {
   const aprRepository = {
     findOne: jest.fn(() => Promise.resolve(null)),
   };
+  const catRepository = {
+    findOne: jest.fn(() => Promise.resolve(null)),
+  };
+  const inspectionRepository = {
+    findOne: jest.fn(() => Promise.resolve(null)),
+  };
 
   const dataSource = {
     getRepository: jest.fn((entity: unknown) => {
@@ -94,6 +102,14 @@ describe('SignaturesService', () => {
         };
       }
 
+      if (entity === Cat) {
+        return catRepository;
+      }
+
+      if (entity === Inspection) {
+        return inspectionRepository;
+      }
+
       return {
         findOne: jest.fn(() => Promise.resolve(null)),
       };
@@ -112,6 +128,21 @@ describe('SignaturesService', () => {
       pdf_file_key: null,
       updated_at: new Date('2026-03-16T11:55:00.000Z'),
     } as Partial<Apr>);
+    catRepository.findOne.mockResolvedValue({
+      id: 'cat-1',
+      company_id: 'company-1',
+      numero: 'CAT-001',
+      status: 'aberta',
+      pdf_file_key: null,
+      updated_at: new Date('2026-03-16T11:55:00.000Z'),
+    });
+    inspectionRepository.findOne.mockResolvedValue({
+      id: 'inspection-1',
+      company_id: 'company-1',
+      tipo_inspecao: 'Rotina',
+      setor_area: 'Caldeiraria',
+      updated_at: new Date('2026-03-16T11:55:00.000Z'),
+    });
 
     service = new SignaturesService(
       repository as unknown as Repository<Signature>,
@@ -223,6 +254,39 @@ describe('SignaturesService', () => {
     expect(appendOptions.manager).toBeDefined();
   });
 
+  it('vincula assinatura de inspeção ao contexto canônico server-side', async () => {
+    await service.create(
+      {
+        document_id: 'inspection-1',
+        document_type: 'Inspeção',
+        signature_data: 'data:image/png;base64,BBBB',
+        type: 'digital',
+      },
+      'user-1',
+    );
+
+    const createdSignature = savedEntities[savedEntities.length - 1];
+    if (!createdSignature?.integrity_payload) {
+      throw new Error('Expected inspection integrity payload');
+    }
+
+    const integrityPayload = createdSignature.integrity_payload;
+    const documentBinding = integrityPayload.document_binding as Record<
+      string,
+      unknown
+    >;
+
+    expect(integrityPayload.verification_mode).toBe(
+      SIGNATURE_VERIFICATION_MODES.SERVER_VERIFIABLE,
+    );
+    expect(integrityPayload.proof_scope).toBe(
+      SIGNATURE_PROOF_SCOPES.DOCUMENT_REVISION,
+    );
+    expect(documentBinding.reference).toBe('Rotina - Caldeiraria');
+    expect(documentBinding.status).toBeNull();
+    expect(documentBinding.binding_hash).toEqual(expect.any(String));
+  });
+
   it('ignora hashes e tokens enviados pelo cliente e valida o envelope server-side', async () => {
     await service.create(
       {
@@ -327,5 +391,29 @@ describe('SignaturesService', () => {
     );
 
     expect(repository.delete).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia criacao de assinatura quando a CAT ja possui PDF final emitido', async () => {
+    catRepository.findOne.mockResolvedValue({
+      id: 'cat-1',
+      company_id: 'company-1',
+      numero: 'CAT-001',
+      status: 'fechada',
+      pdf_file_key: 'documents/company-1/cats/cat-1/final.pdf',
+    });
+
+    await expect(
+      service.create(
+        {
+          document_id: 'cat-1',
+          document_type: 'CAT',
+          signature_data: 'data:image/png;base64,CCCC',
+          type: 'digital',
+        },
+        'user-1',
+      ),
+    ).rejects.toThrow(
+      /CAT com PDF final emitido está bloqueado para alterações de assinatura\./,
+    );
   });
 });

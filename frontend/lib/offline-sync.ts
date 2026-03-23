@@ -20,6 +20,77 @@ const MAX_RETRY_ATTEMPTS = 7;
 const BASE_RETRY_DELAY_MS = 2_000;
 const MAX_RETRY_DELAY_MS = 5 * 60 * 1000;
 
+// ---------------------------------------------------------------------------
+// Offline queue encryption (AES-GCM via Web Crypto API)
+// Protects sensitive payloads at rest in localStorage against XSS exfiltration.
+// The key is derived per-session and stored in sessionStorage (not localStorage),
+// so it is not persisted across browser sessions — acceptable trade-off since
+// offline queue is short-lived.
+// ---------------------------------------------------------------------------
+const CRYPTO_KEY_STORAGE = 'gst.offline.key';
+
+async function getOrCreateCryptoKey(): Promise<CryptoKey | null> {
+  if (typeof window === 'undefined' || !window.crypto?.subtle) return null;
+  try {
+    const stored = sessionStorage.getItem(CRYPTO_KEY_STORAGE);
+    if (stored) {
+      const raw = Uint8Array.from(atob(stored), (c) => c.charCodeAt(0));
+      return window.crypto.subtle.importKey('raw', raw, 'AES-GCM', false, [
+        'encrypt',
+        'decrypt',
+      ]);
+    }
+    const key = await window.crypto.subtle.generateKey(
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['encrypt', 'decrypt'],
+    );
+    const exported = await window.crypto.subtle.exportKey('raw', key);
+    sessionStorage.setItem(
+      CRYPTO_KEY_STORAGE,
+      btoa(String.fromCharCode(...new Uint8Array(exported))),
+    );
+    return key;
+  } catch {
+    return null;
+  }
+}
+
+async function encryptPayload(plaintext: string): Promise<string> {
+  const key = await getOrCreateCryptoKey();
+  if (!key) return plaintext; // Graceful fallback
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext);
+  const ciphertext = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoded,
+  );
+  const combined = new Uint8Array(iv.length + new Uint8Array(ciphertext).length);
+  combined.set(iv);
+  combined.set(new Uint8Array(ciphertext), iv.length);
+  return 'enc:' + btoa(String.fromCharCode(...combined));
+}
+
+async function decryptPayload(data: string): Promise<string> {
+  if (!data.startsWith('enc:')) return data; // Not encrypted (legacy)
+  const key = await getOrCreateCryptoKey();
+  if (!key) return '[]'; // Key lost (new session) — return empty queue
+  try {
+    const combined = Uint8Array.from(atob(data.slice(4)), (c) => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const ciphertext = combined.slice(12);
+    const decrypted = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      ciphertext,
+    );
+    return new TextDecoder().decode(decrypted);
+  } catch {
+    return '[]'; // Decryption failed — discard corrupted data
+  }
+}
+
 type OfflineSyncSummary = {
   total: number;
   sent: number;
@@ -56,7 +127,7 @@ const shouldRetry = (error: unknown) => {
   return status >= 500 && status <= 599;
 };
 
-const readQueue = (): OfflineQueueItem[] => {
+const readQueue = async (): Promise<OfflineQueueItem[]> => {
   if (typeof window === 'undefined') {
     return [];
   }
@@ -64,13 +135,16 @@ const readQueue = (): OfflineQueueItem[] => {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      return JSON.parse(raw) as OfflineQueueItem[];
+      const decrypted = await decryptPayload(raw);
+      return JSON.parse(decrypted) as OfflineQueueItem[];
     }
 
     const legacyRaw = window.localStorage.getItem(LEGACY_STORAGE_KEY);
     if (legacyRaw) {
       const migrated = JSON.parse(legacyRaw) as OfflineQueueItem[];
-      window.localStorage.setItem(STORAGE_KEY, legacyRaw);
+      // Re-encrypt on migration
+      const encrypted = await encryptPayload(JSON.stringify(migrated));
+      window.localStorage.setItem(STORAGE_KEY, encrypted);
       window.localStorage.removeItem(LEGACY_STORAGE_KEY);
       return migrated;
     }
@@ -81,12 +155,13 @@ const readQueue = (): OfflineQueueItem[] => {
   }
 };
 
-const writeQueue = (items: OfflineQueueItem[]) => {
+const writeQueue = async (items: OfflineQueueItem[]) => {
   if (typeof window === 'undefined') {
     return;
   }
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  const encrypted = await encryptPayload(JSON.stringify(items));
+  window.localStorage.setItem(STORAGE_KEY, encrypted);
   window.localStorage.removeItem(LEGACY_STORAGE_KEY);
   window.dispatchEvent(
     new CustomEvent('app:offline-queue-updated', {
@@ -156,29 +231,29 @@ const processQueueItem = async (
   }
 };
 
-export const enqueueOfflineMutation = (item: Omit<OfflineQueueItem, 'id' | 'createdAt'>) => {
-  const queue = readQueue();
+export const enqueueOfflineMutation = async (item: Omit<OfflineQueueItem, 'id' | 'createdAt'>) => {
+  const queue = await readQueue();
   const queuedItem: OfflineQueueItem = {
     ...item,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: new Date().toISOString(),
   };
   queue.push(queuedItem);
-  writeQueue(queue);
+  await writeQueue(queue);
   return queuedItem;
 };
 
-export const getOfflineQueueCount = () => readQueue().length;
+export const getOfflineQueueCount = async () => (await readQueue()).length;
 
 export const getOfflineQueueSnapshot = () => readQueue();
 
-export const removeOfflineQueueItem = (itemId: string) => {
-  const nextQueue = readQueue().filter((item) => item.id !== itemId);
-  writeQueue(nextQueue);
+export const removeOfflineQueueItem = async (itemId: string) => {
+  const nextQueue = (await readQueue()).filter((item) => item.id !== itemId);
+  await writeQueue(nextQueue);
 };
 
 export const retryOfflineQueueItem = async (itemId: string) => {
-  const queue = readQueue();
+  const queue = await readQueue();
   const target = queue.find((item) => item.id === itemId);
 
   if (!target) {
@@ -189,13 +264,13 @@ export const retryOfflineQueueItem = async (itemId: string) => {
   const result = await processQueueItem(target, true);
 
   if (result.status === 'sent') {
-    writeQueue(queue.filter((item) => item.id !== itemId));
+    await writeQueue(queue.filter((item) => item.id !== itemId));
     dispatchSyncCompleted({ itemId, status: 'sent' });
     return result;
   }
 
   if (result.status === 'pending') {
-    writeQueue(
+    await writeQueue(
       queue.map((item) => (item.id === itemId ? result.item : item)),
     );
     dispatchSyncCompleted({ itemId, status: 'pending' });
@@ -211,7 +286,7 @@ export const flushOfflineQueue = async () => {
     return;
   }
 
-  const queue = readQueue();
+  const queue = await readQueue();
   if (queue.length === 0) {
     return;
   }
@@ -247,7 +322,7 @@ export const flushOfflineQueue = async () => {
   }
 
   summary.pending = pending.length;
-  writeQueue(pending);
+  await writeQueue(pending);
 
   dispatchSyncCompleted(summary);
 };

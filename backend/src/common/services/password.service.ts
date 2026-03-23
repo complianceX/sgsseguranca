@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class PasswordService {
@@ -69,12 +69,31 @@ export class PasswordService {
       'admin',
       '123456',
       '12345678',
+      '123456789',
+      '1234567890',
       'qwerty',
       'gandra2026',
+      'abc123',
+      'letmein',
+      'welcome',
+      'monkey',
+      'master',
+      'dragon',
+      'login',
+      'passw0rd',
+      'iloveyou',
+      'trustno1',
+      'changeme',
+      'seguranca',
+      'mudar123',
     ];
     const stripped = normalized.replace(/[^a-z0-9]/g, '');
-    if (blocked.some((item) => stripped === item)) {
+    if (blocked.some((item) => stripped === item || stripped.includes(item))) {
       errors.push('Senha contém padrões comuns e inseguros');
+    }
+    // Reject sequential/repeated characters (e.g., "aaaaaa", "AAAA")
+    if (/(.)\1{3,}/i.test(password)) {
+      errors.push('Senha não pode conter caracteres repetidos em sequência');
     }
 
     return {

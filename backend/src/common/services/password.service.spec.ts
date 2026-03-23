@@ -31,7 +31,7 @@ describe('PasswordService', () => {
 
   describe('validate', () => {
     it('should validate strong password', () => {
-      const result = service.validate('Password123!');
+      const result = service.validate('Segur0@Forte!');
       expect(result.valid).toBe(true);
       expect(result.errors).toHaveLength(0);
     });
@@ -40,6 +40,22 @@ describe('PasswordService', () => {
       const result = service.validate('weak');
       expect(result.valid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
+    });
+
+    it('should reject passwords containing common blocked patterns', () => {
+      const result = service.validate('Password123!');
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain(
+        'Senha contém padrões comuns e inseguros',
+      );
+    });
+
+    it('should reject passwords with repeated characters', () => {
+      const result = service.validate('Aaaa1234!@');
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain(
+        'Senha não pode conter caracteres repetidos em sequência',
+      );
     });
   });
 });

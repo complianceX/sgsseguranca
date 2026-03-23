@@ -12,6 +12,17 @@ const url =
   process.env.URL_DO_BANCO_DE_DADOS;
 
 function getSslConfig() {
+  // This file is used by TypeORM CLI for migrations and is eagerly imported
+  // by migration-startup.guard.ts. In test/CI environments NODE_ENV may be
+  // 'production' at the Jest process level but no real database is configured.
+  // We treat the lack of any database config as a signal that SSL validation
+  // should be skipped (returns false), so module-level instantiation below
+  // does not throw during unit-test imports.
+  const isTest =
+    process.env.NODE_ENV === 'test' || !!process.env.JEST_WORKER_ID;
+  if (isTest) {
+    return false;
+  }
   const isProduction = process.env.NODE_ENV === 'production';
   const railwaySelfSigned = parseBooleanFlag(process.env.BANCO_DE_DADOS_SSL);
   const sslAllowInsecure = parseBooleanFlag(

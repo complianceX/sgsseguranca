@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   AlertTriangle,
@@ -104,21 +104,30 @@ export default function TstFieldPage() {
     }
   };
 
+  const refreshOfflineQueueState = useCallback(async () => {
+    const [count, items] = await Promise.all([
+      getOfflineQueueCount(),
+      getOfflineQueueSnapshot(),
+    ]);
+    setOfflineCount(count);
+    setOfflineQueueItems(items.slice().reverse());
+  }, []);
+
   useEffect(() => {
     void loadDashboard();
-    setOfflineCount(getOfflineQueueCount());
-    setOfflineQueueItems(getOfflineQueueSnapshot().slice().reverse());
+    void refreshOfflineQueueState();
 
     const onQueueUpdate = (event: Event) => {
       const detail = (event as CustomEvent<{ count?: number }>).detail;
-      setOfflineCount(detail?.count ?? getOfflineQueueCount());
-      setOfflineQueueItems(getOfflineQueueSnapshot().slice().reverse());
+      if (typeof detail?.count === 'number') {
+        setOfflineCount(detail.count);
+      }
+      void refreshOfflineQueueState();
     };
     const onSyncStarted = () => setSyncingOfflineQueue(true);
     const onSyncCompleted = () => {
       setSyncingOfflineQueue(false);
-      setOfflineCount(getOfflineQueueCount());
-      setOfflineQueueItems(getOfflineQueueSnapshot().slice().reverse());
+      void refreshOfflineQueueState();
     };
 
     window.addEventListener('app:offline-queue-updated', onQueueUpdate as EventListener);
@@ -130,7 +139,7 @@ export default function TstFieldPage() {
       window.removeEventListener('app:offline-sync-started', onSyncStarted as EventListener);
       window.removeEventListener('app:offline-sync-completed', onSyncCompleted as EventListener);
     };
-  }, []);
+  }, [refreshOfflineQueueState]);
 
   const summaryCards = useMemo(
     () =>
@@ -232,15 +241,13 @@ export default function TstFieldPage() {
       toast.error('Falha ao reenviar o item da fila offline.');
     } finally {
       setRetryingQueueItemId(null);
-      setOfflineCount(getOfflineQueueCount());
-      setOfflineQueueItems(getOfflineQueueSnapshot().slice().reverse());
+      void refreshOfflineQueueState();
     }
   };
 
-  const handleRemoveQueueItem = (itemId: string) => {
-    removeOfflineQueueItem(itemId);
-    setOfflineCount(getOfflineQueueCount());
-    setOfflineQueueItems(getOfflineQueueSnapshot().slice().reverse());
+  const handleRemoveQueueItem = async (itemId: string) => {
+    await removeOfflineQueueItem(itemId);
+    await refreshOfflineQueueState();
   };
 
   if (loading) {
@@ -364,7 +371,7 @@ export default function TstFieldPage() {
                   ? `API indisponível${apiBaseUrl ? ` em ${apiBaseUrl}` : ''}. Continue no modo offline e sincronize quando voltar.`
                   : 'Conectividade estável. A fila offline será enviada automaticamente quando necessário.'}
               </p>
-              {getOfflineQueueSnapshot().length > 0 ? (
+              {offlineQueueItems.length > 0 ? (
                 <p className="text-xs text-amber-200">
                   Há itens aguardando envio. Priorize sincronização antes de encerrar o turno.
                 </p>

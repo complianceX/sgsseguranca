@@ -229,22 +229,24 @@ async function bootstrap() {
     helmet({
       contentSecurityPolicy: {
         reportOnly: !isProductionEnv,
-        useDefaults: true,
+        useDefaults: false,
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
+          styleSrc: ["'self'"],
           imgSrc: ["'self'", 'data:', 'https:'],
           connectSrc: ["'self'"],
           fontSrc: ["'self'"],
           objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
           frameAncestors: ["'none'"],
           upgradeInsecureRequests: [],
         },
       },
       crossOriginEmbedderPolicy: true,
       crossOriginResourcePolicy: { policy: 'same-site' },
-      hsts: { maxAge: 31536000, includeSubDomains: true },
+      hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
       referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
     }),
   );

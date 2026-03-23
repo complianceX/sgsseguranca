@@ -25,6 +25,11 @@ import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { Pt } from '../pts/entities/pt.entity';
 import { Dds } from '../dds/entities/dds.entity';
 import { Checklist } from '../checklists/entities/checklist.entity';
+import { Inspection } from '../inspections/entities/inspection.entity';
+import { Cat } from '../cats/entities/cat.entity';
+import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
+import { Audit } from '../audits/entities/audit.entity';
+import { Rdo } from '../rdos/entities/rdo.entity';
 import {
   SIGNATURE_LEGAL_ASSURANCE,
   SIGNATURE_PROOF_SCOPES,
@@ -671,32 +676,205 @@ export class SignaturesService {
       resolveRegistryModuleForSignatureDocumentType(input.documentType) ||
       normalizeModuleFromDocumentType(input.documentType);
 
-    if (module !== 'apr') {
-      return;
-    }
-
-    const apr = await this.dataSource.getRepository(Apr).findOne({
-      where: input.companyId
-        ? { id: input.documentId, company_id: input.companyId }
-        : { id: input.documentId },
-      select: ['id', 'company_id', 'status', 'pdf_file_key'],
-    });
-
-    if (!apr) {
-      throw new NotFoundException('APR não encontrada para assinatura.');
-    }
-
-    if (apr.pdf_file_key) {
-      throw new BadRequestException(
-        'APR com PDF final emitido está bloqueada para alterações de assinatura. Gere uma nova versão para seguir com alterações.',
+    const registryContext =
+      await this.documentGovernanceService.findRegistryContextForSignature(
+        input.documentId,
+        input.documentType,
+        input.companyId,
       );
-    }
+    const hasGovernedFinalPdf = Boolean(registryContext?.fileKey);
 
-    const isPendingApr = String(apr.status) === String(AprStatus.PENDENTE);
-    if (!isPendingApr) {
-      throw new BadRequestException(
-        'Somente APRs pendentes podem ter assinaturas alteradas diretamente. Use nova versão se precisar ajustar signatários.',
-      );
+    switch (module) {
+      case 'apr': {
+        const apr = await this.dataSource.getRepository(Apr).findOne({
+          where: input.companyId
+            ? { id: input.documentId, company_id: input.companyId }
+            : { id: input.documentId },
+          select: ['id', 'company_id', 'status', 'pdf_file_key'],
+        });
+
+        if (!apr) {
+          throw new NotFoundException('APR não encontrada para assinatura.');
+        }
+
+        if (hasGovernedFinalPdf || apr.pdf_file_key) {
+          throw new BadRequestException(
+            'APR com PDF final emitido está bloqueada para alterações de assinatura. Gere uma nova versão para seguir com alterações.',
+          );
+        }
+
+        const isPendingApr = String(apr.status) === String(AprStatus.PENDENTE);
+        if (!isPendingApr) {
+          throw new BadRequestException(
+            'Somente APRs pendentes podem ter assinaturas alteradas diretamente. Use nova versão se precisar ajustar signatários.',
+          );
+        }
+        return;
+      }
+      case 'pt': {
+        const pt = await this.dataSource.getRepository(Pt).findOne({
+          where: input.companyId
+            ? { id: input.documentId, company_id: input.companyId }
+            : { id: input.documentId },
+          select: ['id', 'company_id', 'pdf_file_key'],
+        });
+
+        if (!pt) {
+          throw new NotFoundException('PT não encontrada para assinatura.');
+        }
+
+        this.assertNoFinalPdfSignatureMutation({
+          documentLabel: 'PT',
+          hasLegacyPdf: Boolean(pt.pdf_file_key),
+          hasGovernedFinalPdf,
+        });
+        return;
+      }
+      case 'dds': {
+        const dds = await this.dataSource.getRepository(Dds).findOne({
+          where: input.companyId
+            ? { id: input.documentId, company_id: input.companyId }
+            : { id: input.documentId },
+          select: ['id', 'company_id', 'is_modelo', 'pdf_file_key'],
+        });
+
+        if (!dds) {
+          throw new NotFoundException('DDS não encontrado para assinatura.');
+        }
+
+        if (dds.is_modelo) {
+          throw new BadRequestException(
+            'Modelos de DDS não aceitam alterações de assinatura por este fluxo.',
+          );
+        }
+
+        this.assertNoFinalPdfSignatureMutation({
+          documentLabel: 'DDS',
+          hasLegacyPdf: Boolean(dds.pdf_file_key),
+          hasGovernedFinalPdf,
+        });
+        return;
+      }
+      case 'checklist': {
+        const checklist = await this.dataSource
+          .getRepository(Checklist)
+          .findOne({
+            where: input.companyId
+              ? { id: input.documentId, company_id: input.companyId }
+              : { id: input.documentId },
+            select: ['id', 'company_id', 'is_modelo', 'pdf_file_key'],
+          });
+
+        if (!checklist) {
+          throw new NotFoundException(
+            'Checklist não encontrado para assinatura.',
+          );
+        }
+
+        if (checklist.is_modelo) {
+          throw new BadRequestException(
+            'Modelos de checklist não aceitam alterações de assinatura por este fluxo.',
+          );
+        }
+
+        this.assertNoFinalPdfSignatureMutation({
+          documentLabel: 'Checklist',
+          hasLegacyPdf: Boolean(checklist.pdf_file_key),
+          hasGovernedFinalPdf,
+        });
+        return;
+      }
+      case 'inspection': {
+        const inspection = await this.dataSource
+          .getRepository(Inspection)
+          .findOne({
+            where: input.companyId
+              ? { id: input.documentId, company_id: input.companyId }
+              : { id: input.documentId },
+            select: ['id', 'company_id'],
+          });
+
+        if (!inspection) {
+          throw new NotFoundException(
+            'Relatório de inspeção não encontrado para assinatura.',
+          );
+        }
+
+        this.assertNoFinalPdfSignatureMutation({
+          documentLabel: 'Relatório de inspeção',
+          hasLegacyPdf: false,
+          hasGovernedFinalPdf,
+        });
+        return;
+      }
+      case 'cat': {
+        const cat = await this.dataSource.getRepository(Cat).findOne({
+          where: input.companyId
+            ? { id: input.documentId, company_id: input.companyId }
+            : { id: input.documentId },
+          select: ['id', 'company_id', 'pdf_file_key'],
+        });
+
+        if (!cat) {
+          throw new NotFoundException('CAT não encontrada para assinatura.');
+        }
+
+        this.assertNoFinalPdfSignatureMutation({
+          documentLabel: 'CAT',
+          hasLegacyPdf: Boolean(cat.pdf_file_key),
+          hasGovernedFinalPdf,
+        });
+        return;
+      }
+      case 'nonconformity': {
+        const nonconformity = await this.dataSource
+          .getRepository(NonConformity)
+          .findOne({
+            where: input.companyId
+              ? { id: input.documentId, company_id: input.companyId }
+              : { id: input.documentId },
+            select: ['id', 'company_id', 'pdf_file_key'],
+          });
+
+        if (!nonconformity) {
+          throw new NotFoundException(
+            'Não conformidade não encontrada para assinatura.',
+          );
+        }
+
+        this.assertNoFinalPdfSignatureMutation({
+          documentLabel: 'Não conformidade',
+          hasLegacyPdf: Boolean(nonconformity.pdf_file_key),
+          hasGovernedFinalPdf,
+        });
+        return;
+      }
+      case 'audit': {
+        const audit = await this.dataSource.getRepository(Audit).findOne({
+          where: input.companyId
+            ? { id: input.documentId, company_id: input.companyId }
+            : { id: input.documentId },
+          select: ['id', 'company_id', 'pdf_file_key'],
+        });
+
+        if (!audit) {
+          throw new NotFoundException(
+            'Auditoria não encontrada para assinatura.',
+          );
+        }
+
+        this.assertNoFinalPdfSignatureMutation({
+          documentLabel: 'Auditoria',
+          hasLegacyPdf: Boolean(audit.pdf_file_key),
+          hasGovernedFinalPdf,
+        });
+        return;
+      }
+      case 'rdo':
+        // O RDO já possui fluxo próprio e verificável de assinatura operacional.
+        return;
+      default:
+        return;
     }
   }
 
@@ -805,9 +983,138 @@ export class SignaturesService {
           updatedAt: checklist.updated_at,
         });
       }
+      case 'inspection': {
+        const inspection = await this.dataSource
+          .getRepository(Inspection)
+          .findOne({
+            where: companyId
+              ? { id: documentId, company_id: companyId }
+              : { id: documentId },
+            select: [
+              'id',
+              'company_id',
+              'tipo_inspecao',
+              'setor_area',
+              'updated_at',
+            ],
+          });
+        if (!inspection) {
+          return null;
+        }
+
+        return this.buildEntityBindingContext({
+          module,
+          documentId: inspection.id,
+          companyId: inspection.company_id,
+          reference: `${inspection.tipo_inspecao} - ${inspection.setor_area}`,
+          status: null,
+          version: null,
+          updatedAt: inspection.updated_at,
+        });
+      }
+      case 'cat': {
+        const cat = await this.dataSource.getRepository(Cat).findOne({
+          where: companyId
+            ? { id: documentId, company_id: companyId }
+            : { id: documentId },
+          select: ['id', 'company_id', 'numero', 'status', 'updated_at'],
+        });
+        if (!cat) {
+          return null;
+        }
+
+        return this.buildEntityBindingContext({
+          module,
+          documentId: cat.id,
+          companyId: cat.company_id,
+          reference: cat.numero,
+          status: cat.status,
+          version: null,
+          updatedAt: cat.updated_at,
+        });
+      }
+      case 'nonconformity': {
+        const nonconformity = await this.dataSource
+          .getRepository(NonConformity)
+          .findOne({
+            where: companyId
+              ? { id: documentId, company_id: companyId }
+              : { id: documentId },
+            select: ['id', 'company_id', 'codigo_nc', 'status', 'updated_at'],
+          });
+        if (!nonconformity) {
+          return null;
+        }
+
+        return this.buildEntityBindingContext({
+          module,
+          documentId: nonconformity.id,
+          companyId: nonconformity.company_id,
+          reference: nonconformity.codigo_nc,
+          status: nonconformity.status,
+          version: null,
+          updatedAt: nonconformity.updated_at,
+        });
+      }
+      case 'audit': {
+        const audit = await this.dataSource.getRepository(Audit).findOne({
+          where: companyId
+            ? { id: documentId, company_id: companyId }
+            : { id: documentId },
+          select: ['id', 'company_id', 'titulo', 'updated_at'],
+        });
+        if (!audit) {
+          return null;
+        }
+
+        return this.buildEntityBindingContext({
+          module,
+          documentId: audit.id,
+          companyId: audit.company_id,
+          reference: audit.titulo,
+          status: null,
+          version: null,
+          updatedAt: audit.updated_at,
+        });
+      }
+      case 'rdo': {
+        const rdo = await this.dataSource.getRepository(Rdo).findOne({
+          where: companyId
+            ? { id: documentId, company_id: companyId }
+            : { id: documentId },
+          select: ['id', 'company_id', 'numero', 'status', 'updated_at'],
+        });
+        if (!rdo) {
+          return null;
+        }
+
+        return this.buildEntityBindingContext({
+          module,
+          documentId: rdo.id,
+          companyId: rdo.company_id,
+          reference: rdo.numero,
+          status: rdo.status,
+          version: null,
+          updatedAt: rdo.updated_at,
+        });
+      }
       default:
         return null;
     }
+  }
+
+  private assertNoFinalPdfSignatureMutation(input: {
+    documentLabel: string;
+    hasLegacyPdf: boolean;
+    hasGovernedFinalPdf: boolean;
+  }) {
+    if (!input.hasLegacyPdf && !input.hasGovernedFinalPdf) {
+      return;
+    }
+
+    throw new BadRequestException(
+      `${input.documentLabel} com PDF final emitido está bloqueado para alterações de assinatura.`,
+    );
   }
 
   private buildEntityBindingContext(input: {

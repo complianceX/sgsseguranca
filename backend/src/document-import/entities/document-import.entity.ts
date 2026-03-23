@@ -23,6 +23,7 @@ export interface DocumentImportMetadata {
   queue?: {
     statusUrl?: string;
     enqueuedAt?: string;
+    retryRequestedAt?: string;
     timeoutMs?: number;
     attempts?: number;
     lastQueueState?: string;

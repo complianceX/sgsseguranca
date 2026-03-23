@@ -17,6 +17,9 @@ const employeeContext: EmployeeDossierContext = {
     pts: 1,
     cats: 1,
     attachments: 2,
+    officialDocuments: 2,
+    pendingOfficialDocuments: 1,
+    supportingAttachments: 2,
   },
   truncation: {
     limit: 500,
@@ -35,6 +38,35 @@ const employeeContext: EmployeeDossierContext = {
       referencia: "NR-35",
       arquivo: "certificado.pdf",
       url: "storage/training/certificado.pdf",
+    },
+  ],
+  governedDocumentLines: [
+    {
+      modulo: "pt",
+      modulo_label: "PT",
+      referencia: "PT-001",
+      codigo_documento: "PT-2026-0001",
+      arquivo: "pt-final.pdf",
+      disponibilidade: "ready",
+      emitido_em: "2026-03-19T12:00:00.000Z",
+    },
+    {
+      modulo: "cat",
+      modulo_label: "CAT",
+      referencia: "CAT-001",
+      codigo_documento: "CAT-2026-0001",
+      arquivo: "cat-final.pdf",
+      disponibilidade: "registered_without_signed_url",
+      emitido_em: "2026-03-19T12:00:00.000Z",
+    },
+  ],
+  pendingGovernedDocumentLines: [
+    {
+      modulo: "pt",
+      modulo_label: "PT",
+      referencia: "PT-099",
+      status_atual: "Pendente",
+      pendencia: "Documento oficial ainda não possui PDF final governado emitido.",
     },
   ],
   subject: {
@@ -104,6 +136,9 @@ const siteContext: SiteDossierContext = {
     pts: 1,
     cats: 1,
     attachments: 1,
+    officialDocuments: 3,
+    pendingOfficialDocuments: 1,
+    supportingAttachments: 1,
   },
   truncation: {
     limit: 500,
@@ -118,10 +153,48 @@ const siteContext: SiteDossierContext = {
   },
   attachmentLines: [
     {
-      tipo: "PT",
+      tipo: "Treinamento",
+      referencia: "NR-35",
+      arquivo: "certificado.pdf",
+      url: "storage/trainings/certificado.pdf",
+    },
+  ],
+  governedDocumentLines: [
+    {
+      modulo: "apr",
+      modulo_label: "APR",
+      referencia: "APR-001",
+      codigo_documento: "APR-2026-0001",
+      arquivo: "apr-final.pdf",
+      disponibilidade: "ready",
+      emitido_em: "2026-03-19T12:00:00.000Z",
+    },
+    {
+      modulo: "pt",
+      modulo_label: "PT",
       referencia: "PT-001",
+      codigo_documento: "PT-2026-0001",
       arquivo: "pt-final.pdf",
-      url: "storage/pts/pt-final.pdf",
+      disponibilidade: "ready",
+      emitido_em: "2026-03-19T12:00:00.000Z",
+    },
+    {
+      modulo: "inspection",
+      modulo_label: "Inspeção",
+      referencia: "Rotina - Obra Central",
+      codigo_documento: "INS-2026-0001",
+      arquivo: "inspection-final.pdf",
+      disponibilidade: "ready",
+      emitido_em: "2026-03-19T12:00:00.000Z",
+    },
+  ],
+  pendingGovernedDocumentLines: [
+    {
+      modulo: "dds",
+      modulo_label: "DDS",
+      referencia: "DDS diário",
+      status_atual: "rascunho",
+      pendencia: "Documento oficial ainda não possui PDF final governado emitido.",
     },
   ],
   subject: {

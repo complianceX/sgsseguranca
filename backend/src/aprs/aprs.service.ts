@@ -7,7 +7,7 @@ import {
 import { createHash } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, FindOptionsWhere, In, Repository } from 'typeorm';
-import * as XLSX from 'xlsx';
+import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import { Apr, AprStatus, APR_ALLOWED_TRANSITIONS } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
 import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
@@ -1728,14 +1728,14 @@ export class AprsService {
     );
   }
 
-  previewExcelImport(
+  async previewExcelImport(
     buffer: Buffer,
     fileName: string,
-  ): AprExcelImportPreviewDto {
+  ): Promise<AprExcelImportPreviewDto> {
     return this.aprExcelService.previewImport(buffer, fileName);
   }
 
-  exportExcelTemplate(): Buffer {
+  async exportExcelTemplate(): Promise<Buffer> {
     return this.aprExcelService.buildTemplateWorkbook();
   }
 
@@ -1744,7 +1744,7 @@ export class AprsService {
   ): Promise<{ buffer: Buffer; fileName: string }> {
     const apr = await this.findOne(id);
     return {
-      buffer: this.aprExcelService.buildDetailWorkbook(apr),
+      buffer: await this.aprExcelService.buildDetailWorkbook(apr),
       fileName: `apr-${String(apr.numero || apr.id).replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`,
     };
   }
@@ -1780,10 +1780,7 @@ export class AprsService {
       'Criado em': new Date(a.created_at).toLocaleDateString('pt-BR'),
     }));
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'APRs');
-    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+    return jsonToExcelBuffer(rows, 'APRs');
   }
 
   async getRiskMatrix(siteId?: string): Promise<{

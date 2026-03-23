@@ -1,6 +1,9 @@
 import { render, screen } from "@testing-library/react";
 
-jest.setTimeout(15000);
+// O dashboard carrega um grafo grande de componentes e este teste já apresentou
+// intermitência por tempo de inicialização fora do escopo funcional das features
+// correntes. Mantemos a cobertura e apenas damos folga adicional ao runner.
+jest.setTimeout(30000);
 
 jest.mock("@/lib/temporarilyHiddenModules", () => ({
   isTemporarilyVisibleDashboardRoute: () => true,

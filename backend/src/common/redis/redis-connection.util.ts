@@ -10,7 +10,7 @@ export type ResolvedRedisConnection = {
   username?: string;
   password?: string;
   tls?: {
-    rejectUnauthorized: false;
+    rejectUnauthorized: boolean;
   };
 };
 
@@ -43,7 +43,12 @@ function resolveTls(
   const tlsEnabled =
     forceTls || /^true$/i.test(readValue(reader, 'REDIS_TLS') || '');
 
-  return tlsEnabled ? { rejectUnauthorized: false } : undefined;
+  if (!tlsEnabled) return undefined;
+
+  const allowInsecure = /^true$/i.test(
+    readValue(reader, 'REDIS_TLS_ALLOW_INSECURE') || '',
+  );
+  return { rejectUnauthorized: !allowInsecure };
 }
 
 export function isRedisExplicitlyDisabled(reader: RedisConfigReader): boolean {

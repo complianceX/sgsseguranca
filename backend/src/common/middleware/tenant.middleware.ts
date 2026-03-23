@@ -132,23 +132,32 @@ export class TenantMiddleware implements NestMiddleware {
           // - Se header existir, deve ser exatamente o tenant do JWT.
           if (!companyId && headerCompanyId) {
             this.logger.warn({
-              event: 'tenant_spoof_attempt',
+              event: 'cross_tenant_spoof_attempt',
+              severity: 'HIGH',
               userId: payload.sub,
               headerCompanyId,
+              tokenCompanyId: null,
               ip: req.ip,
+              method: req.method,
               path: req.originalUrl || req.url,
+              userAgent: (req.headers['user-agent'] as string)?.slice(0, 200),
+              timestamp: new Date().toISOString(),
             });
             throw new ForbiddenException();
           }
 
           if (companyId && headerCompanyId && headerCompanyId !== companyId) {
             this.logger.warn({
-              event: 'tenant_spoof_attempt',
+              event: 'cross_tenant_spoof_attempt',
+              severity: 'CRITICAL',
               userId: payload.sub,
               tokenCompanyId: companyId,
               headerCompanyId,
               ip: req.ip,
+              method: req.method,
               path: req.originalUrl || req.url,
+              userAgent: (req.headers['user-agent'] as string)?.slice(0, 200),
+              timestamp: new Date().toISOString(),
             });
             throw new ForbiddenException();
           }

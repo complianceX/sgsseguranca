@@ -7,12 +7,51 @@ export interface DossierAttachmentLine {
   url: string;
 }
 
+export interface DossierGovernedDocumentLine {
+  modulo:
+    | "apr"
+    | "pt"
+    | "dds"
+    | "rdo"
+    | "inspection"
+    | "checklist"
+    | "cat"
+    | "audit"
+    | "nonconformity";
+  modulo_label: string;
+  referencia: string;
+  codigo_documento: string | null;
+  arquivo: string;
+  disponibilidade: "ready" | "registered_without_signed_url";
+  emitido_em: string | null;
+}
+
+export interface DossierPendingGovernedDocumentLine {
+  modulo:
+    | "apr"
+    | "pt"
+    | "dds"
+    | "rdo"
+    | "inspection"
+    | "checklist"
+    | "cat"
+    | "audit"
+    | "nonconformity";
+  modulo_label: string;
+  referencia: string;
+  status_atual: string | null;
+  pendencia: string;
+}
+
 interface DossierSummary {
   trainings: number;
   assignments: number;
   pts: number;
   cats: number;
   attachments: number;
+  officialDocuments: number;
+  pendingOfficialDocuments: number;
+  supportingAttachments: number;
 }
 
 interface DossierTruncationDatasets {
@@ -39,6 +78,8 @@ interface DossierBaseContext {
   summary: DossierSummary;
   truncation: DossierTruncationInfo;
   attachmentLines: DossierAttachmentLine[];
+  governedDocumentLines: DossierGovernedDocumentLine[];
+  pendingGovernedDocumentLines: DossierPendingGovernedDocumentLine[];
 }
 
 export interface EmployeeDossierContext extends DossierBaseContext {

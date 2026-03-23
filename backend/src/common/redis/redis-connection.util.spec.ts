@@ -16,6 +16,23 @@ describe('redis-connection.util', () => {
       port: 6380,
       username: 'default',
       password: 'secret',
+      tls: { rejectUnauthorized: true },
+    });
+  });
+
+  it('resolve conexão com TLS inseguro quando explicitamente permitido', () => {
+    const connection = resolveRedisConnection({
+      REDIS_URL: 'rediss://default:REDACTED@example.upstash.io:6380',
+      REDIS_TLS_ALLOW_INSECURE: 'true',
+    } as NodeJS.ProcessEnv);
+
+    expect(connection).toEqual({
+      source: 'url',
+      url: 'rediss://default:REDACTED@example.upstash.io:6380',
+      host: 'example.upstash.io',
+      port: 6380,
+      username: 'default',
+      password: 'secret',
       tls: { rejectUnauthorized: false },
     });
   });

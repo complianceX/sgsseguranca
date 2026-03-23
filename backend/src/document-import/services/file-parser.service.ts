@@ -9,7 +9,7 @@ interface PDFData {
   version: string;
 }
 import * as mammoth from 'mammoth';
-import * as XLSX from 'xlsx';
+import { excelSheetToText } from '../../common/utils/excel.util';
 
 type PdfParseFn = (data: Buffer) => Promise<PDFData>;
 let pdfParseLoader: Promise<PdfParseFn> | null = null;
@@ -55,10 +55,7 @@ export class FileParserService {
         const result = await mammoth.extractRawText({ buffer });
         return result.value;
       } else if (isXlsx) {
-        const workbook = XLSX.read(buffer, { type: 'buffer' });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        return XLSX.utils.sheet_to_txt(sheet);
+        return await excelSheetToText(buffer);
       } else if (isTxt || this.isLikelyText(buffer)) {
         return buffer.toString('utf-8');
       } else {

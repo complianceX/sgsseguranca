@@ -9,15 +9,22 @@ import { createHash, randomUUID } from 'crypto';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { In, Repository } from 'typeorm';
+import { Apr } from '../aprs/entities/apr.entity';
+import { Audit } from '../audits/entities/audit.entity';
 import { Cat } from '../cats/entities/cat.entity';
+import { Checklist } from '../checklists/entities/checklist.entity';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { StorageService } from '../common/services/storage.service';
 import { TenantService } from '../common/tenant/tenant.service';
+import { Dds } from '../dds/entities/dds.entity';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentRegistryService } from '../document-registry/document-registry.service';
 import { EpiAssignment } from '../epi-assignments/entities/epi-assignment.entity';
+import { Inspection } from '../inspections/entities/inspection.entity';
+import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
 import { Pt } from '../pts/entities/pt.entity';
+import { Rdo } from '../rdos/entities/rdo.entity';
 import { Site } from '../sites/entities/site.entity';
 import { Training } from '../trainings/entities/training.entity';
 import { User } from '../users/entities/user.entity';
@@ -37,11 +44,42 @@ interface DossierAttachmentLine {
   url: string;
 }
 
+type GovernedDossierModule =
+  | 'apr'
+  | 'pt'
+  | 'dds'
+  | 'rdo'
+  | 'inspection'
+  | 'checklist'
+  | 'cat'
+  | 'audit'
+  | 'nonconformity';
+
+interface DossierGovernedDocumentLine {
+  modulo: GovernedDossierModule;
+  modulo_label: string;
+  referencia: string;
+  codigo_documento: string | null;
+  arquivo: string;
+  disponibilidade: 'ready' | 'registered_without_signed_url';
+  emitido_em: string | null;
+}
+
+interface DossierPendingGovernedDocumentLine {
+  modulo: GovernedDossierModule;
+  modulo_label: string;
+  referencia: string;
+  status_atual: string | null;
+  pendencia: string;
+}
+
 interface EmployeeDossierPdfData {
   user: User;
   trainings: Training[];
   assignments: EpiAssignment[];
   attachmentLines: DossierAttachmentLine[];
+  governedDocumentLines: DossierGovernedDocumentLine[];
+  pendingGovernedDocumentLines: DossierPendingGovernedDocumentLine[];
 }
 
 interface EmployeeDossierBundle {
@@ -51,6 +89,8 @@ interface EmployeeDossierBundle {
   pts: Pt[];
   cats: Cat[];
   attachmentLines: DossierAttachmentLine[];
+  governedDocumentLines: DossierGovernedDocumentLine[];
+  pendingGovernedDocumentLines: DossierPendingGovernedDocumentLine[];
   truncation: DossierTruncationInfo;
 }
 
@@ -59,9 +99,18 @@ interface SiteDossierBundle {
   users: User[];
   trainings: Training[];
   assignments: EpiAssignment[];
+  aprs: Apr[];
   pts: Pt[];
+  dds: Dds[];
+  rdos: Rdo[];
+  inspections: Inspection[];
+  checklists: Checklist[];
   cats: Cat[];
+  audits: Audit[];
+  nonconformities: NonConformity[];
   attachmentLines: DossierAttachmentLine[];
+  governedDocumentLines: DossierGovernedDocumentLine[];
+  pendingGovernedDocumentLines: DossierPendingGovernedDocumentLine[];
   truncation: DossierTruncationInfo;
 }
 
@@ -91,6 +140,9 @@ type DossierDocumentSummary = {
   pts: number;
   cats: number;
   attachments: number;
+  officialDocuments: number;
+  pendingOfficialDocuments: number;
+  supportingAttachments: number;
 };
 
 type DossierDocumentInfo = {
@@ -151,6 +203,8 @@ export type EmployeeDossierContext = DossierDocumentInfo & {
     descricao: string | null;
   }>;
   attachmentLines: DossierAttachmentLine[];
+  governedDocumentLines: DossierGovernedDocumentLine[];
+  pendingGovernedDocumentLines: DossierPendingGovernedDocumentLine[];
 };
 
 export type SiteDossierContext = DossierDocumentInfo & {
@@ -205,6 +259,8 @@ export type SiteDossierContext = DossierDocumentInfo & {
     dataOcorrencia: string | null;
   }>;
   attachmentLines: DossierAttachmentLine[];
+  governedDocumentLines: DossierGovernedDocumentLine[];
+  pendingGovernedDocumentLines: DossierPendingGovernedDocumentLine[];
 };
 
 const DOSSIER_RECORD_LIMIT = 500; // Safety limit to prevent memory exhaustion
@@ -235,6 +291,20 @@ export class DossiersService {
     private readonly ptsRepository: Repository<Pt>,
     @InjectRepository(Cat)
     private readonly catsRepository: Repository<Cat>,
+    @InjectRepository(Apr)
+    private readonly aprsRepository: Repository<Apr>,
+    @InjectRepository(Dds)
+    private readonly ddsRepository: Repository<Dds>,
+    @InjectRepository(Rdo)
+    private readonly rdosRepository: Repository<Rdo>,
+    @InjectRepository(Inspection)
+    private readonly inspectionsRepository: Repository<Inspection>,
+    @InjectRepository(Checklist)
+    private readonly checklistsRepository: Repository<Checklist>,
+    @InjectRepository(Audit)
+    private readonly auditsRepository: Repository<Audit>,
+    @InjectRepository(NonConformity)
+    private readonly nonconformitiesRepository: Repository<NonConformity>,
     @InjectRepository(Site)
     private readonly sitesRepository: Repository<Site>,
     private readonly tenantService: TenantService,
@@ -398,8 +468,14 @@ export class DossiersService {
     filename: string;
     buffer: Buffer;
   }> {
-    const { user, trainings, assignments, attachmentLines } =
-      await this.loadEmployeeDossierBundle(userId);
+    const {
+      user,
+      trainings,
+      assignments,
+      attachmentLines,
+      governedDocumentLines,
+      pendingGovernedDocumentLines,
+    } = await this.loadEmployeeDossierBundle(userId);
 
     // ALERTA DE PERFORMANCE: Geração de PDF é síncrona e bloqueia o event loop.
     // RECOMENDAÇÃO: Mover para um job em background (BullMQ) para não afetar a API.
@@ -409,6 +485,8 @@ export class DossiersService {
       trainings,
       assignments,
       attachmentLines,
+      governedDocumentLines,
+      pendingGovernedDocumentLines,
     });
 
     const filename = `dossie_colaborador_${user.id}_${new Date().toISOString().slice(0, 10)}.pdf`;
@@ -426,6 +504,8 @@ export class DossiersService {
       pts,
       cats,
       attachmentLines,
+      governedDocumentLines,
+      pendingGovernedDocumentLines,
       truncation,
     } = await this.loadEmployeeDossierBundle(userId);
     const generatedAt = new Date().toISOString();
@@ -452,6 +532,9 @@ export class DossiersService {
         pts: pts.length,
         cats: cats.length,
         attachments: attachmentLines.length,
+        officialDocuments: governedDocumentLines.length,
+        pendingOfficialDocuments: pendingGovernedDocumentLines.length,
+        supportingAttachments: attachmentLines.length,
       },
       truncation,
       subject: {
@@ -502,6 +585,8 @@ export class DossiersService {
         descricao: item.descricao || null,
       })),
       attachmentLines,
+      governedDocumentLines,
+      pendingGovernedDocumentLines,
     };
   }
 
@@ -514,6 +599,8 @@ export class DossiersService {
       pts,
       cats,
       attachmentLines,
+      governedDocumentLines,
+      pendingGovernedDocumentLines,
       truncation,
     } = await this.loadSiteDossierBundle(siteId);
     const generatedAt = new Date().toISOString();
@@ -539,6 +626,9 @@ export class DossiersService {
         pts: pts.length,
         cats: cats.length,
         attachments: attachmentLines.length,
+        officialDocuments: governedDocumentLines.length,
+        pendingOfficialDocuments: pendingGovernedDocumentLines.length,
+        supportingAttachments: attachmentLines.length,
       },
       truncation,
       subject: {
@@ -594,6 +684,8 @@ export class DossiersService {
         dataOcorrencia: this.serializeDate(item.data_ocorrencia),
       })),
       attachmentLines,
+      governedDocumentLines,
+      pendingGovernedDocumentLines,
     };
   }
 
@@ -689,7 +781,14 @@ export class DossiersService {
   // following the same correction pattern.
 
   private buildPdf(doc: jsPDF, data: EmployeeDossierPdfData): void {
-    const { user, trainings, assignments, attachmentLines } = data;
+    const {
+      user,
+      trainings,
+      assignments,
+      attachmentLines,
+      governedDocumentLines,
+      pendingGovernedDocumentLines,
+    } = data;
     const marginX = 40;
     const tableTheme = createBackendPdfTableTheme();
 
@@ -755,6 +854,8 @@ export class DossiersService {
       ...tableTheme,
     });
 
+    this.appendGovernedDocumentIndex(doc, governedDocumentLines);
+    this.appendPendingGovernedDocumentIndex(doc, pendingGovernedDocumentLines);
     this.appendAttachmentIndex(doc, attachmentLines);
     applyBackendPdfFooter(doc, { marginX });
   }
@@ -762,7 +863,7 @@ export class DossiersService {
   private async collectEmployeeAttachments(
     trainings: Training[],
     _assignments: EpiAssignment[],
-    pts: Pt[],
+    _pts: Pt[],
     cats: Cat[],
   ): Promise<DossierAttachmentLine[]> {
     const lines: DossierAttachmentLine[] = [];
@@ -776,9 +877,9 @@ export class DossiersService {
         });
       }
     }
-    // Attachment collection for assignments is omitted as it was complex and didn't use URLs
-
-    await this.appendAttachments(lines, pts, cats);
+    // Attachment collection for assignments is omitted as it was complex and didn't use URLs.
+    // PT e CAT oficiais entram pelo registry governado, não como anexo solto.
+    await this.appendSupportingAttachments(lines, cats);
     return lines;
   }
 
@@ -791,32 +892,141 @@ export class DossiersService {
     return this.collectEmployeeAttachments(trainings, assignments, pts, cats);
   }
 
-  private async appendAttachments(
+  private async appendSupportingAttachments(
     lines: DossierAttachmentLine[],
-    pts: Pt[],
     cats: Cat[],
   ) {
-    // CORREÇÃO: Usando Promise.all para paralelizar a obtenção de URLs assinadas.
-    const ptPromises = pts
-      .filter((pt) => pt.pdf_file_key)
-      .map(async (pt) => ({
-        tipo: 'PT',
-        referencia: pt.numero,
-        arquivo: pt.pdf_original_name || pt.pdf_file_key,
-        url: await this.safeSignedUrl(pt.pdf_file_key),
-      }));
-
     const catPromises = cats.flatMap((cat) =>
       (cat.attachments || []).map(async (attachment) => ({
-        tipo: 'CAT',
+        tipo: 'CAT / Anexo complementar',
         referencia: cat.numero,
         arquivo: attachment.file_name,
         url: await this.safeSignedUrl(attachment.file_key),
       })),
     );
 
-    const results = await Promise.all([...ptPromises, ...catPromises]);
+    const results = await Promise.all(catPromises);
     lines.push(...results);
+  }
+
+  private async collectGovernedDocumentLines(
+    companyId: string,
+    candidates: Array<{
+      modulo: GovernedDossierModule;
+      entityId: string;
+      referencia: string;
+      statusAtual?: string | null;
+      fallbackFileName?: string | null;
+    }>,
+  ): Promise<{
+    governedDocumentLines: DossierGovernedDocumentLine[];
+    pendingGovernedDocumentLines: DossierPendingGovernedDocumentLine[];
+  }> {
+    const seen = new Set<string>();
+    const uniqueCandidates = candidates.filter((candidate) => {
+      const key = `${candidate.modulo}:${candidate.entityId}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+
+    const results = await Promise.all(
+      uniqueCandidates.map(async (candidate) => {
+        const registryEntry = await this.documentRegistryService.findByDocument(
+          candidate.modulo,
+          candidate.entityId,
+          'pdf',
+          companyId,
+        );
+
+        if (!registryEntry?.file_key) {
+          return {
+            kind: 'pending' as const,
+            value: {
+              modulo: candidate.modulo,
+              modulo_label: this.getGovernedModuleLabel(candidate.modulo),
+              referencia: candidate.referencia,
+              status_atual: candidate.statusAtual || null,
+              pendencia:
+                'Documento oficial ainda não possui PDF final governado emitido.',
+            },
+          };
+        }
+
+        let availability: DossierGovernedDocumentLine['disponibilidade'] =
+          'ready';
+        try {
+          await this.documentStorageService.getSignedUrl(
+            registryEntry.file_key,
+          );
+        } catch (error) {
+          availability = 'registered_without_signed_url';
+          this.logger.warn(
+            `Falha ao validar URL segura do documento governado ${candidate.modulo}:${candidate.entityId} para composição do dossiê: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+
+        return {
+          kind: 'governed' as const,
+          value: {
+            modulo: candidate.modulo,
+            modulo_label: this.getGovernedModuleLabel(candidate.modulo),
+            referencia: candidate.referencia,
+            codigo_documento: registryEntry.document_code || null,
+            arquivo:
+              registryEntry.original_name ||
+              candidate.fallbackFileName ||
+              registryEntry.file_key.split('/').pop() ||
+              'documento.pdf',
+            disponibilidade: availability,
+            emitido_em: this.serializeDate(registryEntry.created_at),
+          },
+        };
+      }),
+    );
+
+    const governedDocumentLines = results
+      .filter(
+        (
+          result,
+        ): result is {
+          kind: 'governed';
+          value: DossierGovernedDocumentLine;
+        } => result.kind === 'governed',
+      )
+      .map((result) => result.value)
+      .sort((left, right) =>
+        `${left.modulo_label}:${left.referencia}`.localeCompare(
+          `${right.modulo_label}:${right.referencia}`,
+          'pt-BR',
+        ),
+      );
+
+    const pendingGovernedDocumentLines = results
+      .filter(
+        (
+          result,
+        ): result is {
+          kind: 'pending';
+          value: DossierPendingGovernedDocumentLine;
+        } => result.kind === 'pending',
+      )
+      .map((result) => result.value)
+      .sort((left, right) =>
+        `${left.modulo_label}:${left.referencia}`.localeCompare(
+          `${right.modulo_label}:${right.referencia}`,
+          'pt-BR',
+        ),
+      );
+
+    return {
+      governedDocumentLines,
+      pendingGovernedDocumentLines,
+    };
   }
 
   private appendAttachmentIndex(
@@ -826,7 +1036,7 @@ export class DossiersService {
     drawBackendSectionTitle(
       doc,
       getBackendLastTableY(doc) + 8,
-      'Indice de anexos',
+      'Indice de anexos de apoio',
     );
     autoTable(doc, {
       startY: getBackendLastTableY(doc) + 16,
@@ -839,13 +1049,114 @@ export class DossiersService {
               item.arquivo,
               item.url,
             ])
-          : [['-', '-', '-', 'Nenhum anexo relacionado']],
+          : [['-', '-', '-', 'Nenhum anexo complementar relacionado']],
       ...createBackendPdfTableTheme(),
       styles: {
         ...createBackendPdfTableTheme().styles,
         fontSize: 8,
       },
     });
+  }
+
+  private appendGovernedDocumentIndex(
+    doc: jsPDF,
+    governedDocumentLines: DossierGovernedDocumentLine[],
+  ) {
+    drawBackendSectionTitle(
+      doc,
+      getBackendLastTableY(doc) + 8,
+      'Documentos oficiais governados',
+    );
+    autoTable(doc, {
+      startY: getBackendLastTableY(doc) + 16,
+      head: [['Modulo', 'Referencia', 'Codigo', 'Arquivo', 'Disponibilidade']],
+      body:
+        governedDocumentLines.length > 0
+          ? governedDocumentLines.map((item) => [
+              item.modulo_label,
+              item.referencia,
+              item.codigo_documento || '-',
+              item.arquivo,
+              item.disponibilidade === 'ready'
+                ? 'Pronto'
+                : 'Registrado sem URL assinada',
+            ])
+          : [
+              [
+                '-',
+                '-',
+                '-',
+                '-',
+                'Nenhum documento oficial governado relacionado',
+              ],
+            ],
+      ...createBackendPdfTableTheme(),
+      styles: {
+        ...createBackendPdfTableTheme().styles,
+        fontSize: 8,
+      },
+    });
+  }
+
+  private appendPendingGovernedDocumentIndex(
+    doc: jsPDF,
+    pendingGovernedDocumentLines: DossierPendingGovernedDocumentLine[],
+  ) {
+    drawBackendSectionTitle(
+      doc,
+      getBackendLastTableY(doc) + 8,
+      'Pendencias documentais oficiais',
+    );
+    autoTable(doc, {
+      startY: getBackendLastTableY(doc) + 16,
+      head: [['Modulo', 'Referencia', 'Status atual', 'Pendencia']],
+      body:
+        pendingGovernedDocumentLines.length > 0
+          ? pendingGovernedDocumentLines.map((item) => [
+              item.modulo_label,
+              item.referencia,
+              item.status_atual || '-',
+              item.pendencia,
+            ])
+          : [
+              [
+                '-',
+                '-',
+                '-',
+                'Nenhuma pendencia documental oficial identificada',
+              ],
+            ],
+      ...createBackendPdfTableTheme(),
+      styles: {
+        ...createBackendPdfTableTheme().styles,
+        fontSize: 8,
+      },
+    });
+  }
+
+  private getGovernedModuleLabel(module: GovernedDossierModule): string {
+    switch (module) {
+      case 'apr':
+        return 'APR';
+      case 'pt':
+        return 'PT';
+      case 'dds':
+        return 'DDS';
+      case 'rdo':
+        return 'RDO';
+      case 'inspection':
+        return 'Inspeção';
+      case 'checklist':
+        return 'Checklist';
+      case 'cat':
+        return 'CAT';
+      case 'audit':
+        return 'Auditoria';
+      case 'nonconformity':
+        return 'Não Conformidade';
+      default:
+        return 'Documento';
+    }
   }
 
   private async safeSignedUrl(fileKey: string): Promise<string> {
@@ -927,6 +1238,23 @@ export class DossiersService {
       pts,
       cats,
     );
+    const { governedDocumentLines, pendingGovernedDocumentLines } =
+      await this.collectGovernedDocumentLines(companyId, [
+        ...pts.map((pt) => ({
+          modulo: 'pt' as const,
+          entityId: pt.id,
+          referencia: pt.numero,
+          statusAtual: pt.status,
+          fallbackFileName: pt.pdf_original_name || null,
+        })),
+        ...cats.map((cat) => ({
+          modulo: 'cat' as const,
+          entityId: cat.id,
+          referencia: cat.numero,
+          statusAtual: cat.status,
+          fallbackFileName: cat.pdf_original_name || null,
+        })),
+      ]);
 
     return {
       user,
@@ -935,6 +1263,8 @@ export class DossiersService {
       pts,
       cats,
       attachmentLines,
+      governedDocumentLines,
+      pendingGovernedDocumentLines,
       truncation: this.buildTruncationInfo({
         trainings: trainings.length >= DOSSIER_RECORD_LIMIT,
         assignments: assignments.length >= DOSSIER_RECORD_LIMIT,
@@ -969,7 +1299,19 @@ export class DossiersService {
     });
 
     const userIds = users.map((item) => item.id);
-    const [trainings, assignments, pts, cats] = await Promise.all([
+    const [
+      trainings,
+      assignments,
+      aprs,
+      pts,
+      dds,
+      rdos,
+      inspections,
+      checklists,
+      cats,
+      audits,
+      nonconformities,
+    ] = await Promise.all([
       userIds.length
         ? this.trainingsRepository.find({
             where: {
@@ -992,15 +1334,50 @@ export class DossiersService {
             take: DOSSIER_RECORD_LIMIT,
           })
         : Promise.resolve([]),
+      this.aprsRepository.find({
+        where: { company_id: companyId, site_id: siteId },
+        order: { created_at: 'DESC' },
+        take: DOSSIER_RECORD_LIMIT,
+      }),
       this.ptsRepository.find({
         where: { company_id: companyId, site_id: siteId },
         relations: ['responsavel'],
         order: { created_at: 'DESC' },
         take: DOSSIER_RECORD_LIMIT,
       }),
+      this.ddsRepository.find({
+        where: { company_id: companyId, site_id: siteId },
+        order: { created_at: 'DESC' },
+        take: DOSSIER_RECORD_LIMIT,
+      }),
+      this.rdosRepository.find({
+        where: { company_id: companyId, site_id: siteId },
+        order: { created_at: 'DESC' },
+        take: DOSSIER_RECORD_LIMIT,
+      }),
+      this.inspectionsRepository.find({
+        where: { company_id: companyId, site_id: siteId },
+        order: { created_at: 'DESC' },
+        take: DOSSIER_RECORD_LIMIT,
+      }),
+      this.checklistsRepository.find({
+        where: { company_id: companyId, site_id: siteId, is_modelo: false },
+        order: { created_at: 'DESC' },
+        take: DOSSIER_RECORD_LIMIT,
+      }),
       this.catsRepository.find({
         where: { company_id: companyId, site_id: siteId },
         relations: ['worker'],
+        order: { created_at: 'DESC' },
+        take: DOSSIER_RECORD_LIMIT,
+      }),
+      this.auditsRepository.find({
+        where: { company_id: companyId, site_id: siteId },
+        order: { created_at: 'DESC' },
+        take: DOSSIER_RECORD_LIMIT,
+      }),
+      this.nonconformitiesRepository.find({
+        where: { company_id: companyId, site_id: siteId },
         order: { created_at: 'DESC' },
         take: DOSSIER_RECORD_LIMIT,
       }),
@@ -1012,15 +1389,90 @@ export class DossiersService {
       pts,
       cats,
     );
+    const { governedDocumentLines, pendingGovernedDocumentLines } =
+      await this.collectGovernedDocumentLines(companyId, [
+        ...aprs.map((apr) => ({
+          modulo: 'apr' as const,
+          entityId: apr.id,
+          referencia: apr.numero,
+          statusAtual: apr.status,
+          fallbackFileName: apr.pdf_original_name || null,
+        })),
+        ...pts.map((pt) => ({
+          modulo: 'pt' as const,
+          entityId: pt.id,
+          referencia: pt.numero,
+          statusAtual: pt.status,
+          fallbackFileName: pt.pdf_original_name || null,
+        })),
+        ...dds.map((dds) => ({
+          modulo: 'dds' as const,
+          entityId: dds.id,
+          referencia: dds.tema,
+          statusAtual: dds.status,
+          fallbackFileName: dds.pdf_original_name || null,
+        })),
+        ...rdos.map((rdo) => ({
+          modulo: 'rdo' as const,
+          entityId: rdo.id,
+          referencia: rdo.numero,
+          statusAtual: rdo.status,
+          fallbackFileName: rdo.pdf_original_name || null,
+        })),
+        ...inspections.map((inspection) => ({
+          modulo: 'inspection' as const,
+          entityId: inspection.id,
+          referencia: `${inspection.tipo_inspecao} - ${inspection.setor_area}`,
+          statusAtual: null,
+          fallbackFileName: null,
+        })),
+        ...checklists.map((checklist) => ({
+          modulo: 'checklist' as const,
+          entityId: checklist.id,
+          referencia: checklist.titulo,
+          statusAtual: checklist.status,
+          fallbackFileName: checklist.pdf_original_name || null,
+        })),
+        ...cats.map((cat) => ({
+          modulo: 'cat' as const,
+          entityId: cat.id,
+          referencia: cat.numero,
+          statusAtual: cat.status,
+          fallbackFileName: cat.pdf_original_name || null,
+        })),
+        ...audits.map((audit) => ({
+          modulo: 'audit' as const,
+          entityId: audit.id,
+          referencia: audit.titulo,
+          statusAtual: null,
+          fallbackFileName: audit.pdf_original_name || null,
+        })),
+        ...nonconformities.map((nonconformity) => ({
+          modulo: 'nonconformity' as const,
+          entityId: nonconformity.id,
+          referencia: nonconformity.codigo_nc,
+          statusAtual: nonconformity.status,
+          fallbackFileName: nonconformity.pdf_original_name || null,
+        })),
+      ]);
 
     return {
       site,
       users,
       trainings,
       assignments,
+      aprs,
       pts,
+      dds,
+      rdos,
+      inspections,
+      checklists,
       cats,
+      audits,
+      nonconformities,
       attachmentLines,
+      governedDocumentLines,
+      pendingGovernedDocumentLines,
       truncation: this.buildTruncationInfo({
         trainings: trainings.length >= DOSSIER_RECORD_LIMIT,
         assignments: assignments.length >= DOSSIER_RECORD_LIMIT,

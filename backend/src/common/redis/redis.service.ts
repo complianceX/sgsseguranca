@@ -100,6 +100,52 @@ export class RedisService {
     await this.deleteByPattern(`session:${userId}:*`);
   }
 
+  /**
+   * Enforces max active sessions per user by evicting the oldest tokens
+   * when the limit is exceeded. Returns the list of evicted token hashes.
+   */
+  async enforceMaxSessions(
+    userId: string,
+    maxSessions: number,
+  ): Promise<string[]> {
+    const setKey = this.getRefreshTokenSetKey(userId);
+    const allHashes = await this.client.smembers(setKey);
+
+    if (allHashes.length <= maxSessions) {
+      return [];
+    }
+
+    // Check which tokens are still alive, collect their TTLs
+    const hashesWithTtl: Array<{ hash: string; ttl: number }> = [];
+    for (const hash of allHashes) {
+      const key = this.getRefreshTokenKey(userId, hash);
+      const ttl = await this.client.ttl(key);
+      if (ttl > 0) {
+        hashesWithTtl.push({ hash, ttl });
+      } else {
+        // Expired token still in set — clean it up
+        await this.client.srem(setKey, hash);
+      }
+    }
+
+    if (hashesWithTtl.length <= maxSessions) {
+      return [];
+    }
+
+    // Sort by TTL ascending (lowest TTL = oldest session) and evict excess
+    hashesWithTtl.sort((a, b) => a.ttl - b.ttl);
+    const toEvict = hashesWithTtl.slice(0, hashesWithTtl.length - maxSessions);
+
+    const evictedHashes: string[] = [];
+    for (const { hash } of toEvict) {
+      const key = this.getRefreshTokenKey(userId, hash);
+      await this.client.multi().del(key).srem(setKey, hash).exec();
+      evictedHashes.push(hash);
+    }
+
+    return evictedHashes;
+  }
+
   /** Invalida todos os refresh tokens de um usuário (ex: troca de senha). */
   async clearAllRefreshTokens(userId: string): Promise<void> {
     const setKey = this.getRefreshTokenSetKey(userId);

@@ -26,12 +26,20 @@ export class BruteForceService {
       : 900;
   }
 
-  private keyCounter(ip: string) {
-    return `auth:bf:ip:${ip}`;
+  private keyCounter(tracker: string) {
+    return `auth:bf:ip:${tracker}`;
   }
 
-  private keyBlock(ip: string) {
-    return `auth:bf:block:${ip}`;
+  private keyBlock(tracker: string) {
+    return `auth:bf:block:${tracker}`;
+  }
+
+  private keyCpfCounter(cpf: string) {
+    return `auth:bf:cpf:${cpf}`;
+  }
+
+  private keyCpfBlock(cpf: string) {
+    return `auth:bf:cpf:block:${cpf}`;
   }
 
   async assertAllowed(tracker: string | null) {
@@ -131,5 +139,84 @@ export class BruteForceService {
     if (!tracker) return;
     const client = this.redisService.getClient();
     await client.del(this.keyCounter(tracker), this.keyBlock(tracker));
+  }
+
+  /**
+   * Verifica se o CPF está bloqueado por excesso de tentativas.
+   * Complementa o rate limit por IP para cobrir ataques distribuídos.
+   * Resposta genérica para não permitir enumeração de CPFs.
+   */
+  async assertCpfAllowed(cpf: string | null) {
+    if (!cpf) return;
+    try {
+      const client = this.redisService.getClient();
+      const blocked = await client.get(this.keyCpfBlock(cpf));
+      if (blocked) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            message:
+              'Muitas tentativas de login. Tente novamente em alguns minutos.',
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    } catch (err) {
+      if (err instanceof HttpException) throw err;
+      this.logger.error(
+        'BruteForce CPF: Redis indisponível — permitindo tentativa (fail-open para CPF)',
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  async registerCpfFailure(cpf: string | null) {
+    if (!cpf) return;
+    let client: ReturnType<typeof this.redisService.getClient>;
+    try {
+      client = this.redisService.getClient();
+    } catch {
+      return;
+    }
+    const key = this.keyCpfCounter(cpf);
+    const max = this.getMaxAttempts();
+    const windowSeconds = this.getWindowSeconds();
+    const blockSeconds = this.getBlockSeconds();
+
+    const incrScript = `
+      local count = redis.call('INCR', KEYS[1])
+      if count == 1 then
+        redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1]))
+      end
+      return count
+    `;
+    const count = (await client.eval(
+      incrScript,
+      1,
+      key,
+      String(windowSeconds),
+    )) as number;
+
+    if (count >= max) {
+      await client
+        .multi()
+        .del(key)
+        .set(this.keyCpfBlock(cpf), '1', 'EX', blockSeconds)
+        .exec();
+      this.logger.warn({
+        event: 'cpf_brute_force_blocked',
+        cpf: cpf.replace(/\d(?=\d{2})/g, '*'),
+      });
+    }
+  }
+
+  async resetCpf(cpf: string | null) {
+    if (!cpf) return;
+    try {
+      const client = this.redisService.getClient();
+      await client.del(this.keyCpfCounter(cpf), this.keyCpfBlock(cpf));
+    } catch {
+      // Best-effort cleanup
+    }
   }
 }

@@ -13,7 +13,7 @@ import {
   LessThan,
   Repository,
 } from 'typeorm';
-import * as XLSX from 'xlsx';
+import { jsonToExcelBuffer } from '../common/utils/excel.util';
 import { Pt, PtStatus, PT_ALLOWED_TRANSITIONS } from './entities/pt.entity';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { TenantService } from '../common/tenant/tenant.service';
@@ -887,10 +887,7 @@ export class PtsService {
       'Criado em': new Date(p.created_at).toLocaleDateString('pt-BR'),
     }));
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'PTs');
-    return Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+    return jsonToExcelBuffer(rows, 'PTs');
   }
 
   async getAnalyticsOverview(): Promise<{
