@@ -1,8 +1,9 @@
-import { ServiceUnavailableException } from '@nestjs/common';
+import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentStorageService } from './document-storage.service';
 import type { S3Service } from '../storage/s3.service';
 import type { StorageService } from './storage.service';
+import type { TenantService } from '../tenant/tenant.service';
 
 describe('DocumentStorageService', () => {
   const createConfigService = (
@@ -20,6 +21,7 @@ describe('DocumentStorageService', () => {
       createConfigService(),
       {} as StorageService,
       {} as S3Service,
+      { getTenantId: jest.fn() } as unknown as TenantService,
     );
 
     await expect(
@@ -42,6 +44,7 @@ describe('DocumentStorageService', () => {
       {
         uploadFile: legacyUploadFile,
       } as unknown as S3Service,
+      { getTenantId: jest.fn() } as unknown as TenantService,
     );
 
     await service.uploadFile(
@@ -69,6 +72,7 @@ describe('DocumentStorageService', () => {
       {
         uploadFile: legacyUploadFile,
       } as unknown as S3Service,
+      { getTenantId: jest.fn() } as unknown as TenantService,
     );
 
     await service.uploadFile(
@@ -84,5 +88,39 @@ describe('DocumentStorageService', () => {
       undefined,
     );
     expect(uploadFile).not.toHaveBeenCalled();
+  });
+
+  it('traduz falha de download por arquivo ausente em NotFoundException honesta', async () => {
+    const service = new DocumentStorageService(
+      createConfigService({ AWS_BUCKET_NAME: 'managed-bucket' }),
+      {
+        downloadFileBuffer: jest
+          .fn()
+          .mockRejectedValue(new Error('Not found in bucket')),
+      } as unknown as StorageService,
+      {} as S3Service,
+      { getTenantId: jest.fn() } as unknown as TenantService,
+    );
+
+    await expect(
+      service.downloadFileBuffer('documents/company-1/apr/doc.pdf'),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('traduz falha de presign em indisponibilidade do storage governado', async () => {
+    const service = new DocumentStorageService(
+      createConfigService({ AWS_BUCKET_NAME: 'managed-bucket' }),
+      {
+        getPresignedDownloadUrl: jest
+          .fn()
+          .mockRejectedValue(new Error('socket timeout')),
+      } as unknown as StorageService,
+      {} as S3Service,
+      { getTenantId: jest.fn() } as unknown as TenantService,
+    );
+
+    await expect(
+      service.getSignedUrl('documents/company-1/apr/doc.pdf'),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 });

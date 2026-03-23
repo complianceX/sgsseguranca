@@ -1,8 +1,7 @@
 import * as net from 'net';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
+import { bootstrapBackendTestEnvironment } from './test-env';
 
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+bootstrapBackendTestEnvironment();
 
 function canConnect(host: string, port: number): Promise<boolean> {
   return new Promise((resolve) => {

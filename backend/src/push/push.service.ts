@@ -8,6 +8,7 @@ import { IntegrationResilienceService } from '../common/resilience/integration-r
 @Injectable()
 export class PushService {
   private readonly logger = new Logger(PushService.name);
+  private readonly pushConfigured: boolean;
 
   constructor(
     @InjectRepository(PushSubscription)
@@ -17,10 +18,11 @@ export class PushService {
     const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
     const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
     const mailto = process.env.VAPID_MAILTO || 'mailto:admin@example.com';
-
     if (vapidPublicKey && vapidPrivateKey) {
+      this.pushConfigured = true;
       webpush.setVapidDetails(mailto, vapidPublicKey, vapidPrivateKey);
     } else {
+      this.pushConfigured = false;
       this.logger.warn('VAPID keys not configured. Web Push will not work.');
     }
   }
@@ -47,6 +49,20 @@ export class PushService {
   }
 
   async sendNotificationToUser(userId: string, payload: unknown) {
+    if (!this.pushConfigured) {
+      this.logger.warn({
+        event: 'push_notification_skipped',
+        userId,
+        reason: 'PUSH_NOT_CONFIGURED',
+      });
+      return {
+        delivered: 0,
+        failed: 0,
+        removedSubscriptions: 0,
+        skipped: true,
+      };
+    }
+
     const subscriptions = await this.subscriptionRepo.find({
       where: { userId },
     });
@@ -55,7 +71,37 @@ export class PushService {
       this.sendNotification(sub, payload),
     );
 
-    await Promise.all(notifications);
+    const results = await Promise.allSettled(notifications);
+    let delivered = 0;
+    let failed = 0;
+    let removedSubscriptions = 0;
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        delivered += result.value.delivered ? 1 : 0;
+        removedSubscriptions += result.value.removed ? 1 : 0;
+        failed += result.value.delivered ? 0 : 1;
+      } else {
+        failed += 1;
+      }
+    }
+
+    if (failed > 0) {
+      this.logger.warn({
+        event: 'push_notification_partial_failure',
+        userId,
+        delivered,
+        failed,
+        removedSubscriptions,
+      });
+    }
+
+    return {
+      delivered,
+      failed,
+      removedSubscriptions,
+      skipped: false,
+    };
   }
 
   async sendNotification(subscription: PushSubscription, payload: unknown) {
@@ -75,6 +121,7 @@ export class PushService {
           retry: { attempts: 2, mode: 'safe' },
         },
       );
+      return { delivered: true, removed: false };
     } catch (error: unknown) {
       const pushError = error as { statusCode?: number };
       if (
@@ -82,11 +129,33 @@ export class PushService {
         typeof pushError === 'object' &&
         (pushError.statusCode === 410 || pushError.statusCode === 404)
       ) {
-        // Subscription expirou, remover do BD
-        await this.subscriptionRepo.delete({ endpoint: subscription.endpoint });
+        try {
+          await this.subscriptionRepo.delete({
+            endpoint: subscription.endpoint,
+          });
+        } catch (deleteError) {
+          this.logger.warn({
+            event: 'push_subscription_cleanup_failed',
+            endpoint: subscription.endpoint,
+            error:
+              deleteError instanceof Error
+                ? deleteError.message
+                : String(deleteError),
+          });
+        }
+        return { delivered: false, removed: true };
       } else {
-        this.logger.error('Error sending push notification', error);
+        this.logger.error(
+          {
+            event: 'push_notification_failed',
+            endpoint: subscription.endpoint,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          error instanceof Error ? error.stack : undefined,
+        );
       }
+
+      return { delivered: false, removed: false };
     }
   }
 

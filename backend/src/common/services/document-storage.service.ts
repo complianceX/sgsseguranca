@@ -2,10 +2,16 @@ import {
   ForbiddenException,
   Injectable,
   Logger,
+  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Readable } from 'stream';
+import {
+  extractResilienceErrorCode,
+  extractResilienceErrorMessage,
+  extractResilienceErrorStatus,
+} from '../resilience/resilience-error.util';
 import { S3Service } from '../storage/s3.service';
 import { StorageService } from './storage.service';
 import { TenantService } from '../tenant/tenant.service';
@@ -39,25 +45,34 @@ export class DocumentStorageService {
     metadata?: Record<string, string>,
   ): Promise<void> {
     this.ensureStorageConfigured('upload');
+    try {
+      if (this.shouldUseManagedStorage()) {
+        const buffer = await this.toBuffer(file);
+        await this.storageService.uploadFile(key, buffer, contentType);
+        return;
+      }
 
-    if (this.shouldUseManagedStorage()) {
-      const buffer = await this.toBuffer(file);
-      await this.storageService.uploadFile(key, buffer, contentType);
-      return;
+      await this.s3Service.uploadFile(key, file, contentType, metadata);
+    } catch (error) {
+      this.handleStorageError('upload', key, error);
     }
-
-    await this.s3Service.uploadFile(key, file, contentType, metadata);
   }
 
   async getSignedUrl(key: string, expiresIn = 3600): Promise<string> {
     this.ensureStorageConfigured('presign');
     this.assertTenantOwnership(key);
+    try {
+      if (this.shouldUseManagedStorage()) {
+        return await this.storageService.getPresignedDownloadUrl(
+          key,
+          expiresIn,
+        );
+      }
 
-    if (this.shouldUseManagedStorage()) {
-      return this.storageService.getPresignedDownloadUrl(key, expiresIn);
+      return await this.s3Service.getSignedUrl(key, expiresIn);
+    } catch (error) {
+      this.handleStorageError('presign', key, error);
     }
-
-    return this.s3Service.getSignedUrl(key, expiresIn);
   }
 
   async getPresignedDownloadUrl(
@@ -69,33 +84,42 @@ export class DocumentStorageService {
 
   async downloadFileBuffer(key: string): Promise<Buffer> {
     this.ensureStorageConfigured('download');
+    try {
+      if (this.shouldUseManagedStorage()) {
+        return await this.storageService.downloadFileBuffer(key);
+      }
 
-    if (this.shouldUseManagedStorage()) {
-      return this.storageService.downloadFileBuffer(key);
+      return await this.s3Service.downloadFile(key);
+    } catch (error) {
+      this.handleStorageError('download', key, error);
     }
-
-    return this.s3Service.downloadFile(key);
   }
 
   async deleteFile(key: string): Promise<void> {
     this.ensureStorageConfigured('delete');
+    try {
+      if (this.shouldUseManagedStorage()) {
+        await this.storageService.deleteFile(key);
+        return;
+      }
 
-    if (this.shouldUseManagedStorage()) {
-      await this.storageService.deleteFile(key);
-      return;
+      await this.s3Service.deleteFile(key);
+    } catch (error) {
+      this.handleStorageError('delete', key, error);
     }
-
-    await this.s3Service.deleteFile(key);
   }
 
   async fileExists(key: string): Promise<boolean> {
     this.ensureStorageConfigured('download');
+    try {
+      if (this.shouldUseManagedStorage()) {
+        return await this.storageService.fileExists(key);
+      }
 
-    if (this.shouldUseManagedStorage()) {
-      return this.storageService.fileExists(key);
+      return await this.s3Service.fileExists(key);
+    } catch (error) {
+      this.handleStorageError('download', key, error);
     }
-
-    return this.s3Service.fileExists(key);
   }
 
   async listKeys(
@@ -103,12 +127,15 @@ export class DocumentStorageService {
     options?: { maxKeys?: number },
   ): Promise<string[]> {
     this.ensureStorageConfigured('download');
+    try {
+      if (this.shouldUseManagedStorage()) {
+        return await this.storageService.listKeys(prefix, options);
+      }
 
-    if (this.shouldUseManagedStorage()) {
-      return this.storageService.listKeys(prefix, options);
+      return await this.s3Service.listKeys(prefix, options);
+    } catch (error) {
+      this.handleStorageError('download', prefix, error);
     }
-
-    return this.s3Service.listKeys(prefix, options);
   }
 
   isStorageConfigured(): boolean {
@@ -202,6 +229,67 @@ export class DocumentStorageService {
       details: {
         action,
         storageConfigured: false,
+      },
+    });
+  }
+
+  private handleStorageError(
+    action: 'upload' | 'presign' | 'download' | 'delete',
+    key: string,
+    error: unknown,
+  ): never {
+    const message =
+      extractResilienceErrorMessage(error) || 'Erro desconhecido no storage.';
+    const code = extractResilienceErrorCode(error);
+    const status = extractResilienceErrorStatus(error);
+
+    this.logger.error({
+      event: 'document_storage_operation_failed',
+      action,
+      key,
+      code,
+      status,
+      message,
+    });
+
+    if (
+      error instanceof ForbiddenException ||
+      error instanceof ServiceUnavailableException ||
+      error instanceof NotFoundException
+    ) {
+      throw error;
+    }
+
+    if (
+      status === 404 ||
+      code === 'NotFound' ||
+      code === 'NoSuchKey' ||
+      /nao encontrado|não encontrado|not found|no such key/i.test(message)
+    ) {
+      throw new NotFoundException({
+        error: 'DOCUMENT_STORAGE_OBJECT_NOT_FOUND',
+        message:
+          'O artefato oficial foi referenciado, mas não está disponível no storage governado.',
+        details: {
+          action,
+          key,
+          code,
+          status,
+        },
+      });
+    }
+
+    throw new ServiceUnavailableException({
+      error: 'DOCUMENT_STORAGE_OPERATION_FAILED',
+      message:
+        action === 'presign'
+          ? 'Não foi possível resolver a URL segura do artefato governado no momento.'
+          : 'O storage governado está temporariamente indisponível para esta operação.',
+      details: {
+        action,
+        key,
+        code,
+        status,
       },
     });
   }

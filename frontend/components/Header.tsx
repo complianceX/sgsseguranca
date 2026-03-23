@@ -18,12 +18,14 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/components/ThemeProvider";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { toast } from "sonner";
 import {
   notificationsService,
   AppNotification,
   getRetryAfterMsFromError,
 } from "@/services/notificationsService";
 import { flushOfflineQueue, getOfflineQueueCount } from "@/lib/offline-sync";
+import { extractApiErrorMessage } from "@/lib/error-handler";
 
 const POLL_INTERVAL_MS = 30_000;
 const RATE_LIMIT_BACKOFF_MS = 60_000;
@@ -38,6 +40,9 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   const [offlineQueueCount, setOfflineQueueCount] = useState(0);
   const [syncingOfflineQueue, setSyncingOfflineQueue] = useState(false);
   const [unreadPollDelayMs, setUnreadPollDelayMs] = useState(POLL_INTERVAL_MS);
+  const [notificationsDegraded, setNotificationsDegraded] = useState(false);
+  const [notificationsStatusMessage, setNotificationsStatusMessage] =
+    useState<string | null>(null);
 
   const handleOpen = () => setShowNotifications((v) => !v);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -53,6 +58,8 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
     try {
       const res = await notificationsService.getUnreadCount();
       setUnreadCount(res.count);
+      setNotificationsDegraded(false);
+      setNotificationsStatusMessage(null);
       setUnreadPollDelayMs((current) =>
         current === POLL_INTERVAL_MS ? current : POLL_INTERVAL_MS,
       );
@@ -64,9 +71,18 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
 
       if (retryAfterMs) {
         setUnreadPollDelayMs((current) => Math.max(current, retryAfterMs));
+        setNotificationsStatusMessage(
+          "Notificações temporariamente limitadas. Vamos tentar novamente automaticamente.",
+        );
+      } else {
+        setNotificationsStatusMessage(
+          await extractApiErrorMessage(
+            error,
+            "Não foi possível atualizar as notificações agora.",
+          ),
+        );
       }
-
-      // silencioso
+      setNotificationsDegraded(true);
     }
   }, []);
 
@@ -74,8 +90,16 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
     try {
       const res = await notificationsService.findAll(1, 20);
       setNotifications(res.items);
-    } catch {
-      // silencioso
+      setNotificationsDegraded(false);
+      setNotificationsStatusMessage(null);
+    } catch (error) {
+      setNotificationsDegraded(true);
+      setNotificationsStatusMessage(
+        await extractApiErrorMessage(
+          error,
+          "Não foi possível carregar a lista de notificações agora.",
+        ),
+      );
     }
   }, []);
 
@@ -183,6 +207,15 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
         prev.map((notification) => ({ ...notification, read: true })),
       );
       setUnreadCount(0);
+      setNotificationsDegraded(false);
+      setNotificationsStatusMessage(null);
+    } catch (error) {
+      toast.error(
+        await extractApiErrorMessage(
+          error,
+          "Não foi possível marcar todas as notificações como lidas.",
+        ),
+      );
     } finally {
       setMarkingAll(false);
     }
@@ -199,8 +232,15 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
         ),
       );
       setUnreadCount((current) => Math.max(0, current - 1));
-    } catch {
-      // silencioso
+      setNotificationsDegraded(false);
+      setNotificationsStatusMessage(null);
+    } catch (error) {
+      toast.error(
+        await extractApiErrorMessage(
+          error,
+          "Não foi possível atualizar a notificação.",
+        ),
+      );
     }
   };
 
@@ -316,6 +356,10 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
                 <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-white bg-[var(--ds-color-danger)] px-1 text-[10px] font-bold text-white shadow-[var(--ds-shadow-xs)]">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
+              ) : notificationsDegraded ? (
+                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-white bg-[var(--ds-color-warning)] px-1 text-[10px] font-bold text-white shadow-[var(--ds-shadow-xs)]">
+                  !
+                </span>
               ) : null}
             </button>
 
@@ -338,6 +382,23 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
                     <X className="h-4 w-4 text-[var(--ds-color-text-muted)] hover:text-[var(--ds-color-text-primary)]" />
                   </button>
                 </div>
+
+                {notificationsDegraded ? (
+                  <div className="border-b border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-4 py-3 text-left">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ds-color-warning-fg)]" />
+                      <div>
+                        <p className="text-xs font-semibold text-[var(--ds-color-warning-fg)]">
+                          Notificações com degradação parcial
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--ds-color-warning-fg)]/90">
+                          {notificationsStatusMessage ||
+                            "O serviço de notificações está temporariamente instável."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="max-h-96 overflow-y-auto">
                   {notifications.length > 0 ? (

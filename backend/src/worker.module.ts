@@ -1,9 +1,12 @@
 import { Module, Logger } from '@nestjs/common';
+import { CacheModule } from '@nestjs/cache-manager';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
 import * as Joi from 'joi';
+import * as redisStore from 'cache-manager-redis-store';
+import type { RedisClientOptions } from 'redis';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RedisModule } from './common/redis/redis.module';
 import { MailWorkerModule } from './mail/mail.worker.module';
@@ -13,12 +16,24 @@ import { QueueServicesModule } from './queue/queue-services.module';
 import { ObservabilityModule } from './common/observability/observability.module';
 import { SlaEscalationWorkerModule } from './sla-escalation-worker.module';
 import { ExpiryNotificationsWorkerModule } from './tasks/expiry-notifications-worker.module';
+import { RbacModule } from './rbac/rbac.module';
+import { SecurityAuditModule } from './common/security/security-audit.module';
 import { WorkerHeartbeatReporterService } from './common/redis/worker-heartbeat-reporter.service';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
   parseBooleanFlag,
   resolveDbSslOptions,
 } from './common/database/db-ssl.util';
+
+interface RedisCacheConfig {
+  store: unknown;
+  host: string;
+  port: number;
+  password?: string;
+  ttl: number;
+  max: number;
+  tls?: Record<string, unknown>;
+}
 
 function firstNonEmpty(
   values: Array<string | undefined | null>,
@@ -220,6 +235,40 @@ const validationSchema = Joi.object({
       },
     }),
     ScheduleModule.forRoot(),
+    CacheModule.registerAsync<RedisClientOptions>({
+      isGlobal: true,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const logger = new Logger('WorkerCacheModule');
+        const redisConnection = resolveRedisConnection(config);
+
+        if (!redisConnection) {
+          throw new Error(
+            'Redis é obrigatório para o cache do worker. Configure REDIS_URL/URL_REDIS/REDIS_PUBLIC_URL ou REDIS_HOST.',
+          );
+        }
+
+        logger.log(
+          `Configurando Redis Cache do worker (${redisConnection.source})`,
+        );
+
+        const redisConfig: RedisCacheConfig = {
+          store: redisStore as unknown,
+          host: redisConnection.host,
+          port: redisConnection.port,
+          password: redisConnection.password,
+          ttl: 300,
+          max: 1000,
+        };
+
+        if (redisConnection.tls) {
+          logger.log('Redis Cache do worker com TLS habilitado');
+          redisConfig.tls = redisConnection.tls;
+        }
+
+        return redisConfig as unknown as RedisClientOptions;
+      },
+    }),
     RedisModule,
     BullModule.forRoot(
       (() => {
@@ -291,6 +340,8 @@ const validationSchema = Joi.object({
     }),
     // Apenas módulos relacionados a filas/processamento
     ObservabilityModule,
+    RbacModule,
+    SecurityAuditModule,
     MailWorkerModule,
     DocumentImportWorkerModule,
     ReportsWorkerModule,

@@ -343,8 +343,11 @@ export class MailService {
       );
     }
 
-    const pdfBuffer =
-      await this.documentStorageService.downloadFileBuffer(fileKey);
+    const pdfBuffer = await this.downloadMailAttachmentBuffer(fileKey, {
+      companyId: resolvedCompanyId,
+      userId: undefined,
+      artifactLabel: docName,
+    });
     const attachmentFilename = this.buildAttachmentFilename(docName, fileKey);
 
     const html = `
@@ -417,8 +420,11 @@ export class MailService {
 
     const docName = options?.docName?.trim() || 'Documento';
     const subject = options?.subject?.trim() || 'Documento Compartilhado - GST';
-    const pdfBuffer =
-      await this.documentStorageService.downloadFileBuffer(fileKey);
+    const pdfBuffer = await this.downloadMailAttachmentBuffer(fileKey, {
+      companyId: options?.companyId,
+      userId: options?.userId,
+      artifactLabel: docName,
+    });
     const attachmentFilename = this.buildAttachmentFilename(docName, fileKey);
 
     const html = `
@@ -606,65 +612,36 @@ export class MailService {
           )}</div>`
         : undefined;
 
+    let delivery: MailDeliveryResult;
     try {
-      const delivery = await this.sendWithConfiguredProvider({
+      delivery = await this.sendWithConfiguredProvider({
         to,
         subject,
         text,
         html,
         attachments,
       });
-      const usingTestAccount =
-        delivery.provider === 'resend' && fromEmail.endsWith('@resend.dev');
-
-      const log = this.mailLogRepository.create({
-        company_id: context?.companyId,
-        user_id: context?.userId,
-        to,
-        subject,
-        filename: metadata?.filename || 'alerta',
-        message_id: delivery.messageId,
-        accepted: delivery.accepted,
-        rejected: delivery.rejected,
-        provider_response: delivery.providerResponse,
-        using_test_account: usingTestAccount,
-        status: 'success',
-      });
-
-      await this.mailLogRepository.save(log);
-
-      this.logger.log({
-        event: 'mail_sent',
-        companyId: context?.companyId,
-        userId: context?.userId,
-        messageId: delivery.messageId,
-        provider: delivery.provider,
-      });
-
-      return {
-        info: {
-          data: { id: delivery.messageId },
-          provider: delivery.provider,
-          raw: delivery.raw,
-        },
-        previewUrl: undefined,
-        usingTestAccount,
-      };
     } catch (error) {
       const message = this.extractErrorMessage(error);
 
-      const log = this.mailLogRepository.create({
-        company_id: context?.companyId,
-        user_id: context?.userId,
-        to,
-        subject,
-        filename: metadata?.filename || 'alerta',
-        using_test_account: false,
-        status: 'error',
-        error_message: message,
-      });
-
-      await this.mailLogRepository.save(log);
+      await this.persistMailLogSafely(
+        {
+          company_id: context?.companyId,
+          user_id: context?.userId,
+          to,
+          subject,
+          filename: metadata?.filename || 'alerta',
+          using_test_account: false,
+          status: 'error',
+          error_message: message,
+        },
+        {
+          event: 'mail_log_persist_failed_after_send_error',
+          companyId: context?.companyId,
+          userId: context?.userId,
+          to,
+        },
+      );
 
       this.logger.error(
         {
@@ -680,6 +657,51 @@ export class MailService {
         `Falha ao enviar e-mail para ${to}: ${message}`,
       );
     }
+
+    const usingTestAccount =
+      delivery.provider === 'resend' && fromEmail.endsWith('@resend.dev');
+
+    await this.persistMailLogSafely(
+      {
+        company_id: context?.companyId,
+        user_id: context?.userId,
+        to,
+        subject,
+        filename: metadata?.filename || 'alerta',
+        message_id: delivery.messageId,
+        accepted: delivery.accepted,
+        rejected: delivery.rejected,
+        provider_response: delivery.providerResponse,
+        using_test_account: usingTestAccount,
+        status: 'success',
+      },
+      {
+        event: 'mail_log_persist_failed_after_success',
+        companyId: context?.companyId,
+        userId: context?.userId,
+        to,
+        provider: delivery.provider,
+        messageId: delivery.messageId,
+      },
+    );
+
+    this.logger.log({
+      event: 'mail_sent',
+      companyId: context?.companyId,
+      userId: context?.userId,
+      messageId: delivery.messageId,
+      provider: delivery.provider,
+    });
+
+    return {
+      info: {
+        data: { id: delivery.messageId },
+        provider: delivery.provider,
+        raw: delivery.raw,
+      },
+      previewUrl: undefined,
+      usingTestAccount,
+    };
   }
 
   private resolveFromAddress() {
@@ -691,6 +713,53 @@ export class MailService {
       this.configService.get<string>('MAIL_USER')?.trim() ||
       'onboarding@resend.dev';
     return { fromName, fromEmail };
+  }
+
+  private async persistMailLogSafely(
+    data: Partial<MailLog>,
+    context: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      const log = this.mailLogRepository.create(data);
+      await this.mailLogRepository.save(log);
+    } catch (error) {
+      this.logger.warn({
+        ...context,
+        error: this.extractErrorMessage(error),
+      });
+    }
+  }
+
+  private async downloadMailAttachmentBuffer(
+    fileKey: string,
+    context: {
+      companyId?: string;
+      userId?: string;
+      artifactLabel: string;
+    },
+  ): Promise<Buffer> {
+    try {
+      return await this.documentStorageService.downloadFileBuffer(fileKey);
+    } catch (error) {
+      const message = this.extractErrorMessage(error);
+      this.logger.warn({
+        event: 'mail_attachment_storage_failed',
+        companyId: context.companyId,
+        userId: context.userId,
+        fileKey,
+        artifactLabel: context.artifactLabel,
+        error: message,
+      });
+      if (
+        error instanceof NotFoundException ||
+        error instanceof ServiceUnavailableException
+      ) {
+        throw error;
+      }
+      throw new ServiceUnavailableException(
+        `O artefato oficial de ${context.artifactLabel} não pôde ser obtido no storage governado para envio por e-mail.`,
+      );
+    }
   }
 
   private async sendWithConfiguredProvider(options: {
@@ -1322,7 +1391,7 @@ export class MailService {
 
       for (let i = 0; i < companyBatch.length; i += maxParallel) {
         const chunk = companyBatch.slice(i, i + maxParallel);
-        await Promise.all(
+        const results = await Promise.allSettled(
           chunk.map((company) =>
             this.dispatchAlerts({
               to: recipients.join(','),
@@ -1333,6 +1402,18 @@ export class MailService {
             }),
           ),
         );
+
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            return;
+          }
+
+          this.logger.warn({
+            event: 'mail_scheduled_alert_company_failed',
+            companyId: chunk[index]?.id,
+            error: this.extractErrorMessage(result.reason),
+          });
+        });
       }
     } finally {
       this.alertsRunning = false;

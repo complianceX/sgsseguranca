@@ -1,12 +1,11 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Connection } from 'typeorm';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
 import * as net from 'net';
+import { bootstrapBackendTestEnvironment } from '../setup/test-env';
 
-// Load env before importing AppModule
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+// Load test env before importing AppModule
+bootstrapBackendTestEnvironment();
 
 import { AppModule } from '../../src/app.module';
 import { PasswordService } from '../../src/common/services/password.service';

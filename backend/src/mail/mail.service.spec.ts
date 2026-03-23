@@ -232,6 +232,31 @@ describe('MailService', () => {
       expect(result.info.data.id).toBe('msg-123');
     });
 
+    it('continua reportando sucesso quando o log de sucesso falha após a entrega', async () => {
+      mockResendSend.mockResolvedValue({
+        data: { id: 'msg-123' },
+        error: null,
+      });
+      mailLogRepository.save.mockRejectedValueOnce(
+        new Error('database unavailable'),
+      );
+
+      await expect(
+        service.sendMailSimple(
+          'user@example.com',
+          'Assunto Teste',
+          'Conteúdo do email',
+          { companyId: 'comp-1', userId: 'user-1' },
+        ),
+      ).resolves.toMatchObject({
+        usingTestAccount: false,
+        info: {
+          data: { id: 'msg-123' },
+          provider: 'resend',
+        },
+      });
+    });
+
     it('deve lançar ServiceUnavailableException e salvar log de erro quando o Resend falhar', async () => {
       const errorMsg = 'API Key inválida';
       mockResendSend.mockResolvedValue({
@@ -901,6 +926,40 @@ describe('MailService', () => {
       );
       expect(mockDomainService.findAllActive).not.toHaveBeenCalled();
       expect(mockResendSend).not.toHaveBeenCalled();
+    });
+
+    it('continua processando o lote mesmo quando uma empresa falha', async () => {
+      process.env.API_CRONS_DISABLED = 'false';
+      mockDomainService.findAllActive.mockResolvedValue([
+        { id: 'company-1' },
+        { id: 'company-2' },
+      ]);
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === 'RESEND_API_KEY') return 're_123456';
+        if (key === 'MAIL_FROM_EMAIL') return 'test@example.com';
+        if (key === 'MAIL_ALERT_TO') return 'ops@example.com';
+        if (key === 'MAIL_ALERT_COMPANY_BATCH_SIZE') return '10';
+        if (key === 'MAIL_ALERT_COMPANY_MAX_PARALLEL') return '2';
+        return null;
+      });
+
+      const dispatchAlertsSpy = jest
+        .spyOn(service, 'dispatchAlerts')
+        .mockRejectedValueOnce(new Error('mail provider down'))
+        .mockResolvedValueOnce({
+          recipients: ['ops@example.com'],
+          previewUrl: undefined,
+          usingTestAccount: false,
+          whatsappSent: false,
+        });
+
+      await expect(
+        (
+          service as unknown as MailServiceWithScheduledAlerts
+        ).runScheduledAlerts(),
+      ).resolves.toBeUndefined();
+
+      expect(dispatchAlertsSpy).toHaveBeenCalledTimes(2);
     });
   });
 });

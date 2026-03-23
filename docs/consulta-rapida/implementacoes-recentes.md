@@ -424,6 +424,72 @@ Onde olhar:
 - `.github/workflows/disaster-recovery-backup.yml`
 - `docs/consulta-rapida/disaster-recovery-e-backup.md`
 
+## 12. Envio de e-mail por fila com Worker e SMTP
+
+O que foi feito:
+
+- o envio de e-mail deixou de depender da Brevo API em producao
+- foi criado e ajustado o `Worker` no Railway para realmente consumir a fila de e-mails
+- o sistema passou a usar SMTP como provedor ativo de envio
+
+Passo a passo:
+
+1. foi auditado o fluxo real de envio e confirmado que:
+   - o backend apenas enfileira o job
+   - o processamento real acontece no `Worker`
+2. foi identificado que producao nao tinha um servico `Worker` consumindo a fila
+3. o servico `Worker` foi criado no Railway e alinhado para subir com:
+   - `npm run start:worker`
+4. o bootstrap do worker foi corrigido no backend para subir com dependencias reais de runtime:
+   - `CacheModule`
+   - `RbacModule`
+   - `SecurityAuditModule`
+5. foi identificado que o provedor ativo era a Brevo API porque `BREVO_API_KEY` estava presente
+6. como a Brevo API estava bloqueando o IP de saida do Railway, o sistema foi trocado para SMTP removendo `BREVO_API_KEY` do:
+   - `Backend`
+   - `Worker`
+7. foi validado que ambos os servicos passaram a enxergar:
+   - `provider = smtp`
+   - `hasBrevo = false`
+   - `hasSmtp = true`
+8. foi executada verificacao SMTP sem disparar e-mail real:
+   - `SMTP_VERIFY_OK`
+
+Como o fluxo ficou:
+
+1. o usuario solicita envio no sistema
+2. o backend cria um job na fila `mail`
+3. o `Worker` consome o job
+4. o `MailService` envia usando SMTP
+5. o destinatario recebe o e-mail se o documento tambem passar nas regras de governanca
+
+Resultado:
+
+- o sistema nao depende mais da Brevo API para enviar e-mail em producao
+- o worker passou a existir e processar os jobs corretamente
+- o envio agora usa SMTP autenticado, com validacao real de conexao
+
+Observacoes operacionais:
+
+- o sistema continua usando a infraestrutura da Brevo, mas agora via SMTP e nao via API
+- jobs antigos falhados nao se reenviam sozinhos; o teste correto e criar um novo envio
+- se voltar a falhar, diagnosticar:
+  - `Worker` rodando
+  - fila `mail`
+  - credenciais SMTP
+  - logs do `MailService`
+
+Onde olhar:
+
+- `backend/src/mail/mail.service.ts`
+- `backend/src/mail/mail.controller.ts`
+- `backend/src/mail/mail.processor.ts`
+- `backend/src/mail/mail.worker.module.ts`
+- `backend/src/worker.module.ts`
+- `backend/railway.toml`
+- `backend/railway.worker.toml`
+- `docs/consulta-rapida/troubleshooting.md`
+
 ## Como consultar rapidamente o que foi feito
 
 - se a pergunta for sobre documento final oficial: `pdfs-finais-e-storage.md`

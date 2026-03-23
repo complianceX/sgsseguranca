@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, Repository } from 'typeorm';
 import { Notification } from './entities/notification.entity';
@@ -6,6 +6,8 @@ import { NotificationsGateway } from './notifications.gateway';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     @InjectRepository(Notification)
     private repo: Repository<Notification>,
@@ -21,8 +23,17 @@ export class NotificationsService {
   }) {
     const notification = await this.repo.save(data);
 
-    // Enviar em tempo real
-    this.gateway.sendToUser(data.userId, 'notification', notification);
+    try {
+      this.gateway.sendToUser(data.userId, 'notification', notification);
+    } catch (error) {
+      this.logger.warn({
+        event: 'notification_realtime_delivery_failed',
+        userId: data.userId,
+        notificationId: notification.id,
+        type: data.type,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     return notification;
   }

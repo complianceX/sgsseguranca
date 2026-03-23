@@ -29,6 +29,7 @@ Use estes arquivos como ponto de partida:
 - Quando a duvida for "como esse fluxo funciona?", comece por `modulos-e-regras.md`
 - Quando a duvida for "em qual camada eu mexo?", consulte `frontend-operacional.md`, `backend-operacional.md` e `onde-alterar-o-que.md`
 - Quando a duvida for "como eu rodo ou valido isso?", abra `comandos-e-validacao.md`
+- Quando a duvida for "por que o e-mail nao enviou?", abra `troubleshooting.md` e `implementacoes-recentes.md`
 - Quando a duvida for mais arquitetural, consulte tambem a pasta [`../architecture`](../architecture)
 
 ## Observacao

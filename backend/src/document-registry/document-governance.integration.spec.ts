@@ -1,9 +1,8 @@
 import 'reflect-metadata';
-import * as dotenv from 'dotenv';
-import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { Client } from 'pg';
 import { DataSource, FindOptionsWhere, Repository } from 'typeorm';
+import { bootstrapBackendTestEnvironment } from '../../test/setup/test-env';
 import { AprsService } from '../aprs/aprs.service';
 import type { AprExcelService } from '../aprs/apr-excel.service';
 import type { AprRiskMatrixService } from '../aprs/apr-risk-matrix.service';
@@ -44,7 +43,7 @@ import { Tool } from '../tools/entities/tool.entity';
 import { User } from '../users/entities/user.entity';
 import type { WorkerOperationalStatusService } from '../users/worker-operational-status.service';
 
-dotenv.config({ path: path.resolve(__dirname, '../../test/.env') });
+bootstrapBackendTestEnvironment();
 
 function buildPdfBuffer(label: string): Buffer {
   return Buffer.from(

@@ -74,6 +74,55 @@ Verifique:
 - estado da fila
 - idempotency key e file hash
 
+## E-mail nao envia
+
+Verifique nesta ordem:
+
+1. existe servico `Worker` rodando em producao
+2. o `Worker` esta subindo com:
+   - `npm run start:worker`
+3. a fila `mail` esta sendo consumida
+4. o provedor ativo de envio
+5. se as credenciais SMTP autenticam corretamente
+
+Diagnostico atual do projeto:
+
+- o backend apenas enfileira o envio
+- o processamento real acontece no `Worker`
+- o sistema hoje usa SMTP quando `BREVO_API_KEY` nao existe
+- se `BREVO_API_KEY` voltar ao ambiente, a prioridade muda e o sistema volta a tentar Brevo API
+
+Como saber qual provedor esta ativo:
+
+- se existir `BREVO_API_KEY`, o `MailService` prioriza Brevo API
+- sem `BREVO_API_KEY` e com `MAIL_HOST`, `MAIL_USER`, `MAIL_PASS`, `MAIL_PORT` e `MAIL_SECURE`, o sistema usa SMTP
+
+O que checar no Railway:
+
+- servico `Backend`
+- servico `Worker`
+- variaveis:
+  - `MAIL_HOST`
+  - `MAIL_PORT`
+  - `MAIL_USER`
+  - `MAIL_PASS`
+  - `MAIL_SECURE`
+  - `MAIL_FROM_EMAIL`
+  - `MAIL_FROM_NAME`
+- ausencia de `BREVO_API_KEY` se a estrategia atual for SMTP
+
+Se houver jobs antigos com falha:
+
+- eles nao se reenviam automaticamente
+- depois da correcao, crie um novo envio para validar o fluxo
+
+Onde olhar no codigo:
+
+- `backend/src/mail/mail.service.ts`
+- `backend/src/mail/mail.controller.ts`
+- `backend/src/mail/mail.processor.ts`
+- `backend/src/worker.module.ts`
+
 ## PDF final indisponivel
 
 Quando o documento esta registrado mas sem URL assinada, o contrato pode indicar algo como `registered_without_signed_url`. Isso normalmente aponta para problema de storage ou emissao de signed URL, nao necessariamente ausencia do documento.

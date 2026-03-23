@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
 import { EntityManager, Repository } from 'typeorm';
@@ -29,7 +33,21 @@ export class PdfService {
     this.logger.log('Gerando PDF a partir de HTML...');
     this.pdfValidator.validateHtmlContent(html);
 
-    const page = await this.puppeteerPool.getPage();
+    let page: Awaited<ReturnType<PuppeteerPoolService['getPage']>>;
+    try {
+      page = await this.puppeteerPool.getPage();
+    } catch (error) {
+      this.logger.error(
+        'Pool do Puppeteer indisponível para geração de PDF',
+        error,
+      );
+      throw new ServiceUnavailableException({
+        error: 'PDF_BROWSER_UNAVAILABLE',
+        message:
+          'O serviço de geração de PDF está temporariamente indisponível. Tente novamente em instantes.',
+      });
+    }
+
     try {
       await page.setContent(html, { waitUntil: 'networkidle0' });
 
@@ -54,7 +72,11 @@ export class PdfService {
       return pdfBuffer;
     } catch (error) {
       this.logger.error('Erro ao gerar PDF a partir de HTML', error);
-      throw error;
+      throw new ServiceUnavailableException({
+        error: 'PDF_GENERATION_FAILED',
+        message:
+          'Não foi possível gerar o PDF no momento. Tente novamente em instantes.',
+      });
     } finally {
       await this.puppeteerPool.releasePage(page);
     }

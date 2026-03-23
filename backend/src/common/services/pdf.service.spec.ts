@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { ServiceUnavailableException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { DocumentRegistryEntry } from '../../document-registry/entities/document-registry.entity';
 import { PdfIntegrityRecord } from '../entities/pdf-integrity-record.entity';
@@ -150,5 +151,30 @@ describe('PdfService', () => {
       signedAt: '2026-03-14T16:00:00.000Z',
       document: undefined,
     });
+  });
+
+  it('traduz indisponibilidade do navegador de PDF em ServiceUnavailableException', async () => {
+    puppeteerPool.getPage = jest
+      .fn()
+      .mockRejectedValue(new Error('browser launch failed'));
+
+    await expect(
+      service.generateFromHtml('<html><body>Teste</body></html>'),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('traduz falha de renderização em ServiceUnavailableException', async () => {
+    const releasePage = jest.fn().mockResolvedValue(undefined);
+    const page = {
+      setContent: jest.fn().mockResolvedValue(undefined),
+      pdf: jest.fn().mockRejectedValue(new Error('page crashed')),
+    };
+    puppeteerPool.getPage = jest.fn().mockResolvedValue(page);
+    puppeteerPool.releasePage = releasePage;
+
+    await expect(
+      service.generateFromHtml('<html><body>Teste</body></html>'),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(releasePage).toHaveBeenCalledWith(page);
   });
 });
