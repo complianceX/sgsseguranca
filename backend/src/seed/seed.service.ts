@@ -35,8 +35,16 @@ export class SeedService implements OnApplicationBootstrap {
   ) {}
 
   onApplicationBootstrap() {
+    const isTest = process.env.NODE_ENV === 'test';
     const isProduction = process.env.NODE_ENV === 'production';
     const seedOnBootstrap = process.env.SEED_ON_BOOTSTRAP === 'true';
+
+    if (isTest && !seedOnBootstrap) {
+      this.logger.log(
+        'Seed automático desabilitado em ambiente de teste (NODE_ENV=test).',
+      );
+      return;
+    }
 
     if (isProduction && !seedOnBootstrap) {
       this.logger.log(
