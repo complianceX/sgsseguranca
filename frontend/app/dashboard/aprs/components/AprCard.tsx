@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Apr } from '@/services/aprsService';
+import React, { useState } from "react";
+import { Apr } from "@/services/aprsService";
 import {
   AlertTriangle,
   Calendar,
@@ -16,17 +16,17 @@ import {
   Printer,
   Trash2,
   Users,
-} from 'lucide-react';
-import Link from 'next/link';
-import { cn } from '@/lib/utils';
-import { SignatureModal } from '@/components/SignatureModal';
-import { SignaturesPanel } from '@/components/SignaturesPanel';
-import { signaturesService } from '@/services/signaturesService';
-import { useAuth } from '@/context/AuthContext';
-import { toast } from 'sonner';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ActionMenu } from '@/components/ActionMenu';
+} from "lucide-react";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { SignatureModal } from "@/components/SignatureModal";
+import { SignaturesPanel } from "@/components/SignaturesPanel";
+import { signaturesService } from "@/services/signaturesService";
+import { useAuth } from "@/context/AuthContext";
+import { toast } from "sonner";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ActionMenu } from "@/components/ActionMenu";
 
 interface AprCardProps {
   apr: Apr;
@@ -34,6 +34,7 @@ interface AprCardProps {
   onPrint: (apr: Apr) => void;
   onSendEmail: (id: string) => void;
   onDownloadPdf: (id: string) => void;
+  onApprove: (id: string) => void;
   onFinalize: (id: string) => void;
   onReject: (id: string) => void;
   onCreateNewVersion: (id: string) => void;
@@ -41,14 +42,20 @@ interface AprCardProps {
 
 const getStatusIcon = (status: string) => {
   switch (status) {
-    case 'Aprovada':
+    case "Aprovada":
       return <CheckCircle className="h-4 w-4 text-[var(--ds-color-success)]" />;
-    case 'Pendente':
-      return <Clock className="h-4 w-4 text-[var(--ds-color-action-primary)]" />;
-    case 'Cancelada':
-      return <AlertTriangle className="h-4 w-4 text-[var(--ds-color-danger)]" />;
-    case 'Encerrada':
-      return <CheckCircle className="h-4 w-4 text-[var(--ds-color-text-muted)]" />;
+    case "Pendente":
+      return (
+        <Clock className="h-4 w-4 text-[var(--ds-color-action-primary)]" />
+      );
+    case "Cancelada":
+      return (
+        <AlertTriangle className="h-4 w-4 text-[var(--ds-color-danger)]" />
+      );
+    case "Encerrada":
+      return (
+        <CheckCircle className="h-4 w-4 text-[var(--ds-color-text-muted)]" />
+      );
     default:
       return null;
   }
@@ -56,16 +63,16 @@ const getStatusIcon = (status: string) => {
 
 const getStatusClass = (status: string) => {
   switch (status) {
-    case 'Aprovada':
-      return 'bg-[var(--ds-color-success)] text-white';
-    case 'Pendente':
-      return 'bg-[var(--ds-color-action-primary)] text-white';
-    case 'Cancelada':
-      return 'bg-[var(--ds-color-danger)] text-white';
-    case 'Encerrada':
-      return 'bg-[var(--ds-color-text-muted)] text-white';
+    case "Aprovada":
+      return "bg-[var(--ds-color-success)] text-white";
+    case "Pendente":
+      return "bg-[var(--ds-color-action-primary)] text-white";
+    case "Cancelada":
+      return "bg-[var(--ds-color-danger)] text-white";
+    case "Encerrada":
+      return "bg-[var(--ds-color-text-muted)] text-white";
     default:
-      return 'bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]';
+      return "bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]";
   }
 };
 
@@ -76,6 +83,7 @@ export const AprCard = React.memo(
     onPrint,
     onSendEmail,
     onDownloadPdf,
+    onApprove,
     onFinalize,
     onReject,
     onCreateNewVersion,
@@ -88,34 +96,34 @@ export const AprCard = React.memo(
       try {
         await signaturesService.create({
           document_id: apr.id,
-          document_type: 'APR',
+          document_type: "APR",
           signature_data: signatureData,
           type,
           user_id: user?.id,
           company_id: apr.company_id,
         });
-        toast.success('Assinatura registrada com sucesso.');
+        toast.success("Assinatura registrada com sucesso.");
       } catch {
-        toast.error('Erro ao registrar assinatura.');
+        toast.error("Erro ao registrar assinatura.");
       }
     };
 
-    const isApproved = apr.status === 'Aprovada';
-    const hasGovernedPdf = Boolean(apr.pdf_file_key) || isApproved;
+    const isApproved = apr.status === "Aprovada";
+    const hasGovernedPdf = Boolean(apr.pdf_file_key);
     const hasCriticalRisk = (apr.classificacao_resumo?.critico || 0) > 0;
     const hasSubstantialRisk = (apr.classificacao_resumo?.substancial || 0) > 0;
     const riskHighlightClass = hasCriticalRisk
-      ? 'border-[color:var(--ds-color-danger)]/25 bg-[color:var(--ds-color-danger)]/8'
+      ? "border-[color:var(--ds-color-danger)]/25 bg-[color:var(--ds-color-danger)]/8"
       : hasSubstantialRisk
-        ? 'border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/8'
-        : '';
+        ? "border-[color:var(--ds-color-warning)]/25 bg-[color:var(--ds-color-warning)]/8"
+        : "";
 
     return (
       <Card
         tone="default"
         padding="md"
         className={cn(
-          'group flex h-full flex-col animate-in fade-in zoom-in-95 transition-all duration-[var(--ds-motion-base)] hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]',
+          "group flex h-full flex-col animate-in fade-in zoom-in-95 transition-all duration-[var(--ds-motion-base)] hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]",
           riskHighlightClass,
         )}
       >
@@ -126,7 +134,7 @@ export const AprCard = React.memo(
             </div>
             <span
               className={cn(
-                'flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider',
+                "flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider",
                 getStatusClass(apr.status),
               )}
             >
@@ -140,7 +148,7 @@ export const AprCard = React.memo(
               {apr.titulo}
             </CardTitle>
             <p className="line-clamp-2 text-sm italic text-[var(--ds-color-text-muted)]">
-              {apr.descricao || 'Sem descrição.'}
+              {apr.descricao || "Sem descrição."}
             </p>
           </div>
 
@@ -156,7 +164,7 @@ export const AprCard = React.memo(
               <Calendar className="mr-2 h-3.5 w-3.5 text-[var(--ds-color-text-muted)]" />
               <span className="font-medium">Emissão:</span>
               <span className="ml-1">
-                {new Date(apr.data_inicio).toLocaleDateString('pt-BR')}
+                {new Date(apr.data_inicio).toLocaleDateString("pt-BR")}
               </span>
             </div>
             {apr.data_fim ? (
@@ -164,7 +172,7 @@ export const AprCard = React.memo(
                 <Calendar className="mr-2 h-3.5 w-3.5 text-[var(--ds-color-text-muted)]" />
                 <span className="font-medium">Validade:</span>
                 <span className="ml-1">
-                  {new Date(apr.data_fim).toLocaleDateString('pt-BR')}
+                  {new Date(apr.data_fim).toLocaleDateString("pt-BR")}
                 </span>
               </div>
             ) : null}
@@ -172,20 +180,33 @@ export const AprCard = React.memo(
 
           <div className="mt-auto flex flex-wrap items-center justify-end gap-1.5 border-t border-[var(--ds-color-border-subtle)] pt-3">
             {isApproved ? (
-              <Button
-                type="button"
-                onClick={() => onCreateNewVersion(apr.id)}
-                variant="outline"
-                size="sm"
-                title="Criar nova versão"
-              >
-                Nova versão
-              </Button>
-            ) : hasPermission('can_create_apr') ? (
               <>
                 <Button
                   type="button"
-                  onClick={() => onFinalize(apr.id)}
+                  onClick={() => onCreateNewVersion(apr.id)}
+                  variant="outline"
+                  size="sm"
+                  title="Criar nova versão"
+                >
+                  Nova versão
+                </Button>
+                {hasGovernedPdf ? (
+                  <Button
+                    type="button"
+                    onClick={() => onFinalize(apr.id)}
+                    variant="outline"
+                    size="sm"
+                    title="Encerrar APR"
+                  >
+                    Encerrar
+                  </Button>
+                ) : null}
+              </>
+            ) : hasPermission("can_create_apr") ? (
+              <>
+                <Button
+                  type="button"
+                  onClick={() => onApprove(apr.id)}
                   variant="outline"
                   size="sm"
                   title="Aprovar APR"
@@ -212,8 +233,8 @@ export const AprCard = React.memo(
               onClick={() => onPrint(apr)}
               title={
                 hasGovernedPdf
-                  ? 'Imprimir PDF final governado da APR'
-                  : 'Pré-visualizar APR'
+                  ? "Imprimir PDF final governado da APR"
+                  : "Pré-visualizar APR"
               }
             >
               <Printer className="h-4 w-4" />
@@ -225,8 +246,8 @@ export const AprCard = React.memo(
               onClick={() => onDownloadPdf(apr.id)}
               title={
                 hasGovernedPdf
-                  ? 'Abrir PDF final governado da APR'
-                  : 'Gerar PDF de pré-visualização'
+                  ? "Abrir PDF final governado da APR"
+                  : "Gerar PDF de pré-visualização"
               }
             >
               <Download className="h-4 w-4" />
@@ -234,12 +255,14 @@ export const AprCard = React.memo(
             <Link
               href={`/dashboard/aprs/edit/${apr.id}`}
               className={cn(
-                buttonVariants({ size: 'icon', variant: 'ghost' }),
+                buttonVariants({ size: "icon", variant: "ghost" }),
                 isApproved
-                  ? 'pointer-events-none text-[var(--ds-color-text-muted)] opacity-40'
-                  : '',
+                  ? "pointer-events-none text-[var(--ds-color-text-muted)] opacity-40"
+                  : "",
               )}
-              title={isApproved ? 'APR aprovada: edição bloqueada' : 'Editar APR'}
+              title={
+                isApproved ? "APR aprovada: edição bloqueada" : "Editar APR"
+              }
             >
               <Pencil className="h-4 w-4" />
             </Link>
@@ -247,26 +270,26 @@ export const AprCard = React.memo(
               items={[
                 {
                   label: hasGovernedPdf
-                    ? 'Enviar PDF governado por e-mail'
-                    : 'Enviar pré-visualização por e-mail',
+                    ? "Enviar PDF governado por e-mail"
+                    : "Enviar pré-visualização por e-mail",
                   icon: <Mail className="h-4 w-4" />,
                   onClick: () => onSendEmail(apr.id),
                 },
                 {
-                  label: 'Assinar APR',
+                  label: "Assinar APR",
                   icon: <PenLine className="h-4 w-4" />,
                   onClick: () => setShowSignModal(true),
                 },
                 {
-                  label: 'Ver assinaturas',
+                  label: "Ver assinaturas",
                   icon: <Users className="h-4 w-4" />,
                   onClick: () => setShowSignaturesPanel(true),
                 },
                 {
-                  label: 'Excluir APR',
+                  label: "Excluir APR",
                   icon: <Trash2 className="h-4 w-4" />,
                   onClick: () => onDelete(apr.id),
-                  variant: 'danger',
+                  variant: "danger",
                 },
               ]}
             />
@@ -277,7 +300,7 @@ export const AprCard = React.memo(
           isOpen={showSignModal}
           onClose={() => setShowSignModal(false)}
           onSave={handleSignSave}
-          userName={user?.nome ?? 'Usuário'}
+          userName={user?.nome ?? "Usuário"}
         />
         <SignaturesPanel
           isOpen={showSignaturesPanel}
@@ -290,4 +313,4 @@ export const AprCard = React.memo(
   },
 );
 
-AprCard.displayName = 'AprCard';
+AprCard.displayName = "AprCard";

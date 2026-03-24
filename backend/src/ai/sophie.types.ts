@@ -34,6 +34,13 @@ export type InsightCard = {
   action: string;
 };
 
+export type SophieInsightsJsonResponse = {
+  summary: string;
+  insights: InsightCard[];
+  confidence?: SophieConfidence;
+  notes?: string[];
+};
+
 export type InsightsResponse = {
   safetyScore: number;
   summary: string;
@@ -60,6 +67,14 @@ export type AnalyzePtResponse = {
   automation?: SophieAutomationDecision;
 };
 
+export type SophiePtJsonResponse = {
+  summary: string;
+  riskLevel: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+  suggestions: string[];
+  confidence?: SophieConfidence;
+  notes?: string[];
+};
+
 export type AnalyzeChecklistResponse = {
   summary: string;
   suggestions: string[];
@@ -68,10 +83,24 @@ export type AnalyzeChecklistResponse = {
   automation?: SophieAutomationOutcome;
 };
 
+export type SophieChecklistJsonResponse = {
+  summary: string;
+  suggestions: string[];
+  confidence?: SophieConfidence;
+  notes?: string[];
+};
+
 export type GenerateDdsResponse = {
   tema: string;
   conteudo: string;
   explanation: string;
+  confidence?: SophieConfidence;
+  notes?: string[];
+};
+
+export type SophieChecklistGenerationJsonResponse = {
+  titulo: string;
+  itens: Array<{ item: string }>;
   confidence?: SophieConfidence;
   notes?: string[];
 };
@@ -184,3 +213,26 @@ export type QueueMonthlyReportAutomationResponse = {
   queued: boolean;
   message: string;
 };
+
+export type SophieImageAnalysisJsonResponse = {
+  summary: string;
+  riskLevel: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+  imminentRisks: string[];
+  immediateActions: string[];
+  ppeRecommendations: string[];
+  confidence?: SophieConfidence;
+  notes?: string[];
+};
+
+export type SophieTaskJsonResponseMap = {
+  insights: SophieInsightsJsonResponse;
+  apr: AnalyzeAprResponse;
+  pt: SophiePtJsonResponse;
+  checklist: SophieChecklistJsonResponse;
+  dds: GenerateDdsResponse;
+  generic: Record<string, unknown>;
+  'image-analysis': SophieImageAnalysisJsonResponse;
+};
+
+export type SophieTaskJsonResponse<TTask extends SophieTask = SophieTask> =
+  SophieTaskJsonResponseMap[TTask];

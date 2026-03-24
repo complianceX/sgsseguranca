@@ -15,6 +15,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { DocumentStorageService } from '../common/services/document-storage.service';
+import { PdfService } from '../common/services/pdf.service';
 import { RiskCalculationService } from '../common/services/risk-calculation.service';
 import { SignatureTimestampService } from '../common/services/signature-timestamp.service';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
@@ -363,6 +364,9 @@ describe('APR lock (http integration)', () => {
     previewImport: jest.fn(),
     buildTemplateWorkbook: jest.fn(() => Buffer.from('template')),
     buildDetailWorkbook: jest.fn(() => Buffer.from('detail')),
+  };
+  const pdfService = {
+    generateFromHtml: jest.fn(() => Promise.resolve(Buffer.from('%PDF-1.4'))),
   };
 
   const forensicTrailService = {
@@ -848,6 +852,7 @@ describe('APR lock (http integration)', () => {
         { provide: AprRiskMatrixService, useValue: aprRiskMatrixService },
         { provide: AprExcelService, useValue: aprExcelService },
         { provide: DocumentStorageService, useValue: documentStorageService },
+        { provide: PdfService, useValue: pdfService },
         {
           provide: DocumentGovernanceService,
           useValue: documentGovernanceService,

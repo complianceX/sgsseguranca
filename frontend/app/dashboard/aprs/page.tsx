@@ -1,27 +1,32 @@
-'use client';
+"use client";
 
-import dynamic from 'next/dynamic';
-import { FileSpreadsheet, FileText, Plus } from 'lucide-react';
-import { downloadExcel } from '@/lib/download-excel';
-import Link from 'next/link';
-import { useAprs } from './hooks/useAprs';
-import { AprCard } from './components/AprCard';
-import { AprInsights } from './components/AprInsights';
-import { AprFilters } from './components/AprFilters';
-import { aprsService } from '@/services/aprsService';
-import { PaginationControls } from '@/components/PaginationControls';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { EmptyState, ErrorState, PageLoadingState } from '@/components/ui/state';
-import { ListPageLayout } from '@/components/layout';
-import { cn } from '@/lib/utils';
+import dynamic from "next/dynamic";
+import { FileSpreadsheet, FileText, Plus } from "lucide-react";
+import { downloadExcel } from "@/lib/download-excel";
+import Link from "next/link";
+import { useAprs } from "./hooks/useAprs";
+import { AprCard } from "./components/AprCard";
+import { AprInsights } from "./components/AprInsights";
+import { AprFilters } from "./components/AprFilters";
+import { aprsService } from "@/services/aprsService";
+import { PaginationControls } from "@/components/PaginationControls";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  EmptyState,
+  ErrorState,
+  PageLoadingState,
+} from "@/components/ui/state";
+import { ListPageLayout } from "@/components/layout";
+import { cn } from "@/lib/utils";
 
 const SendMailModal = dynamic(
-  () => import('@/components/SendMailModal').then((module) => module.SendMailModal),
+  () =>
+    import("@/components/SendMailModal").then((module) => module.SendMailModal),
   { ssr: false },
 );
 const StoredFilesPanel = dynamic(
   () =>
-    import('@/components/StoredFilesPanel').then(
+    import("@/components/StoredFilesPanel").then(
       (module) => module.StoredFilesPanel,
     ),
   {
@@ -55,6 +60,7 @@ export default function AprsPage() {
     handleDownloadPdf,
     handlePrint,
     handleSendEmail,
+    handleApprove,
     handleFinalize,
     handleReject,
     handleCreateNewVersion,
@@ -63,9 +69,11 @@ export default function AprsPage() {
 
   const companyOptions = Array.from(
     new Map(
-      filteredAprs
-        .filter((item) => item.company_id)
-        .map((item) => [item.company_id, item.company?.razao_social || item.company_id]),
+      filteredAprs.flatMap((item) =>
+        item.company_id
+          ? [[item.company_id, item.company?.razao_social || item.company_id]]
+          : [],
+      ),
     ).entries(),
   ).map(([id, name]) => ({ id, name }));
 
@@ -107,12 +115,17 @@ export default function AprsPage() {
               type="button"
               variant="outline"
               size="sm"
-              leftIcon={<FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />}
-              onClick={() => downloadExcel('/aprs/export/excel', 'aprs.xlsx')}
+              leftIcon={
+                <FileSpreadsheet className="h-4 w-4 text-[var(--ds-color-success)]" />
+              }
+              onClick={() => downloadExcel("/aprs/export/excel", "aprs.xlsx")}
             >
               Exportar Excel
             </Button>
-            <Link href="/dashboard/aprs/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
+            <Link
+              href="/dashboard/aprs/new"
+              className={cn(buttonVariants(), "inline-flex items-center")}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Nova APR
             </Link>
@@ -121,14 +134,26 @@ export default function AprsPage() {
         metrics={
           overviewMetrics
             ? [
-                { label: 'Total APRs', value: overviewMetrics.totalAprs },
-                { label: 'Aprovadas', value: overviewMetrics.aprovadas, tone: 'success' },
-                { label: 'Pendentes', value: overviewMetrics.pendentes, tone: 'primary' },
-                { label: 'Riscos críticos', value: overviewMetrics.riscosCriticos, tone: 'danger' },
+                { label: "Total APRs", value: overviewMetrics.totalAprs },
                 {
-                  label: 'Média score',
+                  label: "Aprovadas",
+                  value: overviewMetrics.aprovadas,
+                  tone: "success",
+                },
+                {
+                  label: "Pendentes",
+                  value: overviewMetrics.pendentes,
+                  tone: "primary",
+                },
+                {
+                  label: "Riscos críticos",
+                  value: overviewMetrics.riscosCriticos,
+                  tone: "danger",
+                },
+                {
+                  label: "Média score",
                   value: overviewMetrics.mediaScoreRisco.toFixed(2),
-                  tone: 'warning',
+                  tone: "warning",
                 },
               ]
             : undefined
@@ -148,7 +173,9 @@ export default function AprsPage() {
               lastPage={lastPage}
               total={total}
               onPrev={() => setPage((current) => Math.max(1, current - 1))}
-              onNext={() => setPage((current) => Math.min(lastPage, current + 1))}
+              onNext={() =>
+                setPage((current) => Math.min(lastPage, current + 1))
+              }
             />
           ) : null
         }
@@ -161,12 +188,15 @@ export default function AprsPage() {
               title="Nenhuma APR encontrada"
               description={
                 searchTerm || statusFilter
-                  ? 'Nenhum resultado corresponde aos filtros aplicados.'
-                  : 'Ainda não existem APRs registradas para este tenant.'
+                  ? "Nenhum resultado corresponde aos filtros aplicados."
+                  : "Ainda não existem APRs registradas para este tenant."
               }
               action={
                 !searchTerm && !statusFilter ? (
-                  <Link href="/dashboard/aprs/new" className={cn(buttonVariants(), 'inline-flex items-center')}>
+                  <Link
+                    href="/dashboard/aprs/new"
+                    className={cn(buttonVariants(), "inline-flex items-center")}
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Nova APR
                   </Link>
@@ -184,6 +214,7 @@ export default function AprsPage() {
                 onPrint={handlePrint}
                 onSendEmail={handleSendEmail}
                 onDownloadPdf={handleDownloadPdf}
+                onApprove={handleApprove}
                 onFinalize={handleFinalize}
                 onReject={handleReject}
                 onCreateNewVersion={handleCreateNewVersion}

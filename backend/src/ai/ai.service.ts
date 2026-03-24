@@ -44,11 +44,14 @@ import {
   GenerateChecklistResponse,
   GenerateDdsResponse,
   GeneratePtDraftResponse,
-  InsightCard,
   InsightsResponse,
   QueueMonthlyReportAutomationResponse,
   SophieActionPlanItem,
+  SophieChecklistGenerationJsonResponse,
+  SophieChecklistJsonResponse,
   SophieConfidence,
+  SophieInsightsJsonResponse,
+  SophiePtJsonResponse,
   SophieTask,
 } from './sophie.types';
 import type { CreateNonConformityDto } from '../nonconformities/dto/create-nonconformity.dto';
@@ -68,6 +71,7 @@ import { withDefaultJobOptions } from '../queue/default-job-options';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { requestOpenAiChatCompletionResponse } from './openai-request.util';
 import { getPdfQueueJobTimeoutMs } from '../common/services/pdf-runtime-config';
+import { SOPHIE_JSON_RUNTIME_INSTRUCTION } from './sophie-task-prompts';
 
 const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
 const DEFAULT_OPENAI_FALLBACK_MODEL = 'gpt-4o-mini';
@@ -338,6 +342,37 @@ export class AiService {
     return (jsonMatch?.[1] ?? normalized).trim();
   }
 
+  private formatPromptBulletList(
+    items: Array<string | undefined | null>,
+  ): string {
+    return items
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+      .map((item) => `- ${item}`)
+      .join('\n');
+  }
+
+  private buildTaskUserPrompt(params: {
+    task: SophieTask;
+    sections: Array<string | undefined | null>;
+    additionalRules?: Array<string | undefined | null>;
+  }): string {
+    const sections = params.sections
+      .map((section) => String(section || '').trim())
+      .filter(Boolean);
+    const rules = this.formatPromptBulletList(
+      params.additionalRules ?? [],
+    ).trim();
+
+    return [
+      ...sections,
+      rules ? `Regras adicionais desta chamada:\n${rules}` : null,
+      `Use estritamente o contrato JSON governado da task "${params.task}". Não adicione campos extras e não repita o schema em texto.`,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+  }
+
   private supportsReasoningEffort(model: string): boolean {
     const normalized = String(model || '')
       .trim()
@@ -546,9 +581,7 @@ export class AiService {
           messages: [
             {
               role: 'developer',
-              content:
-                `${systemPrompt}\n\n` +
-                'Responda SOMENTE em JSON valido, sem markdown, sem comentarios e sem texto fora do objeto JSON.',
+              content: `${systemPrompt}\n\n${SOPHIE_JSON_RUNTIME_INSTRUCTION}`,
             },
             { role: 'user', content: params.user },
           ],
@@ -1095,20 +1128,23 @@ export class AiService {
     });
 
     try {
-      const { data, inputTokens, outputTokens } = await this.callOpenAiJson<{
-        summary: string;
-        insights: InsightCard[];
-        confidence?: SophieConfidence;
-        notes?: string[];
-      }>({
-        task: 'insights',
-        user: `Gere um resumo executivo e 3 insights acionaveis para um dashboard SST.\n\nDados do sistema (tenant):\n- Treinamentos: ${JSON.stringify(
-          trainings,
-        )}\n- Exames (PCMSO/ASO): ${JSON.stringify(exams)}\n- Nao conformidades (por status): ${JSON.stringify(
-          ncs,
-        )}\n\nRegras:\n- insights[].type deve ser um de: info|warning|success\n- insights[].action deve ser uma rota interna (ex.: /dashboard/trainings)\n- Mensagens curtas e objetivas, sem alarmismo.\n\nRetorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.\n\nFormato JSON:\n{\n  "summary": string,\n  "insights": [{"type":"info|warning|success","title":string,"message":string,"action":string}],\n  "confidence": "low|medium|high",\n  "notes": string[]\n}`,
-        maxTokens: 900,
-      });
+      const { data, inputTokens, outputTokens } =
+        await this.callOpenAiJson<SophieInsightsJsonResponse>({
+          task: 'insights',
+          user: this.buildTaskUserPrompt({
+            task: 'insights',
+            sections: [
+              'Gere um resumo executivo e 3 insights acionáveis para um dashboard SST.',
+              `Dados do sistema (tenant):\n- Treinamentos: ${JSON.stringify(trainings)}\n- Exames (PCMSO/ASO): ${JSON.stringify(exams)}\n- Não conformidades (por status): ${JSON.stringify(ncs)}`,
+            ],
+            additionalRules: [
+              'insights[].type deve usar apenas info, warning ou success',
+              'insights[].action deve ser uma rota interna do sistema, como /dashboard/trainings',
+              'mensagens devem ser curtas, objetivas e sem alarmismo',
+            ],
+          }),
+          maxTokens: 900,
+        });
       const confidence = this.normalizeConfidence(data.confidence);
       const notes = this.normalizeStringArray(data.notes, 8);
 
@@ -1191,11 +1227,19 @@ export class AiService {
       const { data, inputTokens, outputTokens } =
         await this.callOpenAiJson<AnalyzeAprResponse>({
           task: 'apr',
-          user: `Contexto:\nDescricao da atividade/APR:\n${description}\n\nTarefa:\nSelecione riscos e EPIs existentes para esta atividade.\n\nLista de riscos disponiveis (escolha por id):\n${JSON.stringify(
-            riskOptions,
-          )}\n\nLista de EPIs disponiveis (escolha por id):\n${JSON.stringify(
-            epiOptions,
-          )}\n\nFormato JSON:\n{\n  "risks": ["riskId"],\n  "epis": ["epiId"],\n  "explanation": "string curta explicando a escolha",\n  "confidence": "low|medium|high",\n  "notes": string[]\n}\n\nRegras:\n- Retorne apenas IDs presentes nas listas.\n- Maximo: 8 risks e 8 epis.\n- Priorize riscos de acidentes, fisicos e quimicos mais provaveis pela descricao.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
+          user: this.buildTaskUserPrompt({
+            task: 'apr',
+            sections: [
+              `Descrição da atividade/APR:\n${description}`,
+              `Lista de riscos disponíveis (escolha por id):\n${JSON.stringify(riskOptions)}`,
+              `Lista de EPIs disponíveis (escolha por id):\n${JSON.stringify(epiOptions)}`,
+            ],
+            additionalRules: [
+              'retorne apenas IDs presentes nas listas',
+              'máximo de 8 risks e 8 epis',
+              'priorize riscos de acidentes, físicos e químicos mais prováveis pela descrição',
+            ],
+          }),
           maxTokens: 800,
         });
       const confidence = this.normalizeConfidence(data.confidence);
@@ -1282,11 +1326,20 @@ export class AiService {
         data: response,
         inputTokens,
         outputTokens,
-      } = await this.callOpenAiJson<AnalyzePtResponse>({
+      } = await this.callOpenAiJson<SophiePtJsonResponse>({
         task: 'pt',
-        user: `Analise de Permissao de Trabalho (PT).\n\nTitulo: ${data.titulo}\nDescricao: ${data.descricao}\nSinais/flags: ${JSON.stringify(
-          flags,
-        )}\n\nGere um resumo e sugestoes tecnicas de controle.\n\nFormato JSON:\n{\n  "summary": string,\n  "riskLevel": "Baixo|Médio|Alto|Crítico",\n  "suggestions": string[],\n  "confidence": "low|medium|high",\n  "notes": string[]\n}\n\nRegras:\n- suggestions: 4 a 10 itens curtos.\n- Priorize hierarquia de controle.\n- Cite NRs relevantes quando pertinente (NR-10/12/20/33/35/06/01).\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
+        user: this.buildTaskUserPrompt({
+          task: 'pt',
+          sections: [
+            'Analise esta Permissão de Trabalho (PT).',
+            `Título: ${data.titulo}\nDescrição: ${data.descricao}\nSinais/flags: ${JSON.stringify(flags)}`,
+          ],
+          additionalRules: [
+            'suggestions deve ter de 4 a 10 itens curtos',
+            'priorize hierarquia de controle',
+            'cite NRs relevantes apenas quando houver aderência clara, como NR-10, NR-12, NR-20, NR-33, NR-35, NR-06 e NR-01',
+          ],
+        }),
         maxTokens: 900,
       });
       const confidence = this.normalizeConfidence(response.confidence);
@@ -1374,11 +1427,20 @@ export class AiService {
       };
 
       const { data, inputTokens, outputTokens } =
-        await this.callOpenAiJson<AnalyzeChecklistResponse>({
+        await this.callOpenAiJson<SophieChecklistJsonResponse>({
           task: 'checklist',
-          user: `Analise este checklist de SST e aponte pontos de atencao e melhorias.\n\nChecklist:\n${JSON.stringify(
-            checklistSnapshot,
-          )}\n\nFormato JSON:\n{\n  "summary": string,\n  "suggestions": string[],\n  "confidence": "low|medium|high",\n  "notes": string[]\n}\n\nRegras:\n- suggestions: 4 a 12 itens curtos.\n- Se houver muitos "nao"/"nok", priorize acoes imediatas.\n- Cite NRs quando pertinente.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
+          user: this.buildTaskUserPrompt({
+            task: 'checklist',
+            sections: [
+              'Analise este checklist de SST e aponte pontos de atenção e melhorias.',
+              `Checklist:\n${JSON.stringify(checklistSnapshot)}`,
+            ],
+            additionalRules: [
+              'suggestions deve ter de 4 a 12 itens curtos',
+              'se houver muitos itens não ou nok, priorize ações imediatas',
+              'cite NRs apenas quando pertinente',
+            ],
+          }),
           maxTokens: 1000,
         });
       const confidence = this.normalizeConfidence(data.confidence);
@@ -1471,7 +1533,19 @@ export class AiService {
       const { data, inputTokens, outputTokens } =
         await this.callOpenAiJson<GenerateDdsResponse>({
           task: 'dds',
-          user: `Gere um DDS (Diálogo Diario de Seguranca) pronto para uso.\n\nTema base: ${temaBase || 'definir automaticamente'}\nContexto operacional: ${contexto || 'nao informado'}\n\nFormato JSON:\n{\n  "tema": string,\n  "conteudo": string,\n  "explanation": string,\n  "confidence": "low|medium|high",\n  "notes": string[]\n}\n\nRegras:\n- conteudo em portugues, pratico, com 6 a 10 bullets.\n- incluir: objetivo, perigos, controles (hierarquia), EPIs, NRs relevantes.\n- evite jargoes e mantenha linguagem de campo.\n- Se houver tema base, respeite-o.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
+          user: this.buildTaskUserPrompt({
+            task: 'dds',
+            sections: [
+              'Gere um DDS (Diálogo Diário de Segurança) pronto para uso.',
+              `Tema base: ${temaBase || 'definir automaticamente'}\nContexto operacional: ${contexto || 'não informado'}`,
+            ],
+            additionalRules: [
+              'conteudo deve ser em português, prático, com 6 a 10 bullets',
+              'incluir objetivo, perigos, controles pela hierarquia, EPIs e NRs relevantes',
+              'evitar jargões e manter linguagem de campo',
+              temaBase ? 'respeitar o tema base informado' : null,
+            ],
+          }),
           maxTokens: 1200,
         });
       const confidence = this.normalizeConfidence(data.confidence);
@@ -1544,16 +1618,26 @@ export class AiService {
     });
 
     try {
-      const { data, inputTokens, outputTokens } = await this.callOpenAiJson<{
-        titulo: string;
-        itens: Array<{ item: string }>;
-        confidence?: SophieConfidence;
-        notes?: string[];
-      }>({
-        task: 'generic',
-        user: `Gere um checklist de inspecao SST para: ${subject}.\nDescricao: ${descricao || '(sem descricao)'}\n\nFormato JSON:\n{\n  "titulo": string,\n  "itens": [{"item": string}],\n  "confidence": "low|medium|high",\n  "notes": string[]\n}\n\nRegras:\n- 12 a 20 itens curtos e verificaveis.\n- Misture controles de engenharia, administrativos e EPI.\n- Se tema envolver NR-10/12/20/33/35, inclua verificacoes tipicas.\n- Nao incluir IDs, apenas texto.\n- Retorne APENAS JSON valido, sem markdown, sem comentarios e sem texto fora do JSON.`,
-        maxTokens: 1200,
-      });
+      const { data, inputTokens, outputTokens } =
+        await this.callOpenAiJson<SophieChecklistGenerationJsonResponse>({
+          task: 'generic',
+          user:
+            `Gere um checklist de inspeção SST para: ${subject}.\n` +
+            `Descrição: ${descricao || '(sem descrição)'}\n\n` +
+            `Contrato JSON obrigatório desta chamada:\n` +
+            `{\n` +
+            `  "titulo": string,\n` +
+            `  "itens": [{"item": string}],\n` +
+            `  "confidence": "low|medium|high",\n` +
+            `  "notes": string[]\n` +
+            `}\n\n` +
+            `Regras adicionais desta chamada:\n` +
+            `- 12 a 20 itens curtos e verificáveis\n` +
+            `- misture controles de engenharia, administrativos e EPI\n` +
+            `- se o tema envolver NR-10, NR-12, NR-20, NR-33 ou NR-35, inclua verificações típicas\n` +
+            `- não incluir IDs, apenas texto`,
+          maxTokens: 1200,
+        });
       const confidence = this.normalizeConfidence(data.confidence);
       const notes = this.normalizeStringArray(data.notes, 8);
 
@@ -3206,6 +3290,7 @@ export class AiService {
     task: SophieTask;
     prompt: string;
     maxTokens?: number;
+    contract?: string;
   }): Promise<T> {
     const tenantId = this.getTenantIdOrThrow();
     await this.enforceRateLimit(tenantId);
@@ -3228,7 +3313,11 @@ export class AiService {
     try {
       const { data, inputTokens, outputTokens } = await this.callOpenAiJson<T>({
         task: params.task,
-        user: String(params.prompt || ''),
+        user:
+          String(params.prompt || '') +
+          (String(params.contract || '').trim()
+            ? `\n\nContrato JSON obrigatório desta chamada:\n${String(params.contract || '').trim()}\n\nRegras adicionais desta chamada:\n- siga exatamente o contrato acima\n- não devolva campos extras`
+            : ''),
         maxTokens,
       });
 
@@ -3274,6 +3363,10 @@ export class AiService {
       task: 'generic',
       prompt,
       maxTokens,
+      contract:
+        typeof schemaOrMaxTokens === 'string'
+          ? schemaOrMaxTokens.trim()
+          : undefined,
     });
   }
 }

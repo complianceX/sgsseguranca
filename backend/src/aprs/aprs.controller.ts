@@ -285,6 +285,15 @@ export class AprsController {
     return this.aprsService.getVersionHistory(id);
   }
 
+  @Get(':id/compare/:targetId')
+  @Authorize('can_view_apr')
+  compareVersions(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('targetId', new ParseUUIDPipe()) targetId: string,
+  ) {
+    return this.aprsService.compareVersions(id, targetId);
+  }
+
   /** Evidências de risco com URLs assinadas quando disponíveis */
   @Get(':id/evidence')
   @Authorize('can_view_apr')
@@ -374,6 +383,19 @@ export class AprsController {
     } finally {
       await cleanupUploadedTempFile(pdfFile);
     }
+  }
+
+  @Post(':id/generate-final-pdf')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_create_apr')
+  async generateFinalPdf(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ) {
+    return this.aprsService.generateFinalPdf(id, this.getRequestUserId(req));
   }
 
   /** Aprova a APR — Pendente → Aprovada */

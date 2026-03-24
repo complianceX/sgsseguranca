@@ -26,6 +26,8 @@ describe('AprsController (http)', () => {
     attachPdf: jest.fn(),
     findOne: jest.fn(),
     getPdfAccess: jest.fn(),
+    generateFinalPdf: jest.fn(),
+    compareVersions: jest.fn(),
     uploadRiskEvidence: jest.fn(),
     previewExcelImport: jest.fn(),
   };
@@ -38,6 +40,8 @@ describe('AprsController (http)', () => {
     aprsService.attachPdf.mockReset();
     aprsService.findOne.mockReset();
     aprsService.getPdfAccess.mockReset();
+    aprsService.generateFinalPdf.mockReset();
+    aprsService.compareVersions.mockReset();
     aprsService.uploadRiskEvidence.mockReset();
     aprsService.previewExcelImport.mockReset();
     pdfRateLimitService.checkDownloadLimit.mockReset();
@@ -192,6 +196,63 @@ describe('AprsController (http)', () => {
       'user-1',
       expect.any(String),
     );
+  });
+
+  it('encaminha o userId explicito para gerar o PDF final oficial da APR', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    aprsService.generateFinalPdf.mockResolvedValue({
+      entityId: aprId,
+      generated: true,
+      hasFinalPdf: true,
+      availability: 'ready',
+      fileKey: 'documents/company-1/aprs/apr-1/apr-final.pdf',
+      folderPath: 'aprs/company-1',
+      originalName: 'apr-final.pdf',
+      url: 'https://storage.example/apr-final.pdf',
+    });
+
+    await request(httpServer)
+      .post(`/aprs/${aprId}/generate-final-pdf`)
+      .expect(201)
+      .expect(({ body }) => {
+        const payload = body as { generated?: boolean; hasFinalPdf?: boolean };
+        expect(payload.generated).toBe(true);
+        expect(payload.hasFinalPdf).toBe(true);
+      });
+
+    expect(aprsService.generateFinalPdf).toHaveBeenCalledWith(aprId, 'user-1');
+  });
+
+  it('encaminha a comparação entre versões da APR para o backend', async () => {
+    const httpServer = app.getHttpServer() as Parameters<typeof request>[0];
+    const targetId = '22222222-2222-4222-8222-222222222222';
+    aprsService.compareVersions.mockResolvedValue({
+      base: { id: aprId, numero: 'APR-001', versao: 1 },
+      target: { id: targetId, numero: 'APR-001-v2', versao: 2 },
+      summary: {
+        totalBase: 1,
+        totalTarget: 2,
+        added: 1,
+        removed: 0,
+        changed: 1,
+      },
+      added: [],
+      removed: [],
+      changed: [],
+    });
+
+    await request(httpServer)
+      .get(`/aprs/${aprId}/compare/${targetId}`)
+      .expect(200)
+      .expect(({ body }) => {
+        const payload = body as {
+          summary?: { changed?: number; totalTarget?: number };
+        };
+        expect(payload.summary?.changed).toBe(1);
+        expect(payload.summary?.totalTarget).toBe(2);
+      });
+
+    expect(aprsService.compareVersions).toHaveBeenCalledWith(aprId, targetId);
   });
 
   it('faz preview da planilha APR antes da persistencia', async () => {

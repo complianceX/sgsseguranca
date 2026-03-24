@@ -147,6 +147,12 @@ export function computeAprRiskSummary(
   };
 
   (items ?? []).forEach((item) => {
+    const started = hasMeaningfulContent(item);
+
+    if (!started) {
+      return;
+    }
+
     summary.total += 1;
 
     const p = String(item?.probabilidade || "");
@@ -160,8 +166,6 @@ export function computeAprRiskSummary(
         item?.fontes_circunstancias ||
         item?.possiveis_lesoes,
     );
-    const started = hasMeaningfulContent(item);
-
     if (!hasEvaluation) {
       summary.incompletas += 1;
     }

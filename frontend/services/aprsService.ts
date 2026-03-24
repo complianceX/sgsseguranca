@@ -182,7 +182,7 @@ export interface CreateAprDto {
   evidence_document?: string;
   control_description?: string;
   control_evidence?: boolean;
-  company_id: string;
+  company_id?: string;
   site_id: string;
   elaborador_id: string;
   activities?: string[];
@@ -198,6 +198,42 @@ export interface CreateAprDto {
 }
 
 export type AprPdfAccessResponse = GovernedPdfAccessResponse;
+export type AprFinalPdfGenerationResponse = AprPdfAccessResponse & {
+  generated: boolean;
+};
+
+function sanitizeAprWritePayload(
+  data: Partial<CreateAprDto>,
+): Partial<CreateAprDto> {
+  const {
+    company_id,
+    status,
+    activities,
+    risks,
+    epis,
+    tools,
+    machines,
+    participants,
+    ...rest
+  } = data;
+  void company_id;
+  void status;
+
+  const dedupe = (values?: string[]) =>
+    Array.isArray(values)
+      ? Array.from(new Set(values.filter(Boolean)))
+      : values;
+
+  return {
+    ...rest,
+    activities: dedupe(activities),
+    risks: dedupe(risks),
+    epis: dedupe(epis),
+    tools: dedupe(tools),
+    machines: dedupe(machines),
+    participants: dedupe(participants),
+  };
+}
 
 export const aprsService = {
   findPaginated: async (opts?: {
@@ -274,8 +310,10 @@ export const aprsService = {
   },
 
   create: async (data: CreateAprDto) => {
+    const payload = sanitizeAprWritePayload(data) as CreateAprDto;
+    const localCompanyId = data.company_id;
     try {
-      const response = await api.post<Apr>("/aprs", data);
+      const response = await api.post<Apr>("/aprs", payload);
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
@@ -286,15 +324,15 @@ export const aprsService = {
       const queued = await enqueueOfflineMutation({
         url: "/aprs",
         method: "post",
-        data,
+        data: payload,
         label: "APR",
       });
 
       return {
-        ...(data as unknown as Partial<Apr>),
+        ...(payload as unknown as Partial<Apr>),
+        company_id: localCompanyId || "",
         id: queued.id,
-        status: ((data as unknown as Partial<Apr>)?.status ||
-          "Pendente") as Apr["status"],
+        status: "Pendente" as Apr["status"],
         created_at: queued.createdAt,
         updated_at: queued.createdAt,
         offlineQueued: true,
@@ -303,8 +341,10 @@ export const aprsService = {
   },
 
   update: async (id: string, data: Partial<CreateAprDto>) => {
+    const payload = sanitizeAprWritePayload(data);
+    const localCompanyId = data.company_id;
     try {
-      const response = await api.patch<Apr>(`/aprs/${id}`, data);
+      const response = await api.patch<Apr>(`/aprs/${id}`, payload);
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
@@ -315,12 +355,13 @@ export const aprsService = {
       const queued = await enqueueOfflineMutation({
         url: `/aprs/${id}`,
         method: "patch",
-        data,
+        data: payload,
         label: "APR",
       });
 
       return {
-        ...(data as unknown as Partial<Apr>),
+        ...(payload as unknown as Partial<Apr>),
+        ...(localCompanyId ? { company_id: localCompanyId } : {}),
         id,
         created_at: queued.createdAt,
         updated_at: queued.createdAt,
@@ -340,6 +381,13 @@ export const aprsService = {
 
   getPdfAccess: async (id: string) => {
     const response = await api.get<AprPdfAccessResponse>(`/aprs/${id}/pdf`);
+    return response.data;
+  },
+
+  generateFinalPdf: async (id: string) => {
+    const response = await api.post<AprFinalPdfGenerationResponse>(
+      `/aprs/${id}/generate-final-pdf`,
+    );
     return response.data;
   },
 

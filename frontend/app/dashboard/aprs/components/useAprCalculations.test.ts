@@ -40,12 +40,12 @@ describe("useAprCalculations helpers", () => {
     ]);
 
     expect(summary).toEqual({
-      total: 4,
+      total: 3,
       aceitavel: 0,
       atencao: 0,
       substancial: 1,
       critico: 1,
-      incompletas: 2,
+      incompletas: 1,
       semMedidasPreventivas: 2,
       prontas: 1,
     });

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Apr } from '../aprs/entities/apr.entity';
+import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { Audit } from '../audits/entities/audit.entity';
 import { Checklist } from '../checklists/entities/checklist.entity';
 import { Inspection } from '../inspections/entities/inspection.entity';
@@ -99,7 +99,7 @@ export class DashboardPendingQueueService {
         'aprs',
         () =>
           this.aprsRepository.find({
-            where: { company_id: companyId, status: 'Pendente' },
+            where: { company_id: companyId, status: AprStatus.PENDENTE },
             relations: ['site', 'elaborador'],
             order: { updated_at: 'DESC' },
             take: 20,

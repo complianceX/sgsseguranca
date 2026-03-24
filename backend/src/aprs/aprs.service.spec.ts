@@ -5,6 +5,7 @@ import { AprLog } from './entities/apr-log.entity';
 import type { TenantService } from '../common/tenant/tenant.service';
 import type { RiskCalculationService } from '../common/services/risk-calculation.service';
 import type { DocumentStorageService } from '../common/services/document-storage.service';
+import type { PdfService } from '../common/services/pdf.service';
 import type { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import type { SignaturesService } from '../signatures/signatures.service';
 import type { AprRiskMatrixService } from './apr-risk-matrix.service';
@@ -38,6 +39,7 @@ describe('AprsService', () => {
     DocumentStorageService,
     'generateDocumentKey' | 'uploadFile' | 'deleteFile' | 'getSignedUrl'
   >;
+  let pdfService: Pick<PdfService, 'generateFromHtml'>;
   let documentGovernanceService: Pick<
     DocumentGovernanceService,
     'registerFinalDocument' | 'removeFinalDocumentReference'
@@ -81,6 +83,9 @@ describe('AprsService', () => {
       getSignedUrl: jest.fn((key: string) =>
         Promise.resolve(`https://signed.example/${encodeURIComponent(key)}`),
       ),
+    };
+    pdfService = {
+      generateFromHtml: jest.fn(() => Promise.resolve(Buffer.from('%PDF-1.4'))),
     };
     documentGovernanceService = {
       registerFinalDocument: jest.fn(),
@@ -159,6 +164,7 @@ describe('AprsService', () => {
       aprRiskMatrixService as AprRiskMatrixService,
       aprExcelService as AprExcelService,
       documentStorageService as DocumentStorageService,
+      pdfService as PdfService,
       documentGovernanceService as DocumentGovernanceService,
       signaturesService as SignaturesService,
       forensicTrailService as ForensicTrailService,
@@ -186,7 +192,15 @@ describe('AprsService', () => {
     const manager = {
       getRepository: jest.fn(() => ({ update })),
     };
-    aprRepository.findOne.mockResolvedValue(apr);
+    aprRepository.findOne
+      .mockResolvedValueOnce(apr)
+      .mockResolvedValueOnce(apr)
+      .mockResolvedValueOnce({
+        ...apr,
+        pdf_file_key: 'documents/company-1/aprs/apr-1/APR-001_v1.pdf',
+        pdf_folder_path: 'aprs/company-1',
+        pdf_original_name: 'APR-001_v1.pdf',
+      });
     (
       documentGovernanceService.registerFinalDocument as jest.Mock
     ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
@@ -236,6 +250,99 @@ describe('AprsService', () => {
       'documents/company-1/aprs/apr-1/apr-final.pdf',
     );
     expect(payload.pdf_original_name).toBe('apr-final.pdf');
+  });
+
+  it('gera o PDF final oficial da APR no backend e registra o documento governado', async () => {
+    const apr = {
+      id: 'apr-1',
+      company_id: 'company-1',
+      titulo: 'APR Torre',
+      numero: 'APR-001',
+      data_inicio: new Date('2026-03-14T10:00:00.000Z'),
+      data_fim: new Date('2026-03-20T10:00:00.000Z'),
+      created_at: new Date('2026-03-14T09:00:00.000Z'),
+      updated_at: new Date('2026-03-14T09:30:00.000Z'),
+      status: AprStatus.APROVADA,
+      pdf_file_key: null,
+      is_modelo: false,
+      participants: [{ id: 'user-1', nome: 'Maria' }],
+      company: { razao_social: 'Empresa Teste', cnpj: '00.000.000/0001-00' },
+      site: { nome: 'Obra Centro' },
+      elaborador: { nome: 'Maria' },
+      risk_items: [
+        {
+          id: 'risk-1',
+          ordem: 0,
+          atividade: 'Montagem',
+          agente_ambiental: 'Ruído',
+          condicao_perigosa: 'Altura',
+          fonte_circunstancia: 'Plataforma',
+          lesao: 'Fratura',
+          probabilidade: 2,
+          severidade: 3,
+          score_risco: 6,
+          categoria_risco: 'Substancial',
+          prioridade: 'Prioridade preferencial',
+          medidas_prevencao: 'Linha de vida',
+          responsavel: 'Supervisor',
+          prazo: new Date('2026-03-20T00:00:00.000Z'),
+          status_acao: 'Aberta',
+        },
+      ],
+    } as unknown as Apr;
+    const update = jest.fn();
+    const manager = {
+      getRepository: jest.fn((entity: { name?: string }) => {
+        if (entity?.name === 'Apr') {
+          return { update };
+        }
+        return {
+          find: jest.fn().mockResolvedValue([]),
+        };
+      }),
+    };
+    aprRepository.findOne
+      .mockResolvedValueOnce(apr)
+      .mockResolvedValueOnce(apr)
+      .mockResolvedValueOnce({
+        ...apr,
+        pdf_file_key: 'documents/company-1/aprs/apr-1/APR-001_v1.pdf',
+        pdf_folder_path: 'aprs/company-1',
+        pdf_original_name: 'APR-001_v1.pdf',
+      });
+    (aprRepository as unknown as { manager: unknown }).manager = manager;
+    (
+      documentGovernanceService.registerFinalDocument as jest.Mock
+    ).mockImplementation(async (input: RegisterFinalDocumentInput) => {
+      await input.persistEntityMetadata?.(manager as never, 'hash-1');
+      return { hash: 'hash-1', registryEntry: { id: 'registry-1' } };
+    });
+
+    await expect(service.generateFinalPdf('apr-1', 'user-1')).resolves.toEqual(
+      expect.objectContaining({
+        entityId: 'apr-1',
+        generated: true,
+        hasFinalPdf: true,
+      }),
+    );
+
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('Análise Preliminar de Risco'),
+    );
+    expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
+      expect.stringContaining('/aprs/apr-1/'),
+      expect.any(Buffer),
+      'application/pdf',
+    );
+    expect(
+      documentGovernanceService.registerFinalDocument,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        module: 'apr',
+        entityId: 'apr-1',
+        createdBy: 'user-1',
+      }),
+    );
   });
 
   it('bloqueia anexo final quando a APR ainda nao foi aprovada', async () => {
@@ -452,6 +559,122 @@ describe('AprsService', () => {
 
     await expect(service.createNewVersion('apr-1', 'user-1')).rejects.toThrow(
       'Somente APRs Aprovadas podem gerar nova versão.',
+    );
+  });
+
+  it('compara duas versões da mesma APR com resumo de adições, remoções e mudanças', async () => {
+    aprRepository.findOne.mockImplementation(
+      ({ where }: { where?: { id?: string } }) => {
+        if (where?.id === 'apr-base') {
+          return Promise.resolve({
+            id: 'apr-base',
+            numero: 'APR-001',
+            versao: 1,
+            status: AprStatus.PENDENTE,
+            parent_apr_id: null,
+            company_id: 'company-1',
+            risk_items: [
+              {
+                id: 'risk-1',
+                ordem: 0,
+                atividade: 'Montagem',
+                agente_ambiental: 'Ruído',
+                condicao_perigosa: 'Altura',
+                fonte_circunstancia: 'Plataforma',
+                lesao: 'Fratura',
+                probabilidade: 2,
+                severidade: 3,
+                score_risco: 6,
+                categoria_risco: 'Substancial',
+                prioridade: 'Prioridade preferencial',
+                medidas_prevencao: 'Linha de vida',
+                responsavel: 'Supervisor',
+                prazo: new Date('2026-03-20T00:00:00.000Z'),
+                status_acao: 'Aberta',
+              },
+            ],
+          } as unknown as Apr);
+        }
+
+        if (where?.id === 'apr-target') {
+          return Promise.resolve({
+            id: 'apr-target',
+            numero: 'APR-001-v2',
+            versao: 2,
+            status: AprStatus.PENDENTE,
+            parent_apr_id: 'apr-base',
+            company_id: 'company-1',
+            risk_items: [
+              {
+                id: 'risk-2',
+                ordem: 0,
+                atividade: 'Montagem',
+                agente_ambiental: 'Ruído',
+                condicao_perigosa: 'Altura',
+                fonte_circunstancia: 'Plataforma',
+                lesao: 'Fratura',
+                probabilidade: 3,
+                severidade: 3,
+                score_risco: 9,
+                categoria_risco: 'Crítico',
+                prioridade: 'Prioridade máxima',
+                medidas_prevencao: 'Linha de vida reforçada',
+                responsavel: 'Supervisor',
+                prazo: new Date('2026-03-21T00:00:00.000Z'),
+                status_acao: 'Em andamento',
+              },
+              {
+                id: 'risk-3',
+                ordem: 1,
+                atividade: 'Içamento',
+                agente_ambiental: 'Carga suspensa',
+                condicao_perigosa: 'Movimentação',
+                fonte_circunstancia: 'Grua',
+                lesao: 'Trauma',
+                probabilidade: 2,
+                severidade: 2,
+                score_risco: 4,
+                categoria_risco: 'Atenção',
+                prioridade: 'Prioridade básica',
+                medidas_prevencao: 'Área isolada',
+                responsavel: 'TST',
+                prazo: new Date('2026-03-22T00:00:00.000Z'),
+                status_acao: 'Aberta',
+              },
+            ],
+          } as unknown as Apr);
+        }
+
+        return Promise.resolve(null);
+      },
+    );
+
+    const result = await service.compareVersions('apr-base', 'apr-target');
+
+    expect(result).toMatchObject({
+      summary: {
+        totalBase: 1,
+        totalTarget: 2,
+        added: 1,
+        removed: 0,
+        changed: 1,
+      },
+      added: [
+        expect.objectContaining({
+          atividade_processo: 'Içamento',
+        }),
+      ],
+    });
+
+    expect(result.changed[0]).toMatchObject({
+      index: 0,
+    });
+    expect(result.changed[0]?.changedFields).toEqual(
+      expect.arrayContaining([
+        'probabilidade',
+        'categoria_risco',
+        'medidas_prevencao',
+      ]),
     );
   });
 

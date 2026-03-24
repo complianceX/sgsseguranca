@@ -12,8 +12,10 @@ import {
   Min,
   Max,
   ValidateNested,
+  ArrayUnique,
 } from 'class-validator';
 import { AprRiskItemInputDto } from './apr-risk-item-input.dto';
+import { AprStatus } from '../entities/apr.entity';
 
 export class CreateAprDto {
   @IsString()
@@ -38,8 +40,8 @@ export class CreateAprDto {
 
   @IsString()
   @IsOptional()
-  @IsEnum(['Pendente', 'Aprovada', 'Cancelada', 'Encerrada'])
-  status?: string;
+  @IsEnum(AprStatus)
+  status?: AprStatus;
 
   @IsBoolean()
   @IsOptional()
@@ -60,18 +62,21 @@ export class CreateAprDto {
   risk_items?: AprRiskItemInputDto[];
 
   @IsInt()
+  @Type(() => Number)
   @Min(1)
   @Max(5)
   @IsOptional()
   probability?: number;
 
   @IsInt()
+  @Type(() => Number)
   @Min(1)
   @Max(5)
   @IsOptional()
   severity?: number;
 
   @IsInt()
+  @Type(() => Number)
   @Min(1)
   @Max(5)
   @IsOptional()
@@ -107,31 +112,37 @@ export class CreateAprDto {
 
   @IsArray()
   @IsUUID(undefined, { each: true })
+  @ArrayUnique()
   @IsOptional()
   activities?: string[];
 
   @IsArray()
   @IsUUID(undefined, { each: true })
+  @ArrayUnique()
   @IsOptional()
   risks?: string[];
 
   @IsArray()
   @IsUUID(undefined, { each: true })
+  @ArrayUnique()
   @IsOptional()
   epis?: string[];
 
   @IsArray()
   @IsUUID(undefined, { each: true })
+  @ArrayUnique()
   @IsOptional()
   tools?: string[];
 
   @IsArray()
   @IsUUID(undefined, { each: true })
+  @ArrayUnique()
   @IsOptional()
   machines?: string[];
 
   @IsArray()
   @IsUUID(undefined, { each: true })
+  @ArrayUnique()
   @IsOptional()
   participants?: string[];
 

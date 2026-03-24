@@ -36,6 +36,12 @@ export class AprListItemDto {
   company_id: string;
 
   @Expose()
+  pdf_file_key?: string | null;
+
+  @Expose()
+  pdf_original_name?: string | null;
+
+  @Expose()
   classificacao_resumo?: {
     total: number;
     aceitavel: number;

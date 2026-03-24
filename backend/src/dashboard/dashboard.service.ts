@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Apr } from '../aprs/entities/apr.entity';
+import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { Audit } from '../audits/entities/audit.entity';
 import { Cat } from '../cats/entities/cat.entity';
 import { Checklist } from '../checklists/entities/checklist.entity';
@@ -165,7 +165,7 @@ export class DashboardService {
       ),
       safe(
         this.aprsRepository.count({
-          where: { company_id: companyId, status: 'Pendente' },
+          where: { company_id: companyId, status: AprStatus.PENDENTE },
         }),
         0,
       ),

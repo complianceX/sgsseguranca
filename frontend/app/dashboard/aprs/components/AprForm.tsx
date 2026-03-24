@@ -55,8 +55,8 @@ import { AuditSection } from "@/components/AuditSection";
 import { cn } from "@/lib/utils";
 import { downloadExcel } from "@/lib/download-excel";
 import { generateAprPdf } from "@/lib/pdf/aprGenerator";
-import { base64ToPdfBlob, base64ToPdfFile } from "@/lib/pdf/pdfFile";
-import { openPdfForPrint } from "@/lib/print-utils";
+import { base64ToPdfBlob } from "@/lib/pdf/pdfFile";
+import { openPdfForPrint, openUrlInNewTab } from "@/lib/print-utils";
 import { AprLogEntry, AprTimeline } from "./AprTimeline";
 import { useAuth } from "@/context/AuthContext";
 import type {
@@ -152,9 +152,11 @@ const APR_STEPS = [
 
 const aprBackButtonClass =
   "group rounded-full p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]";
-const aprHeadingClass = "text-2xl font-bold text-[var(--ds-color-text-primary)]";
+const aprHeadingClass =
+  "text-2xl font-bold text-[var(--ds-color-text-primary)]";
 const aprSubheadingClass = "text-sm text-[var(--ds-color-text-muted)]";
-const aprSectionTitleClass = "mb-3 text-sm font-bold text-[var(--ds-color-text-primary)]";
+const aprSectionTitleClass =
+  "mb-3 text-sm font-bold text-[var(--ds-color-text-primary)]";
 const aprLabelClass =
   "mb-1.5 block text-[13px] font-semibold text-[var(--ds-color-text-secondary)]";
 const aprLabelCompactClass =
@@ -252,6 +254,8 @@ export function AprForm({ id }: AprFormProps) {
   const [fetching, setFetching] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+  const [emittingGovernedPdf, setEmittingGovernedPdf] = useState(false);
+  const [closingApr, setClosingApr] = useState(false);
   const [creatingVersion, setCreatingVersion] = useState(false);
   const [loadingTimeline, setLoadingTimeline] = useState(false);
   const [currentApr, setCurrentApr] = useState<Apr | null>(null);
@@ -458,12 +462,6 @@ export function AprForm({ id }: AprFormProps) {
     (user) => user.id === selectedElaboradorId,
   );
 
-  const buildAprFilename = useCallback(
-    (apr: Apr) =>
-      `APR_${String(apr.numero || apr.titulo || apr.id).replace(/\s+/g, "_")}.pdf`,
-    [],
-  );
-
   const getGovernedPdfAccess = useCallback(async (aprId: string) => {
     const access = await aprsService.getPdfAccess(aprId);
     return access.hasFinalPdf ? access : null;
@@ -480,32 +478,36 @@ export function AprForm({ id }: AprFormProps) {
         return null;
       }
 
-      const [fullApr, aprSignatures, evidences] = await Promise.all([
-        aprsService.findOne(apr.id),
-        signaturesService.findByDocument(apr.id, "APR"),
-        aprsService.listAprEvidences(apr.id),
-      ]);
-
-      const result = (await generateAprPdf(fullApr, aprSignatures, {
-        save: false,
-        output: "base64",
-        evidences,
-      })) as { base64: string; filename: string } | undefined;
-
-      if (!result?.base64) {
-        throw new Error("Falha ao gerar o PDF oficial da APR.");
+      const generated = await aprsService.generateFinalPdf(apr.id);
+      if (generated.generated) {
+        toast.success("PDF final da APR emitido e registrado com sucesso.");
       }
-
-      const pdfFile = base64ToPdfFile(
-        result.base64,
-        result.filename || buildAprFilename(fullApr),
-      );
-
-      await aprsService.attachFile(apr.id, pdfFile);
-      toast.success("PDF final da APR emitido e registrado com sucesso.");
-      return aprsService.getPdfAccess(apr.id);
+      return generated;
     },
-    [buildAprFilename, getGovernedPdfAccess],
+    [getGovernedPdfAccess],
+  );
+
+  const reloadAprWorkflowContext = useCallback(
+    async (aprId: string) => {
+      const [freshApr, logs, versions] = await Promise.all([
+        aprsService.findOne(aprId),
+        aprsService.getLogs(aprId),
+        aprsService.getVersionHistory(aprId),
+      ]);
+      setCurrentApr(freshApr);
+      setValue("status", freshApr.status);
+      setAprLogs(logs);
+      setVersionHistory(
+        versions.map((item) => ({
+          id: item.id,
+          numero: item.numero,
+          versao: item.versao,
+          status: item.status,
+        })),
+      );
+      return freshApr;
+    },
+    [setValue],
   );
 
   const handlePrintAfterSave = useCallback(
@@ -591,17 +593,20 @@ export function AprForm({ id }: AprFormProps) {
   const autosaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastSavedRef = useRef<string>("");
 
-  const duplicateRiskRow = useCallback((index: number) => {
-    if (isReadOnly) {
-      notifyReadOnly("Não é possível duplicar linhas em uma APR bloqueada.");
-      return;
-    }
-    const source = getValues(`itens_risco.${index}` as const);
-    appendRisk({
-      ...createEmptyRiskRow(),
-      ...source,
-    });
-  }, [appendRisk, getValues, isReadOnly, notifyReadOnly]);
+  const duplicateRiskRow = useCallback(
+    (index: number) => {
+      if (isReadOnly) {
+        notifyReadOnly("Não é possível duplicar linhas em uma APR bloqueada.");
+        return;
+      }
+      const source = getValues(`itens_risco.${index}` as const);
+      appendRisk({
+        ...createEmptyRiskRow(),
+        ...source,
+      });
+    },
+    [appendRisk, getValues, isReadOnly, notifyReadOnly],
+  );
 
   const moveRiskRow = useCallback(
     (from: number, to: number) => {
@@ -699,7 +704,11 @@ export function AprForm({ id }: AprFormProps) {
     if (id || !draftStorageKey) return;
     autosaveTimerRef.current = setInterval(() => {
       const values = watch();
-      const serialized = JSON.stringify({ values, step: currentStep, signatures });
+      const serialized = JSON.stringify({
+        values,
+        step: currentStep,
+        signatures,
+      });
       if (serialized === lastSavedRef.current) return;
       lastSavedRef.current = serialized;
       try {
@@ -801,10 +810,10 @@ export function AprForm({ id }: AprFormProps) {
           typeof error === "object" &&
           error !== null &&
           "response" in error &&
-          typeof (error as { response?: { data?: { message?: string } } }).response
-            ?.data?.message === "string"
-            ? (error as { response?: { data?: { message?: string } } }).response!
-                .data!.message
+          typeof (error as { response?: { data?: { message?: string } } })
+            .response?.data?.message === "string"
+            ? (error as { response?: { data?: { message?: string } } })
+                .response!.data!.message
             : "Não foi possível interpretar a planilha APR.";
         toast.error(message);
       } finally {
@@ -831,7 +840,9 @@ export function AprForm({ id }: AprFormProps) {
   const applySuggestedAprRisk = useCallback(
     (suggestion: SophieDraftRiskSuggestion) => {
       if (isReadOnly) {
-        notifyReadOnly("Não é possível aplicar sugestões em uma APR bloqueada.");
+        notifyReadOnly(
+          "Não é possível aplicar sugestões em uma APR bloqueada.",
+        );
         return;
       }
       let appliedSelection = false;
@@ -985,7 +996,7 @@ export function AprForm({ id }: AprFormProps) {
         );
       }
 
-      if (aprId) {
+      if (aprId && !offlineQueued) {
         const signaturesToDelete = Object.entries(persistedSignatures).filter(
           ([userId, persisted]) => {
             const current = signatures[userId];
@@ -1034,7 +1045,7 @@ export function AprForm({ id }: AprFormProps) {
         }
       }
 
-      if (id) {
+      if (id && !offlineQueued) {
         const [updatedApr, logs, versions, evidences] = await Promise.all([
           aprsService.findOne(id),
           aprsService.getLogs(id),
@@ -1057,8 +1068,15 @@ export function AprForm({ id }: AprFormProps) {
       return { aprId: aprId || undefined, offlineQueued } as AprSubmitResult;
     },
     {
-      successMessage: () =>
-        id ? "APR atualizada com sucesso!" : "APR cadastrada com sucesso!",
+      successMessage: (result) => {
+        const submitResult = (result as AprSubmitResult | undefined) || {};
+        if (submitResult.offlineQueued) {
+          return "APR salva em fila offline. Assinaturas e emissão final serão retomadas após sincronização.";
+        }
+        return id
+          ? "APR atualizada com sucesso!"
+          : "APR cadastrada com sucesso!";
+      },
       redirectTo: "/dashboard/aprs",
       skipRedirect: () => submitIntentRef.current === "save_and_print",
       context: "APR",
@@ -1115,7 +1133,9 @@ export function AprForm({ id }: AprFormProps) {
 
   const handleAiAnalysis = async () => {
     if (isReadOnly) {
-      notifyReadOnly("Ações de sugestão/análise não estão disponíveis em modo somente leitura.");
+      notifyReadOnly(
+        "Ações de sugestão/análise não estão disponíveis em modo somente leitura.",
+      );
       return;
     }
     if (!isAiEnabled()) {
@@ -1201,9 +1221,16 @@ export function AprForm({ id }: AprFormProps) {
     } finally {
       setSuggestingControls(false);
     }
-  }, [isReadOnly, notifyReadOnly, riskFields.length, setValue, tituloApr, watch]);
+  }, [
+    isReadOnly,
+    notifyReadOnly,
+    riskFields.length,
+    setValue,
+    tituloApr,
+    watch,
+  ]);
 
-  const handleFinalizeApr = useCallback(async () => {
+  const handleApproveApr = useCallback(async () => {
     if (!id) return;
     if (isReadOnly) {
       notifyReadOnly("Aprovação não está disponível em uma APR bloqueada.");
@@ -1213,22 +1240,8 @@ export function AprForm({ id }: AprFormProps) {
 
     try {
       setFinalizing(true);
-      const updated = await aprsService.approve(id);
-      setCurrentApr(updated);
-      setValue("status", updated.status);
-      const [logs, versions] = await Promise.all([
-        aprsService.getLogs(id),
-        aprsService.getVersionHistory(id),
-      ]);
-      setAprLogs(logs);
-      setVersionHistory(
-        versions.map((item) => ({
-          id: item.id,
-          numero: item.numero,
-          versao: item.versao,
-          status: item.status,
-        })),
-      );
+      await aprsService.approve(id);
+      await reloadAprWorkflowContext(id);
       toast.success("APR aprovada com sucesso.");
     } catch (error) {
       console.error("Erro ao aprovar APR:", error);
@@ -1236,7 +1249,90 @@ export function AprForm({ id }: AprFormProps) {
     } finally {
       setFinalizing(false);
     }
-  }, [id, isReadOnly, notifyReadOnly, setValue]);
+  }, [id, isReadOnly, notifyReadOnly, reloadAprWorkflowContext]);
+
+  const handleEmitGovernedPdf = useCallback(async () => {
+    if (!id || !currentApr) return;
+    if (currentApr.status !== "Aprovada") {
+      toast.warning(
+        "Somente APRs aprovadas podem emitir o PDF final governado.",
+      );
+      return;
+    }
+
+    try {
+      setEmittingGovernedPdf(true);
+      const access = await ensureGovernedPdf(currentApr);
+      await reloadAprWorkflowContext(id);
+
+      if (access?.url) {
+        openUrlInNewTab(access.url);
+        return;
+      }
+
+      toast.warning(
+        access?.message ||
+          "O PDF final foi emitido, mas a URL segura ainda não está disponível.",
+      );
+    } catch (error) {
+      console.error("Erro ao emitir PDF governado da APR:", error);
+      toast.error("Não foi possível emitir o PDF final governado.");
+    } finally {
+      setEmittingGovernedPdf(false);
+    }
+  }, [currentApr, ensureGovernedPdf, id, reloadAprWorkflowContext]);
+
+  const handleCloseApr = useCallback(async () => {
+    if (!id || !currentApr) return;
+    if (currentApr.status !== "Aprovada") {
+      toast.warning("Somente APRs aprovadas podem ser encerradas.");
+      return;
+    }
+    if (!currentApr.pdf_file_key) {
+      toast.warning(
+        "Emita o PDF final governado da APR antes de encerrar o documento.",
+      );
+      return;
+    }
+    if (!confirm("Deseja encerrar esta APR?")) return;
+
+    try {
+      setClosingApr(true);
+      await aprsService.finalize(id);
+      await reloadAprWorkflowContext(id);
+      toast.success("APR encerrada com sucesso.");
+    } catch (error) {
+      console.error("Erro ao encerrar APR:", error);
+      toast.error("Não foi possível encerrar a APR.");
+    } finally {
+      setClosingApr(false);
+    }
+  }, [currentApr, id, reloadAprWorkflowContext]);
+
+  const handleOpenGovernedPdf = useCallback(async () => {
+    if (!id || !currentApr) return;
+
+    try {
+      const access = await aprsService.getPdfAccess(id);
+      if (access.url) {
+        openUrlInNewTab(access.url);
+        return;
+      }
+
+      if (currentApr.status === "Aprovada") {
+        await handleEmitGovernedPdf();
+        return;
+      }
+
+      toast.warning(
+        access.message ||
+          "O PDF final governado não está disponível para abertura agora.",
+      );
+    } catch (error) {
+      console.error("Erro ao abrir PDF governado da APR:", error);
+      toast.error("Não foi possível abrir o PDF final governado.");
+    }
+  }, [currentApr, handleEmitGovernedPdf, id]);
 
   const handleCreateVersion = useCallback(async () => {
     if (!id) return;
@@ -1270,7 +1366,9 @@ export function AprForm({ id }: AprFormProps) {
 
   const handleCaptureLocation = useCallback(() => {
     if (isReadOnly) {
-      notifyReadOnly("Captura de localização não está disponível em uma APR bloqueada.");
+      notifyReadOnly(
+        "Captura de localização não está disponível em uma APR bloqueada.",
+      );
       return;
     }
     if (!navigator.geolocation) {
@@ -1291,7 +1389,9 @@ export function AprForm({ id }: AprFormProps) {
 
   const handleUploadEvidence = useCallback(async () => {
     if (isReadOnly) {
-      notifyReadOnly("Envio de evidências não está disponível em uma APR bloqueada.");
+      notifyReadOnly(
+        "Envio de evidências não está disponível em uma APR bloqueada.",
+      );
       return;
     }
     if (!id || !selectedRiskItemEvidence || !evidenceFile) {
@@ -1474,7 +1574,7 @@ export function AprForm({ id }: AprFormProps) {
           });
           setSignatures(sigMap);
           setPersistedSignatures(persistedSigMap);
-          companySeedId = apr.company_id;
+          companySeedId = apr.company_id || companySeedId;
           setActivities(dedupeById(apr.activities || []));
           setRisks(dedupeById(apr.risks || []));
           setEpis(dedupeById(apr.epis || []));
@@ -1588,8 +1688,8 @@ export function AprForm({ id }: AprFormProps) {
 
             if (defaultAprItem) {
               const defaultApr = await aprsService.findOne(defaultAprItem.id);
-              companySeedId = defaultApr.company_id;
-              setValue("company_id", defaultApr.company_id);
+              companySeedId = defaultApr.company_id || companySeedId;
+              setValue("company_id", defaultApr.company_id || "");
               setValue("titulo", defaultApr.titulo);
               setValue("descricao", defaultApr.descricao || "");
               setValue(
@@ -1855,7 +1955,9 @@ export function AprForm({ id }: AprFormProps) {
       value: string,
     ) => {
       if (isReadOnly) {
-        notifyReadOnly("Não é possível alterar seleções/assinaturas em uma APR bloqueada.");
+        notifyReadOnly(
+          "Não é possível alterar seleções/assinaturas em uma APR bloqueada.",
+        );
         return;
       }
       const current = watch(field) || [];
@@ -1888,7 +1990,9 @@ export function AprForm({ id }: AprFormProps) {
   const handleSaveSignature = useCallback(
     (signatureData: string, type: string) => {
       if (isReadOnly) {
-        notifyReadOnly("Não é possível salvar assinaturas em uma APR bloqueada.");
+        notifyReadOnly(
+          "Não é possível salvar assinaturas em uma APR bloqueada.",
+        );
         return;
       }
       if (currentSigningUser) {
@@ -2036,11 +2140,31 @@ export function AprForm({ id }: AprFormProps) {
               {!isReadOnly && !isApproved && (
                 <button
                   type="button"
-                  onClick={handleFinalizeApr}
+                  onClick={handleApproveApr}
                   disabled={finalizing}
                   className={aprSuccessButtonCompactClass}
                 >
                   {finalizing ? "Aprovando..." : "Aprovar APR"}
+                </button>
+              )}
+              {isApproved && !hasFinalPdf && (
+                <button
+                  type="button"
+                  onClick={handleEmitGovernedPdf}
+                  disabled={emittingGovernedPdf}
+                  className={aprSuccessButtonCompactClass}
+                >
+                  {emittingGovernedPdf ? "Emitindo PDF..." : "Emitir PDF final"}
+                </button>
+              )}
+              {isApproved && hasFinalPdf && (
+                <button
+                  type="button"
+                  onClick={handleCloseApr}
+                  disabled={closingApr}
+                  className={aprSuccessButtonCompactClass}
+                >
+                  {closingApr ? "Encerrando..." : "Encerrar APR"}
                 </button>
               )}
               {isApproved && (
@@ -2552,707 +2676,744 @@ export function AprForm({ id }: AprFormProps) {
             disabled={isReadOnly}
             className="border-none p-0 m-0 min-w-0"
           >
-          {currentStep === 1 && (
-            <div className={aprInteractivePanelClass}>
-              <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-text)]">
-                  Informações Básicas
-                  <span className="h-2 w-2 rounded-full bg-[var(--ds-color-action-primary)]"></span>
-                </h2>
-                {aiEnabled && (
-                  <button
-                    type="button"
-                    onClick={handleAiAnalysis}
-                    disabled={analyzing}
-                    className="group flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50"
-                  >
-                    {analyzing ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-4 w-4 group-hover:rotate-12 transition-transform" />
-                    )}
-                    <span>Analisar com GST</span>
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div>
-                  <label className={aprLabelClass}>Número da APR</label>
-                  <input
-                    type="text"
-                    {...register("numero")}
-                    className={cn(
-                      aprFieldClass,
-                      errors.numero && aprFieldErrorClass,
-                    )}
-                    placeholder="Ex: 2024/001"
-                  />
-                  {errors.numero && (
-                    <p className={aprErrorTextClass}>{errors.numero.message}</p>
+            {currentStep === 1 && (
+              <div className={aprInteractivePanelClass}>
+                <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--color-text)]">
+                    Informações Básicas
+                    <span className="h-2 w-2 rounded-full bg-[var(--ds-color-action-primary)]"></span>
+                  </h2>
+                  {aiEnabled && (
+                    <button
+                      type="button"
+                      onClick={handleAiAnalysis}
+                      disabled={analyzing}
+                      className="group flex items-center justify-center space-x-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2.5 text-sm font-bold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-lg)] active:scale-95 disabled:opacity-50"
+                    >
+                      {analyzing ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4 group-hover:rotate-12 transition-transform" />
+                      )}
+                      <span>Analisar com GST</span>
+                    </button>
                   )}
                 </div>
-
-                <div>
-                  <label className={aprLabelClass}>Título da APR</label>
-                  <input
-                    type="text"
-                    {...register("titulo")}
-                    className={cn(
-                      aprFieldClass,
-                      errors.titulo && aprFieldErrorClass,
-                    )}
-                    placeholder="Ex: Instalação de Painéis Solares"
-                  />
-                  {errors.titulo && (
-                    <p className={aprErrorTextClass}>{errors.titulo.message}</p>
-                  )}
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className={aprLabelClass}>Descrição/Escopo</label>
-                  <textarea
-                    {...register("descricao")}
-                    rows={3}
-                    className={aprFieldClass}
-                    placeholder="Descreva o escopo do trabalho..."
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)]/45 px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
-                      Emissão documental
-                    </p>
-                    <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-                      O PDF final da APR não é mais anexado manualmente neste
-                      formulário. Depois da aprovação, use a listagem para
-                      emitir, abrir ou compartilhar o documento governado.
-                    </p>
-                    {hasFinalPdf ? (
-                      <p className="mt-2 text-sm font-semibold text-[var(--color-success)]">
-                        Esta APR já possui PDF final emitido e está bloqueada
-                        para edição.
-                      </p>
-                    ) : isApproved ? (
-                      <p className="mt-2 text-sm font-semibold text-[var(--color-warning)]">
-                        APR aprovada. O próximo passo é emitir o PDF final
-                        governado na listagem.
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div>
-                  <label className={aprLabelClass}>Empresa</label>
-                  <select
-                    {...register("company_id")}
-                    className={cn(
-                      aprFieldClass,
-                      errors.company_id && aprFieldErrorClass,
-                    )}
-                    onChange={(e) => {
-                      const companyId = e.target.value;
-                      setValue("company_id", companyId);
-                      setValue("site_id", "");
-                      setValue("elaborador_id", "");
-                      setValue("activities", []);
-                      setValue("risks", []);
-                      setValue("epis", []);
-                      setValue("tools", []);
-                      setValue("machines", []);
-                      setValue("participants", []);
-                    }}
-                  >
-                    <option value="">Selecione uma empresa</option>
-                    {companies.map((company) => (
-                      <option key={company.id} value={company.id}>
-                        {company.razao_social}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.company_id && (
-                    <p className={aprErrorTextClass}>
-                      {errors.company_id.message}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className={aprLabelClass}>Site/Obra</label>
-                  <select
-                    {...register("site_id")}
-                    disabled={!selectedCompanyId}
-                    className={cn(
-                      aprFieldClass,
-                      errors.site_id && aprFieldErrorClass,
-                      !selectedCompanyId && aprFieldDisabledClass,
-                    )}
-                  >
-                    <option value="">
-                      {selectedCompanyId
-                        ? "Selecione um site"
-                        : "Selecione uma empresa primeiro"}
-                    </option>
-                    {filteredSites.map((site) => (
-                      <option key={site.id} value={site.id}>
-                        {site.nome}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.site_id && (
-                    <p className={aprErrorTextClass}>
-                      {errors.site_id.message}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className={aprLabelClass}>Elaborador</label>
-                  <select
-                    {...register("elaborador_id")}
-                    disabled={!selectedCompanyId}
-                    className={cn(
-                      aprFieldClass,
-                      errors.elaborador_id && aprFieldErrorClass,
-                      !selectedCompanyId && aprFieldDisabledClass,
-                    )}
-                  >
-                    <option value="">
-                      {selectedCompanyId
-                        ? "Selecione um elaborador"
-                        : "Selecione uma empresa primeiro"}
-                    </option>
-                    {filteredUsers.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.nome}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.elaborador_id && (
-                    <p className={aprErrorTextClass}>
-                      {errors.elaborador_id.message}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className={aprLabelClass}>Status</label>
-                  <select
-                    {...register("status")}
-                    disabled
-                    className={cn(aprFieldClass, aprFieldDisabledClass)}
-                  >
-                    <option value="Pendente">Pendente</option>
-                    <option value="Aprovada">Aprovada</option>
-                    <option value="Cancelada">Cancelada</option>
-                    <option value="Encerrada">Encerrada</option>
-                  </select>
-                  <p className="mt-1 text-xs text-[var(--color-text-muted)]">
-                    O status da APR é controlado pelos fluxos formais de
-                    aprovação, reprovação e encerramento.
-                  </p>
-                </div>
-
-                <div>
-                  <label className={aprLabelClass}>Data Início</label>
-                  <input
-                    type="date"
-                    {...register("data_inicio")}
-                    className={aprFieldClass}
-                  />
-                </div>
-
-                <div>
-                  <label className={aprLabelClass}>Data Fim</label>
-                  <input
-                    type="date"
-                    {...register("data_fim")}
-                    className={aprFieldClass}
-                  />
-                </div>
-
-                <div className="flex flex-col space-y-3 md:flex-row md:space-x-6 md:space-y-0 md:col-span-2 pt-2">
-                  <label className="flex items-center space-x-3 cursor-pointer group">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div>
+                    <label className={aprLabelClass}>Número da APR</label>
                     <input
-                      type="checkbox"
-                      {...register("is_modelo")}
-                      className={aprCheckboxClass}
+                      type="text"
+                      {...register("numero")}
+                      className={cn(
+                        aprFieldClass,
+                        errors.numero && aprFieldErrorClass,
+                      )}
+                      placeholder="Ex: 2024/001"
                     />
-                    <span className="text-sm font-semibold text-[var(--color-text-secondary)] transition-colors group-hover:text-[var(--color-text)]">
-                      Salvar como Modelo
-                    </span>
-                  </label>
+                    {errors.numero && (
+                      <p className={aprErrorTextClass}>
+                        {errors.numero.message}
+                      </p>
+                    )}
+                  </div>
 
-                  {isModelo && (
-                    <label className="flex items-center space-x-3 cursor-pointer group animate-in slide-in-from-left-2 duration-300">
+                  <div>
+                    <label className={aprLabelClass}>Título da APR</label>
+                    <input
+                      type="text"
+                      {...register("titulo")}
+                      className={cn(
+                        aprFieldClass,
+                        errors.titulo && aprFieldErrorClass,
+                      )}
+                      placeholder="Ex: Instalação de Painéis Solares"
+                    />
+                    {errors.titulo && (
+                      <p className={aprErrorTextClass}>
+                        {errors.titulo.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className={aprLabelClass}>Descrição/Escopo</label>
+                    <textarea
+                      {...register("descricao")}
+                      rows={3}
+                      className={aprFieldClass}
+                      placeholder="Descreva o escopo do trabalho..."
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)]/45 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
+                        Emissão documental
+                      </p>
+                      <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                        O PDF final da APR não é mais anexado manualmente neste
+                        formulário. Depois da aprovação, emita, abra ou
+                        compartilhe o documento governado pelo fluxo oficial da
+                        própria APR.
+                      </p>
+                      {hasFinalPdf ? (
+                        <p className="mt-2 text-sm font-semibold text-[var(--color-success)]">
+                          Esta APR já possui PDF final emitido e está bloqueada
+                          para edição.
+                        </p>
+                      ) : isApproved ? (
+                        <p className="mt-2 text-sm font-semibold text-[var(--color-warning)]">
+                          APR aprovada. O próximo passo é emitir o PDF final
+                          governado antes do encerramento.
+                        </p>
+                      ) : null}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {isApproved && !hasFinalPdf ? (
+                          <button
+                            type="button"
+                            onClick={handleEmitGovernedPdf}
+                            disabled={emittingGovernedPdf}
+                            className={aprPrimaryCompactButtonClass}
+                          >
+                            {emittingGovernedPdf
+                              ? "Emitindo PDF..."
+                              : "Emitir PDF final"}
+                          </button>
+                        ) : null}
+                        {hasFinalPdf ? (
+                          <button
+                            type="button"
+                            onClick={handleOpenGovernedPdf}
+                            className={aprGhostActionClass}
+                          >
+                            Abrir PDF governado
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={aprLabelClass}>Empresa</label>
+                    <select
+                      {...register("company_id")}
+                      className={cn(
+                        aprFieldClass,
+                        errors.company_id && aprFieldErrorClass,
+                      )}
+                      onChange={(e) => {
+                        const companyId = e.target.value;
+                        setValue("company_id", companyId);
+                        setValue("site_id", "");
+                        setValue("elaborador_id", "");
+                        setValue("activities", []);
+                        setValue("risks", []);
+                        setValue("epis", []);
+                        setValue("tools", []);
+                        setValue("machines", []);
+                        setValue("participants", []);
+                      }}
+                    >
+                      <option value="">Selecione uma empresa</option>
+                      {companies.map((company) => (
+                        <option key={company.id} value={company.id}>
+                          {company.razao_social}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.company_id && (
+                      <p className={aprErrorTextClass}>
+                        {errors.company_id.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className={aprLabelClass}>Site/Obra</label>
+                    <select
+                      {...register("site_id")}
+                      disabled={!selectedCompanyId}
+                      className={cn(
+                        aprFieldClass,
+                        errors.site_id && aprFieldErrorClass,
+                        !selectedCompanyId && aprFieldDisabledClass,
+                      )}
+                    >
+                      <option value="">
+                        {selectedCompanyId
+                          ? "Selecione um site"
+                          : "Selecione uma empresa primeiro"}
+                      </option>
+                      {filteredSites.map((site) => (
+                        <option key={site.id} value={site.id}>
+                          {site.nome}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.site_id && (
+                      <p className={aprErrorTextClass}>
+                        {errors.site_id.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className={aprLabelClass}>Elaborador</label>
+                    <select
+                      {...register("elaborador_id")}
+                      disabled={!selectedCompanyId}
+                      className={cn(
+                        aprFieldClass,
+                        errors.elaborador_id && aprFieldErrorClass,
+                        !selectedCompanyId && aprFieldDisabledClass,
+                      )}
+                    >
+                      <option value="">
+                        {selectedCompanyId
+                          ? "Selecione um elaborador"
+                          : "Selecione uma empresa primeiro"}
+                      </option>
+                      {filteredUsers.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.nome}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.elaborador_id && (
+                      <p className={aprErrorTextClass}>
+                        {errors.elaborador_id.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className={aprLabelClass}>Status</label>
+                    <select
+                      {...register("status")}
+                      disabled
+                      className={cn(aprFieldClass, aprFieldDisabledClass)}
+                    >
+                      <option value="Pendente">Pendente</option>
+                      <option value="Aprovada">Aprovada</option>
+                      <option value="Cancelada">Cancelada</option>
+                      <option value="Encerrada">Encerrada</option>
+                    </select>
+                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                      O status da APR é controlado pelos fluxos formais de
+                      aprovação, reprovação e encerramento.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={aprLabelClass}>Data Início</label>
+                    <input
+                      type="date"
+                      {...register("data_inicio")}
+                      className={aprFieldClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={aprLabelClass}>Data Fim</label>
+                    <input
+                      type="date"
+                      {...register("data_fim")}
+                      className={aprFieldClass}
+                    />
+                  </div>
+
+                  <div className="flex flex-col space-y-3 md:flex-row md:space-x-6 md:space-y-0 md:col-span-2 pt-2">
+                    <label className="flex items-center space-x-3 cursor-pointer group">
                       <input
                         type="checkbox"
-                        {...register("is_modelo_padrao")}
+                        {...register("is_modelo")}
                         className={aprCheckboxClass}
                       />
                       <span className="text-sm font-semibold text-[var(--color-text-secondary)] transition-colors group-hover:text-[var(--color-text)]">
-                        Definir como Modelo Padrão
+                        Salvar como Modelo
                       </span>
                     </label>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
 
-          {currentStep === 2 && (
-            <>
-              <div className="space-y-6">
-                {(sophieSuggestedRisks.length > 0 ||
-                  sophieMandatoryChecklists.length > 0) && (
-                  <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)]/45 p-5">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-primary)]">
-                          Sugestões da SOPHIE
-                        </p>
-                        <h3 className="mt-2 text-lg font-bold text-[var(--color-text)]">
-                          Aplicações rápidas para esta APR
-                        </h3>
-                        <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                          Use um clique para refletir os riscos sugeridos na
-                          seleção e na planilha, ou abrir os checklists
-                          operacionais recomendados.
-                        </p>
-                      </div>
-                      {sophieSuggestedRisks.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={applyAllSuggestedAprRisks}
-                          className={aprSoftPrimaryButtonClass}
-                        >
-                          Aplicar todos os riscos
-                        </button>
-                      ) : null}
-                    </div>
-
-                    {sophieSuggestedRisks.length > 0 ? (
-                      <div className="mt-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-secondary)]">
-                          Riscos sugeridos
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {sophieSuggestedRisks.map((suggestion, index) => {
-                            const alreadySelected =
-                              (suggestion.id &&
-                                selectedRiskIds.includes(suggestion.id)) ||
-                              hasSuggestedRiskInMatrix(suggestion);
-                            return (
-                              <button
-                                key={`${suggestion.label}-${index}`}
-                                type="button"
-                                onClick={() =>
-                                  applySuggestedAprRisk(suggestion)
-                                }
-                                className={cn(
-                                  "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
-                                  alreadySelected
-                                    ? "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]"
-                                    : "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--color-danger)] hover:bg-[color:var(--ds-color-danger-subtle)]/70",
-                                )}
-                              >
-                                {suggestion.label}
-                                {suggestion.category
-                                  ? ` • ${suggestion.category}`
-                                  : ""}
-                                {alreadySelected ? " • Aplicado" : " • Aplicar"}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {sophieMandatoryChecklists.length > 0 ? (
-                      <div className="mt-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-secondary)]">
-                          Checklists de apoio recomendados
-                        </p>
-                        <div className="mt-3 grid gap-3 md:grid-cols-2">
-                          {sophieMandatoryChecklists.map((suggestion) => (
-                            <div
-                              key={suggestion.id}
-                              className="rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-3"
-                            >
-                              <p className="text-sm font-semibold text-[var(--color-text)]">
-                                {suggestion.label}
-                              </p>
-                              <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-                                {suggestion.reason}
-                              </p>
-                              <Link
-                                href={buildChecklistSuggestionHref(suggestion)}
-                                className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-[var(--color-primary)] hover:underline"
-                              >
-                                Abrir checklist recomendado
-                                <ArrowRight className="h-3.5 w-3.5" />
-                              </Link>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-                <SectionGrid
-                  title="Participantes e Assinaturas"
-                  items={filteredUsers}
-                  selectedIds={selectedParticipantIds}
-                  onToggle={(id) => toggleSelection("participants", id)}
-                  signatures={signatures}
-                  color="violet"
-                />
-              </div>
-
-              <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_360px]">
-                <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+4px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
-                <input
-                  ref={excelInputRef}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  className="hidden"
-                  onChange={handleExcelFileSelection}
-                />
-                <div className="sticky top-24 z-20 border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/94 px-5 py-4 backdrop-blur">
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                    <div className="max-w-3xl">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
-                        Grade operacional da APR
-                      </p>
-                      <h2 className="mt-2 text-2xl font-black text-[var(--ds-color-text-primary)]">
-                        Caderno técnico com comportamento de planilha
-                      </h2>
-                      <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-                        Importe, lance, duplique, reordene e revise riscos sem sair
-                        da grade principal.
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => excelInputRef.current?.click()}
-                      disabled={importingExcel || isReadOnly}
-                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
-                    >
-                      {importingExcel ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Upload className="h-4 w-4" />
-                      )}
-                      Importar Excel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        downloadExcel(
-                          "/aprs/export/excel/template",
-                          "apr-template-importacao.xlsx",
-                        )
-                      }
-                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
-                    >
-                      <Download className="h-4 w-4" />
-                      Template
-                    </button>
-                    {id ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          downloadExcel(
-                            `/aprs/${id}/export/excel`,
-                            `apr-${id}.xlsx`,
-                          )
-                        }
-                        className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
-                      >
-                        <Download className="h-4 w-4" />
-                        Exportar Excel
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={handleSuggestControls}
-                      disabled={suggestingControls || isReadOnly}
-                      className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60"
-                    >
-                      {suggestingControls ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-4 w-4" />
-                      )}
-                      Sugerir Controles
-                    </button>
-                    {!isReadOnly ? (
-                      <button
-                        type="button"
-                        onClick={() => appendRisk(createEmptyRiskRow())}
-                        className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Adicionar linha
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-                </div>
-
-                {excelPreview ? (
-                  <div className="mx-5 mt-5 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-4 shadow-[var(--ds-shadow-xs)]">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
-                          Preview da planilha
-                        </p>
-                        <h3 className="mt-1 text-sm font-bold text-[var(--ds-color-text-primary)]">
-                          {excelPreview.fileName}
-                        </h3>
-                        <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
-                          {excelPreview.importedRows} linha(s) pronta(s) ·{" "}
-                          {excelPreview.ignoredRows} ignorada(s)
-                        </p>
-                      </div>
-                      {excelPreview.errors.length === 0 && !isReadOnly ? (
-                        <button
-                          type="button"
-                          onClick={() => applyExcelPreviewToForm(excelPreview)}
-                          className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
-                        >
-                          <CheckCircle2 className="h-4 w-4" />
-                          Aplicar ao formulário
-                        </button>
-                      ) : null}
-                    </div>
-
-                    {excelPreview.warnings.length > 0 ? (
-                      <div className="mt-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-2 text-sm text-[var(--color-warning)]">
-                        {excelPreview.warnings[0]}
-                      </div>
-                    ) : null}
-
-                    {excelPreview.errors.length > 0 ? (
-                      <div className="mt-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2 text-sm text-[var(--color-danger)]">
-                        {excelPreview.errors[0]}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                <div className="mx-5 mt-5 overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-muted)_34%,transparent),transparent)]">
-                  <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-subtle)] px-4 py-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
-                        Cabeçalho compacto
-                      </p>
-                      <p className="mt-1 text-lg font-extrabold text-[var(--ds-color-text-primary)]">
-                        APR - Análise Preliminar de Riscos
-                      </p>
-                    </div>
-                    <div className="inline-flex items-center gap-2 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-text-secondary)]">
-                      <ClipboardList className="h-3.5 w-3.5" />
-                      {totalRiskLines} linha(s) em edição
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 px-4 py-4 md:grid-cols-2 xl:grid-cols-3">
-                    <SummaryMetaCard
-                      label="Descrição"
-                      value={tituloApr || "-"}
-                    />
-                    <SummaryMetaCard
-                      label="Empresa"
-                      value={selectedCompany?.razao_social || "-"}
-                    />
-                    <SummaryMetaCard
-                      label="Site / obra"
-                      value={selectedSite?.nome || "-"}
-                    />
-                    <SummaryMetaCard
-                      label="Data"
-                      value={dataInicioApr || "-"}
-                    />
-                    <SummaryMetaCard
-                      label="Revisão / versão"
-                      value={`${new Date().toLocaleDateString("pt-BR")} / v${currentApr?.versao || 1}`}
-                    />
-                    <SummaryMetaCard
-                      label="Responsável"
-                      value={selectedElaborador?.nome || "-"}
-                    />
-                  </div>
-                </div>
-
-                {/* Executive Summary Panel */}
-                <div className="mx-5 mt-5">
-                  <AprExecutiveSummary
-                    control={control}
-                    variant="panel"
-                    compactMode={compactMode}
-                    onToggleCompactMode={() => {
-                      setCompactMode((v) => !v);
-                      setExpandedRows(new Set());
-                    }}
-                  />
-                </div>
-
-                <div className="mx-5 mt-5">
-                  {errors.itens_risco && (
-                    <div className="mb-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2 text-sm text-[var(--color-danger)]">
-                      {errors.itens_risco.message}
-                    </div>
-                  )}
-
-                  <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-muted)_18%,transparent),transparent)]">
-                    {riskFields.length === 0 ? (
-                      <div className="px-6 py-12 text-center">
-                        <p className="text-base font-semibold text-[var(--ds-color-text-primary)]">
-                          Nenhuma linha adicionada ainda.
-                        </p>
-                        <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-                          Adicione a primeira atividade crítica ou importe uma
-                          planilha existente para acelerar o preenchimento.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <AprRiskGridHeader />
-                        <div className="space-y-3 p-3">
-                          {riskFields.map((field, index) => {
-                            return (
-                              <AprRiskRow
-                                key={field.id}
-                                fieldId={field.id}
-                                index={index}
-                                totalRows={riskFields.length}
-                                readOnly={isReadOnly}
-                                compactMode={compactMode}
-                                expanded={expandedRows.has(index)}
-                                onToggleExpanded={toggleExpandedRow}
-                                onMove={moveRiskRow}
-                                onDuplicate={duplicateRiskRow}
-                                onRemove={handleRemoveRiskRow}
-                                control={control}
-                                register={register}
-                                setValue={setValue}
-                                aprFieldClass={aprFieldClass}
-                              />
-                            );
-                          })}
-                        </div>
-                      </div>
+                    {isModelo && (
+                      <label className="flex items-center space-x-3 cursor-pointer group animate-in slide-in-from-left-2 duration-300">
+                        <input
+                          type="checkbox"
+                          {...register("is_modelo_padrao")}
+                          className={aprCheckboxClass}
+                        />
+                        <span className="text-sm font-semibold text-[var(--color-text-secondary)] transition-colors group-hover:text-[var(--color-text)]">
+                          Definir como Modelo Padrão
+                        </span>
+                      </label>
                     )}
                   </div>
                 </div>
               </div>
+            )}
 
-              <div className="space-y-4 xl:sticky xl:top-24 xl:self-start">
-                <AprRiskReferencePanel
-                  getActionCriteriaText={getActionCriteriaText}
-                />
-                <div className="rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
-                    Feedback visual
+            {currentStep === 2 && (
+              <>
+                <div className="space-y-6">
+                  {(sophieSuggestedRisks.length > 0 ||
+                    sophieMandatoryChecklists.length > 0) && (
+                    <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)]/45 p-5">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-primary)]">
+                            Sugestões da SOPHIE
+                          </p>
+                          <h3 className="mt-2 text-lg font-bold text-[var(--color-text)]">
+                            Aplicações rápidas para esta APR
+                          </h3>
+                          <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                            Use um clique para refletir os riscos sugeridos na
+                            seleção e na planilha, ou abrir os checklists
+                            operacionais recomendados.
+                          </p>
+                        </div>
+                        {sophieSuggestedRisks.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={applyAllSuggestedAprRisks}
+                            className={aprSoftPrimaryButtonClass}
+                          >
+                            Aplicar todos os riscos
+                          </button>
+                        ) : null}
+                      </div>
+
+                      {sophieSuggestedRisks.length > 0 ? (
+                        <div className="mt-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-secondary)]">
+                            Riscos sugeridos
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {sophieSuggestedRisks.map((suggestion, index) => {
+                              const alreadySelected =
+                                (suggestion.id &&
+                                  selectedRiskIds.includes(suggestion.id)) ||
+                                hasSuggestedRiskInMatrix(suggestion);
+                              return (
+                                <button
+                                  key={`${suggestion.label}-${index}`}
+                                  type="button"
+                                  onClick={() =>
+                                    applySuggestedAprRisk(suggestion)
+                                  }
+                                  className={cn(
+                                    "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                                    alreadySelected
+                                      ? "border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]"
+                                      : "border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--color-danger)] hover:bg-[color:var(--ds-color-danger-subtle)]/70",
+                                  )}
+                                >
+                                  {suggestion.label}
+                                  {suggestion.category
+                                    ? ` • ${suggestion.category}`
+                                    : ""}
+                                  {alreadySelected
+                                    ? " • Aplicado"
+                                    : " • Aplicar"}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {sophieMandatoryChecklists.length > 0 ? (
+                        <div className="mt-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-secondary)]">
+                            Checklists de apoio recomendados
+                          </p>
+                          <div className="mt-3 grid gap-3 md:grid-cols-2">
+                            {sophieMandatoryChecklists.map((suggestion) => (
+                              <div
+                                key={suggestion.id}
+                                className="rounded-[var(--ds-radius-lg)] border border-[var(--color-border-subtle)] bg-[color:var(--color-card)] p-3"
+                              >
+                                <p className="text-sm font-semibold text-[var(--color-text)]">
+                                  {suggestion.label}
+                                </p>
+                                <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                                  {suggestion.reason}
+                                </p>
+                                <Link
+                                  href={buildChecklistSuggestionHref(
+                                    suggestion,
+                                  )}
+                                  className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-[var(--color-primary)] hover:underline"
+                                >
+                                  Abrir checklist recomendado
+                                  <ArrowRight className="h-3.5 w-3.5" />
+                                </Link>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                  <SectionGrid
+                    title="Participantes e Assinaturas"
+                    items={filteredUsers}
+                    selectedIds={selectedParticipantIds}
+                    onToggle={(id) => toggleSelection("participants", id)}
+                    signatures={signatures}
+                    color="violet"
+                  />
+                </div>
+
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+                  <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+4px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
+                    <input
+                      ref={excelInputRef}
+                      type="file"
+                      accept=".xlsx,.xls"
+                      className="hidden"
+                      onChange={handleExcelFileSelection}
+                    />
+                    <div className="sticky top-24 z-20 border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/94 px-5 py-4 backdrop-blur">
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                        <div className="max-w-3xl">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                            Grade operacional da APR
+                          </p>
+                          <h2 className="mt-2 text-2xl font-black text-[var(--ds-color-text-primary)]">
+                            Caderno técnico com comportamento de planilha
+                          </h2>
+                          <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                            Importe, lance, duplique, reordene e revise riscos
+                            sem sair da grade principal.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => excelInputRef.current?.click()}
+                            disabled={importingExcel || isReadOnly}
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
+                          >
+                            {importingExcel ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Upload className="h-4 w-4" />
+                            )}
+                            Importar Excel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              downloadExcel(
+                                "/aprs/export/excel/template",
+                                "apr-template-importacao.xlsx",
+                              )
+                            }
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                          >
+                            <Download className="h-4 w-4" />
+                            Template
+                          </button>
+                          {id ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                downloadExcel(
+                                  `/aprs/${id}/export/excel`,
+                                  `apr-${id}.xlsx`,
+                                )
+                              }
+                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                            >
+                              <Download className="h-4 w-4" />
+                              Exportar Excel
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={handleSuggestControls}
+                            disabled={suggestingControls || isReadOnly}
+                            className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-primary-border)] bg-[color:var(--ds-color-primary-subtle)] px-3 py-2 text-sm font-semibold text-[var(--color-primary)] transition-colors hover:bg-[color:var(--ds-color-primary-subtle)]/78 disabled:opacity-60"
+                          >
+                            {suggestingControls ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-4 w-4" />
+                            )}
+                            Sugerir Controles
+                          </button>
+                          {!isReadOnly ? (
+                            <button
+                              type="button"
+                              onClick={() => appendRisk(createEmptyRiskRow())}
+                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-3 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Adicionar linha
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+
+                    {excelPreview ? (
+                      <div className="mx-5 mt-5 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-4 shadow-[var(--ds-shadow-xs)]">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                              Preview da planilha
+                            </p>
+                            <h3 className="mt-1 text-sm font-bold text-[var(--ds-color-text-primary)]">
+                              {excelPreview.fileName}
+                            </h3>
+                            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+                              {excelPreview.importedRows} linha(s) pronta(s) ·{" "}
+                              {excelPreview.ignoredRows} ignorada(s)
+                            </p>
+                          </div>
+                          {excelPreview.errors.length === 0 && !isReadOnly ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                applyExcelPreviewToForm(excelPreview)
+                              }
+                              className="inline-flex items-center gap-2 rounded-[var(--ds-radius-md)] bg-[var(--component-button-primary-bg)] px-4 py-2 text-sm font-semibold text-[var(--color-text-inverse)] shadow-[var(--ds-shadow-sm)] transition-all hover:-translate-y-px hover:shadow-[var(--ds-shadow-md)]"
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                              Aplicar ao formulário
+                            </button>
+                          ) : null}
+                        </div>
+
+                        {excelPreview.warnings.length > 0 ? (
+                          <div className="mt-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-3 py-2 text-sm text-[var(--color-warning)]">
+                            {excelPreview.warnings[0]}
+                          </div>
+                        ) : null}
+
+                        {excelPreview.errors.length > 0 ? (
+                          <div className="mt-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2 text-sm text-[var(--color-danger)]">
+                            {excelPreview.errors[0]}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    <div className="mx-5 mt-5 overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-muted)_34%,transparent),transparent)]">
+                      <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-subtle)] px-4 py-4 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                            Cabeçalho compacto
+                          </p>
+                          <p className="mt-1 text-lg font-extrabold text-[var(--ds-color-text-primary)]">
+                            APR - Análise Preliminar de Riscos
+                          </p>
+                        </div>
+                        <div className="inline-flex items-center gap-2 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-text-secondary)]">
+                          <ClipboardList className="h-3.5 w-3.5" />
+                          {totalRiskLines} linha(s) em edição
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 px-4 py-4 md:grid-cols-2 xl:grid-cols-3">
+                        <SummaryMetaCard
+                          label="Descrição"
+                          value={tituloApr || "-"}
+                        />
+                        <SummaryMetaCard
+                          label="Empresa"
+                          value={selectedCompany?.razao_social || "-"}
+                        />
+                        <SummaryMetaCard
+                          label="Site / obra"
+                          value={selectedSite?.nome || "-"}
+                        />
+                        <SummaryMetaCard
+                          label="Data"
+                          value={dataInicioApr || "-"}
+                        />
+                        <SummaryMetaCard
+                          label="Revisão / versão"
+                          value={`${new Date().toLocaleDateString("pt-BR")} / v${currentApr?.versao || 1}`}
+                        />
+                        <SummaryMetaCard
+                          label="Responsável"
+                          value={selectedElaborador?.nome || "-"}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Executive Summary Panel */}
+                    <div className="mx-5 mt-5">
+                      <AprExecutiveSummary
+                        control={control}
+                        variant="panel"
+                        compactMode={compactMode}
+                        onToggleCompactMode={() => {
+                          setCompactMode((v) => !v);
+                          setExpandedRows(new Set());
+                        }}
+                      />
+                    </div>
+
+                    <div className="mx-5 mt-5">
+                      {errors.itens_risco && (
+                        <div className="mb-4 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-2 text-sm text-[var(--color-danger)]">
+                          {errors.itens_risco.message}
+                        </div>
+                      )}
+
+                      <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-muted)_18%,transparent),transparent)]">
+                        {riskFields.length === 0 ? (
+                          <div className="px-6 py-12 text-center">
+                            <p className="text-base font-semibold text-[var(--ds-color-text-primary)]">
+                              Nenhuma linha adicionada ainda.
+                            </p>
+                            <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                              Adicione a primeira atividade crítica ou importe
+                              uma planilha existente para acelerar o
+                              preenchimento.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <AprRiskGridHeader />
+                            <div className="space-y-3 p-3">
+                              {riskFields.map((field, index) => {
+                                return (
+                                  <AprRiskRow
+                                    key={field.id}
+                                    fieldId={field.id}
+                                    index={index}
+                                    totalRows={riskFields.length}
+                                    readOnly={isReadOnly}
+                                    compactMode={compactMode}
+                                    expanded={expandedRows.has(index)}
+                                    onToggleExpanded={toggleExpandedRow}
+                                    onMove={moveRiskRow}
+                                    onDuplicate={duplicateRiskRow}
+                                    onRemove={handleRemoveRiskRow}
+                                    control={control}
+                                    register={register}
+                                    setValue={setValue}
+                                    aprFieldClass={aprFieldClass}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 xl:sticky xl:top-24 xl:self-start">
+                    <AprRiskReferencePanel
+                      getActionCriteriaText={getActionCriteriaText}
+                    />
+                    <div className="rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                        Feedback visual
+                      </p>
+                      <h3 className="mt-2 text-lg font-black text-[var(--ds-color-text-primary)]">
+                        Leitura rápida da grade
+                      </h3>
+                      <div className="mt-4 space-y-2 text-sm text-[var(--ds-color-text-secondary)]">
+                        <LegendItem
+                          tone="danger"
+                          label="Crítico"
+                          description="Exige ação imediata e aparece com destaque máximo."
+                        />
+                        <LegendItem
+                          tone="warning"
+                          label="Incompleta / sem medida"
+                          description="Linha com matriz parcial ou controle ainda indefinido."
+                        />
+                        <LegendItem
+                          tone="success"
+                          label="Pronta"
+                          description="Identificação, avaliação e medidas já estão coerentes."
+                        />
+                        <LegendItem
+                          tone="info"
+                          label="Alta prioridade"
+                          description="Risco substancial ou máximo antes do fechamento."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {currentStep === 3 && (
+              <>
+                <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                    Revisão operacional
                   </p>
-                  <h3 className="mt-2 text-lg font-black text-[var(--ds-color-text-primary)]">
-                    Leitura rápida da grade
+                  <h3 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
+                    Validação final da APR
                   </h3>
-                  <div className="mt-4 space-y-2 text-sm text-[var(--ds-color-text-secondary)]">
-                    <LegendItem
-                      tone="danger"
-                      label="Crítico"
-                      description="Exige ação imediata e aparece com destaque máximo."
-                    />
-                    <LegendItem
-                      tone="warning"
-                      label="Incompleta / sem medida"
-                      description="Linha com matriz parcial ou controle ainda indefinido."
-                    />
-                    <LegendItem
-                      tone="success"
-                      label="Pronta"
-                      description="Identificação, avaliação e medidas já estão coerentes."
-                    />
-                    <LegendItem
-                      tone="info"
-                      label="Alta prioridade"
-                      description="Risco substancial ou máximo antes do fechamento."
-                    />
+                  <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                    Revise a coerência da matriz de risco, os participantes
+                    assinantes e os anexos antes de persistir a análise.
+                  </p>
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                        Matriz de risco
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                        {totalRiskLines > 0
+                          ? `${totalRiskLines} linha(s) preenchidas`
+                          : "Nenhuma linha cadastrada"}
+                      </p>
+                    </div>
+                    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                        Participantes
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                        {selectedParticipantIds.length} selecionado(s) ·{" "}
+                        {completedSignatures} assinatura(s)
+                      </p>
+                    </div>
+                    <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                        Evidência documental
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                        {currentApr?.pdf_file_key
+                          ? "PDF final governado emitido"
+                          : isApproved
+                            ? "Aguardando emissão final governada"
+                            : "Ainda não elegível para emissão final"}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
-            </>
-          )}
 
-          {currentStep === 3 && (
-            <>
-              <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
-                  Revisão operacional
-                </p>
-                <h3 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
-                  Validação final da APR
-                </h3>
-                <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-                  Revise a coerência da matriz de risco, os participantes
-                  assinantes e os anexos antes de persistir a análise.
-                </p>
-                <div className="mt-4 grid gap-3 md:grid-cols-3">
-                  <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
-                      Matriz de risco
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                      {totalRiskLines > 0
-                        ? `${totalRiskLines} linha(s) preenchidas`
-                        : "Nenhuma linha cadastrada"}
-                    </p>
-                  </div>
-                  <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
-                      Participantes
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                      {selectedParticipantIds.length} selecionado(s) ·{" "}
-                      {completedSignatures} assinatura(s)
-                    </p>
-                  </div>
-                  <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
-                      Evidência documental
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                      {currentApr?.pdf_file_key
-                        ? "PDF final governado emitido"
-                        : isApproved
-                          ? "Aguardando emissão final na listagem"
-                          : "Ainda não elegível para emissão final"}
-                    </p>
-                  </div>
+                  <AprExecutiveSummary control={control} variant="breakdown" />
                 </div>
 
-                <AprExecutiveSummary control={control} variant="breakdown" />
-              </div>
-
-              <details className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
-                <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--ds-color-text-primary)]">
-                  Auditoria avançada (opcional)
-                </summary>
-                <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
-                  Utilize este bloco apenas quando o processo exigir registro
-                  formal de auditoria interna.
-                </p>
-                <div className="mt-4">
-                  <AuditSection register={register} auditors={filteredUsers} />
-                </div>
-              </details>
-            </>
-          )}
-
+                <details className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+                  <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                    Auditoria avançada (opcional)
+                  </summary>
+                  <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+                    Utilize este bloco apenas quando o processo exigir registro
+                    formal de auditoria interna.
+                  </p>
+                  <div className="mt-4">
+                    <AuditSection
+                      register={register}
+                      auditors={filteredUsers}
+                    />
+                  </div>
+                </details>
+              </>
+            )}
           </fieldset>
 
           <div
@@ -3297,29 +3458,62 @@ export function AprForm({ id }: AprFormProps) {
             >
               {currentStep >= 3 ? (
                 hasFinalPdf ? (
+                  <div
+                    className={cn(
+                      "flex flex-col gap-3 sm:flex-row sm:items-center",
+                      isFieldMode && "col-span-2",
+                    )}
+                  >
+                    {isApproved ? (
+                      <button
+                        type="button"
+                        onClick={handleCloseApr}
+                        disabled={closingApr}
+                        className={cn(
+                          aprPrimarySubmitActionClass,
+                          isFieldMode && "min-h-12",
+                        )}
+                      >
+                        {closingApr ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4" />
+                        )}
+                        <span>
+                          {closingApr ? "Encerrando APR..." : "Encerrar APR"}
+                        </span>
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={handleOpenGovernedPdf}
+                      className={cn(
+                        aprGhostActionClass,
+                        "inline-flex items-center justify-center gap-2",
+                        isFieldMode && "min-h-12",
+                      )}
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span>Abrir PDF final</span>
+                    </button>
+                  </div>
+                ) : isApproved ? (
                   <button
                     type="button"
-                    disabled
+                    onClick={handleEmitGovernedPdf}
+                    disabled={emittingGovernedPdf}
                     className={cn(
                       aprPrimarySubmitActionClass,
                       isFieldMode && "min-h-12",
                     )}
                   >
-                    <Save className="h-4 w-4" />
-                    <span>APR bloqueada (PDF final emitido)</span>
+                    {emittingGovernedPdf ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileText className="h-4 w-4" />
+                    )}
+                    <span>Emitir PDF final governado</span>
                   </button>
-                ) : isApproved ? (
-                  <Link
-                    href="/dashboard/aprs"
-                    className={cn(
-                      aprPrimarySubmitActionClass,
-                      "inline-flex",
-                      isFieldMode && "min-h-12",
-                    )}
-                  >
-                    <span>Ir para listagem e emitir PDF final</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
                 ) : (
                   <>
                     <button
@@ -3534,21 +3728,39 @@ function AprRiskReferencePanel({
                 <tbody>
                   <tr>
                     <td className="font-bold">1</td>
-                    <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
-                    <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
-                    <td className="risk-badge-attention text-center font-bold">Atenção</td>
+                    <td className="risk-badge-acceptable text-center font-bold">
+                      Aceitável
+                    </td>
+                    <td className="risk-badge-acceptable text-center font-bold">
+                      Aceitável
+                    </td>
+                    <td className="risk-badge-attention text-center font-bold">
+                      Atenção
+                    </td>
                   </tr>
                   <tr>
                     <td className="font-bold">2</td>
-                    <td className="risk-badge-acceptable text-center font-bold">Aceitável</td>
-                    <td className="risk-badge-attention text-center font-bold">Atenção</td>
-                    <td className="risk-badge-substantial text-center font-bold">Substancial</td>
+                    <td className="risk-badge-acceptable text-center font-bold">
+                      Aceitável
+                    </td>
+                    <td className="risk-badge-attention text-center font-bold">
+                      Atenção
+                    </td>
+                    <td className="risk-badge-substantial text-center font-bold">
+                      Substancial
+                    </td>
                   </tr>
                   <tr>
                     <td className="font-bold">3</td>
-                    <td className="risk-badge-attention text-center font-bold">Atenção</td>
-                    <td className="risk-badge-substantial text-center font-bold">Substancial</td>
-                    <td className="risk-badge-critical text-center font-bold">Crítico</td>
+                    <td className="risk-badge-attention text-center font-bold">
+                      Atenção
+                    </td>
+                    <td className="risk-badge-substantial text-center font-bold">
+                      Substancial
+                    </td>
+                    <td className="risk-badge-critical text-center font-bold">
+                      Crítico
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -3600,14 +3812,27 @@ function ActionCriteriaCard({
   return (
     <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className={cn("inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold", categoria === "Aceitável" ? "risk-badge-acceptable" : categoria === "Atenção" ? "risk-badge-attention" : categoria === "Substancial" ? "risk-badge-substantial" : "risk-badge-critical")}>
+        <span
+          className={cn(
+            "inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold",
+            categoria === "Aceitável"
+              ? "risk-badge-acceptable"
+              : categoria === "Atenção"
+                ? "risk-badge-attention"
+                : categoria === "Substancial"
+                  ? "risk-badge-substantial"
+                  : "risk-badge-critical",
+          )}
+        >
           {categoria}
         </span>
         <span className="text-xs font-semibold text-[var(--ds-color-text-secondary)]">
           {prioridade}
         </span>
       </div>
-      <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">{criterio}</p>
+      <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+        {criterio}
+      </p>
     </div>
   );
 }
@@ -3633,7 +3858,12 @@ function LegendItem({
 
   return (
     <div className="flex items-start gap-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-3 py-3">
-      <span className={cn("mt-1 h-2.5 w-2.5 rounded-full border", toneClasses[tone])} />
+      <span
+        className={cn(
+          "mt-1 h-2.5 w-2.5 rounded-full border",
+          toneClasses[tone],
+        )}
+      />
       <div>
         <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
           {label}

@@ -56,8 +56,8 @@ export class Apr {
   @Column({ type: 'date' })
   data_fim: Date;
 
-  @Column({ default: 'Pendente' })
-  status: string; // Pendente, Aprovada, Cancelada, Encerrada
+  @Column({ type: 'varchar', default: AprStatus.PENDENTE })
+  status: AprStatus;
 
   @Column({ default: false })
   is_modelo: boolean;
