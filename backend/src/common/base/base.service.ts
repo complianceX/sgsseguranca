@@ -69,9 +69,14 @@ export abstract class BaseService<T extends ObjectLiteral> {
     return next;
   }
 
-  async findAll(where: FindOptionsWhere<T> = {}): Promise<T[]> {
+  async findAll(
+    where: FindOptionsWhere<T> = {},
+    options?: { take?: number; select?: string[] },
+  ): Promise<T[]> {
     return this.repository.find({
       where: this.applyTenantFilter(where),
+      ...(options?.take !== undefined && { take: options.take }),
+      ...(options?.select?.length && { select: options.select as any }),
     });
   }
 

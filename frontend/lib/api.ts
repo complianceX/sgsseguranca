@@ -1,4 +1,5 @@
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
+import * as Sentry from '@sentry/nextjs';
 import { tokenStore } from './tokenStore';
 import { sessionStore } from './sessionStore';
 import { authRefreshHint } from './authRefreshHint';
@@ -109,6 +110,19 @@ api.interceptors.request.use((config) => {
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  // Propagação de trace Sentry → backend (correlação Sentry ↔ Jaeger/logs)
+  try {
+    const traceData = Sentry.getTraceData();
+    if (traceData['sentry-trace']) {
+      config.headers['sentry-trace'] = traceData['sentry-trace'];
+    }
+    if (traceData['baggage']) {
+      config.headers['baggage'] = traceData['baggage'];
+    }
+  } catch {
+    // Sentry não inicializado (ex: testes, SSR sem DSN) — ignorar silenciosamente
   }
 
   const existingCompanyId =

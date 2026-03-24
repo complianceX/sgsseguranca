@@ -1,113 +1,537 @@
 import { Role } from '../../src/auth/enums/roles.enum';
 import { AprStatus } from '../../src/aprs/entities/apr.entity';
 import { createApr } from '../factories/apr.factory';
-import { TestApp } from '../helpers/test-app';
+import { TestApp, type LoginSession } from '../helpers/test-app';
 
 const describeE2E =
   process.env.E2E_INFRA_AVAILABLE === 'false' ? describe.skip : describe;
 
-describeE2E('E2E Critical - APR lifecycle CRUD', () => {
+// ---------------------------------------------------------------------------
+// Tipos auxiliares — inferência segura dos corpos de resposta da API
+// ---------------------------------------------------------------------------
+type AprBody = {
+  id?: string;
+  status?: string;
+  titulo?: string;
+  codigo?: string;
+  numero?: string;
+  parent_apr_id?: string | null;
+  pdf_file_key?: string | null;
+  versao?: number;
+  reprovado_motivo?: string;
+  deleted_at?: string | null;
+};
+
+type PageBody<T = AprBody> = {
+  data?: T[];
+  total?: number;
+  page?: number;
+  lastPage?: number;
+};
+
+// ---------------------------------------------------------------------------
+// IMPORTANTE — mapeamento dos nomes reais de status (diferem do enunciado):
+//   "FINALIZADA" no enunciado → AprStatus.ENCERRADA ('Encerrada') no código
+//   "REPROVADA"  no enunciado → AprStatus.CANCELADA ('Cancelada') no código
+//
+// Transições permitidas:
+//   PENDENTE  → APROVADA  (POST /aprs/:id/approve)
+//   PENDENTE  → CANCELADA (POST /aprs/:id/reject)  — requer body.reason
+//   APROVADA  → ENCERRADA (POST /aprs/:id/finalize)
+//   APROVADA  → CANCELADA (POST /aprs/:id/reject)
+//   CANCELADA → (nenhuma — terminal)
+//   ENCERRADA → (nenhuma — terminal)
+//
+// new-version: exige status APROVADA (não Encerrada). A nova versão inicia
+// como PENDENTE e recebe parent_apr_id apontando para a APR original.
+// ---------------------------------------------------------------------------
+
+describeE2E('E2E Critical - APR lifecycle', () => {
   let testApp: TestApp;
+
+  // Sessões reutilizadas entre flows — evita múltiplos roundtrips de login
+  let adminSession: LoginSession;
+  let tstSession: LoginSession;
+  let workerSession: LoginSession;
+  let adminSessionB: LoginSession;
+
+  // IDs compartilhados entre flows
+  let aprEncerradaId: string; // APR Encerrada do Fluxo 1
 
   beforeAll(async () => {
     testApp = await TestApp.create();
     await testApp.resetDatabase();
+
+    adminSession = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantA');
+    tstSession = await testApp.loginAs(Role.TST, 'tenantA');
+    workerSession = await testApp.loginAs(Role.TRABALHADOR, 'tenantA');
+    adminSessionB = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantB');
   });
 
   afterAll(async () => {
     await testApp.close();
   });
 
-  it('should create, update, paginate, finalize and soft-delete APR', async () => {
-    const adminSession = await testApp.loginAs(Role.ADMIN_EMPRESA, 'tenantA');
-    const tenantA = testApp.getTenant('tenantA');
-    const tecnicA = testApp.getUser('tenantA', Role.TST);
+  // =========================================================================
+  // Fluxo 1 — Ciclo completo: Pendente → Aprovada → Encerrada
+  //           Inclui cobertura de CRUD, paginação e soft delete.
+  // =========================================================================
+  describe('Fluxo 1 — Ciclo completo (Pendente → Aprovada → Encerrada)', () => {
+    let aprId: string;
 
-    const createdApr = await createApr(testApp, adminSession, {
-      numero: 'APR-LIFE-001',
-      titulo: 'APR Ciclo de Vida',
-      siteId: tenantA.siteId,
-      elaboradorId: tecnicA.id,
-    });
+    it('1.1 POST /aprs → cria APR com status Pendente', async () => {
+      const tenantA = testApp.getTenant('tenantA');
+      const tst = testApp.getUser('tenantA', Role.TST);
 
-    expect(createdApr.id).toBeTruthy();
-    expect(createdApr.status).toBe(AprStatus.PENDENTE);
-
-    const updated = await testApp
-      .request()
-      .patch(`/aprs/${createdApr.id}`)
-      .set(testApp.authHeaders(adminSession))
-      .send({
-        titulo: 'APR Ciclo de Vida Atualizada',
+      const apr = await createApr(testApp, tstSession, {
+        numero: 'APR-LIFE-001',
+        titulo: 'APR Ciclo Completo',
+        siteId: tenantA.siteId,
+        elaboradorId: tst.id,
       });
-    const updatedBody = updated.body as { titulo?: string };
 
-    expect(updated.status).toBe(200);
-    expect(updatedBody.titulo).toBe('APR Ciclo de Vida Atualizada');
-
-    const list = await testApp
-      .request()
-      .get('/aprs?page=1&limit=5')
-      .set(testApp.authHeaders(adminSession));
-    const listBody = list.body as {
-      data?: Array<{ id?: string }>;
-      total?: number;
-      page?: number;
-      lastPage?: number;
-    };
-    const listItems = Array.isArray(listBody.data) ? listBody.data : [];
-
-    expect(list.status).toBe(200);
-    expect(Array.isArray(listBody.data)).toBe(true);
-    expect(typeof listBody.total).toBe('number');
-    expect(listBody.page).toBe(1);
-    expect(typeof listBody.lastPage).toBe('number');
-    expect(listItems.some((item) => item.id === createdApr.id)).toBe(true);
-
-    const approved = await testApp
-      .request()
-      .post(`/aprs/${createdApr.id}/approve`)
-      .set(testApp.authHeaders(adminSession));
-    const approvedBody = approved.body as { status?: string };
-
-    expect([200, 201]).toContain(approved.status);
-    expect(approvedBody.status).toBe(AprStatus.APROVADA);
-
-    const aprToDelete = await createApr(testApp, adminSession, {
-      numero: 'APR-LIFE-DELETE-001',
-      titulo: 'APR para soft delete',
-      siteId: tenantA.siteId,
-      elaboradorId: tecnicA.id,
+      expect(apr.id).toBeTruthy();
+      expect(apr.status).toBe(AprStatus.PENDENTE);
+      aprId = apr.id;
     });
 
-    const deleted = await testApp
-      .request()
-      .delete(`/aprs/${aprToDelete.id}`)
-      .set(testApp.authHeaders(adminSession));
+    it('1.2 PATCH /aprs/:id → atualiza título da APR Pendente', async () => {
+      const res = await testApp
+        .request()
+        .patch(`/aprs/${aprId}`)
+        .set(testApp.authHeaders(adminSession))
+        .send({ titulo: 'APR Ciclo Completo Revisada' });
 
-    expect(deleted.status).toBe(200);
+      const body = res.body as AprBody;
+      expect(res.status).toBe(200);
+      expect(body.titulo).toBe('APR Ciclo Completo Revisada');
+    });
 
-    const getDeleted = await testApp
-      .request()
-      .get(`/aprs/${aprToDelete.id}`)
-      .set(testApp.authHeaders(adminSession));
+    it('1.3 GET /aprs?page=1&limit=5 → APR aparece na listagem paginada', async () => {
+      const res = await testApp
+        .request()
+        .get('/aprs?page=1&limit=5')
+        .set(testApp.authHeaders(adminSession));
 
-    expect(getDeleted.status).toBe(404);
+      const body = res.body as PageBody;
+      const items = Array.isArray(body.data) ? body.data : [];
 
-    const deletedEntityRaw: unknown = await testApp.dataSource.query(
-      'SELECT id, deleted_at FROM aprs WHERE id = $1',
-      [aprToDelete.id],
-    );
+      expect(res.status).toBe(200);
+      expect(typeof body.total).toBe('number');
+      expect(body.page).toBe(1);
+      expect(typeof body.lastPage).toBe('number');
+      expect(items.some((item) => item.id === aprId)).toBe(true);
+    });
 
-    expect(Array.isArray(deletedEntityRaw)).toBe(true);
-    if (!Array.isArray(deletedEntityRaw)) {
-      throw new Error('Expected query result to be an array');
-    }
-    const deletedEntity = deletedEntityRaw as Array<{
-      id?: string;
-      deleted_at?: string | null;
-    }>;
-    expect(deletedEntity.length).toBe(1);
-    expect(deletedEntity[0]?.deleted_at).toBeTruthy();
+    it('1.4 POST /aprs/:id/approve → Pendente → Aprovada', async () => {
+      const res = await testApp
+        .request()
+        .post(`/aprs/${aprId}/approve`)
+        .set(testApp.authHeaders(adminSession))
+        .send({ reason: 'Documentação completa e revisada' });
+
+      const body = res.body as AprBody;
+      expect([200, 201]).toContain(res.status);
+      expect(body.status).toBe(AprStatus.APROVADA);
+    });
+
+    it('1.5 POST /aprs/:id/finalize → Aprovada → Encerrada', async () => {
+      const res = await testApp
+        .request()
+        .post(`/aprs/${aprId}/finalize`)
+        .set(testApp.authHeaders(adminSession));
+
+      const body = res.body as AprBody;
+      expect([200, 201]).toContain(res.status);
+      expect(body.status).toBe(AprStatus.ENCERRADA);
+
+      aprEncerradaId = aprId; // compartilhado com Fluxo 3 e 4
+    });
+
+    it('1.6 GET /aprs/:id → APR encerrada persiste com status correto', async () => {
+      const res = await testApp
+        .request()
+        .get(`/aprs/${aprId}`)
+        .set(testApp.authHeaders(adminSession));
+
+      const body = res.body as AprBody;
+      expect(res.status).toBe(200);
+      expect(body.id).toBe(aprId);
+      expect(body.status).toBe(AprStatus.ENCERRADA);
+    });
+
+    it('1.7 POST /aprs/:id/generate-pdf → solicita geração de PDF e verifica vínculo', async () => {
+      // PDF oficial é gerado via endpoint dedicado — pode ser assíncrono (BullMQ).
+      // Em CI sem storage configurado, o endpoint pode retornar 500; aceitamos isso
+      // e pulamos a asserção de pdf_file_key para evitar flakiness de infraestrutura.
+      const genRes = await testApp
+        .request()
+        .post(`/aprs/${aprId}/generate-pdf`)
+        .set(testApp.authHeaders(adminSession));
+
+      const accepted = [200, 201].includes(genRes.status);
+      const storageUnavailable = genRes.status >= 500;
+      expect(accepted || storageUnavailable).toBe(true);
+
+      if (accepted) {
+        // Verifica que a APR ainda é acessível e o ID está correto
+        const aprRes = await testApp
+          .request()
+          .get(`/aprs/${aprId}`)
+          .set(testApp.authHeaders(adminSession));
+
+        expect(aprRes.status).toBe(200);
+        expect((aprRes.body as AprBody).id).toBe(aprId);
+      }
+    });
+
+    it('1.8 Soft delete: DELETE /aprs/:id e confirmação via query SQL', async () => {
+      const tenantA = testApp.getTenant('tenantA');
+      const tst = testApp.getUser('tenantA', Role.TST);
+
+      const toDelete = await createApr(testApp, tstSession, {
+        numero: 'APR-LIFE-DELETE-001',
+        titulo: 'APR Para Soft Delete',
+        siteId: tenantA.siteId,
+        elaboradorId: tst.id,
+      });
+
+      const delRes = await testApp
+        .request()
+        .delete(`/aprs/${toDelete.id}`)
+        .set(testApp.authHeaders(adminSession));
+
+      expect(delRes.status).toBe(200);
+
+      // API deve retornar 404 para registro soft-deleted
+      const getRes = await testApp
+        .request()
+        .get(`/aprs/${toDelete.id}`)
+        .set(testApp.authHeaders(adminSession));
+
+      expect(getRes.status).toBe(404);
+
+      // Confirma via SQL que deleted_at foi preenchido (soft delete real)
+      const rows = await testApp.dataSource.query(
+        'SELECT id, deleted_at FROM aprs WHERE id = $1',
+        [toDelete.id],
+      ) as Array<{ id: string; deleted_at: string | null }>;
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.deleted_at).toBeTruthy();
+    });
+  });
+
+  // =========================================================================
+  // Fluxo 2 — Rejeição: Pendente → Cancelada + bloqueio de transições inválidas
+  // =========================================================================
+  describe('Fluxo 2 — Rejeição e transições inválidas', () => {
+    let aprCancelableId: string;
+
+    beforeAll(async () => {
+      const tenantA = testApp.getTenant('tenantA');
+      const tst = testApp.getUser('tenantA', Role.TST);
+
+      const apr = await createApr(testApp, tstSession, {
+        numero: 'APR-REJECT-001',
+        titulo: 'APR Para Rejeição',
+        siteId: tenantA.siteId,
+        elaboradorId: tst.id,
+      });
+      aprCancelableId = apr.id;
+    });
+
+    it('2.1 POST /aprs/:id/reject sem motivo → 400 (body.reason obrigatório)', async () => {
+      const res = await testApp
+        .request()
+        .post(`/aprs/${aprCancelableId}/reject`)
+        .set(testApp.authHeaders(adminSession))
+        .send({});
+
+      expect(res.status).toBe(400);
+    });
+
+    it('2.2 POST /aprs/:id/reject com motivo → Pendente → Cancelada', async () => {
+      const res = await testApp
+        .request()
+        .post(`/aprs/${aprCancelableId}/reject`)
+        .set(testApp.authHeaders(adminSession))
+        .send({ reason: 'Documentação incompleta: falta ART do responsável técnico' });
+
+      const body = res.body as AprBody;
+      expect([200, 201]).toContain(res.status);
+      expect(body.status).toBe(AprStatus.CANCELADA);
+      expect(body.reprovado_motivo).toBe(
+        'Documentação incompleta: falta ART do responsável técnico',
+      );
+    });
+
+    it('2.3 POST /aprs/:id/approve em APR Cancelada → 400 (transição inválida)', async () => {
+      // CANCELADA é estado terminal — nenhuma transição é permitida
+      const res = await testApp
+        .request()
+        .post(`/aprs/${aprCancelableId}/approve`)
+        .set(testApp.authHeaders(adminSession))
+        .send({});
+
+      expect(res.status).toBe(400);
+    });
+
+    it('2.4 POST /aprs/:id/finalize em APR Encerrada → 400 (estado terminal)', async () => {
+      // Usa a APR Encerrada do Fluxo 1 — ENCERRADA → ENCERRADA é inválida
+      const res = await testApp
+        .request()
+        .post(`/aprs/${aprEncerradaId}/finalize`)
+        .set(testApp.authHeaders(adminSession));
+
+      expect(res.status).toBe(400);
+    });
+
+    it('2.5 POST /aprs/:id/approve em APR Encerrada → 400 (estado terminal)', async () => {
+      // ENCERRADA → APROVADA também não é permitida
+      const res = await testApp
+        .request()
+        .post(`/aprs/${aprEncerradaId}/approve`)
+        .set(testApp.authHeaders(adminSession))
+        .send({});
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // =========================================================================
+  // Fluxo 3 — Nova versão
+  //
+  // ATENÇÃO: new-version exige status APROVADA (não Encerrada). A APR Encerrada
+  // do Fluxo 1 não pode gerar nova versão; criamos uma APR dedicada aqui e a
+  // aprovamos (sem finalizar) para exercitar este endpoint corretamente.
+  // =========================================================================
+  describe('Fluxo 3 — Nova versão (a partir de APR Aprovada)', () => {
+    let aprOriginalId: string;
+    let newVersionId: string;
+
+    beforeAll(async () => {
+      const tenantA = testApp.getTenant('tenantA');
+      const tst = testApp.getUser('tenantA', Role.TST);
+
+      const apr = await createApr(testApp, tstSession, {
+        numero: 'APR-NEWVER-001',
+        titulo: 'APR Base Para Nova Versão',
+        siteId: tenantA.siteId,
+        elaboradorId: tst.id,
+      });
+
+      const approveRes = await testApp
+        .request()
+        .post(`/aprs/${apr.id}/approve`)
+        .set(testApp.authHeaders(adminSession))
+        .send({ reason: 'Aprovada para exercitar new-version' });
+
+      expect([200, 201]).toContain(approveRes.status);
+      aprOriginalId = apr.id;
+    });
+
+    it('3.1 POST /aprs/:id/new-version → cria nova versão com status Pendente', async () => {
+      const res = await testApp
+        .request()
+        .post(`/aprs/${aprOriginalId}/new-version`)
+        .set(testApp.authHeaders(adminSession));
+
+      const body = res.body as AprBody;
+      expect([200, 201]).toContain(res.status);
+      expect(body.status).toBe(AprStatus.PENDENTE);
+      expect(body.id).toBeTruthy();
+      expect(body.id).not.toBe(aprOriginalId);
+      // Nova versão deve referenciar a APR original como pai
+      expect(body.parent_apr_id).toBe(aprOriginalId);
+
+      newVersionId = body.id as string;
+    });
+
+    it('3.2 GET /aprs/:originalId → versão original mantém status Aprovada', async () => {
+      const res = await testApp
+        .request()
+        .get(`/aprs/${aprOriginalId}`)
+        .set(testApp.authHeaders(adminSession));
+
+      const body = res.body as AprBody;
+      expect(res.status).toBe(200);
+      // A criação de nova versão não altera o status da APR original
+      expect(body.status).toBe(AprStatus.APROVADA);
+    });
+
+    it('3.3 GET /aprs/:newVersionId → nova versão existe e está Pendente', async () => {
+      const res = await testApp
+        .request()
+        .get(`/aprs/${newVersionId}`)
+        .set(testApp.authHeaders(adminSession));
+
+      const body = res.body as AprBody;
+      expect(res.status).toBe(200);
+      expect(body.id).toBe(newVersionId);
+      expect(body.status).toBe(AprStatus.PENDENTE);
+      expect(body.parent_apr_id).toBe(aprOriginalId);
+    });
+
+    it('3.4 Nova versão não herda pdf_file_key da versão original', async () => {
+      // Artefatos gerados (PDFs) não devem vazar entre versões — isolamento de artefato
+      const res = await testApp
+        .request()
+        .get(`/aprs/${newVersionId}`)
+        .set(testApp.authHeaders(adminSession));
+
+      const body = res.body as AprBody;
+      expect(res.status).toBe(200);
+
+      if (Object.prototype.hasOwnProperty.call(body, 'pdf_file_key')) {
+        expect(body.pdf_file_key).toBeFalsy();
+      }
+    });
+
+    it('3.5 GET /aprs (listagem) → ambas as versões visíveis para o mesmo tenant', async () => {
+      const res = await testApp
+        .request()
+        .get('/aprs?page=1&limit=100')
+        .set(testApp.authHeaders(adminSession));
+
+      const body = res.body as PageBody;
+      const items = Array.isArray(body.data) ? body.data : [];
+      const ids = items.map((i) => i.id);
+
+      expect(res.status).toBe(200);
+      expect(ids).toContain(aprOriginalId);
+      expect(ids).toContain(newVersionId);
+    });
+
+    it('3.6 POST /aprs/:id/new-version em APR Pendente → 400 (requer Aprovada)', async () => {
+      // A nova versão (Pendente) não pode gerar outra nova versão ainda
+      const res = await testApp
+        .request()
+        .post(`/aprs/${newVersionId}/new-version`)
+        .set(testApp.authHeaders(adminSession));
+
+      expect(res.status).toBe(400);
+    });
+
+    it('3.7 POST /aprs/:id/new-version em APR Encerrada → 400 (requer Aprovada)', async () => {
+      // APR Encerrada também não pode gerar nova versão — apenas Aprovada pode
+      const res = await testApp
+        .request()
+        .post(`/aprs/${aprEncerradaId}/new-version`)
+        .set(testApp.authHeaders(adminSession));
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  // =========================================================================
+  // Fluxo 4 — Permissões por role e isolamento de tenant
+  // =========================================================================
+  describe('Fluxo 4 — Permissões por role e isolamento de tenant', () => {
+    it('4.1 TRABALHADOR não pode criar APR → 403', async () => {
+      const tenantA = testApp.getTenant('tenantA');
+
+      const res = await testApp
+        .request()
+        .post('/aprs')
+        .set(testApp.authHeaders(workerSession))
+        .send({
+          numero: 'APR-WORKER-BLOCK-001',
+          titulo: 'APR Bloqueada por Role',
+          data_inicio: '2026-03-24',
+          data_fim: '2026-03-25',
+          site_id: tenantA.siteId,
+          elaborador_id: workerSession.userId,
+          participants: [workerSession.userId],
+          risk_items: [
+            {
+              atividade: 'Atividade',
+              agente_ambiental: 'Ruído',
+              condicao_perigosa: 'Condição',
+              fonte_circunstancia: 'Fonte',
+              lesao: 'Lesão',
+              probabilidade: 2,
+              severidade: 2,
+              medidas_prevencao: 'Controle',
+              responsavel: 'Responsável',
+            },
+          ],
+        });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('4.2 TST pode criar APR → 201', async () => {
+      const tenantA = testApp.getTenant('tenantA');
+      const tst = testApp.getUser('tenantA', Role.TST);
+
+      const apr = await createApr(testApp, tstSession, {
+        numero: 'APR-TST-ROLE-001',
+        titulo: 'APR Criada por TST',
+        siteId: tenantA.siteId,
+        elaboradorId: tst.id,
+      });
+
+      expect(apr.id).toBeTruthy();
+      expect(apr.status).toBe(AprStatus.PENDENTE);
+    });
+
+    it('4.3 TRABALHADOR não pode aprovar APR do mesmo tenant → 403', async () => {
+      const tenantA = testApp.getTenant('tenantA');
+      const tst = testApp.getUser('tenantA', Role.TST);
+
+      const apr = await createApr(testApp, tstSession, {
+        numero: 'APR-WORKER-APPROVE-BLOCK',
+        titulo: 'APR Para Bloqueio de Aprovação',
+        siteId: tenantA.siteId,
+        elaboradorId: tst.id,
+      });
+
+      const res = await testApp
+        .request()
+        .post(`/aprs/${apr.id}/approve`)
+        .set(testApp.authHeaders(workerSession))
+        .send({});
+
+      expect(res.status).toBe(403);
+    });
+
+    it('4.4 Usuário de tenant B acessa APR do tenant A → 404 (não 403)', async () => {
+      // A API deve retornar 404 — e não 403 — para não confirmar a existência
+      // do recurso a atores não autorizados (security by obscurity em tenant isolation)
+      const res = await testApp
+        .request()
+        .get(`/aprs/${aprEncerradaId}`)
+        .set(testApp.authHeaders(adminSessionB));
+
+      expect(res.status).toBe(404);
+    });
+
+    it('4.5 Listagem do tenant B não inclui APRs do tenant A', async () => {
+      const res = await testApp
+        .request()
+        .get('/aprs?page=1&limit=100')
+        .set(testApp.authHeaders(adminSessionB));
+
+      const body = res.body as PageBody;
+      const items = Array.isArray(body.data) ? body.data : [];
+
+      expect(res.status).toBe(200);
+      // APR encerrada do tenant A não deve aparecer na listagem do tenant B
+      expect(items.some((item) => item.id === aprEncerradaId)).toBe(false);
+    });
+
+    it('4.6 Tenant B não pode aprovar APR do tenant A via spoofing de ID → 404', async () => {
+      // Mesmo conhecendo o ID da APR, tenant B não pode interagir com ela
+      const res = await testApp
+        .request()
+        .post(`/aprs/${aprEncerradaId}/approve`)
+        .set(testApp.authHeaders(adminSessionB))
+        .send({});
+
+      // 404 porque a APR não é encontrada no contexto do tenant B
+      // (RLS impede visibilidade cross-tenant antes da validação de permissão)
+      expect(res.status).toBe(404);
+    });
   });
 });

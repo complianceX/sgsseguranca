@@ -16,6 +16,7 @@ interface RequestWithUser extends Request {
   };
   requestId?: string;
   requestStartAt?: number;
+  sentryTraceId?: string;
 }
 
 @Injectable()
@@ -35,13 +36,14 @@ export class LoggingInterceptor implements NestInterceptor {
       (request.headers['x-request-id'] as string) ||
       'unknown';
     const isAuthRoute = typeof url === 'string' && url.startsWith('/auth');
+    const sentryTraceId = request.sentryTraceId;
 
     // Reforça o mesmo requestId no request para uso em filtros/logs.
     request.requestId = requestId;
     request.requestStartAt = Date.now();
 
     // Log de entrada
-    const baseLog = {
+    const baseLog: Record<string, unknown> = {
       type: 'REQUEST',
       requestId,
       method,
@@ -50,7 +52,11 @@ export class LoggingInterceptor implements NestInterceptor {
       userAgent,
       userId: request.user?.userId,
       companyId: request.user?.company_id,
-    } as Record<string, unknown>;
+    };
+
+    if (sentryTraceId) {
+      baseLog.sentryTraceId = sentryTraceId;
+    }
 
     // LGPD: não logar body em rotas /auth (credenciais/refresh/logout).
     if (!isAuthRoute) {
@@ -65,7 +71,7 @@ export class LoggingInterceptor implements NestInterceptor {
           const responseTime = Date.now() - request.requestStartAt!;
           const response = context.switchToHttp().getResponse<Response>();
 
-          this.writeLog('log', {
+          const responseLog: Record<string, unknown> = {
             type: 'RESPONSE',
             requestId,
             method,
@@ -74,7 +80,13 @@ export class LoggingInterceptor implements NestInterceptor {
             responseTimeMs: responseTime,
             userId: request.user?.userId,
             companyId: request.user?.company_id,
-          });
+          };
+
+          if (sentryTraceId) {
+            responseLog.sentryTraceId = sentryTraceId;
+          }
+
+          this.writeLog('log', responseLog);
         },
       }),
     );

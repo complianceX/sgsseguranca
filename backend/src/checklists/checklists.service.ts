@@ -1132,6 +1132,7 @@ export class ChecklistsService {
   async findAll(options?: {
     onlyTemplates?: boolean;
     excludeTemplates?: boolean;
+    take?: number;
   }): Promise<ChecklistResponseDto[]> {
     const tenantId = this.tenantService.getTenantId();
     this.logger.debug(`Buscando checklists para empresa: ${tenantId}`);
@@ -1150,6 +1151,7 @@ export class ChecklistsService {
       where: { ...filter, deleted_at: IsNull() },
       relations: ['company', 'site', 'inspetor', 'auditado_por'],
       order: { created_at: 'DESC' },
+      ...(options?.take !== undefined && { take: options.take }),
     });
     return results.map((c) => plainToClass(ChecklistResponseDto, c));
   }

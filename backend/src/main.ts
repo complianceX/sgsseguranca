@@ -164,6 +164,9 @@ async function bootstrap() {
           new BullMQAdapter(app.get<Queue>(getQueueToken('document-import'))),
           new BullMQAdapter(app.get<Queue>(getQueueToken('sla-escalation'))),
           new BullMQAdapter(
+            app.get<Queue>(getQueueToken('expiry-notifications')),
+          ),
+          new BullMQAdapter(
             app.get<Queue>(getQueueToken('document-import-dlq')),
           ),
         ],
@@ -326,6 +329,15 @@ async function bootstrap() {
       callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Request-ID',
+      'x-company-id',
+      'sentry-trace',
+      'baggage',
+    ],
+    exposedHeaders: ['X-Request-ID'],
   });
 
   if (process.env.NODE_ENV !== 'production') {

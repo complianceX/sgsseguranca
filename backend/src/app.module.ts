@@ -103,6 +103,7 @@ import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
 import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import { DatabaseLogger } from './common/logging/database.logger';
 import { RequestContextMiddleware } from './common/middleware/request-context.middleware';
+import { SentryTraceMiddleware } from './common/middleware/sentry-trace.middleware';
 import { SecurityAuditModule } from './common/security/security-audit.module';
 import { SecurityActionInterceptor } from './common/security/security-action.interceptor';
 import { isRedisDisabled } from './queue/redis-disabled-queue';
@@ -1017,7 +1018,7 @@ export class AppModule implements OnModuleInit {
     consumer
       // CSRF: removido. Modelo oficial: Authorization Bearer (access token) + refresh token httpOnly cookie.
       // Sem cookie de auth principal, CSRF não se aplica ao fluxo principal.
-      .apply(RequestContextMiddleware, TenantMiddleware)
+      .apply(RequestContextMiddleware, SentryTraceMiddleware, TenantMiddleware)
       .forRoutes('*');
   }
 }

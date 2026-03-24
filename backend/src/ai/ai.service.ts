@@ -954,7 +954,8 @@ export class AiService {
     const code = `NC-AUTO-CHK-${checklistId.slice(0, 8).toUpperCase()}`;
 
     try {
-      const existing = await this.nonConformitiesService.findAll();
+      // Limite intencional: contexto de IA não precisa de todos os registros; 500 é suficiente para deduplicação de código NC.
+      const existing = await this.nonConformitiesService.findAll({ take: 500 });
       const alreadyExists = this.toLooseRecordArray(existing).some(
         (nc) => this.toSafeString(nc.codigo_nc).toUpperCase() === code,
       );
@@ -1212,9 +1213,10 @@ export class AiService {
     const tenantId = this.getTenantIdOrThrow();
     await this.enforceRateLimit(tenantId);
 
+    // Limite intencional: contexto de IA usa apenas campos mínimos para análise de APR; 500 registros por entidade é teto seguro.
     const [risks, epis] = await Promise.all([
-      this.risksService.findAll(),
-      this.episService.findAll(),
+      this.risksService.findAll({}, { take: 500, select: ['id', 'nome', 'categoria'] }),
+      this.episService.findAll({}, { take: 500, select: ['id', 'nome', 'ca'] }),
     ]);
 
     const riskOptions = this.toLooseRecordArray(risks)
@@ -1852,7 +1854,8 @@ export class AiService {
       this.toolsService.findPaginated({ page: 1, limit: 80, companyId }),
       this.machinesService.findPaginated({ page: 1, limit: 80, companyId }),
       this.usersService.findPaginated({ page: 1, limit: 80, companyId }),
-      this.checklistsService.findAll({ onlyTemplates: true }).catch(() => []),
+      // Limite intencional: contexto de IA não precisa de todos os templates; 500 é teto seguro.
+      this.checklistsService.findAll({ onlyTemplates: true, take: 500 }).catch(() => []),
     ]);
 
     const participants = this.getPageData(usersPage)
@@ -2456,9 +2459,10 @@ export class AiService {
     }
 
     const companyId = params.company_id || this.getTenantIdOrThrow();
+    // Limite intencional: contexto de IA usa apenas campos mínimos para geração de rascunho assistido; 500 registros por entidade é teto seguro.
     const [risks, epis, draftContext] = await Promise.all([
-      this.risksService.findAll(),
-      this.episService.findAll(),
+      this.risksService.findAll({}, { take: 500, select: ['id', 'nome', 'categoria'] }),
+      this.episService.findAll({}, { take: 500, select: ['id', 'nome', 'ca'] }),
       this.loadAssistedDraftContext(companyId, params.site_id),
     ]);
 

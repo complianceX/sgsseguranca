@@ -1463,6 +1463,13 @@ export class AprsService {
     return this.findOne(saved.id);
   }
 
+  /**
+   * Retorna APRs completas com todas as relações carregadas.
+   *
+   * **ATENÇÃO:** use apenas em contextos internos controlados onde o volume
+   * de registros é conhecido e pequeno (ex.: geração de PDF, exportação
+   * unitária). NUNCA chame este método em loops ou a partir de contextos de IA.
+   */
   async findAll(): Promise<Apr[]> {
     const tenantId = this.tenantService.getTenantId();
     return this.aprsRepository.find({
@@ -1479,6 +1486,25 @@ export class AprsService {
         'participants',
         'auditado_por',
       ],
+    });
+  }
+
+  /**
+   * Retorna um snapshot leve das APRs para uso em contexto de IA.
+   *
+   * Limitado a 300 registros mais recentes, sem relações e com apenas os
+   * campos necessários para enriquecer prompts (`id`, `codigo`, `status`,
+   * `created_at`, `company_id`). Use este método em vez de `findAll()`
+   * sempre que o destino for um modelo de linguagem ou pipeline de IA.
+   *
+   * @param tenantId ID da empresa — obrigatório para garantir isolamento multi-tenant.
+   */
+  async findAllForAiContext(tenantId: string): Promise<Pick<Apr, 'id' | 'codigo' | 'status' | 'created_at' | 'company_id'>[]> {
+    return this.aprsRepository.find({
+      where: { company_id: tenantId },
+      select: ['id', 'codigo', 'status', 'created_at', 'company_id'],
+      order: { created_at: 'DESC' },
+      take: 300,
     });
   }
 

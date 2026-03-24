@@ -59,7 +59,13 @@
     "ci:migration:check": "node scripts/check-migrations.js",
     "loadtest:smoke": "k6 run test/load/k6-enterprise-scale.js -e K6_SCENARIO_PROFILE=smoke",
     "loadtest:baseline": "k6 run test/load/k6-enterprise-scale.js -e K6_SCENARIO_PROFILE=baseline",
-    "loadtest:stress": "k6 run test/load/k6-enterprise-scale.js -e K6_SCENARIO_PROFILE=stress"
+    "loadtest:stress": "k6 run test/load/k6-enterprise-scale.js -e K6_SCENARIO_PROFILE=stress",
+    "loadtest:seed": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/seed-tenants.ts",
+    "loadtest:seed:clean": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/seed-tenants.ts --clean",
+    "loadtest:seed:dry": "node ./node_modules/ts-node/dist/bin.js -r tsconfig-paths/register test/load/seed-tenants.ts --dry-run",
+    "loadtest:multi:smoke": "k6 run test/load/k6-load-test.js -e BASE_URL=http://localhost:3001 -e K6_SCENARIO_PROFILE=smoke",
+    "loadtest:multi:baseline": "k6 run test/load/k6-load-test.js -e BASE_URL=http://localhost:3001 -e K6_SCENARIO_PROFILE=baseline",
+    "loadtest:multi:stress": "k6 run test/load/k6-load-test.js -e BASE_URL=http://localhost:3001 -e K6_SCENARIO_PROFILE=stress"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

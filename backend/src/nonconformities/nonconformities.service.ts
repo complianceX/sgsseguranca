@@ -829,7 +829,7 @@ export class NonConformitiesService {
     return saved;
   }
 
-  async findAll() {
+  async findAll(options?: { take?: number }) {
     const tenantId = this.tenantService.getTenantId();
     return this.nonConformitiesRepository.find({
       where: tenantId
@@ -837,6 +837,7 @@ export class NonConformitiesService {
         : { deleted_at: IsNull() },
       relations: ['site'],
       order: { created_at: 'DESC' },
+      ...(options?.take !== undefined && { take: options.take }),
     });
   }
 
