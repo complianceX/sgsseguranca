@@ -1,6 +1,6 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
-import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
+import { consumeOfflineCache, isOfflineRequestError, setOfflineCache, CACHE_TTL } from '@/lib/offline-cache';
 
 export interface Company {
   id: string;
@@ -32,6 +32,8 @@ export interface User {
   profile?: Profile;
   roles?: string[];
   permissions?: string[];
+  /** Consentimento explícito para processamento por IA (LGPD). */
+  ai_processing_consent?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -131,13 +133,13 @@ export const usersService = {
       const response = await api.get<PaginatedResponse<User>>('/users', {
         params,
       });
-      setOfflineCache(cacheKey, response.data);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.REFERENCE);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<PaginatedResponse<User>>(cacheKey);
+      const cached = consumeOfflineCache<PaginatedResponse<User>>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -150,14 +152,16 @@ export const usersService = {
         fetchPage: (page, limit) => usersService.findPaginated({ page, limit }),
         limit: 100,
         maxPages: 50,
+        batchSize: 3,
+        cacheKey: "GET:/users?page=*&limit=100",
       });
-      setOfflineCache(cacheKey, data);
+      setOfflineCache(cacheKey, data, CACHE_TTL.REFERENCE);
       return data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<User[]>(cacheKey);
+      const cached = consumeOfflineCache<User[]>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -167,13 +171,13 @@ export const usersService = {
     const cacheKey = `users.one.${id}`;
     try {
       const response = await api.get<User>(`/users/${id}`);
-      setOfflineCache(cacheKey, response.data);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.REFERENCE);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<User>(cacheKey);
+      const cached = consumeOfflineCache<User>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -214,5 +218,14 @@ export const usersService = {
 
   delete: async (id: string) => {
     await api.delete(`/users/${id}`);
+  },
+
+  /** Atualiza o consentimento do usuário autenticado para processamento por IA (LGPD). */
+  updateAiConsent: async (consent: boolean): Promise<{ ai_processing_consent: boolean }> => {
+    const { data } = await api.patch<{ ai_processing_consent: boolean }>(
+      '/users/me/ai-consent',
+      { consent },
+    );
+    return data;
   },
 };

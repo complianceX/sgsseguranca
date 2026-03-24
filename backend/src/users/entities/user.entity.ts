@@ -41,6 +41,10 @@ export class User {
   @Column({ default: true })
   status: boolean;
 
+  /** Consentimento explícito do usuário para processamento por IA (LGPD / OpenAI). */
+  @Column({ default: false })
+  ai_processing_consent: boolean;
+
   @ManyToOne(() => Company, (company) => company.users)
   @JoinColumn({ name: 'company_id' })
   company: Company;

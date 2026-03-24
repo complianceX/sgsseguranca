@@ -41,10 +41,21 @@ export class MedicalExamsController {
   findPaginated(
     @Query('page') page = 1,
     @Query('limit') limit = 20,
+    @Query('cursor') cursor?: string,
     @Query('tipo_exame') tipo_exame?: string,
     @Query('resultado') resultado?: string,
     @Query('user_id') user_id?: string,
   ) {
+    if (cursor) {
+      return this.medicalExamsService.findByCursor({
+        cursor,
+        limit: Number(limit),
+        tipo_exame: tipo_exame || undefined,
+        resultado: resultado || undefined,
+        user_id: user_id || undefined,
+      });
+    }
+
     return this.medicalExamsService.findPaginated({
       page: Number(page),
       limit: Number(limit),
@@ -52,6 +63,12 @@ export class MedicalExamsController {
       resultado: resultado || undefined,
       user_id: user_id || undefined,
     });
+  }
+
+  @Get('export/all')
+  @Authorize('can_view_medical_exams')
+  findAllForExport() {
+    return this.medicalExamsService.findAllForExport();
   }
 
   @Get('expiry/summary')

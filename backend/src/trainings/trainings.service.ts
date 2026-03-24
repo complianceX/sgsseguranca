@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
@@ -18,6 +23,12 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import {
+  CursorPaginatedResponse,
+  decodeCursorToken,
+  toCursorPaginatedResponse,
+} from '../common/utils/cursor-pagination.util';
+import { MetricsService } from '../common/observability/metrics.service';
 
 export interface BlockingTrainingUser {
   user: Training['user'];
@@ -50,18 +61,55 @@ export class TrainingsService {
     @InjectRepository(Training)
     private trainingsRepository: Repository<Training>,
     private tenantService: TenantService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
   async create(createTrainingDto: CreateTrainingDto): Promise<Training> {
-    const training = this.trainingsRepository.create(createTrainingDto);
-    return this.trainingsRepository.save(training);
+    const tenantId = this.tenantService.getTenantId();
+    const training = this.trainingsRepository.create({
+      ...createTrainingDto,
+      company_id: tenantId ?? createTrainingDto.company_id,
+    });
+    const saved = await this.trainingsRepository.save(training);
+    this.metricsService?.incrementTrainingRegistered(
+      saved.company_id,
+      saved.nr_codigo || saved.nome,
+    );
+    return saved;
   }
 
-  async findAll(): Promise<Training[]> {
+  async findAll(opts?: {
+    page?: number;
+    limit?: number;
+  }): Promise<OffsetPage<Training>> {
+    const tenantId = this.tenantService.getTenantId();
+    // maxLimit: 1000 — limite de segurança para evitar OOM em tenants grandes
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 1000,
+    });
+
+    const [data, total] = await this.trainingsRepository.findAndCount({
+      where: tenantId ? { company_id: tenantId } : {},
+      relations: ['user'],
+      select: TRAINING_LIST_SELECT,
+      order: { data_vencimento: 'ASC' },
+      skip,
+      take: limit,
+    });
+
+    return toOffsetPage(data, total, page, limit);
+  }
+
+  // Carrega todos os registros para uso interno (exportações, relatórios).
+  // Sem relação de user; apenas campos essenciais; take: 5000 como teto.
+  async findAllForExport(): Promise<Training[]> {
     const tenantId = this.tenantService.getTenantId();
     return this.trainingsRepository.find({
       where: tenantId ? { company_id: tenantId } : {},
-      relations: ['user'],
+      select: TRAINING_LIST_SELECT,
+      order: { data_vencimento: 'ASC' },
+      take: 5000,
     });
   }
 
@@ -86,6 +134,76 @@ export class TrainingsService {
     });
 
     return toOffsetPage(data, total, page, limit);
+  }
+
+  async findByCursor(opts?: {
+    cursor?: string;
+    limit?: number;
+  }): Promise<CursorPaginatedResponse<Training>> {
+    const tenantId = this.tenantService.getTenantId();
+    const { limit } = normalizeOffsetPagination(
+      { page: 1, limit: opts?.limit },
+      {
+        defaultLimit: 20,
+        maxLimit: 100,
+      },
+    );
+
+    const decodedCursor = decodeCursorToken(opts?.cursor);
+    if (opts?.cursor && !decodedCursor) {
+      throw new BadRequestException(
+        'Cursor inválido para listagem de treinamentos.',
+      );
+    }
+
+    const qb = this.trainingsRepository
+      .createQueryBuilder('training')
+      .leftJoinAndSelect('training.user', 'user')
+      .select([
+        'training.id',
+        'training.nome',
+        'training.nr_codigo',
+        'training.carga_horaria',
+        'training.obrigatorio_para_funcao',
+        'training.bloqueia_operacao_quando_vencido',
+        'training.data_conclusao',
+        'training.data_vencimento',
+        'training.certificado_url',
+        'training.user_id',
+        'training.company_id',
+        'training.auditado_por_id',
+        'training.data_auditoria',
+        'training.resultado_auditoria',
+        'training.notas_auditoria',
+        'training.created_at',
+        'training.updated_at',
+        'user.id',
+        'user.nome',
+      ])
+      .orderBy('training.created_at', 'DESC')
+      .addOrderBy('training.id', 'DESC')
+      .take(limit + 1);
+
+    if (tenantId) {
+      qb.where('training.company_id = :tenantId', { tenantId });
+    }
+
+    if (decodedCursor) {
+      qb.andWhere(
+        '(training.created_at < :cursorCreatedAt OR (training.created_at = :cursorCreatedAt AND training.id < :cursorId))',
+        {
+          cursorCreatedAt: decodedCursor.created_at,
+          cursorId: decodedCursor.id,
+        },
+      );
+    }
+
+    const rows = await qb.getMany();
+    return toCursorPaginatedResponse({
+      rows,
+      limit,
+      getCreatedAt: (row) => row.created_at,
+    });
   }
 
   async findOne(id: string): Promise<Training> {

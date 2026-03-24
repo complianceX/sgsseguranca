@@ -1,6 +1,8 @@
 import { ConfigService } from '@nestjs/config';
+import { ServiceUnavailableException } from '@nestjs/common';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { requestOpenAiChatCompletionResponse } from './openai-request.util';
+import { OpenAiCircuitBreakerService } from '../common/resilience/openai-circuit-breaker.service';
 
 describe('openai-request.util', () => {
   const configService = {
@@ -18,6 +20,29 @@ describe('openai-request.util', () => {
     };
   }
 
+  function createCircuitBreakerMock(): jest.Mocked<
+    Pick<
+      OpenAiCircuitBreakerService,
+      | 'assertRequestAllowed'
+      | 'recordSuccess'
+      | 'recordFailure'
+      | 'isCountableFailureStatus'
+      | 'isCountableFailureError'
+    >
+  > {
+    return {
+      assertRequestAllowed: jest.fn().mockResolvedValue(undefined),
+      recordSuccess: jest.fn().mockResolvedValue(undefined),
+      recordFailure: jest.fn().mockResolvedValue(undefined),
+      isCountableFailureStatus: jest
+        .fn()
+        .mockImplementation((status: number) =>
+          [500, 502, 503].includes(status),
+        ),
+      isCountableFailureError: jest.fn().mockReturnValue(false),
+    };
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -29,16 +54,20 @@ describe('openai-request.util', () => {
     });
     const fetchImpl: typeof fetch = jest.fn().mockResolvedValue(response);
     const integration = createIntegrationMock();
+    const circuitBreaker = createCircuitBreakerMock();
 
     const result = await requestOpenAiChatCompletionResponse({
       apiKey: 'key-1',
       body: { model: 'gpt-5-mini' },
       configService,
       integration,
+      circuitBreaker,
       fetchImpl,
     });
 
     expect(result).toBe(response);
+    expect(circuitBreaker.assertRequestAllowed).toHaveBeenCalledTimes(1);
+    expect(circuitBreaker.recordSuccess).toHaveBeenCalledTimes(1);
     expect(integration.execute).toHaveBeenCalledTimes(1);
     const [, integrationCallback, integrationOptions] = integration.execute.mock
       .calls[0] as [
@@ -76,12 +105,15 @@ describe('openai-request.util', () => {
         }),
     );
     const integration = createIntegrationMock();
+    const circuitBreaker = createCircuitBreakerMock();
+    circuitBreaker.isCountableFailureError.mockReturnValue(true);
 
     const handled = requestOpenAiChatCompletionResponse({
       apiKey: 'key-1',
       body: { model: 'gpt-5-mini' },
       configService,
       integration,
+      circuitBreaker,
       fetchImpl,
     }).catch((error: unknown) => error);
 
@@ -92,7 +124,56 @@ describe('openai-request.util', () => {
     expect((error as Error).message).toContain(
       'OpenAI request timeout after 250ms',
     );
+    expect(circuitBreaker.recordFailure).toHaveBeenCalledTimes(1);
 
     jest.useRealTimers();
+  });
+
+  it('falha imediatamente quando o circuit breaker esta aberto', async () => {
+    const integration = createIntegrationMock();
+    const circuitBreaker = createCircuitBreakerMock();
+    const fetchImpl: typeof fetch = jest.fn();
+    circuitBreaker.assertRequestAllowed.mockRejectedValue(
+      new ServiceUnavailableException(
+        'Serviço de IA temporariamente indisponível. Tente novamente em alguns instantes.',
+      ),
+    );
+
+    await expect(
+      requestOpenAiChatCompletionResponse({
+        apiKey: 'key-1',
+        body: { model: 'gpt-5-mini' },
+        configService,
+        integration,
+        circuitBreaker,
+        fetchImpl,
+      }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    expect(integration.execute).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('registra falha countable para status 503', async () => {
+    const response = new Response(JSON.stringify({ error: 'upstream down' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    const fetchImpl: typeof fetch = jest.fn().mockResolvedValue(response);
+    const integration = createIntegrationMock();
+    const circuitBreaker = createCircuitBreakerMock();
+
+    const result = await requestOpenAiChatCompletionResponse({
+      apiKey: 'key-1',
+      body: { model: 'gpt-5-mini' },
+      configService,
+      integration,
+      circuitBreaker,
+      fetchImpl,
+    });
+
+    expect(result.status).toBe(503);
+    expect(circuitBreaker.recordFailure).toHaveBeenCalledWith({ status: 503 });
+    expect(circuitBreaker.recordSuccess).not.toHaveBeenCalled();
   });
 });

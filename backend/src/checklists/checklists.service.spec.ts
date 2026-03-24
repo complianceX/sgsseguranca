@@ -15,6 +15,7 @@ import type { DocumentRegistryService } from '../document-registry/document-regi
 import type { FileParserService } from '../document-import/services/file-parser.service';
 import type { ConfigService } from '@nestjs/config';
 import type { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
+import type { OpenAiCircuitBreakerService } from '../common/resilience/openai-circuit-breaker.service';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -166,6 +167,13 @@ describe('ChecklistsService', () => {
           fn(),
         ),
       } as unknown as IntegrationResilienceService,
+      {
+        assertRequestAllowed: jest.fn(),
+        recordSuccess: jest.fn(),
+        recordFailure: jest.fn(),
+        isCountableFailureStatus: jest.fn().mockReturnValue(false),
+        isCountableFailureError: jest.fn().mockReturnValue(false),
+      } as unknown as OpenAiCircuitBreakerService,
     );
   });
 
@@ -615,6 +623,13 @@ describe('ChecklistsService', () => {
           fn(),
         ),
       } as unknown as IntegrationResilienceService,
+      {
+        assertRequestAllowed: jest.fn(),
+        recordSuccess: jest.fn(),
+        recordFailure: jest.fn(),
+        isCountableFailureStatus: jest.fn().mockReturnValue(false),
+        isCountableFailureError: jest.fn().mockReturnValue(false),
+      } as unknown as OpenAiCircuitBreakerService,
     );
 
     jest.spyOn(service, 'findOneEntity').mockResolvedValue({

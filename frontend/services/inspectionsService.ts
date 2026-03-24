@@ -5,7 +5,7 @@ import { Site } from './sitesService';
 import { User } from './usersService';
 import { fetchAllPages, PaginatedResponse } from './pagination';
 import { enqueueOfflineMutation } from '@/lib/offline-sync';
-import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
+import { consumeOfflineCache, isOfflineRequestError, setOfflineCache, CACHE_TTL } from '@/lib/offline-cache';
 import type {
   GovernedDocumentVideoAccessResponse,
   GovernedDocumentVideoAttachment,
@@ -146,13 +146,13 @@ export const inspectionsService = {
       const response = await api.get<PaginatedResponse<Inspection>>('/inspections', {
         params,
       });
-      setOfflineCache(cacheKey, response.data);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.LIST);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<PaginatedResponse<Inspection>>(cacheKey);
+      const cached = consumeOfflineCache<PaginatedResponse<Inspection>>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -174,13 +174,13 @@ export const inspectionsService = {
     const cacheKey = `inspections.one.${id}`;
     try {
       const response = await api.get<Inspection>(`/inspections/${id}`);
-      setOfflineCache(cacheKey, sanitizeInspectionForOfflineCache(response.data));
+      setOfflineCache(cacheKey, sanitizeInspectionForOfflineCache(response.data), CACHE_TTL.RECORD);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<Inspection>(cacheKey);
+      const cached = consumeOfflineCache<Inspection>(cacheKey);
       if (cached) return cached;
       throw error;
     }

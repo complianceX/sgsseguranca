@@ -78,6 +78,22 @@ function resolveDatabaseHost(config: ConfigService): string | undefined {
 }
 
 function resolveDatabasePort(config: ConfigService): number {
+  const numericCandidates = [
+    config.get<number>('DATABASE_PORT'),
+    config.get<number>('PGPORT'),
+    config.get<number>('POSTGRES_PORT'),
+  ];
+
+  for (const candidate of numericCandidates) {
+    if (
+      typeof candidate === 'number' &&
+      Number.isFinite(candidate) &&
+      candidate > 0
+    ) {
+      return candidate;
+    }
+  }
+
   const raw = firstNonEmpty([
     config.get<string>('DATABASE_PORT'),
     config.get<string>('PGPORT'),

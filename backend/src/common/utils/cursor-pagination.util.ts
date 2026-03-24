@@ -1,118 +1,89 @@
-import { SelectQueryBuilder } from 'typeorm';
-
-/**
- * Utilitário de paginação por cursor (keyset pagination).
- *
- * POR QUE NÃO OFFSET?
- *   OFFSET N força o PostgreSQL a ler e descartar N linhas antes de retornar
- *   os resultados. Com 100k registros, OFFSET 50000 é uma operação O(N).
- *   Com cursor, o banco usa o índice composto (company_id, created_at, id)
- *   e pula diretamente para o ponto certo — O(log N), constante na prática.
- *
- * COMO FUNCIONA:
- *   - O cursor é o "ponteiro" para o último item da página anterior.
- *   - Codificado em base64 para ser opaco ao cliente (não exponha created_at
- *     ou id diretamente na URL).
- *   - A query usa row-value comparison: (created_at, id) < (:date, :id)
- *     que é suportado nativamente pelo PostgreSQL e usa o índice composto.
- *
- * ÍNDICE NECESSÁRIO (já criado na migration 023):
- *   CREATE INDEX idx_{table}_company_created ON {table} (company_id, created_at DESC);
- *
- * USO TÍPICO:
- * ```typescript
- * const qb = this.repo.createQueryBuilder('apr')
- *   .where('apr.company_id = :companyId', { companyId });
- *
- * const { data, nextCursor, hasMore } = await paginateWithCursor(qb, 'apr', {
- *   cursor: dto.cursor,
- *   limit: dto.limit,
- * });
- * ```
- */
-
-export interface CursorPayload {
+export type CursorTokenPayload = {
+  created_at: string;
   id: string;
-  created_at: string; // ISO 8601
-}
+};
 
-export interface CursorPage<T> {
+export type CursorPaginatedResponse<T> = {
   data: T[];
-  nextCursor: string | null;
+  cursor: string | null;
   hasMore: boolean;
-  count: number;
+  total?: number;
+};
+
+export function encodeCursorToken(payload: CursorTokenPayload): string {
+  return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
 }
 
-/** Codifica o cursor em base64 (opaco para o cliente). */
-export function encodeCursor(payload: CursorPayload): string {
-  return Buffer.from(JSON.stringify(payload)).toString('base64url');
-}
-
-/** Decodifica o cursor recebido do cliente. Retorna null se inválido. */
-export function decodeCursor(cursor: string): CursorPayload | null {
-  try {
-    const raw = Buffer.from(cursor, 'base64url').toString('utf8');
-    const parsed = JSON.parse(raw) as unknown;
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'id' in parsed &&
-      'created_at' in parsed
-    ) {
-      return parsed as CursorPayload;
-    }
+export function decodeCursorToken(
+  token?: string | null,
+): CursorTokenPayload | null {
+  if (!token) {
     return null;
+  }
+
+  try {
+    const decoded = JSON.parse(
+      Buffer.from(token, 'base64url').toString('utf8'),
+    ) as Partial<CursorTokenPayload>;
+
+    if (
+      !decoded ||
+      typeof decoded.created_at !== 'string' ||
+      typeof decoded.id !== 'string' ||
+      decoded.created_at.trim().length === 0 ||
+      decoded.id.trim().length === 0 ||
+      Number.isNaN(new Date(decoded.created_at).getTime())
+    ) {
+      return null;
+    }
+
+    return {
+      created_at: decoded.created_at,
+      id: decoded.id,
+    };
   } catch {
     return null;
   }
 }
 
-/**
- * Aplica paginação por cursor em um QueryBuilder já filtrado.
- *
- * @param qb     QueryBuilder com filtros de negócio já aplicados (sem ORDER/LIMIT)
- * @param alias  Alias da entidade principal no QueryBuilder
- * @param opts   { cursor?, limit? }
- */
-export async function paginateWithCursor<
-  T extends { id: string; created_at: Date },
->(
-  qb: SelectQueryBuilder<T>,
-  alias: string,
-  opts: { cursor?: string; limit?: number },
-): Promise<CursorPage<T>> {
-  const limit = Math.min(opts.limit ?? 20, 100);
+export function toCursorPaginatedResponse<T extends { id: string }>(input: {
+  rows: T[];
+  limit: number;
+  getCreatedAt: (row: T) => Date | string | null | undefined;
+  includeTotal?: number;
+}): CursorPaginatedResponse<T> {
+  const hasMore = input.rows.length > input.limit;
+  const data = hasMore ? input.rows.slice(0, input.limit) : input.rows;
+  const lastRow = data[data.length - 1];
 
-  if (opts.cursor) {
-    const payload = decodeCursor(opts.cursor);
-    if (payload) {
-      // Row-value comparison — usa o índice composto (company_id, created_at, id)
-      // sem precisar de sub-queries ou offset.
-      qb.andWhere(
-        `(${alias}.created_at, ${alias}.id) < (:cursor_date::timestamptz, :cursor_id::uuid)`,
-        { cursor_date: payload.created_at, cursor_id: payload.id },
-      );
+  const cursor = lastRow
+    ? encodeCursorToken({
+        id: lastRow.id,
+        created_at: normalizeCursorDate(input.getCreatedAt(lastRow)),
+      })
+    : null;
+
+  return {
+    data,
+    cursor: hasMore ? cursor : null,
+    hasMore,
+    ...(typeof input.includeTotal === 'number'
+      ? { total: input.includeTotal }
+      : {}),
+  };
+}
+
+function normalizeCursorDate(value: Date | string | null | undefined): string {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
     }
   }
 
-  // Pegamos limit+1 para saber se há próxima página sem COUNT(*) extra.
-  const rows = await qb
-    .orderBy(`${alias}.created_at`, 'DESC')
-    .addOrderBy(`${alias}.id`, 'DESC')
-    .take(limit + 1)
-    .getMany();
-
-  const hasMore = rows.length > limit;
-  const data = hasMore ? rows.slice(0, -1) : rows;
-
-  const last = data[data.length - 1];
-  const nextCursor =
-    hasMore && last
-      ? encodeCursor({
-          id: last.id,
-          created_at: last.created_at.toISOString(),
-        })
-      : null;
-
-  return { data, nextCursor, hasMore, count: data.length };
+  return new Date(0).toISOString();
 }

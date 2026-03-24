@@ -42,11 +42,25 @@ export class TrainingsController {
   findPaginated(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
+    @Query('cursor') cursor?: string,
   ) {
+    if (cursor) {
+      return this.trainingsService.findByCursor({
+        cursor,
+        limit: Number(limit),
+      });
+    }
+
     return this.trainingsService.findPaginated({
       page: Number(page),
       limit: Number(limit),
     });
+  }
+
+  @Get('export/all')
+  @Authorize('can_view_trainings')
+  findAllForExport() {
+    return this.trainingsService.findAllForExport();
   }
 
   @Get('user/:userId')

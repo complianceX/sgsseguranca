@@ -13,6 +13,7 @@ import type { AprExcelService } from './apr-excel.service';
 import type { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import type { AppendForensicTrailEventInput } from '../forensic-trail/forensic-trail.service';
+import type { MetricsService } from '../common/observability/metrics.service';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -49,11 +50,16 @@ describe('AprsService', () => {
     AprRiskMatrixService,
     'evaluate' | 'normalizeCategory' | 'summarize'
   >;
+  let riskCalculationService: Pick<
+    RiskCalculationService,
+    'calculateScore' | 'classifyByScore'
+  >;
   let aprExcelService: Pick<
     AprExcelService,
     'previewImport' | 'buildTemplateWorkbook' | 'buildDetailWorkbook'
   >;
   let forensicTrailService: Pick<ForensicTrailService, 'append'>;
+  let metricsService: Pick<MetricsService, 'incrementAprCreated'>;
 
   beforeEach(() => {
     aprRepository = {
@@ -147,6 +153,10 @@ describe('AprsService', () => {
         critico: categories.filter((value) => value === 'Crítico').length,
       })),
     };
+    riskCalculationService = {
+      calculateScore: jest.fn(() => 0),
+      classifyByScore: jest.fn(() => null),
+    };
     aprExcelService = {
       previewImport: jest.fn(),
       buildTemplateWorkbook: jest.fn(() => Buffer.from('template')),
@@ -155,12 +165,15 @@ describe('AprsService', () => {
     forensicTrailService = {
       append: jest.fn(() => Promise.resolve(undefined)),
     };
+    metricsService = {
+      incrementAprCreated: jest.fn(),
+    };
 
     service = new AprsService(
       aprRepository as unknown as Repository<Apr>,
       aprLogsRepository as unknown as Repository<AprLog>,
       { getTenantId: jest.fn(() => 'company-1') } as TenantService,
-      {} as RiskCalculationService,
+      riskCalculationService as RiskCalculationService,
       aprRiskMatrixService as AprRiskMatrixService,
       aprExcelService as AprExcelService,
       documentStorageService as DocumentStorageService,
@@ -168,11 +181,67 @@ describe('AprsService', () => {
       documentGovernanceService as DocumentGovernanceService,
       signaturesService as SignaturesService,
       forensicTrailService as ForensicTrailService,
+      metricsService as MetricsService,
     );
   });
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('incrementa métrica de negócio ao criar APR', async () => {
+    const createdApr = {
+      id: 'apr-1',
+      company_id: 'company-1',
+      status: AprStatus.PENDENTE,
+      elaborador_id: 'user-1',
+      participants: [],
+      risk_items: [],
+    } as unknown as Apr;
+
+    jest
+      .spyOn(service as never, 'validateRelatedEntityScope' as never)
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service as never, 'syncRiskItems' as never)
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service as never, 'addLog' as never)
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'findOne').mockResolvedValue(createdApr);
+
+    aprRepository.manager.transaction.mockImplementation(
+      async (callback: (manager: unknown) => Promise<string>) => {
+        const aprRepo = {
+          create: jest.fn(() => createdApr),
+          save: jest.fn(() => Promise.resolve(createdApr)),
+          update: jest.fn(() => Promise.resolve(undefined)),
+        };
+        return callback({
+          getRepository: jest.fn(() => aprRepo),
+        });
+      },
+    );
+
+    await service.create(
+      {
+        numero: 'APR-001',
+        titulo: 'APR Teste',
+        descricao: 'Teste',
+        data_inicio: new Date('2026-03-24'),
+        data_fim: new Date('2026-03-25'),
+        site_id: 'site-1',
+        elaborador_id: 'user-1',
+        itens_risco: [],
+        participants: [],
+      } as never,
+      'user-1',
+    );
+
+    expect(metricsService.incrementAprCreated).toHaveBeenCalledWith(
+      'company-1',
+      AprStatus.PENDENTE,
+    );
   });
 
   it('anexa o PDF final da APR pela esteira central no ponto de fechamento documental', async () => {

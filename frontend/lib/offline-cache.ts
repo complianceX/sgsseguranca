@@ -1,7 +1,48 @@
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 type CacheEnvelope<T> = {
   value: T;
   createdAt: string;
+  maxAgeMs?: number;
 };
+
+/** Returned by getOfflineCache when the entry exists but is past its TTL
+ *  and the device is currently offline. The data is still usable as a
+ *  fallback — callers should surface a "stale data" warning to the user. */
+export type StaleResult<T> = { stale: true; data: T };
+
+export function isStaleResult<T>(
+  result: T | StaleResult<T>,
+): result is StaleResult<T> {
+  return (
+    typeof result === 'object' &&
+    result !== null &&
+    'stale' in (result as object) &&
+    (result as Record<string, unknown>).stale === true
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TTL presets
+// ---------------------------------------------------------------------------
+
+/** Pre-defined TTL values to be passed to setOfflineCache(). */
+export const CACHE_TTL = {
+  /** 2 min — dados críticos de segurança (APRs ativas). */
+  CRITICAL: 120_000,
+  /** 5 min — listas paginadas (findAll / findPaginated). */
+  LIST: 300_000,
+  /** 30 min — registros individuais (findOne). */
+  RECORD: 1_800_000,
+  /** 60 min — dados de referência (sites, users). */
+  REFERENCE: 3_600_000,
+} as const;
+
+// ---------------------------------------------------------------------------
+// Internals
+// ---------------------------------------------------------------------------
 
 const PREFIX = 'gst.cache';
 const LEGACY_PREFIX = 'compliancex.cache';
@@ -10,6 +51,8 @@ const CACHE_PREFIXES = [`${PREFIX}.`, `${LEGACY_PREFIX}.`];
 const buildKey = (key: string, prefix = PREFIX) => `${prefix}.${key}`;
 
 const isBrowser = () => typeof window !== 'undefined';
+
+const isOnline = () => (typeof navigator !== 'undefined' ? navigator.onLine : true);
 
 const isQuotaExceededError = (error: unknown) => {
   if (typeof DOMException !== 'undefined' && error instanceof DOMException) {
@@ -66,12 +109,25 @@ const getEvictionCandidates = (excludeKeys: string[]) => {
     .sort((left, right) => getCacheEntryTimestamp(left) - getCacheEntryTimestamp(right));
 };
 
-export const setOfflineCache = <T>(key: string, value: T) => {
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/**
+ * Persists a value in the offline cache with an optional TTL.
+ *
+ * @param key      Cache key (without prefix).
+ * @param value    Serialisable value to cache.
+ * @param maxAgeMs Maximum age in milliseconds. Use CACHE_TTL constants.
+ *                 Omit to cache indefinitely (legacy behaviour).
+ */
+export const setOfflineCache = <T>(key: string, value: T, maxAgeMs?: number) => {
   if (!isBrowser()) return;
 
   const payload: CacheEnvelope<T> = {
     value,
     createdAt: new Date().toISOString(),
+    ...(maxAgeMs !== undefined ? { maxAgeMs } : {}),
   };
   const primaryKey = buildKey(key);
   const legacyKey = buildKey(key, LEGACY_PREFIX);
@@ -118,7 +174,19 @@ export const setOfflineCache = <T>(key: string, value: T) => {
   );
 };
 
-export const getOfflineCache = <T>(key: string, maxAgeMs?: number): T | null => {
+/**
+ * Reads a cached value and enforces TTL rules:
+ *
+ * - **Online + expired** → removes the entry and returns `null`
+ *   (caller must fetch fresh data).
+ * - **Offline + expired** → returns `{ stale: true; data: T }` so the UI
+ *   can display a "dados podem estar desatualizados" warning.
+ * - **Valid (not expired)** → returns the cached value directly.
+ * - **No TTL stored** → returns the value (legacy behaviour, never expires).
+ *
+ * Use `isStaleResult()` to distinguish fresh from stale returns.
+ */
+export const getOfflineCache = <T>(key: string): T | StaleResult<T> | null => {
   if (!isBrowser()) return null;
   const primaryKey = buildKey(key);
   const legacyKey = buildKey(key, LEGACY_PREFIX);
@@ -135,12 +203,17 @@ export const getOfflineCache = <T>(key: string, maxAgeMs?: number): T | null => 
       return null;
     }
 
-    if (maxAgeMs) {
+    if (parsed.maxAgeMs !== undefined) {
       const ageMs = Date.now() - new Date(parsed.createdAt).getTime();
-      if (ageMs > maxAgeMs) {
-        removeCacheKey(primaryKey);
-        removeCacheKey(legacyKey);
-        return null;
+      if (ageMs > parsed.maxAgeMs) {
+        if (isOnline()) {
+          // Online: remover entrada expirada e forçar fetch
+          removeCacheKey(primaryKey);
+          removeCacheKey(legacyKey);
+          return null;
+        }
+        // Offline: dado expirado é melhor que nenhum dado — retorna com flag stale
+        return { stale: true, data: parsed.value };
       }
     }
 
@@ -149,6 +222,54 @@ export const getOfflineCache = <T>(key: string, maxAgeMs?: number): T | null => 
     removeCacheKey(primaryKey);
     removeCacheKey(legacyKey);
     return null;
+  }
+};
+
+/**
+ * Convenience wrapper around getOfflineCache for use in service catch blocks.
+ *
+ * - Returns the cached `T` (fresh or stale) or `null` if nothing is cached.
+ * - When serving stale data, dispatches a `app:stale-cache` custom event so
+ *   the UI layer (e.g. useApiStatus) can surface a warning banner.
+ */
+export const consumeOfflineCache = <T>(key: string): T | null => {
+  const result = getOfflineCache<T>(key);
+  if (result === null) return null;
+  if (isStaleResult(result)) {
+    if (isBrowser()) {
+      window.dispatchEvent(new CustomEvent('app:stale-cache', { detail: { key } }));
+    }
+    return result.data;
+  }
+  return result;
+};
+
+/**
+ * Removes all managed cache entries whose TTL has expired.
+ * Call this on reconnection to ensure the next fetch gets fresh data.
+ * Entries without a stored maxAgeMs are never evicted by this function.
+ */
+export const clearExpiredCache = (): void => {
+  if (!isBrowser()) return;
+
+  for (const rawKey of Object.keys(window.localStorage)) {
+    if (!isManagedCacheKey(rawKey)) continue;
+
+    try {
+      const raw = window.localStorage.getItem(rawKey);
+      if (!raw) continue;
+
+      const parsed = JSON.parse(raw) as Partial<CacheEnvelope<unknown>>;
+      if (!parsed?.createdAt || !parsed?.maxAgeMs) continue;
+
+      const ageMs = Date.now() - new Date(parsed.createdAt).getTime();
+      if (ageMs > parsed.maxAgeMs) {
+        window.localStorage.removeItem(rawKey);
+      }
+    } catch {
+      // Entrada corrompida — remover defensivamente
+      try { window.localStorage.removeItem(rawKey); } catch { /* ignore */ }
+    }
   }
 };
 

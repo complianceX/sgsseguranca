@@ -49,6 +49,12 @@ const LOGIN_THROTTLE_LIMIT = Number(
   process.env.LOGIN_THROTTLE_LIMIT || (isProd ? 5 : 30),
 );
 const LOGIN_THROTTLE_TTL = Number(process.env.LOGIN_THROTTLE_TTL || 60000);
+const FORGOT_PASSWORD_THROTTLE_LIMIT = Number(
+  process.env.FORGOT_PASSWORD_THROTTLE_LIMIT || (isProd ? 3 : 30),
+);
+const FORGOT_PASSWORD_THROTTLE_TTL = Number(
+  process.env.FORGOT_PASSWORD_THROTTLE_TTL || 60000,
+);
 const CHANGE_PASSWORD_THROTTLE_LIMIT = Number(
   process.env.CHANGE_PASSWORD_THROTTLE_LIMIT || (isProd ? 5 : 30),
 );
@@ -204,7 +210,10 @@ export class AuthController {
 
   @Public()
   @Throttle({
-    default: { limit: LOGIN_THROTTLE_LIMIT, ttl: LOGIN_THROTTLE_TTL },
+    default: {
+      limit: FORGOT_PASSWORD_THROTTLE_LIMIT,
+      ttl: FORGOT_PASSWORD_THROTTLE_TTL,
+    },
   })
   @Post('forgot-password')
   async forgotPassword(@Body() body: ForgotPasswordDto) {

@@ -20,6 +20,8 @@ import { GenerateChecklistDto } from './dto/generate-checklist.dto';
 import { AnalyzeAprDto } from './dto/analyze-apr.dto';
 import { Authorize } from '../auth/authorize.decorator';
 import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
+import { AiConsentGuard } from '../common/guards/ai-consent.guard';
+import { UserThrottle } from '../common/decorators/user-throttle.decorator';
 import { CreateAssistedChecklistDto } from './dto/create-assisted-checklist.dto';
 import { CreateAssistedAprDto } from './dto/create-assisted-apr.dto';
 import { CreateAssistedNonConformityDto } from './dto/create-assisted-nonconformity.dto';
@@ -28,7 +30,13 @@ import { CreateAssistedDdsDto, GenerateDdsDto } from './dto/generate-dds.dto';
 import { GenerateSophieReportDto } from './dto/generate-sophie-report.dto';
 
 @Controller('ai')
-@UseGuards(FeatureAiGuard, JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(
+  FeatureAiGuard,
+  JwtAuthGuard,
+  AiConsentGuard,
+  TenantGuard,
+  RolesGuard,
+)
 @UseInterceptors(TenantInterceptor)
 export class AiController {
   constructor(private readonly sophieFacade: SophieFacadeService) {}
@@ -48,6 +56,7 @@ export class AiController {
   }
 
   @Post('analyze-apr')
+  @UserThrottle({ requestsPerMinute: 5 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async analyzeApr(@Body() body: AnalyzeAprDto) {
@@ -55,6 +64,7 @@ export class AiController {
   }
 
   @Post('analyze-pt')
+  @UserThrottle({ requestsPerMinute: 5 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async analyzePt(@Body() body: AnalyzePtDto) {

@@ -1,11 +1,17 @@
+import {
+  GatewayTimeoutException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
+import { OpenAiCircuitBreakerService } from '../common/resilience/openai-circuit-breaker.service';
 
 type OpenAiChatRequestInput = {
   apiKey: string;
   body: Record<string, unknown>;
   configService: ConfigService;
   integration: IntegrationResilienceService;
+  circuitBreaker: OpenAiCircuitBreakerService;
   fetchImpl?: typeof fetch;
 };
 
@@ -33,39 +39,66 @@ export async function requestOpenAiChatCompletionResponse(
   const timeoutMs = resolveOpenAiTimeoutMs(input.configService);
   const fetchImpl = input.fetchImpl ?? fetch;
 
-  return input.integration.execute(
-    'openai_chat_completion',
-    async () => {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  await input.circuitBreaker.assertRequestAllowed();
 
-      try {
-        return await fetchImpl('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${input.apiKey}`,
-          },
-          body: JSON.stringify(input.body),
-          signal: controller.signal,
-        });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          throw new Error(
-            `OpenAI request timeout after ${timeoutMs}ms (chat completions).`,
-          );
+  try {
+    const response = await input.integration.execute(
+      'openai_chat_completion',
+      async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+        try {
+          return await fetchImpl('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${input.apiKey}`,
+            },
+            body: JSON.stringify(input.body),
+            signal: controller.signal,
+          });
+        } catch (error) {
+          if (controller.signal.aborted) {
+            throw new GatewayTimeoutException(
+              `OpenAI request timeout after ${timeoutMs}ms`,
+            );
+          }
+          throw error;
+        } finally {
+          clearTimeout(timeout);
         }
-        throw error;
-      } finally {
-        clearTimeout(timeout);
-      }
-    },
-    {
-      timeoutMs,
-      retry: {
-        attempts: 2,
-        mode: 'safe',
       },
-    },
-  );
+      {
+        timeoutMs,
+        retry: {
+          attempts: 2,
+          mode: 'safe',
+        },
+      },
+    );
+
+    if (response.ok) {
+      await input.circuitBreaker.recordSuccess();
+      return response;
+    }
+
+    if (input.circuitBreaker.isCountableFailureStatus(response.status)) {
+      await input.circuitBreaker.recordFailure({ status: response.status });
+    } else {
+      await input.circuitBreaker.recordSuccess();
+    }
+
+    return response;
+  } catch (error) {
+    if (error instanceof ServiceUnavailableException) {
+      throw error;
+    }
+
+    if (input.circuitBreaker.isCountableFailureError(error)) {
+      await input.circuitBreaker.recordFailure({ error });
+    }
+
+    throw error;
+  }
 }

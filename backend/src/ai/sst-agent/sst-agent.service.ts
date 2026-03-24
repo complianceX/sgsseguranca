@@ -16,11 +16,16 @@ import {
   UnauthorizedException,
   HttpException,
   HttpStatus,
+  ServiceUnavailableException,
+  BadGatewayException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThanOrEqual, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
+import { InjectQueue } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
 
 import { TenantService } from '../../common/tenant/tenant.service';
 import { IntegrationResilienceService } from '../../common/resilience/integration-resilience.service';
@@ -34,9 +39,15 @@ import {
   OPENAI_TOOL_DEFINITIONS,
   SstToolsExecutor,
   SST_TOOL_DEFINITIONS,
+  sanitizeForAi,
 } from './sst-agent.tools';
 import { requestOpenAiChatCompletionResponse } from '../openai-request.util';
 import { SstRateLimitService } from './sst-rate-limit.service';
+import {
+  OpenAiCircuitBreakerService,
+  isOpenAiCircuitBreakerUnavailableError,
+} from '../../common/resilience/openai-circuit-breaker.service';
+import { MetricsService } from '../../common/observability/metrics.service';
 import {
   SstAgentResponse,
   SstChatResponse,
@@ -121,6 +132,11 @@ export class SstAgentService {
     private readonly rateLimitService: SstRateLimitService,
     private readonly sophieLocalChatService: SophieLocalChatService,
     private readonly integration: IntegrationResilienceService,
+    private readonly openAiCircuitBreaker: OpenAiCircuitBreakerService,
+    @Optional()
+    @InjectQueue('ai-recovery')
+    private readonly aiRecoveryQueue?: Queue,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {
     const openaiApiKey =
       this.configService.get<string>('OPENAI_API_KEY')?.trim() || null;
@@ -320,11 +336,14 @@ export class SstAgentService {
     buildBody: (model: string) => Record<string, unknown>;
   }): Promise<{ payload: T; model: string }> {
     if (!this.openaiApiKey) {
-      throw new Error('OPENAI_API_KEY nao configurada.');
+      // ServiceUnavailableException: chave de API ausente é falha de configuração
+      // operacional; o cliente não precisa saber o motivo interno.
+      throw new ServiceUnavailableException(
+        'Serviço de IA temporariamente indisponível.',
+      );
     }
 
     const candidates = this.getOpenAiModelCandidates(params.primaryModel);
-    let lastError: Error | null = null;
 
     for (let index = 0; index < candidates.length; index += 1) {
       const model = candidates[index];
@@ -339,6 +358,7 @@ export class SstAgentService {
         body,
         configService: this.configService,
         integration: this.integration,
+        circuitBreaker: this.openAiCircuitBreaker,
       });
 
       if (response.ok) {
@@ -382,12 +402,17 @@ export class SstAgentService {
         continue;
       }
 
-      lastError = new Error(formattedError);
-      break;
+      // BadGatewayException: este modelo falhou sem possibilidade de fallback;
+      // detalhe técnico já registrado via logger.error() acima.
+      throw new BadGatewayException(
+        'Serviço de IA retornou resposta inválida. Tente novamente.',
+      );
     }
 
-    throw (
-      lastError || new Error(`Falha ao chamar OpenAI em ${params.context}.`)
+    // BadGatewayException: loop encerrou sem resposta válida (todos os candidates
+    // esgotados); detalhe técnico já registrado via logger.error() no loop acima.
+    throw new BadGatewayException(
+      'Serviço de IA retornou resposta inválida. Tente novamente.',
     );
   }
 
@@ -433,7 +458,8 @@ export class SstAgentService {
     if (this.provider === 'stub') {
       const stubResp = this.buildStubResponse(question);
       interaction.response = stubResp;
-      interaction.latency_ms = Date.now() - startTime;
+      const latency = Date.now() - startTime;
+      interaction.latency_ms = latency;
       interaction.confidence = stubResp.confidence;
       interaction.needs_human_review = stubResp.needsHumanReview;
       try {
@@ -443,6 +469,13 @@ export class SstAgentService {
           `[SstAgent] Falha ao persistir interação stub (non-fatal): ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`,
         );
       }
+      this.recordAiBusinessMetrics({
+        companyId: tenantId,
+        toolsUsed: ['none'],
+        model: this.model,
+        latencyMs: latency,
+        tokensUsed: 0,
+      });
       return this.toSstChatResponse(
         stubResp,
         interaction.id,
@@ -505,6 +538,13 @@ export class SstAgentService {
         provider: this.provider,
         model: this.model,
       });
+      this.recordAiBusinessMetrics({
+        companyId: tenantId,
+        toolsUsed,
+        model: this.model,
+        latencyMs: latency,
+        tokensUsed: inputTokens + outputTokens,
+      });
 
       return this.toSstChatResponse(result, interaction.id, finalStatus);
     } catch (err) {
@@ -523,6 +563,37 @@ export class SstAgentService {
           `[SstAgent] Falha ao persistir interação com erro (non-fatal): ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`,
         );
       }
+
+      if (isOpenAiCircuitBreakerUnavailableError(err)) {
+        await this.enqueueQuestionForRecovery({
+          tenantId,
+          userId,
+          interactionId: interaction.id,
+          question,
+          history,
+        });
+        this.recordAiBusinessMetrics({
+          companyId: tenantId,
+          toolsUsed: ['circuit_breaker_open'],
+          model: this.model,
+          latencyMs: latency,
+          tokensUsed: 0,
+        });
+
+        return this.toSstChatResponse(
+          this.buildCircuitBreakerOpenFallbackResponse(),
+          interaction.id,
+          AiInteractionStatus.ERROR,
+        );
+      }
+
+      this.recordAiBusinessMetrics({
+        companyId: tenantId,
+        toolsUsed: ['error'],
+        model: this.model,
+        latencyMs: latency,
+        tokensUsed: 0,
+      });
 
       return this.toSstChatResponse(
         this.buildProviderFallbackResponse(question),
@@ -628,7 +699,8 @@ export class SstAgentService {
     if (this.provider === 'stub') {
       const stub = this.buildStubImageAnalysis();
       interaction.response = stub;
-      interaction.latency_ms = Date.now() - startTime;
+      const latency = Date.now() - startTime;
+      interaction.latency_ms = latency;
       try {
         await this.interactionRepo.save(interaction);
       } catch (saveErr) {
@@ -636,6 +708,13 @@ export class SstAgentService {
           `[SstAgent] Falha ao persistir interação stub de imagem (non-fatal): ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`,
         );
       }
+      this.recordAiBusinessMetrics({
+        companyId: tenantId,
+        toolsUsed: ['image_analysis'],
+        model: this.model,
+        latencyMs: latency,
+        tokensUsed: 0,
+      });
       return stub;
     }
 
@@ -664,13 +743,21 @@ export class SstAgentService {
       this.logger.log(
         `[SstAgent] image-analysis tenant=${tenantId} user=${userId} provider=${this.provider} model=${this.model} latency=${latency}ms`,
       );
+      this.recordAiBusinessMetrics({
+        companyId: tenantId,
+        toolsUsed: ['image_analysis'],
+        model: this.model,
+        latencyMs: latency,
+        tokensUsed: inputTokens + outputTokens,
+      });
 
       return analysis;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      const latency = Date.now() - startTime;
       interaction.status = AiInteractionStatus.ERROR;
       interaction.error_message = message;
-      interaction.latency_ms = Date.now() - startTime;
+      interaction.latency_ms = latency;
       try {
         await this.interactionRepo.save(interaction);
       } catch (saveErr) {
@@ -678,6 +765,25 @@ export class SstAgentService {
           `[SstAgent] Falha ao persistir erro da analise de imagem (non-fatal): ${saveErr instanceof Error ? saveErr.message : String(saveErr)}`,
         );
       }
+      if (isOpenAiCircuitBreakerUnavailableError(error)) {
+        this.recordAiBusinessMetrics({
+          companyId: tenantId,
+          toolsUsed: ['image_analysis_circuit_breaker_open'],
+          model: this.model,
+          latencyMs: latency,
+          tokensUsed: 0,
+        });
+        throw new ServiceUnavailableException(
+          'Serviço de análise de IA temporariamente indisponível. Tente novamente em alguns instantes.',
+        );
+      }
+      this.recordAiBusinessMetrics({
+        companyId: tenantId,
+        toolsUsed: ['image_analysis_error'],
+        model: this.model,
+        latencyMs: latency,
+        tokensUsed: 0,
+      });
       return this.buildProviderFallbackImageAnalysis();
     }
   }
@@ -696,7 +802,11 @@ export class SstAgentService {
     toolsUsed: string[];
   }> {
     if (!this.openaiApiKey) {
-      throw new Error('OPENAI_API_KEY nao configurada.');
+      // ServiceUnavailableException: chave de API ausente é falha de configuração
+      // operacional; o cliente não precisa saber o motivo interno.
+      throw new ServiceUnavailableException(
+        'Serviço de IA temporariamente indisponível.',
+      );
     }
 
     type OpenAiToolCall = {
@@ -753,7 +863,11 @@ export class SstAgentService {
 
       if (!toolCalls.length) {
         if (!text) {
-          throw new Error('OpenAI nao retornou texto utilizavel.');
+          // BadGatewayException: a API respondeu 200 mas sem conteúdo de texto
+          // e sem tool_calls; indica comportamento inesperado do provedor externo.
+          throw new BadGatewayException(
+            'Serviço de IA retornou resposta inválida. Tente novamente.',
+          );
         }
 
         return {
@@ -790,6 +904,11 @@ export class SstAgentService {
 
         const toolResult = await this.toolsExecutor.execute(toolName, args);
 
+        // Sanitização de PII como rede de segurança antes de enviar para a OpenAI (LGPD)
+        const sanitizedData = toolResult.success
+          ? sanitizeForAi(toolResult.data ?? null)
+          : null;
+
         messages.push({
           role: 'tool',
           tool_call_id: toolCall.id,
@@ -797,7 +916,7 @@ export class SstAgentService {
             toolResult.success
               ? {
                   success: true,
-                  data: toolResult.data ?? null,
+                  data: sanitizedData,
                   is_stub: toolResult.is_stub ?? false,
                 }
               : {
@@ -983,7 +1102,11 @@ export class SstAgentService {
     outputTokens: number;
   }> {
     if (!this.openaiApiKey) {
-      throw new Error('OPENAI_API_KEY nao configurada.');
+      // ServiceUnavailableException: chave de API ausente é falha de configuração
+      // operacional; o cliente não precisa saber o motivo interno.
+      throw new ServiceUnavailableException(
+        'Serviço de IA temporariamente indisponível.',
+      );
     }
 
     type OpenAiVisionResponse = {
@@ -1026,7 +1149,11 @@ export class SstAgentService {
       });
     const answer = (payload.choices?.[0]?.message?.content ?? '').trim();
     if (!answer) {
-      throw new Error('OpenAI nao retornou analise de imagem.');
+      // BadGatewayException: resposta de visão 200 com content vazio;
+      // indica comportamento inesperado do provedor externo.
+      throw new BadGatewayException(
+        'Serviço de IA retornou resposta inválida. Tente novamente.',
+      );
     }
 
     return {
@@ -1283,6 +1410,42 @@ export class SstAgentService {
     return actions;
   }
 
+  private recordAiBusinessMetrics(params: {
+    companyId: string;
+    toolsUsed: string[];
+    model: string;
+    latencyMs: number;
+    tokensUsed: number;
+  }): void {
+    if (!this.metricsService) {
+      return;
+    }
+
+    const tools = Array.from(
+      new Set(
+        (params.toolsUsed.length > 0 ? params.toolsUsed : ['none'])
+          .map((tool) => String(tool || '').trim())
+          .filter(Boolean),
+      ),
+    );
+    const durationSeconds = Math.max(0, params.latencyMs) / 1000;
+
+    for (const tool of tools) {
+      this.metricsService.incrementAiInteraction(params.companyId, tool);
+      this.metricsService.recordAiResponseTime(
+        params.model,
+        tool,
+        durationSeconds,
+      );
+    }
+
+    this.metricsService.addAiTokensUsed(
+      params.companyId,
+      params.model,
+      params.tokensUsed,
+    );
+  }
+
   // -------------------------------------------------------------------------
   // Utilitarios
   // -------------------------------------------------------------------------
@@ -1439,6 +1602,23 @@ export class SstAgentService {
     };
   }
 
+  private buildCircuitBreakerOpenFallbackResponse(): SstAgentResponse {
+    return {
+      answer:
+        'O assistente Sophie está temporariamente indisponível. Sua pergunta foi registrada e será processada quando o serviço normalizar.',
+      confidence: ConfidenceLevel.LOW,
+      needsHumanReview: false,
+      sources: [],
+      suggestedActions: [
+        { label: 'Ver Dashboard', href: '/dashboard', priority: 'low' },
+      ],
+      warnings: [
+        'OpenAI em instabilidade temporária. O circuito de proteção da integração está ativo.',
+      ],
+      toolsUsed: [],
+    };
+  }
+
   private buildStubImageAnalysis(): ImageRiskAnalysis {
     return {
       summary:
@@ -1467,6 +1647,45 @@ export class SstAgentService {
       notes:
         'A OpenAI apresentou instabilidade temporaria. Nenhum risco automatico foi validado.',
     };
+  }
+
+  private async enqueueQuestionForRecovery(params: {
+    tenantId: string;
+    userId: string;
+    interactionId: string;
+    question: string;
+    history: ConversationMessage[];
+  }): Promise<void> {
+    if (!this.aiRecoveryQueue) {
+      return;
+    }
+
+    try {
+      await this.aiRecoveryQueue.add(
+        'reprocess-sst-chat',
+        {
+          tenantId: params.tenantId,
+          userId: params.userId,
+          interactionId: params.interactionId,
+          question: params.question,
+          history: params.history,
+          queuedAt: new Date().toISOString(),
+          reason: 'openai_circuit_breaker_open',
+        },
+        {
+          removeOnComplete: 100,
+          removeOnFail: 100,
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 10_000 },
+        },
+      );
+    } catch (error) {
+      this.logger.warn(
+        `[SstAgent] Não foi possível enfileirar recovery da pergunta da Sophie: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   private getPositiveIntConfig(key: string, fallback: number): number {

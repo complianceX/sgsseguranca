@@ -407,4 +407,28 @@ export class UsersService {
   computeHmac(key: Buffer, message: string): string {
     return createHmac('sha256', key).update(message).digest('hex');
   }
+
+  // ---------------------------------------------------------------------------
+  // AI Consent (LGPD)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Atualiza o consentimento do usuário para processamento por IA.
+   * Retorna o novo valor do campo.
+   */
+  async updateAiConsent(
+    userId: string,
+    consent: boolean,
+  ): Promise<{ ai_processing_consent: boolean }> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`Usuário com ID ${userId} não encontrado`);
+    }
+
+    await this.usersRepository.update(userId, {
+      ai_processing_consent: consent,
+    });
+
+    return { ai_processing_consent: consent };
+  }
 }

@@ -181,8 +181,15 @@ export async function extractApiErrorMessage(
       return normalizedMessage || 'O recurso solicitado não foi encontrado.';
     case 409:
       return normalizedMessage || 'A operação entrou em conflito com o estado atual do documento.';
-    case 429:
-      return normalizedMessage || 'Muitas requisições. Aguarde alguns instantes e tente novamente.';
+    case 429: {
+      if (normalizedMessage) return normalizedMessage;
+      const retryHeader = error.response?.headers?.['retry-after'];
+      const retryAfter =
+        typeof retryHeader === 'string' ? parseInt(retryHeader, 10) : NaN;
+      return !Number.isNaN(retryAfter) && retryAfter > 0
+        ? `Muitas requisições. Tente novamente em ${retryAfter}s.`
+        : 'Muitas requisições. Aguarde alguns instantes e tente novamente.';
+    }
     case 500:
       return normalizedMessage || 'Erro interno no servidor. Tente novamente em instantes.';
     case 502:
@@ -218,6 +225,12 @@ export function handleApiError(error: unknown, context: string) {
       },
     );
 
+    // Timeout: ECONNABORTED sem resposta do servidor
+    if (error.code === 'ECONNABORTED' && !status) {
+      toast.error('A operação está demorando mais que o esperado. Tente novamente.');
+      return;
+    }
+
     switch (status) {
       case 401:
         toast.error('Sessão expirada. Faça login novamente.');
@@ -238,9 +251,24 @@ export function handleApiError(error: unknown, context: string) {
       case 400:
         toast.error(message || 'Dados inválidos. Verifique os campos.');
         break;
-      case 429:
-        toast.error('Muitas requisições. Tente novamente em alguns instantes.');
+      case 429: {
+        const retryAfterRaw =
+          error.response?.headers?.['retry-after'] ??
+          (error.response?.data as Record<string, unknown> | undefined)
+            ?.retryAfter;
+        const retryAfter =
+          typeof retryAfterRaw === 'number'
+            ? retryAfterRaw
+            : typeof retryAfterRaw === 'string'
+              ? parseInt(retryAfterRaw, 10)
+              : NaN;
+        const waitMsg =
+          !Number.isNaN(retryAfter) && retryAfter > 0
+            ? ` Tente novamente em ${retryAfter}s.`
+            : ' Aguarde alguns instantes.';
+        toast.error(`Muitas requisições.${waitMsg}`);
         break;
+      }
       case 500:
         toast.error('Erro interno no servidor. Nossa equipe já foi notificada.');
         break;

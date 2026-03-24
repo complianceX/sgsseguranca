@@ -29,6 +29,8 @@ import { SstRateLimitService } from './sst-agent/sst-rate-limit.service';
 import { SophieFacadeService } from './sophie-facade.service';
 import { SophieModule } from '../sophie/sophie.module';
 import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
+import { AiConsentGuard } from '../common/guards/ai-consent.guard';
+import { User } from '../users/entities/user.entity';
 import {
   createRedisDisabledQueueProvider,
   isRedisDisabled,
@@ -36,10 +38,13 @@ import {
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AiInteraction]),
+    TypeOrmModule.forFeature([AiInteraction, User]),
     ...(isRedisDisabled
       ? []
-      : [BullModule.registerQueue({ name: 'pdf-generation' })]),
+      : [
+          BullModule.registerQueue({ name: 'pdf-generation' }),
+          BullModule.registerQueue({ name: 'ai-recovery' }),
+        ]),
     SophieModule,
     EpisModule,
     AprsModule,
@@ -66,8 +71,14 @@ import {
     SstRateLimitService,
     SophieFacadeService,
     FeatureAiGuard,
+    AiConsentGuard,
     ...(isRedisDisabled
-      ? [createRedisDisabledQueueProvider('pdf-generation')]
+      ? [
+          createRedisDisabledQueueProvider('pdf-generation'),
+          createRedisDisabledQueueProvider('ai-recovery', {
+            addMode: 'noop',
+          }),
+        ]
       : []),
   ],
   exports: [AiService, SstAgentService, SophieFacadeService],

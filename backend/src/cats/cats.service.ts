@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomUUID } from 'crypto';
@@ -33,6 +34,7 @@ import {
   CatAttachmentCategory,
   CatStatus,
 } from './entities/cat.entity';
+import { MetricsService } from '../common/observability/metrics.service';
 
 type CatPdfAvailability =
   | 'ready'
@@ -56,6 +58,7 @@ export class CatsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly documentRegistryService: DocumentRegistryService,
     private readonly auditService: AuditService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
   async create(createDto: CreateCatDto, actorId?: string): Promise<Cat> {
@@ -82,6 +85,10 @@ export class CatsService {
     });
 
     const saved = await this.catsRepository.save(cat);
+    this.metricsService?.incrementCatReported(
+      saved.company_id,
+      saved.gravidade,
+    );
     await this.writeAuditLog(AuditAction.CREATE, saved, actorId, {
       event: 'cat_opened',
       companyId,

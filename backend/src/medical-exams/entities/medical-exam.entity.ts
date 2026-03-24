@@ -1,5 +1,6 @@
 import {
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
@@ -10,6 +11,7 @@ import {
 import { Company } from '../../companies/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
 
+@Index('IDX_medical_exams_company_created', ['company_id', 'created_at'])
 @Entity('medical_exams')
 export class MedicalExam {
   @PrimaryGeneratedColumn('uuid')

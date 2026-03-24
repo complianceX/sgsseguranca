@@ -83,6 +83,12 @@ async function refreshAccessToken(): Promise<string> {
   return refreshInFlight;
 }
 
+/** Timeouts específicos para operações longas — use via config override por request. */
+export const TIMEOUT_EXPORT = 120_000; // 2 min — exportação Excel
+export const TIMEOUT_PDF    =  60_000; // 1 min — geração de PDF
+export const TIMEOUT_UPLOAD =  90_000; // 1.5 min — upload de arquivos
+export const TIMEOUT_AI     =  45_000; // 45 s — operações de IA
+
 const api = axios.create({
   baseURL: API_BASE_URL || undefined,
   timeout: 30000,

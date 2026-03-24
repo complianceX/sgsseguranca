@@ -122,7 +122,11 @@ describe("aprsService", () => {
 
     const result = await aprsService.generateFinalPdf("apr-1");
 
-    expect(api.post).toHaveBeenCalledWith("/aprs/apr-1/generate-final-pdf");
+    expect(api.post).toHaveBeenCalledWith(
+      "/aprs/apr-1/generate-final-pdf",
+      undefined,
+      { timeout: undefined },
+    );
     expect(result.generated).toBe(true);
     expect(result.hasFinalPdf).toBe(true);
   });

@@ -10,7 +10,9 @@ import {
   UseGuards,
   UseInterceptors,
   Query,
+  Req,
 } from '@nestjs/common';
+import type { Request as ExpressRequest } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -30,8 +32,11 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateAiConsentDto } from './dto/update-ai-consent.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { Authorize } from '../auth/authorize.decorator';
+
+type AuthenticatedRequest = ExpressRequest & { user?: { sub?: string } };
 
 @ApiTags('users')
 @Controller('users')
@@ -44,6 +49,24 @@ export class UsersController {
     private readonly workerOperationalStatusService: WorkerOperationalStatusService,
     private readonly workerTimelineService: WorkerTimelineService,
   ) {}
+
+  /**
+   * PATCH /users/me/ai-consent
+   *
+   * Atualiza o consentimento do usuário autenticado para processamento por IA (LGPD).
+   * Qualquer usuário autenticado pode atualizar seu próprio consentimento.
+   */
+  @Patch('me/ai-consent')
+  async updateMyAiConsent(
+    @Body() dto: UpdateAiConsentDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    const userId = req.user?.sub;
+    if (!userId) {
+      throw new Error('Usuário não autenticado.');
+    }
+    return this.usersService.updateAiConsent(userId, dto.consent);
+  }
 
   @Post()
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)

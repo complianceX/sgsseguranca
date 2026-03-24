@@ -131,15 +131,31 @@ export class DdsController {
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
     @Query('search') search?: string,
     @Query('kind') kind?: 'all' | 'model' | 'regular',
   ) {
+    if (cursor) {
+      return this.ddsService.findByCursor({
+        cursor,
+        limit: limit ? Number(limit) : 20,
+        search,
+        kind,
+      });
+    }
+
     return this.ddsService.findPaginated({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 20,
       search,
       kind,
     });
+  }
+
+  @Get('export/all')
+  @Authorize('can_view_dds')
+  findAllForExport() {
+    return this.ddsService.findAllForExport();
   }
 
   /** Lista IDs recentes para detecção anti-fraude de fotos (elimina N+1 no frontend) */

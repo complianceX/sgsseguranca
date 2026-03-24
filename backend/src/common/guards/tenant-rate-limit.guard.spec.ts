@@ -65,7 +65,7 @@ describe('TenantRateLimitGuard', () => {
     );
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(checkLimit).toHaveBeenCalledWith('company-1', 'STARTER');
+    expect(checkLimit).toHaveBeenCalledWith('company-1', 'STARTER', undefined);
   });
 
   it('respeita o plano propagado pelo middleware de tenant', async () => {
@@ -100,7 +100,11 @@ describe('TenantRateLimitGuard', () => {
     );
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
-    expect(checkLimit).toHaveBeenCalledWith('company-1', 'PROFESSIONAL');
+    expect(checkLimit).toHaveBeenCalledWith(
+      'company-1',
+      'PROFESSIONAL',
+      undefined,
+    );
   });
 
   it('retorna 429 com headers informativos quando o limite e excedido', async () => {

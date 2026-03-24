@@ -5,9 +5,10 @@ import { fetchAllPages, PaginatedResponse } from "./pagination";
 import { DocumentMailDispatchResponse } from "./mailService";
 import { enqueueOfflineMutation } from "@/lib/offline-sync";
 import {
-  getOfflineCache,
+  consumeOfflineCache,
   isOfflineRequestError,
   setOfflineCache,
+  CACHE_TTL,
 } from "@/lib/offline-cache";
 
 export interface ChecklistItem {
@@ -126,13 +127,13 @@ export const checklistsService = {
           params: query,
         },
       );
-      setOfflineCache(cacheKey, response.data);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.LIST);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<PaginatedResponse<Checklist>>(cacheKey);
+      const cached = consumeOfflineCache<PaginatedResponse<Checklist>>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -154,13 +155,13 @@ export const checklistsService = {
         limit: 100,
         maxPages: 50,
       });
-      setOfflineCache(cacheKey, data);
+      setOfflineCache(cacheKey, data, CACHE_TTL.LIST);
       return data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<Checklist[]>(cacheKey);
+      const cached = consumeOfflineCache<Checklist[]>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -174,13 +175,13 @@ export const checklistsService = {
     const cacheKey = `checklists.one.${id}`;
     try {
       const response = await api.get<Checklist>(`/checklists/${id}`);
-      setOfflineCache(cacheKey, response.data);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.RECORD);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<Checklist>(cacheKey);
+      const cached = consumeOfflineCache<Checklist>(cacheKey);
       if (cached) return cached;
       throw error;
     }

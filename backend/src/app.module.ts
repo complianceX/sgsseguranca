@@ -13,6 +13,10 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
+import type { ThrottlerModuleOptions } from '@nestjs/throttler';
+import type { Redis } from 'ioredis';
+import { ThrottlerRedisStorageService } from './common/throttler/throttler-redis-storage.service';
+import { REDIS_CLIENT } from './common/redis/redis.constants';
 import * as Joi from 'joi';
 import * as redisStore from 'cache-manager-redis-store';
 import type { RedisClientOptions } from 'redis';
@@ -88,6 +92,9 @@ import {
 import { IpThrottlerGuard } from './common/guards/ip-throttler.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { TenantRateLimitGuard } from './common/guards/tenant-rate-limit.guard';
+import { UserRateLimitGuard } from './common/guards/user-rate-limit.guard';
+import { RateLimitsAdminController } from './common/admin/rate-limits-admin.controller';
+import { BusinessMetricsAdminController } from './common/admin/business-metrics-admin.controller';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { IdempotencyInterceptor } from './common/idempotency/idempotency.interceptor';
@@ -168,6 +175,22 @@ function resolveDatabaseHost(config: ConfigService): string | undefined {
 }
 
 function resolveDatabasePort(config: ConfigService): number {
+  const numericCandidates = [
+    config.get<number>('DATABASE_PORT'),
+    config.get<number>('PGPORT'),
+    config.get<number>('POSTGRES_PORT'),
+  ];
+
+  for (const candidate of numericCandidates) {
+    if (
+      typeof candidate === 'number' &&
+      Number.isFinite(candidate) &&
+      candidate > 0
+    ) {
+      return candidate;
+    }
+  }
+
   const raw = firstNonEmpty([
     config.get<string>('DATABASE_PORT'),
     config.get<string>('PGPORT'),
@@ -507,15 +530,22 @@ const validationSchema = Joi.object({
     // 2. ScheduleModule para tarefas agendadas
     ScheduleModule.forRoot(),
 
-    // 3. ThrottlerModule para rate limiting
+    // 3. ThrottlerModule para rate limiting — storage Redis para multi-instância
     ThrottlerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => [
-        {
-          ttl: config.get<number>('THROTTLE_TTL', 60000),
-          limit: config.get<number>('THROTTLE_LIMIT', 100),
-        },
-      ],
+      inject: [ConfigService, REDIS_CLIENT],
+      useFactory: (
+        config: ConfigService,
+        redis: Redis,
+      ): ThrottlerModuleOptions => ({
+        storage: new ThrottlerRedisStorageService(redis),
+        throttlers: [
+          {
+            name: 'default',
+            ttl: config.get<number>('THROTTLE_TTL', 60000),
+            limit: config.get<number>('THROTTLE_LIMIT', 100),
+          },
+        ],
+      }),
     }),
 
     // 4. CacheModule com Redis em produção, memória em dev
@@ -769,7 +799,11 @@ const validationSchema = Joi.object({
     SystemThemeModule,
     SecurityAuditModule,
   ],
-  controllers: [AppController],
+  controllers: [
+    AppController,
+    RateLimitsAdminController,
+    BusinessMetricsAdminController,
+  ],
   providers: [
     AppService,
     SeedService,
@@ -785,6 +819,10 @@ const validationSchema = Joi.object({
     {
       provide: APP_GUARD,
       useClass: TenantRateLimitGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: UserRateLimitGuard,
     },
     {
       provide: APP_INTERCEPTOR,

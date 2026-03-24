@@ -1,5 +1,6 @@
 import {
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
@@ -28,6 +29,7 @@ export const DDS_ALLOWED_TRANSITIONS: Record<DdsStatus, DdsStatus[]> = {
   [DdsStatus.ARQUIVADO]: [],
 };
 
+@Index('IDX_dds_company_created', ['company_id', 'created_at'])
 @Entity('dds')
 export class Dds {
   @PrimaryGeneratedColumn('uuid')

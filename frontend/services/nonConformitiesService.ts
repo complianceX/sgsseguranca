@@ -4,9 +4,10 @@ import { AxiosError } from "axios";
 import { Site } from "./sitesService";
 import { enqueueOfflineMutation } from "@/lib/offline-sync";
 import {
-  getOfflineCache,
+  consumeOfflineCache,
   isOfflineRequestError,
   setOfflineCache,
+  CACHE_TTL,
 } from "@/lib/offline-cache";
 import { fetchAllPages, PaginatedResponse } from "./pagination";
 
@@ -269,13 +270,13 @@ export const nonConformitiesService = {
         limit: 100,
         maxPages: 50,
       });
-      setOfflineCache(cacheKey, all);
+      setOfflineCache(cacheKey, all, CACHE_TTL.LIST);
       return all;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<NonConformity[]>(cacheKey);
+      const cached = consumeOfflineCache<NonConformity[]>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -286,13 +287,13 @@ export const nonConformitiesService = {
     try {
       const response = await api.get<NonConformity>(`/nonconformities/${id}`);
       const normalized = normalizeNonConformity(response.data);
-      setOfflineCache(cacheKey, normalized);
+      setOfflineCache(cacheKey, normalized, CACHE_TTL.RECORD);
       return normalized;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<NonConformity>(cacheKey);
+      const cached = consumeOfflineCache<NonConformity>(cacheKey);
       if (cached) return cached;
       throw error;
     }

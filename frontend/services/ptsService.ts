@@ -2,9 +2,9 @@ import api from '@/lib/api';
 import type { GovernedPdfAccessResponse } from "@/lib/api/generated/governed-contracts.client";
 import { AxiosError } from 'axios';
 import { User } from './usersService';
-import { fetchAllPages, PaginatedResponse } from './pagination';
+import { CursorPaginatedResponse, PaginatedResponse } from './pagination';
 import { enqueueOfflineMutation } from '@/lib/offline-sync';
-import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
+import { consumeOfflineCache, isOfflineRequestError, setOfflineCache, CACHE_TTL } from '@/lib/offline-cache';
 
 type PtOfflineSignatureErrorPayload = {
   code: 'PT_OFFLINE_SIGNATURES_NOT_SUPPORTED';
@@ -250,33 +250,49 @@ export const ptsService = {
 
     try {
       const response = await api.get<PaginatedResponse<Pt>>('/pts', { params });
-      setOfflineCache(cacheKey, response.data);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.LIST);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<PaginatedResponse<Pt>>(cacheKey);
+      const cached = consumeOfflineCache<PaginatedResponse<Pt>>(cacheKey);
       if (cached) return cached;
       throw error;
     }
   },
 
+  findByCursor: async (opts?: {
+    cursor?: string;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }) => {
+    const params = {
+      cursor: opts?.cursor,
+      limit: opts?.limit ?? 20,
+      ...(opts?.search ? { search: opts.search } : {}),
+      ...(opts?.status ? { status: opts.status } : {}),
+    };
+
+    const response = await api.get<CursorPaginatedResponse<Pt>>('/pts', {
+      params,
+    });
+    return response.data;
+  },
+
   findAll: async () => {
     const cacheKey = 'pts.all';
     try {
-      const data = await fetchAllPages({
-        fetchPage: (page, limit) => ptsService.findPaginated({ page, limit }),
-        limit: 100,
-        maxPages: 20,
-      });
-      setOfflineCache(cacheKey, data);
+      const response = await api.get<Pt[]>('/pts/export/all');
+      const data = response.data;
+      setOfflineCache(cacheKey, data, CACHE_TTL.LIST);
       return data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<Pt[]>(cacheKey);
+      const cached = consumeOfflineCache<Pt[]>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -286,13 +302,13 @@ export const ptsService = {
     const cacheKey = `pts.one.${id}`;
     try {
       const response = await api.get<Pt>(`/pts/${id}`);
-      setOfflineCache(cacheKey, response.data);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.RECORD);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<Pt>(cacheKey);
+      const cached = consumeOfflineCache<Pt>(cacheKey);
       if (cached) return cached;
       throw error;
     }

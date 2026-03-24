@@ -26,6 +26,34 @@ import { EpisService } from '../../epis/epis.service';
 import { SstToolResult } from './sst-agent.types';
 
 // ---------------------------------------------------------------------------
+// Sanitização de PII — rede de segurança (LGPD)
+// A minimização primária ocorre em cada método de ferramenta.
+// Esta função é a última defesa antes de enviar dados para a OpenAI.
+// ---------------------------------------------------------------------------
+
+const CPF_PATTERN = /\d{3}\.?\d{3}\.?\d{3}-?\d{2}/g;
+const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+export function sanitizeForAi(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return value
+      .replace(CPF_PATTERN, '[CPF]')
+      .replace(EMAIL_PATTERN, '[EMAIL]');
+  }
+  if (Array.isArray(value)) {
+    return value.map(sanitizeForAi);
+  }
+  if (value !== null && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      result[k] = sanitizeForAi(v);
+    }
+    return result;
+  }
+  return value;
+}
+
+// ---------------------------------------------------------------------------
 // Definicoes de ferramentas para a API da Anthropic
 // ---------------------------------------------------------------------------
 
@@ -259,6 +287,7 @@ export class SstToolsExecutor {
     dias: number,
   ): Promise<SstToolResult> {
     const summary = await this.trainingsService.findExpirySummary();
+    // summary contém apenas contagens agregadas — sem nomes ou dados individuais
     return {
       success: true,
       is_stub: false,
@@ -267,6 +296,7 @@ export class SstToolsExecutor {
         janela_dias: dias,
         link: '/dashboard/trainings',
         norma: 'NR-1 e legislacao especifica por categoria de treinamento.',
+        sanitized_for_ai: true,
       },
     };
   }
@@ -275,6 +305,7 @@ export class SstToolsExecutor {
     dias: number,
   ): Promise<SstToolResult> {
     const summary = await this.medicalExamsService.findExpirySummary();
+    // summary contém apenas contagens agregadas (NR-7) — sem nome, CPF ou resultado individual
     return {
       success: true,
       is_stub: false,
@@ -283,12 +314,14 @@ export class SstToolsExecutor {
         janela_dias: dias,
         link: '/dashboard/medical-exams',
         norma: 'NR-7 (PCMSO): exames periodicos obrigatorios conforme PCMSO.',
+        sanitized_for_ai: true,
       },
     };
   }
 
   private async buscarEstatisticasCats(): Promise<SstToolResult> {
     const stats = await this.catsService.getStatistics();
+    // stats contém apenas totais e agrupamentos — sem trabalhador identificado
     return {
       success: true,
       is_stub: false,
@@ -298,6 +331,7 @@ export class SstToolsExecutor {
         aviso:
           'CAT deve ser emitida em ate 1 dia util apos o acidente (CLT art. 22). ' +
           'Casos fatais exigem comunicacao imediata ao INSS.',
+        sanitized_for_ai: true,
       },
     };
   }
@@ -330,6 +364,7 @@ export class SstToolsExecutor {
           ordens_de_servico: '/dashboard/service-orders',
         },
         aviso: 'Resumo parcial. NCs, EPIs, Riscos e OS estao em integracao.',
+        sanitized_for_ai: true,
       },
     };
   }
@@ -342,6 +377,7 @@ export class SstToolsExecutor {
     status?: string,
   ): Promise<SstToolResult> {
     const summary = await this.nonConformitiesService.summarizeByStatus(status);
+    // Retorna apenas totais e agrupamentos — sem descrição ou responsável individual
     return {
       success: true,
       is_stub: false,
@@ -353,12 +389,14 @@ export class SstToolsExecutor {
         link: '/dashboard/nonconformities',
         referencia:
           'NR-1: nao conformidades devem ser registradas e tratadas no SGS.',
+        sanitized_for_ai: true,
       },
     };
   }
 
   private async buscarEpis(dias: number): Promise<SstToolResult> {
     const summary = await this.episService.findCaExpirySummary(dias);
+    // summary retorna contagens de CAs vencidos/próximos — sem dados de trabalhadores
     return {
       success: true,
       is_stub: false,
@@ -367,6 +405,7 @@ export class SstToolsExecutor {
         link: '/dashboard/epis',
         referencia:
           'NR-6, item 6.3: empregador deve exigir EPI com CA valido emitido pelo MTE.',
+        sanitized_for_ai: true,
       },
     };
   }
@@ -381,6 +420,7 @@ export class SstToolsExecutor {
     const alto = normalizedMatrix.filter(
       (risk) => Number(risk.prob ?? 0) * Number(risk.sev ?? 0) >= 10,
     );
+    // matrix contém: categoria, probabilidade, severidade, count — sem trabalhadores
     return {
       success: true,
       is_stub: false,
@@ -392,6 +432,7 @@ export class SstToolsExecutor {
         link: '/dashboard/risk-map',
         referencia:
           'NR-1: GRO — PGR exige identificacao e avaliacao de riscos ocupacionais.',
+        sanitized_for_ai: true,
       },
     };
   }
@@ -401,18 +442,15 @@ export class SstToolsExecutor {
       status: 'ativo',
       limit: 50,
     });
+    // LGPD: remover responsavel.nome (PII) — enviar apenas número, título e site
     const orders = this.toLooseRecordArray(page.data).map((serviceOrder) => {
       const site = isLooseRecord(serviceOrder.site) ? serviceOrder.site : null;
-      const responsavel = isLooseRecord(serviceOrder.responsavel)
-        ? serviceOrder.responsavel
-        : null;
-
       return {
         numero: this.toSafeString(serviceOrder.numero),
         titulo: this.toSafeString(serviceOrder.titulo),
         data_emissao: serviceOrder.data_emissao,
         site: this.toSafeString(site?.nome) || null,
-        responsavel: this.toSafeString(responsavel?.nome) || null,
+        // responsavel omitido intencionalmente (LGPD — nome é PII)
       };
     });
     return {
@@ -424,6 +462,7 @@ export class SstToolsExecutor {
         link: '/dashboard/service-orders',
         referencia:
           'NR-1, item 1.5.4: OS obrigatoria para orientar trabalhadores sobre riscos.',
+        sanitized_for_ai: true,
       },
     };
   }

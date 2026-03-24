@@ -1,6 +1,6 @@
 import api from '@/lib/api';
 import { fetchAllPages, PaginatedResponse } from './pagination';
-import { getOfflineCache, isOfflineRequestError, setOfflineCache } from '@/lib/offline-cache';
+import { consumeOfflineCache, isOfflineRequestError, setOfflineCache, CACHE_TTL } from '@/lib/offline-cache';
 
 export interface Site {
   id: string;
@@ -32,13 +32,13 @@ export const sitesService = {
       const response = await api.get<PaginatedResponse<Site>>('/sites', {
         params,
       });
-      setOfflineCache(cacheKey, response.data);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.REFERENCE);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<PaginatedResponse<Site>>(cacheKey);
+      const cached = consumeOfflineCache<PaginatedResponse<Site>>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -57,13 +57,13 @@ export const sitesService = {
         limit: 100,
         maxPages: 50,
       });
-      setOfflineCache(cacheKey, data);
+      setOfflineCache(cacheKey, data, CACHE_TTL.REFERENCE);
       return data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<Site[]>(cacheKey);
+      const cached = consumeOfflineCache<Site[]>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -73,13 +73,13 @@ export const sitesService = {
     const cacheKey = `sites.one.${id}`;
     try {
       const response = await api.get<Site>(`/sites/${id}`);
-      setOfflineCache(cacheKey, response.data);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.REFERENCE);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<Site>(cacheKey);
+      const cached = consumeOfflineCache<Site>(cacheKey);
       if (cached) return cached;
       throw error;
     }

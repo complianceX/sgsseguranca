@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { jsonToExcelBuffer } from '../common/utils/excel.util';
@@ -11,6 +16,12 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import {
+  CursorPaginatedResponse,
+  decodeCursorToken,
+  toCursorPaginatedResponse,
+} from '../common/utils/cursor-pagination.util';
+import { MetricsService } from '../common/observability/metrics.service';
 
 const TIPO_EXAME_LABEL: Record<string, string> = {
   admissional: 'Admissional',
@@ -32,6 +43,7 @@ export class MedicalExamsService {
     @InjectRepository(MedicalExam)
     private readonly medicalExamsRepository: Repository<MedicalExam>,
     private readonly tenantService: TenantService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
   async create(dto: CreateMedicalExamDto): Promise<MedicalExam> {
@@ -40,15 +52,66 @@ export class MedicalExamsService {
       ...dto,
       company_id: tenantId ?? dto.company_id,
     });
-    return this.medicalExamsRepository.save(exam);
+    const saved = await this.medicalExamsRepository.save(exam);
+    this.metricsService?.incrementMedicalExamRegistered(
+      saved.company_id,
+      saved.tipo_exame,
+    );
+    return saved;
   }
 
-  async findAll(): Promise<MedicalExam[]> {
+  async findAll(opts?: {
+    page?: number;
+    limit?: number;
+  }): Promise<OffsetPage<MedicalExam>> {
     const tenantId = this.tenantService.getTenantId();
-    return this.medicalExamsRepository.find({
-      where: tenantId ? { company_id: tenantId } : {},
-      relations: ['user'],
+    // maxLimit: 1000 — limite de segurança para evitar OOM em tenants grandes
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 1000,
     });
+
+    const qb = this.medicalExamsRepository
+      .createQueryBuilder('exam')
+      .leftJoinAndSelect('exam.user', 'user')
+      .orderBy('exam.data_vencimento', 'ASC')
+      .skip(skip)
+      .take(limit);
+
+    if (tenantId) {
+      qb.where('exam.company_id = :tenantId', { tenantId });
+    }
+
+    const [data, total] = await qb.getManyAndCount();
+    return toOffsetPage(data, total, page, limit);
+  }
+
+  // Carrega todos os registros para uso interno (exportações, relatórios).
+  // Sem relação de user; apenas campos essenciais; take: 5000 como teto.
+  async findAllForExport(): Promise<MedicalExam[]> {
+    const tenantId = this.tenantService.getTenantId();
+    const qb = this.medicalExamsRepository
+      .createQueryBuilder('exam')
+      .select([
+        'exam.id',
+        'exam.tipo_exame',
+        'exam.resultado',
+        'exam.data_realizacao',
+        'exam.data_vencimento',
+        'exam.medico_responsavel',
+        'exam.crm_medico',
+        'exam.company_id',
+        'exam.user_id',
+        'exam.created_at',
+      ])
+      .orderBy('exam.data_vencimento', 'ASC')
+      .take(5000);
+
+    if (tenantId) {
+      qb.where('exam.company_id = :tenantId', { tenantId });
+    }
+
+    return qb.getMany();
   }
 
   async findPaginated(opts?: {
@@ -83,6 +146,63 @@ export class MedicalExamsService {
 
     const [data, total] = await qb.getManyAndCount();
     return toOffsetPage(data, total, page, limit);
+  }
+
+  async findByCursor(opts?: {
+    cursor?: string;
+    limit?: number;
+    tipo_exame?: string;
+    resultado?: string;
+    user_id?: string;
+  }): Promise<CursorPaginatedResponse<MedicalExam>> {
+    const tenantId = this.tenantService.getTenantId();
+    const { limit } = normalizeOffsetPagination(
+      { page: 1, limit: opts?.limit },
+      {
+        defaultLimit: 20,
+        maxLimit: 100,
+      },
+    );
+    const decodedCursor = decodeCursorToken(opts?.cursor);
+    if (opts?.cursor && !decodedCursor) {
+      throw new BadRequestException(
+        'Cursor inválido para listagem de exames médicos.',
+      );
+    }
+
+    const qb = this.medicalExamsRepository
+      .createQueryBuilder('exam')
+      .leftJoinAndSelect('exam.user', 'user')
+      .orderBy('exam.created_at', 'DESC')
+      .addOrderBy('exam.id', 'DESC')
+      .take(limit + 1);
+
+    if (tenantId) qb.where('exam.company_id = :tenantId', { tenantId });
+    if (opts?.tipo_exame)
+      qb.andWhere('exam.tipo_exame = :tipo_exame', {
+        tipo_exame: opts.tipo_exame,
+      });
+    if (opts?.resultado)
+      qb.andWhere('exam.resultado = :resultado', { resultado: opts.resultado });
+    if (opts?.user_id)
+      qb.andWhere('exam.user_id = :user_id', { user_id: opts.user_id });
+
+    if (decodedCursor) {
+      qb.andWhere(
+        '(exam.created_at < :cursorCreatedAt OR (exam.created_at = :cursorCreatedAt AND exam.id < :cursorId))',
+        {
+          cursorCreatedAt: decodedCursor.created_at,
+          cursorId: decodedCursor.id,
+        },
+      );
+    }
+
+    const rows = await qb.getMany();
+    return toCursorPaginatedResponse({
+      rows,
+      limit,
+      getCreatedAt: (row) => row.created_at,
+    });
   }
 
   async findOne(id: string): Promise<MedicalExam> {

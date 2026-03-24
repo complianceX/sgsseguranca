@@ -40,7 +40,7 @@ export default async function globalSetup() {
     console.warn(
       `\n⚠️  E2E: infraestrutura indisponível (DB=${db ? '✓' : '✗'} Redis=${redis ? '✓' : '✗'}). ` +
         `Testes E2E serão ignorados.\n` +
-        `   Inicie os serviços com: docker compose -f docker-compose.local.yml up -d\n`,
+        `   Inicie os serviços com: docker compose -f docker-compose.test.yml up -d\n`,
     );
   }
 }

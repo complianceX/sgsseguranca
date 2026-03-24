@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import type { CursorPaginatedResponse } from './pagination';
 
 export interface MedicalExam {
   id: string;
@@ -59,6 +60,30 @@ export const medicalExamsService = {
     user_id?: string;
   }): Promise<MedicalExamPage> {
     const res = await api.get('/medical-exams', { params });
+    return res.data;
+  },
+
+  async findByCursor(params?: {
+    cursor?: string;
+    limit?: number;
+    tipo_exame?: string;
+    resultado?: string;
+    user_id?: string;
+  }): Promise<CursorPaginatedResponse<MedicalExam>> {
+    const res = await api.get('/medical-exams', {
+      params: {
+        cursor: params?.cursor,
+        limit: params?.limit ?? 20,
+        ...(params?.tipo_exame ? { tipo_exame: params.tipo_exame } : {}),
+        ...(params?.resultado ? { resultado: params.resultado } : {}),
+        ...(params?.user_id ? { user_id: params.user_id } : {}),
+      },
+    });
+    return res.data;
+  },
+
+  async findAllForExport(): Promise<MedicalExam[]> {
+    const res = await api.get('/medical-exams/export/all');
     return res.data;
   },
 

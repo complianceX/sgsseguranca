@@ -1,5 +1,5 @@
 import api from '@/lib/api';
-import { fetchAllPages, PaginatedResponse } from './pagination';
+import { CursorPaginatedResponse, PaginatedResponse } from './pagination';
 
 export interface Training {
   id: string;
@@ -51,12 +51,25 @@ export const trainingsService = {
     return response.data;
   },
 
+  findByCursor: async (opts?: {
+    cursor?: string;
+    limit?: number;
+  }): Promise<CursorPaginatedResponse<Training>> => {
+    const response = await api.get<CursorPaginatedResponse<Training>>(
+      '/trainings',
+      {
+        params: {
+          cursor: opts?.cursor,
+          limit: opts?.limit ?? 20,
+        },
+      },
+    );
+    return response.data;
+  },
+
   findAll: async (): Promise<Training[]> => {
-    return fetchAllPages({
-      fetchPage: (page, limit) => trainingsService.findPaginated({ page, limit }),
-      limit: 100,
-      maxPages: 50,
-    });
+    const response = await api.get<Training[]>('/trainings/export/all');
+    return response.data;
   },
 
   findOne: async (id: string): Promise<Training> => {

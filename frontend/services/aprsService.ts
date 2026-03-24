@@ -1,4 +1,4 @@
-import api from "@/lib/api";
+import api, { TIMEOUT_PDF } from "@/lib/api";
 import type { GovernedPdfAccessResponse } from "@/lib/api/generated/governed-contracts.client";
 import { AxiosResponse } from "axios";
 import { AxiosError } from "axios";
@@ -14,9 +14,10 @@ import { Company } from "./companiesService";
 import { fetchAllPages, PaginatedResponse } from "./pagination";
 import { enqueueOfflineMutation } from "@/lib/offline-sync";
 import {
-  getOfflineCache,
+  consumeOfflineCache,
   isOfflineRequestError,
   setOfflineCache,
+  CACHE_TTL,
 } from "@/lib/offline-cache";
 
 export interface AprRiskItemInput {
@@ -260,13 +261,13 @@ export const aprsService = {
       const response = await api.get<PaginatedResponse<Apr>>("/aprs", {
         params,
       });
-      setOfflineCache(cacheKey, response.data);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.CRITICAL);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<PaginatedResponse<Apr>>(cacheKey);
+      const cached = consumeOfflineCache<PaginatedResponse<Apr>>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -280,14 +281,16 @@ export const aprsService = {
           aprsService.findPaginated({ page, limit, companyId }),
         limit: 100,
         maxPages: 20,
+        batchSize: 3,
+        cacheKey: `GET:/aprs?page=*&limit=100&company_id=${companyId || "current"}`,
       });
-      setOfflineCache(cacheKey, data);
+      setOfflineCache(cacheKey, data, CACHE_TTL.CRITICAL);
       return data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<Apr[]>(cacheKey);
+      const cached = consumeOfflineCache<Apr[]>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -297,13 +300,13 @@ export const aprsService = {
     const cacheKey = `aprs.one.${id}`;
     try {
       const response = await api.get<Apr>(`/aprs/${id}`);
-      setOfflineCache(cacheKey, response.data);
+      setOfflineCache(cacheKey, response.data, CACHE_TTL.RECORD);
       return response.data;
     } catch (error) {
       if (!isOfflineRequestError(error)) {
         throw error;
       }
-      const cached = getOfflineCache<Apr>(cacheKey);
+      const cached = consumeOfflineCache<Apr>(cacheKey);
       if (cached) return cached;
       throw error;
     }
@@ -387,6 +390,8 @@ export const aprsService = {
   generateFinalPdf: async (id: string) => {
     const response = await api.post<AprFinalPdfGenerationResponse>(
       `/aprs/${id}/generate-final-pdf`,
+      undefined,
+      { timeout: TIMEOUT_PDF },
     );
     return response.data;
   },

@@ -143,15 +143,31 @@ export class PtsController {
   findPaginated(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
+    @Query('cursor') cursor?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
   ) {
+    if (cursor) {
+      return this.ptsService.findByCursor({
+        cursor,
+        limit: Number(limit),
+        search: search || undefined,
+        status: status || undefined,
+      });
+    }
+
     return this.ptsService.findPaginated({
       page: Number(page),
       limit: Number(limit),
       search: search || undefined,
       status: status || undefined,
     });
+  }
+
+  @Get('export/all')
+  @Authorize('can_view_pt')
+  findAllForExport() {
+    return this.ptsService.findAllForExport();
   }
 
   @Get('files/list')

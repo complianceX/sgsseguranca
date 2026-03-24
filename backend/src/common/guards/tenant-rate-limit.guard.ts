@@ -16,6 +16,10 @@ import {
 } from '../rate-limit/tenant-rate-limit.service';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { TenantRequest } from '../middleware/tenant.middleware';
+import {
+  TENANT_THROTTLE_KEY,
+  TenantThrottleOptions,
+} from '../decorators/tenant-throttle.decorator';
 
 type TenantRateLimitRequest = TenantRequest & {
   method?: string;
@@ -67,7 +71,20 @@ export class TenantRateLimitGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<TenantRateLimitRequest>();
     const plan = getTenantPlan(request);
 
-    const result = await this.rateLimitService.checkLimit(companyId, plan);
+    // Verificar se a rota define limites customizados (@TenantThrottle)
+    const routeOverrideRaw = this.reflector.getAllAndOverride<
+      TenantThrottleOptions | undefined
+    >(TENANT_THROTTLE_KEY, [context.getHandler(), context.getClass()]);
+    const routeOverride =
+      routeOverrideRaw && typeof routeOverrideRaw === 'object'
+        ? routeOverrideRaw
+        : undefined;
+
+    const result = await this.rateLimitService.checkLimit(
+      companyId,
+      plan,
+      routeOverride,
+    );
 
     const response = context.switchToHttp().getResponse<Response>();
     response.setHeader('X-RateLimit-Plan', plan);

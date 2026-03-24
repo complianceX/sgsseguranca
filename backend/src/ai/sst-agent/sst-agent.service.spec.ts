@@ -16,6 +16,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException, HttpException } from '@nestjs/common';
+import { getQueueToken } from '@nestjs/bullmq';
 
 import { SstAgentService } from './sst-agent.service';
 import { SstToolsExecutor } from './sst-agent.tools';
@@ -24,6 +25,7 @@ import { TenantService } from '../../common/tenant/tenant.service';
 import { AiInteraction } from '../entities/ai-interaction.entity';
 import { SophieLocalChatService } from '../../sophie/sophie.local-chat.service';
 import { IntegrationResilienceService } from '../../common/resilience/integration-resilience.service';
+import { OpenAiCircuitBreakerService } from '../../common/resilience/openai-circuit-breaker.service';
 import {
   AiInteractionStatus,
   ConfidenceLevel,
@@ -60,6 +62,16 @@ const mockSophieLocalChatService = () => ({
 
 const mockIntegrationResilienceService = () => ({
   execute: jest.fn((_name: string, fn: () => Promise<unknown>) => fn()),
+});
+
+const mockOpenAiCircuitBreakerService = () => ({
+  assertRequestAllowed: jest.fn().mockResolvedValue(undefined),
+  recordSuccess: jest.fn().mockResolvedValue(undefined),
+  recordFailure: jest.fn().mockResolvedValue(undefined),
+  isCountableFailureStatus: jest
+    .fn()
+    .mockImplementation((status: number) => [500, 502, 503].includes(status)),
+  isCountableFailureError: jest.fn().mockReturnValue(true),
 });
 
 const mockConfigService = (apiKey?: string) => ({
@@ -107,6 +119,7 @@ const makeService = async (options?: {
   const rlMock = mockRateLimitService();
   const sophieLocalChatMock = mockSophieLocalChatService();
   const integrationMock = mockIntegrationResilienceService();
+  const openAiCircuitBreakerMock = mockOpenAiCircuitBreakerService();
 
   tenantMock.getTenantId.mockReturnValue(tenantId);
   rlMock.checkAndConsume.mockResolvedValue({
@@ -135,6 +148,14 @@ const makeService = async (options?: {
       {
         provide: IntegrationResilienceService,
         useValue: integrationMock,
+      },
+      {
+        provide: OpenAiCircuitBreakerService,
+        useValue: openAiCircuitBreakerMock,
+      },
+      {
+        provide: getQueueToken('ai-recovery'),
+        useValue: { add: jest.fn().mockResolvedValue(undefined) },
       },
     ],
   }).compile();

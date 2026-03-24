@@ -1,15 +1,10 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { CircuitBreakerService } from '../common/resilience/circuit-breaker.service';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
-
-const getErrorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : 'Unknown error';
+import { HealthService } from './health.service';
 
 /**
  * Enhanced Health Check Controller
@@ -24,10 +19,7 @@ const getErrorMessage = (error: unknown): string =>
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN_GERAL)
 export class EnhancedHealthController {
-  constructor(
-    @InjectDataSource() private readonly dataSource: DataSource,
-    private readonly circuitBreakerService: CircuitBreakerService,
-  ) {}
+  constructor(private readonly healthService: HealthService) {}
 
   /**
    * Health check básico
@@ -49,8 +41,8 @@ export class EnhancedHealthController {
   @Get('detailed')
   @Authorize('can_view_system_health')
   async detailedHealthCheck() {
-    const dbStatus = await this.checkDatabase();
-    const memoryUsage = this.getMemoryUsage();
+    const dbStatus = await this.healthService.checkDatabase();
+    const memoryUsage = this.healthService.getMemoryUsage();
 
     return {
       status: dbStatus.healthy ? 'healthy' : 'unhealthy',
@@ -66,50 +58,12 @@ export class EnhancedHealthController {
   }
 
   /**
-   * Verificar status do banco de dados
-   */
-  private async checkDatabase(): Promise<{
-    healthy: boolean;
-    responseTime: number;
-    error?: string;
-  }> {
-    const startTime = Date.now();
-    try {
-      await this.dataSource.query('SELECT 1');
-      return {
-        healthy: true,
-        responseTime: Date.now() - startTime,
-      };
-    } catch (error: unknown) {
-      return {
-        healthy: false,
-        responseTime: Date.now() - startTime,
-        error: getErrorMessage(error),
-      };
-    }
-  }
-
-  /**
-   * Obter uso de memória
-   */
-  private getMemoryUsage() {
-    const usage = process.memoryUsage();
-    return {
-      heapUsed: Math.round(usage.heapUsed / 1024 / 1024), // MB
-      heapTotal: Math.round(usage.heapTotal / 1024 / 1024), // MB
-      rss: Math.round(usage.rss / 1024 / 1024), // MB
-      external: Math.round(usage.external / 1024 / 1024), // MB
-      percentage: Math.round((usage.heapUsed / usage.heapTotal) * 100),
-    };
-  }
-
-  /**
    * Endpoint de readiness (para Kubernetes)
    */
   @Get('ready')
   @Authorize('can_view_system_health')
   async readiness() {
-    const dbStatus = await this.checkDatabase();
+    const dbStatus = await this.healthService.checkDatabase();
 
     if (!dbStatus.healthy) {
       return {

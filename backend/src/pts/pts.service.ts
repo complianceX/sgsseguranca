@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
@@ -36,12 +37,18 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import {
+  CursorPaginatedResponse,
+  decodeCursorToken,
+  toCursorPaginatedResponse,
+} from '../common/utils/cursor-pagination.util';
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import { MetricsService } from '../common/observability/metrics.service';
 
 type PreApprovalChecklist = Record<string, unknown>;
 type PtPdfAccessAvailability =
@@ -97,6 +104,7 @@ export class PtsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly signaturesService: SignaturesService,
     private readonly forensicTrailService: ForensicTrailService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
   private assertPtDocumentMutable(pt: Pick<Pt, 'pdf_file_key'>) {
@@ -340,16 +348,79 @@ export class PtsService {
       ptId: saved.id,
       companyId: saved.company_id,
     });
+    this.metricsService?.incrementPtCreated(saved.company_id);
     return saved;
   }
 
-  async findAll(): Promise<Pt[]> {
+  async findAll(opts?: {
+    page?: number;
+    limit?: number;
+  }): Promise<OffsetPage<Pt>> {
     const tenantId = this.tenantService.getTenantId();
     await this.refreshExpiredStatuses(tenantId || undefined);
-    return this.ptsRepository.find({
-      where: tenantId ? { company_id: tenantId } : {},
-      relations: ['site', 'apr', 'responsavel', 'executantes', 'auditado_por'],
+    // maxLimit: 1000 — limite de segurança para evitar OOM (5 JOINs em findOne)
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 1000,
     });
+
+    const qb = this.ptsRepository
+      .createQueryBuilder('pt')
+      .select([
+        'pt.id',
+        'pt.numero',
+        'pt.titulo',
+        'pt.descricao',
+        'pt.data_hora_inicio',
+        'pt.data_hora_fim',
+        'pt.status',
+        'pt.company_id',
+        'pt.site_id',
+        'pt.apr_id',
+        'pt.responsavel_id',
+        'pt.pdf_file_key',
+        'pt.created_at',
+        'pt.updated_at',
+      ])
+      .where('pt.deleted_at IS NULL')
+      .orderBy('pt.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    if (tenantId) {
+      qb.andWhere('pt.company_id = :tenantId', { tenantId });
+    }
+
+    const [data, total] = await qb.getManyAndCount();
+    return toOffsetPage(data, total, page, limit);
+  }
+
+  // Carrega todos os registros para uso interno (exportações, relatórios).
+  // Sem relações; apenas campos essenciais; take: 5000 como teto de segurança.
+  async findAllForExport(): Promise<Pt[]> {
+    const tenantId = this.tenantService.getTenantId();
+    await this.refreshExpiredStatuses(tenantId || undefined);
+    const qb = this.ptsRepository
+      .createQueryBuilder('pt')
+      .select([
+        'pt.id',
+        'pt.numero',
+        'pt.titulo',
+        'pt.status',
+        'pt.data_hora_inicio',
+        'pt.data_hora_fim',
+        'pt.company_id',
+        'pt.created_at',
+      ])
+      .where('pt.deleted_at IS NULL')
+      .orderBy('pt.created_at', 'DESC')
+      .take(5000);
+
+    if (tenantId) {
+      qb.andWhere('pt.company_id = :tenantId', { tenantId });
+    }
+
+    return qb.getMany();
   }
 
   async findPaginated(opts?: {
@@ -403,6 +474,82 @@ export class PtsService {
 
     const [data, total] = await qb.getManyAndCount();
     return toOffsetPage(data, total, page, limit);
+  }
+
+  async findByCursor(opts?: {
+    cursor?: string;
+    limit?: number;
+    search?: string;
+    status?: string;
+  }): Promise<CursorPaginatedResponse<Pt>> {
+    const tenantId = this.tenantService.getTenantId();
+    await this.refreshExpiredStatuses(tenantId || undefined);
+
+    const { limit } = normalizeOffsetPagination(
+      { page: 1, limit: opts?.limit },
+      {
+        defaultLimit: 20,
+        maxLimit: 100,
+      },
+    );
+    const decodedCursor = decodeCursorToken(opts?.cursor);
+    if (opts?.cursor && !decodedCursor) {
+      throw new BadRequestException('Cursor inválido para listagem de PT.');
+    }
+
+    const qb = this.ptsRepository
+      .createQueryBuilder('pt')
+      .select([
+        'pt.id',
+        'pt.numero',
+        'pt.titulo',
+        'pt.descricao',
+        'pt.data_hora_inicio',
+        'pt.data_hora_fim',
+        'pt.status',
+        'pt.company_id',
+        'pt.site_id',
+        'pt.apr_id',
+        'pt.responsavel_id',
+        'pt.pdf_file_key',
+        'pt.created_at',
+        'pt.updated_at',
+      ])
+      .where('pt.deleted_at IS NULL')
+      .orderBy('pt.created_at', 'DESC')
+      .addOrderBy('pt.id', 'DESC')
+      .take(limit + 1);
+
+    if (tenantId) {
+      qb.andWhere('pt.company_id = :tenantId', { tenantId });
+    }
+
+    if (opts?.search) {
+      qb.andWhere('(pt.titulo ILIKE :search OR pt.numero ILIKE :search)', {
+        search: `%${opts.search}%`,
+      });
+    }
+
+    if (opts?.status) {
+      qb.andWhere('pt.status = :status', { status: opts.status });
+    }
+
+    if (decodedCursor) {
+      qb.andWhere(
+        '(pt.created_at < :cursorCreatedAt OR (pt.created_at = :cursorCreatedAt AND pt.id < :cursorId))',
+        {
+          cursorCreatedAt: decodedCursor.created_at,
+          cursorId: decodedCursor.id,
+        },
+      );
+    }
+
+    const rows = await qb.getMany();
+    return toCursorPaginatedResponse({
+      rows,
+      limit,
+      getCreatedAt: (row) => row.created_at,
+    });
   }
 
   async findOne(id: string): Promise<Pt> {

@@ -7,6 +7,8 @@ import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { PwaBootstrap } from '@/components/PwaBootstrap';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { SystemThemeLoader } from '@/components/SystemThemeLoader';
+import { SentryUserContext } from '@/components/SentryUserContext';
+import { StaleCacheBanner } from '@/components/StaleCacheBanner';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -50,6 +52,8 @@ export default function RootLayout({
           <ThemeProvider>
             <SystemThemeLoader />
             <AuthProvider>
+              <SentryUserContext />
+              <StaleCacheBanner />
               <PwaBootstrap />
               {children}
               <Toaster position="top-right" richColors />

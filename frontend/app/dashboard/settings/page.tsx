@@ -23,6 +23,7 @@ import { companiesService, Company } from '@/services/companiesService';
 import { ptsService, PtApprovalRules } from '@/services/ptsService';
 import { SophieStatusCard } from '@/components/SophieStatusCard';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
+import { usersService } from '@/services/usersService';
 
 export default function SettingsPage() {
   const { user, hasPermission, isAdminGeral } = useAuth();
@@ -31,6 +32,8 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
+  const [aiConsent, setAiConsent] = useState<boolean>(user?.ai_processing_consent ?? false);
+  const [savingAiConsent, setSavingAiConsent] = useState(false);
   const [company, setCompany] = useState<Company | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoDraft, setLogoDraft] = useState<string | null>(null);
@@ -264,6 +267,49 @@ export default function SettingsPage() {
       </div>
 
       {hasPermission('can_use_ai') ? <SophieStatusCard /> : null}
+
+      {hasPermission('can_use_ai') && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-gray-900">Privacidade — Processamento por IA</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            O agente SOPHIE envia dados estatísticos do sistema para a OpenAI (EUA) para gerar respostas.
+            Nenhum nome, CPF ou dado individual de trabalhadores é transmitido.
+          </p>
+          <label className="mt-4 flex items-center justify-between gap-4 cursor-pointer">
+            <span className="text-sm font-medium text-gray-700">
+              Permitir processamento por IA (LGPD)
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={aiConsent ? 'true' : 'false'}
+              disabled={savingAiConsent}
+              onClick={async () => {
+                const next = !aiConsent;
+                setSavingAiConsent(true);
+                try {
+                  await usersService.updateAiConsent(next);
+                  setAiConsent(next);
+                  toast.success(next ? 'IA habilitada.' : 'IA desabilitada. Consentimento revogado.');
+                } catch {
+                  toast.error('Não foi possível salvar. Tente novamente.');
+                } finally {
+                  setSavingAiConsent(false);
+                }
+              }}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                aiConsent ? 'bg-blue-600' : 'bg-gray-300'
+              } ${savingAiConsent ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  aiConsent ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </label>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">

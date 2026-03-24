@@ -6,6 +6,8 @@ import {
   HttpStatus,
   Scope,
   BadRequestException,
+  ServiceUnavailableException,
+  BadGatewayException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -70,6 +72,7 @@ import type { GenerateSophieReportDto } from './dto/generate-sophie-report.dto';
 import { withDefaultJobOptions } from '../queue/default-job-options';
 import { IntegrationResilienceService } from '../common/resilience/integration-resilience.service';
 import { requestOpenAiChatCompletionResponse } from './openai-request.util';
+import { OpenAiCircuitBreakerService } from '../common/resilience/openai-circuit-breaker.service';
 import { getPdfQueueJobTimeoutMs } from '../common/services/pdf-runtime-config';
 import { SOPHIE_JSON_RUNTIME_INSTRUCTION } from './sophie-task-prompts';
 
@@ -276,6 +279,7 @@ export class AiService {
     private readonly ddsService: DdsService,
     private readonly inspectionsService: InspectionsService,
     private readonly integration: IntegrationResilienceService,
+    private readonly openAiCircuitBreaker: OpenAiCircuitBreakerService,
     @InjectQueue('pdf-generation')
     private readonly pdfQueue: Queue,
   ) {
@@ -475,11 +479,14 @@ export class AiService {
     buildBody: (model: string) => Record<string, unknown>;
   }): Promise<{ payload: T; model: string }> {
     if (!this.openaiApiKey) {
-      throw new Error('OPENAI_API_KEY nao configurada.');
+      // ServiceUnavailableException: dependência externa (OpenAI) não configurada;
+      // detalhe operacional não deve ser exposto ao cliente.
+      throw new ServiceUnavailableException(
+        'Serviço de IA temporariamente indisponível.',
+      );
     }
 
     const candidates = this.getOpenAiModelCandidates(params.primaryModel);
-    let lastError: Error | null = null;
 
     for (let index = 0; index < candidates.length; index += 1) {
       const model = candidates[index];
@@ -494,6 +501,7 @@ export class AiService {
         body,
         configService: this.configService,
         integration: this.integration,
+        circuitBreaker: this.openAiCircuitBreaker,
       });
 
       if (response.ok) {
@@ -538,12 +546,17 @@ export class AiService {
         continue;
       }
 
-      lastError = new Error(formattedError);
-      break;
+      // BadGatewayException: este modelo falhou sem possibilidade de fallback;
+      // detalhe técnico já registrado via logger.error() acima.
+      throw new BadGatewayException(
+        'Serviço de IA retornou resposta inválida. Tente novamente.',
+      );
     }
 
-    throw (
-      lastError || new Error(`Falha ao chamar OpenAI em ${params.context}.`)
+    // BadGatewayException: loop encerrou sem resposta válida (todos os candidates
+    // esgotados); detalhe técnico já registrado via logger.error() no loop acima.
+    throw new BadGatewayException(
+      'Serviço de IA retornou resposta inválida. Tente novamente.',
     );
   }
 
@@ -553,7 +566,11 @@ export class AiService {
     maxTokens?: number;
   }): Promise<{ data: T; inputTokens: number; outputTokens: number }> {
     if (!this.openaiApiKey) {
-      throw new Error('OPENAI_API_KEY nao configurada.');
+      // ServiceUnavailableException: chave de API ausente é falha de configuração
+      // operacional; o cliente não precisa saber o motivo interno.
+      throw new ServiceUnavailableException(
+        'Serviço de IA temporariamente indisponível.',
+      );
     }
 
     type OpenAiChatCompletion = {
@@ -589,7 +606,11 @@ export class AiService {
       });
     const text = (payload.choices?.[0]?.message?.content ?? '').trim();
     if (!text) {
-      throw new Error('OpenAI nao retornou conteudo utilizavel.');
+      // BadGatewayException: a API respondeu 200 mas com content vazio ou nulo;
+      // indica comportamento inesperado do provedor externo.
+      throw new BadGatewayException(
+        'Serviço de IA retornou resposta inválida. Tente novamente.',
+      );
     }
 
     const candidate = this.extractJsonCandidate(text);

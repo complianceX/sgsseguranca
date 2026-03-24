@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
@@ -19,6 +20,11 @@ import {
   OffsetPage,
   toOffsetPage,
 } from '../common/utils/offset-pagination.util';
+import {
+  CursorPaginatedResponse,
+  decodeCursorToken,
+  toCursorPaginatedResponse,
+} from '../common/utils/cursor-pagination.util';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
@@ -26,6 +32,7 @@ import { DocumentVideosService } from '../document-videos/document-videos.servic
 import { SignaturesService } from '../signatures/signatures.service';
 import { Signature } from '../signatures/entities/signature.entity';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import { MetricsService } from '../common/observability/metrics.service';
 
 const TEAM_PHOTO_SIGNATURE_PREFIX = 'team_photo';
 const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = 'team_photo_reuse_justification';
@@ -66,6 +73,7 @@ export class DdsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly documentVideosService: DocumentVideosService,
     private readonly signaturesService: SignaturesService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
   async create(createDdsDto: CreateDdsDto): Promise<Dds> {
@@ -96,17 +104,85 @@ export class DdsService {
       ddsId: saved.id,
       companyId: saved.company_id,
     });
+    this.metricsService?.incrementDdsCreated(saved.company_id);
     return saved;
   }
 
-  async findAll(): Promise<Dds[]> {
+  async findAll(opts?: {
+    page?: number;
+    limit?: number;
+  }): Promise<OffsetPage<Dds>> {
     const tenantId = this.tenantService.getTenantId();
-    return this.ddsRepository.find({
-      where: tenantId
-        ? { company_id: tenantId, deleted_at: IsNull() }
-        : { deleted_at: IsNull() },
+    // maxLimit: 1000 — limite de segurança para evitar OOM em tenants grandes
+    const { page, limit, skip } = normalizeOffsetPagination(opts, {
+      defaultLimit: 20,
+      maxLimit: 1000,
+    });
+
+    const idsQuery = this.ddsRepository
+      .createQueryBuilder('dds')
+      .select('dds.id', 'id')
+      .where('dds.deleted_at IS NULL')
+      .orderBy('dds.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    const countQuery = this.ddsRepository
+      .createQueryBuilder('dds')
+      .where('dds.deleted_at IS NULL');
+
+    if (tenantId) {
+      idsQuery.andWhere('dds.company_id = :tenantId', { tenantId });
+      countQuery.andWhere('dds.company_id = :tenantId', { tenantId });
+    }
+
+    const [rows, total] = await Promise.all([
+      idsQuery.getRawMany<{ id: string }>(),
+      countQuery.getCount(),
+    ]);
+
+    const ids = rows.map((row) => row.id);
+    if (ids.length === 0) {
+      return toOffsetPage([], total, page, limit);
+    }
+
+    const data = await this.ddsRepository.find({
+      where: ids.map((id) => ({ id, deleted_at: IsNull() })),
       relations: ['site', 'facilitador', 'participants'],
     });
+
+    const ordered = ids
+      .map((id) => data.find((item) => item.id === id))
+      .filter((item): item is Dds => Boolean(item));
+
+    return toOffsetPage(ordered, total, page, limit);
+  }
+
+  // Carrega todos os registros para uso interno (exportações, relatórios).
+  // Sem relações pesadas; take: 5000 como teto de segurança.
+  async findAllForExport(): Promise<Dds[]> {
+    const tenantId = this.tenantService.getTenantId();
+    const qb = this.ddsRepository
+      .createQueryBuilder('dds')
+      .select([
+        'dds.id',
+        'dds.tema',
+        'dds.data',
+        'dds.status',
+        'dds.is_modelo',
+        'dds.company_id',
+        'dds.site_id',
+        'dds.created_at',
+      ])
+      .where('dds.deleted_at IS NULL')
+      .orderBy('dds.created_at', 'DESC')
+      .take(5000);
+
+    if (tenantId) {
+      qb.andWhere('dds.company_id = :tenantId', { tenantId });
+    }
+
+    return qb.getMany();
   }
 
   async findPaginated(opts?: {
@@ -175,6 +251,92 @@ export class DdsService {
       .filter((item): item is Dds => Boolean(item));
 
     return toOffsetPage(ordered, total, page, limit);
+  }
+
+  async findByCursor(opts?: {
+    cursor?: string;
+    limit?: number;
+    search?: string;
+    kind?: 'all' | 'model' | 'regular';
+  }): Promise<CursorPaginatedResponse<Dds>> {
+    const tenantId = this.tenantService.getTenantId();
+    const { limit } = normalizeOffsetPagination(
+      { page: 1, limit: opts?.limit },
+      {
+        defaultLimit: 20,
+        maxLimit: 100,
+      },
+    );
+
+    const decodedCursor = decodeCursorToken(opts?.cursor);
+    if (opts?.cursor && !decodedCursor) {
+      throw new BadRequestException('Cursor inválido para listagem de DDS.');
+    }
+
+    const idsQuery = this.ddsRepository
+      .createQueryBuilder('dds')
+      .select('dds.id', 'id')
+      .addSelect('dds.created_at', 'created_at')
+      .where('dds.deleted_at IS NULL')
+      .orderBy('dds.created_at', 'DESC')
+      .addOrderBy('dds.id', 'DESC')
+      .take(limit + 1);
+
+    if (tenantId) {
+      idsQuery.andWhere('dds.company_id = :tenantId', { tenantId });
+    }
+
+    if (opts?.search?.trim()) {
+      const search = `%${opts.search.trim().toLowerCase()}%`;
+      idsQuery.andWhere('LOWER(dds.tema) LIKE :search', { search });
+    }
+
+    if (opts?.kind === 'model') {
+      idsQuery.andWhere('dds.is_modelo = true');
+    } else if (opts?.kind === 'regular') {
+      idsQuery.andWhere('dds.is_modelo = false');
+    }
+
+    if (decodedCursor) {
+      idsQuery.andWhere(
+        '(dds.created_at < :cursorCreatedAt OR (dds.created_at = :cursorCreatedAt AND dds.id < :cursorId))',
+        {
+          cursorCreatedAt: decodedCursor.created_at,
+          cursorId: decodedCursor.id,
+        },
+      );
+    }
+
+    const rows = await idsQuery.getRawMany<{ id: string; created_at: Date }>();
+    const cursorPage = toCursorPaginatedResponse({
+      rows,
+      limit,
+      getCreatedAt: (row) => row.created_at,
+    });
+
+    const ids = cursorPage.data.map((row) => row.id);
+    if (ids.length === 0) {
+      return {
+        data: [],
+        cursor: null,
+        hasMore: false,
+      };
+    }
+
+    const data = await this.ddsRepository.find({
+      where: ids.map((id) => ({ id, deleted_at: IsNull() })),
+      relations: ['site', 'facilitador', 'participants', 'company'],
+    });
+
+    const ordered = ids
+      .map((id) => data.find((item) => item.id === id))
+      .filter((item): item is Dds => Boolean(item));
+
+    return {
+      data: ordered,
+      cursor: cursorPage.cursor,
+      hasMore: cursorPage.hasMore,
+    };
   }
 
   async findOne(id: string): Promise<Dds> {

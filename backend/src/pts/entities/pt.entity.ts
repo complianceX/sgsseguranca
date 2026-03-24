@@ -1,5 +1,6 @@
 import {
   Entity,
+  Index,
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
@@ -31,6 +32,7 @@ import { Site } from '../../sites/entities/site.entity';
 import { User } from '../../users/entities/user.entity';
 import { Apr } from '../../aprs/entities/apr.entity';
 
+@Index('IDX_pts_company_created', ['company_id', 'created_at'])
 @Entity('pts')
 export class Pt {
   @PrimaryGeneratedColumn('uuid')

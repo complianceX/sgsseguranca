@@ -26,6 +26,8 @@ import { SstAgentService } from './sst-agent.service';
 import { SstChatDto } from '../dto/sst-chat.dto';
 import { Authorize } from '../../auth/authorize.decorator';
 import { FeatureAiGuard } from '../../common/guards/feature-ai.guard';
+import { AiConsentGuard } from '../../common/guards/ai-consent.guard';
+import { UserThrottle } from '../../common/decorators/user-throttle.decorator';
 import {
   cleanupUploadedTempFile,
   fileUploadOptions,
@@ -52,7 +54,13 @@ const getSstAgentUserId = (request: SstAgentRequest): string =>
  * Acesso restrito a perfis habilitados: ADMIN_GERAL, ADMIN_EMPRESA, TST.
  */
 @Controller('ai/sst')
-@UseGuards(FeatureAiGuard, JwtAuthGuard, TenantGuard, RolesGuard)
+@UseGuards(
+  FeatureAiGuard,
+  JwtAuthGuard,
+  AiConsentGuard,
+  TenantGuard,
+  RolesGuard,
+)
 @UseInterceptors(TenantInterceptor)
 export class SstAgentController {
   constructor(private readonly sstAgentService: SstAgentService) {}
@@ -76,6 +84,7 @@ export class SstAgentController {
    *   - toolsUsed: string[]
    */
   @Post('chat')
+  @UserThrottle({ requestsPerMinute: 10 })
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')
   async chat(@Body() dto: SstChatDto, @NestRequest() req: SstAgentRequest) {
@@ -84,6 +93,7 @@ export class SstAgentController {
   }
 
   @Post('analyze-image-risk')
+  @UserThrottle({ requestsPerMinute: 5 })
   @UseInterceptors(FileInterceptor('image', fileUploadOptions))
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_use_ai')

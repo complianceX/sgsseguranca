@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -33,6 +34,7 @@ import { WeeklyBundleFilters } from '../common/services/document-bundle.service'
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { PdfService } from '../common/services/pdf.service';
 import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
+import { MetricsService } from '../common/observability/metrics.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { SignaturesService } from '../signatures/signatures.service';
 import { Site } from '../sites/entities/site.entity';
@@ -102,6 +104,7 @@ export class AprsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly signaturesService: SignaturesService,
     private readonly forensicTrailService: ForensicTrailService,
+    @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
   private assertAprDocumentMutable(apr: Pick<Apr, 'pdf_file_key'>) {
@@ -1450,6 +1453,7 @@ export class AprsService {
       aprId: saved.id,
       companyId: saved.company_id,
     });
+    this.metricsService?.incrementAprCreated(saved.company_id, saved.status);
     await this.addLog(
       saved.id,
       userId ?? saved.elaborador_id,

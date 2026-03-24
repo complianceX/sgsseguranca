@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AprRiskEvidence } from '../aprs/entities/apr-risk-evidence.entity';
 import { Cat } from '../cats/entities/cat.entity';
@@ -7,6 +8,14 @@ import { DocumentRegistryEntry } from '../document-registry/entities/document-re
 import { DocumentVideoAttachment } from '../document-videos/entities/document-video-attachment.entity';
 import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
 import { NonConformity } from '../nonconformities/entities/nonconformity.entity';
+import {
+  createRedisDisabledQueueProvider,
+  isRedisDisabled,
+} from '../queue/redis-disabled-queue';
+import { TenantBackupAdminController } from './tenant-backup.admin.controller';
+import { TenantBackupProcessor } from './tenant-backup.processor';
+import { TenantBackupSchedulerService } from './tenant-backup.scheduler.service';
+import { TenantBackupService } from './tenant-backup.service';
 import { DisasterRecoveryExecutionService } from './disaster-recovery-execution.service';
 import { DisasterRecoveryIntegrityService } from './disaster-recovery-integrity.service';
 import { DisasterRecoveryReplicaStorageService } from './disaster-recovery-replica-storage.service';
@@ -23,20 +32,29 @@ import { DisasterRecoveryExecution } from './entities/disaster-recovery-executio
       NonConformity,
       AprRiskEvidence,
     ]),
+    ...(isRedisDisabled
+      ? []
+      : [BullModule.registerQueue({ name: 'tenant-backup' })]),
     CommonModule,
     ForensicTrailModule,
   ],
+  controllers: [TenantBackupAdminController],
   providers: [
     DisasterRecoveryExecutionService,
     DisasterRecoveryIntegrityService,
     DisasterRecoveryReplicaStorageService,
     DisasterRecoveryStorageProtectionService,
+    TenantBackupService,
+    ...(isRedisDisabled
+      ? [createRedisDisabledQueueProvider('tenant-backup')]
+      : [TenantBackupProcessor, TenantBackupSchedulerService]),
   ],
   exports: [
     DisasterRecoveryExecutionService,
     DisasterRecoveryIntegrityService,
     DisasterRecoveryReplicaStorageService,
     DisasterRecoveryStorageProtectionService,
+    TenantBackupService,
   ],
 })
 export class DisasterRecoveryModule {}

@@ -1,5 +1,6 @@
 import { readFrontendEnvironment } from './scripts/public-env.mjs';
 import { execSync } from 'node:child_process';
+import { withSentryConfig } from '@sentry/nextjs';
 
 /** @type {import('next').NextConfig} */
 const isProd = process.env.NODE_ENV === 'production';
@@ -62,6 +63,8 @@ function buildCsp() {
     !isProd ? 'ws://localhost:3011' : null,
     'https://api.elevenlabs.io',
     'wss://api.elevenlabs.io',
+    // Sentry session replay upload (tunnelRoute cobre event reporting)
+    'https://*.sentry.io',
   ].filter(Boolean));
   // Em produção usamos allowlist explícita + inline controlado.
   // O app usa App Router e bootstrap inline do Next.js; sem nonce por request,
@@ -139,4 +142,32 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// ---------------------------------------------------------------------------
+// Sentry webpack plugin — wraps nextConfig unconditionally so que os hooks
+// de build (source maps, tunnel route) funcionem quando DSN estiver presente.
+// Source maps são enviados ao Sentry mas NÃO servidos publicamente (hideSourceMaps).
+// ---------------------------------------------------------------------------
+
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  // Cria /monitoring-tunnel API route para proxiar eventos ao Sentry.
+  // Evita bloqueio por CSP e ad-blockers sem adicionar domínio externo no connect-src.
+  tunnelRoute: '/monitoring-tunnel',
+
+  // Source maps: enviados ao Sentry no build, não incluídos nos assets públicos.
+  hideSourceMaps: true,
+
+  // Suprime saída do CLI fora de CI para não poluir logs locais.
+  silent: !process.env.CI,
+
+  // Não injeta código de telemetria automático de Server Components.
+  disableLogger: true,
+
+  // Necessário para App Router com muitos arquivos de página.
+  widenClientFileUpload: true,
+
+  automaticVercelMonitors: false,
+});

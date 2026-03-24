@@ -1,7 +1,7 @@
-import api from './api';
+import api, { TIMEOUT_EXPORT } from './api';
 
 export async function downloadExcel(url: string, filename: string): Promise<void> {
-  const response = await api.get(url, { responseType: 'blob' });
+  const response = await api.get(url, { responseType: 'blob', timeout: TIMEOUT_EXPORT });
   const href = URL.createObjectURL(response.data as Blob);
   const link = document.createElement('a');
   link.href = href;

@@ -55,6 +55,7 @@ import { RequestContext } from '../common/middleware/request-context.middleware'
 import { Company } from '../companies/entities/company.entity';
 import { getIsoWeekNumber } from '../common/utils/document-calendar.util';
 import { requestOpenAiChatCompletionResponse } from '../ai/openai-request.util';
+import { OpenAiCircuitBreakerService } from '../common/resilience/openai-circuit-breaker.service';
 import { ChecklistItemValue } from './types/checklist-item.type';
 
 type ChecklistPdfAccessAvailability =
@@ -328,6 +329,7 @@ export class ChecklistsService {
     private readonly fileParserService: FileParserService,
     private readonly configService: ConfigService,
     private readonly integrationResilienceService: IntegrationResilienceService,
+    private readonly openAiCircuitBreaker: OpenAiCircuitBreakerService,
   ) {}
 
   private readonly checklistListSelect: FindOptionsSelect<Checklist> = {
@@ -2221,6 +2223,7 @@ Regras:
         },
         configService: this.configService,
         integration: this.integrationResilienceService,
+        circuitBreaker: this.openAiCircuitBreaker,
       });
 
       if (!response.ok) {

@@ -3,15 +3,19 @@ import { JwtModule } from '@nestjs/jwt';
 import type { JwtSignOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { PdfSecurityController } from './controllers/pdf-security.controller';
+import { SessionsController } from './controllers/sessions.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { PdfRateLimitService } from './services/pdf-rate-limit.service';
+import { SessionsService } from './services/sessions.service';
 import { BruteForceService } from './brute-force.service';
 import { TokenRevocationService } from './token-revocation.service';
+import { UserSession } from './entities/user-session.entity';
 import {
   getAccessTokenSecret,
   getAccessTokenTtl,
@@ -23,6 +27,7 @@ import type { SignOptions } from 'jsonwebtoken';
   imports: [
     UsersModule,
     PassportModule,
+    TypeOrmModule.forFeature([UserSession]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
@@ -48,10 +53,11 @@ import type { SignOptions } from 'jsonwebtoken';
     JwtStrategy,
     JwtRefreshStrategy,
     PdfRateLimitService,
+    SessionsService,
     BruteForceService,
     TokenRevocationService,
   ],
-  controllers: [AuthController, PdfSecurityController],
+  controllers: [AuthController, PdfSecurityController, SessionsController],
   exports: [
     AuthService,
     JwtModule,

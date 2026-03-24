@@ -47,6 +47,152 @@ jobs:
       - name: Validate migrations
         run: npm run ci:migration:check
 
+  backend-e2e:
+    name: Backend E2E Critical Flows
+    runs-on: ubuntu-latest
+    needs: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: REDACTED
+          POSTGRES_DB: sst_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d sst_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: 5433
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres123
+      DATABASE_NAME: sst_test
+      E2E_DATABASE_HOST: 127.0.0.1
+      E2E_DATABASE_PORT: 5433
+      E2E_DATABASE_USER: postgres
+      E2E_DATABASE_PASSWORD: postgres123
+      E2E_DATABASE_NAME: sst_test
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      E2E_REDIS_HOST: 127.0.0.1
+      E2E_REDIS_PORT: 6379
+      JWT_SECRET: test-jwt-secret-for-e2e-testing-only-0123456789
+      JWT_REFRESH_SECRET: test-refresh-secret-for-e2e-testing-only-0123456789
+      BCRYPT_SALT_ROUNDS: 4
+      THROTTLE_LIMIT: 10000
+      THROTTLE_TTL: 60000
+      LOGIN_THROTTLE_LIMIT: 100
+      FORGOT_PASSWORD_THROTTLE_LIMIT: 100
+      CHANGE_PASSWORD_THROTTLE_LIMIT: 100
+      DISABLE_LOGIN_THROTTLE_IN_DEV: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run critical e2e flows
+        run: npm run test:e2e
+
+  backend-dr-e2e:
+    name: Backend E2E DR Restore (Dedicated Postgres)
+    runs-on: ubuntu-latest
+    needs: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: REDACTED
+          POSTGRES_DB: sst_test_dr
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d sst_test_dr"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: 5434
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres123
+      DATABASE_NAME: sst_test_dr
+      E2E_DATABASE_HOST: 127.0.0.1
+      E2E_DATABASE_PORT: 5434
+      E2E_DATABASE_USER: postgres
+      E2E_DATABASE_PASSWORD: postgres123
+      E2E_DATABASE_NAME: sst_test_dr
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6380
+      E2E_REDIS_HOST: 127.0.0.1
+      E2E_REDIS_PORT: 6380
+      JWT_SECRET: test-jwt-secret-for-e2e-testing-only-0123456789
+      JWT_REFRESH_SECRET: test-refresh-secret-for-e2e-testing-only-0123456789
+      BCRYPT_SALT_ROUNDS: 4
+      THROTTLE_LIMIT: 10000
+      THROTTLE_TTL: 60000
+      LOGIN_THROTTLE_LIMIT: 100
+      FORGOT_PASSWORD_THROTTLE_LIMIT: 100
+      CHANGE_PASSWORD_THROTTLE_LIMIT: 100
+      DISABLE_LOGIN_THROTTLE_IN_DEV: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run DR restore e2e flow
+        run: npm run test:e2e -- critical/tenant-backup-restore.e2e-spec.ts
+
   frontend:
     name: Frontend Lint/Test/Build
     runs-on: ubuntu-latest

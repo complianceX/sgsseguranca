@@ -1,6 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import { Redis } from 'ioredis';
+import type { TenantThrottleOptions } from '../decorators/tenant-throttle.decorator';
 
 export interface TenantRateLimitConfig {
   requestsPerMinute: number;
@@ -69,13 +70,23 @@ export class TenantRateLimitService {
   async checkLimit(
     companyId: string,
     plan: TenantRateLimitPlan = resolveDefaultTenantRateLimitPlan(),
+    routeOverride?: TenantThrottleOptions,
   ): Promise<{
     allowed: boolean;
     remaining: number;
     resetAt: number;
     retryAfter?: number;
   }> {
-    const config = PLAN_LIMITS[plan];
+    const planConfig = PLAN_LIMITS[plan];
+    const config = routeOverride
+      ? {
+          requestsPerMinute:
+            routeOverride.requestsPerMinute ?? planConfig.requestsPerMinute,
+          requestsPerHour:
+            routeOverride.requestsPerHour ?? planConfig.requestsPerHour,
+          burstSize: planConfig.burstSize,
+        }
+      : planConfig;
     const now = Date.now();
     const minuteKey = `ratelimit:${companyId}:minute:${Math.floor(now / 60000)}`;
     const hourKey = `ratelimit:${companyId}:hour:${Math.floor(now / 3600000)}`;
