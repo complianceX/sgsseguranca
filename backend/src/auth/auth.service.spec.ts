@@ -58,8 +58,11 @@ describe('AuthService', () => {
         {
           provide: PasswordService,
           useValue: {
-            compare: jest.fn(),
-            hash: jest.fn(),
+            verify: jest.fn().mockResolvedValue(true),
+            compare: jest.fn().mockResolvedValue(true),
+            hash: jest.fn().mockResolvedValue('$argon2id$v=19$m=65536$new-hash'),
+            isLegacyHash: jest.fn().mockReturnValue(false),
+            validate: jest.fn().mockReturnValue({ valid: true }),
           },
         },
         {
@@ -118,7 +121,8 @@ describe('AuthService', () => {
         status: true,
       } as unknown as User;
       manager.findOne.mockResolvedValue(user);
-      passwordService.compare.mockResolvedValue(true);
+      passwordService.isLegacyHash.mockReturnValue(true);
+      passwordService.verify.mockResolvedValue(true);
 
       const result = (await service.validateUser(
         '12345678900',
@@ -148,7 +152,8 @@ describe('AuthService', () => {
         status: true,
       } as unknown as User;
       manager.findOne.mockResolvedValue(user);
-      passwordService.compare.mockResolvedValue(false);
+      passwordService.isLegacyHash.mockReturnValue(true);
+      passwordService.verify.mockResolvedValue(false);
 
       const result = await service.validateUser('123', 'pass');
       expect(result).toBeNull();
