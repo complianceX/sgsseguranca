@@ -20,6 +20,10 @@ FROM node:20-bullseye-slim
 
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_DOWNLOAD=true
+# Aumenta o thread pool do libuv para suportar bcrypt/argon2 concorrente sem fila.
+# Com UV_THREADPOOL_SIZE=4 (default) e 50 logins simultâneos: ~12 batches × 100ms = 1.2s de espera.
+# Com UV_THREADPOOL_SIZE=64: espera ≈ 0ms para workloads de até 64 operações simultâneas.
+ENV UV_THREADPOOL_SIZE=64
 
 WORKDIR /app
 

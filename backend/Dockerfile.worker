@@ -41,6 +41,8 @@ RUN apt-get update \
 ENV NODE_ENV=production
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
+# Thread pool expandido para operações bcrypt/argon2 e I/O assíncrono do worker.
+ENV UV_THREADPOOL_SIZE=64
 
 WORKDIR /app
 

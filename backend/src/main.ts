@@ -3,6 +3,16 @@ import * as dotenv from 'dotenv';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
+// UV_THREADPOOL_SIZE deve ser definido ANTES do primeiro uso do thread pool do libuv.
+// O thread pool é criado de forma lazy (primeiro uso de bcrypt/argon2/crypto async).
+// Definir aqui, após dotenv.config(), garante que o valor do .env seja respeitado e
+// que o fallback '64' seja aplicado caso a variável não esteja no ambiente do processo.
+// Valor 64: suporta até 64 operações bcrypt/argon2 paralelas sem fila de espera,
+// eliminando os ~1.200ms de queuing que causavam login p95 de 3.6s sob 100 VUs.
+// ⚠️  Não mover para dentro do AppModule ou de qualquer decorator NestJS —
+//      seria tarde demais (NestFactory.create já disparou operações assíncronas).
+process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '64';
+
 import * as crypto from 'crypto';
 import type {
   Application as ExpressApplication,
@@ -163,8 +173,12 @@ async function bootstrap() {
           new BullMQAdapter(app.get<Queue>(getQueueToken('pdf-generation'))),
           new BullMQAdapter(app.get<Queue>(getQueueToken('document-import'))),
           new BullMQAdapter(app.get<Queue>(getQueueToken('sla-escalation'))),
+          // Nome confirmado em tasks/expiry-notifications-worker.module.ts
           new BullMQAdapter(
             app.get<Queue>(getQueueToken('expiry-notifications')),
+          ),
+          new BullMQAdapter(
+            app.get<Queue>(getQueueToken('document-retention')),
           ),
           new BullMQAdapter(
             app.get<Queue>(getQueueToken('document-import-dlq')),
@@ -387,6 +401,7 @@ async function bootstrap() {
     nodeEnv: process.env.NODE_ENV || 'development',
     healthPath: '/health',
     healthPublicPath: '/health/public',
+    uvThreadpoolSize: process.env.UV_THREADPOOL_SIZE,
   });
 }
 

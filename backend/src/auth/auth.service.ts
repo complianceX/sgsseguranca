@@ -39,6 +39,11 @@ interface JwtPayload {
 
 @Injectable()
 export class AuthService {
+  // DUMMY_HASH: usado quando o usuário não é encontrado no banco para evitar user
+  // enumeration via timing attack. Mantido em bcrypt durante a migração gradual para
+  // argon2id — passwordService.verify() roteia corretamente pelo prefixo.
+  // TODO: após confirmar que todos os hashes no banco são argon2id, gerar novo
+  //       DUMMY_HASH em argon2id para alinhar o tempo de resposta com o caminho feliz.
   private readonly DUMMY_HASH =
     '$2b$10$tV1AhMRqCdZTnSEV18aoR.MSJ.1zu7PIewZKDn1GkoTSqvrSNENC2';
 
@@ -102,24 +107,34 @@ export class AuthService {
     // retorna ao pool com as configurações originais.
     const user = await this.dataSource.transaction(async (manager) => {
       await manager.query("SET LOCAL app.is_super_admin = 'true'");
+      // 'company' omitido: company_id já está no campo escalar do usuário.
+      // Carregar a relação completa adicionava 1 JOIN desnecessário a cada login.
       const found = await manager.findOne(User, {
         where: { cpf: normalizedCpf },
         select: [...USER_WITH_PASSWORD_FIELDS],
-        relations: ['company', 'profile'],
+        relations: ['profile'],
       });
       if (found && found.status === false) return null;
       return found;
     });
 
     let isMatch = false;
-    let shouldUpgradeLegacyPassword = false;
+    let needsRehash = false;
 
     if (user?.password) {
-      const looksLikeBcryptHash = /^\$2[aby]\$\d{2}\$/.test(user.password);
-      if (looksLikeBcryptHash) {
-        isMatch = await this.passwordService.compare(pass, user.password);
+      // Detecta hashes de formato reconhecido: argon2id ($argon2...) e bcrypt ($2b$/$2a$).
+      // Qualquer outro valor é tratado como texto plano legado (comparação timing-safe).
+      const isKnownHash =
+        this.passwordService.isLegacyHash(user.password) ||
+        user.password.startsWith('$argon2');
+
+      if (isKnownHash) {
+        // verify() roteia para argon2.verify() ou bcrypt.compare() pelo prefixo do hash.
+        isMatch = await this.passwordService.verify(pass, user.password);
+        // Agendar rehash bcrypt → argon2id no próximo login bem-sucedido.
+        needsRehash = isMatch && this.passwordService.isLegacyHash(user.password);
       } else {
-        // Senha legada (texto plano ou hash não-bcrypt): comparação timing-safe
+        // Senha legada (texto plano ou hash não-reconhecido): comparação timing-safe
         // para evitar timing attack via medição de latência por diferença de prefixo.
         // timingSafeEqual exige buffers do mesmo tamanho — padding com zero garante isso.
         // A verificação adicional de comprimento (a.length === b.length) assegura
@@ -130,39 +145,46 @@ export class AuthService {
         const aPad = Buffer.concat([a, Buffer.alloc(len - a.length)], len);
         const bPad = Buffer.concat([b, Buffer.alloc(len - b.length)], len);
         isMatch = crypto.timingSafeEqual(aPad, bPad) && a.length === b.length;
-        shouldUpgradeLegacyPassword = isMatch;
+        // Texto plano confirmado → também precisa migrar para argon2id.
+        needsRehash = isMatch;
       }
     } else {
-      await this.passwordService.compare(pass, this.DUMMY_HASH);
+      // Usuário não encontrado: executa verify dummy para evitar user enumeration
+      // via timing attack — resposta deve ter latência semelhante ao caminho feliz.
+      await this.passwordService.verify(pass, this.DUMMY_HASH);
     }
 
     if (!user || user.status === false || !isMatch) {
       return null;
     }
 
-    if (shouldUpgradeLegacyPassword) {
-      try {
-        const upgradedHash = await this.passwordService.hash(pass);
-        await this.dataSource.transaction(async (manager) => {
-          await manager.query("SET LOCAL app.is_super_admin = 'true'");
-          await manager.update(
-            User,
-            { id: user.id },
-            { password: upgradedHash },
-          );
-        });
-        user.password = upgradedHash;
-        this.logger.warn({
-          event: 'legacy_password_upgraded',
-          userId: user.id,
-        });
-      } catch (error) {
-        this.logger.error(
-          `Falha ao migrar senha legada do usuário ${user.id}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-      }
+    // Rehash fire-and-forget: migra bcrypt/plain-text → argon2id de forma transparente.
+    // NÃO bloqueia a resposta — o token é emitido imediatamente.
+    // setImmediate() garante que o rehash ocorre APÓS a resposta ser enviada ao cliente.
+    // (TAREFA 3: substitui o await this.passwordService.hash() que bloqueava o login)
+    if (needsRehash && user.id) {
+      const userId = user.id;
+      setImmediate(() => {
+        void this.passwordService
+          .hash(pass)
+          .then(async (newHash) => {
+            await this.dataSource.transaction(async (manager) => {
+              await manager.query("SET LOCAL app.is_super_admin = 'true'");
+              await manager.update(User, { id: userId }, { password: newHash });
+            });
+            this.logger.warn({
+              event: 'password_rehashed_to_argon2id',
+              userId,
+            });
+          })
+          .catch((err: unknown) => {
+            this.logger.error(
+              `Falha ao migrar hash de senha para argon2id (userId=${userId}): ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            );
+          });
+      });
     }
 
     const result = { ...user } as Partial<User>;

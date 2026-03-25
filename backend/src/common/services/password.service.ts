@@ -1,19 +1,34 @@
 import { Injectable, Logger } from '@nestjs/common';
+import * as argon2 from 'argon2';
+// bcryptjs mantido para verificação de hashes legados durante migração gradual.
+// Remover somente após confirmar que nenhum registro no banco usa prefixo $2b$/$2a$.
+// Verificar com: SELECT COUNT(*) FROM users WHERE password LIKE '$2%';
 import * as bcrypt from 'bcryptjs';
+
+/**
+ * Parâmetros argon2id — OWASP Password Storage Cheat Sheet (2023).
+ * - memoryCost: 64 MiB (mínimo OWASP)
+ * - timeCost: 3 iterações
+ * - parallelism: 1
+ *
+ * Custo típico em servidor moderno: ~50-80ms por operação.
+ * Não usar thread pool do libuv (usa worker_threads internamente via NAPI),
+ * eliminando a contenção que bcryptjs causava com UV_THREADPOOL_SIZE=4.
+ */
+export const ARGON2_OPTIONS: argon2.Options & { raw?: false } = {
+  type: argon2.argon2id,
+  memoryCost: 65536, // 64 MiB
+  timeCost: 3,
+  parallelism: 1,
+};
+
+/** Detecta hashes bcrypt ($2b$, $2a$, $2y$) — formato legado. */
+const BCRYPT_REGEX = /^\$2[aby]\$\d{2}\$/;
 
 @Injectable()
 export class PasswordService {
   private readonly logger = new Logger(PasswordService.name);
-  private readonly SALT_ROUNDS = this.getSaltRounds();
   private readonly MIN_LENGTH = this.getMinPasswordLength();
-
-  private getSaltRounds(): number {
-    const value = Number(process.env.BCRYPT_SALT_ROUNDS || 10);
-    if (!Number.isFinite(value)) {
-      return 10;
-    }
-    return Math.min(Math.max(Math.floor(value), 10), 14);
-  }
 
   private getMinPasswordLength(): number {
     const value = Number(process.env.PASSWORD_MIN_LENGTH || 10);
@@ -23,21 +38,53 @@ export class PasswordService {
     return Math.min(Math.max(Math.floor(value), 8), 32);
   }
 
+  /**
+   * Gera hash argon2id para a senha fornecida.
+   * Todas as novas senhas e rehashes usam argon2id.
+   */
   async hash(password: string): Promise<string> {
-    return bcrypt.hash(password, this.SALT_ROUNDS);
+    return argon2.hash(password, ARGON2_OPTIONS);
   }
 
-  async compare(password: string, hash: string): Promise<boolean> {
+  /**
+   * Verifica senha contra hash armazenado.
+   * Detecta automaticamente o algoritmo pelo prefixo do hash:
+   *   - `$argon2id$` → argon2id (padrão atual)
+   *   - `$2b$` / `$2a$` → bcrypt (legado, migração gradual)
+   *
+   * Após verificação bem-sucedida de um hash bcrypt, o caller deve
+   * agendar um rehash para argon2id (fire-and-forget via setImmediate).
+   */
+  async verify(password: string, storedHash: string): Promise<boolean> {
     try {
-      return await bcrypt.compare(password, hash);
+      if (this.isLegacyHash(storedHash)) {
+        return await bcrypt.compare(password, storedHash);
+      }
+      return await argon2.verify(storedHash, password);
     } catch (error) {
       this.logger.warn(
-        `Password comparison failed and was treated as invalid credentials: ${
+        `Password verification failed and was treated as invalid credentials: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
       return false;
     }
+  }
+
+  /**
+   * Alias de `verify()` — mantido para retrocompatibilidade com chamadas existentes.
+   * Prefer `verify()` em código novo.
+   */
+  async compare(password: string, storedHash: string): Promise<boolean> {
+    return this.verify(password, storedHash);
+  }
+
+  /**
+   * Retorna true se o hash armazenado é bcrypt ($2b$/$2a$/$2y$).
+   * Usado para decidir se é necessário rehash para argon2id após login.
+   */
+  isLegacyHash(storedHash: string): boolean {
+    return BCRYPT_REGEX.test(storedHash);
   }
 
   validate(password: string): { valid: boolean; errors: string[] } {

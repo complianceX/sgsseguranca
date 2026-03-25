@@ -37,6 +37,7 @@ services:
       REDIS_PORT: 6379
       REDIS_TLS: "false"
       NODE_ENV: ${NODE_ENV}
+      UV_THREADPOOL_SIZE: "64"
 
   worker:
     build:
@@ -52,6 +53,7 @@ services:
       REDIS_PORT: 6379
       REDIS_TLS: "false"
       NODE_ENV: ${NODE_ENV}
+      UV_THREADPOOL_SIZE: "64"
 
 volumes:
   postgres_data:
