@@ -18,7 +18,15 @@ applyDefault('JWT_SECRET', 'test-jwt-secret');
 applyDefault('JWT_REFRESH_SECRET', 'test-refresh-secret');
 applyDefault('BCRYPT_SALT_ROUNDS', '4');
 
-const jestBin = require.resolve('jest-cli/bin/jest');
+// jest-cli/bin/jest was the path in jest v28 and below.
+// In jest v29+ the binary moved to jest/bin/jest.
+// Try both to support either version.
+let jestBin;
+try {
+  jestBin = require.resolve('jest/bin/jest');
+} catch {
+  jestBin = require.resolve('jest-cli/bin/jest');
+}
 const result = spawnSync(process.execPath, [jestBin, ...args], {
   stdio: 'inherit',
   env,
