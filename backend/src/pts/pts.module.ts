@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PtsService } from './pts.service';
 import { PtsController } from './pts.controller';
 import { Pt } from './entities/pt.entity';
 import { CommonModule } from '../common/common.module';
@@ -14,6 +13,8 @@ import { UsersModule } from '../users/users.module';
 import { DocumentRegistryModule } from '../document-registry/document-registry.module';
 import { SignaturesModule } from '../signatures/signatures.module';
 import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
+import { MetricsRegistryService } from '../common/observability/metrics-registry.service';
+import { PTS_DOMAIN_METRICS, PtsService } from './pts.service';
 
 @Module({
   imports: [
@@ -28,7 +29,21 @@ import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
     ForensicTrailModule,
   ],
   controllers: [PtsController],
-  providers: [PtsService],
+  providers: [
+    PtsService,
+    {
+      provide: PTS_DOMAIN_METRICS,
+      inject: [MetricsRegistryService],
+      useFactory: (registry: MetricsRegistryService) =>
+        registry.register('pts', [
+          {
+            name: 'pts_created',
+            description: 'Total de PTs criadas por empresa',
+            type: 'counter',
+          },
+        ]),
+    },
+  ],
   exports: [PtsService],
 })
 export class PtsModule {}

@@ -23,6 +23,10 @@ import { UpdateCompanyDto } from './dto/update-company.dto';
 import { TenantService } from '../common/tenant/tenant.service';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
 import { Authorize } from '../auth/authorize.decorator';
+import { ApiQuery } from '@nestjs/swagger';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
+import { CompanyResponseDto } from './dto/company-response.dto';
+import { OffsetPage } from '../common/utils/offset-pagination.util';
 
 type AuthReq = {
   user?: {
@@ -49,11 +53,23 @@ export class CompaniesController {
   @Get()
   @Roles(Role.ADMIN_GERAL)
   @Authorize('can_view_companies')
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Número da página',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Limite de itens por página (máx. 100)',
+  })
   findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
-  ) {
+  ): Promise<OffsetPage<CompanyResponseDto>> {
     return this.companiesService.findPaginated({
       page: page ? Number(page) : 1,
       limit: limit ? Number(limit) : 20,
@@ -90,6 +106,7 @@ export class CompaniesController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL)
   @Authorize('can_manage_companies')
+  @ForensicAuditAction('delete', 'company')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.companiesService.remove(id);
   }

@@ -1,8 +1,10 @@
 import type { PdfContext } from "./types";
 import { formatDateTime, sanitize } from "./format";
 
-const DRAFT_DISCLAIMER =
-  "Este documento é uma prévia e não tem valor oficial. O documento oficial está disponível no sistema.";
+const DRAFT_DISCLAIMER_LINES = [
+  "Este documento é uma prévia e não tem valor oficial.",
+  "O documento oficial está disponível no sistema.",
+];
 
 /**
  * Aplica marca d'água "RASCUNHO" diagonal e rodapé de aviso em todas as páginas.
@@ -23,7 +25,7 @@ export function applyDraftWatermark(ctx: PdfContext) {
 
     // ── Marca d'água diagonal ────────────────────────────────────────────────
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(80);
+    doc.setFontSize(90);
     doc.setTextColor(150, 150, 150);
     if (GStateClass) {
       doc.setGState(new GStateClass({ opacity: 0.15 }));
@@ -38,9 +40,9 @@ export function applyDraftWatermark(ctx: PdfContext) {
 
     // ── Rodapé de aviso (abaixo do footer de governança) ────────────────────
     doc.setFont("helvetica", "italic");
-    doc.setFontSize(5.5);
+    doc.setFontSize(6);
     doc.setTextColor(120, 120, 120);
-    doc.text(DRAFT_DISCLAIMER, pageWidth / 2, pageHeight - 1.5, {
+    doc.text(DRAFT_DISCLAIMER_LINES, pageWidth / 2, pageHeight - 1.5, {
       align: "center",
     });
   }

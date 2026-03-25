@@ -53,7 +53,6 @@ import {
   SophieChecklistJsonResponse,
   SophieConfidence,
   SophieInsightsJsonResponse,
-  SophiePtJsonResponse,
   SophieTask,
 } from './sophie.types';
 import type { CreateNonConformityDto } from '../nonconformities/dto/create-nonconformity.dto';
@@ -75,6 +74,7 @@ import { requestOpenAiChatCompletionResponse } from './openai-request.util';
 import { OpenAiCircuitBreakerService } from '../common/resilience/openai-circuit-breaker.service';
 import { getPdfQueueJobTimeoutMs } from '../common/services/pdf-runtime-config';
 import { SOPHIE_JSON_RUNTIME_INSTRUCTION } from './sophie-task-prompts';
+import { AiAnalysisService } from './services/ai-analysis.service';
 
 const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
 const DEFAULT_OPENAI_FALLBACK_MODEL = 'gpt-4o-mini';
@@ -278,6 +278,7 @@ export class AiService {
     private readonly nonConformitiesService: NonConformitiesService,
     private readonly ddsService: DdsService,
     private readonly inspectionsService: InspectionsService,
+    private readonly aiAnalysisService: AiAnalysisService,
     private readonly integration: IntegrationResilienceService,
     private readonly openAiCircuitBreaker: OpenAiCircuitBreakerService,
     @InjectQueue('pdf-generation')
@@ -955,7 +956,10 @@ export class AiService {
 
     try {
       // Limite intencional: contexto de IA não precisa de todos os registros; 500 é suficiente para deduplicação de código NC.
-      const existing = await this.nonConformitiesService.findAll({ take: 500 });
+      const existing = await this.nonConformitiesService.findAll({
+        take: 500,
+        select: ['id', 'codigo_nc'],
+      });
       const alreadyExists = this.toLooseRecordArray(existing).some(
         (nc) => this.toSafeString(nc.codigo_nc).toUpperCase() === code,
       );
@@ -1213,29 +1217,6 @@ export class AiService {
     const tenantId = this.getTenantIdOrThrow();
     await this.enforceRateLimit(tenantId);
 
-    // Limite intencional: contexto de IA usa apenas campos mínimos para análise de APR; 500 registros por entidade é teto seguro.
-    const [risks, epis] = await Promise.all([
-      this.risksService.findAll({}, { take: 500, select: ['id', 'nome', 'categoria'] }),
-      this.episService.findAll({}, { take: 500, select: ['id', 'nome', 'ca'] }),
-    ]);
-
-    const riskOptions = this.toLooseRecordArray(risks)
-      .map((risk) => ({
-        id: this.toSafeString(risk.id),
-        nome: this.toSafeString(risk.nome),
-        categoria: this.toSafeString(risk.categoria) || null,
-      }))
-      .filter((risk) => risk.id && risk.nome)
-      .slice(0, 300);
-    const epiOptions = this.toLooseRecordArray(epis)
-      .map((epi) => ({
-        id: this.toSafeString(epi.id),
-        nome: this.toSafeString(epi.nome),
-        ca: this.toSafeString(epi.ca) || null,
-      }))
-      .filter((epi) => epi.id && epi.nome)
-      .slice(0, 300);
-
     const startTime = Date.now();
     const interaction = this.interactionRepo.create({
       tenant_id: tenantId,
@@ -1247,51 +1228,34 @@ export class AiService {
     });
 
     try {
-      const { data, inputTokens, outputTokens } =
-        await this.callOpenAiJson<AnalyzeAprResponse>({
-          task: 'apr',
-          user: this.buildTaskUserPrompt({
-            task: 'apr',
-            sections: [
-              `Descrição da atividade/APR:\n${description}`,
-              `Lista de riscos disponíveis (escolha por id):\n${JSON.stringify(riskOptions)}`,
-              `Lista de EPIs disponíveis (escolha por id):\n${JSON.stringify(epiOptions)}`,
-            ],
-            additionalRules: [
-              'retorne apenas IDs presentes nas listas',
-              'máximo de 8 risks e 8 epis',
-              'priorize riscos de acidentes, físicos e químicos mais prováveis pela descrição',
-            ],
-          }),
-          maxTokens: 800,
-        });
-      const confidence = this.normalizeConfidence(data.confidence);
-      const notes = this.normalizeStringArray(data.notes, 8);
+      const response = await this.aiAnalysisService.analyzeAprDescription(
+        description,
+        tenantId,
+      );
+      const confidence = this.normalizeConfidence(response.confidence);
+      const notes = this.normalizeStringArray(response.notes, 8);
 
-      const response: AnalyzeAprResponse = {
-        risks: Array.isArray(data.risks)
-          ? data.risks.slice(0, 8).filter(Boolean)
+      const normalizedResponse: AnalyzeAprResponse = {
+        risks: Array.isArray(response.risks)
+          ? response.risks.slice(0, 8).filter(Boolean)
           : [],
-        epis: Array.isArray(data.epis)
-          ? data.epis.slice(0, 8).filter(Boolean)
+        epis: Array.isArray(response.epis)
+          ? response.epis.slice(0, 8).filter(Boolean)
           : [],
         explanation:
-          String(data.explanation || '').trim() ||
+          String(response.explanation || '').trim() ||
           'Sugestao gerada pela SOPHIE.',
         confidence,
         notes,
       };
 
-      interaction.response = this.toInteractionResponse(response);
+      interaction.response = this.toInteractionResponse(normalizedResponse);
       interaction.latency_ms = Date.now() - startTime;
-      interaction.token_usage_input = inputTokens;
-      interaction.token_usage_output = outputTokens;
-      interaction.tokens_used = inputTokens + outputTokens;
       interaction.confidence = this.toConfidenceLevel(confidence);
       interaction.needs_human_review = false;
       await this.interactionRepo.save(interaction);
 
-      return response;
+      return normalizedResponse;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       interaction.status = AiInteractionStatus.ERROR;
@@ -1338,57 +1302,29 @@ export class AiService {
     });
 
     try {
-      const flags = {
-        trabalho_altura: Boolean(data.trabalho_altura),
-        espaco_confinado: Boolean(data.espaco_confinado),
-        trabalho_quente: Boolean(data.trabalho_quente),
-        eletricidade: Boolean(data.eletricidade),
-      };
-
-      const {
-        data: response,
-        inputTokens,
-        outputTokens,
-      } = await this.callOpenAiJson<SophiePtJsonResponse>({
-        task: 'pt',
-        user: this.buildTaskUserPrompt({
-          task: 'pt',
-          sections: [
-            'Analise esta Permissão de Trabalho (PT).',
-            `Título: ${data.titulo}\nDescrição: ${data.descricao}\nSinais/flags: ${JSON.stringify(flags)}`,
-          ],
-          additionalRules: [
-            'suggestions deve ter de 4 a 10 itens curtos',
-            'priorize hierarquia de controle',
-            'cite NRs relevantes apenas quando houver aderência clara, como NR-10, NR-12, NR-20, NR-33, NR-35, NR-06 e NR-01',
-          ],
-        }),
-        maxTokens: 900,
-      });
+      const response = await this.aiAnalysisService.analyzePtPayload(
+        data,
+        tenantId,
+      );
       const confidence = this.normalizeConfidence(response.confidence);
       const notes = this.normalizeStringArray(response.notes, 8);
-      const normalizedRiskLevel = this.normalizeRiskLevel(response.riskLevel);
-
       const normalized: AnalyzePtResponse = {
         summary:
           String(response.summary || '').trim() || 'Resumo indisponivel.',
-        riskLevel: normalizedRiskLevel,
+        riskLevel: this.normalizeRiskLevel(response.riskLevel),
         suggestions: Array.isArray(response.suggestions)
           ? response.suggestions
-              .map((s) => String(s).trim())
+              .map((suggestion) => String(suggestion).trim())
               .filter(Boolean)
               .slice(0, 12)
           : [],
         confidence,
         notes,
-        automation: this.buildPtAutomationDecision(normalizedRiskLevel, flags),
+        automation: response.automation,
       };
 
       interaction.response = this.toInteractionResponse(normalized);
       interaction.latency_ms = Date.now() - startTime;
-      interaction.token_usage_input = inputTokens;
-      interaction.token_usage_output = outputTokens;
-      interaction.tokens_used = inputTokens + outputTokens;
       interaction.confidence = this.toConfidenceLevel(confidence);
       interaction.needs_human_review = false;
       await this.interactionRepo.save(interaction);
@@ -1417,7 +1353,12 @@ export class AiService {
         notes: [
           'Fallback local aplicado por indisponibilidade temporaria da API de IA.',
         ],
-        automation: this.buildPtAutomationDecision('Médio', data),
+        automation: this.buildPtAutomationDecision('Médio', {
+          trabalho_altura: data.trabalho_altura,
+          espaco_confinado: data.espaco_confinado,
+          trabalho_quente: data.trabalho_quente,
+          eletricidade: data.eletricidade,
+        }),
       };
     }
   }
@@ -1854,8 +1795,14 @@ export class AiService {
       this.toolsService.findPaginated({ page: 1, limit: 80, companyId }),
       this.machinesService.findPaginated({ page: 1, limit: 80, companyId }),
       this.usersService.findPaginated({ page: 1, limit: 80, companyId }),
-      // Limite intencional: contexto de IA não precisa de todos os templates; 500 é teto seguro.
-      this.checklistsService.findAll({ onlyTemplates: true, take: 500 }).catch(() => []),
+      // Limite intencional: contexto de IA não precisa de todos os templates; 500 é teto seguro com campos mínimos.
+      this.checklistsService
+        .findAll({
+          onlyTemplates: true,
+          take: 500,
+          select: ['id', 'titulo', 'descricao', 'categoria', 'periodicidade'],
+        })
+        .catch(() => []),
     ]);
 
     const participants = this.getPageData(usersPage)
@@ -2461,7 +2408,10 @@ export class AiService {
     const companyId = params.company_id || this.getTenantIdOrThrow();
     // Limite intencional: contexto de IA usa apenas campos mínimos para geração de rascunho assistido; 500 registros por entidade é teto seguro.
     const [risks, epis, draftContext] = await Promise.all([
-      this.risksService.findAll({}, { take: 500, select: ['id', 'nome', 'categoria'] }),
+      this.risksService.findAll(
+        {},
+        { take: 500, select: ['id', 'nome', 'categoria'] },
+      ),
       this.episService.findAll({}, { take: 500, select: ['id', 'nome', 'ca'] }),
       this.loadAssistedDraftContext(companyId, params.site_id),
     ]);

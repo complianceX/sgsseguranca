@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
@@ -802,6 +803,10 @@ export class NonConformitiesService {
   async create(createNonConformityDto: CreateNonConformityDto) {
     const tenantId = this.getTenantIdOrThrow();
     const payload = this.buildCreatePayload(createNonConformityDto, tenantId);
+    if (payload.status === NcStatus.ENCERRADA) {
+      payload.closed_at = new Date();
+      payload.resolved_by = RequestContext.getUserId() || null;
+    }
     await this.validateLinkedRecords(payload, tenantId);
     await this.ensureUniqueCodigoNc(tenantId, payload.codigo_nc!);
 
@@ -829,13 +834,15 @@ export class NonConformitiesService {
     return saved;
   }
 
-  async findAll(options?: { take?: number }) {
+  async findAll(options?: { take?: number; select?: (keyof NonConformity)[] }) {
     const tenantId = this.tenantService.getTenantId();
     return this.nonConformitiesRepository.find({
       where: tenantId
         ? { company_id: tenantId, deleted_at: IsNull() }
         : { deleted_at: IsNull() },
-      relations: ['site'],
+      ...(options?.select?.length
+        ? { select: options.select }
+        : { relations: ['site'] }),
       order: { created_at: 'DESC' },
       ...(options?.take !== undefined && { take: options.take }),
     });
@@ -1400,11 +1407,18 @@ export class NonConformitiesService {
     const current = this.normalizeStatus(nc.status);
     const allowed = ALLOWED_TRANSITIONS[current] ?? [];
     if (!allowed.includes(newStatus)) {
-      throw new BadRequestException(
+      throw new UnprocessableEntityException(
         `Transição de "${current}" para "${newStatus}" não permitida`,
       );
     }
     nc.status = newStatus;
+    if (newStatus === NcStatus.ENCERRADA) {
+      nc.closed_at = new Date();
+      nc.resolved_by = RequestContext.getUserId() || null;
+    } else if (current === NcStatus.ENCERRADA) {
+      nc.closed_at = null;
+      nc.resolved_by = null;
+    }
     const saved = await this.nonConformitiesRepository.save(nc);
     await this.logAudit(AuditAction.UPDATE, saved.id, before, saved);
     return saved;

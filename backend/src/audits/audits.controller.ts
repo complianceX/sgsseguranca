@@ -26,6 +26,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import {
   assertUploadedPdf,
   cleanupUploadedTempFile,
@@ -165,6 +166,7 @@ export class AuditsController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_manage_audits')
+  @ForensicAuditAction('delete', 'audit')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.auditsService.remove(id, this.getTenantIdOrThrow());
   }

@@ -132,6 +132,10 @@ export class RedisService {
   /**
    * Enforces max active sessions per user by evicting the oldest tokens
    * when the limit is exceeded. Returns the list of evicted token hashes.
+   *
+   * Otimizado com pipeline: todas as chamadas TTL são agrupadas em um único
+   * round-trip ao Redis (antes: N round-trips sequenciais por sessão).
+   * Evicções também são agrupadas em um único pipeline.
    */
   async enforceMaxSessions(
     userId: string,
@@ -144,17 +148,30 @@ export class RedisService {
       return [];
     }
 
-    // Check which tokens are still alive, collect their TTLs
-    const hashesWithTtl: Array<{ hash: string; ttl: number }> = [];
+    // Fase 1: busca TTL de todos os tokens em um único round-trip via pipeline.
+    const pipeline = this.client.pipeline();
     for (const hash of allHashes) {
-      const key = this.getRefreshTokenKey(userId, hash);
-      const ttl = await this.client.ttl(key);
+      pipeline.ttl(this.getRefreshTokenKey(userId, hash));
+    }
+    const ttlResults = await pipeline.exec();
+
+    // Fase 2: classifica tokens vivos vs expirados.
+    const hashesWithTtl: Array<{ hash: string; ttl: number }> = [];
+    const expiredHashes: string[] = [];
+
+    for (let i = 0; i < allHashes.length; i++) {
+      const result = ttlResults?.[i];
+      const ttl = result && !result[0] ? (result[1] as number) : -2;
       if (ttl > 0) {
-        hashesWithTtl.push({ hash, ttl });
+        hashesWithTtl.push({ hash: allHashes[i], ttl });
       } else {
-        // Expired token still in set — clean it up
-        await this.client.srem(setKey, hash);
+        expiredHashes.push(allHashes[i]);
       }
+    }
+
+    // Limpa tokens expirados do set em uma única operação.
+    if (expiredHashes.length) {
+      await this.client.srem(setKey, ...expiredHashes);
     }
 
     if (hashesWithTtl.length <= maxSessions) {
@@ -165,14 +182,16 @@ export class RedisService {
     hashesWithTtl.sort((a, b) => a.ttl - b.ttl);
     const toEvict = hashesWithTtl.slice(0, hashesWithTtl.length - maxSessions);
 
-    const evictedHashes: string[] = [];
+    // Fase 3: evicção em um único pipeline — sem round-trips por token.
+    const evictPipeline = this.client.pipeline();
     for (const { hash } of toEvict) {
       const key = this.getRefreshTokenKey(userId, hash);
-      await this.client.multi().del(key).srem(setKey, hash).exec();
-      evictedHashes.push(hash);
+      evictPipeline.del(key);
+      evictPipeline.srem(setKey, hash);
     }
+    await evictPipeline.exec();
 
-    return evictedHashes;
+    return toEvict.map(({ hash }) => hash);
   }
 
   /** Invalida todos os refresh tokens de um usuário (ex: troca de senha). */

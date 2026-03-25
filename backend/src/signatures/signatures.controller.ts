@@ -19,6 +19,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 
 @Controller('signatures')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -52,6 +53,7 @@ export class SignaturesController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_signatures')
+  @ForensicAuditAction('delete', 'signature')
   remove(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Request() req: RequestWithUser,
@@ -66,6 +68,7 @@ export class SignaturesController {
   @Delete('document/:document_id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_signatures')
+  @ForensicAuditAction('delete', 'signature')
   removeByDocument(
     @Param('document_id') document_id: string,
     @Query('document_type') document_type: string,

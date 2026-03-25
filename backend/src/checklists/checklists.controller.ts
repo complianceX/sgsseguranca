@@ -26,6 +26,7 @@ import { CreateChecklistDto } from './dto/create-checklist.dto';
 import { UpdateChecklistDto } from './dto/update-checklist.dto';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import {
   cleanupUploadedTempFile,
   createTemporaryUploadOptions,
@@ -303,6 +304,7 @@ export class ChecklistsController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_manage_checklists')
+  @ForensicAuditAction('delete', 'checklist')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.checklistsService.remove(id);
   }

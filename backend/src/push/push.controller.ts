@@ -10,6 +10,7 @@ import {
 import { Request } from 'express';
 import { PushService } from './push.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 
 interface RequestWithUser extends Request {
   user: {
@@ -40,6 +41,7 @@ export class PushController {
 
   @Delete('unsubscribe')
   @UseGuards(JwtAuthGuard)
+  @ForensicAuditAction('delete', 'push_subscription')
   async unsubscribe(@Body() body: { endpoint: string }) {
     await this.pushService.removeSubscription(body.endpoint);
     return { success: true };

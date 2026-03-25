@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 import { Site } from '../../sites/entities/site.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('nonconformities')
 @Index(
@@ -161,6 +162,16 @@ export class NonConformity {
 
   @Column()
   status: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  closed_at?: Date | null;
+
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'resolved_by' })
+  resolved_by_user?: User | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  resolved_by?: string | null;
 
   @Column({ type: 'text', nullable: true })
   observacoes_gerais?: string;

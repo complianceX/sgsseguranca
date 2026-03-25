@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -49,6 +50,9 @@ import { SignaturesService } from '../signatures/signatures.service';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { MetricsService } from '../common/observability/metrics.service';
+import { Counter } from '@opentelemetry/api';
+
+export const PTS_DOMAIN_METRICS = 'PTS_DOMAIN_METRICS';
 
 type PreApprovalChecklist = Record<string, unknown>;
 type PtPdfAccessAvailability =
@@ -105,6 +109,9 @@ export class PtsService {
     private readonly signaturesService: SignaturesService,
     private readonly forensicTrailService: ForensicTrailService,
     @Optional() private readonly metricsService?: MetricsService,
+    @Optional()
+    @Inject(PTS_DOMAIN_METRICS)
+    private readonly domainMetrics?: Record<string, Counter>,
   ) {}
 
   private assertPtDocumentMutable(pt: Pick<Pt, 'pdf_file_key'>) {
@@ -348,7 +355,18 @@ export class PtsService {
       ptId: saved.id,
       companyId: saved.company_id,
     });
-    this.metricsService?.incrementPtCreated(saved.company_id);
+    try {
+      this.domainMetrics?.pts_created?.add(1, {
+        company_id: saved.company_id,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `[PTS] Falha ao registrar pts_created no domínio: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      this.metricsService?.incrementPtCreated(saved.company_id);
+    }
     return saved;
   }
 

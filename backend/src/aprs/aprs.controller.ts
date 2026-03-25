@@ -32,6 +32,9 @@ import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { AprListItemDto } from './dto/apr-list-item.dto';
 import { AprResponseDto, toAprResponseDto } from './dto/apr-response.dto';
 import { Authorize } from '../auth/authorize.decorator';
+import { OffsetPage } from '../common/utils/offset-pagination.util';
+import { ApiQuery } from '@nestjs/swagger';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import {
   assertUploadedPdf,
   cleanupUploadedTempFile,
@@ -88,6 +91,18 @@ export class AprsController {
 
   @Get()
   @Authorize('can_view_apr')
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Número da página',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Limite de itens por página (máx. 100)',
+  })
   findPaginated(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
@@ -95,12 +110,7 @@ export class AprsController {
     @Query('status') status?: string,
     @Query('company_id') companyId?: string,
     @Query('is_modelo_padrao') isModeloPadrao?: string,
-  ): Promise<{
-    data: AprListItemDto[];
-    total: number;
-    page: number;
-    lastPage: number;
-  }> {
+  ): Promise<OffsetPage<AprListItemDto>> {
     return this.aprsService.findPaginated({
       page: Number(page),
       limit: Number(limit),
@@ -410,9 +420,23 @@ export class AprsController {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ): Promise<AprResponseDto> {
-    const userId = this.getRequestUserId(req);
-    if (!userId) throw new UnauthorizedException('Usuário não identificado');
-    return toAprResponseDto(await this.aprsService.approve(id, userId, reason));
+    return this.executeApprove(id, reason, req);
+  }
+
+  /** Aprova a APR — Pendente → Aprovada (rota canônica para operações de mudança de estado) */
+  @Patch(':id/approve')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_create_apr')
+  @ForensicAuditAction('approve', 'apr')
+  async approvePatch(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body('reason') reason: string | undefined,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): Promise<AprResponseDto> {
+    return this.executeApprove(id, reason, req);
   }
 
   /** Reprova/Cancela a APR — Pendente → Cancelada */
@@ -427,11 +451,23 @@ export class AprsController {
       user?: { id?: string; userId?: string; sub?: string };
     },
   ): Promise<AprResponseDto> {
-    const userId = this.getRequestUserId(req);
-    if (!userId) throw new UnauthorizedException('Usuário não identificado');
-    if (!reason)
-      throw new BadRequestException('Motivo de reprovação obrigatório');
-    return toAprResponseDto(await this.aprsService.reject(id, userId, reason));
+    return this.executeReject(id, reason, req);
+  }
+
+  /** Reprova/Cancela a APR — Pendente → Cancelada (rota canônica para operações de mudança de estado) */
+  @Patch(':id/reject')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
+  @Authorize('can_create_apr')
+  @ForensicAuditAction('reject', 'apr')
+  async rejectPatch(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body('reason') reason: string,
+    @Req()
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): Promise<AprResponseDto> {
+    return this.executeReject(id, reason, req);
   }
 
   /** Encerra a APR — Aprovada → Encerrada */
@@ -499,6 +535,7 @@ export class AprsController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_create_apr')
+  @ForensicAuditAction('delete', 'apr')
   remove(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req()
@@ -507,5 +544,31 @@ export class AprsController {
     },
   ) {
     return this.aprsService.remove(id, this.getRequestUserId(req));
+  }
+
+  private async executeApprove(
+    id: string,
+    reason: string | undefined,
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): Promise<AprResponseDto> {
+    const userId = this.getRequestUserId(req);
+    if (!userId) throw new UnauthorizedException('Usuário não identificado');
+    return toAprResponseDto(await this.aprsService.approve(id, userId, reason));
+  }
+
+  private async executeReject(
+    id: string,
+    reason: string,
+    req: Request & {
+      user?: { id?: string; userId?: string; sub?: string };
+    },
+  ): Promise<AprResponseDto> {
+    const userId = this.getRequestUserId(req);
+    if (!userId) throw new UnauthorizedException('Usuário não identificado');
+    if (!reason)
+      throw new BadRequestException('Motivo de reprovação obrigatório');
+    return toAprResponseDto(await this.aprsService.reject(id, userId, reason));
   }
 }

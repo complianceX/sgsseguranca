@@ -3,7 +3,10 @@ import { Request, Response, NextFunction } from 'express';
 import { trace } from '@opentelemetry/api';
 import { requestContextStorage } from './request-context.middleware';
 
-export type RequestWithSentryTrace = Request & { sentryTraceId?: string };
+export type RequestWithSentryTrace = Request & {
+  traceId?: string;
+  sentryTraceId?: string;
+};
 
 /**
  * Lê o header `sentry-trace` enviado pelo frontend e:
@@ -25,11 +28,13 @@ export class SentryTraceMiddleware implements NestMiddleware {
       // traceId = primeiros 32 chars hex
       const traceId = sentryTrace.split('-')[0] ?? '';
 
-      if (traceId) {
+      if (/^[0-9a-f]{32}$/i.test(traceId)) {
+        (req as RequestWithSentryTrace).traceId = traceId;
         (req as RequestWithSentryTrace).sentryTraceId = traceId;
 
         const store = requestContextStorage.getStore();
         if (store) {
+          store.set('traceId', traceId);
           store.set('sentryTraceId', traceId);
           if (baggage) {
             store.set('sentryBaggage', baggage);

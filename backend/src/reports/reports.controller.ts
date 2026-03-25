@@ -29,6 +29,7 @@ import { ReportsService } from './reports.service';
 import { Authorize } from '../auth/authorize.decorator';
 import { GenerateReportDto } from './dto/generate-report.dto';
 import { getPdfQueueJobTimeoutMs } from '../common/services/pdf-runtime-config';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 
 type ReportQueueJobParams = {
   month?: number;
@@ -107,6 +108,7 @@ export class ReportsController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_view_dashboard')
+  @ForensicAuditAction('delete', 'report')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.reportsService.remove(id);
   }

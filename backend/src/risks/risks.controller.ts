@@ -16,6 +16,7 @@ import { Risk } from './entities/risk.entity';
 import { CreateRiskDto } from './dto/create-risk.dto';
 import { UpdateRiskDto } from './dto/update-risk.dto';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 
 @ApiTags('risks')
 @Controller('risks')
@@ -69,6 +70,7 @@ export class RisksController extends BaseController<
 
   @Delete(':id')
   @Authorize('can_edit_risks')
+  @ForensicAuditAction('delete', 'risk')
   override remove(@Param('id', new ParseUUIDPipe()) id: string): Promise<void> {
     return this.risksService.remove(id);
   }

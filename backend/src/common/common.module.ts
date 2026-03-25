@@ -16,15 +16,19 @@ import { TenantGuard } from './guards/tenant.guard';
 import { RiskCalculationService } from './services/risk-calculation.service';
 import { DocumentBundleService } from './services/document-bundle.service';
 import { DocumentStorageService } from './services/document-storage.service';
+import { DocumentRetentionService } from './storage/document-retention.service';
 import { PdfIntegrityRecord } from './entities/pdf-integrity-record.entity';
 import { DocumentRegistryEntry } from '../document-registry/entities/document-registry.entity';
 import { StorageModule as CommonStorageModule } from './storage/storage.module';
+import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
+import { ForensicAuditInterceptor } from './interceptors/forensic-audit.interceptor';
 
 @Global()
 @Module({
   imports: [
     RedisModule,
     CommonStorageModule,
+    ForensicTrailModule,
     TypeOrmModule.forFeature([PdfIntegrityRecord, DocumentRegistryEntry]),
   ],
   providers: [
@@ -42,7 +46,9 @@ import { StorageModule as CommonStorageModule } from './storage/storage.module';
     SignatureTimestampService,
     RiskCalculationService,
     DocumentStorageService,
+    DocumentRetentionService,
     DocumentBundleService,
+    ForensicAuditInterceptor,
   ],
   exports: [
     RedisModule,
@@ -61,7 +67,10 @@ import { StorageModule as CommonStorageModule } from './storage/storage.module';
     SignatureTimestampService,
     RiskCalculationService,
     DocumentStorageService,
+    DocumentRetentionService,
     DocumentBundleService,
+    ForensicTrailModule,
+    ForensicAuditInterceptor,
   ],
 })
 export class CommonModule {}

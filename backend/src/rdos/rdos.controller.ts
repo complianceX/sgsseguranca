@@ -36,6 +36,7 @@ import { Authorize } from '../auth/authorize.decorator';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import {
   assertUploadedPdf,
   assertUploadedVideo,
@@ -300,6 +301,7 @@ export class RdosController {
   @Delete(':id/videos/:attachmentId')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_rdos')
+  @ForensicAuditAction('delete', 'rdo_video_attachment')
   removeVideoAttachment(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
@@ -337,6 +339,7 @@ export class RdosController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_manage_rdos')
+  @ForensicAuditAction('delete', 'rdo')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.rdosService.remove(id);
   }

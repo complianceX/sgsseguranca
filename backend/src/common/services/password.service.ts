@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { metrics } from '@opentelemetry/api';
 import * as argon2 from 'argon2';
 // bcryptjs mantido para verificação de hashes legados durante migração gradual.
 // Remover somente após confirmar que nenhum registro no banco usa prefixo $2b$/$2a$.
@@ -22,8 +23,42 @@ export const ARGON2_OPTIONS: argon2.Options & { raw?: false } = {
   parallelism: 1,
 };
 
-/** Detecta hashes bcrypt ($2b$, $2a$, $2y$) — formato legado. */
-const BCRYPT_REGEX = /^\$2[aby]\$\d{2}\$/;
+/**
+ * Detecta hashes bcrypt — formato legado.
+ * Variantes cobertas:
+ *   $2a$ — bcrypt original (1999)
+ *   $2b$ — bcrypt corrigido (2011, padrão bcryptjs)
+ *   $2x$ — variante PHP/OpenBSD com bug de implementação (raro)
+ *   $2y$ — variante PHP "canônica" (equivalente a $2b$)
+ * Todas são suportadas pelo bcryptjs.compare().
+ */
+const BCRYPT_REGEX = /^\$2[abxy]\$\d{2}\$/;
+
+/**
+ * Métricas de verificação de senha — TAREFA 7.3.
+ *
+ * `auth.hash_algorithm`: conta verificações por algoritmo.
+ * Permite construir dashboard "% usuários migrados bcrypt → argon2id".
+ *
+ * `auth.password_verify_duration_ms`: histograma de latência por algoritmo.
+ * Valida que argon2id não introduziu regressão de performance em produção.
+ *
+ * Zero-overhead quando OTel está desabilitado (OTEL_ENABLED=false):
+ * o SDK OTel usa no-op meter que descarta as chamadas sem processamento.
+ */
+const _meter = metrics.getMeter('auth-service');
+
+const hashAlgorithmCounter = _meter.createCounter('auth.hash_algorithm', {
+  description: 'Contagem de verificações de senha por algoritmo de hash',
+});
+
+const verifyDurationHistogram = _meter.createHistogram(
+  'auth.password_verify_duration_ms',
+  {
+    description: 'Duração da verificação de senha em milissegundos, por algoritmo',
+    unit: 'ms',
+  },
+);
 
 @Injectable()
 export class PasswordService {
@@ -56,8 +91,10 @@ export class PasswordService {
    * agendar um rehash para argon2id (fire-and-forget via setImmediate).
    */
   async verify(password: string, storedHash: string): Promise<boolean> {
+    const algorithm = this.isLegacyHash(storedHash) ? 'bcrypt' : 'argon2id';
+    const t0 = Date.now();
     try {
-      if (this.isLegacyHash(storedHash)) {
+      if (algorithm === 'bcrypt') {
         return await bcrypt.compare(password, storedHash);
       }
       return await argon2.verify(storedHash, password);
@@ -68,6 +105,10 @@ export class PasswordService {
         }`,
       );
       return false;
+    } finally {
+      const durationMs = Date.now() - t0;
+      hashAlgorithmCounter.add(1, { algorithm });
+      verifyDurationHistogram.record(durationMs, { algorithm });
     }
   }
 

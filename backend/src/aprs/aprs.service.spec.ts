@@ -14,6 +14,8 @@ import type { ForensicTrailService } from '../forensic-trail/forensic-trail.serv
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import type { AppendForensicTrailEventInput } from '../forensic-trail/forensic-trail.service';
 import type { MetricsService } from '../common/observability/metrics.service';
+import { AprsEvidenceService } from './services/aprs-evidence.service';
+import { AprsPdfService } from './services/aprs-pdf.service';
 
 type RegisterFinalDocumentInput = Parameters<
   DocumentGovernanceService['registerFinalDocument']
@@ -26,6 +28,7 @@ type RepositoryEntityName = { name?: string };
 
 describe('AprsService', () => {
   let service: AprsService;
+  let tenantService: Pick<TenantService, 'getTenantId'>;
   let aprRepository: {
     findOne: jest.Mock;
     manager: {
@@ -168,11 +171,30 @@ describe('AprsService', () => {
     metricsService = {
       incrementAprCreated: jest.fn(),
     };
+    tenantService = {
+      getTenantId: jest.fn(() => 'company-1'),
+    };
+
+    const aprsPdfService = new AprsPdfService(
+      aprRepository as unknown as Repository<Apr>,
+      aprLogsRepository as unknown as Repository<AprLog>,
+      tenantService as TenantService,
+      documentStorageService as DocumentStorageService,
+      pdfService as PdfService,
+      documentGovernanceService as DocumentGovernanceService,
+      signaturesService as SignaturesService,
+    );
+    const aprsEvidenceService = new AprsEvidenceService(
+      aprRepository as unknown as Repository<Apr>,
+      aprLogsRepository as unknown as Repository<AprLog>,
+      tenantService as TenantService,
+      documentStorageService as DocumentStorageService,
+    );
 
     service = new AprsService(
       aprRepository as unknown as Repository<Apr>,
       aprLogsRepository as unknown as Repository<AprLog>,
-      { getTenantId: jest.fn(() => 'company-1') } as TenantService,
+      tenantService as TenantService,
       riskCalculationService as RiskCalculationService,
       aprRiskMatrixService as AprRiskMatrixService,
       aprExcelService as AprExcelService,
@@ -181,6 +203,8 @@ describe('AprsService', () => {
       documentGovernanceService as DocumentGovernanceService,
       signaturesService as SignaturesService,
       forensicTrailService as ForensicTrailService,
+      aprsPdfService,
+      aprsEvidenceService,
       metricsService as MetricsService,
     );
   });

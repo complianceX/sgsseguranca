@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -33,6 +34,9 @@ import { SignaturesService } from '../signatures/signatures.service';
 import { Signature } from '../signatures/entities/signature.entity';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
 import { MetricsService } from '../common/observability/metrics.service';
+import { Counter } from '@opentelemetry/api';
+
+export const DDS_DOMAIN_METRICS = 'DDS_DOMAIN_METRICS';
 
 const TEAM_PHOTO_SIGNATURE_PREFIX = 'team_photo';
 const TEAM_PHOTO_REUSE_JUSTIFICATION_TYPE = 'team_photo_reuse_justification';
@@ -74,6 +78,9 @@ export class DdsService {
     private readonly documentVideosService: DocumentVideosService,
     private readonly signaturesService: SignaturesService,
     @Optional() private readonly metricsService?: MetricsService,
+    @Optional()
+    @Inject(DDS_DOMAIN_METRICS)
+    private readonly domainMetrics?: Record<string, Counter>,
   ) {}
 
   async create(createDdsDto: CreateDdsDto): Promise<Dds> {
@@ -104,7 +111,18 @@ export class DdsService {
       ddsId: saved.id,
       companyId: saved.company_id,
     });
-    this.metricsService?.incrementDdsCreated(saved.company_id);
+    try {
+      this.domainMetrics?.dds_created?.add(1, {
+        company_id: saved.company_id,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `[DDS] Falha ao registrar dds_created no domínio: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      this.metricsService?.incrementDdsCreated(saved.company_id);
+    }
     return saved;
   }
 

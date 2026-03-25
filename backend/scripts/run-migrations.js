@@ -49,7 +49,7 @@ async function main() {
       return;
     }
     console.log('[MIGRATIONS] Applying pending migrations...');
-    const applied = await dataSource.runMigrations({ transaction: 'all' });
+    const applied = await dataSource.runMigrations({ transaction: 'each' });
     console.log(`[MIGRATIONS] Applied ${applied.length} migration(s).`);
   } finally {
     if (dataSource.isInitialized) {

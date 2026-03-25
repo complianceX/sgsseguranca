@@ -47,10 +47,24 @@ function testCnpj(index: number): string {
 
 /**
  * CPF de 11 dígitos para teste.
- * Começa em 10000000001 para evitar colisão com o CPF do seed de dev (00000000191).
+ * Gera CPFs válidos (com dígitos verificadores corretos) a partir de um índice.
  */
 function testCpf(index: number): string {
-  return String(10000000001 + index).padStart(11, '0');
+  const base = String(100000000 + index).padStart(9, '0').slice(-9);
+  const digits = base.split('').map((d) => Number(d));
+
+  const calcDigit = (values: number[], factorStart: number): number => {
+    const sum = values.reduce(
+      (acc, value, idx) => acc + value * (factorStart - idx),
+      0,
+    );
+    const remainder = (sum * 10) % 11;
+    return remainder === 10 ? 0 : remainder;
+  };
+
+  const d1 = calcDigit(digits, 10);
+  const d2 = calcDigit([...digits, d1], 11);
+  return `${base}${d1}${d2}`;
 }
 
 /**
@@ -79,7 +93,12 @@ async function cleanLoadTestData(pool: Pool): Promise<void> {
   console.log('⟳  Limpando dados de carga anteriores...');
 
   // A ordem respeita as FK: aprs → sites/users → companies
-  const deleted = await pool.query<{ count: string }>(
+  const deleted = await pool.query<{
+    aprs: string;
+    sites: string;
+    users: string;
+    companies: string;
+  }>(
     `WITH
        del_aprs AS (
          DELETE FROM aprs
@@ -154,23 +173,49 @@ async function createTenants(
       await pool.query(
         `INSERT INTO companies (id, razao_social, cnpj, endereco, responsavel, status, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())`,
-        [companyId, `${LOAD_TEST_MARKER}Empresa ${padded}`, cnpj, 'Rua de Teste, 100', 'Resp. Teste'],
+        [
+          companyId,
+          `${LOAD_TEST_MARKER}Empresa ${padded}`,
+          cnpj,
+          'Rua de Teste, 100',
+          'Resp. Teste',
+        ],
       );
 
       await pool.query(
         `INSERT INTO sites (id, nome, local, company_id, status, created_at, updated_at)
          VALUES ($1, $2, $3, $4, true, NOW(), NOW())`,
-        [siteId, `${LOAD_TEST_MARKER}Obra ${padded}`, 'Local de Teste', companyId],
+        [
+          siteId,
+          `${LOAD_TEST_MARKER}Obra ${padded}`,
+          'Local de Teste',
+          companyId,
+        ],
       );
 
       await pool.query(
         `INSERT INTO users (id, nome, cpf, email, password, company_id, profile_id, status, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, true, NOW(), NOW())`,
-        [userId, `K6 Admin ${padded}`, cpf, email, passwordHash, companyId, profileId],
+        [
+          userId,
+          `K6 Admin ${padded}`,
+          cpf,
+          email,
+          passwordHash,
+          companyId,
+          profileId,
+        ],
       );
     }
 
-    tenants.push({ tenantIndex: i, companyId, siteId, userId, cpf, password: TEST_PASSWORD });
+    tenants.push({
+      tenantIndex: i,
+      companyId,
+      siteId,
+      userId,
+      cpf,
+      password: TEST_PASSWORD,
+    });
 
     if ((i + 1) % 20 === 0) {
       process.stdout.write(`   ${i + 1}/${TENANT_COUNT} tenants\n`);
@@ -188,10 +233,12 @@ async function bulkInsertAprs(
   if (dryRun) return;
 
   const total = TENANT_COUNT * APRS_PER_TENANT;
-  console.log(`\n⟳  Inserindo ${total.toLocaleString()} APRs (${APR_BATCH_SIZE}/batch)...`);
+  console.log(
+    `\n⟳  Inserindo ${total.toLocaleString()} APRs (${APR_BATCH_SIZE}/batch)...`,
+  );
 
   const dataInicio = dateOffset(-6); // 6 meses atrás
-  const dataFim = dateOffset(6);     // 6 meses à frente
+  const dataFim = dateOffset(6); // 6 meses à frente
 
   let globalCounter = 0;
 
@@ -214,14 +261,14 @@ async function bulkInsertAprs(
           `($${p},$${p + 1},$${p + 2},$${p + 3},$${p + 4},$${p + 5},$${p + 6},$${p + 7},$${p + 8},NOW(),NOW())`,
         );
         params.push(
-          randomUUID(),     // id
-          numero,           // numero
-          titulo,           // titulo
-          dataInicio,       // data_inicio
-          dataFim,          // data_fim
-          status,           // status
-          tenant.siteId,    // site_id
-          tenant.userId,    // elaborador_id
+          randomUUID(), // id
+          numero, // numero
+          titulo, // titulo
+          dataInicio, // data_inicio
+          dataFim, // data_fim
+          status, // status
+          tenant.siteId, // site_id
+          tenant.userId, // elaborador_id
           tenant.companyId, // company_id
         );
         p += 9;
@@ -239,7 +286,9 @@ async function bulkInsertAprs(
 
     if ((tenant.tenantIndex + 1) % 10 === 0) {
       const pct = ((globalCounter / total) * 100).toFixed(0);
-      process.stdout.write(`   ${globalCounter.toLocaleString()}/${total.toLocaleString()} APRs (${pct}%)\n`);
+      process.stdout.write(
+        `   ${globalCounter.toLocaleString()}/${total.toLocaleString()} APRs (${pct}%)\n`,
+      );
     }
   }
 }
@@ -254,14 +303,19 @@ async function main(): Promise<void> {
   const pool = new Pool({
     host: process.env.DATABASE_HOST || '127.0.0.1',
     port: Number(process.env.DATABASE_PORT || 5433),
-    database: process.env.DATABASE_NAME || process.env.POSTGRES_DB || 'minha-api',
+    database:
+      process.env.DATABASE_NAME || process.env.POSTGRES_DB || 'minha-api',
     user: process.env.DATABASE_USER || process.env.POSTGRES_USER || 'postgres',
-    password: process.env.DATABASE_PASSWORD || process.env.POSTGRES_PASSWORD || 'postgres',
+    password:
+      process.env.DATABASE_PASSWORD ||
+      process.env.POSTGRES_PASSWORD ||
+      'postgres',
     connectionTimeoutMillis: 5000,
   });
 
   console.log('\n=== Seed de Carga K6 ===');
-  if (dryRun) console.log('⚠  Modo --dry-run: nenhum dado será escrito no banco.');
+  if (dryRun)
+    console.log('⚠  Modo --dry-run: nenhum dado será escrito no banco.');
   if (cleanOnly) console.log('⚠  Modo --clean: apenas limpeza, sem criação.');
 
   try {
@@ -279,7 +333,9 @@ async function main(): Promise<void> {
     const profileId = await resolveAdminProfileId(pool);
 
     console.log('⟳  Gerando hash de senha (bcrypt 10 rounds)...');
-    const passwordHash = dryRun ? 'DRY_RUN_HASH' : await hash(TEST_PASSWORD, 10);
+    const passwordHash = dryRun
+      ? 'DRY_RUN_HASH'
+      : await hash(TEST_PASSWORD, 10);
 
     const startedAt = Date.now();
     const tenants = await createTenants(pool, profileId, passwordHash, dryRun);
@@ -296,11 +352,17 @@ async function main(): Promise<void> {
     console.log(`✓  Seed concluído em ${elapsed}s`);
     console.log(`   Tenants criados      : ${TENANT_COUNT}`);
     console.log(`   APRs por tenant      : ${APRS_PER_TENANT}`);
-    console.log(`   Total APRs           : ${(TENANT_COUNT * APRS_PER_TENANT).toLocaleString()}`);
-    console.log(`   Credenciais salvas em: ${dryRun ? '(--dry-run, não salvo)' : outputPath}`);
+    console.log(
+      `   Total APRs           : ${(TENANT_COUNT * APRS_PER_TENANT).toLocaleString()}`,
+    );
+    console.log(
+      `   Credenciais salvas em: ${dryRun ? '(--dry-run, não salvo)' : outputPath}`,
+    );
     console.log('─'.repeat(50));
     console.log('\nPróximo passo:');
-    console.log('  k6 run test/load/k6-load-test.js -e BASE_URL=http://localhost:3001\n');
+    console.log(
+      '  k6 run test/load/k6-load-test.js -e BASE_URL=http://localhost:3001\n',
+    );
   } finally {
     await pool.end();
   }

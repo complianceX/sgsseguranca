@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AprsModule } from '../aprs/aprs.module';
 import { Apr } from '../aprs/entities/apr.entity';
@@ -37,8 +38,17 @@ import { DashboardDocumentPendencyOperationsService } from './dashboard-document
 import { DashboardDocumentPendenciesService } from './dashboard-document-pendencies.service';
 import { DashboardOperationalNotifierService } from './dashboard-operational-notifier.service';
 import { DashboardPendingQueueService } from './dashboard-pending-queue.service';
-import { DashboardService } from './dashboard.service';
+import { DashboardRevalidateProcessor } from './dashboard-revalidate.processor';
+import {
+  DASHBOARD_DOMAIN_METRICS,
+  DashboardService,
+} from './dashboard.service';
 import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
+import {
+  createRedisDisabledQueueProvider,
+  isRedisDisabled,
+} from '../queue/redis-disabled-queue';
+import { MetricsRegistryService } from '../common/observability/metrics-registry.service';
 
 @Module({
   imports: [
@@ -53,6 +63,9 @@ import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
     NotificationsModule,
     PtsModule,
     RdosModule,
+    ...(isRedisDisabled
+      ? []
+      : [BullModule.registerQueue({ name: 'dashboard-revalidate' })]),
     TypeOrmModule.forFeature([
       Apr,
       Audit,
@@ -85,6 +98,32 @@ import { MonthlySnapshot } from './entities/monthly-snapshot.entity';
     DashboardDocumentPendencyOperationsService,
     DashboardDocumentPendenciesService,
     DashboardOperationalNotifierService,
+    {
+      provide: DASHBOARD_DOMAIN_METRICS,
+      inject: [MetricsRegistryService],
+      useFactory: (registry: MetricsRegistryService) =>
+        registry.register('dashboard', [
+          {
+            name: 'cache_requests_total',
+            description:
+              'Total de leituras de cache do dashboard por empresa/consulta/resultado',
+            type: 'counter',
+          },
+          {
+            name: 'cache_revalidations_total',
+            description:
+              'Total de eventos de revalidação de cache do dashboard',
+            type: 'counter',
+          },
+        ]),
+    },
+    ...(isRedisDisabled
+      ? [
+          createRedisDisabledQueueProvider('dashboard-revalidate', {
+            addMode: 'noop',
+          }),
+        ]
+      : [DashboardRevalidateProcessor]),
   ],
   exports: [DashboardService],
 })

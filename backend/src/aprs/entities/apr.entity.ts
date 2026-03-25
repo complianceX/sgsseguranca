@@ -59,9 +59,27 @@ export class Apr {
   @Column({ type: 'varchar', default: AprStatus.PENDENTE })
   status: AprStatus;
 
+  /**
+   * Semântica atual (legado em transição):
+   * - `false`: APR operacional comum
+   * - `true`: APR marcada como modelo reutilizável
+   *
+   * Observação: o backend ainda convive com `is_modelo_padrao`.
+   * Quando `is_modelo_padrao = true`, o serviço força `is_modelo = true`.
+   * Ver migration de planejamento `template_type` para unificação semântica.
+   */
   @Column({ default: false })
   is_modelo: boolean;
 
+  /**
+   * Semântica atual (legado em transição):
+   * - `true`: modelo padrão da empresa (único por `company_id`)
+   * - `false`: APR sem status de modelo padrão
+   *
+   * Regra de consistência aplicada no serviço:
+   * - `is_modelo_padrao = true` => `is_modelo = true`
+   * - `is_modelo = false` => `is_modelo_padrao = false`
+   */
   @Column({ default: false })
   is_modelo_padrao: boolean;
 

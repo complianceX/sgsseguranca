@@ -1133,6 +1133,7 @@ export class ChecklistsService {
     onlyTemplates?: boolean;
     excludeTemplates?: boolean;
     take?: number;
+    select?: (keyof Checklist)[];
   }): Promise<ChecklistResponseDto[]> {
     const tenantId = this.tenantService.getTenantId();
     this.logger.debug(`Buscando checklists para empresa: ${tenantId}`);
@@ -1149,7 +1150,9 @@ export class ChecklistsService {
 
     const results = await this.checklistsRepository.find({
       where: { ...filter, deleted_at: IsNull() },
-      relations: ['company', 'site', 'inspetor', 'auditado_por'],
+      ...(options?.select?.length
+        ? { select: options.select }
+        : { relations: ['company', 'site', 'inspetor', 'auditado_por'] }),
       order: { created_at: 'DESC' },
       ...(options?.take !== undefined && { take: options.take }),
     });

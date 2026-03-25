@@ -21,6 +21,7 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 
 @Controller('sites')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -70,6 +71,7 @@ export class SitesController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL)
   @Authorize('can_manage_sites')
+  @ForensicAuditAction('delete', 'site')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.sitesService.remove(id);
   }

@@ -2,12 +2,19 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { createHash } from 'crypto';
-import { DocumentRegistryEntry } from './entities/document-registry.entity';
+import {
+  DocumentRegistryEntry,
+  DocumentRegistryStatus,
+} from './entities/document-registry.entity';
 import { TenantService } from '../common/tenant/tenant.service';
 import {
   DocumentBundleService,
   WeeklyBundleFilters,
 } from '../common/services/document-bundle.service';
+import {
+  resolveDefaultRetentionDaysForModule,
+  resolveRetentionColumnForModule,
+} from '../common/storage/document-retention.constants';
 
 type RegistryModule =
   | 'apr'
@@ -95,6 +102,13 @@ export class DocumentRegistryService {
       entity.document_code ||
       `${input.module.toUpperCase()}-${String(entity.iso_year)}-${String(entity.iso_week).padStart(2, '0')}-${input.entityId.slice(0, 8).toUpperCase()}`;
     entity.created_by = input.createdBy || entity.created_by || null;
+    entity.status = DocumentRegistryStatus.ACTIVE;
+    entity.expires_at = await this.resolveDocumentExpiryDate(
+      manager,
+      input.companyId,
+      input.module,
+      documentDate,
+    );
 
     return registryRepository.save(entity);
   }
@@ -121,6 +135,7 @@ export class DocumentRegistryService {
     entityId: string,
     documentType = 'pdf',
     companyId?: string,
+    includeExpired = false,
   ): Promise<DocumentRegistryEntry | null> {
     return this.registryRepository.findOne({
       where: {
@@ -128,6 +143,7 @@ export class DocumentRegistryService {
         module,
         entity_id: entityId,
         document_type: documentType,
+        ...(includeExpired ? {} : { status: DocumentRegistryStatus.ACTIVE }),
       },
     });
   }
@@ -145,7 +161,10 @@ export class DocumentRegistryService {
     });
   }
 
-  async findByCode(code: string): Promise<DocumentRegistryEntry | null> {
+  async findByCode(
+    code: string,
+    includeExpired = false,
+  ): Promise<DocumentRegistryEntry | null> {
     const normalizedCode = String(code || '')
       .trim()
       .toUpperCase();
@@ -156,6 +175,10 @@ export class DocumentRegistryService {
     return this.registryRepository
       .createQueryBuilder('document')
       .where('UPPER(document.document_code) = :code', { code: normalizedCode })
+      .andWhere(
+        includeExpired ? '1=1' : 'document.status = :status',
+        includeExpired ? {} : { status: DocumentRegistryStatus.ACTIVE },
+      )
       .getOne();
   }
 
@@ -209,6 +232,9 @@ export class DocumentRegistryService {
       .createQueryBuilder('document')
       .where('document.company_id = :companyId', {
         companyId: effectiveCompanyId,
+      })
+      .andWhere('document.status = :status', {
+        status: DocumentRegistryStatus.ACTIVE,
       })
       .orderBy('document.document_date', 'DESC')
       .addOrderBy('document.created_at', 'DESC');
@@ -288,5 +314,61 @@ export class DocumentRegistryService {
     );
     target.setUTCDate(target.getUTCDate() + 4 - (target.getUTCDay() || 7));
     return target.getUTCFullYear();
+  }
+
+  private async resolveDocumentExpiryDate(
+    manager: EntityManager,
+    companyId: string,
+    moduleName: RegistryModule,
+    documentDate: Date,
+  ): Promise<Date | null> {
+    const fallbackRetentionDays =
+      resolveDefaultRetentionDaysForModule(moduleName);
+    const retentionColumn = resolveRetentionColumnForModule(moduleName);
+
+    let retentionDays = fallbackRetentionDays;
+
+    if (retentionColumn) {
+      try {
+        const rowsRaw: unknown = await manager.query(
+          `SELECT "${retentionColumn}" AS retention_days FROM "tenant_document_policies" WHERE company_id = $1 LIMIT 1`,
+          [companyId],
+        );
+
+        const parsedDays = this.extractRetentionDays(rowsRaw);
+        if (parsedDays !== null && parsedDays > 0) {
+          retentionDays = parsedDays;
+        }
+      } catch {
+        // fallback defensivo para ambientes sem migration aplicada
+        retentionDays = fallbackRetentionDays;
+      }
+    }
+
+    if (!Number.isFinite(retentionDays) || retentionDays <= 0) {
+      return null;
+    }
+
+    const expiresAt = new Date(documentDate);
+    expiresAt.setDate(expiresAt.getDate() + retentionDays);
+    return expiresAt;
+  }
+
+  private extractRetentionDays(rowsRaw: unknown): number | null {
+    if (!Array.isArray(rowsRaw) || rowsRaw.length === 0) {
+      return null;
+    }
+
+    const rows = rowsRaw as unknown[];
+    const firstRow = rows[0];
+    if (!firstRow || typeof firstRow !== 'object') {
+      return null;
+    }
+
+    const retentionDaysRaw = (firstRow as { retention_days?: unknown })
+      .retention_days;
+    const parsed = Number(retentionDaysRaw);
+
+    return Number.isFinite(parsed) ? parsed : null;
   }
 }

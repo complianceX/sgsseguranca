@@ -16,6 +16,7 @@ interface RequestWithUser extends Request {
   };
   requestId?: string;
   requestStartAt?: number;
+  traceId?: string;
   sentryTraceId?: string;
 }
 
@@ -36,7 +37,7 @@ export class LoggingInterceptor implements NestInterceptor {
       (request.headers['x-request-id'] as string) ||
       'unknown';
     const isAuthRoute = typeof url === 'string' && url.startsWith('/auth');
-    const sentryTraceId = request.sentryTraceId;
+    const traceId = request.traceId || request.sentryTraceId;
 
     // Reforça o mesmo requestId no request para uso em filtros/logs.
     request.requestId = requestId;
@@ -54,8 +55,8 @@ export class LoggingInterceptor implements NestInterceptor {
       companyId: request.user?.company_id,
     };
 
-    if (sentryTraceId) {
-      baseLog.sentryTraceId = sentryTraceId;
+    if (traceId) {
+      baseLog.traceId = traceId;
     }
 
     // LGPD: não logar body em rotas /auth (credenciais/refresh/logout).
@@ -82,8 +83,8 @@ export class LoggingInterceptor implements NestInterceptor {
             companyId: request.user?.company_id,
           };
 
-          if (sentryTraceId) {
-            responseLog.sentryTraceId = sentryTraceId;
+          if (traceId) {
+            responseLog.traceId = traceId;
           }
 
           this.writeLog('log', responseLog);

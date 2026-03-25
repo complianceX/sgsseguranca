@@ -16,6 +16,7 @@ import {
 import { JwtAuthGuard } from '../jwt-auth.guard';
 import { TenantOptional } from '../../common/decorators/tenant-optional.decorator';
 import { SessionsService } from '../services/sessions.service';
+import { AuditAction as ForensicAuditAction } from '../../common/decorators/audit-action.decorator';
 
 interface SessionRequest {
   user: {
@@ -41,6 +42,7 @@ export class SessionsController {
   @Delete(':id')
   @ApiOperation({ summary: 'Revoke a specific session' })
   @ApiResponse({ status: 200, description: 'Session revoked' })
+  @ForensicAuditAction('delete', 'session')
   async remove(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Req() req: SessionRequest,
@@ -52,6 +54,7 @@ export class SessionsController {
   @Delete()
   @ApiOperation({ summary: 'Revoke all other sessions' })
   @ApiResponse({ status: 200, description: 'All other sessions revoked' })
+  @ForensicAuditAction('delete', 'session')
   async removeAllOthers(@Req() req: SessionRequest) {
     await this.sessionsService.revokeAllOthers(req.user.userId);
     return { message: 'All sessions revoked' };

@@ -4,6 +4,8 @@ import { Client } from 'pg';
 import { DataSource, FindOptionsWhere, Repository } from 'typeorm';
 import { bootstrapBackendTestEnvironment } from '../../test/setup/test-env';
 import { AprsService } from '../aprs/aprs.service';
+import { AprsEvidenceService } from '../aprs/services/aprs-evidence.service';
+import { AprsPdfService } from '../aprs/services/aprs-pdf.service';
 import type { AprExcelService } from '../aprs/apr-excel.service';
 import type { AprRiskMatrixService } from '../aprs/apr-risk-matrix.service';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
@@ -266,18 +268,41 @@ describe('Document governance integration', () => {
       buildForensicTrailService(),
     );
     const documentStorageService = buildDocumentStorageStub();
+    const tenantService = buildTenantService(companyId);
+    const signaturesService = buildSignaturesService([
+      { user_id: userId, type: 'pin' },
+    ]);
+    const forensicTrailService = buildForensicTrailService();
+    const aprsPdfService = new AprsPdfService(
+      dataSource.getRepository(Apr),
+      dataSource.getRepository(AprLog),
+      tenantService,
+      documentStorageService as unknown as DocumentStorageService,
+      pdfService,
+      governanceService,
+      signaturesService,
+    );
+    const aprsEvidenceService = new AprsEvidenceService(
+      dataSource.getRepository(Apr),
+      dataSource.getRepository(AprLog),
+      tenantService,
+      documentStorageService as unknown as DocumentStorageService,
+    );
 
     aprsService = new AprsService(
       dataSource.getRepository(Apr),
       dataSource.getRepository(AprLog),
-      buildTenantService(companyId),
+      tenantService,
       buildRiskCalculationService(),
       buildAprRiskMatrixService(),
       buildAprExcelService(),
       documentStorageService as unknown as DocumentStorageService,
+      pdfService,
       governanceService,
-      buildSignaturesService([{ user_id: userId, type: 'pin' }]),
-      buildForensicTrailService(),
+      signaturesService,
+      forensicTrailService,
+      aprsPdfService,
+      aprsEvidenceService,
     );
     ddsService = new DdsService(
       dataSource.getRepository(Dds),

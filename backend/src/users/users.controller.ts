@@ -35,6 +35,9 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateAiConsentDto } from './dto/update-ai-consent.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { Authorize } from '../auth/authorize.decorator';
+import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
+import { OffsetPage } from '../common/utils/offset-pagination.util';
 
 type AuthenticatedRequest = ExpressRequest & { user?: { sub?: string } };
 
@@ -134,6 +137,7 @@ export class UsersController {
         ],
         total: 1,
         page: 1,
+        limit: 20,
         lastPage: 1,
       },
     },
@@ -145,7 +149,7 @@ export class UsersController {
     @Query('limit') limit: number = 20,
     @Query('search') search?: string,
     @Query('company_id') companyId?: string,
-  ) {
+  ): Promise<OffsetPage<UserResponseDto>> {
     return this.usersService.findPaginated({
       page: Number(page),
       limit: Number(limit),
@@ -250,6 +254,27 @@ export class UsersController {
     return this.usersService.update(id, updateUserDto);
   }
 
+  @Patch(':id/role')
+  @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
+  @Authorize('can_manage_users')
+  @ForensicAuditAction('role_change', 'user')
+  @ApiOperation({ summary: 'Atualizar role/perfil do usuário' })
+  @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Role do usuário atualizada com sucesso',
+    type: UserResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Não autenticado' })
+  @ApiResponse({ status: 403, description: 'Sem permissão' })
+  @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
+  updateRole(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateUserRoleDto,
+  ): Promise<UserResponseDto> {
+    return this.usersService.update(id, { profile_id: dto.profile_id });
+  }
+
   @Patch(':id/gdpr-erasure')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
   @Authorize('can_manage_users')
@@ -269,6 +294,7 @@ export class UsersController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
   @Authorize('can_manage_users')
+  @ForensicAuditAction('delete', 'user')
   @ApiOperation({ summary: 'Excluir usuário' })
   @ApiParam({ name: 'id', description: 'ID do usuário', type: String })
   @ApiResponse({ status: 200, description: 'Usuário excluído com sucesso' })

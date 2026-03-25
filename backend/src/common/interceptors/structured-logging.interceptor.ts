@@ -13,15 +13,21 @@ type HttpResponseLike = {
   statusCode?: number;
 };
 
+type RequestWithTrace = Request & {
+  traceId?: string;
+  sentryTraceId?: string;
+};
+
 @Injectable()
 export class StructuredLoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger(StructuredLoggingInterceptor.name);
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const request = context.switchToHttp().getRequest<Request>();
+    const request = context.switchToHttp().getRequest<RequestWithTrace>();
     const { method, url, ip } = request;
     const startTime = Date.now();
     const requestId = request.headers['x-request-id'] || 'unknown';
+    const traceId = request.traceId || request.sentryTraceId;
 
     return next.handle().pipe(
       tap(() => {
@@ -31,6 +37,7 @@ export class StructuredLoggingInterceptor implements NestInterceptor {
 
         this.logger.log({
           requestId,
+          traceId,
           method,
           url,
           statusCode,
@@ -44,6 +51,7 @@ export class StructuredLoggingInterceptor implements NestInterceptor {
 
         this.logger.error({
           requestId,
+          traceId,
           method,
           url,
           responseTimeMs: duration,

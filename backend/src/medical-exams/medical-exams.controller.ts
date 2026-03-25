@@ -23,6 +23,7 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 
 @Controller('medical-exams')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -107,6 +108,7 @@ export class MedicalExamsController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
   @Authorize('can_manage_medical_exams')
+  @ForensicAuditAction('delete', 'medical_exam')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.medicalExamsService.remove(id);
   }

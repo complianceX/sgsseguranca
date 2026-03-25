@@ -23,6 +23,7 @@ import { TenantInterceptor } from '../common/tenant/tenant.interceptor';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 
 @Controller('service-orders')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -91,6 +92,7 @@ export class ServiceOrdersController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA)
   @Authorize('can_manage_service_orders')
+  @ForensicAuditAction('delete', 'service_order')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.serviceOrdersService.remove(id);
   }

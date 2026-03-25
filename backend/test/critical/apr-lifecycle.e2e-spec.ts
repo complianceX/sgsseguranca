@@ -212,10 +212,11 @@ describeE2E('E2E Critical - APR lifecycle', () => {
       expect(getRes.status).toBe(404);
 
       // Confirma via SQL que deleted_at foi preenchido (soft delete real)
-      const rows = await testApp.dataSource.query(
-        'SELECT id, deleted_at FROM aprs WHERE id = $1',
-        [toDelete.id],
-      ) as Array<{ id: string; deleted_at: string | null }>;
+      const rows: Array<{ id: string; deleted_at: string | null }> =
+        await testApp.dataSource.query(
+          'SELECT id, deleted_at FROM aprs WHERE id = $1',
+          [toDelete.id],
+        );
 
       expect(rows).toHaveLength(1);
       expect(rows[0]?.deleted_at).toBeTruthy();
@@ -256,7 +257,9 @@ describeE2E('E2E Critical - APR lifecycle', () => {
         .request()
         .post(`/aprs/${aprCancelableId}/reject`)
         .set(testApp.authHeaders(adminSession))
-        .send({ reason: 'Documentação incompleta: falta ART do responsável técnico' });
+        .send({
+          reason: 'Documentação incompleta: falta ART do responsável técnico',
+        });
 
       const body = res.body as AprBody;
       expect([200, 201]).toContain(res.status);

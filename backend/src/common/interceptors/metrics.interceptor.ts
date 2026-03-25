@@ -9,13 +9,18 @@ import { Observable } from 'rxjs';
 import { finalize, tap } from 'rxjs/operators';
 import { MetricsService } from '../observability/metrics.service';
 
+type RequestWithTrace = Request & {
+  traceId?: string;
+  sentryTraceId?: string;
+};
+
 @Injectable()
 export class MetricsInterceptor implements NestInterceptor {
   constructor(private readonly metricsService: MetricsService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const http = context.switchToHttp();
-    const request = http.getRequest<Request>();
+    const request = http.getRequest<RequestWithTrace>();
     const response = http.getResponse<Response>();
     const startTime = Date.now();
     const route = request.route as { path?: string } | undefined;
@@ -26,6 +31,7 @@ export class MetricsInterceptor implements NestInterceptor {
         ? `${request.baseUrl}${route.path}`
         : (route?.path ?? request.path ?? request.url);
     const path = typeof routePath === 'string' ? routePath.split('?')[0] : '';
+    const traceId = request.traceId || request.sentryTraceId;
 
     this.metricsService.incrementHttpRequestsInFlight();
 
@@ -39,6 +45,8 @@ export class MetricsInterceptor implements NestInterceptor {
             path,
             statusCode,
             duration,
+            undefined,
+            traceId,
           );
         },
         error: (_error) => {
@@ -49,6 +57,8 @@ export class MetricsInterceptor implements NestInterceptor {
             path,
             statusCode,
             duration,
+            undefined,
+            traceId,
           );
         },
       }),

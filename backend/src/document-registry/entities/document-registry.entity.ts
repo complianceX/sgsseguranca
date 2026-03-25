@@ -10,6 +10,11 @@ import {
 } from 'typeorm';
 import { Company } from '../../companies/entities/company.entity';
 
+export enum DocumentRegistryStatus {
+  ACTIVE = 'ACTIVE',
+  EXPIRED = 'EXPIRED',
+}
+
 @Entity('document_registry')
 @Index('IDX_document_registry_company_week', [
   'company_id',
@@ -17,6 +22,11 @@ import { Company } from '../../companies/entities/company.entity';
   'iso_week',
 ])
 @Index('IDX_document_registry_module_entity', ['module', 'entity_id'])
+@Index('IDX_document_registry_company_status_expiry', [
+  'company_id',
+  'status',
+  'expires_at',
+])
 export class DocumentRegistryEntry {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -66,6 +76,19 @@ export class DocumentRegistryEntry {
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   document_code: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: DocumentRegistryStatus,
+    default: DocumentRegistryStatus.ACTIVE,
+  })
+  status: DocumentRegistryStatus;
+
+  @Column({ type: 'boolean', default: false })
+  litigation_hold: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  expires_at: Date | null;
 
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;

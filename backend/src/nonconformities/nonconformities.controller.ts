@@ -34,6 +34,7 @@ import {
   validatePdfMagicBytes,
 } from '../common/interceptors/file-upload.interceptor';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 
 @Controller('nonconformities')
 @UseGuards(JwtAuthGuard, TenantGuard)
@@ -229,6 +230,7 @@ export class NonConformitiesController {
 
   @Delete(':id')
   @Authorize('can_manage_nc')
+  @ForensicAuditAction('delete', 'non_conformity')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.nonConformitiesService.remove(id);
   }

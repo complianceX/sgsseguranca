@@ -30,6 +30,8 @@ import { AprExcelService } from './apr-excel.service';
 import { AprRiskMatrixService } from './apr-risk-matrix.service';
 import { AprsController } from './aprs.controller';
 import { AprsService } from './aprs.service';
+import { AprsEvidenceService } from './services/aprs-evidence.service';
+import { AprsPdfService } from './services/aprs-pdf.service';
 import { Apr, AprStatus } from './entities/apr.entity';
 import { AprLog } from './entities/apr-log.entity';
 import { AprRiskEvidence } from './entities/apr-risk-evidence.entity';
@@ -840,6 +842,8 @@ describe('APR lock (http integration)', () => {
       controllers: [AprsController, SignaturesController],
       providers: [
         AprsService,
+        AprsPdfService,
+        AprsEvidenceService,
         SignaturesService,
         { provide: getRepositoryToken(Apr), useValue: aprsRepository },
         { provide: getRepositoryToken(AprLog), useValue: aprLogsRepository },

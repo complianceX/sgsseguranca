@@ -5,7 +5,6 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { createHash } from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, FindOptionsWhere, In, Repository } from 'typeorm';
 import { jsonToExcelBuffer } from '../common/utils/excel.util';
@@ -33,7 +32,6 @@ import { RiskCalculationService } from '../common/services/risk-calculation.serv
 import { WeeklyBundleFilters } from '../common/services/document-bundle.service';
 import { DocumentStorageService } from '../common/services/document-storage.service';
 import { PdfService } from '../common/services/pdf.service';
-import { cleanupUploadedFile } from '../common/storage/storage-compensation.util';
 import { MetricsService } from '../common/observability/metrics.service';
 import { DocumentGovernanceService } from '../document-registry/document-governance.service';
 import { SignaturesService } from '../signatures/signatures.service';
@@ -47,6 +45,8 @@ import { AprExcelService } from './apr-excel.service';
 import { AprExcelImportPreviewDto } from './dto/apr-excel-import-preview.dto';
 import { ForensicTrailService } from '../forensic-trail/forensic-trail.service';
 import { FORENSIC_EVENT_TYPES } from '../forensic-trail/forensic-trail.constants';
+import { AprsPdfService } from './services/aprs-pdf.service';
+import { AprsEvidenceService } from './services/aprs-evidence.service';
 
 const APR_LOG_ACTIONS = {
   CREATED: 'APR_CRIADA',
@@ -86,6 +86,14 @@ type AprRiskItemSnapshot = {
   ordem: number;
 };
 
+type AprAiContextSummary = {
+  id: string;
+  codigo: string;
+  status: string;
+  created_at: Date;
+  company_id: string;
+};
+
 @Injectable()
 export class AprsService {
   private readonly logger = new Logger(AprsService.name);
@@ -104,6 +112,8 @@ export class AprsService {
     private readonly documentGovernanceService: DocumentGovernanceService,
     private readonly signaturesService: SignaturesService,
     private readonly forensicTrailService: ForensicTrailService,
+    private readonly aprsPdfService: AprsPdfService,
+    private readonly aprsEvidenceService: AprsEvidenceService,
     @Optional() private readonly metricsService?: MetricsService,
   ) {}
 
@@ -1447,20 +1457,31 @@ export class AprsService {
       },
     );
 
-    const saved = await this.findOne(savedId);
+    // Único findOne pós-transação: carrega todas as relações para o retorno HTTP
+    // e reutiliza o mesmo objeto para logging/auditoria — elimina o double-fetch
+    // que existia antes (2× findOne com 12 relações = ~200ms extras por criação).
+    const result = await this.findOne(savedId);
     this.logger.log({
       event: 'apr_created',
-      aprId: saved.id,
-      companyId: saved.company_id,
+      aprId: result.id,
+      companyId: result.company_id,
     });
-    this.metricsService?.incrementAprCreated(saved.company_id, saved.status);
-    await this.addLog(
-      saved.id,
-      userId ?? saved.elaborador_id,
+    this.metricsService?.incrementAprCreated(result.company_id, result.status);
+    // Fire-and-forget: auditoria não bloqueia resposta ao cliente.
+    // Falhas são logadas internamente; o APR já foi persistido com sucesso.
+    void this.addLog(
+      result.id,
+      userId ?? result.elaborador_id,
       APR_LOG_ACTIONS.CREATED,
-      this.buildAprTraceMetadata(saved),
-    );
-    return this.findOne(saved.id);
+      this.buildAprTraceMetadata(result),
+    ).catch((err: unknown) => {
+      this.logger.error({
+        event: 'apr_create_log_failed',
+        aprId: result.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+    return result;
   }
 
   /**
@@ -1499,13 +1520,22 @@ export class AprsService {
    *
    * @param tenantId ID da empresa — obrigatório para garantir isolamento multi-tenant.
    */
-  async findAllForAiContext(tenantId: string): Promise<Pick<Apr, 'id' | 'codigo' | 'status' | 'created_at' | 'company_id'>[]> {
-    return this.aprsRepository.find({
+  async findAllForAiContext(tenantId: string): Promise<AprAiContextSummary[]> {
+    const rows = await this.aprsRepository.find({
       where: { company_id: tenantId },
-      select: ['id', 'codigo', 'status', 'created_at', 'company_id'],
+      // `numero` é o código interno persistido; expomos como `codigo` no snapshot de IA.
+      select: ['id', 'numero', 'status', 'created_at', 'company_id'],
       order: { created_at: 'DESC' },
       take: 300,
     });
+
+    return rows.map((apr) => ({
+      id: apr.id,
+      codigo: apr.numero,
+      status: apr.status,
+      created_at: apr.created_at,
+      company_id: apr.company_id,
+    }));
   }
 
   async findPaginated(opts?: {
@@ -1962,95 +1992,12 @@ export class AprsService {
 
   // ─── PDF Storage ─────────────────────────────────────────────────────────────
 
-  private async storeFinalPdfBuffer(
-    apr: Apr,
-    input: {
-      buffer: Buffer;
-      originalName: string;
-      mimeType: string;
-      userId?: string;
-      logAction?: AprLogAction;
-    },
-  ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
-    const key = this.documentStorageService.generateDocumentKey(
-      apr.company_id,
-      'aprs',
-      apr.id,
-      input.originalName,
-    );
-    await this.documentStorageService.uploadFile(
-      key,
-      input.buffer,
-      input.mimeType,
-    );
-    const uploadedToStorage = true;
-    const folder = `aprs/${apr.company_id}`;
-
-    try {
-      await this.documentGovernanceService.registerFinalDocument({
-        companyId: apr.company_id,
-        module: 'apr',
-        entityId: apr.id,
-        title: apr.titulo || apr.numero || 'APR',
-        documentDate: apr.data_inicio || apr.created_at,
-        documentCode: this.buildAprDocumentCode(apr),
-        fileKey: key,
-        folderPath: folder,
-        originalName: input.originalName,
-        mimeType: input.mimeType,
-        createdBy: input.userId,
-        fileBuffer: input.buffer,
-        persistEntityMetadata: async (manager) => {
-          await manager.getRepository(Apr).update(apr.id, {
-            pdf_file_key: key,
-            pdf_folder_path: folder,
-            pdf_original_name: input.originalName,
-          });
-        },
-      });
-    } catch (error) {
-      if (uploadedToStorage) {
-        await cleanupUploadedFile(
-          this.logger,
-          `apr:${apr.id}`,
-          key,
-          (fileKey) => this.documentStorageService.deleteFile(fileKey),
-        );
-      }
-      throw error;
-    }
-
-    await this.addLog(
-      apr.id,
-      input.userId,
-      input.logAction ?? APR_LOG_ACTIONS.PDF_ATTACHED,
-      {
-        fileKey: key,
-        originalName: input.originalName,
-      },
-    );
-
-    return {
-      fileKey: key,
-      folderPath: folder,
-      originalName: input.originalName,
-    };
-  }
-
   async attachPdf(
     id: string,
     file: Express.Multer.File,
     userId?: string,
   ): Promise<{ fileKey: string; folderPath: string; originalName: string }> {
-    const apr = await this.findOne(id);
-    await this.assertAprReadyForFinalPdf(apr);
-    return this.storeFinalPdfBuffer(apr, {
-      buffer: file.buffer,
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      userId,
-      logAction: APR_LOG_ACTIONS.PDF_ATTACHED,
-    });
+    return this.aprsPdfService.attachPdf(id, file, userId);
   }
 
   async generateFinalPdf(
@@ -2067,47 +2014,7 @@ export class AprsService {
     originalName: string | null;
     url: string | null;
   }> {
-    const existingAccess = await this.getPdfAccess(id);
-    if (existingAccess.hasFinalPdf) {
-      return {
-        ...existingAccess,
-        generated: false,
-      };
-    }
-
-    const apr = await this.findOne(id);
-    await this.assertAprReadyForFinalPdf(apr);
-
-    const [signatures, evidences] = await Promise.all([
-      this.signaturesService.findByDocument(apr.id, 'APR'),
-      this.aprsRepository.manager.getRepository(AprRiskEvidence).find({
-        where: { apr_id: apr.id },
-        relations: ['apr_risk_item'],
-        order: { uploaded_at: 'DESC' },
-      }),
-    ]);
-
-    const originalName = this.buildAprFinalPdfOriginalName(apr);
-    const html = this.renderAprFinalPdfHtml({
-      apr,
-      documentCode: this.buildAprDocumentCode(apr),
-      signatures,
-      evidences,
-    });
-    const buffer = await this.pdfService.generateFromHtml(html);
-
-    await this.storeFinalPdfBuffer(apr, {
-      buffer,
-      originalName,
-      mimeType: 'application/pdf',
-      userId,
-      logAction: APR_LOG_ACTIONS.PDF_GENERATED,
-    });
-
-    return {
-      ...(await this.getPdfAccess(id)),
-      generated: true,
-    };
+    return this.aprsPdfService.generateFinalPdf(id, userId);
   }
 
   async uploadRiskEvidence(
@@ -2130,107 +2037,14 @@ export class AprsService {
     originalName: string;
     hashSha256: string;
   }> {
-    const apr = await this.findOneForWrite(aprId);
-    this.assertAprFormMutable(apr);
-
-    const riskItem = await this.aprsRepository.manager
-      .getRepository(AprRiskItem)
-      .findOne({
-        where: {
-          id: riskItemId,
-          apr_id: aprId,
-        },
-      });
-
-    if (!riskItem) {
-      throw new NotFoundException(
-        `Item de risco ${riskItemId} não encontrado para a APR ${aprId}.`,
-      );
-    }
-
-    const parseOptionalDate = (value?: string): Date | null => {
-      if (!value?.trim()) return null;
-      const parsed = new Date(value);
-      return Number.isNaN(parsed.getTime()) ? null : parsed;
-    };
-
-    const originalName =
-      file.originalname?.trim() || `apr-evidence-${Date.now()}.jpg`;
-    const fileKey = this.documentStorageService.generateDocumentKey(
-      apr.company_id,
-      'apr-evidences',
-      apr.id,
-      originalName,
+    return this.aprsEvidenceService.uploadRiskEvidence(
+      aprId,
+      riskItemId,
+      file,
+      metadata,
+      userId,
+      ipAddress,
     );
-    const hashSha256 = createHash('sha256').update(file.buffer).digest('hex');
-
-    await this.documentStorageService.uploadFile(
-      fileKey,
-      file.buffer,
-      file.mimetype,
-    );
-
-    try {
-      const evidenceRepository =
-        this.aprsRepository.manager.getRepository(AprRiskEvidence);
-      const evidence = evidenceRepository.create({
-        apr_id: apr.id,
-        apr_risk_item_id: riskItem.id,
-        uploaded_by_id: userId ?? null,
-        file_key: fileKey,
-        original_name: originalName,
-        mime_type: file.mimetype,
-        file_size_bytes: file.size || file.buffer.length,
-        hash_sha256: hashSha256,
-        watermarked_file_key: null,
-        watermarked_hash_sha256: null,
-        watermark_text: null,
-        captured_at: parseOptionalDate(metadata.captured_at),
-        latitude:
-          typeof metadata.latitude === 'number' ? metadata.latitude : null,
-        longitude:
-          typeof metadata.longitude === 'number' ? metadata.longitude : null,
-        accuracy_m:
-          typeof metadata.accuracy_m === 'number' ? metadata.accuracy_m : null,
-        device_id: metadata.device_id?.trim() || null,
-        ip_address: ipAddress || null,
-        exif_datetime: parseOptionalDate(metadata.exif_datetime),
-        integrity_flags: {
-          gps:
-            typeof metadata.latitude === 'number' &&
-            typeof metadata.longitude === 'number',
-          accuracy:
-            typeof metadata.accuracy_m === 'number' &&
-            Number.isFinite(metadata.accuracy_m),
-          device: Boolean(metadata.device_id),
-          ip: Boolean(ipAddress),
-          exif: Boolean(metadata.exif_datetime),
-        },
-      });
-
-      const saved = await evidenceRepository.save(evidence);
-      await this.addLog(apr.id, userId, APR_LOG_ACTIONS.EVIDENCE_ATTACHED, {
-        evidenceId: saved.id,
-        riskItemId: riskItem.id,
-        fileKey,
-        hashSha256,
-      });
-
-      return {
-        id: saved.id,
-        fileKey,
-        originalName,
-        hashSha256,
-      };
-    } catch (error) {
-      await cleanupUploadedFile(
-        this.logger,
-        `apr-evidence:${apr.id}`,
-        fileKey,
-        (key) => this.documentStorageService.deleteFile(key),
-      );
-      throw error;
-    }
   }
 
   async verifyEvidenceByHashPublic(hash: string): Promise<{
@@ -2247,124 +2061,11 @@ export class AprsService {
       integrity_flags?: Record<string, unknown> | null;
     };
   }> {
-    const normalizedHash = String(hash || '')
-      .trim()
-      .toLowerCase();
-    if (!/^[a-f0-9]{64}$/.test(normalizedHash)) {
-      return {
-        verified: false,
-        message: 'Hash SHA-256 inválido.',
-      };
-    }
-
-    const evidence = await this.aprsRepository.manager
-      .getRepository(AprRiskEvidence)
-      .findOne({
-        where: [
-          { hash_sha256: normalizedHash },
-          { watermarked_hash_sha256: normalizedHash },
-        ],
-        relations: ['apr', 'apr_risk_item'],
-      });
-
-    if (!evidence) {
-      return {
-        verified: false,
-        message: 'Hash não localizado na base de evidências da APR.',
-      };
-    }
-
-    return {
-      verified: true,
-      matchedIn:
-        evidence.hash_sha256 === normalizedHash ? 'original' : 'watermarked',
-      evidence: {
-        apr_numero: evidence.apr?.numero,
-        apr_versao: evidence.apr?.versao,
-        risk_item_ordem: evidence.apr_risk_item?.ordem,
-        uploaded_at: evidence.uploaded_at?.toISOString(),
-        original_hash: evidence.hash_sha256,
-        watermarked_hash: evidence.watermarked_hash_sha256,
-        integrity_flags: evidence.integrity_flags,
-      },
-    };
+    return this.aprsEvidenceService.verifyEvidenceByHashPublic(hash);
   }
 
   async listAprEvidences(id: string) {
-    await this.findOneForWrite(id);
-
-    const evidences = await this.aprsRepository.manager
-      .getRepository(AprRiskEvidence)
-      .find({
-        where: { apr_id: id },
-        relations: ['apr_risk_item', 'uploaded_by'],
-        order: { uploaded_at: 'DESC' },
-      });
-
-    return Promise.all(
-      evidences.map(async (evidence) => {
-        let url: string | undefined;
-        let watermarkedUrl: string | undefined;
-
-        try {
-          url = await this.documentStorageService.getSignedUrl(
-            evidence.file_key,
-            3600,
-          );
-        } catch {
-          url = undefined;
-        }
-
-        if (evidence.watermarked_file_key) {
-          try {
-            watermarkedUrl = await this.documentStorageService.getSignedUrl(
-              evidence.watermarked_file_key,
-              3600,
-            );
-          } catch {
-            watermarkedUrl = undefined;
-          }
-        }
-
-        return {
-          id: evidence.id,
-          apr_id: evidence.apr_id,
-          apr_risk_item_id: evidence.apr_risk_item_id,
-          uploaded_by_id: evidence.uploaded_by_id ?? undefined,
-          uploaded_by_name: evidence.uploaded_by?.nome ?? undefined,
-          file_key: evidence.file_key,
-          original_name: evidence.original_name ?? undefined,
-          mime_type: evidence.mime_type,
-          file_size_bytes: evidence.file_size_bytes,
-          hash_sha256: evidence.hash_sha256,
-          watermarked_file_key: evidence.watermarked_file_key ?? undefined,
-          watermarked_hash_sha256:
-            evidence.watermarked_hash_sha256 ?? undefined,
-          watermark_text: evidence.watermark_text ?? undefined,
-          captured_at: evidence.captured_at?.toISOString(),
-          uploaded_at: evidence.uploaded_at?.toISOString(),
-          latitude:
-            evidence.latitude !== null && evidence.latitude !== undefined
-              ? Number(evidence.latitude)
-              : undefined,
-          longitude:
-            evidence.longitude !== null && evidence.longitude !== undefined
-              ? Number(evidence.longitude)
-              : undefined,
-          accuracy_m:
-            evidence.accuracy_m !== null && evidence.accuracy_m !== undefined
-              ? Number(evidence.accuracy_m)
-              : undefined,
-          device_id: evidence.device_id ?? undefined,
-          ip_address: evidence.ip_address ?? undefined,
-          exif_datetime: evidence.exif_datetime?.toISOString(),
-          integrity_flags: evidence.integrity_flags ?? undefined,
-          risk_item_ordem: evidence.apr_risk_item?.ordem ?? undefined,
-          url,
-          watermarked_url: watermarkedUrl,
-        };
-      }),
-    );
+    return this.aprsEvidenceService.listAprEvidences(id);
   }
 
   async getPdfAccess(id: string): Promise<{

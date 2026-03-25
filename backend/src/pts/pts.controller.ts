@@ -35,6 +35,7 @@ import { RejectPtDto } from './dto/reject-pt.dto';
 import { PtResponseDto, toPtResponseDto } from './dto/pt-response.dto';
 import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import {
   assertUploadedPdf,
   cleanupUploadedTempFile,
@@ -330,6 +331,7 @@ export class PtsController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_manage_pt')
+  @ForensicAuditAction('delete', 'pt')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.ptsService.remove(id);
   }

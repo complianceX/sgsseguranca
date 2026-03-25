@@ -6,10 +6,12 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
+import { Profile } from '../profiles/entities/profile.entity';
 import { USER_WITH_PASSWORD_FIELDS } from '../users/constants/user-fields.constant';
 import { CpfUtil } from '../common/utils/cpf.util';
 import { PasswordService } from '../common/services/password.service';
@@ -27,6 +29,9 @@ import {
 } from './auth-security.config';
 
 const RESET_TOKEN_TTL_SECONDS = 3600; // 1 hora
+
+// Tracer de módulo — leve (apenas referência ao SDK, zero overhead se OTel desabilitado).
+const authTracer = trace.getTracer('auth-service');
 
 interface JwtPayload {
   sub: string;
@@ -70,126 +75,156 @@ export class AuthService {
       return null;
     }
 
-    const normalizedCpf = CpfUtil.normalize(cpf);
+    return authTracer.startActiveSpan('auth.validateUser', async (span) => {
+      try {
+        const normalizedCpf = CpfUtil.normalize(cpf);
 
-    // Modo desenvolvimento: bypass de login APENAS quando explicitamente habilitado.
-    // Útil para destravar UI quando o DB estiver indisponível, mas perigoso se ficar ligado.
-    // Usa credenciais definidas via env DEV_ADMIN_CPF e DEV_ADMIN_PASSWORD.
-    const devCpf = (process.env.DEV_ADMIN_CPF || '').replace(/\D/g, '');
-    const devPass = process.env.DEV_ADMIN_PASSWORD || '';
-    const isDevBypassEnabled =
-      process.env.NODE_ENV === 'development' &&
-      process.env.DEV_LOGIN_BYPASS === 'true' &&
-      process.env.ALLOW_DEV_LOGIN_BYPASS === 'true' &&
-      devCpf &&
-      devPass;
-    if (isDevBypassEnabled && normalizedCpf === devCpf && pass === devPass) {
-      return {
-        id: 'dev-admin',
-        nome: 'Admin Dev',
-        cpf: devCpf,
-        funcao: 'Admin',
-        company_id: 'dev-company',
-        profile: { nome: 'Administrador Geral' } as unknown as User['profile'],
-      } as Partial<User>;
-    }
+        // Modo desenvolvimento: bypass de login APENAS quando explicitamente habilitado.
+        const devCpf = (process.env.DEV_ADMIN_CPF || '').replace(/\D/g, '');
+        const devPass = process.env.DEV_ADMIN_PASSWORD || '';
+        const isDevBypassEnabled =
+          process.env.NODE_ENV === 'development' &&
+          process.env.DEV_LOGIN_BYPASS === 'true' &&
+          process.env.ALLOW_DEV_LOGIN_BYPASS === 'true' &&
+          devCpf &&
+          devPass;
+        if (isDevBypassEnabled && normalizedCpf === devCpf && pass === devPass) {
+          span.setAttribute('auth.dev_bypass', true);
+          span.setAttribute('auth.success', true);
+          return {
+            id: 'dev-admin',
+            nome: 'Admin Dev',
+            cpf: devCpf,
+            funcao: 'Admin',
+            company_id: 'dev-company',
+            profile: { nome: 'Administrador Geral' } as unknown as User['profile'],
+          } as Partial<User>;
+        }
 
-    // Login é uma rota pública: não há JWT ainda, portanto AsyncLocalStorage não
-    // tem contexto de tenant. Com FORCE ROW LEVEL SECURITY ativo, a policy RLS
-    // bloquearia a busca por usuário (company_id = current_company() é NULL).
-    //
-    // Solução: executamos a busca dentro de uma transação explícita e aplicamos
-    // SET LOCAL app.is_super_admin = 'true' SOMENTE no escopo dessa transação.
-    // Assim is_super_admin() retorna true → RLS permite acesso cross-tenant
-    // → encontramos o usuário pelo CPF independente de empresa.
-    //
-    // SET LOCAL garante que o bypass expira ao fim da transação; a conexão
-    // retorna ao pool com as configurações originais.
-    const user = await this.dataSource.transaction(async (manager) => {
-      await manager.query("SET LOCAL app.is_super_admin = 'true'");
-      // 'company' omitido: company_id já está no campo escalar do usuário.
-      // Carregar a relação completa adicionava 1 JOIN desnecessário a cada login.
-      const found = await manager.findOne(User, {
-        where: { cpf: normalizedCpf },
-        select: [...USER_WITH_PASSWORD_FIELDS],
-        relations: ['profile'],
-      });
-      if (found && found.status === false) return null;
-      return found;
-    });
-
-    let isMatch = false;
-    let needsRehash = false;
-
-    if (user?.password) {
-      // Detecta hashes de formato reconhecido: argon2id ($argon2...) e bcrypt ($2b$/$2a$).
-      // Qualquer outro valor é tratado como texto plano legado (comparação timing-safe).
-      const isKnownHash =
-        this.passwordService.isLegacyHash(user.password) ||
-        user.password.startsWith('$argon2');
-
-      if (isKnownHash) {
-        // verify() roteia para argon2.verify() ou bcrypt.compare() pelo prefixo do hash.
-        isMatch = await this.passwordService.verify(pass, user.password);
-        // Agendar rehash bcrypt → argon2id no próximo login bem-sucedido.
-        needsRehash = isMatch && this.passwordService.isLegacyHash(user.password);
-      } else {
-        // Senha legada (texto plano ou hash não-reconhecido): comparação timing-safe
-        // para evitar timing attack via medição de latência por diferença de prefixo.
-        // timingSafeEqual exige buffers do mesmo tamanho — padding com zero garante isso.
-        // A verificação adicional de comprimento (a.length === b.length) assegura
-        // que senhas de tamanho diferente nunca resultem em match.
-        const a = Buffer.from(pass);
-        const b = Buffer.from(user.password);
-        const len = Math.max(a.length, b.length);
-        const aPad = Buffer.concat([a, Buffer.alloc(len - a.length)], len);
-        const bPad = Buffer.concat([b, Buffer.alloc(len - b.length)], len);
-        isMatch = crypto.timingSafeEqual(aPad, bPad) && a.length === b.length;
-        // Texto plano confirmado → também precisa migrar para argon2id.
-        needsRehash = isMatch;
-      }
-    } else {
-      // Usuário não encontrado: executa verify dummy para evitar user enumeration
-      // via timing attack — resposta deve ter latência semelhante ao caminho feliz.
-      await this.passwordService.verify(pass, this.DUMMY_HASH);
-    }
-
-    if (!user || user.status === false || !isMatch) {
-      return null;
-    }
-
-    // Rehash fire-and-forget: migra bcrypt/plain-text → argon2id de forma transparente.
-    // NÃO bloqueia a resposta — o token é emitido imediatamente.
-    // setImmediate() garante que o rehash ocorre APÓS a resposta ser enviada ao cliente.
-    // (TAREFA 3: substitui o await this.passwordService.hash() que bloqueava o login)
-    if (needsRehash && user.id) {
-      const userId = user.id;
-      setImmediate(() => {
-        void this.passwordService
-          .hash(pass)
-          .then(async (newHash) => {
-            await this.dataSource.transaction(async (manager) => {
-              await manager.query("SET LOCAL app.is_super_admin = 'true'");
-              await manager.update(User, { id: userId }, { password: newHash });
+        // Fase 1: busca somente campos escalares + password, sem JOIN.
+        // SET LOCAL app.is_super_admin bypassa RLS apenas no escopo da transação.
+        const dbSpan = authTracer.startSpan('auth.db.findUser');
+        let user: User | null = null;
+        try {
+          user = await this.dataSource.transaction(async (manager) => {
+            await manager.query("SET LOCAL app.is_super_admin = 'true'");
+            const found = await manager.findOne(User, {
+              where: { cpf: normalizedCpf },
+              select: [...USER_WITH_PASSWORD_FIELDS] as (keyof User)[],
             });
-            this.logger.warn({
-              event: 'password_rehashed_to_argon2id',
-              userId,
-            });
-          })
-          .catch((err: unknown) => {
-            this.logger.error(
-              `Falha ao migrar hash de senha para argon2id (userId=${userId}): ${
-                err instanceof Error ? err.message : String(err)
-              }`,
-            );
+            if (found && found.status === false) return null;
+            return found;
           });
-      });
-    }
+          dbSpan.setAttribute('db.user_found', user !== null);
+        } finally {
+          dbSpan.end();
+        }
 
-    const result = { ...user } as Partial<User>;
-    delete result.password;
-    return result;
+        let isMatch = false;
+        let needsRehash = false;
+
+        if (user?.password) {
+          // Detecta hashes de formato reconhecido: argon2id ($argon2...) e bcrypt ($2b$/$2a$).
+          // Qualquer outro valor é tratado como texto plano legado (comparação timing-safe).
+          const isKnownHash =
+            this.passwordService.isLegacyHash(user.password) ||
+            user.password.startsWith('$argon2');
+
+          if (isKnownHash) {
+            const algorithm = this.passwordService.isLegacyHash(user.password)
+              ? 'bcrypt'
+              : 'argon2id';
+
+            const verifySpan = authTracer.startSpan('auth.password.verify');
+            verifySpan.setAttribute('hash.algorithm', algorithm);
+            try {
+              isMatch = await this.passwordService.verify(pass, user.password);
+            } finally {
+              verifySpan.setAttribute('auth.match', isMatch);
+              verifySpan.end();
+            }
+            needsRehash = isMatch && algorithm === 'bcrypt';
+          } else {
+            // Senha legada (texto plano): comparação timing-safe — sem span próprio
+            // pois é uma operação síncrona de < 1µs, sem interesse de tracing.
+            const a = Buffer.from(pass);
+            const b = Buffer.from(user.password);
+            const len = Math.max(a.length, b.length);
+            const aPad = Buffer.concat([a, Buffer.alloc(len - a.length)], len);
+            const bPad = Buffer.concat([b, Buffer.alloc(len - b.length)], len);
+            isMatch = crypto.timingSafeEqual(aPad, bPad) && a.length === b.length;
+            needsRehash = isMatch;
+          }
+        } else {
+          // Usuário não encontrado: verify dummy para evitar user enumeration por timing.
+          await this.passwordService.verify(pass, this.DUMMY_HASH);
+        }
+
+        span.setAttribute('auth.success', isMatch && !!user);
+        span.setAttribute('auth.needs_rehash', needsRehash);
+
+        if (!user || user.status === false || !isMatch) {
+          return null;
+        }
+
+        // Fase 2: carrega profile.nome por profile_id, fora da transação.
+        // Profile é tabela global (sem company_id/RLS) — seguro fora do SET LOCAL.
+        const profileSpan = authTracer.startSpan('auth.db.loadProfile');
+        try {
+          if (user.profile_id) {
+            const profile = await this.dataSource.getRepository(Profile).findOne({
+              where: { id: user.profile_id as string },
+              select: { id: true, nome: true } as Partial<Record<keyof Profile, boolean>>,
+            });
+            if (profile) {
+              user.profile = profile as unknown as User['profile'];
+            }
+            profileSpan.setAttribute('db.profile_found', profile !== null);
+          }
+        } finally {
+          profileSpan.end();
+        }
+
+        // Rehash fire-and-forget: migra bcrypt/plain-text → argon2id de forma transparente.
+        // NÃO bloqueia a resposta — token emitido imediatamente (TAREFA 3).
+        if (needsRehash && user.id) {
+          const userId = user.id;
+          setImmediate(() => {
+            void this.passwordService
+              .hash(pass)
+              .then(async (newHash) => {
+                await this.dataSource.transaction(async (manager) => {
+                  await manager.query("SET LOCAL app.is_super_admin = 'true'");
+                  await manager.update(User, { id: userId }, { password: newHash });
+                });
+                this.logger.warn({
+                  event: 'password_rehashed_to_argon2id',
+                  userId,
+                });
+              })
+              .catch((err: unknown) => {
+                this.logger.error(
+                  `Falha ao migrar hash de senha para argon2id (userId=${userId}): ${
+                    err instanceof Error ? err.message : String(err)
+                  }`,
+                );
+              });
+          });
+        }
+
+        const result = { ...user } as Partial<User>;
+        delete result.password;
+        return result;
+      } catch (err) {
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      } finally {
+        span.end();
+      }
+    });
   }
 
   private hashToken(token: string): string {

@@ -16,6 +16,7 @@ import { QueueServicesModule } from './queue/queue-services.module';
 import { ObservabilityModule } from './common/observability/observability.module';
 import { SlaEscalationWorkerModule } from './sla-escalation-worker.module';
 import { ExpiryNotificationsWorkerModule } from './tasks/expiry-notifications-worker.module';
+import { DocumentRetentionWorkerModule } from './tasks/document-retention-worker.module';
 import { RbacModule } from './rbac/rbac.module';
 import { SecurityAuditModule } from './common/security/security-audit.module';
 import { WorkerHeartbeatReporterService } from './common/redis/worker-heartbeat-reporter.service';
@@ -364,6 +365,7 @@ const validationSchema = Joi.object({
     QueueServicesModule,
     SlaEscalationWorkerModule,
     ExpiryNotificationsWorkerModule,
+    DocumentRetentionWorkerModule,
   ],
   providers: [WorkerHeartbeatReporterService],
 })

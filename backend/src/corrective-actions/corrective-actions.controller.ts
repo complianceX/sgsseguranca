@@ -24,6 +24,7 @@ import { UpdateCorrectiveActionDto } from './dto/update-corrective-action.dto';
 import { CorrectiveActionsService } from './corrective-actions.service';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 
 @Controller('corrective-actions')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -135,6 +136,7 @@ export class CorrectiveActionsController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_manage_corrective_actions')
+  @ForensicAuditAction('delete', 'corrective_action')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.correctiveActionsService.remove(id);
   }

@@ -14,6 +14,7 @@ import { TempCleanupService } from '../common/services/temp-cleanup.service';
       { name: 'document-import-dlq' },
       { name: 'sla-escalation' },
       { name: 'expiry-notifications' },
+      { name: 'document-retention' },
     ),
   ],
   providers: [QueueMonitorService, TempCleanupService],

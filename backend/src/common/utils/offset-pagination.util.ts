@@ -2,6 +2,7 @@ export type OffsetPage<T> = {
   data: T[];
   total: number;
   page: number;
+  limit: number;
   lastPage: number;
 };
 
@@ -41,5 +42,5 @@ export function toOffsetPage<T>(
   limit: number,
 ): OffsetPage<T> {
   const lastPage = Math.max(1, Math.ceil(total / limit));
-  return { data, total, page, lastPage };
+  return { data, total, page, limit, lastPage };
 }

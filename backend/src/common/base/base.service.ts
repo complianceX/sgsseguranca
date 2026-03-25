@@ -71,12 +71,12 @@ export abstract class BaseService<T extends ObjectLiteral> {
 
   async findAll(
     where: FindOptionsWhere<T> = {},
-    options?: { take?: number; select?: string[] },
+    options?: { take?: number; select?: (keyof T)[] },
   ): Promise<T[]> {
     return this.repository.find({
       where: this.applyTenantFilter(where),
       ...(options?.take !== undefined && { take: options.take }),
-      ...(options?.select?.length && { select: options.select as any }),
+      ...(options?.select?.length && { select: options.select }),
     });
   }
 

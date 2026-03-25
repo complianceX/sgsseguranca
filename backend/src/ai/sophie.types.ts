@@ -224,6 +224,11 @@ export type SophieImageAnalysisJsonResponse = {
   notes?: string[];
 };
 
+export type AiAnalysisResult =
+  | AnalyzeAprResponse
+  | AnalyzePtResponse
+  | SophieImageAnalysisJsonResponse;
+
 export type SophieTaskJsonResponseMap = {
   insights: SophieInsightsJsonResponse;
   apr: AnalyzeAprResponse;

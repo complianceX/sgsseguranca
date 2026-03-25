@@ -27,6 +27,7 @@ import { SstAgentController } from './sst-agent/sst-agent.controller';
 import { SstToolsExecutor } from './sst-agent/sst-agent.tools';
 import { SstRateLimitService } from './sst-agent/sst-rate-limit.service';
 import { SophieFacadeService } from './sophie-facade.service';
+import { AiAnalysisService } from './services/ai-analysis.service';
 import { SophieModule } from '../sophie/sophie.module';
 import { FeatureAiGuard } from '../common/guards/feature-ai.guard';
 import { AiConsentGuard } from '../common/guards/ai-consent.guard';
@@ -66,6 +67,7 @@ import {
   controllers: [AiController, SstAgentController],
   providers: [
     AiService,
+    AiAnalysisService,
     SstAgentService,
     SstToolsExecutor,
     SstRateLimitService,

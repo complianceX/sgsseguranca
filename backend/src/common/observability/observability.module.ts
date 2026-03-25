@@ -10,6 +10,7 @@ import { UserRateLimitService } from '../rate-limit/user-rate-limit.service';
 import { RedisModule } from '../redis/redis.module';
 import { AlertsService } from './alerts.service';
 import { TenantQuotaService } from '../queue/tenant-quota.service';
+import { MetricsRegistryService } from './metrics-registry.service';
 import {
   createRedisDisabledQueueProvider,
   isRedisDisabled,
@@ -29,6 +30,7 @@ import { BusinessMetricsSummaryService } from './business-metrics-summary.servic
   ],
   providers: [
     MetricsService,
+    MetricsRegistryService,
     AlertsService,
     BusinessMetricsRefreshService,
     BusinessMetricsSummaryService,
@@ -49,6 +51,7 @@ import { BusinessMetricsSummaryService } from './business-metrics-summary.servic
   ],
   exports: [
     MetricsService,
+    MetricsRegistryService,
     AlertsService,
     BusinessMetricsRefreshService,
     BusinessMetricsSummaryService,

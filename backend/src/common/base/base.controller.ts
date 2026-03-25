@@ -29,6 +29,7 @@ import { TenantInterceptor } from '../tenant/tenant.interceptor';
 import { TenantGuard } from '../guards/tenant.guard';
 import { BaseService } from './base.service';
 import { PaginationDto } from '../dto/pagination.dto';
+import { AuditAction as ForensicAuditAction } from '../decorators/audit-action.decorator';
 
 /**
  * BaseController abstrato que implementa padrão CRUD consistente
@@ -150,6 +151,7 @@ export abstract class BaseController<
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL)
   @Authorize('can_manage_catalogs')
+  @ForensicAuditAction('delete', 'catalog')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Deletar registro' })
   @ApiParam({

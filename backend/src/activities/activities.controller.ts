@@ -21,6 +21,7 @@ import { TenantGuard } from '../common/guards/tenant.guard';
 import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 
 @Controller('activities')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
@@ -70,6 +71,7 @@ export class ActivitiesController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL)
   @Authorize('can_manage_activities')
+  @ForensicAuditAction('delete', 'activity')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.activitiesService.remove(id);
   }

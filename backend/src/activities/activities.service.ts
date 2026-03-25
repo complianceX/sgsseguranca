@@ -1,5 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { Cache } from 'cache-manager';
 import { Repository, DeepPartial, FindManyOptions } from 'typeorm';
 import { Activity } from './entities/activity.entity';
 import { TenantService } from '../common/tenant/tenant.service';
@@ -11,15 +13,22 @@ import {
 
 @Injectable()
 export class ActivitiesService {
+  private readonly catalogCacheTtlMs = 30 * 60 * 1000;
+
   constructor(
     @InjectRepository(Activity)
     private activitiesRepository: Repository<Activity>,
     private tenantService: TenantService,
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
   ) {}
 
   async create(createActivityDto: DeepPartial<Activity>): Promise<Activity> {
     const activity = this.activitiesRepository.create(createActivityDto);
     const saved = await this.activitiesRepository.save(activity);
+    await this.invalidateCatalogCache(
+      saved.company_id || this.tenantService.getTenantId() || undefined,
+    );
     return saved;
   }
 
@@ -68,9 +77,23 @@ export class ActivitiesService {
 
   async findAll(): Promise<Activity[]> {
     const tenantId = this.tenantService.getTenantId();
-    return this.activitiesRepository.find({
-      where: tenantId ? { company_id: tenantId } : {},
+    if (!tenantId) {
+      return this.activitiesRepository.find();
+    }
+
+    const cacheKey = this.buildCatalogCacheKey(tenantId);
+    const cached = await this.cacheManager.get<Activity[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const data = await this.activitiesRepository.find({
+      where: { company_id: tenantId },
+      take: 500,
+      order: { nome: 'ASC' },
     });
+    await this.cacheManager.set(cacheKey, data, this.catalogCacheTtlMs);
+    return data;
   }
 
   async findOne(id: string): Promise<Activity> {
@@ -91,15 +114,28 @@ export class ActivitiesService {
     const activity = await this.findOne(id);
     Object.assign(activity, updateActivityDto);
     const saved = await this.activitiesRepository.save(activity);
+    await this.invalidateCatalogCache(saved.company_id);
     return saved;
   }
 
   async remove(id: string): Promise<void> {
     const activity = await this.findOne(id);
     await this.activitiesRepository.remove(activity);
+    await this.invalidateCatalogCache(activity.company_id);
   }
 
   async count(options?: FindManyOptions<Activity>): Promise<number> {
     return this.activitiesRepository.count(options);
+  }
+
+  private buildCatalogCacheKey(tenantId: string): string {
+    return `catalog:activities:${tenantId}`;
+  }
+
+  private async invalidateCatalogCache(tenantId?: string): Promise<void> {
+    if (!tenantId) {
+      return;
+    }
+    await this.cacheManager.del(this.buildCatalogCacheKey(tenantId));
   }
 }

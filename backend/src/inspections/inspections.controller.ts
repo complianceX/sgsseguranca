@@ -29,6 +29,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import type { Response } from 'express';
 import {
   assertUploadedPdf,
@@ -194,6 +195,7 @@ export class InspectionsController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_manage_inspections')
+  @ForensicAuditAction('delete', 'inspection')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.inspectionsService.remove(id, this.getTenantIdOrThrow());
   }
@@ -252,6 +254,7 @@ export class InspectionsController {
   @Delete(':id/videos/:attachmentId')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_inspections')
+  @ForensicAuditAction('delete', 'inspection_video_attachment')
   removeVideoAttachment(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Counter, Histogram, Gauge } from '@opentelemetry/api';
 import { metrics } from '@opentelemetry/api';
+import { trace } from '@opentelemetry/api';
 import { TenantService } from '../tenant/tenant.service';
 
 @Injectable()
@@ -302,6 +303,7 @@ export class MetricsService {
     statusCode: number,
     duration: number,
     companyId?: string,
+    traceId?: string,
   ) {
     // Fallback para AsyncLocalStorage se companyId não for passado explicitamente
     const tenantId = companyId ?? TenantService.currentTenantId();
@@ -314,6 +316,13 @@ export class MetricsService {
 
     this.httpRequestsTotal.add(1, labels);
     this.httpRequestDuration.record(duration, labels);
+
+    if (traceId) {
+      this.safelyRecord(() => {
+        const activeSpan = trace.getActiveSpan();
+        activeSpan?.setAttribute('sentry.trace_id', traceId);
+      });
+    }
 
     this.httpWindow.count += 1;
     if (statusCode >= 500) this.httpWindow.errorCount += 1;

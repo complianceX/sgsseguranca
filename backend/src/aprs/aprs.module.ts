@@ -16,6 +16,8 @@ import { SignaturesModule } from '../signatures/signatures.module';
 import { AprRiskMatrixService } from './apr-risk-matrix.service';
 import { AprExcelService } from './apr-excel.service';
 import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
+import { AprsPdfService } from './services/aprs-pdf.service';
+import { AprsEvidenceService } from './services/aprs-evidence.service';
 
 @Module({
   imports: [
@@ -34,7 +36,13 @@ import { ForensicTrailModule } from '../forensic-trail/forensic-trail.module';
     ForensicTrailModule,
   ],
   controllers: [AprsController, PublicAprEvidenceController],
-  providers: [AprsService, AprRiskMatrixService, AprExcelService],
+  providers: [
+    AprsService,
+    AprRiskMatrixService,
+    AprExcelService,
+    AprsPdfService,
+    AprsEvidenceService,
+  ],
   exports: [AprsService],
 })
 export class AprsModule {}

@@ -64,4 +64,8 @@ export class RequestContext {
   static getSentryTraceId(): string | undefined {
     return this.get('sentryTraceId');
   }
+
+  static getTraceId(): string | undefined {
+    return this.get('traceId') ?? this.getSentryTraceId();
+  }
 }

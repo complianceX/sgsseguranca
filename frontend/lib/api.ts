@@ -114,12 +114,31 @@ api.interceptors.request.use((config) => {
 
   // Propagação de trace Sentry → backend (correlação Sentry ↔ Jaeger/logs)
   try {
-    const traceData = Sentry.getTraceData();
-    if (traceData['sentry-trace']) {
-      config.headers['sentry-trace'] = traceData['sentry-trace'];
+    const sentryApi = Sentry as unknown as {
+      getCurrentHub?: () => {
+        getScope?: () => {
+          getSpan?: () => { toTraceparent?: () => string | undefined };
+        };
+      };
+      getTraceData?: () => Record<string, string | undefined>;
+    };
+
+    const sentryTrace = sentryApi
+      .getCurrentHub?.()
+      .getScope?.()
+      .getSpan?.()
+      .toTraceparent?.();
+
+    if (sentryTrace) {
+      config.headers['sentry-trace'] = sentryTrace;
     }
-    if (traceData['baggage']) {
-      config.headers['baggage'] = traceData['baggage'];
+
+    const traceData = sentryApi.getTraceData?.() || {};
+    const sentryBaggage = traceData['baggage'];
+    if (sentryBaggage) {
+      config.headers['baggage'] = sentryBaggage;
+    } else if (traceData['sentry-trace'] && !sentryTrace) {
+      config.headers['sentry-trace'] = traceData['sentry-trace'];
     }
   } catch {
     // Sentry não inicializado (ex: testes, SSR sem DSN) — ignorar silenciosamente

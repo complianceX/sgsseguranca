@@ -36,6 +36,7 @@ import { CreateCatDto } from './dto/create-cat.dto';
 import { StartCatInvestigationDto } from './dto/start-cat-investigation.dto';
 import { UpdateCatDto } from './dto/update-cat.dto';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -198,6 +199,7 @@ export class CatsController {
   @Delete(':id/attachments/:attachmentId')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST, Role.SUPERVISOR)
   @Authorize('can_manage_cats')
+  @ForensicAuditAction('delete', 'cat_attachment')
   removeAttachment(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,

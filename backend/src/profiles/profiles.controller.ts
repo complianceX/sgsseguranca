@@ -19,6 +19,7 @@ import { CreateProfileDto } from './dto/create-profile.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { TenantOptional } from '../common/decorators/tenant-optional.decorator';
 import { Authorize } from '../auth/authorize.decorator';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 
 @Controller('profiles')
 @TenantOptional()
@@ -60,6 +61,7 @@ export class ProfilesController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL)
   @Authorize('can_manage_profiles')
+  @ForensicAuditAction('delete', 'profile')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.profilesService.remove(id);
   }

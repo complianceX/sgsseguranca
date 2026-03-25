@@ -1,5 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { Cache } from 'cache-manager';
+import type { Queue } from 'bullmq';
+import { Counter } from '@opentelemetry/api';
 import { Repository } from 'typeorm';
 import { Apr, AprStatus } from '../aprs/entities/apr.entity';
 import { Audit } from '../audits/entities/audit.entity';
@@ -43,6 +48,17 @@ type AuditActionItem = {
 type InspectionRiskItem = {
   classificacao_risco?: string;
 };
+
+type DashboardCachedPayload<T> = {
+  value: T;
+  generatedAt: number;
+};
+
+export type DashboardRevalidateQueryType = 'summary' | 'pending-queue';
+
+const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
+const DASHBOARD_CACHE_STALE_WINDOW_MS = 30 * 1000;
+export const DASHBOARD_DOMAIN_METRICS = 'DASHBOARD_DOMAIN_METRICS';
 
 /**
  * Wraps a promise so that failures return a fallback value instead of
@@ -96,9 +112,50 @@ export class DashboardService {
     private readonly dashboardDocumentPendenciesService: DashboardDocumentPendenciesService,
     private readonly dashboardDocumentPendencyOperationsService: DashboardDocumentPendencyOperationsService,
     private readonly dashboardOperationalNotifierService: DashboardOperationalNotifierService,
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
+    @Optional()
+    @InjectQueue('dashboard-revalidate')
+    private readonly dashboardRevalidateQueue?: Queue,
+    @Optional()
+    @Inject(DASHBOARD_DOMAIN_METRICS)
+    private readonly domainMetrics?: Record<string, Counter>,
   ) {}
 
-  async getSummary(companyId: string) {
+  async getSummary(companyId: string, options?: { bypassCache?: boolean }) {
+    if (options?.bypassCache && companyId) {
+      this.recordDashboardCacheRequestMetric({
+        companyId,
+        queryType: 'summary',
+        outcome: 'bypass',
+      });
+    }
+
+    if (!options?.bypassCache && companyId) {
+      const cached = await this.readDashboardCache<unknown>(
+        companyId,
+        'summary',
+      );
+      if (cached.hit && cached.value !== undefined) {
+        this.recordDashboardCacheRequestMetric({
+          companyId,
+          queryType: 'summary',
+          outcome: 'hit',
+        });
+        return cached.value;
+      }
+
+      if (cached.stale && cached.value !== undefined) {
+        this.recordDashboardCacheRequestMetric({
+          companyId,
+          queryType: 'summary',
+          outcome: 'stale',
+        });
+        void this.enqueueDashboardRevalidation(companyId, 'summary');
+        return cached.value;
+      }
+    }
+
     const now = new Date();
     const warningLimit = new Date(now);
     warningLimit.setDate(now.getDate() + 30);
@@ -589,7 +646,7 @@ export class DashboardService {
       .sort((first, second) => second.taxa - first.taxa)
       .slice(0, 5);
 
-    return {
+    const response = {
       counts: {
         users,
         companies,
@@ -623,6 +680,17 @@ export class DashboardService {
       siteCompliance,
       recentReports,
     };
+
+    if (companyId) {
+      await this.writeDashboardCache(companyId, 'summary', response);
+      this.recordDashboardCacheRequestMetric({
+        companyId,
+        queryType: 'summary',
+        outcome: 'miss',
+      });
+    }
+
+    return response;
   }
 
   async getKpis(companyId: string) {
@@ -1023,23 +1091,75 @@ export class DashboardService {
     };
   }
 
-  async getPendingQueue(input: { companyId: string; userId?: string }) {
+  async getPendingQueue(input: {
+    companyId: string;
+    userId?: string;
+    bypassCache?: boolean;
+    skipNotifications?: boolean;
+  }) {
+    if (input.bypassCache && input.companyId) {
+      this.recordDashboardCacheRequestMetric({
+        companyId: input.companyId,
+        queryType: 'pending-queue',
+        outcome: 'bypass',
+      });
+    }
+
+    if (!input.bypassCache && input.companyId) {
+      const cached = await this.readDashboardCache<unknown>(
+        input.companyId,
+        'pending-queue',
+      );
+      if (cached.hit && cached.value !== undefined) {
+        this.recordDashboardCacheRequestMetric({
+          companyId: input.companyId,
+          queryType: 'pending-queue',
+          outcome: 'hit',
+        });
+        return cached.value;
+      }
+
+      if (cached.stale && cached.value !== undefined) {
+        this.recordDashboardCacheRequestMetric({
+          companyId: input.companyId,
+          queryType: 'pending-queue',
+          outcome: 'stale',
+        });
+        void this.enqueueDashboardRevalidation(
+          input.companyId,
+          'pending-queue',
+        );
+        return cached.value;
+      }
+    }
+
     const queue = await this.dashboardPendingQueueService.getPendingQueue(
       input.companyId,
     );
 
-    try {
-      await this.dashboardOperationalNotifierService.notifyPendingQueue({
-        userId: input.userId,
+    if (!input.skipNotifications) {
+      try {
+        await this.dashboardOperationalNotifierService.notifyPendingQueue({
+          userId: input.userId,
+          companyId: input.companyId,
+          queue,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `[dashboard.pending-queue] Falha ao enviar notificações operacionais: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    if (input.companyId) {
+      await this.writeDashboardCache(input.companyId, 'pending-queue', queue);
+      this.recordDashboardCacheRequestMetric({
         companyId: input.companyId,
-        queue,
+        queryType: 'pending-queue',
+        outcome: 'miss',
       });
-    } catch (error) {
-      this.logger.warn(
-        `[dashboard.pending-queue] Falha ao enviar notificações operacionais: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
     }
 
     return queue;
@@ -1128,10 +1248,223 @@ export class DashboardService {
     );
   }
 
+  async invalidateDashboardCache(
+    companyId: string,
+    queryType?: DashboardRevalidateQueryType,
+  ) {
+    if (!companyId) {
+      return {
+        companyId,
+        invalidated: [] as DashboardRevalidateQueryType[],
+      };
+    }
+
+    const targets: DashboardRevalidateQueryType[] = queryType
+      ? [queryType]
+      : ['summary', 'pending-queue'];
+
+    await Promise.all(
+      targets.flatMap((target) => [
+        this.cacheManager.del(this.buildDashboardCacheKey(companyId, target)),
+        this.cacheManager.del(
+          this.buildDashboardStaleCacheKey(companyId, target),
+        ),
+      ]),
+    );
+
+    return {
+      companyId,
+      invalidated: targets,
+    };
+  }
+
+  async revalidateDashboardQuery(
+    companyId: string,
+    queryType: DashboardRevalidateQueryType,
+  ): Promise<void> {
+    if (!companyId) {
+      return;
+    }
+
+    try {
+      if (queryType === 'summary') {
+        await this.getSummary(companyId, { bypassCache: true });
+      } else if (queryType === 'pending-queue') {
+        await this.getPendingQueue({
+          companyId,
+          bypassCache: true,
+          skipNotifications: true,
+        });
+      }
+
+      this.recordDashboardRevalidationMetric({
+        companyId,
+        queryType,
+        outcome: 'processed',
+      });
+    } catch (error) {
+      this.recordDashboardRevalidationMetric({
+        companyId,
+        queryType,
+        outcome: 'failed',
+      });
+      throw error;
+    }
+  }
+
+  private buildDashboardCacheKey(
+    companyId: string,
+    queryType: DashboardRevalidateQueryType,
+  ): string {
+    return `dashboard:${companyId}:${queryType}`;
+  }
+
+  private buildDashboardStaleCacheKey(
+    companyId: string,
+    queryType: DashboardRevalidateQueryType,
+  ): string {
+    return `${this.buildDashboardCacheKey(companyId, queryType)}:stale`;
+  }
+
+  private async readDashboardCache<T>(
+    companyId: string,
+    queryType: DashboardRevalidateQueryType,
+  ): Promise<{ hit: boolean; stale: boolean; value?: T }> {
+    const active = await this.cacheManager.get<DashboardCachedPayload<T>>(
+      this.buildDashboardCacheKey(companyId, queryType),
+    );
+    if (active?.value !== undefined) {
+      return {
+        hit: true,
+        stale: false,
+        value: active.value,
+      };
+    }
+
+    const stalePayload = await this.cacheManager.get<DashboardCachedPayload<T>>(
+      this.buildDashboardStaleCacheKey(companyId, queryType),
+    );
+    if (stalePayload?.value !== undefined) {
+      return {
+        hit: false,
+        stale: true,
+        value: stalePayload.value,
+      };
+    }
+
+    return {
+      hit: false,
+      stale: false,
+    };
+  }
+
+  private async writeDashboardCache<T>(
+    companyId: string,
+    queryType: DashboardRevalidateQueryType,
+    value: T,
+  ): Promise<void> {
+    const payload: DashboardCachedPayload<T> = {
+      value,
+      generatedAt: Date.now(),
+    };
+
+    await Promise.all([
+      this.cacheManager.set(
+        this.buildDashboardCacheKey(companyId, queryType),
+        payload,
+        DASHBOARD_CACHE_TTL_MS,
+      ),
+      this.cacheManager.set(
+        this.buildDashboardStaleCacheKey(companyId, queryType),
+        payload,
+        DASHBOARD_CACHE_TTL_MS + DASHBOARD_CACHE_STALE_WINDOW_MS,
+      ),
+    ]);
+  }
+
+  private async enqueueDashboardRevalidation(
+    companyId: string,
+    queryType: DashboardRevalidateQueryType,
+  ): Promise<void> {
+    if (!this.dashboardRevalidateQueue) {
+      this.recordDashboardRevalidationMetric({
+        companyId,
+        queryType,
+        outcome: 'queue_unavailable',
+      });
+      return;
+    }
+
+    try {
+      await this.dashboardRevalidateQueue.add(
+        'revalidate',
+        { companyId, queryType },
+        {
+          jobId: `dashboard-revalidate:${companyId}:${queryType}`,
+          removeOnComplete: 20,
+          removeOnFail: 20,
+        },
+      );
+      this.recordDashboardRevalidationMetric({
+        companyId,
+        queryType,
+        outcome: 'enqueued',
+      });
+    } catch (error) {
+      this.recordDashboardRevalidationMetric({
+        companyId,
+        queryType,
+        outcome: 'enqueue_failed',
+      });
+      this.logger.warn(
+        `[dashboard.cache] Falha ao enfileirar revalidação ${queryType}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
   private toPercent(value: number, total: number): number {
     if (!total) {
       return 0;
     }
     return Math.round((value / total) * 10000) / 100;
+  }
+
+  private recordDashboardCacheRequestMetric(input: {
+    companyId: string;
+    queryType: DashboardRevalidateQueryType;
+    outcome: 'hit' | 'stale' | 'miss' | 'bypass';
+  }): void {
+    try {
+      this.domainMetrics?.cache_requests_total?.add(1, {
+        company_id: input.companyId || 'unknown',
+        query_type: input.queryType,
+        outcome: input.outcome,
+      });
+    } catch {
+      // no-op: telemetria nunca pode quebrar o fluxo funcional
+    }
+  }
+
+  private recordDashboardRevalidationMetric(input: {
+    companyId: string;
+    queryType: DashboardRevalidateQueryType;
+    outcome:
+      | 'enqueued'
+      | 'queue_unavailable'
+      | 'enqueue_failed'
+      | 'processed'
+      | 'failed';
+  }): void {
+    try {
+      this.domainMetrics?.cache_revalidations_total?.add(1, {
+        company_id: input.companyId || 'unknown',
+        query_type: input.queryType,
+        outcome: input.outcome,
+      });
+    } catch {
+      // no-op: telemetria nunca pode quebrar o fluxo funcional
+    }
   }
 }

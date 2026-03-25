@@ -283,7 +283,7 @@ function login(tenant) {
   totalRequests.add(1);
 
   const ok = check(res, {
-    'login 200': (r) => r.status === 200,
+    'login 200/201': (r) => r.status === 200 || r.status === 201,
     'login accessToken': (r) => Boolean(r.json('accessToken')),
   });
 
@@ -423,18 +423,24 @@ export function aprSpikeScenario() {
       // risk_items testam o JSONB write + validação de nested objects
       risk_items: [
         {
-          descricao: 'Risco de queda de altura',
-          categoria: 'Físico',
+          atividade: 'Trabalho em altura',
+          condicao_perigosa: 'Risco de queda de altura',
+          categoria_risco: 'Físico',
           probabilidade: 2,
-          severidade: 4,
-          medida_controle: 'Uso de EPI e andaime homologado',
+          severidade: 3,
+          medidas_prevencao: 'Uso de EPI e andaime homologado',
+          responsavel: 'Supervisor SST',
+          status_acao: 'pendente',
         },
         {
-          descricao: 'Exposição a agentes químicos',
-          categoria: 'Químico',
+          atividade: 'Manuseio de solventes',
+          condicao_perigosa: 'Exposição a agentes químicos',
+          categoria_risco: 'Químico',
           probabilidade: 1,
           severidade: 3,
-          medida_controle: 'Ventilação e EPI respiratório',
+          medidas_prevencao: 'Ventilação e EPI respiratório',
+          responsavel: 'Técnico SST',
+          status_acao: 'pendente',
         },
       ],
     };

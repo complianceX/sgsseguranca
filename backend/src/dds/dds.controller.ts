@@ -35,6 +35,7 @@ import { PdfRateLimitService } from '../auth/services/pdf-rate-limit.service';
 import { Role } from '../auth/enums/roles.enum';
 import { Authorize } from '../auth/authorize.decorator';
 import { DdsStatus } from './entities/dds.entity';
+import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import {
   assertUploadedVideo,
   assertUploadedPdf,
@@ -349,6 +350,7 @@ export class DdsController {
     Role.COLABORADOR,
   )
   @Authorize('can_manage_dds')
+  @ForensicAuditAction('delete', 'dds_video_attachment')
   removeVideoAttachment(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('attachmentId', new ParseUUIDPipe()) attachmentId: string,
@@ -397,6 +399,7 @@ export class DdsController {
   @Delete(':id')
   @Roles(Role.ADMIN_GERAL, Role.ADMIN_EMPRESA, Role.TST)
   @Authorize('can_manage_dds')
+  @ForensicAuditAction('delete', 'dds')
   remove(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.ddsService.remove(id);
   }

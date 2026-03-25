@@ -79,6 +79,7 @@ import { DocumentRegistryModule } from './document-registry/document-registry.mo
 import { DisasterRecoveryModule } from './disaster-recovery/disaster-recovery.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { SystemThemeModule } from './system-theme/system-theme.module';
+import { TenantPoliciesModule } from './tenant-policies/tenant-policies.module';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
   parseBooleanFlag,
@@ -795,6 +796,7 @@ const validationSchema = Joi.object({
     RbacModule,
     DashboardModule,
     DocumentRegistryModule,
+    TenantPoliciesModule,
     DisasterRecoveryModule,
     CalendarModule,
     SystemThemeModule,
