@@ -351,7 +351,7 @@ function ScoreRing({ score }: { score: number | null }) {
         <p className={cn("text-[26px] font-bold leading-none", textClass)}>
           {score == null ? "—" : score}
         </p>
-        <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+        <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
           pontos
         </p>
       </div>
@@ -373,7 +373,7 @@ function SectionHeader({
   return (
     <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
           {overline}
         </p>
         <h2 className="text-[13px] font-semibold text-[var(--title)]">
@@ -549,7 +549,7 @@ export default function DashboardPage() {
             {greeting}
             {firstName ? `, ${firstName}` : ""}
           </h1>
-          <p className="mt-0.5 text-[13px] capitalize text-[var(--ds-color-text-muted)]">
+          <p className="mt-0.5 text-[13px] capitalize text-[var(--ds-color-text-secondary)]">
             {dateLabel}
           </p>
         </div>
@@ -561,8 +561,8 @@ export default function DashboardPage() {
           )}
           {!loading && (
             <div className="flex items-center gap-1.5 rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 shadow-[var(--ds-shadow-xs)]">
-              <Clock className="h-3.5 w-3.5 text-[var(--ds-color-text-muted)]" />
-              <span className="text-[11px] font-medium text-[var(--ds-color-text-muted)]">
+              <Clock className="h-3.5 w-3.5 text-[var(--ds-color-text-secondary)]" />
+              <span className="text-[11px] font-medium text-[var(--ds-color-text-secondary)]">
                 {pendingQueue.summary.total} pendências
               </span>
             </div>
@@ -585,7 +585,7 @@ export default function DashboardPage() {
                   : "itens críticos requerem"}{" "}
                 atenção imediata
               </p>
-              <p className="text-xs text-[var(--ds-color-text-muted)]">
+              <p className="text-xs text-[var(--ds-color-text-secondary)]">
                 Revise os itens abaixo antes de prosseguir com a operação.
               </p>
             </div>
@@ -676,7 +676,7 @@ export default function DashboardPage() {
               <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                 Nenhuma pendência crítica ou alta
               </p>
-              <p className="text-xs text-[var(--ds-color-text-muted)]">
+              <p className="text-xs text-[var(--ds-color-text-secondary)]">
                 Mantenha o ritmo operacional.
               </p>
             </div>
@@ -721,7 +721,7 @@ export default function DashboardPage() {
                             {SLA_CONFIG[item.slaStatus].label}
                           </span>
                           {item.site && (
-                            <span className="text-[10px] text-[var(--ds-color-text-muted)]">
+                            <span className="text-[10px] text-[var(--ds-color-text-secondary)]">
                               {item.site}
                             </span>
                           )}
@@ -729,7 +729,7 @@ export default function DashboardPage() {
                         <p className="mt-1 truncate text-sm font-medium text-[var(--ds-color-text-primary)]">
                           {item.title}
                         </p>
-                        <p className="mt-0.5 truncate text-xs text-[var(--ds-color-text-muted)]">
+                        <p className="mt-0.5 truncate text-xs text-[var(--ds-color-text-secondary)]">
                           {item.description}
                         </p>
                       </div>
@@ -740,14 +740,14 @@ export default function DashboardPage() {
                               "text-[10px] font-semibold",
                               due.overdue
                                 ? "text-[var(--ds-color-danger)]"
-                                : "text-[var(--ds-color-text-muted)]",
+                                : "text-[var(--ds-color-text-secondary)]",
                             )}
                           >
                             {due.label}
                           </p>
                         )}
                         {item.daysToDue != null && item.slaStatus === "on_track" ? (
-                          <p className="mt-0.5 text-[10px] text-[var(--ds-color-text-muted)]">
+                          <p className="mt-0.5 text-[10px] text-[var(--ds-color-text-secondary)]">
                             {item.daysToDue}d para o SLA
                           </p>
                         ) : null}
@@ -757,7 +757,7 @@ export default function DashboardPage() {
                           </p>
                         ) : null}
                         {item.responsible && (
-                          <p className="mt-0.5 text-[10px] text-[var(--ds-color-text-muted)]">
+                          <p className="mt-0.5 text-[10px] text-[var(--ds-color-text-secondary)]">
                             {item.responsible}
                           </p>
                         )}
@@ -776,7 +776,7 @@ export default function DashboardPage() {
           {/* Score de Conformidade */}
           <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]">
             <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                 Score de Conformidade
               </p>
             </div>
@@ -786,7 +786,7 @@ export default function DashboardPage() {
                 <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">
                   {resolveComplianceLabel(complianceScore)}
                 </p>
-                <p className="mt-1 max-w-[220px] text-[11px] leading-relaxed text-[var(--ds-color-text-muted)]">
+                <p className="mt-1 max-w-[220px] text-[11px] leading-relaxed text-[var(--ds-color-text-secondary)]">
                   {resolveComplianceMessage(complianceScore)}
                 </p>
               </div>
@@ -796,7 +796,7 @@ export default function DashboardPage() {
           {/* Distribuição de Riscos */}
           <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]">
             <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                 Distribuição de Riscos
               </p>
             </div>
@@ -835,7 +835,7 @@ export default function DashboardPage() {
                         className={cn("text-xs font-bold", text)}
                       >
                         {value}{" "}
-                        <span className="font-normal text-[var(--ds-color-text-muted)]">
+                        <span className="font-normal text-[var(--ds-color-text-secondary)]">
                           ({pct}%)
                         </span>
                       </span>
@@ -860,7 +860,7 @@ export default function DashboardPage() {
           {/* Fila por Categoria */}
           <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]">
             <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                 Fila por Categoria
               </p>
             </div>
@@ -887,7 +887,7 @@ export default function DashboardPage() {
                   className="flex items-center justify-between rounded-lg px-3 py-2.5 transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon className="h-4 w-4 text-[var(--ds-color-text-muted)]" />
+                    <Icon className="h-4 w-4 text-[var(--ds-color-text-secondary)]" />
                     <span className="text-xs font-medium text-[var(--ds-color-text-secondary)]">
                       {label}
                     </span>
@@ -897,7 +897,7 @@ export default function DashboardPage() {
                       "min-w-[24px] rounded-md px-1.5 py-0.5 text-center text-xs font-bold",
                       value > 0
                         ? "bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning-fg)]"
-                        : "text-[var(--ds-color-text-muted)]",
+                        : "text-[var(--ds-color-text-secondary)]",
                     )}
                   >
                     {value}
@@ -911,7 +911,7 @@ export default function DashboardPage() {
 
       {/* ── 5. Acesso Rápido ───────────────────────────────────────── */}
       <section>
-        <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+        <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
           Acesso rápido
         </p>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
