@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   Logger,
   ServiceUnavailableException,
@@ -19,7 +19,6 @@ import { EpisService } from '../epis/epis.service';
 import { TrainingsService } from '../trainings/trainings.service';
 import { PtsService } from '../pts/pts.service';
 import { AprsService } from '../aprs/aprs.service';
-import { ChecklistsService } from '../checklists/checklists.service';
 import { NonConformitiesService } from '../nonconformities/nonconformities.service';
 import { DdsService } from '../dds/dds.service';
 import { InspectionsService } from '../inspections/inspections.service';
@@ -32,6 +31,7 @@ import { IntegrationResilienceService } from '../common/resilience/integration-r
 import { isApiCronDisabled } from '../common/utils/scheduler.util';
 import { ReportsService } from '../reports/reports.service';
 import { CompanyResponseDto } from '../companies/dto/company-response.dto';
+import { Checklist } from '../checklists/entities/checklist.entity';
 import {
   DocumentMailArtifactType,
   DocumentMailDispatchResponseDto,
@@ -109,8 +109,8 @@ export class MailService {
     private trainingsService: TrainingsService,
     private ptsService: PtsService,
     private aprsService: AprsService,
-    @Inject(forwardRef(() => ChecklistsService))
-    private checklistsService: ChecklistsService,
+    @InjectRepository(Checklist)
+    private readonly checklistsRepository: Repository<Checklist>,
     private nonConformitiesService: NonConformitiesService,
     private ddsService: DdsService,
     private inspectionsService: InspectionsService,
@@ -185,7 +185,7 @@ export class MailService {
     const resolvedCompanyId =
       companyId?.trim() || this.tenantService.getTenantId() || undefined;
     let fileKey: string | undefined;
-    let subject = 'Documento Compartilhado - GST';
+    let subject = 'Documento Compartilhado - SGS';
     let docName = 'Documento';
 
     // Normaliza o tipo para evitar problemas de case
@@ -212,7 +212,13 @@ export class MailService {
           break;
         }
         case 'CHECKLIST': {
-          const checklist = await this.checklistsService.findOne(documentId);
+          const checklist = await this.checklistsRepository.findOne({
+            where: {
+              id: documentId,
+              ...(resolvedCompanyId ? { company_id: resolvedCompanyId } : {}),
+            },
+            select: ['id', 'pdf_file_key'],
+          });
           if (checklist) {
             fileKey = checklist.pdf_file_key;
             docName = `Checklist`;
@@ -365,11 +371,11 @@ export class MailService {
     const html = `
       <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
         <div style="display: inline-block; margin-bottom: 16px; padding: 6px 10px; border-radius: 999px; background-color: #dbeafe; color: #1d4ed8; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-          &lt;GST&gt; Gestão de Segurança do Trabalho
+          SGS — Sistema de Gestão de Segurança
         </div>
         <h2 style="margin: 0 0 12px; color: #0f172a;">${docName}</h2>
         <p>Olá,</p>
-        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma &lt;GST&gt; Gestão de Segurança do Trabalho.</p>
+        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.</p>
         <p>O PDF está anexado neste e-mail para visualização e download.</p>
       </div>
     `;
@@ -431,7 +437,7 @@ export class MailService {
     }
 
     const docName = options?.docName?.trim() || 'Documento';
-    const subject = options?.subject?.trim() || 'Documento Compartilhado - GST';
+    const subject = options?.subject?.trim() || 'Documento Compartilhado - SGS';
     const pdfBuffer = await this.downloadMailAttachmentBuffer(fileKey, {
       companyId: options?.companyId,
       userId: options?.userId,
@@ -442,11 +448,11 @@ export class MailService {
     const html = `
       <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
         <div style="display: inline-block; margin-bottom: 16px; padding: 6px 10px; border-radius: 999px; background-color: #dbeafe; color: #1d4ed8; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-          &lt;GST&gt; Gestão de Segurança do Trabalho
+          SGS — Sistema de Gestão de Segurança
         </div>
         <h2 style="margin: 0 0 12px; color: #0f172a;">${docName}</h2>
         <p>Olá,</p>
-        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma &lt;GST&gt; Gestão de Segurança do Trabalho.</p>
+        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.</p>
         <p>O PDF está anexado neste e-mail para visualização e download.</p>
       </div>
     `;
@@ -509,7 +515,7 @@ export class MailService {
     }
 
     const docName = options?.docName?.trim() || 'Documento';
-    const subject = options?.subject?.trim() || 'Documento Compartilhado - GST';
+    const subject = options?.subject?.trim() || 'Documento Compartilhado - SGS';
     const attachmentFilename = this.buildAttachmentFilename(docName);
 
     const html = `
@@ -519,7 +525,7 @@ export class MailService {
         </div>
         <h2 style="margin: 0 0 12px; color: #0f172a;">${docName}</h2>
         <p>Olá,</p>
-        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma &lt;GST&gt; Gestão de Segurança do Trabalho.</p>
+        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.</p>
         <p>O PDF está anexado neste e-mail para visualização e download.</p>
         <p><strong>Importante:</strong> este envio utilizou um PDF local/degradado e não substitui o documento final governado.</p>
       </div>
@@ -728,7 +734,7 @@ export class MailService {
   private resolveFromAddress() {
     const fromName =
       this.configService.get<string>('MAIL_FROM_NAME')?.trim() ||
-      'GST - Gestão de Segurança do Trabalho';
+      'SGS - Sistema de Gestão de Segurança';
     const fromEmail =
       this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() ||
       this.configService.get<string>('MAIL_USER')?.trim() ||
@@ -1115,7 +1121,7 @@ export class MailService {
 
       const text = `Olá,\n\nSegue em anexo o relatório mensal de conformidade referente a ${String(
         month,
-      ).padStart(2, '0')}/${year}.\n\nAtenciosamente,\nEquipe GST`;
+      ).padStart(2, '0')}/${year}.\n\nAtenciosamente,\nEquipe SGS`;
 
       await this.sendMailSimple(email, subject, text, { companyId }, [
         {
@@ -1256,8 +1262,8 @@ export class MailService {
         where: { status: 'Pendente', data_hora_inicio: LessThan(now) },
       }),
       this.aprsService.count({ where: { status: 'Pendente' } }),
-      this.checklistsService.count({
-        where: { status: 'Pendente', is_template: false },
+      this.checklistsRepository.count({
+        where: { status: 'Pendente', is_modelo: false },
       }),
       this.nonConformitiesService.count({
         where: { status: Not(In(['Encerrada', 'Concluída', 'Concluida'])) },

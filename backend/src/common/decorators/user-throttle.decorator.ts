@@ -8,7 +8,7 @@ export interface UserThrottleOptions {
 }
 
 /**
- * Aplica rate limit por usuário (user_id) em um endpoint.
+ * Aplica rate limit por usuário (user_id) em um endpoint sensível ou custoso.
  * Lido pelo UserRateLimitGuard — deve ser usado junto com JwtAuthGuard.
  *
  * @example

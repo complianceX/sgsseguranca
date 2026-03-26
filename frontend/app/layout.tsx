@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from "next";
+﻿import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
@@ -21,13 +21,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GST | Gestão de Segurança do Trabalho",
+  title: "SGS | Sistema de Gestão de Segurança",
   description: "Sistema inteligente de gestão de Segurança e Saúde no Trabalho",
-  applicationName: "GST – Segurança do Trabalho",
+  applicationName: "SGS – Sistema de Gestão de Segurança",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "GST",
+    title: "SGS",
     statusBarStyle: "default",
   },
 };

@@ -65,14 +65,26 @@ function buildCsp() {
     'wss://api.elevenlabs.io',
     // Sentry session replay upload (tunnelRoute cobre event reporting)
     'https://*.sentry.io',
+    'https://challenges.cloudflare.com',
   ].filter(Boolean));
   // Em produção usamos allowlist explícita + inline controlado.
   // O app usa App Router e bootstrap inline do Next.js; sem nonce por request,
   // `strict-dynamic` bloqueia os próprios bundles e deixa a tela branca.
   // Em dev, unsafe-eval continua necessário para HMR/fast-refresh.
   const scriptSrc = isProd
-    ? ["'self'", "'unsafe-inline'", 'https://unpkg.com']
-    : ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://unpkg.com'];
+    ? [
+        "'self'",
+        "'unsafe-inline'",
+        'https://unpkg.com',
+        'https://challenges.cloudflare.com',
+      ]
+    : [
+        "'self'",
+        "'unsafe-inline'",
+        "'unsafe-eval'",
+        'https://unpkg.com',
+        'https://challenges.cloudflare.com',
+      ];
   const scriptSrcStr = scriptSrc.join(' ');
   const directives = [
     `default-src 'self'`,
@@ -84,6 +96,7 @@ function buildCsp() {
     `style-src 'self' 'unsafe-inline'`,
     `script-src ${scriptSrcStr}`,
     `connect-src ${Array.from(connectSrc).join(' ')}`,
+    `frame-src 'self' https://challenges.cloudflare.com`,
     `media-src 'self' blob: data: https:`,
     `worker-src 'self' blob:`,
     `form-action 'self'`,

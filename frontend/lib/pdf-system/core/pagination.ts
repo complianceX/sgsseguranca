@@ -1,4 +1,4 @@
-import type { PdfContext } from "./types";
+﻿import type { PdfContext } from "./types";
 import { formatDateTime, sanitize } from "./format";
 
 const DRAFT_DISCLAIMER_LINES = [
@@ -58,7 +58,7 @@ export function applyDocumentFooter(
 ) {
   const pages = ctx.doc.getNumberOfPages();
   const generatedAt = options.generatedAt || formatDateTime(new Date().toISOString());
-  const issuer = sanitize(options.issuer || "Sistema <GST> Gestão de Segurança do Trabalho");
+  const issuer = sanitize(options.issuer || "SGS — Sistema de Gestão de Segurança");
 
   for (let page = 1; page <= pages; page++) {
     ctx.doc.setPage(page);

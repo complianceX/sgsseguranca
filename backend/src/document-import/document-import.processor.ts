@@ -1,12 +1,8 @@
-import {
-  InjectQueue,
-  OnWorkerEvent,
-  Processor,
-  WorkerHost,
-} from '@nestjs/bullmq';
+import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import type { Job, Queue } from 'bullmq';
 import { MetricsService } from '../common/observability/metrics.service';
+import { captureException } from '../common/monitoring/sentry';
 import { getDocumentImportQueueConcurrency } from './document-import-runtime-config';
 import { DocumentImportService } from './services/document-import.service';
 
@@ -124,19 +120,23 @@ export class DocumentImportProcessor extends WorkerHost {
         'error',
         jobData.companyId,
       );
+      await this.handleFailure(job, jobData, error);
       throw error;
     }
   }
 
-  @OnWorkerEvent('failed')
-  async onFailed(job: Job<unknown, unknown, string> | undefined, error: Error) {
-    if (!job) {
+  private async handleFailure(
+    job: Job<unknown, unknown, string>,
+    jobData: DocumentImportQueueJobData | null,
+    error: unknown,
+  ) {
+    if (!(error instanceof Error)) {
       return;
     }
 
-    const jobData = parseDocumentImportJobData(job.data);
     const maxAttempts = job.opts.attempts ?? 1;
-    const isFinal = job.attemptsMade >= maxAttempts;
+    const attemptsAfterFailure = job.attemptsMade + 1;
+    const isFinal = attemptsAfterFailure >= maxAttempts;
 
     this.logger.error(
       `[Job ${job.id}] Falhou${isFinal ? ' definitivamente' : ''}. Tipo: ${job.name}. Erro: ${error.message}`,
@@ -146,6 +146,16 @@ export class DocumentImportProcessor extends WorkerHost {
     if (!isFinal) {
       return;
     }
+
+    captureException(error, {
+      tags: { queue: 'document-import', jobName: job.name },
+      extra: {
+        jobId: job.id,
+        documentId: jobData?.documentId,
+        companyId: jobData?.companyId,
+        attemptsMade: attemptsAfterFailure,
+      },
+    });
 
     if (jobData) {
       await this.documentImportService.markAsDeadLetter(
@@ -160,7 +170,7 @@ export class DocumentImportProcessor extends WorkerHost {
         originalQueue: 'document-import',
         originalJobId: job.id,
         originalJobName: job.name,
-        attemptsMade: job.attemptsMade,
+        attemptsMade: attemptsAfterFailure,
         documentId: jobData?.documentId,
         companyId: jobData?.companyId,
         data: job.data,

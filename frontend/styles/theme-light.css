@@ -15,12 +15,14 @@
   --ds-color-border-default: var(--brand-border-default);
   --ds-color-border-strong: var(--brand-border-strong);
   --ds-color-border-focus: var(--brand-primary);
+  /* Borda de campo interativo — WCAG 1.4.11 Non-text Contrast: 3:1 contra branco */
+  --ds-color-border-input: #7B97AD;
 
   /* Texto — contraste mais forte no conteúdo principal */
   --ds-color-text-primary: var(--brand-text-primary);
   --ds-color-text-secondary: var(--brand-text-secondary);
   --ds-color-text-muted: var(--brand-text-muted);
-  --ds-color-text-disabled: var(--brand-text-muted);
+  --ds-color-text-disabled: #7c8ca3;
   --ds-color-text-inverse: #ffffff;
   --ds-color-text-link: var(--brand-primary);
 
@@ -86,12 +88,12 @@
     transparent
   );
 
-  /* APR — estados de risco permanecem fortes e distinguíveis */
-  --risk-negligible: #1a7a35;
-  --risk-acceptable: #2b9920;
-  --risk-attention: #c89a00;
-  --risk-substantial: #c85d00;
-  --risk-critical: #c42626;
+  /* APR — estados de risco corrigidos para WCAG AA no light mode */
+  --risk-negligible:  #1a7a35;  /* mantém — 5.42:1 ✓ */
+  --risk-acceptable:  #1D6B15;  /* era #2b9920 (3.70:1 ✗) — agora 6.63:1 ✓ */
+  --risk-attention:   #8A6600;  /* era #c89a00 (2.60:1 ✗) — agora 5.27:1 ✓ */
+  --risk-substantial: #9E4B00;  /* era #c85d00 (4.18:1 ✗) — agora 6.07:1 ✓ */
+  --risk-critical:    #c42626;  /* mantém — 5.52:1 ✓ */
 
   --ds-color-overlay: rgba(15, 23, 42, 0.32);
   --ds-shell-backdrop:

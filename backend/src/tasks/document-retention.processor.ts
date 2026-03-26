@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import type { Job } from 'bullmq';
 import { TenantService } from '../common/tenant/tenant.service';
 import { DocumentRetentionService } from '../common/storage/document-retention.service';
+import { captureException } from '../common/monitoring/sentry';
 
 type DocumentRetentionJobData = {
   tenantId: string;
@@ -47,5 +48,9 @@ export class DocumentRetentionProcessor extends WorkerHost {
       `[Job ${job.id}] tenant=${job.data.tenantId} document-retention falhou: ${error.message}`,
       error.stack,
     );
+    captureException(error, {
+      tags: { queue: 'document-retention' },
+      extra: { jobId: job.id, tenantId: job.data.tenantId, attemptsMade: job.attemptsMade },
+    });
   }
 }

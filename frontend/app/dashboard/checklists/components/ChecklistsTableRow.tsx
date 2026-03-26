@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Checklist } from '@/services/checklistsService';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -176,8 +176,8 @@ export const ChecklistsTableRow = React.memo(({
                 "text-[var(--ds-color-action-primary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]",
                 analyzingId === checklist.id && "animate-pulse opacity-50"
               )}
-              title="Analisar com GST"
-              aria-label={`Analisar checklist ${checklist.titulo} com GST`}
+              title="Analisar com SGS"
+              aria-label={`Analisar checklist ${checklist.titulo} com SGS`}
             >
               <BrainCircuit className="h-4 w-4" />
             </Button>

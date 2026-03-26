@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   BadRequestException,
   UnauthorizedException,
@@ -553,7 +553,7 @@ export class AuthService {
     const html = `
       <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
         <div style="display: inline-block; margin-bottom: 16px; padding: 6px 10px; border-radius: 999px; background-color: #dbeafe; color: #1d4ed8; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-          &lt;GST&gt; Gestão de Segurança do Trabalho
+          SGS — Sistema de Gestão de Segurança
         </div>
         <h2 style="margin: 0 0 12px; color: #0f172a;">Redefinição de Senha</h2>
         <p>Olá, <strong>${user.nome || 'usuário'}</strong>.</p>
@@ -566,7 +566,7 @@ export class AuthService {
         </div>
         <p style="font-size: 13px; color: #475569;">Este link é válido por <strong>1 hora</strong>. Caso não tenha solicitado, ignore este e-mail; sua senha permanece inalterada.</p>
         <hr style="border: none; border-top: 1px solid #d9e2ec; margin: 24px 0;" />
-        <p style="font-size: 11px; color: #64748b;">© 2026 &lt;GST&gt; Gestão de Segurança do Trabalho · Todos os direitos reservados</p>
+        <p style="font-size: 11px; color: #64748b;">© 2026 SGS — Sistema de Gestão de Segurança · Todos os direitos reservados</p>
       </div>
     `;
 
@@ -581,14 +581,14 @@ export class AuthService {
       } else {
         const fromName =
           this.configService.get<string>('MAIL_FROM_NAME')?.trim() ||
-          'GST - Gestão de Segurança do Trabalho';
+          'SGS - Sistema de Gestão de Segurança';
         const fromEmail =
           this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() ||
           'onboarding@resend.dev';
         await resend.emails.send({
           from: `${fromName} <${fromEmail}>`,
           to: user.email,
-          subject: 'Redefinição de senha — GST',
+          subject: 'Redefinição de senha — SGS',
           text: `Acesse o link para redefinir sua senha: ${resetUrl}`,
           html,
         });

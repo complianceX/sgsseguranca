@@ -20,8 +20,8 @@ Requisição HTTP
 [Camada 2] TenantRateLimitGuard — por empresa (Redis)
      │   protege contra empresa abusando do sistema
      ▼
-[Camada 3] UserRateLimitGuard — por usuário (Redis, apenas IA)
-     │   protege o custo de LLM por usuário individual
+[Camada 3] UserRateLimitGuard — por usuário (Redis, rotas sensíveis)
+     │   protege endpoints custosos por usuário individual
      ▼
 Controller
 ```
@@ -71,7 +71,7 @@ Header: `Retry-After: <segundos>`
 
 ## Camada 2 — Rate Limit por Tenant (`TenantRateLimitGuard`)
 
-**Storage:** Redis (sliding window, Lua script atômico)
+**Storage:** Redis (contadores por minuto/hora com Lua script atômico)
 **Guard:** `TenantRateLimitGuard`
 **Registro:** `APP_GUARD` global
 
@@ -119,9 +119,9 @@ Headers: `X-RateLimit-Plan`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retr
 
 ---
 
-## Camada 3 — Rate Limit por Usuário para IA (`UserRateLimitGuard`)
+## Camada 3 — Rate Limit por Usuário em Rotas Sensíveis (`UserRateLimitGuard`)
 
-**Storage:** Redis (janela de 1 minuto por user_id + rota)
+**Storage:** Redis (sliding window de 60s por user_id + rota)
 **Guard:** `UserRateLimitGuard`
 **Registro:** `APP_GUARD` global — ativo apenas em rotas com `@UserThrottle`
 
@@ -133,19 +133,20 @@ Headers: `X-RateLimit-Plan`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retr
 | `POST /ai/sst/analyze-image-risk` | 5 req/min por usuário |
 | `POST /ai/analyze-apr` | 5 req/min por usuário |
 | `POST /ai/analyze-pt` | 5 req/min por usuário |
+| `GET /users/me/export` | 3 req/min por usuário |
 
 ### Adicionar a novo endpoint
 
 ```typescript
 @UserThrottle({ requestsPerMinute: 5 })
-@Post('minha-rota-de-ia')
-async minhaRotaDeIa() { ... }
+@Post('minha-rota-sensivel')
+async minhaRotaSensivel() { ... }
 ```
 
 ### Chaves Redis
 
 ```
-user_rl:{userId}:{method}:{path}:{window}   TTL: 60s
+user_rl:{userId}:{method}:{path}   TTL: 60s
 ```
 
 ### Resposta 429
@@ -153,7 +154,7 @@ user_rl:{userId}:{method}:{path}:{window}   TTL: 60s
 ```json
 {
   "statusCode": 429,
-  "message": "Limite de 10 requisições/minuto para IA excedido. Aguarde 45s antes de tentar novamente.",
+  "message": "Limite de 10 requisições/minuto por usuário excedido. Aguarde 45s antes de tentar novamente.",
   "retryAfter": 45
 }
 ```
@@ -187,7 +188,8 @@ Retorna snapshot dos contadores Redis:
     "active_user_windows": 5,
     "requests_by_route": {
       "POST:/ai/sst/chat": 47,
-      "POST:/ai/analyze-apr": 12
+      "POST:/ai/analyze-apr": 12,
+      "GET:/users/me/export": 3
     }
   }
 }

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192" fill="none">
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192" fill="none">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="192" y2="192" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#1E5EFF"/>
@@ -22,6 +22,6 @@
     letter-spacing="1.5"
     fill="#F6C453"
   >
-    GST
+    SGS
   </text>
 </svg>

@@ -1,9 +1,9 @@
-import type { MetadataRoute } from 'next';
+﻿import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: '<GST> GESTÃO DE SEGURANÇA DO TRABALHO',
-    short_name: 'GST',
+    name: 'SGS - Sistema de Gestão de Segurança',
+    short_name: 'SGS',
     description: 'Sistema inteligente de gestão de Segurança e Saúde no Trabalho',
     lang: 'pt-BR',
     start_url: '/dashboard',

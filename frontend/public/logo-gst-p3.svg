@@ -1,4 +1,4 @@
-<!-- PALETA 3: Premium Dark — Fundo escuro, engrenagem grafite, capacete âmbar, swoosh verde-neon -->
+﻿<!-- PALETA 3: Premium Dark — Fundo escuro, engrenagem grafite, capacete âmbar, swoosh verde-neon -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 540" fill="none">
   <defs>
     <mask id="hub3">
@@ -56,12 +56,12 @@
     stroke="#4ade80" stroke-width="46" fill="none" stroke-linecap="round" opacity="0.80"
     clip-path="url(#front3)"/>
 
-  <!-- Texto GST branco -->
+  <!-- Texto SGS branco -->
   <text x="250" y="476"
     text-anchor="middle"
     font-family="Inter,Arial Black,Roboto,sans-serif"
     font-size="124" font-weight="900"
-    fill="#f8fafc" letter-spacing="6">GST</text>
+    fill="#f8fafc" letter-spacing="6">SGS</text>
 
   <!-- Sombra verde-neon embaixo -->
   <ellipse cx="250" cy="494" rx="150" ry="9" fill="#4ade80" opacity="0.50"/>

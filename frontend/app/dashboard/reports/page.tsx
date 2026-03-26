@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
@@ -561,7 +561,7 @@ export default function ReportsPage() {
               Centro de geracao e envio
             </Badge>
             <div>
-              <CardTitle className="text-xl">Relatórios &lt;GST&gt;</CardTitle>
+              <CardTitle className="text-xl">Relatórios SGS</CardTitle>
               <CardDescription className="mt-1 max-w-3xl">
                 Gere PDFs, acompanhe a fila de processamento, revise o histórico documental e
                 monitore envios por e-mail em uma central operacional única.
@@ -928,7 +928,7 @@ export default function ReportsPage() {
                   <div className="mb-2 flex items-center gap-1.5">
                     <BrainCircuit className="h-3.5 w-3.5 text-[var(--color-primary)]" />
                     <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-primary)]">
-                      Insight &lt;GST&gt;
+                      Insight SGS
                     </span>
                   </div>
                   <p className="line-clamp-4 text-[12px] leading-relaxed text-[var(--color-text-secondary)]">

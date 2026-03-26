@@ -3,8 +3,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-preDeployCommand = "npm run release:migrate"
-startCommand = "npm run start:web"
+preDeployCommand = "/bin/sh -lc 'if [ \"$APP_RUNTIME\" != \"worker\" ]; then npm run release:migrate; else echo \"Skipping migrations for worker runtime\"; fi'"
+startCommand = "/bin/sh -lc 'if [ \"$APP_RUNTIME\" = \"worker\" ]; then npm run start:worker; else npm run start:web; fi'"
 healthcheckPath = "/health/public"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
+﻿import { useState, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
 import { checklistsService, Checklist } from '@/services/checklistsService';
 import { signaturesService } from '@/services/signaturesService';
 import { generateChecklistPdf } from '@/lib/pdf/checklistGenerator';
@@ -186,7 +186,7 @@ export function useChecklists() {
       setAnalyzingId(id);
       const result = await aiService.analyzeChecklist(id);
       
-      toast.success('Análise do GST concluída!', {
+      toast.success('Análise do SGS concluída!', {
         description: (
           <div className="mt-2 space-y-2 max-h-[300px] overflow-y-auto pr-2">
             <p className="font-bold text-[var(--ds-color-text-primary)]">{result.summary}</p>
@@ -205,7 +205,7 @@ export function useChecklists() {
         duration: 8000,
       });
     } catch (error) {
-      handleApiError(error, 'Análise GST');
+      handleApiError(error, 'Análise SGS');
     } finally {
       setAnalyzingId(null);
     }

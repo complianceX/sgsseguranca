@@ -11,6 +11,7 @@ import { StorageService } from '../common/services/storage.service';
 import { MetricsService } from '../common/observability/metrics.service';
 import { TenantQuotaService } from '../common/queue/tenant-quota.service';
 import { getPdfGenerationConcurrency } from '../common/services/pdf-runtime-config';
+import { captureException } from '../common/monitoring/sentry';
 
 interface PdfGenerationJobData {
   reportType: string;
@@ -193,6 +194,11 @@ export class PdfProcessor extends WorkerHost {
     );
 
     if (!isFinal) return;
+
+    captureException(error, {
+      tags: { queue: 'pdf-generation', jobName: job.name },
+      extra: { jobId: job.id, companyId: jobData?.companyId, attemptsMade: job.attemptsMade },
+    });
 
     try {
       const deadLetterPayload: DeadLetterPayload = {

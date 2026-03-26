@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -239,12 +239,12 @@ export function DdsForm({ id }: DdsFormProps) {
       setValue("tema", result.tema);
       setValue("conteudo", result.conteudo);
 
-      toast.success("GST sugeriu um tema para o DDS!", {
+      toast.success("SGS sugeriu um tema para o DDS!", {
         description: result.explanation,
         duration: 5000,
       });
     } catch (error) {
-      console.error("Erro na sugestão do GST:", error);
+      console.error("Erro na sugestão do SGS:", error);
       toast.error("Não foi possível obter uma sugestão no momento.");
     } finally {
       setSuggesting(false);
@@ -848,7 +848,7 @@ export function DdsForm({ id }: DdsFormProps) {
                 ) : (
                   <Sparkles className="h-4 w-4" />
                 )}
-                <span>Sugerir Tema com GST</span>
+                <span>Sugerir Tema com SGS</span>
               </button>
             )}
           </div>

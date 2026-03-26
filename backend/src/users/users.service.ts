@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -17,6 +17,7 @@ import { PasswordService } from '../common/services/password.service';
 import { CpfUtil } from '../common/utils/cpf.util';
 import { USER_WITH_PASSWORD_FIELDS } from './constants/user-fields.constant';
 import { UserResponseDto } from './dto/user-response.dto';
+import { ExportMyDataResponseDto } from './dto/export-my-data-response.dto';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/enums/audit-action.enum';
 import { RequestContext } from '../common/middleware/request-context.middleware';
@@ -430,5 +431,64 @@ export class UsersService {
     });
 
     return { ai_processing_consent: consent };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Data Portability (LGPD Art. 20)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Exporta os dados pessoais do próprio usuário em formato estruturado.
+   * Registra trilha de auditoria com AuditAction.DATA_PORTABILITY.
+   * Nunca expõe hash de senha, PIN ou salts.
+   */
+  async exportMyData(userId: string): Promise<ExportMyDataResponseDto> {
+    const tenantId = this.tenantService.getTenantId();
+
+    const user = await this.usersRepository.findOne({
+      where: tenantId ? { id: userId, company_id: tenantId } : { id: userId },
+      relations: ['profile', 'site'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    const ip = (RequestContext.get('ip') as string) || 'unknown';
+    const userAgent = (RequestContext.get('userAgent') as string) || 'system';
+    const exportedAt = new Date().toISOString();
+
+    await this.auditService.log({
+      userId,
+      action: AuditAction.DATA_PORTABILITY,
+      entity: 'USER',
+      entityId: userId,
+      changes: { exportedAt },
+      ip,
+      userAgent,
+      companyId: tenantId || user.company_id,
+    });
+
+    return {
+      exportedAt,
+      dataController: 'SGS — Sistema de Gestão de Segurança',
+      legalBasis: 'LGPD Art. 20 — Portabilidade de dados pessoais',
+      profile: {
+        id: user.id,
+        nome: user.nome,
+        cpf: user.cpf,
+        email: user.email,
+        funcao: user.funcao,
+        status: user.status,
+        ai_processing_consent: user.ai_processing_consent,
+        profile: user.profile
+          ? { id: user.profile.id, nome: user.profile.nome }
+          : null,
+        site: user.site ? { id: user.site.id, nome: user.site.nome } : null,
+        company_id: user.company_id,
+        created_at: user.created_at.toISOString(),
+        updated_at: user.updated_at.toISOString(),
+      },
+    };
   }
 }

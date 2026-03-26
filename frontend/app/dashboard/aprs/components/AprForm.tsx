@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   ChangeEvent,
@@ -1146,7 +1146,7 @@ export function AprForm({ id }: AprFormProps) {
     const descricao = watch("descricao");
 
     if (!titulo && !descricao) {
-      toast.error("Preencha o título ou descrição para a análise do GST.");
+      toast.error("Preencha o título ou descrição para a análise do SGS.");
       return;
     }
 
@@ -1164,12 +1164,12 @@ export function AprForm({ id }: AprFormProps) {
         setValue("epis", [...new Set([...selectedEpiIds, ...result.epis])]);
       }
 
-      toast.success("GST analisou a atividade e sugeriu riscos e EPIs!", {
+      toast.success("SGS analisou a atividade e sugeriu riscos e EPIs!", {
         description: result.explanation,
         duration: 5000,
       });
     } catch (error) {
-      console.error("Erro na análise do GST:", error);
+      console.error("Erro na análise do SGS:", error);
       toast.error("Não foi possível realizar a análise no momento.");
     } finally {
       setAnalyzing(false);
@@ -2695,7 +2695,7 @@ export function AprForm({ id }: AprFormProps) {
                       ) : (
                         <Sparkles className="h-4 w-4 group-hover:rotate-12 transition-transform" />
                       )}
-                      <span>Analisar com GST</span>
+                      <span>Analisar com SGS</span>
                     </button>
                   )}
                 </div>

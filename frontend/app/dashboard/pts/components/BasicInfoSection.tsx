@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
@@ -80,7 +80,7 @@ export function BasicInfoSection({
             variant="outline"
             leftIcon={analyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           >
-            GST
+            SGS
           </Button>
         )}
       </div>

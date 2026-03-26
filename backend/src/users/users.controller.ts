@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   Query,
   Req,
+  UnauthorizedException,
 } from '@nestjs/common';
 import type { Request as ExpressRequest } from 'express';
 import {
@@ -34,10 +35,12 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateAiConsentDto } from './dto/update-ai-consent.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { ExportMyDataResponseDto } from './dto/export-my-data-response.dto';
 import { Authorize } from '../auth/authorize.decorator';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { AuditAction as ForensicAuditAction } from '../common/decorators/audit-action.decorator';
 import { OffsetPage } from '../common/utils/offset-pagination.util';
+import { UserThrottle } from '../common/decorators/user-throttle.decorator';
 
 type AuthenticatedRequest = ExpressRequest & { user?: { sub?: string } };
 
@@ -54,6 +57,36 @@ export class UsersController {
   ) {}
 
   /**
+   * GET /users/me/export
+   *
+   * Exporta os dados pessoais do usuário autenticado (LGPD Art. 20 — Portabilidade).
+   * Retorna JSON estruturado com todos os dados pessoais sem segredos (senha, PIN).
+   * Registra trilha de auditoria com AuditAction.DATA_PORTABILITY.
+   *
+   * Rate limit: 3 req/min por usuário (export é operação custosa — I/O + auditoria).
+   */
+  @Get('me/export')
+  @UserThrottle({ requestsPerMinute: 3 })
+  @ApiOperation({ summary: 'Exportar meus dados pessoais (LGPD Art. 20)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Dados pessoais exportados com sucesso',
+    type: ExportMyDataResponseDto,
+  })
+  @ApiResponse({ status: 401, description: 'Não autenticado' })
+  @ApiResponse({ status: 404, description: 'Usuário não encontrado' })
+  @ApiResponse({ status: 429, description: 'Rate limit excedido (3 req/min)' })
+  async exportMyData(
+    @Req() req: AuthenticatedRequest,
+  ): Promise<ExportMyDataResponseDto> {
+    const userId = req.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Usuário não autenticado.');
+    }
+    return this.usersService.exportMyData(userId);
+  }
+
+  /**
    * PATCH /users/me/ai-consent
    *
    * Atualiza o consentimento do usuário autenticado para processamento por IA (LGPD).
@@ -66,7 +99,7 @@ export class UsersController {
   ) {
     const userId = req.user?.sub;
     if (!userId) {
-      throw new Error('Usuário não autenticado.');
+      throw new UnauthorizedException('Usuário não autenticado.');
     }
     return this.usersService.updateAiConsent(userId, dto.consent);
   }

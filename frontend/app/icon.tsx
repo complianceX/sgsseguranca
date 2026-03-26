@@ -1,4 +1,4 @@
-import { ImageResponse } from 'next/og';
+﻿import { ImageResponse } from 'next/og';
 
 export const sizes = [192, 512];
 export const contentType = 'image/png';
@@ -35,7 +35,7 @@ export default function Icon() {
           letterSpacing: '2px',
         }}
       >
-        GST
+        SGS
       </div>
     </div>,
     {

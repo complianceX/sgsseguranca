@@ -31,7 +31,7 @@ export class RateLimitsAdminController {
    * Retorna estatísticas agregadas de rate limiting:
    * - Contagem de chaves IP ativas no ThrottlerModule (Redis)
    * - Contagem de chaves de tenant ativos
-   * - Top usuários de IA (user_rl:*)
+   * - Top rotas com rate limit por usuário (user_rl:*)
    * - Violações recentes (tenant_rate_limit_exceeded)
    */
   @Get('status')
@@ -144,13 +144,14 @@ export class RateLimitsAdminController {
     // Agregar contadores por rota
     const routeCounts: Record<string, number> = {};
     if (userKeys.length > 0) {
-      const values = await this.redis.mget(...userKeys);
+      const values = await Promise.all(
+        userKeys.map((key) => this.redis.zcard(key)),
+      );
       for (let i = 0; i < userKeys.length; i++) {
-        // user_rl:{userId}:{method}:{path}:{window}
+        // user_rl:{userId}:{method}:{path}
         const parts = userKeys[i].split(':');
-        const route = parts.slice(2, -1).join(':');
-        routeCounts[route] =
-          (routeCounts[route] ?? 0) + parseInt(values[i] ?? '0', 10);
+        const route = parts.slice(2).join(':');
+        routeCounts[route] = (routeCounts[route] ?? 0) + Number(values[i] ?? 0);
       }
     }
 

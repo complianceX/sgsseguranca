@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+﻿import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Apr } from '../aprs/entities/apr.entity';
@@ -134,7 +134,7 @@ export class ReportsService {
 <body>
   <div class="page">
     <div class="header">
-      <h1 class="title">Relatório &lt;GST&gt; - {{periodo}}</h1>
+      <h1 class="title">Relatório SGS - {{periodo}}</h1>
       <div class="subtitle">Relatório executivo de desempenho documental e conformidade</div>
       <div class="document-chip">
         <div class="k">Emissão documental</div>
@@ -187,7 +187,7 @@ export class ReportsService {
     </div>
 
     <div class="footer">
-      <span>Sistema &lt;GST&gt; Gestão de Segurança do Trabalho</span>
+      <span>SGS — Sistema de Gestão de Segurança</span>
       <span>Documento confidencial | Emissão digital</span>
     </div>
   </div>
@@ -389,7 +389,7 @@ export class ReportsService {
     };
 
     const analise_gandra = this.buildMonthlyAnalysis(year, month, estatisticas);
-    const titulo = `Relatório Mensal <GST> Gestão de Segurança do Trabalho - ${String(month).padStart(2, '0')}/${year}`;
+    const titulo = `Relatório Mensal SGS - ${String(month).padStart(2, '0')}/${year}`;
     const descricao =
       'Relatório consolidado com indicadores mensais de APR, PT, DDS, checklists, treinamentos e vencimentos de EPI.';
 

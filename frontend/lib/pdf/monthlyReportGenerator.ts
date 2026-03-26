@@ -1,4 +1,4 @@
-import jsPDF from "jspdf";
+﻿import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -49,7 +49,7 @@ function buildGeneratedAt(value: string) {
 }
 
 function buildMonthlyReportFilename(report: MonthlyReportPdfSource) {
-  return `Relatorio_GST_Gestao_Seguranca_Trabalho_${report.mes}_${report.ano}.pdf`;
+  return `Relatorio_SGS_Gestao_Seguranca_Trabalho_${report.mes}_${report.ano}.pdf`;
 }
 
 function resolveStatusSignal(report: MonthlyReportPdfSource) {
@@ -285,7 +285,7 @@ export function generateMonthlyReportPdf(
 
   drawNarrativeSection(ctx, {
     title: "Governanca documental",
-    content: `Documento ${code} emitido pelo sistema <GST> para ${companyName}, consolidando o periodo ${buildReportPeriod(report)} com leitura executiva e rastreabilidade institucional.`,
+    content: `Documento ${code} emitido pelo sistema SGS para ${companyName}, consolidando o periodo ${buildReportPeriod(report)} com leitura executiva e rastreabilidade institucional.`,
   });
 
   applyFooterGovernance(ctx, {

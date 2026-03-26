@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { IsCPF } from '../../common/validators/cpf.validator';
 
@@ -14,4 +14,11 @@ export class LoginDto {
   @IsNotEmpty({ message: 'Senha é obrigatória' })
   @MaxLength(256, { message: 'Senha excede o tamanho máximo permitido' })
   password: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096, {
+    message: 'Token de verificação de segurança excede o tamanho máximo permitido',
+  })
+  turnstileToken?: string;
 }

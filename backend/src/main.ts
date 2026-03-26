@@ -70,7 +70,10 @@ async function bootstrap() {
   const bootstrapLogger = createStructuredWinstonLogger(WEB_SERVICE_NAME);
 
   if (process.env.NEW_RELIC_ENABLED === 'true') {
-    await import('newrelic');
+    // New Relic deve ser carregado via require síncrono antes de qualquer
+    // outro módulo para instrumentar http, pg e demais libs corretamente.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('newrelic');
   }
 
   const sentryStatus = initSentry('backend-web');

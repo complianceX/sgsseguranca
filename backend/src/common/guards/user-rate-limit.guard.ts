@@ -18,6 +18,16 @@ type AuthedRequest = Request & {
   user?: { sub?: string; id?: string; userId?: string };
 };
 
+export const getUserRateLimitRoute = (request: Request): string => {
+  const routeValue = request.route as { path?: unknown } | undefined;
+  const routePath =
+    typeof routeValue?.path === 'string'
+      ? `${request.baseUrl || ''}${routeValue.path}`
+      : request.path;
+
+  return `${request.method}:${routePath}`;
+};
+
 /**
  * Guard de rate limit por usuário (user_id).
  *
@@ -49,19 +59,7 @@ export class UserRateLimitGuard implements CanActivate {
     // Sem userId autenticado — JwtAuthGuard tratará a autenticação
     if (!userId) return true;
 
-    let routePath = request.path;
-    const routeCandidate = request.route as unknown;
-    if (
-      typeof routeCandidate === 'object' &&
-      routeCandidate !== null &&
-      'path' in routeCandidate
-    ) {
-      const routeValue = (routeCandidate as { path?: unknown }).path;
-      if (typeof routeValue === 'string') {
-        routePath = routeValue;
-      }
-    }
-    const route = `${request.method}:${routePath}`;
+    const route = getUserRateLimitRoute(request);
     const result = await this.userRateLimitService.checkLimit(
       userId,
       route,
@@ -92,7 +90,7 @@ export class UserRateLimitGuard implements CanActivate {
       throw new HttpException(
         {
           statusCode: HttpStatus.TOO_MANY_REQUESTS,
-          message: `Limite de ${options.requestsPerMinute} requisições/minuto para IA excedido. Aguarde ${result.retryAfter ?? 60}s antes de tentar novamente.`,
+          message: `Limite de ${options.requestsPerMinute} requisições/minuto por usuário excedido. Aguarde ${result.retryAfter ?? 60}s antes de tentar novamente.`,
           retryAfter: result.retryAfter,
         },
         HttpStatus.TOO_MANY_REQUESTS,

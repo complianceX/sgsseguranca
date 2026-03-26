@@ -127,7 +127,8 @@ const queueInfraModules = isRedisDisabled
               connectTimeout: 10_000,
               enableReadyCheck: false,
               maxRetriesPerRequest: 1,
-              retryStrategy: () => undefined,
+              retryStrategy: (times: number) =>
+                Math.min(Math.max(times, 1) * 250, 2000),
             },
           };
         })(),
@@ -397,6 +398,9 @@ const validationSchema = Joi.object({
   SENTRY_DSN: Joi.string().uri().optional().allow(''),
   SENTRY_ENVIRONMENT: Joi.string().optional().allow(''),
   SENTRY_TRACES_SAMPLE_RATE: Joi.number().min(0).max(1).optional(),
+  TURNSTILE_ENABLED: Joi.boolean().default(false),
+  TURNSTILE_SECRET_KEY: Joi.string().optional().allow(''),
+  TURNSTILE_VERIFY_TIMEOUT_MS: Joi.number().default(5000),
   NEW_RELIC_ENABLED: Joi.boolean().default(false),
   AI_PROVIDER: Joi.string()
     .valid('openai', 'anthropic', 'gemini', 'stub', 'local')

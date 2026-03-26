@@ -9,7 +9,7 @@ import { EpisModule } from '../epis/epis.module';
 import { TrainingsModule } from '../trainings/trainings.module';
 import { PtsModule } from '../pts/pts.module';
 import { AprsModule } from '../aprs/aprs.module';
-import { ChecklistsModule } from '../checklists/checklists.module';
+import { Checklist } from '../checklists/entities/checklist.entity';
 import { NonConformitiesModule } from '../nonconformities/nonconformities.module';
 import { DdsModule } from '../dds/dds.module';
 import { InspectionsModule } from '../inspections/inspections.module';
@@ -25,13 +25,12 @@ import {
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([MailLog, Cat]),
+    TypeOrmModule.forFeature([MailLog, Cat, Checklist]),
     ...(isRedisDisabled ? [] : [BullModule.registerQueue({ name: 'mail' })]),
     EpisModule,
     TrainingsModule,
     PtsModule,
     AprsModule,
-    forwardRef(() => ChecklistsModule),
     NonConformitiesModule,
     DdsModule,
     InspectionsModule,

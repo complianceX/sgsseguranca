@@ -1,6 +1,6 @@
-:root {
+﻿:root {
   /* ═══════════════════════════════════════════════════════════════
-     GST ENTERPRISE PALETTE — "White Ledger"
+     SGS ENTERPRISE PALETTE — "White Ledger"
      ───────────────────────────────────────────────────────────────
      Direção visual:
        · Fundo branco predominante
@@ -35,7 +35,7 @@
   --brand-title: #0b1324;
   --brand-text-primary: #243447;
   --brand-text-secondary: #526277;
-  --brand-text-muted: #7c8ca3;
+  --brand-text-muted: #637185;
   --brand-border-default: #d9e2ec;
   --brand-border-strong: #c5d0dd;
   --brand-success: #15803d;
@@ -190,7 +190,7 @@
 
   --component-field-bg: var(--ds-color-surface-base);
   --component-field-bg-subtle: var(--ds-color-surface-muted);
-  --component-field-border: var(--ds-color-border-strong);
+  --component-field-border: var(--ds-color-border-input, var(--ds-color-border-strong));
   --component-field-border-subtle: var(--ds-color-border-default);
   --component-field-border-focus: var(--ds-color-focus);
   --component-field-shadow: var(--ds-shadow-xs);

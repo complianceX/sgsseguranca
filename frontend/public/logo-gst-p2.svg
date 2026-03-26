@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 540" fill="none">
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 540" fill="none">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="500" y2="540" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#1B6F94"/>
@@ -34,7 +34,7 @@
     letter-spacing="6"
     fill="#102033"
   >
-    GST
+    SGS
   </text>
   <text
     x="250"
@@ -46,6 +46,6 @@
     letter-spacing="2"
     fill="#5A6C82"
   >
-    Gestão de Segurança do Trabalho
+    Sistema de Gestão de Segurança
   </text>
 </svg>

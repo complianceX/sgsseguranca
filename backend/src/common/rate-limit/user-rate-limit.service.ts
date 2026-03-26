@@ -1,11 +1,25 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import { Redis } from 'ioredis';
+import { randomUUID } from 'crypto';
 
-const INCR_WITH_TTL = `
-  local c = redis.call('INCR', KEYS[1])
-  if c == 1 then redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1])) end
-  return c
+const USER_WINDOW_MS = 60_000;
+const USER_WINDOW_TTL_SECONDS = 60;
+
+const SLIDING_WINDOW_SCRIPT = `
+  redis.call('ZREMRANGEBYSCORE', KEYS[1], 0, tonumber(ARGV[1]) - tonumber(ARGV[2]))
+  redis.call('ZADD', KEYS[1], tonumber(ARGV[1]), ARGV[3])
+  redis.call('EXPIRE', KEYS[1], tonumber(ARGV[4]))
+
+  local count = redis.call('ZCARD', KEYS[1])
+  local first = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
+  local earliest = ARGV[1]
+
+  if first[2] then
+    earliest = first[2]
+  end
+
+  return {count, earliest}
 `;
 
 export interface UserRateLimitResult {
@@ -16,11 +30,11 @@ export interface UserRateLimitResult {
 }
 
 /**
- * Rate limiting por user_id via Redis sliding window (janela de 1 minuto).
+ * Rate limiting por user_id via Redis sliding window de 60 segundos.
  *
- * Cada rota tem sua própria chave: user_rl:{userId}:{route}:{window}.
- * A janela é o minuto atual (timestamp / 60000), garantindo expiração
- * automática sem acúmulo de chaves no Redis.
+ * Cada rota tem sua própria chave: user_rl:{userId}:{route}.
+ * O conjunto ordenado armazena timestamps individuais, permitindo
+ * bloquear bursts reais sem a distorção de janelas fixas por minuto.
  */
 @Injectable()
 export class UserRateLimitService {
@@ -38,30 +52,37 @@ export class UserRateLimitService {
     limit: number,
   ): Promise<UserRateLimitResult> {
     const now = Date.now();
-    const window = Math.floor(now / 60_000);
-    const key = `user_rl:${userId}:${route}:${window}`;
+    const key = `user_rl:${userId}:${route}`;
+    const member = `${now}:${randomUUID()}`;
 
-    const count = (await this.redis.eval(
-      INCR_WITH_TTL,
+    const [countRaw, earliestRaw] = (await this.redis.eval(
+      SLIDING_WINDOW_SCRIPT,
       1,
       key,
-      '60',
-    )) as number;
+      String(now),
+      String(USER_WINDOW_MS),
+      member,
+      String(USER_WINDOW_TTL_SECONDS),
+    )) as [number | string, number | string];
+
+    const count = Number(countRaw);
+    const earliestScore = Number(earliestRaw);
+    const resetAt = earliestScore + USER_WINDOW_MS;
 
     if (count > limit) {
-      const retryAfter = 60 - Math.floor((now % 60_000) / 1000);
+      const retryAfter = Math.max(1, Math.ceil((resetAt - now) / 1000));
       return {
         allowed: false,
         remaining: 0,
-        resetAt: (window + 1) * 60_000,
+        resetAt,
         retryAfter,
       };
     }
 
     return {
       allowed: true,
-      remaining: limit - count,
-      resetAt: (window + 1) * 60_000,
+      remaining: Math.max(0, limit - count),
+      resetAt,
     };
   }
 
@@ -74,13 +95,13 @@ export class UserRateLimitService {
     routes: string[],
   ): Promise<Record<string, number>> {
     const now = Date.now();
-    const window = Math.floor(now / 60_000);
+    const minScoreExclusive = `(${now - USER_WINDOW_MS}`;
 
     const entries = await Promise.all(
       routes.map(async (route) => {
-        const key = `user_rl:${userId}:${route}:${window}`;
-        const val = await this.redis.get(key);
-        return [route, parseInt(val ?? '0', 10)] as const;
+        const key = `user_rl:${userId}:${route}`;
+        const val = await this.redis.zcount(key, minScoreExclusive, '+inf');
+        return [route, Number(val)] as const;
       }),
     );
 

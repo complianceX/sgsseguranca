@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   HttpException,
   Injectable,
@@ -114,7 +114,7 @@ export class DocumentBundleService {
       color: rgb(0.97, 0.98, 0.99),
     });
 
-    coverPage.drawText('GST', {
+    coverPage.drawText('SGS', {
       x: 48,
       y: height - 72,
       size: 24,

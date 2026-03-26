@@ -1,16 +1,17 @@
 export function isAiEnabled(): boolean {
-  // Default ON: a SOPHIE deve ser parte visível do produto e só some quando
-  // houver desligamento explícito do frontend.
-  const raw = (process.env.NEXT_PUBLIC_FEATURE_AI_ENABLED || 'true')
+  // BLOQUEADO: default OFF até DPA OpenAI assinado (LGPD Art. 7 — base legal para
+  // transferência internacional de dados pessoais). Ativar explicitamente via env:
+  // NEXT_PUBLIC_FEATURE_AI_ENABLED=true
+  const raw = (process.env.NEXT_PUBLIC_FEATURE_AI_ENABLED || 'false')
     .trim()
     .toLowerCase();
-  return raw !== 'false';
+  return raw === 'true';
 }
 
 export function isSophieAutomationPhase1Enabled(): boolean {
-  // Default ON: habilita automação assistida da SOPHIE, podendo desligar por env se necessário.
-  const raw = (process.env.NEXT_PUBLIC_SOPHIE_AUTOMATION_PHASE1_ENABLED || 'true')
+  // BLOQUEADO: default OFF junto com isAiEnabled().
+  const raw = (process.env.NEXT_PUBLIC_SOPHIE_AUTOMATION_PHASE1_ENABLED || 'false')
     .trim()
     .toLowerCase();
-  return raw !== 'false';
+  return raw === 'true';
 }

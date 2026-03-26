@@ -1,4 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
+﻿import { Test, TestingModule } from '@nestjs/testing';
 import { MailService } from './mail.service';
 import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -8,7 +8,7 @@ import { EpisService } from '../epis/epis.service';
 import { TrainingsService } from '../trainings/trainings.service';
 import { PtsService } from '../pts/pts.service';
 import { AprsService } from '../aprs/aprs.service';
-import { ChecklistsService } from '../checklists/checklists.service';
+import { Checklist } from '../checklists/entities/checklist.entity';
 import { NonConformitiesService } from '../nonconformities/nonconformities.service';
 import { DdsService } from '../dds/dds.service';
 import { InspectionsService } from '../inspections/inspections.service';
@@ -103,6 +103,9 @@ describe('MailService', () => {
   const mockCatsRepository = {
     findOne: jest.fn(),
   };
+  const mockChecklistRepository = {
+    findOne: jest.fn(),
+  };
 
   // Mock dos serviços de domínio
   const mockDomainService = {
@@ -150,7 +153,10 @@ describe('MailService', () => {
         { provide: TrainingsService, useValue: mockDomainService },
         { provide: PtsService, useValue: mockDomainService },
         { provide: AprsService, useValue: mockDomainService },
-        { provide: ChecklistsService, useValue: mockDomainService },
+        {
+          provide: getRepositoryToken(Checklist),
+          useValue: mockChecklistRepository,
+        },
         { provide: NonConformitiesService, useValue: mockDomainService },
         { provide: DdsService, useValue: mockDomainService },
         { provide: InspectionsService, useValue: mockDomainService },
@@ -310,7 +316,7 @@ describe('MailService', () => {
         get: jest.fn((key: string) => {
           if (key === 'BREVO_API_KEY') return 'brevo-key';
           if (key === 'MAIL_FROM_EMAIL') return 'test@example.com';
-          if (key === 'MAIL_FROM_NAME') return 'GST';
+          if (key === 'MAIL_FROM_NAME') return 'SGS';
           if (key === 'BREVO_EMAIL_TIMEOUT_MS') return '30000';
           return null;
         }),
@@ -336,7 +342,10 @@ describe('MailService', () => {
           { provide: TrainingsService, useValue: mockDomainService },
           { provide: PtsService, useValue: mockDomainService },
           { provide: AprsService, useValue: mockDomainService },
-          { provide: ChecklistsService, useValue: mockDomainService },
+          {
+          provide: getRepositoryToken(Checklist),
+          useValue: mockChecklistRepository,
+        },
           { provide: NonConformitiesService, useValue: mockDomainService },
           { provide: DdsService, useValue: mockDomainService },
           { provide: InspectionsService, useValue: mockDomainService },
@@ -398,7 +407,7 @@ describe('MailService', () => {
         get: jest.fn((key: string) => {
           if (key === 'BREVO_API_KEY') return 'brevo-key';
           if (key === 'MAIL_FROM_EMAIL') return 'test@example.com';
-          if (key === 'MAIL_FROM_NAME') return 'GST';
+          if (key === 'MAIL_FROM_NAME') return 'SGS';
           if (key === 'BREVO_EMAIL_TIMEOUT_MS') return '30000';
           return null;
         }),
@@ -424,7 +433,10 @@ describe('MailService', () => {
           { provide: TrainingsService, useValue: mockDomainService },
           { provide: PtsService, useValue: mockDomainService },
           { provide: AprsService, useValue: mockDomainService },
-          { provide: ChecklistsService, useValue: mockDomainService },
+          {
+          provide: getRepositoryToken(Checklist),
+          useValue: mockChecklistRepository,
+        },
           { provide: NonConformitiesService, useValue: mockDomainService },
           { provide: DdsService, useValue: mockDomainService },
           { provide: InspectionsService, useValue: mockDomainService },
@@ -500,7 +512,7 @@ describe('MailService', () => {
         get: jest.fn((key: string) => {
           if (key === 'BREVO_API_KEY') return 'brevo-key';
           if (key === 'MAIL_FROM_EMAIL') return 'test@example.com';
-          if (key === 'MAIL_FROM_NAME') return 'GST';
+          if (key === 'MAIL_FROM_NAME') return 'SGS';
           if (key === 'BREVO_EMAIL_TIMEOUT_MS') return '30000';
           return null;
         }),
@@ -526,7 +538,10 @@ describe('MailService', () => {
           { provide: TrainingsService, useValue: mockDomainService },
           { provide: PtsService, useValue: mockDomainService },
           { provide: AprsService, useValue: mockDomainService },
-          { provide: ChecklistsService, useValue: mockDomainService },
+          {
+          provide: getRepositoryToken(Checklist),
+          useValue: mockChecklistRepository,
+        },
           { provide: NonConformitiesService, useValue: mockDomainService },
           { provide: DdsService, useValue: mockDomainService },
           { provide: InspectionsService, useValue: mockDomainService },
@@ -585,7 +600,7 @@ describe('MailService', () => {
         get: jest.fn((key: string) => {
           if (key === 'BREVO_API_KEY') return 'brevo-key';
           if (key === 'MAIL_FROM_EMAIL') return 'test@example.com';
-          if (key === 'MAIL_FROM_NAME') return 'GST';
+          if (key === 'MAIL_FROM_NAME') return 'SGS';
           if (key === 'BREVO_EMAIL_TIMEOUT_MS') return '30000';
           return null;
         }),
@@ -620,7 +635,10 @@ describe('MailService', () => {
           { provide: TrainingsService, useValue: mockDomainService },
           { provide: PtsService, useValue: mockDomainService },
           { provide: AprsService, useValue: mockDomainService },
-          { provide: ChecklistsService, useValue: mockDomainService },
+          {
+          provide: getRepositoryToken(Checklist),
+          useValue: mockChecklistRepository,
+        },
           { provide: NonConformitiesService, useValue: mockDomainService },
           { provide: DdsService, useValue: mockDomainService },
           { provide: InspectionsService, useValue: mockDomainService },
@@ -708,7 +726,7 @@ describe('MailService', () => {
             case 'MAIL_FROM_EMAIL':
               return 'test@example.com';
             case 'MAIL_FROM_NAME':
-              return 'GST';
+              return 'SGS';
             default:
               return null;
           }
@@ -735,7 +753,10 @@ describe('MailService', () => {
           { provide: TrainingsService, useValue: mockDomainService },
           { provide: PtsService, useValue: mockDomainService },
           { provide: AprsService, useValue: mockDomainService },
-          { provide: ChecklistsService, useValue: mockDomainService },
+          {
+          provide: getRepositoryToken(Checklist),
+          useValue: mockChecklistRepository,
+        },
           { provide: NonConformitiesService, useValue: mockDomainService },
           { provide: DdsService, useValue: mockDomainService },
           { provide: InspectionsService, useValue: mockDomainService },

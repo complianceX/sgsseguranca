@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
@@ -1370,7 +1370,7 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
       <div className="hidden print:mb-8 print:block">
         <div className="border-b border-[var(--ds-color-border-subtle)] pb-4 text-center">
           <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
-            GST
+            SGS
           </h1>
           <h2 className="text-xl text-[var(--ds-color-text-secondary)]">
             {tituloValue}

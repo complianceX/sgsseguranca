@@ -19,7 +19,7 @@ interface AuthContextType {
   permissions: string[];
   isAdminGeral: boolean;
   hasPermission: (permission: string) => boolean;
-  login: (cpf: string, password: string) => Promise<void>;
+  login: (cpf: string, password: string, turnstileToken?: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -82,9 +82,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const login = async (cpf: string, password: string) => {
+  const login = async (
+    cpf: string,
+    password: string,
+    turnstileToken?: string,
+  ) => {
     try {
-      const data = await authService.login(cpf, password);
+      const data = await authService.login(cpf, password, turnstileToken);
 
       if (!data.accessToken) {
         throw new Error('Access token ausente na resposta de login.');

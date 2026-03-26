@@ -1,3 +1,12 @@
+import * as path from 'path';
+import * as dotenv from 'dotenv';
+import * as http from 'http';
+
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+// UV_THREADPOOL_SIZE deve ser definido antes do primeiro uso do thread pool.
+process.env.UV_THREADPOOL_SIZE = process.env.UV_THREADPOOL_SIZE || '64';
+
 import { buildStructuredLoggerOptions } from './common/logging/structured-winston';
 import { createStructuredWinstonLogger } from './common/logging/structured-winston';
 import {
@@ -8,6 +17,68 @@ import { initSentry, type SentryInitStatus } from './common/monitoring/sentry';
 
 const WORKER_SERVICE_NAME = 'wanderson-gandra-worker';
 const WORKER_TELEMETRY_PORT = 9465;
+const WORKER_HEALTH_PATH = '/health/public';
+
+function getWorkerHealthPort(): number {
+  const port = Number(process.env.PORT || '8080');
+  return Number.isFinite(port) && port > 0 ? port : 8080;
+}
+
+function startWorkerHealthServer(
+  logger: ReturnType<typeof createStructuredWinstonLogger>,
+) {
+  const port = getWorkerHealthPort();
+  const server = http.createServer((request, response) => {
+    if (request.url === '/health' || request.url === WORKER_HEALTH_PATH) {
+      response.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+      });
+      response.end(
+        JSON.stringify({
+          status: 'ok',
+          runtime: 'worker',
+          timestamp: new Date().toISOString(),
+        }),
+      );
+      return;
+    }
+
+    response.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+    response.end(JSON.stringify({ status: 'not_found' }));
+  });
+
+  server.on('error', (error) => {
+    logger.error({
+      event: 'worker_health_server_error',
+      errorName: error instanceof Error ? error.name : 'WorkerHealthServerError',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+  });
+
+  server.listen(port, () => {
+    logger.info({
+      event: 'worker_health_server_listening',
+      port,
+      healthPath: WORKER_HEALTH_PATH,
+    });
+  });
+
+  return {
+    port,
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      }),
+  };
+}
 
 function logObservabilityStatus(
   logger: ReturnType<typeof createStructuredWinstonLogger>,
@@ -29,6 +100,14 @@ function logObservabilityStatus(
 
 async function bootstrap() {
   const bootstrapLogger = createStructuredWinstonLogger(WORKER_SERVICE_NAME);
+
+  if (process.env.NEW_RELIC_ENABLED === 'true') {
+    // New Relic precisa ser carregado via require síncrono antes de qualquer
+    // outro módulo para instrumentar corretamente o runtime (patch em http, pg, etc).
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('newrelic');
+  }
+
   const { assertWorkerRedisContract } = await import('./worker-runtime.guard');
 
   assertWorkerRedisContract(process.env);
@@ -59,11 +138,50 @@ async function bootstrap() {
       buildStructuredLoggerOptions(WORKER_SERVICE_NAME),
     ),
   });
-  app.enableShutdownHooks();
+  const healthServer = startWorkerHealthServer(bootstrapLogger);
+  let isShuttingDown = false;
+
+  const shutdown = async (signal: NodeJS.Signals) => {
+    if (isShuttingDown) {
+      return;
+    }
+    isShuttingDown = true;
+
+    bootstrapLogger.info({
+      event: 'worker_shutdown_requested',
+      signal,
+    });
+
+    let exitCode = 0;
+
+    try {
+      await Promise.all([app.close(), healthServer.close()]);
+    } catch (error) {
+      exitCode = 1;
+      bootstrapLogger.error({
+        event: 'worker_shutdown_failed',
+        signal,
+        errorName:
+          error instanceof Error ? error.name : 'WorkerShutdownError',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+    }
+
+    process.exit(exitCode);
+  };
+
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => {
+      void shutdown(signal);
+    });
+  }
 
   bootstrapLogger.info({
     event: 'worker_booted',
     nodeEnv: process.env.NODE_ENV || 'development',
+    healthPath: WORKER_HEALTH_PATH,
+    healthPort: healthServer.port,
   });
 }
 

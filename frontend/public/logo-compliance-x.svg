@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="820" height="180" viewBox="0 0 820 180" fill="none">
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="820" height="180" viewBox="0 0 820 180" fill="none">
   <defs>
     <linearGradient id="gst-bg-legacy" x1="12" y1="12" x2="168" y2="168" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#1D4ED8" />
@@ -27,7 +27,7 @@
     fill="#F59E0B"
     letter-spacing="1"
   >
-    GST
+    SGS
   </text>
 
   <text
@@ -39,7 +39,7 @@
     fill="#F8FAFC"
     letter-spacing="1.2"
   >
-    &lt;GST&gt;
+    &lt;SGS&gt;
   </text>
   <text
     x="206"
@@ -50,6 +50,6 @@
     fill="#CBD5E1"
     letter-spacing="0.8"
   >
-    GESTÃO DE SEGURANÇA DO TRABALHO
+    SISTEMA DE GESTÃO DE SEGURANÇA
   </text>
 </svg>

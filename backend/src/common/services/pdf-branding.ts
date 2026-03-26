@@ -1,4 +1,4 @@
-import { jsPDF } from 'jspdf';
+﻿import { jsPDF } from 'jspdf';
 
 type PdfWithAutoTable = jsPDF & {
   lastAutoTable?: {
@@ -111,7 +111,7 @@ export function applyBackendPdfFooter(
     doc.setFontSize(7);
     doc.setTextColor(...backendPdfTheme.muted);
     doc.text(
-      options?.systemLabel || 'Sistema <GST> Gestão de Segurança do Trabalho',
+      options?.systemLabel || 'SGS — Sistema de Gestão de Segurança',
       marginX,
       pageHeight - 8,
     );

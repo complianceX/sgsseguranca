@@ -16,10 +16,15 @@ export interface RefreshAccessTokenResponse {
 }
 
 export const authService = {
-  login: async (cpf: string, password: string): Promise<AuthLoginResponse> => {
+  login: async (
+    cpf: string,
+    password: string,
+    turnstileToken?: string,
+  ): Promise<AuthLoginResponse> => {
     const response = await api.post<AuthLoginResponse>('/auth/login', {
       cpf,
       password,
+      turnstileToken,
     });
     return response.data;
   },

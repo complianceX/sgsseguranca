@@ -1,4 +1,4 @@
-import { type LucideIcon, AlertTriangle, Archive, ClipboardCheck, FileText, Radio, ShieldCheck, Stethoscope, Users } from 'lucide-react';
+﻿import { type LucideIcon, AlertTriangle, Archive, ClipboardCheck, FileText, Radio, ShieldCheck, Stethoscope, Users } from 'lucide-react';
 
 export type AiRouteContext = {
   title: string;
@@ -14,9 +14,9 @@ const defaultContext: AiRouteContext = {
   subtitle: 'Chat assistente para ideias, documentos, analise de imagem, riscos e orientacao tecnica.',
   icon: ShieldCheck,
   assistantIntro:
-    'Sou a SOPHIE da GST. Posso ajudar com ideias, montar APR, PT, NC e outros documentos, além de analisar imagens e orientar decisões operacionais.',
+    'Sou a SOPHIE da SGS. Posso ajudar com ideias, montar APR, PT, NC e outros documentos, além de analisar imagens e orientar decisões operacionais.',
   promptPrefix:
-    'Contexto atual: chat da SOPHIE prestando apoio geral de SST no SaaS <GST> Gestão de Segurança do Trabalho. Atue como suporte técnico para o TST, com foco em ideias práticas, construção de documentos e decisões operacionais objetivas.',
+    'Contexto atual: chat da SOPHIE prestando apoio geral de SST no sistema SGS — Sistema de Gestão de Segurança. Atue como suporte técnico para o TST, com foco em ideias práticas, construção de documentos e decisões operacionais objetivas.',
   suggestions: [
     'Analise os riscos desta foto e diga as acoes imediatas.',
     'Me ajude a montar um documento com base neste contexto.',

@@ -1,4 +1,4 @@
-import exec from 'k6/execution';
+﻿import exec from 'k6/execution';
 import http from 'k6/http';
 import { check, fail, group, sleep } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
@@ -483,7 +483,7 @@ export function handleSummary(data) {
   return {
     stdout: [
       '',
-      `=== GST Load Test (${profileLabel}) ===`,
+      `=== SGS Load Test (${profileLabel}) ===`,
       `Cenarios: ${summary.scenarios.join(', ')}`,
       `HTTP p95: ${formatTrendValue(
         data.metrics.http_req_duration?.values?.['p(95)'],

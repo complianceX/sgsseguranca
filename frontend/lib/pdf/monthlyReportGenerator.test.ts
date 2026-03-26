@@ -1,4 +1,4 @@
-import {
+﻿import {
   buildMonthlyReportMetadata,
   generateMonthlyReportPdf,
   paginateMonthlyReportLines,
@@ -60,7 +60,7 @@ describe('monthlyReportGenerator', () => {
 
     expect(result).toEqual(
       expect.objectContaining({
-        filename: expect.stringContaining('Relatorio_GST_Gestao_Seguranca_Trabalho'),
+        filename: expect.stringContaining('Relatorio_SGS_Gestao_Seguranca_Trabalho'),
         base64: expect.any(String),
       }),
     );

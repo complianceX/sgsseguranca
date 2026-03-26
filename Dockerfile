@@ -5,16 +5,18 @@ COPY backend/package*.json ./
 RUN npm ci
 COPY backend .
 RUN npm run build
+RUN npm prune --omit=dev && npm cache clean --force
 
 FROM node:20-bullseye-slim
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 WORKDIR /app
 COPY --from=builder /app/package*.json ./
-RUN npm ci --omit=dev
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
+COPY --from=builder /app/newrelic.js ./newrelic.js
 RUN chmod +x ./entrypoint.sh
 EXPOSE 8080
 ENTRYPOINT ["./entrypoint.sh"]

@@ -31,43 +31,52 @@ export class ThrottlerRedisStorageService implements ThrottlerStorage {
   ): Promise<ThrottlerStorageRecord> {
     const hitKey = `throttler:hit:${throttlerName}:${key}`;
     const blockKey = `throttler:block:${throttlerName}:${key}`;
+    try {
+      // Se já bloqueado, retornar estado de bloqueio sem incrementar
+      const blockTtlMs = await this.redis.pttl(blockKey);
+      if (blockTtlMs > 0) {
+        const rawHits = await this.redis.get(hitKey);
+        return {
+          totalHits: parseInt(rawHits ?? '0', 10),
+          timeToExpire: 0,
+          isBlocked: true,
+          timeToBlockExpire: Math.ceil(blockTtlMs / 1000),
+        };
+      }
 
-    // Se já bloqueado, retornar estado de bloqueio sem incrementar
-    const blockTtlMs = await this.redis.pttl(blockKey);
-    if (blockTtlMs > 0) {
-      const rawHits = await this.redis.get(hitKey);
-      return {
-        totalHits: parseInt(rawHits ?? '0', 10),
-        timeToExpire: 0,
-        isBlocked: true,
-        timeToBlockExpire: Math.ceil(blockTtlMs / 1000),
-      };
-    }
+      // Incrementar atomicamente e obter TTL restante
+      const [totalHits, remainingTtlMs] = (await this.redis.eval(
+        this.incrScript,
+        1,
+        hitKey,
+        String(ttl),
+      )) as [number, number];
 
-    // Incrementar atomicamente e obter TTL restante
-    const [totalHits, remainingTtlMs] = (await this.redis.eval(
-      this.incrScript,
-      1,
-      hitKey,
-      String(ttl),
-    )) as [number, number];
+      // Bloquear se limite excedido e blockDuration > 0
+      if (totalHits > limit && blockDuration > 0) {
+        await this.redis.set(blockKey, '1', 'PX', blockDuration);
+        return {
+          totalHits,
+          timeToExpire: 0,
+          isBlocked: true,
+          timeToBlockExpire: Math.ceil(blockDuration / 1000),
+        };
+      }
 
-    // Bloquear se limite excedido e blockDuration > 0
-    if (totalHits > limit && blockDuration > 0) {
-      await this.redis.set(blockKey, '1', 'PX', blockDuration);
       return {
         totalHits,
-        timeToExpire: 0,
-        isBlocked: true,
-        timeToBlockExpire: Math.ceil(blockDuration / 1000),
+        timeToExpire: Math.max(0, Math.ceil(remainingTtlMs / 1000)),
+        isBlocked: false,
+        timeToBlockExpire: 0,
+      };
+    } catch {
+      // Fail-open: uma oscilação do Redis não deve derrubar toda a API.
+      return {
+        totalHits: 0,
+        timeToExpire: Math.ceil(ttl / 1000),
+        isBlocked: false,
+        timeToBlockExpire: 0,
       };
     }
-
-    return {
-      totalHits,
-      timeToExpire: Math.max(0, Math.ceil(remainingTtlMs / 1000)),
-      isBlocked: false,
-      timeToBlockExpire: 0,
-    };
   }
 }

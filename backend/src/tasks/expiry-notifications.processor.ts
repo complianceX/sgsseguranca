@@ -4,6 +4,7 @@ import { type Job } from 'bullmq';
 import { TrainingsService } from '../trainings/trainings.service';
 import { MedicalExamsService } from '../medical-exams/medical-exams.service';
 import { TenantService } from '../common/tenant/tenant.service';
+import { captureException } from '../common/monitoring/sentry';
 
 type ExpiryNotificationJobData = {
   tenantId: string;
@@ -58,5 +59,9 @@ export class ExpiryNotificationsProcessor extends WorkerHost {
       `[Job ${job.id}] type=${job.data.type} tenant=${job.data.tenantId} falhou: ${error.message}`,
       error.stack,
     );
+    captureException(error, {
+      tags: { queue: 'expiry-notifications', jobType: job.data.type },
+      extra: { jobId: job.id, tenantId: job.data.tenantId, attemptsMade: job.attemptsMade },
+    });
   }
 }

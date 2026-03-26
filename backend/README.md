@@ -1,6 +1,6 @@
-# Backend API
+﻿# Backend API
 
-Backend em NestJS para o sistema <GST> Gestão de Segurança do Trabalho.
+Backend em NestJS para o SGS, Sistema de Gestão de Segurança.
 
 ## Requisitos
 

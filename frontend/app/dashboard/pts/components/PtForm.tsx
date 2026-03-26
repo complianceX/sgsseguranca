@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
@@ -1571,7 +1571,7 @@ export function PtForm({ id }: PtFormProps) {
     }
     const data = watch();
     if (!data.titulo) {
-      toast.error('Preencha pelo menos o título para a análise do GST.');
+      toast.error('Preencha pelo menos o título para a análise do SGS.');
       return;
     }
 
@@ -1586,7 +1586,7 @@ export function PtForm({ id }: PtFormProps) {
         eletricidade: !!data.eletricidade,
       });
 
-      toast.success('GST analisou os riscos da PT!', {
+      toast.success('SGS analisou os riscos da PT!', {
         description: (
           <div className="mt-2 space-y-2">
             <p className="font-bold text-[var(--ds-color-text-primary)]">{result.summary}</p>
@@ -1601,7 +1601,7 @@ export function PtForm({ id }: PtFormProps) {
         duration: 8000,
       });
     } catch (error) {
-      console.error('Erro na análise do GST:', error);
+      console.error('Erro na análise do SGS:', error);
       toast.error('Não foi possível realizar a análise no momento.');
     } finally {
       setAnalyzing(false);

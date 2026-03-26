@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
@@ -201,13 +201,13 @@ export function Sidebar({
         {/* Logo */}
         <div className="border-b border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-bg-soft)]/60 px-5 py-4">
           <div className="flex items-center gap-3 rounded-2xl border border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-bg-soft)] px-3.5 py-3 shadow-[0_10px_24px_rgba(2,8,18,0.18)]">
-            <Image src="/logo-gst-mark.svg" alt="Logo GST" width={26} height={26} priority />
+            <Image src="/logo-gst-mark.svg" alt="Logo SGS" width={26} height={26} priority />
             <div className="min-w-0">
               <h1 className="truncate text-[0.95rem] font-semibold tracking-[-0.02em] text-[var(--ds-color-sidebar-text)]">
-                GST
+                SGS
               </h1>
               <p className="truncate text-[0.72rem] text-[var(--ds-color-sidebar-muted)]">
-                Gestão de Segurança do Trabalho
+                Sistema de Gestão de Segurança
               </p>
             </div>
           </div>

@@ -43,6 +43,7 @@ import { Inject } from '@nestjs/common';
 import { REDIS_CLIENT } from '../common/redis/redis.constants';
 import type { Redis } from 'ioredis';
 import * as crypto from 'crypto';
+import { TurnstileService } from './turnstile.service';
 
 const isProd = process.env.NODE_ENV === 'production';
 const LOGIN_THROTTLE_LIMIT = Number(
@@ -77,6 +78,7 @@ export class AuthController {
     private bruteForceService: BruteForceService,
     private rbacService: RbacService,
     private securityAudit: SecurityAuditService,
+    private turnstileService: TurnstileService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
@@ -91,6 +93,10 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ): Promise<AuthSessionResponseDto> {
     const tracker = getRequestIp(req);
+    await this.turnstileService.assertHuman(body.turnstileToken, {
+      remoteIp: tracker,
+      expectedAction: 'login',
+    });
     await this.bruteForceService.assertAllowed(tracker);
     await this.bruteForceService.assertCpfAllowed(body.cpf);
     const user = (await this.authService.validateUser(

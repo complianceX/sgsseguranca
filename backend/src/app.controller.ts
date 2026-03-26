@@ -1,4 +1,9 @@
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { AppService } from './app.service';
@@ -85,6 +90,11 @@ export class AppController {
       message: '✅ Backend funcionando corretamente!',
     };
   }
+
+  @Public()
+  @Get('favicon.ico')
+  @HttpCode(204)
+  favicon(): void {}
 
   private async checkDatabase() {
     if (!this.dataSource.isInitialized) {

@@ -1,4 +1,4 @@
-# GST - Gestão de Segurança do Trabalho
+﻿# SGS - Sistema de Gestão de Segurança
 
 Sistema SaaS para gestão de segurança do trabalho com frontend em Next.js e backend em NestJS.
 
@@ -12,7 +12,7 @@ Sistema SaaS para gestão de segurança do trabalho com frontend em Next.js e ba
   - métricas e tracing via OpenTelemetry **opcionais**, ativados somente com `OTEL_ENABLED=true`
   - exporter de métricas Prometheus em porta dedicada
   - tracing via Jaeger configurável por `JAEGER_ENDPOINT`
-  - Sentry **opcional** e **não vem instalado por padrão**
+  - Sentry **opcional**, pronto para ativação via `SENTRY_DSN`
 - O projeto **não** deve ser tratado como “observabilidade completa pronta por default”. Sem configuração explícita, o runtime sobe com logging estruturado, mas sem exporter de traces/métricas.
 
 ## Arquitetura resumida
@@ -57,8 +57,8 @@ Exemplo:
 ### Sentry
 
 - `SENTRY_DSN` habilita captura de exceções 5xx no filtro global.
-- A dependência `@sentry/node` não faz parte do `package.json` atualmente.
-- Se alguém configurar `SENTRY_DSN` sem instalar o pacote, o runtime registra status `unavailable` na inicialização e segue operando.
+- `@sentry/node` já faz parte das dependências do backend.
+- Se `SENTRY_DSN` não estiver configurado, o runtime registra Sentry como desativado e segue operando normalmente.
 
 ## Health checks
 

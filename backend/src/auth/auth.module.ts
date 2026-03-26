@@ -15,6 +15,7 @@ import { PdfRateLimitService } from './services/pdf-rate-limit.service';
 import { SessionsService } from './services/sessions.service';
 import { BruteForceService } from './brute-force.service';
 import { TokenRevocationService } from './token-revocation.service';
+import { TurnstileService } from './turnstile.service';
 import { UserSession } from './entities/user-session.entity';
 import {
   getAccessTokenSecret,
@@ -56,6 +57,7 @@ import type { SignOptions } from 'jsonwebtoken';
     SessionsService,
     BruteForceService,
     TokenRevocationService,
+    TurnstileService,
   ],
   controllers: [AuthController, PdfSecurityController, SessionsController],
   exports: [

@@ -12,6 +12,7 @@ RUN npm ci
 
 COPY . .
 RUN npm run build
+RUN npm prune --omit=dev && npm cache clean --force
 
 # ===============================
 # 🚀 STAGE 2 — RUNTIME
@@ -29,10 +30,11 @@ WORKDIR /app
 
 # Copia apenas o necessário
 COPY --from=builder /app/package*.json ./
-RUN npm ci --omit=dev
+COPY --from=builder /app/node_modules ./node_modules
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/newrelic.js ./newrelic.js
 
 # Entrypoint genérico para repassar o comando final do serviço
 COPY entrypoint.sh ./entrypoint.sh

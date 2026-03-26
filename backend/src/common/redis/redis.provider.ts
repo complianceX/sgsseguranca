@@ -9,6 +9,21 @@ import {
 export const REDIS_CLIENT = 'REDIS_CLIENT';
 const logger = new Logger('RedisProvider');
 
+function redisRetryStrategy(times: number): number {
+  return Math.min(Math.max(times, 1) * 250, 2000);
+}
+
+function shouldReconnectOnRedisError(error: Error): boolean {
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('readonly') ||
+    message.includes('connection is closed') ||
+    message.includes('econnreset') ||
+    message.includes('etimedout') ||
+    message.includes('socket closed')
+  );
+}
+
 function assertValidRedisUrl(redisUrl: string): void {
   if (redisUrl.includes('${{')) {
     throw new Error(
@@ -273,8 +288,8 @@ export const redisProvider: Provider = {
           enableReadyCheck: false,
           connectTimeout: 10000,
           lazyConnect: true,
-          retryStrategy: () => null,
-          reconnectOnError: () => false,
+          retryStrategy: redisRetryStrategy,
+          reconnectOnError: (error) => shouldReconnectOnRedisError(error),
         })
       : new Redis({
           host: redisConnection.host,
@@ -286,12 +301,24 @@ export const redisProvider: Provider = {
           enableReadyCheck: false,
           connectTimeout: 10000,
           lazyConnect: true,
-          retryStrategy: () => null,
-          reconnectOnError: () => false,
+          retryStrategy: redisRetryStrategy,
+          reconnectOnError: (error) => shouldReconnectOnRedisError(error),
         });
 
     client.on('error', (err) => {
       logger.error(`Redis connection error: ${err.message}`);
+    });
+    client.on('close', () => {
+      logger.warn('Redis connection closed. Waiting for automatic reconnect.');
+    });
+    client.on('reconnecting', (delay: number) => {
+      logger.warn(`Redis reconnect scheduled in ${delay}ms.`);
+    });
+    client.on('ready', () => {
+      logger.log('Redis client ready.');
+    });
+    client.on('end', () => {
+      logger.warn('Redis connection ended.');
     });
 
     const failOpen = /^true$/i.test(

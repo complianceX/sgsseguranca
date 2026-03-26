@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import {
@@ -26,7 +26,7 @@ const STEPS = [
     icon: ShieldCheck,
     iconColor: 'text-amber-400',
     iconBg: 'bg-[color:var(--ds-color-action-primary)]/15',
-    title: 'Bem-vindo ao <GST> Gestão de Segurança do Trabalho',
+    title: 'Bem-vindo ao SGS',
     description:
       'Sua plataforma completa de gestão de Segurança e Saúde do Trabalho. Gerencie treinamentos, exames, EPIs, laudos e muito mais em um único lugar.',
     highlight: null,

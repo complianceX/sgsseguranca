@@ -78,9 +78,9 @@ SENTRY_TRACES_SAMPLE_RATE=0.1
 
 ### Importante
 
-- `@sentry/node` não está instalado por padrão no projeto.
-- Sem o pacote, o backend apenas registra na inicialização que o Sentry está indisponível.
-- O runtime não quebra por isso, mas também não captura eventos no Sentry.
+- `@sentry/node` faz parte das dependências runtime do backend.
+- Com `SENTRY_DSN` configurado, web e worker inicializam o SDK e passam a capturar exceções.
+- Sem `SENTRY_DSN`, o runtime continua saudável e apenas mantém o Sentry desativado.
 
 ## Health endpoints
 

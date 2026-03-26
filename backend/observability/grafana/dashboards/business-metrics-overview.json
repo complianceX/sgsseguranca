@@ -1,6 +1,6 @@
-{
+﻿{
   "dashboard": {
-    "title": "GST - Business Metrics Overview",
+    "title": "SGS - Business Metrics Overview",
     "tags": ["gst", "business-metrics", "multi-tenant"],
     "timezone": "browser",
     "schemaVersion": 16,

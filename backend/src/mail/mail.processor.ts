@@ -1,14 +1,10 @@
-import {
-  InjectQueue,
-  OnWorkerEvent,
-  Processor,
-  WorkerHost,
-} from '@nestjs/bullmq';
+import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { DelayedError, type Job, type Queue } from 'bullmq';
 import { MailService } from './mail.service';
 import { MetricsService } from '../common/observability/metrics.service';
 import { TenantQuotaService } from '../common/queue/tenant-quota.service';
+import { captureException } from '../common/monitoring/sentry';
 
 interface MailSendDocumentJobData {
   documentId: string;
@@ -199,6 +195,7 @@ export class MailProcessor extends WorkerHost {
         'error',
         companyId,
       );
+      await this.handleFailure(job, err, companyId);
       throw err;
     } finally {
       await this.tenantQuota.release('mail', companyId);
@@ -268,13 +265,18 @@ export class MailProcessor extends WorkerHost {
     }
   }
 
-  @OnWorkerEvent('failed')
-  async onFailed(job: Job<unknown, unknown, string> | undefined, error: Error) {
-    if (!job) return;
-    const companyId = extractCompanyId(job.data);
+  private async handleFailure(
+    job: Job<unknown, unknown, string>,
+    error: unknown,
+    companyId: string | undefined,
+  ) {
+    if (!(error instanceof Error)) {
+      return;
+    }
 
     const maxAttempts = job.opts.attempts ?? 1;
-    const isFinal = job.attemptsMade >= maxAttempts;
+    const attemptsAfterFailure = job.attemptsMade + 1;
+    const isFinal = attemptsAfterFailure >= maxAttempts;
 
     this.logger.error(
       `[Job ${job.id}] Falhou${isFinal ? ' definitivamente' : ''}. Tipo: ${job.name}. Erro: ${error.message}`,
@@ -283,12 +285,17 @@ export class MailProcessor extends WorkerHost {
 
     if (!isFinal) return;
 
+    captureException(error, {
+      tags: { queue: 'mail', jobName: job.name },
+      extra: { jobId: job.id, companyId, attemptsMade: attemptsAfterFailure },
+    });
+
     try {
       const deadLetterPayload: MailDeadLetterPayload = {
         originalQueue: 'mail',
         originalJobId: job.id,
         originalJobName: job.name,
-        attemptsMade: job.attemptsMade,
+        attemptsMade: attemptsAfterFailure,
         companyId,
         data: job.data,
         error: { message: error.message, stack: error.stack },
