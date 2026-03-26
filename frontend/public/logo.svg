@@ -1,0 +1,96 @@
+<svg width="240" height="64" viewBox="0 0 240 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Shield gradient: sky → corporate blue -->
+    <linearGradient id="shieldFill" x1="28" y1="9" x2="28" y2="49" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="0.5" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+
+    <!-- Icon background gradient -->
+    <radialGradient id="iconBg" cx="28" cy="26" r="30" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#112240"/>
+      <stop offset="1" stop-color="#071A2F"/>
+    </radialGradient>
+
+    <!-- Accent underline gradient -->
+    <linearGradient id="accentLine" x1="78" y1="0" x2="178" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8"/>
+      <stop offset="0.55" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#2563EB" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Ring glow -->
+    <linearGradient id="ringGlow" x1="6" y1="6" x2="50" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#67E8F9" stop-opacity="0.6"/>
+      <stop offset="0.5" stop-color="#3B82F6" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#1D4ED8" stop-opacity="0.1"/>
+    </linearGradient>
+
+    <!-- Soft drop shadow for icon -->
+    <filter id="iconShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#2563EB" flood-opacity="0.25"/>
+    </filter>
+
+    <!-- Glow for shield -->
+    <filter id="shieldGlow" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- ═══ ICON MARK ═══ -->
+
+  <!-- Rounded square background -->
+  <rect x="0" y="4" width="56" height="56" rx="13" fill="url(#iconBg)" filter="url(#iconShadow)"/>
+
+  <!-- Subtle inner border -->
+  <rect x="0.5" y="4.5" width="55" height="55" rx="12.5" stroke="#1E4070" stroke-width="1" fill="none"/>
+
+  <!-- Outer ring accent (partial arc feel via circle stroke) -->
+  <circle cx="28" cy="32" r="24" stroke="url(#ringGlow)" stroke-width="1.2" fill="none"/>
+
+  <!-- Shield body -->
+  <path d="M28 13L44 19.5V31C44 41 37.5 48.5 28 51C18.5 48.5 12 41 12 31V19.5L28 13Z"
+    fill="url(#shieldFill)" filter="url(#shieldGlow)"/>
+
+  <!-- Shield inner highlight rim -->
+  <path d="M28 15.5L42 21.5V31C42 40 36 47 28 49.2C20 47 14 40 14 31V21.5L28 15.5Z"
+    stroke="white" stroke-opacity="0.18" stroke-width="0.8" fill="none"/>
+
+  <!-- Lightning bolt -->
+  <path d="M28 22L21.5 33H27L24.5 41L36 29H30L33 22H28Z" fill="#071A2F"/>
+
+  <!-- Accent dots (top-right sparkle) -->
+  <circle cx="48" cy="10" r="3.2" fill="#7DD3FC" opacity="0.92"/>
+  <circle cx="50.5" cy="16.5" r="1.8" fill="#38BDF8" opacity="0.6"/>
+
+  <!-- Accent dot (bottom-left) -->
+  <circle cx="8" cy="52" r="2.2" fill="#0F766E" opacity="0.75"/>
+
+  <!-- ═══ WORDMARK ═══ -->
+
+  <!-- "SGS" primary text -->
+  <text
+    x="74" y="38"
+    font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif"
+    font-size="28"
+    font-weight="800"
+    fill="#0B1324"
+    letter-spacing="-0.8">SGS</text>
+
+  <!-- Gradient accent line -->
+  <rect x="74" y="42" width="100" height="2.5" rx="1.25" fill="url(#accentLine)"/>
+
+  <!-- "SEGURANÇA" subtitle -->
+  <text
+    x="75" y="57"
+    font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif"
+    font-size="9.5"
+    font-weight="600"
+    fill="#526277"
+    letter-spacing="2.8">SEGURANÇA</text>
+</svg>

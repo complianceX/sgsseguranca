@@ -15,6 +15,10 @@ interface TurnstileVerifyResponse {
   'error-codes'?: string[];
 }
 
+type TurnstileVerifyOptions = {
+  remoteIp?: string | null;
+};
+
 @Injectable()
 export class TurnstileService {
   private readonly logger = new Logger(TurnstileService.name);
@@ -44,39 +48,42 @@ export class TurnstileService {
       );
     }
 
-    const payload = new URLSearchParams({
-      secret: this.getSecretKey(),
-      response: token.trim(),
-    });
-
-    if (options?.remoteIp?.trim()) {
-      payload.set('remoteip', options.remoteIp.trim());
-    }
-
     let verification: TurnstileVerifyResponse;
     try {
-      const response = await axios.post<TurnstileVerifyResponse>(
-        this.verifyUrl,
-        payload.toString(),
-        {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          timeout: this.configService.get<number>(
-            'TURNSTILE_VERIFY_TIMEOUT_MS',
-            5000,
-          ),
-        },
-      );
-      verification = response.data;
-    } catch (error) {
-      this.logger.error({
-        event: 'turnstile_verification_unavailable',
-        message: error instanceof Error ? error.message : String(error),
+      verification = await this.verifyToken(token.trim(), {
+        remoteIp: options?.remoteIp,
       });
-      throw new BadGatewayException(
-        'Não foi possível validar a proteção anti-bot. Tente novamente em instantes.',
-      );
+    } catch (error) {
+      if (
+        options?.remoteIp?.trim() &&
+        axios.isAxiosError(error) &&
+        error.response?.status === 400
+      ) {
+        this.logger.warn({
+          event: 'turnstile_remoteip_rejected',
+          message: error.message,
+          remoteIp: options.remoteIp.trim(),
+          providerStatus: error.response.status,
+          providerError:
+            typeof error.response.data === 'string'
+              ? error.response.data
+              : undefined,
+        });
+
+        try {
+          verification = await this.verifyToken(token.trim());
+        } catch (retryError) {
+          this.logProviderFailure(retryError);
+          throw new BadGatewayException(
+            'Não foi possível validar a proteção anti-bot. Tente novamente em instantes.',
+          );
+        }
+      } else {
+        this.logProviderFailure(error);
+        throw new BadGatewayException(
+          'Não foi possível validar a proteção anti-bot. Tente novamente em instantes.',
+        );
+      }
     }
 
     if (!verification.success) {
@@ -96,7 +103,7 @@ export class TurnstileService {
       verification.action &&
       verification.action !== options.expectedAction
     ) {
-      this.logger.warn({
+      this.logger.error({
         event: 'turnstile_action_mismatch',
         expectedAction: options.expectedAction,
         receivedAction: verification.action,
@@ -121,6 +128,56 @@ export class TurnstileService {
         'Validação de segurança inválida. Atualize a página e tente novamente.',
       );
     }
+  }
+
+  private async verifyToken(
+    token: string,
+    options?: TurnstileVerifyOptions,
+  ): Promise<TurnstileVerifyResponse> {
+    const payload = new URLSearchParams({
+      secret: this.getSecretKey(),
+      response: token,
+    });
+
+    if (options?.remoteIp?.trim()) {
+      payload.set('remoteip', options.remoteIp.trim());
+    }
+
+    const response = await axios.post<TurnstileVerifyResponse>(
+      this.verifyUrl,
+      payload.toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        timeout: this.configService.get<number>(
+          'TURNSTILE_VERIFY_TIMEOUT_MS',
+          5000,
+        ),
+      },
+    );
+
+    return response.data;
+  }
+
+  private logProviderFailure(error: unknown) {
+    if (axios.isAxiosError(error)) {
+      this.logger.error({
+        event: 'turnstile_verification_unavailable',
+        message: error.message,
+        providerStatus: error.response?.status,
+        providerData:
+          typeof error.response?.data === 'string'
+            ? error.response.data
+            : error.response?.data,
+      });
+      return;
+    }
+
+    this.logger.error({
+      event: 'turnstile_verification_unavailable',
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 
   private getSecretKey(): string {

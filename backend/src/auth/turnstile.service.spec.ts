@@ -10,6 +10,14 @@ import { TurnstileService } from './turnstile.service';
 jest.mock('axios');
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;
+const createAxiosHttpError = (status: number, data?: unknown) =>
+  Object.assign(new Error(`Request failed with status code ${status}`), {
+    isAxiosError: true,
+    response: {
+      status,
+      data,
+    },
+  });
 
 describe('TurnstileService', () => {
   const createConfigService = (
@@ -31,6 +39,15 @@ describe('TurnstileService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedAxios.isAxiosError.mockImplementation(
+      (error: unknown): error is Error & { isAxiosError: true } =>
+        Boolean(
+          error &&
+            typeof error === 'object' &&
+            'isAxiosError' in error &&
+            (error as { isAxiosError?: boolean }).isAxiosError,
+        ),
+    );
   });
 
   it('ignores validation when turnstile is disabled', async () => {
@@ -103,5 +120,29 @@ describe('TurnstileService', () => {
     await expect(service.assertHuman('token-123')).rejects.toBeInstanceOf(
       BadGatewayException,
     );
+  });
+
+  it('retries without remoteip when provider rejects it with 400', async () => {
+    mockedAxios.post
+      .mockRejectedValueOnce(
+        createAxiosHttpError(400, 'remoteip invalid for challenge provider'),
+      )
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          action: 'login',
+          hostname: 'app.sgsseguranca.com.br',
+        },
+      } as never);
+    const service = new TurnstileService(createConfigService());
+
+    await expect(
+      service.assertHuman('token-123', {
+        remoteIp: '::ffff:100.64.0.2',
+        expectedAction: 'login',
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(mockedAxios.post).toHaveBeenCalledTimes(2);
   });
 });
