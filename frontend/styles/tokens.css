@@ -9,39 +9,39 @@
        · Semântica preservada sem poluição visual
        · Interface objetiva, sóbria e focada em operação
 
-     BACKGROUND #F5F5F4  Graphite Mist   — canvas principal
-     SIDEBAR    #2F2B28  Deep Graphite   — navegação e estrutura
-     PRIMARY    #4A443F  Ledger Graphite — CTA e destaque funcional
-     SECONDARY  #6C6661  Soft Stone      — apoio, filtros e contexto
+     BACKGROUND #F6F5F3  Mineral Canvas  — canvas principal
+     SIDEBAR    #2C2825  Deep Graphite   — navegação e estrutura
+     PRIMARY    #3E3935  Ledger Graphite — CTA e destaque funcional
+     SECONDARY  #67615B  Soft Stone      — apoio, filtros e contexto
      ─── Status — semântica funcional, não decorativa ────────────
-     SUCCESS    #15803D
-     WARNING    #B45309
-     DANGER     #B91C1C
-     INFO       #6E6862
+     SUCCESS    #1D6B43
+     WARNING    #9A5A00
+     DANGER     #B3261E
+     INFO       #57534E
   ══════════════════════════════════════════════════════════════ */
-  --brand-background: #f5f5f4;
-  --brand-sidebar: #2f2b28;
-  --brand-sidebar-border: #47413c;
-  --brand-sidebar-text: #f2efea;
-  --brand-sidebar-muted: #b6aea6;
-  --brand-sidebar-hover: #3a3531;
+  --brand-background: #f6f5f3;
+  --brand-sidebar: #2c2825;
+  --brand-sidebar-border: #4a433d;
+  --brand-sidebar-text: #f6f5f3;
+  --brand-sidebar-muted: #cbc2b8;
+  --brand-sidebar-hover: #38322e;
   --brand-card: #ffffff;
-  --brand-primary: #4a443f;
-  --brand-primary-hover: #37322e;
-  --brand-primary-active: #262320;
+  --brand-primary: #3e3935;
+  --brand-primary-hover: #2c2825;
+  --brand-primary-active: #25221f;
   --brand-primary-soft: #ece8e3;
-  --brand-focus-ring: #b8aea6;
-  --brand-secondary: #6c6661;
-  --brand-title: #23201d;
-  --brand-text-primary: #2f2b28;
-  --brand-text-secondary: #66615b;
-  --brand-text-muted: #8a847e;
-  --brand-border-default: #d8d2cb;
-  --brand-border-strong: #c2bbb4;
-  --brand-success: #15803d;
-  --brand-warning: #b45309;
-  --brand-danger: #b91c1c;
-  --brand-info: #6e6862;
+  --brand-focus-ring: #67615b;
+  --brand-secondary: #67615b;
+  --brand-title: #25221f;
+  --brand-text-primary: #25221f;
+  --brand-text-secondary: #5c5650;
+  --brand-text-muted: #77706a;
+  --brand-border-default: #b7aea5;
+  --brand-border-strong: #8f8882;
+  --brand-success: #1d6b43;
+  --brand-warning: #9a5a00;
+  --brand-danger: #b3261e;
+  --brand-info: #57534e;
 
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;
@@ -185,15 +185,15 @@
   );
   --component-card-border: var(--ds-color-border-default);
   --component-card-border-strong: var(--ds-color-border-strong);
-  --component-card-shadow: var(--ds-shadow-sm);
-  --component-card-shadow-elevated: var(--ds-shadow-md);
+  --component-card-shadow: var(--ds-shadow-xs);
+  --component-card-shadow-elevated: var(--ds-shadow-sm);
 
   --component-field-bg: var(--ds-color-surface-base);
   --component-field-bg-subtle: var(--ds-color-surface-muted);
   --component-field-border: var(--ds-color-border-input, var(--ds-color-border-strong));
   --component-field-border-subtle: var(--ds-color-border-default);
   --component-field-border-focus: var(--ds-color-focus);
-  --component-field-shadow: var(--ds-shadow-xs);
+  --component-field-shadow: none;
   --component-field-shadow-focus: 0 0 0 4px var(--ds-color-focus-ring);
   --component-field-text: var(--ds-color-text-primary);
   --component-field-placeholder: var(--ds-color-text-muted);
@@ -259,8 +259,8 @@
   --component-command-muted: var(--ds-color-text-muted);
   --component-command-icon-bg: color-mix(
     in srgb,
-    var(--ds-color-surface-elevated) 64%,
-    var(--ds-color-action-primary) 36%
+    var(--ds-color-surface-elevated) 82%,
+    var(--ds-color-action-primary) 18%
   );
 
   --component-focus-ring: var(--ds-color-focus-ring);
@@ -269,6 +269,51 @@
     var(--ds-color-border-strong) 78%,
     transparent
   );
+  --component-sidebar-panel-bg: color-mix(
+    in srgb,
+    var(--ds-color-sidebar-surface) 76%,
+    var(--ds-color-sidebar-bg-soft) 24%
+  );
+  --component-sidebar-panel-border: color-mix(
+    in srgb,
+    var(--ds-color-sidebar-border) 88%,
+    var(--ds-color-sidebar-text) 12%
+  );
+  --component-sidebar-active-bg: color-mix(
+    in srgb,
+    var(--ds-color-sidebar-surface) 82%,
+    var(--ds-color-sidebar-bg-soft) 18%
+  );
+  --component-sidebar-active-border: color-mix(
+    in srgb,
+    var(--ds-color-action-primary) 24%,
+    var(--ds-color-sidebar-border) 76%
+  );
+  --component-sidebar-active-icon: color-mix(
+    in srgb,
+    var(--ds-color-sidebar-text) 84%,
+    var(--ds-color-action-primary) 16%
+  );
+  --component-sidebar-danger-hover-bg: color-mix(
+    in srgb,
+    var(--ds-color-danger) 12%,
+    transparent
+  );
+  --component-fab-bg: var(--ds-color-action-primary);
+  --component-fab-hover-bg: var(--ds-color-action-primary-hover);
+  --component-chat-shell-bg: color-mix(
+    in srgb,
+    var(--ds-color-surface-base) 96%,
+    var(--ds-color-surface-elevated) 4%
+  );
+  --component-chat-header-bg: color-mix(
+    in srgb,
+    var(--ds-color-action-primary) 92%,
+    black 8%
+  );
+  --component-chat-user-bubble-bg: var(--ds-color-action-primary);
+  --component-chat-user-bubble-text: var(--ds-color-action-primary-foreground);
+  --component-chat-assistant-bubble-bg: var(--ds-color-surface-base);
 
   /* Aliases utilitários da paleta para uso direto no app */
   --bg-app: var(--ds-color-bg-canvas);
@@ -278,7 +323,7 @@
   --sidebar-bg: var(--ds-color-sidebar-bg);
   --border-default: var(--ds-color-border-default);
   --border-strong: var(--ds-color-border-strong);
-  --disabled-border: var(--ds-color-border-subtle);
+  --disabled-border: var(--ds-color-border-default);
   --title: var(--brand-title);
   --text-primary: var(--ds-color-text-primary);
   --text-secondary: var(--ds-color-text-secondary);

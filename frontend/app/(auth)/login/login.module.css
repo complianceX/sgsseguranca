@@ -1,27 +1,33 @@
 .page {
-  --login-bg-start: #f5f5f4;
-  --login-bg-end: #efeeec;
-  --login-card-bg: transparent;
-  --login-card-border: transparent;
-  --login-shadow: transparent;
-  --login-text: #23211f;
-  --login-text-secondary: #66615c;
-  --login-text-muted: #8f8882;
-  --login-accent: #413c38;
-  --login-accent-hover: #2f2b28;
-  --login-accent-contrast: #ffffff;
-  --login-focus: #5f5953;
-  --login-focus-ring: rgba(95, 89, 83, 0.14);
-  --login-input-bg: #ffffff;
-  --login-input-border: #d4d0cb;
-  --login-input-border-hover: #b8b2ac;
+  --login-bg-start: var(--ds-color-bg-canvas);
+  --login-bg-end: var(--ds-color-bg-canvas);
+  --login-card-bg: var(--ds-color-surface-overlay);
+  --login-card-border: var(--ds-color-border-subtle);
+  --login-shadow: none;
+  --login-text: var(--ds-color-text-primary);
+  --login-text-secondary: var(--ds-color-text-secondary);
+  --login-text-muted: var(--ds-color-text-muted);
+  --login-accent: var(--ds-color-action-primary);
+  --login-accent-hover: var(--ds-color-action-primary-hover);
+  --login-accent-contrast: var(--ds-color-action-primary-foreground);
+  --login-focus: var(--ds-color-focus);
+  --login-focus-ring: var(--ds-color-focus-ring);
+  --login-input-bg: var(--ds-color-surface-base);
+  --login-input-border: var(--ds-color-border-default);
+  --login-input-border-hover: var(--ds-color-border-strong);
+  --login-input-focus-bg: var(--ds-color-surface-overlay);
+  --login-logo-filter: grayscale(1) saturate(0) contrast(1.04) brightness(0.62);
   min-height: 100vh;
   position: relative;
   overflow: hidden;
   color: var(--login-text);
-  color-scheme: light;
-  background:
-    linear-gradient(180deg, var(--login-bg-start) 0%, var(--login-bg-end) 100%);
+  color-scheme: light dark;
+  background: var(--login-bg-start);
+}
+
+:global(:root[data-theme='dark']) .page,
+:global(.theme-dark) .page {
+  --login-logo-filter: grayscale(1) saturate(0) contrast(1.02) brightness(1.02);
 }
 
 .backgroundGlowA,
@@ -66,11 +72,11 @@
   position: relative;
   width: 100%;
   max-width: 540px;
-  border-radius: 0;
+  border-radius: var(--ds-radius-xl);
   border: 1px solid var(--login-card-border);
   background: var(--login-card-bg);
-  box-shadow: 0 0 0 var(--login-shadow);
-  padding: 8px 18px 0;
+  box-shadow: var(--login-shadow);
+  padding: 28px 24px 24px;
 }
 
 .turnstileCornerBadge {
@@ -83,8 +89,8 @@
   gap: 6px;
   padding: 6px 0;
   border-radius: 999px;
-  border: 0;
-  background: transparent;
+  border: 1px solid var(--ds-color-border-subtle);
+  background: var(--ds-color-surface-muted);
   color: var(--login-text-secondary);
   font-size: 0.7rem;
   font-weight: 600;
@@ -104,7 +110,7 @@
 .mobileBrandLogo {
   width: 110px;
   height: auto;
-  filter: grayscale(1) saturate(0) contrast(1.04) brightness(0.62);
+  filter: var(--login-logo-filter);
 }
 
 .mobileBrandCaption {
@@ -150,13 +156,13 @@
 .warningBanner {
   border: 1px solid var(--ds-color-warning-border);
   background: var(--ds-color-warning-subtle);
-  color: var(--ds-color-warning);
+  color: var(--ds-color-warning-fg);
 }
 
 .errorBanner {
   border: 1px solid var(--ds-color-danger-border);
   background: var(--ds-color-danger-subtle);
-  color: var(--ds-color-danger);
+  color: var(--ds-color-danger-fg);
 }
 
 .form {
@@ -205,7 +211,7 @@
 .inputField:focus-visible {
   border-color: var(--login-focus) !important;
   box-shadow: 0 0 0 4px var(--login-focus-ring) !important;
-  background: rgba(255, 255, 255, 0.96) !important;
+  background: var(--login-input-focus-bg) !important;
   outline: none !important;
 }
 
@@ -236,7 +242,15 @@
 
 .passwordToggle:hover {
   color: var(--login-text);
-  background: rgba(92, 85, 78, 0.08);
+  background: color-mix(in srgb, var(--ds-color-surface-muted) 72%, transparent);
+}
+
+.passwordToggle:focus-visible,
+.forgotButton:focus-visible,
+.submitButton:focus-visible,
+.footerLinks a:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--login-focus), 0 0 0 4px var(--login-focus-ring);
 }
 
 .capsWarning {
@@ -245,7 +259,7 @@
   align-items: center;
   gap: 6px;
   font-size: 0.8rem;
-  color: var(--ds-color-warning);
+  color: var(--ds-color-warning-fg);
 }
 
 .assistRow {
@@ -289,8 +303,8 @@
 .submitButton {
   margin-top: 10px;
   width: 100%;
-  border: 0;
-  border-radius: 999px;
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-md);
   padding: 15px 18px;
   font-size: 1.04rem;
   font-weight: 600;
@@ -306,7 +320,9 @@
 }
 
 .submitButton:disabled {
-  opacity: 0.6;
+  border-color: var(--disabled-border);
+  background: var(--disabled-bg);
+  color: var(--disabled-text);
   cursor: not-allowed;
 }
 
@@ -328,7 +344,7 @@
   padding: 10px 12px;
   font-size: 0.82rem;
   line-height: 1.55;
-  color: var(--ds-color-warning);
+  color: var(--ds-color-warning-fg);
   background: color-mix(in srgb, var(--ds-color-warning-subtle) 88%, transparent);
   border: 1px solid var(--ds-color-warning-border);
 }
@@ -351,7 +367,7 @@
 .footer {
   margin-top: 34px;
   text-align: center;
-  border-top: 1px solid rgba(166, 160, 153, 0.28);
+  border-top: 1px solid var(--ds-color-border-subtle);
   padding-top: 20px;
 }
 
@@ -468,7 +484,7 @@
   }
 
   .loginCard {
-    padding: 0;
+    padding: 24px 18px 20px;
   }
 
   .loginTitle {

@@ -4,16 +4,16 @@ import { cn } from '@/lib/utils';
 
 const statusToneMap = {
   neutral:
-    'border-[color:var(--component-status-pill-neutral-border,#5A7A9E)] bg-[color:var(--ds-color-surface-muted)]/32 text-[var(--ds-color-text-secondary)]',
+    'border-[color:var(--component-status-pill-neutral-border,var(--ds-color-border-default))] bg-[color:var(--ds-color-surface-muted)]/32 text-[var(--ds-color-text-secondary)]',
   primary:
     'border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]',
-  info: 'border-[color:var(--ds-color-info)]/18 bg-[color:var(--ds-color-info-subtle)] text-[var(--ds-color-info)]',
+  info: 'border-[color:var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] text-[var(--ds-color-info-fg)]',
   success:
-    'border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]',
+    'border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success-fg)]',
   warning:
-    'border-[color:var(--ds-color-warning)]/20 bg-[color:var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]',
+    'border-[color:var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] text-[var(--ds-color-warning-fg)]',
   danger:
-    'border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]',
+    'border-[color:var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] text-[var(--ds-color-danger-fg)]',
 } as const;
 
 const statusPillVariants = cva(

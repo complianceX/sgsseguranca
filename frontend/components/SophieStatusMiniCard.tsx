@@ -74,7 +74,7 @@ export function SophieStatusMiniCard() {
     <Card tone="elevated" padding="lg" className="overflow-hidden">
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[image:var(--ds-gradient-brand)] text-white shadow-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--ds-color-primary-border)] bg-[var(--ds-color-action-primary)] text-white">
             <Bot className="h-5 w-5" />
           </div>
           <div>

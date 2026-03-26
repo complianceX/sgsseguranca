@@ -9,6 +9,7 @@ import { isAiEnabled } from '@/lib/featureFlags';
 
 export function AIButton() {
   const aiEnabled = isAiEnabled();
+  const chatPanelId = 'sophie-chat-panel';
 
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
@@ -21,8 +22,11 @@ export function AIButton() {
     <>
       <div className="fixed bottom-24 right-4 z-50 sm:bottom-6 sm:right-6">
         <button
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="group relative flex h-14 items-center justify-center gap-2 rounded-full bg-[image:var(--ds-gradient-brand)] px-3.5 text-white shadow-[var(--ds-shadow-lg)] transition-all hover:-translate-y-px hover:brightness-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-[color:var(--ds-color-focus)] focus:ring-offset-2 focus:ring-offset-[var(--ds-color-bg-canvas)]"
+          aria-expanded={isOpen}
+          aria-controls={chatPanelId}
+          className="group relative flex h-14 items-center justify-center gap-2 rounded-full border border-[var(--ds-color-primary-border)] bg-[var(--component-fab-bg)] px-3.5 text-white shadow-[var(--ds-shadow-sm)] transition-[background-color,border-color,box-shadow] hover:border-[var(--ds-color-action-primary-active)] hover:bg-[var(--component-fab-hover-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-bg-canvas)]"
           title={isOpen ? 'Fechar chat da SOPHIE' : `Abrir ${context.title}`}
         >
           {isOpen ? (
@@ -33,7 +37,7 @@ export function AIButton() {
                 <ContextIcon className="h-4.5 w-4.5" />
               </span>
               <span className="hidden text-left sm:block">
-                <span className="block text-[11px] font-medium uppercase tracking-[0.12em] text-white/74">
+                <span className="block text-[11px] font-medium uppercase tracking-[0.12em] text-white/88">
                   Chat SST
                 </span>
                 <span className="block max-w-[11rem] truncate text-[13px] font-semibold leading-tight">
@@ -44,11 +48,7 @@ export function AIButton() {
           )}
 
           {!isOpen && (
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[color:var(--ds-color-primary-subtle)] opacity-50"></span>
-          )}
-
-          {!isOpen && (
-            <span className="absolute bottom-full right-0 mb-3 hidden w-[18rem] rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] px-3.5 py-3 text-[11px] font-medium text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-md)] group-hover:block">
+            <span className="absolute bottom-full right-0 mb-3 hidden w-[18rem] rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] px-3.5 py-3 text-[11px] font-medium text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] group-hover:block group-focus-within:block">
               <span className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
                 <LifeBuoy className="h-3.5 w-3.5 text-[var(--ds-color-action-primary)]" />
                 Chat da SOPHIE

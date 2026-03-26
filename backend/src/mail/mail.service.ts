@@ -368,17 +368,15 @@ export class MailService {
     });
     const attachmentFilename = this.buildAttachmentFilename(docName, fileKey);
 
-    const html = `
-      <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
-        <div style="display: inline-block; margin-bottom: 16px; padding: 6px 10px; border-radius: 999px; background-color: #dbeafe; color: #1d4ed8; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-          SGS — Sistema de Gestão de Segurança
-        </div>
-        <h2 style="margin: 0 0 12px; color: #0f172a;">${docName}</h2>
-        <p>Olá,</p>
-        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.</p>
-        <p>O PDF está anexado neste e-mail para visualização e download.</p>
-      </div>
-    `;
+    const html = this.buildGraphiteEmailHtml({
+      eyebrow: 'Documento oficial',
+      title: docName,
+      paragraphs: [
+        'Olá,',
+        `Você recebeu o documento <strong>${docName}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.`,
+        'O PDF está anexado neste e-mail para visualização e download.',
+      ],
+    });
 
     await this.sendMailSimple(
       email,
@@ -445,17 +443,15 @@ export class MailService {
     });
     const attachmentFilename = this.buildAttachmentFilename(docName, fileKey);
 
-    const html = `
-      <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
-        <div style="display: inline-block; margin-bottom: 16px; padding: 6px 10px; border-radius: 999px; background-color: #dbeafe; color: #1d4ed8; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-          SGS — Sistema de Gestão de Segurança
-        </div>
-        <h2 style="margin: 0 0 12px; color: #0f172a;">${docName}</h2>
-        <p>Olá,</p>
-        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.</p>
-        <p>O PDF está anexado neste e-mail para visualização e download.</p>
-      </div>
-    `;
+    const html = this.buildGraphiteEmailHtml({
+      eyebrow: 'Documento oficial',
+      title: docName,
+      paragraphs: [
+        'Olá,',
+        `Você recebeu o documento <strong>${docName}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.`,
+        'O PDF está anexado neste e-mail para visualização e download.',
+      ],
+    });
 
     await this.sendMailSimple(
       email,
@@ -518,18 +514,19 @@ export class MailService {
     const subject = options?.subject?.trim() || 'Documento Compartilhado - SGS';
     const attachmentFilename = this.buildAttachmentFilename(docName);
 
-    const html = `
-      <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
-        <div style="display: inline-block; margin-bottom: 16px; padding: 6px 10px; border-radius: 999px; background-color: #fef3c7; color: #b45309; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-          Envio local/degradado
-        </div>
-        <h2 style="margin: 0 0 12px; color: #0f172a;">${docName}</h2>
-        <p>Olá,</p>
-        <p>Você recebeu o documento <strong>${docName}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.</p>
-        <p>O PDF está anexado neste e-mail para visualização e download.</p>
-        <p><strong>Importante:</strong> este envio utilizou um PDF local/degradado e não substitui o documento final governado.</p>
-      </div>
-    `;
+    const html = this.buildGraphiteEmailHtml({
+      eyebrow: 'Envio local / degradado',
+      title: docName,
+      tone: 'warning',
+      paragraphs: [
+        'Olá,',
+        `Você recebeu o documento <strong>${docName}</strong> através da plataforma SGS — Sistema de Gestão de Segurança.`,
+        'O PDF está anexado neste e-mail para visualização e download.',
+      ],
+      note:
+        'Este envio utilizou um PDF local/degradado e não substitui o documento final governado.',
+      footer: 'SGS — Sistema de Gestão de Segurança · Canal operacional',
+    });
 
     await this.sendMailSimple(
       email,
@@ -740,6 +737,52 @@ export class MailService {
       this.configService.get<string>('MAIL_USER')?.trim() ||
       'onboarding@resend.dev';
     return { fromName, fromEmail };
+  }
+
+  private buildGraphiteEmailHtml(options: {
+    eyebrow: string;
+    title: string;
+    paragraphs: string[];
+    note?: string;
+    footer?: string;
+    tone?: 'neutral' | 'warning';
+  }) {
+    const tone = options.tone ?? 'neutral';
+    const eyebrowStyles =
+      tone === 'warning'
+        ? 'display:inline-block;margin-bottom:16px;padding:6px 10px;border-radius:999px;background-color:#f4ede5;border:1px solid #dfd4c8;color:#9a5a00;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;'
+        : 'display:inline-block;margin-bottom:16px;padding:6px 10px;border-radius:999px;background-color:#ece8e3;border:1px solid #d8d2cb;color:#3e3935;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;';
+    const shellStyle =
+      'font-family: Arial, sans-serif;color:#25221f;max-width:560px;margin:0 auto;padding:28px;background-color:#f6f5f3;border:1px solid #b7aea5;border-radius:18px;';
+    const titleStyle = 'margin:0 0 12px;color:#25221f;';
+    const bodyStyle = 'margin:0 0 12px;color:#5c5650;line-height:1.6;';
+    const noteStyle = 'font-size:13px;color:#5c5650;line-height:1.6;';
+    const footerStyle = 'font-size:11px;color:#77706a;';
+
+    return `
+      <div style="${shellStyle}">
+        <div style="height:4px;margin-bottom:18px;border-radius:999px;background-color:#3e3935;"></div>
+        <div style="${eyebrowStyles}">
+          ${options.eyebrow}
+        </div>
+        <h2 style="${titleStyle}">${options.title}</h2>
+        ${options.paragraphs
+          .map((paragraph) => `<p style="${bodyStyle}">${paragraph}</p>`)
+          .join('')}
+        ${
+          options.note
+            ? `<p style="${noteStyle}"><strong>Observação:</strong> ${options.note}</p>`
+            : ''
+        }
+        <hr style="border:none;border-top:1px solid #d8d2cb;margin:24px 0;" />
+        <p style="${footerStyle}">
+          ${
+            options.footer ||
+            'SGS — Sistema de Gestão de Segurança · Comunicação oficial'
+          }
+        </p>
+      </div>
+    `;
   }
 
   private async persistMailLogSafely(
@@ -1122,16 +1165,36 @@ export class MailService {
       const text = `Olá,\n\nSegue em anexo o relatório mensal de conformidade referente a ${String(
         month,
       ).padStart(2, '0')}/${year}.\n\nAtenciosamente,\nEquipe SGS`;
+      const html = this.buildGraphiteEmailHtml({
+        eyebrow: 'Relatório mensal',
+        title: 'Relatório mensal de conformidade',
+        paragraphs: [
+          `Olá, segue o relatório mensal de conformidade referente a <strong>${String(
+            month,
+          ).padStart(2, '0')}/${year}</strong>.`,
+          'O documento oficial segue em anexo para revisão executiva, acompanhamento documental e rastreabilidade do fechamento mensal.',
+        ],
+        note: 'Este envio faz parte da comunicação oficial do SGS.',
+        footer:
+          'SGS — Sistema de Gestão de Segurança · Relatório mensal oficial',
+      });
 
-      await this.sendMailSimple(email, subject, text, { companyId }, [
-        {
-          filename: `relatorio-mensal-${year}-${String(month).padStart(
-            2,
-            '0',
-          )}.pdf`,
-          content: pdfBuffer,
-        },
-      ]);
+      await this.sendMailSimple(
+        email,
+        subject,
+        text,
+        { companyId },
+        [
+          {
+            filename: `relatorio-mensal-${year}-${String(month).padStart(
+              2,
+              '0',
+            )}.pdf`,
+            content: pdfBuffer,
+          },
+        ],
+        { html },
+      );
     } catch (error) {
       const message = this.extractErrorMessage(error);
       this.logger.error(

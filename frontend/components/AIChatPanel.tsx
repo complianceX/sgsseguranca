@@ -203,10 +203,14 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
   const ContextIcon = context.icon;
 
   return (
-    <div className="fixed bottom-[8.5rem] left-4 right-4 z-50 flex h-[min(40rem,calc(100vh-10rem))] flex-col overflow-hidden rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-elevated)_94%,white_6%),color-mix(in_srgb,var(--ds-color-surface-base)_96%,transparent))] shadow-[var(--ds-shadow-xl)] transition-all animate-in slide-in-from-bottom-4 sm:bottom-24 sm:left-auto sm:right-6 sm:w-[430px]">
-      <div className="flex items-center justify-between border-b border-white/10 bg-[image:var(--ds-gradient-brand)] px-4 py-3 text-white">
+    <div
+      id="sophie-chat-panel"
+      aria-label="Painel do chat da SOPHIE"
+      className="fixed bottom-[8.5rem] left-4 right-4 z-50 flex h-[min(40rem,calc(100vh-10rem))] flex-col overflow-hidden rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-strong)] bg-[var(--component-chat-shell-bg)] shadow-[var(--ds-shadow-lg)] transition-all animate-in slide-in-from-bottom-4 sm:bottom-24 sm:left-auto sm:right-6 sm:w-[430px]"
+    >
+      <div className="flex items-center justify-between border-b border-[var(--ds-color-border-strong)] bg-[var(--component-chat-header-bg)] px-4 py-3 text-white">
         <div className="flex items-center space-x-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20 text-white backdrop-blur-sm">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/16 bg-white/12 text-white">
             <ContextIcon className="h-4.5 w-4.5" />
           </div>
           <div>
@@ -217,9 +221,10 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
             </div>
           </div>
         </div>
-        <button 
+        <button
+          type="button"
           onClick={onClose}
-          className="rounded-full p-1 transition-colors hover:bg-white/10"
+          className="rounded-full p-1 transition-colors hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--component-chat-header-bg)]"
           title="Fechar chat"
           aria-label="Fechar chat"
         >
@@ -228,8 +233,8 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 space-y-4 overflow-y-auto bg-[color:var(--ds-color-surface-muted)]/22 p-4">
-        <div className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/95 p-3 text-xs text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-sm)]">
+      <div className="flex-1 space-y-4 overflow-y-auto bg-[color:var(--ds-color-surface-muted)]/18 p-4">
+        <div className="rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/95 p-3 text-xs text-[var(--ds-color-text-secondary)] shadow-[var(--ds-shadow-xs)]">
           <p className="font-semibold text-[var(--ds-color-text-primary)]">
             Chat da SOPHIE
           </p>
@@ -243,7 +248,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
               key={suggestion}
               type="button"
               onClick={() => setInput(suggestion)}
-              className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/92 px-3 py-1.5 text-xs font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:border-[var(--ds-color-action-primary)]/35 hover:bg-[var(--ds-color-primary-subtle)]/20 hover:text-[var(--ds-color-text-primary)]"
+              className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/92 px-3 py-1.5 text-xs font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:border-[var(--ds-color-border-default)] hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-surface-muted)]"
             >
               {suggestion}
             </button>
@@ -259,10 +264,10 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
           >
             <div
               className={cn(
-                "max-w-[80%] rounded-2xl px-4 py-2 text-sm shadow-sm",
+                "max-w-[80%] rounded-2xl px-4 py-2 text-sm shadow-[var(--ds-shadow-xs)]",
                 message.role === 'user'
-                  ? "rounded-tr-none bg-[image:var(--ds-gradient-brand)] text-white"
-                  : "rounded-tl-none border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/95 text-[var(--ds-color-text-primary)]"
+                  ? "rounded-tr-none bg-[var(--component-chat-user-bubble-bg)] text-[var(--component-chat-user-bubble-text)]"
+                  : "rounded-tl-none border border-[var(--ds-color-border-subtle)] bg-[var(--component-chat-assistant-bubble-bg)] text-[var(--ds-color-text-primary)]"
               )}
             >
               {message.content}
@@ -279,7 +284,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
         ))}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="flex items-center space-x-2 rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/95 px-4 py-2 shadow-[var(--ds-shadow-sm)]">
+            <div className="flex items-center space-x-2 rounded-2xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/95 px-4 py-2 shadow-[var(--ds-shadow-xs)]">
               <Loader2 className="h-4 w-4 animate-spin text-[var(--ds-color-action-primary)]" />
               <span className="text-xs italic text-[var(--ds-color-text-muted)]">SOPHIE analisando contexto...</span>
             </div>
@@ -300,7 +305,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
               <button
                 type="button"
                 onClick={clearSelectedImage}
-                className="rounded-full p-1 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
+                className="rounded-full p-1 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-surface-muted)]"
                 title="Remover imagem"
               >
                 <X className="h-4 w-4" />
@@ -329,7 +334,7 @@ export function AIChatPanel({ isOpen, onClose, context }: AIChatPanelProps) {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading}
-            className="absolute left-1 rounded-full p-2 text-[var(--ds-color-text-muted)] transition-all hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-action-primary)] disabled:opacity-50"
+            className="absolute left-1 rounded-full p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-surface-muted)] hover:text-[var(--ds-color-action-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-surface-base)] disabled:border-transparent disabled:bg-transparent disabled:text-[var(--disabled-text)]"
             title="Anexar foto para análise"
             aria-label="Anexar foto para análise"
           >

@@ -14,7 +14,7 @@ export function ThemeToggle() {
   const { theme, resolvedTheme, setTheme } = useTheme();
 
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-[var(--component-navbar-border)] bg-[color:var(--component-navbar-chip-bg)] p-1 shadow-[var(--ds-shadow-sm)]">
+    <div className="flex items-center gap-1 rounded-xl border border-[var(--component-navbar-border)] bg-[color:var(--component-navbar-chip-bg)] p-1">
       {options.map((option) => {
         const Icon = option.icon;
         const active = theme === option.value;

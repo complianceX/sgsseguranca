@@ -267,6 +267,22 @@ export class AprsPdfService {
     });
   }
 
+  private getAprStatusTone(status?: string | null): string {
+    switch ((status || '').trim().toUpperCase()) {
+      case 'APROVADA':
+        return 'success';
+      case 'PENDENTE':
+        return 'warning';
+      case 'CANCELADA':
+      case 'REPROVADA':
+        return 'critical';
+      case 'ENCERRADA':
+        return 'neutral';
+      default:
+        return 'neutral';
+    }
+  }
+
   private renderAprFinalPdfHtml(input: {
     apr: Apr;
     documentCode: string;
@@ -316,6 +332,47 @@ export class AprsPdfService {
       critico: 0,
     };
 
+    const summaryCards = [
+      {
+        label: 'Itens avaliados',
+        value: summary.total,
+        tone: 'neutral',
+      },
+      {
+        label: 'Aceitável',
+        value: summary.aceitavel,
+        tone: 'success',
+      },
+      {
+        label: 'Atenção',
+        value: summary.atencao,
+        tone: 'warning',
+      },
+      {
+        label: 'Substancial',
+        value: summary.substancial,
+        tone: 'alert',
+      },
+      {
+        label: 'Crítico',
+        value: summary.critico,
+        tone: 'critical',
+      },
+    ];
+
+    const summaryCardsHtml = summaryCards
+      .map(
+        (card) => `
+          <div class="summary-card summary-card--${card.tone}">
+            <span class="meta-label">${this.escapeHtml(card.label)}</span>
+            <strong>${this.escapeHtml(card.value)}</strong>
+          </div>
+        `,
+      )
+      .join('');
+
+    const statusTone = this.getAprStatusTone(apr.status);
+
     const riskRows = riskItems
       .map(
         (item) => `
@@ -354,16 +411,32 @@ export class AprsPdfService {
             }
             :root {
               color-scheme: light;
+              --ink: #25221f;
+              --muted: #67615b;
+              --line: #d5cec7;
+              --surface: #ffffff;
+              --surface-soft: #faf8f5;
+              --paper: #f6f5f3;
+              --neutral: #5c5650;
+              --success: #1d6b43;
+              --success-soft: color-mix(in srgb, #1d6b43 11%, white 89%);
+              --warning: #9a5a00;
+              --warning-soft: color-mix(in srgb, #9a5a00 12%, white 88%);
+              --alert: #b65e00;
+              --alert-soft: color-mix(in srgb, #b65e00 12%, white 88%);
+              --critical: #b3261e;
+              --critical-soft: color-mix(in srgb, #b3261e 10%, white 90%);
             }
             * {
               box-sizing: border-box;
             }
             body {
               font-family: Arial, Helvetica, sans-serif;
-              color: #0f172a;
+              color: var(--ink);
               font-size: 11px;
               line-height: 1.45;
               margin: 0;
+              background: var(--paper);
             }
             h1, h2, h3, p {
               margin: 0;
@@ -372,40 +445,43 @@ export class AprsPdfService {
               width: 100%;
             }
             .hero {
-              border: 1px solid #cbd5e1;
+              border: 2px solid var(--line);
               border-radius: 14px;
               padding: 16px 18px;
-              background: linear-gradient(135deg, #eff6ff 0%, #ffffff 55%);
+              background: var(--surface);
+              box-shadow: 0 10px 28px rgba(37, 34, 31, 0.05);
               margin-bottom: 16px;
             }
             .eyebrow {
-              color: #2563eb;
+              color: var(--muted);
               font-size: 9px;
-              font-weight: 700;
-              letter-spacing: 0.18em;
+              font-weight: 800;
+              letter-spacing: 0.16em;
               text-transform: uppercase;
             }
             .hero-grid {
               display: grid;
-              grid-template-columns: 1.6fr 0.9fr;
+              grid-template-columns: 1.55fr 0.95fr;
               gap: 14px;
               margin-top: 8px;
             }
             .hero-title {
-              font-size: 24px;
-              font-weight: 800;
+              font-size: 23px;
+              line-height: 1.12;
+              font-weight: 900;
               margin-top: 8px;
+              color: var(--ink);
             }
             .hero-subtitle {
               margin-top: 6px;
-              color: #475569;
+              color: var(--muted);
               font-size: 12px;
             }
             .meta-panel {
-              border: 1px solid #dbeafe;
+              border: 1px solid var(--line);
               border-radius: 12px;
               padding: 12px;
-              background: rgba(255,255,255,0.84);
+              background: var(--surface-soft);
             }
             .meta-grid {
               display: grid;
@@ -414,28 +490,85 @@ export class AprsPdfService {
             }
             .meta-label {
               font-size: 9px;
-              color: #64748b;
-              font-weight: 700;
-              letter-spacing: 0.12em;
+              color: var(--muted);
+              font-weight: 800;
+              letter-spacing: 0.1em;
               text-transform: uppercase;
             }
             .meta-value {
               margin-top: 4px;
-              font-size: 12px;
-              font-weight: 700;
+              font-size: 11px;
+              font-weight: 800;
+              color: var(--ink);
+            }
+            .meta-value--title {
+              font-size: 13px;
+              font-weight: 900;
+              line-height: 1.3;
+            }
+            .status-pill {
+              display: inline-block;
+              padding: 4px 10px;
+              border-radius: 999px;
+              border: 1px solid var(--line);
+              font-size: 9px;
+              font-weight: 900;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: var(--ink);
+              background: var(--surface);
+            }
+            .status-pill--success {
+              border-color: rgba(22, 101, 52, 0.25);
+              background: var(--success-soft);
+              color: var(--success);
+            }
+            .status-pill--warning {
+              border-color: rgba(146, 64, 14, 0.25);
+              background: var(--warning-soft);
+              color: var(--warning);
+            }
+            .status-pill--critical {
+              border-color: rgba(153, 27, 27, 0.25);
+              background: var(--critical-soft);
+              color: var(--critical);
+            }
+            .status-pill--neutral {
+              background: #f0eeea;
+              color: #5c5650;
+            }
+            .field-stack {
+              margin-top: 12px;
             }
             .section {
               margin-top: 14px;
-              border: 1px solid #e2e8f0;
+              border: 1.5px solid var(--line);
               border-radius: 12px;
-              padding: 12px 14px;
+              padding: 14px;
+              background: var(--surface);
+              break-inside: avoid;
               page-break-inside: avoid;
             }
             .section-title {
-              font-size: 13px;
-              font-weight: 800;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              font-size: 12px;
+              font-weight: 900;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
               margin-bottom: 10px;
-              color: #0f172a;
+              color: var(--ink);
+              padding-bottom: 9px;
+              border-bottom: 1px solid var(--line);
+            }
+            .section-title::before {
+              content: '';
+              width: 8px;
+              height: 8px;
+              border-radius: 999px;
+              background: #374151;
+              display: inline-block;
             }
             .details-grid {
               display: grid;
@@ -448,48 +581,77 @@ export class AprsPdfService {
               gap: 8px;
             }
             .summary-card {
-              border: 1px solid #e2e8f0;
+              border: 1px solid var(--line);
               border-radius: 10px;
-              padding: 10px;
-              background: #f8fafc;
+              padding: 10px 12px;
+              background: var(--surface-soft);
+              border-top: 3px solid var(--neutral);
             }
             .summary-card strong {
               display: block;
-              font-size: 18px;
+              font-size: 19px;
+              line-height: 1.1;
               margin-top: 4px;
+              color: var(--ink);
+            }
+            .summary-card--success {
+              border-top-color: var(--success);
+              background: var(--success-soft);
+            }
+            .summary-card--warning {
+              border-top-color: var(--warning);
+              background: var(--warning-soft);
+            }
+            .summary-card--alert {
+              border-top-color: var(--alert);
+              background: var(--alert-soft);
+            }
+            .summary-card--critical {
+              border-top-color: var(--critical);
+              background: var(--critical-soft);
             }
             table {
               width: 100%;
               border-collapse: collapse;
+              border: 1px solid var(--line);
+              background: var(--surface);
             }
             thead {
               display: table-header-group;
             }
             th {
-              background: #eff6ff;
-              color: #0f172a;
+              background: #ece8e3;
+              color: var(--ink);
               font-size: 9px;
               text-transform: uppercase;
-              letter-spacing: 0.08em;
+              letter-spacing: 0.06em;
+              font-weight: 900;
             }
             th, td {
-              border: 1px solid #dbe3ee;
+              border: 1px solid var(--line);
               padding: 6px 7px;
               text-align: left;
               vertical-align: top;
               word-break: break-word;
             }
             tbody tr:nth-child(even) {
-              background: #f8fafc;
+              background: #faf8f5;
             }
             .participants {
               margin: 0;
               padding-left: 16px;
+              color: var(--ink);
+            }
+            .participants li {
+              margin-bottom: 2px;
             }
             .footer {
-              margin-top: 14px;
-              color: #475569;
+              margin-top: 12px;
+              padding-top: 10px;
+              border-top: 1px solid var(--line);
+              color: var(--muted);
               font-size: 10px;
+              line-height: 1.5;
             }
           </style>
         </head>
@@ -512,7 +674,9 @@ export class AprsPdfService {
                     </div>
                     <div>
                       <div class="meta-label">Status</div>
-                      <div class="meta-value">${this.escapeHtml(apr.status)}</div>
+                      <div class="meta-value">
+                        <span class="status-pill status-pill--${this.escapeHtml(statusTone)}">${this.escapeHtml(apr.status)}</span>
+                      </div>
                     </div>
                     <div>
                       <div class="meta-label">Número APR</div>
@@ -555,15 +719,15 @@ export class AprsPdfService {
                   <div class="meta-value">${this.escapeHtml(String(participantList.length))}</div>
                 </div>
               </div>
-              <div style="margin-top: 12px;">
+              <div class="field-stack">
                 <div class="meta-label">Título</div>
-                <div class="meta-value">${this.escapeHtml(apr.titulo || '-')}</div>
+                <div class="meta-value meta-value--title">${this.escapeHtml(apr.titulo || '-')}</div>
               </div>
-              <div style="margin-top: 12px;">
+              <div class="field-stack">
                 <div class="meta-label">Descrição</div>
                 <div>${this.escapeHtml(apr.descricao || 'Sem descrição operacional complementar.')}</div>
               </div>
-              <div style="margin-top: 12px;">
+              <div class="field-stack">
                 <div class="meta-label">Participantes vinculados</div>
                 ${
                   participantList.length > 0
@@ -577,13 +741,7 @@ export class AprsPdfService {
 
             <section class="section">
               <h2 class="section-title">Resumo executivo de risco</h2>
-              <div class="summary-grid">
-                <div class="summary-card"><span class="meta-label">Itens avaliados</span><strong>${summary.total}</strong></div>
-                <div class="summary-card"><span class="meta-label">Aceitável</span><strong>${summary.aceitavel}</strong></div>
-                <div class="summary-card"><span class="meta-label">Atenção</span><strong>${summary.atencao}</strong></div>
-                <div class="summary-card"><span class="meta-label">Substancial</span><strong>${summary.substancial}</strong></div>
-                <div class="summary-card"><span class="meta-label">Crítico</span><strong>${summary.critico}</strong></div>
-              </div>
+              <div class="summary-grid">${summaryCardsHtml}</div>
             </section>
 
             <section class="section">

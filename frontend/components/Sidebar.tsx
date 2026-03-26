@@ -184,8 +184,8 @@ export function Sidebar({
     <>
       <button
         type="button"
-        aria-hidden={!isOpen}
-        tabIndex={isOpen ? 0 : -1}
+        aria-label="Fechar menu lateral"
+        tabIndex={-1}
         onClick={onClose}
         className={cn(
           'fixed inset-0 z-40 bg-[color:var(--component-overlay)] backdrop-blur-sm transition-opacity xl:hidden',
@@ -194,13 +194,13 @@ export function Sidebar({
       />
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col border-r border-[color:var(--ds-color-sidebar-border)] bg-[var(--ds-color-sidebar-bg)] text-[var(--ds-color-sidebar-text)] shadow-[var(--ds-shadow-md)] transition-transform duration-[var(--ds-motion-base)] xl:static xl:z-auto xl:translate-x-0 xl:shadow-none',
+          'fixed inset-y-0 left-0 z-50 flex h-full w-60 flex-col border-r border-[color:var(--ds-color-sidebar-border)] bg-[var(--ds-color-sidebar-bg)] text-[var(--ds-color-sidebar-text)] shadow-[var(--ds-shadow-sm)] transition-transform duration-[var(--ds-motion-base)] xl:static xl:z-auto xl:translate-x-0 xl:shadow-none',
           isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
         {/* Logo */}
         <div className="border-b border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-bg-soft)]/60 px-5 py-4">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-bg-soft)] px-3.5 py-4 text-center shadow-[0_10px_24px_rgba(2,8,18,0.18)]">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-[color:var(--component-sidebar-panel-border)] bg-[var(--component-sidebar-panel-bg)] px-3.5 py-4 text-center">
             <Image
               src="/logo-sgs.svg"
               alt="Logo SGS"
@@ -232,7 +232,7 @@ export function Sidebar({
                   <button
                     type="button"
                     onClick={() => toggleSection(section.id)}
-                    className="flex w-full items-center justify-between px-4 pb-1.5 text-left"
+                    className="flex w-full items-center justify-between rounded-[var(--ds-radius-sm)] px-4 pb-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-sidebar-bg)]"
                   >
                     <span className="text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-sidebar-muted)]">
                       {section.label}
@@ -257,9 +257,9 @@ export function Sidebar({
                             href={item.href!}
                             onClick={onClose}
                             className={cn(
-                              'mx-2 flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-[13px] font-medium transition-all',
+                              'mx-2 flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-[13px] font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-sidebar-bg)]',
                               active
-                                ? 'border-[color:var(--ds-color-primary-border)] bg-[color:var(--brand-sidebar-hover)] text-[var(--ds-color-sidebar-text)] shadow-[0_12px_24px_rgba(2,8,18,0.22)]'
+                                ? 'border-[color:var(--component-sidebar-active-border)] bg-[var(--component-sidebar-active-bg)] text-[var(--ds-color-sidebar-text)]'
                                 : 'border-transparent text-[var(--ds-color-sidebar-muted)] hover:border-[color:var(--ds-color-sidebar-border)] hover:bg-[color:var(--brand-sidebar-hover)] hover:text-[var(--ds-color-sidebar-text)]',
                             )}
                           >
@@ -267,7 +267,7 @@ export function Sidebar({
                               className={cn(
                                 'h-4 w-4 shrink-0',
                                 active
-                                  ? 'text-[color:var(--brand-primary-soft)]'
+                                  ? 'text-[var(--component-sidebar-active-icon)]'
                                   : 'text-[var(--ds-color-sidebar-muted)]',
                               )}
                             />
@@ -292,7 +292,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={logout}
-            className="mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2.5 rounded-xl border border-transparent px-3.5 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-all hover:border-[color:var(--ds-color-danger-border)] hover:bg-[color:rgba(185,28,28,0.12)] hover:text-[color:var(--ds-color-sidebar-text)]"
+            className="mx-1 flex w-[calc(100%-0.5rem)] items-center gap-2.5 rounded-xl border border-transparent px-3.5 py-2.5 text-[13px] font-medium text-[var(--ds-color-sidebar-muted)] transition-all hover:border-[color:var(--ds-color-danger-border)] hover:bg-[var(--component-sidebar-danger-hover-bg)] hover:text-[color:var(--ds-color-sidebar-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-sidebar-bg)]"
           >
             <LogOut className="h-4 w-4 shrink-0" />
             Sair

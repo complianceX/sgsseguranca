@@ -6,21 +6,17 @@ import api from '@/lib/api';
 import axios from 'axios';
 
 const AUTH_SHELL_STYLE = {
-  background: [
-    'radial-gradient(circle at top left, color-mix(in srgb, var(--ds-color-action-primary) 24%, transparent), transparent 24%)',
-    'radial-gradient(circle at bottom right, color-mix(in srgb, var(--ds-color-accent) 18%, transparent), transparent 30%)',
-    'linear-gradient(135deg, color-mix(in srgb, var(--ds-color-bg-canvas) 22%, #08111f 78%) 0%, color-mix(in srgb, var(--ds-color-bg-canvas) 14%, #0d1728 86%) 46%, color-mix(in srgb, var(--ds-color-bg-canvas) 20%, #102235 80%) 100%)',
-  ].join(', '),
+  backgroundColor: 'var(--ds-color-bg-canvas)',
 };
 
 const authCardClass =
-  'w-full max-w-[27rem] rounded-[24px] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] p-6 shadow-[var(--ds-shadow-lg)] backdrop-blur-xl';
+  'w-full max-w-[28rem] rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-overlay)] p-6 shadow-none';
 
 const authInputClass =
-  'w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-bg-subtle)] px-3 py-2.5 text-[13px] text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-4 focus:ring-[var(--ds-color-focus-ring)]';
+  'w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2.5 text-[13px] text-[var(--ds-color-text-primary)] outline-none transition-colors focus:border-[var(--ds-color-focus)] focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]';
 
 const primaryButtonClass =
-  'w-full rounded-xl bg-[image:var(--ds-gradient-brand)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-[var(--ds-shadow-md)] transition-all hover:-translate-y-px hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50';
+  'w-full rounded-[var(--ds-radius-md)] border border-transparent bg-[var(--ds-color-action-primary)] px-4 py-2.5 text-[13px] font-semibold text-[var(--ds-color-action-primary-foreground)] transition-colors hover:bg-[var(--ds-color-action-primary-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-surface-overlay)] disabled:cursor-not-allowed disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]';
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -83,12 +79,12 @@ function ResetPasswordForm() {
   if (done) {
     return (
       <div className={`${authCardClass} space-y-4`}>
-        <div className="rounded-2xl border border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success)]/10 p-3.5 text-center text-sm">
+        <div className="rounded-[var(--ds-radius-lg)] border border-[color:var(--ds-color-success)]/20 bg-[color:var(--ds-color-success)]/10 p-4 text-center text-sm">
           <svg className="mx-auto mb-2 h-8 w-8 text-[var(--ds-color-success)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="font-semibold text-[var(--ds-color-text-primary)]">Senha redefinida com sucesso!</p>
-          <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+          <p className="font-semibold text-[var(--ds-color-text-primary)]">Senha redefinida com sucesso</p>
+          <p className="mt-1 text-xs leading-5 text-[var(--ds-color-text-secondary)]">
             Você já pode fazer login com a nova senha.
           </p>
         </div>
@@ -105,12 +101,12 @@ function ResetPasswordForm() {
 
   return (
     <div className={authCardClass}>
-      <div className="mb-5 text-center">
-        <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[image:var(--ds-gradient-brand)] text-lg font-bold text-white shadow-[var(--ds-shadow-sm)]">
-          G
-        </div>
-        <h1 className="text-lg font-bold text-[var(--ds-color-text-primary)]">Nova Senha</h1>
-        <p className="mt-1 text-[13px] text-[var(--ds-color-text-muted)]">
+      <div className="mb-6 space-y-2 text-center">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+          SGS
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight text-[var(--ds-color-text-primary)]">Nova senha</h1>
+        <p className="text-[13px] leading-5 text-[var(--ds-color-text-muted)]">
           Defina uma nova senha para sua conta
         </p>
       </div>
@@ -135,8 +131,9 @@ function ResetPasswordForm() {
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--ds-color-text-muted)] transition-colors hover:text-[var(--ds-color-text-secondary)]"
-              tabIndex={-1}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-[var(--ds-radius-sm)] p-1 text-[var(--ds-color-text-muted)] transition-colors hover:text-[var(--ds-color-text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-surface-base)]"
+              aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+              aria-pressed={showPassword}
             >
               {showPassword ? (
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,7 +147,7 @@ function ResetPasswordForm() {
               )}
             </button>
           </div>
-          <p className="mt-1.5 text-[11px] text-[var(--ds-color-text-muted)]">
+          <p className="mt-1.5 text-[11px] leading-5 text-[var(--ds-color-text-muted)]">
             Mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas e números.
           </p>
         </div>
@@ -171,7 +168,7 @@ function ResetPasswordForm() {
         </div>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-xl border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/10 p-3 text-[13px] text-[var(--ds-color-danger)]">
+          <div className="flex items-start gap-2 rounded-[var(--ds-radius-md)] border border-[color:var(--ds-color-danger)]/20 bg-[color:var(--ds-color-danger)]/10 p-3 text-[13px] leading-5 text-[var(--ds-color-danger)]">
             <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -204,14 +201,17 @@ function ResetPasswordForm() {
 function Fallback() {
   return (
     <div className="flex min-h-screen items-center justify-center" style={AUTH_SHELL_STYLE}>
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/25 border-t-[var(--ds-color-action-primary)]" />
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--ds-color-border-subtle)] border-t-[var(--ds-color-action-primary)]" />
     </div>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center p-5" style={AUTH_SHELL_STYLE}>
+    <div
+      className="flex min-h-screen items-center justify-center px-5 py-8 text-[var(--ds-color-text-primary)]"
+      style={AUTH_SHELL_STYLE}
+    >
       <Suspense fallback={<Fallback />}>
         <ResetPasswordForm />
       </Suspense>

@@ -240,6 +240,63 @@ export class AuthService {
     return mode === 'ua' ? 'ua' : 'none';
   }
 
+  private buildGraphiteEmailHtml(options: {
+    eyebrow: string;
+    title: string;
+    paragraphs: string[];
+    cta?: {
+      label: string;
+      href: string;
+    };
+    note?: string;
+    footer?: string;
+    tone?: 'neutral' | 'warning';
+  }) {
+    const tone = options.tone ?? 'neutral';
+    const eyebrowStyles =
+      tone === 'warning'
+        ? 'display:inline-block;margin-bottom:16px;padding:6px 10px;border-radius:999px;background-color:#f4ede5;border:1px solid #dfd4c8;color:#9a5a00;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;'
+        : 'display:inline-block;margin-bottom:16px;padding:6px 10px;border-radius:999px;background-color:#ece8e3;border:1px solid #d8d2cb;color:#3e3935;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;';
+    const shellStyle =
+      'font-family: Arial, sans-serif;color:#25221f;max-width:560px;margin:0 auto;padding:28px;background-color:#f6f5f3;border:1px solid #b7aea5;border-radius:18px;';
+    const titleStyle = 'margin:0 0 12px;color:#25221f;';
+    const bodyStyle = 'margin:0 0 12px;color:#5c5650;line-height:1.6;';
+    const noteStyle = 'font-size:13px;color:#5c5650;line-height:1.6;';
+    const footerStyle = 'font-size:11px;color:#77706a;';
+    const ctaStyle =
+      'background-color:#3e3935;color:#f6f5f3;padding:12px 28px;text-decoration:none;border-radius:12px;font-weight:700;display:inline-block;border:1px solid #2c2825;box-shadow:0 10px 20px rgba(44,40,37,0.14);';
+
+    return `
+      <div style="${shellStyle}">
+        <div style="height:4px;margin-bottom:18px;border-radius:999px;background-color:#3e3935;"></div>
+        <div style="${eyebrowStyles}">
+          ${options.eyebrow}
+        </div>
+        <h2 style="${titleStyle}">${options.title}</h2>
+        ${options.paragraphs
+          .map((paragraph) => `<p style="${bodyStyle}">${paragraph}</p>`)
+          .join('')}
+        ${
+          options.cta
+            ? `<div style="margin:28px 0 22px;"><a href="${options.cta.href}" style="${ctaStyle}">${options.cta.label}</a></div>`
+            : ''
+        }
+        ${
+          options.note
+            ? `<p style="${noteStyle}"><strong>Observação:</strong> ${options.note}</p>`
+            : ''
+        }
+        <hr style="border:none;border-top:1px solid #d8d2cb;margin:24px 0;" />
+        <p style="${footerStyle}">
+          ${
+            options.footer ||
+            'SGS — Sistema de Gestão de Segurança · Comunicação oficial'
+          }
+        </p>
+      </div>
+    `;
+  }
+
   async login(user: User, ctx?: { userAgent?: string }) {
     // Normaliza profile para { nome } explícito no JWT — elimina o union type
     // string | object que causava ambiguidade no middleware de autorização.
@@ -550,25 +607,21 @@ export class AuthService {
     const resolvedFrontendUrl = frontendUrl || 'http://localhost:3002';
     const resetUrl = `${resolvedFrontendUrl}/reset-password?token=${token}`;
 
-    const html = `
-      <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 560px; margin: 0 auto; padding: 28px; background-color: #f8fafc; border: 1px solid #d9e2ec; border-radius: 18px;">
-        <div style="display: inline-block; margin-bottom: 16px; padding: 6px 10px; border-radius: 999px; background-color: #dbeafe; color: #1d4ed8; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">
-          SGS — Sistema de Gestão de Segurança
-        </div>
-        <h2 style="margin: 0 0 12px; color: #0f172a;">Redefinição de Senha</h2>
-        <p>Olá, <strong>${user.nome || 'usuário'}</strong>.</p>
-        <p>Recebemos uma solicitação para redefinir a senha da sua conta. Clique no botão abaixo para continuar:</p>
-        <div style="margin: 28px 0;">
-          <a href="${resetUrl}"
-             style="background-color: #1d4ed8; color: #fff; padding: 12px 28px; text-decoration: none; border-radius: 10px; font-weight: bold; display: inline-block; box-shadow: 0 10px 20px rgba(29, 78, 216, 0.18);">
-            Redefinir Senha
-          </a>
-        </div>
-        <p style="font-size: 13px; color: #475569;">Este link é válido por <strong>1 hora</strong>. Caso não tenha solicitado, ignore este e-mail; sua senha permanece inalterada.</p>
-        <hr style="border: none; border-top: 1px solid #d9e2ec; margin: 24px 0;" />
-        <p style="font-size: 11px; color: #64748b;">© 2026 SGS — Sistema de Gestão de Segurança · Todos os direitos reservados</p>
-      </div>
-    `;
+    const html = this.buildGraphiteEmailHtml({
+      eyebrow: 'Ação necessária',
+      title: 'Redefinição de senha',
+      paragraphs: [
+        `Olá, <strong>${user.nome || 'usuário'}</strong>.`,
+        'Recebemos uma solicitação para redefinir a senha da sua conta. Use o botão abaixo para continuar.',
+      ],
+      cta: {
+        label: 'Redefinir senha',
+        href: resetUrl,
+      },
+      note:
+        'Este link é válido por 1 hora. Caso não tenha solicitado, ignore este e-mail; sua senha permanece inalterada.',
+      footer: '© 2026 SGS — Sistema de Gestão de Segurança · Todos os direitos reservados',
+    });
 
     try {
       const resend = this.getResend();

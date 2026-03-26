@@ -4,26 +4,22 @@ import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-[var(--ds-radius-md)] text-[13px] font-semibold leading-none transition-all duration-[var(--ds-motion-base)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)] disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--ds-radius-md)] border border-transparent text-[13px] font-semibold leading-none transition-[background-color,border-color,color,box-shadow,transform] duration-[var(--ds-motion-base)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ds-color-focus)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-color-bg-canvas)] disabled:pointer-events-none disabled:shadow-none',
   {
     variants: {
       variant: {
-        default:
-          'bg-[var(--ds-color-action-primary)] text-[var(--component-button-primary-text)] hover:bg-[var(--ds-color-action-primary-hover)]',
         primary:
-          'bg-[var(--ds-color-action-primary)] text-[var(--component-button-primary-text)] hover:bg-[var(--ds-color-action-primary-hover)]',
-        success:
-          'bg-[var(--ds-color-success)] text-[var(--component-button-success-text)] hover:bg-[var(--ds-color-success-hover)]',
-        warning:
-          'bg-[var(--ds-color-warning)] text-[var(--component-button-warning-text)] hover:bg-[var(--ds-color-warning-hover)]',
+          'bg-[var(--component-button-primary-bg)] text-[var(--component-button-primary-text)] hover:bg-[var(--component-button-primary-hover-bg)] active:bg-[var(--ds-color-action-primary-active)] disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]',
         secondary:
-          'border border-[var(--component-button-secondary-border)] bg-[var(--ds-color-surface-base)] text-[var(--component-button-secondary-text)] hover:border-[var(--color-border-strong)] hover:bg-[color:var(--component-button-secondary-bg-hover)]',
-        destructive:
-          'bg-[var(--ds-color-danger)] text-[var(--component-button-danger-text)] hover:bg-[var(--ds-color-danger-hover)]',
-        ghost:
-          'bg-transparent text-[var(--component-button-ghost-text)] hover:bg-[color:var(--component-button-ghost-bg-hover)] hover:text-[var(--color-text)]',
+          'border-[var(--component-button-secondary-border)] bg-[var(--component-button-secondary-bg)] text-[var(--component-button-secondary-text)] hover:border-[var(--color-border-strong)] hover:bg-[var(--component-button-secondary-bg-hover)] active:bg-[var(--ds-color-action-secondary-active)] disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]',
         outline:
-          'border border-[color:var(--component-button-outline-border,#9CAEC2)] bg-[color:var(--color-surface)] text-[var(--color-text)] hover:bg-[color:var(--color-surface-elevated)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]',
+          'border-[var(--component-button-outline-border)] bg-transparent text-[var(--ds-color-text-primary)] hover:border-[var(--color-border-strong)] hover:bg-[var(--ds-color-surface-muted)] active:bg-[var(--ds-color-bg-subtle)] disabled:border-[var(--disabled-border)] disabled:bg-transparent disabled:text-[var(--disabled-text)]',
+        ghost:
+          'bg-transparent text-[var(--component-button-ghost-text)] hover:bg-[var(--component-button-ghost-bg-hover)] hover:text-[var(--ds-color-text-primary)] active:bg-[var(--ds-color-primary-subtle-hover)] disabled:bg-transparent disabled:text-[var(--disabled-text)]',
+        destructive:
+          'bg-[var(--component-button-danger-bg)] text-[var(--component-button-danger-text)] hover:bg-[var(--ds-color-danger-hover)] active:bg-[var(--ds-color-danger-hover)] disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]',
+        link:
+          '!h-auto !rounded-none !border-transparent !bg-transparent !px-0 !py-0 text-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary-hover)] hover:underline underline-offset-4 disabled:text-[var(--disabled-text)] disabled:no-underline',
       },
       size: {
         sm: 'h-8 px-2.5 text-[11px]',
@@ -33,8 +29,8 @@ const buttonVariants = cva(
       },
     },
     defaultVariants: {
-      variant: "primary",
-      size: "md",
+      variant: 'primary',
+      size: 'md',
     },
   }
 );
@@ -48,13 +44,16 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, loading, leftIcon, rightIcon, children, ...props }, ref) => {
+  ({ className, variant, size, loading, leftIcon, rightIcon, children, disabled, ...props }, ref) => {
+    const isDisabled = loading || disabled;
+
     return (
       <button
+        {...props}
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        disabled={loading || props.disabled}
-        {...props}
+        disabled={isDisabled}
+        aria-busy={loading || undefined}
       >
         {loading && <Loader2 className="h-4 w-4 animate-spin" />}
         {!loading && leftIcon && <span>{leftIcon}</span>}

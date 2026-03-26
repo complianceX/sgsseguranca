@@ -112,9 +112,7 @@ html[data-theme="light"] {
       background-color var(--ds-motion-base);
     padding-top: 0.625rem !important;
     padding-bottom: 0.625rem !important;
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
-      0 1px 2px rgba(11, 19, 36, 0.04);
+    box-shadow: var(--component-field-shadow);
   }
 
   input::placeholder,
@@ -129,9 +127,8 @@ html[data-theme="light"] {
     border-color: var(--component-field-border-focus) !important;
     background: var(--ds-color-surface-base) !important;
     box-shadow:
-      inset 0 1px 0 color-mix(in srgb, white 10%, transparent),
-      0 0 0 4px var(--ds-color-focus-ring),
-      0 6px 16px rgba(37, 99, 235, 0.08) !important;
+      0 0 0 1px var(--ds-color-focus),
+      0 0 0 4px var(--ds-color-focus-ring) !important;
     outline: none !important;
   }
 
@@ -177,11 +174,7 @@ html[data-theme="light"] {
   }
 
   select option:checked {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-action-primary) 75%, black 25%),
-      color-mix(in srgb, var(--ds-color-action-primary-hover) 82%, black 18%)
-    ) !important;
+    background: var(--ds-color-action-primary) !important;
     color: var(--ds-color-action-primary-foreground) !important;
   }
 
@@ -217,7 +210,12 @@ html[data-theme="light"] {
     gap: 0.375rem;
     background-color: var(--ds-color-action-primary);
     color: var(--ds-color-text-inverse);
-    border: none;
+    border: 1px solid
+      color-mix(
+        in srgb,
+        var(--ds-color-action-primary-hover) 78%,
+        black 22%
+      );
     border-radius: var(--ds-radius-md);
     padding: 0.5rem 1rem;
     font-size: var(--ds-text-sm);
@@ -225,15 +223,19 @@ html[data-theme="light"] {
     line-height: 1.35;
     transition:
       background-color var(--ds-motion-fast),
-      box-shadow var(--ds-motion-fast),
+      border-color var(--ds-motion-fast),
       opacity var(--ds-motion-fast);
     cursor: pointer;
-    box-shadow: 0 8px 16px rgba(37, 99, 235, 0.18);
+    box-shadow: none;
   }
 
   .btn-primary:hover:not(:disabled) {
     background-color: var(--ds-color-action-primary-hover);
-    box-shadow: 0 10px 20px rgba(37, 99, 235, 0.22);
+    border-color: color-mix(
+      in srgb,
+      var(--ds-color-action-primary-active) 76%,
+      black 24%
+    );
   }
 
   .btn-primary:disabled {
@@ -245,7 +247,7 @@ html[data-theme="light"] {
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
-    background-color: var(--ds-color-surface-base);
+    background-color: var(--component-button-secondary-bg);
     color: var(--ds-color-text-primary);
     border: 1px solid var(--ds-color-border-default);
     border-radius: var(--ds-radius-md);
@@ -288,7 +290,7 @@ html[data-theme="light"] {
     background: var(--surface);
     border: 1px solid var(--border-default);
     border-radius: 16px;
-    box-shadow: var(--ds-shadow-sm);
+    box-shadow: var(--component-card-shadow);
   }
 
   .section-soft {
@@ -396,25 +398,25 @@ html[data-theme="light"] {
   .alert-success {
     background: var(--success-bg);
     color: var(--success);
-    border: 1px solid #bbf7d0;
+    border: 1px solid var(--ds-color-success-border);
   }
 
   .alert-warning {
     background: var(--warning-bg);
     color: var(--warning);
-    border: 1px solid #fed7aa;
+    border: 1px solid var(--ds-color-warning-border);
   }
 
   .alert-danger {
     background: var(--error-bg);
     color: var(--error);
-    border: 1px solid #fecaca;
+    border: 1px solid var(--ds-color-danger-border);
   }
 
   .alert-info {
     background: var(--info-bg);
     color: var(--info);
-    border: 1px solid #bae6fd;
+    border: 1px solid var(--ds-color-info-border);
   }
 
   .btn-ghost {
@@ -488,14 +490,14 @@ html[data-theme="light"] {
     background-color: var(--ds-color-surface-base);
     border: 1px solid var(--ds-color-border-subtle);
     border-radius: var(--ds-radius-lg);
-    box-shadow: var(--ds-shadow-sm);
+    box-shadow: var(--component-card-shadow);
   }
 
   .sst-card {
     background: var(--ds-gradient-surface);
     border: 1px solid var(--ds-color-border-subtle);
     border-radius: var(--ds-radius-lg);
-    box-shadow: var(--ds-shadow-sm);
+    box-shadow: var(--component-card-shadow);
     transition:
       box-shadow var(--ds-motion-base),
       border-color var(--ds-motion-base);
@@ -1364,8 +1366,14 @@ html[data-theme="light"] {
 
   /* disabled:bg-blue-300 é um hardcode legado — redireciona para action muted */
   .ds-system-scope .disabled\:bg-blue-300:disabled {
-    background-color: var(--ds-color-action-primary) !important;
-    opacity: 0.45 !important;
+    background-color: color-mix(
+      in srgb,
+      var(--ds-color-action-primary) 14%,
+      var(--ds-color-surface-muted) 86%
+    ) !important;
+    border-color: var(--ds-color-border-default) !important;
+    color: var(--ds-color-text-disabled) !important;
+    opacity: 1 !important;
   }
 
   .ds-system-scope .bg-slate-800 {
@@ -1629,14 +1637,10 @@ html[data-theme="light"] {
   .ds-hero-panel {
     position: relative;
     overflow: hidden;
-    background: linear-gradient(
-      180deg,
-      color-mix(
-        in srgb,
-        var(--ds-color-primary-subtle) 48%,
-        var(--ds-color-surface-base) 52%
-      ),
-      var(--ds-color-surface-base)
+    background: color-mix(
+      in srgb,
+      var(--ds-color-primary-subtle) 42%,
+      var(--ds-color-surface-base) 58%
     );
     border: 1px solid var(--ds-color-border-subtle);
   }
@@ -1646,11 +1650,7 @@ html[data-theme="light"] {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--ds-color-action-primary) 6%, transparent),
-      transparent 32%
-    );
+    background: none;
   }
 
   .ds-stat-tile {
@@ -1809,8 +1809,8 @@ html[data-theme="light"] {
     border-radius: 1.2rem;
     background: var(--component-navbar-bg);
     padding: 0.45rem;
-    box-shadow: var(--ds-shadow-lg);
-    backdrop-filter: blur(18px);
+    box-shadow: var(--ds-shadow-sm);
+    backdrop-filter: blur(10px);
   }
 
   .ds-mobile-nav__item {
@@ -1831,10 +1831,16 @@ html[data-theme="light"] {
   }
 
   .ds-mobile-nav__item--active {
-    background: var(--ds-gradient-brand);
+    border: 1px solid
+      color-mix(
+        in srgb,
+        var(--ds-color-action-primary) 22%,
+        var(--component-navbar-border) 78%
+      );
+    background: var(--component-button-primary-bg);
     color: white;
-    transform: translateY(-1px);
-    box-shadow: var(--ds-shadow-md);
+    transform: none;
+    box-shadow: none;
   }
 
   .ds-modal-overlay {
@@ -1846,7 +1852,7 @@ html[data-theme="light"] {
     justify-content: center;
     padding: 1rem;
     background: color-mix(in srgb, var(--component-overlay) 84%, transparent);
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(4px);
   }
 
   .ds-modal-shell {
@@ -1855,7 +1861,7 @@ html[data-theme="light"] {
       color-mix(in srgb, var(--ds-color-border-subtle) 90%, white 10%);
     border-radius: calc(var(--ds-radius-xl) + 0.15rem);
     background: color-mix(in srgb, var(--ds-color-surface-base) 96%, white 4%);
-    box-shadow: var(--ds-shadow-md);
+    box-shadow: var(--ds-shadow-sm);
     overflow: hidden;
   }
 
@@ -2197,7 +2203,7 @@ html[data-theme="light"] {
       transparent
     );
     padding: 1rem 1.1rem;
-    box-shadow: var(--ds-shadow-md);
+    box-shadow: var(--ds-shadow-sm);
     backdrop-filter: blur(12px);
   }
 
@@ -2274,10 +2280,10 @@ html[data-theme="light"] {
       var(--ds-color-warning) 24%,
       var(--ds-color-border-default)
     );
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-warning-subtle) 70%, white 30%),
-      color-mix(in srgb, var(--ds-color-warning-subtle) 92%, transparent)
+    background: color-mix(
+      in srgb,
+      var(--ds-color-warning-subtle) 88%,
+      var(--ds-color-surface-base) 12%
     );
   }
 
@@ -2287,10 +2293,10 @@ html[data-theme="light"] {
       var(--ds-color-danger) 24%,
       var(--ds-color-border-default)
     );
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--ds-color-danger-subtle) 70%, white 30%),
-      color-mix(in srgb, var(--ds-color-danger-subtle) 92%, transparent)
+    background: color-mix(
+      in srgb,
+      var(--ds-color-danger-subtle) 88%,
+      var(--ds-color-surface-base) 12%
     );
   }
 
@@ -2442,12 +2448,12 @@ html[data-theme="light"] {
 
 :root[data-theme="dark"] .shadow-sm,
 .theme-dark .shadow-sm {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--ds-shadow-xs);
 }
 
 :root[data-theme="dark"] .hover\:shadow-md:hover,
 .theme-dark .hover\:shadow-md:hover {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--ds-shadow-sm);
 }
 
 /* Card pattern: rounded-xl + border = dark card */

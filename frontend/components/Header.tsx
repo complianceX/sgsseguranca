@@ -349,6 +349,8 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
               type="button"
               title="Notificações"
               onClick={handleOpen}
+              aria-expanded={showNotifications}
+              aria-controls="header-notifications-panel"
               className={`relative ${iconButtonClass}`}
             >
               <Bell className="h-5 w-5" />
@@ -364,7 +366,12 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
             </button>
 
             {showNotifications ? (
-              <div className="absolute right-0 z-50 mt-3 w-[21.5rem] overflow-hidden rounded-[1.2rem] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-md)]">
+              <div
+                id="header-notifications-panel"
+                role="region"
+                aria-label="Painel de notificações"
+                className="absolute right-0 z-50 mt-3 w-[21.5rem] overflow-hidden rounded-[1.2rem] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-overlay)] shadow-[var(--ds-shadow-md)]"
+              >
                 <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)] px-4 py-3.5">
                   <div>
                     <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -384,7 +391,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
                 </div>
 
                 {notificationsDegraded ? (
-                  <div className="border-b border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-4 py-3 text-left">
+                  <div className="border-b border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-4 py-3 text-left" role="alert">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--ds-color-warning-fg)]" />
                       <div>

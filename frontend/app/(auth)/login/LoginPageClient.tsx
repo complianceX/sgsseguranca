@@ -374,7 +374,7 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
                     onClick={() => setShowPassword((value) => !value)}
                     className={styles.passwordToggle}
                     aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                    tabIndex={-1}
+                    aria-pressed={showPassword}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>

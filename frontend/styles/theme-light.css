@@ -1,28 +1,27 @@
 :root[data-theme='light'],
 .theme-light {
-  /* Superfícies — branco dominante com contraste mais firme */
+  /* Superfícies — base mineral, branca e sem efeitos decorativos */
   --ds-color-bg-canvas: var(--brand-background);
-  --ds-color-bg-subtle: #efeeec;
+  --ds-color-bg-subtle: #f0eeea;
   --ds-color-surface-base: var(--brand-card);
-  --ds-color-surface-elevated: #faf9f7;
+  --ds-color-surface-elevated: #faf8f5;
   --ds-color-surface-overlay: #ffffff;
-  --ds-color-surface-muted: #f6f3ef;
-  --ds-color-surface-sunken: #ece8e4;
-  --ds-color-surface-muted-hover: #efebe7;
+  --ds-color-surface-muted: #ece8e3;
+  --ds-color-surface-sunken: #f0eeea;
+  --ds-color-surface-muted-hover: #e5dfd8;
 
-  /* Bordas — mais firmes para tirar a UI do estado lavado */
-  --ds-color-border-subtle: #e8e2dc;
+  /* Bordas — mais legíveis e estáveis */
+  --ds-color-border-subtle: #d5cec7;
   --ds-color-border-default: var(--brand-border-default);
   --ds-color-border-strong: var(--brand-border-strong);
   --ds-color-border-focus: var(--brand-primary);
-  /* Borda de campo interativo — WCAG 1.4.11 Non-text Contrast: 3:1 contra branco */
   --ds-color-border-input: #8f8882;
 
-  /* Texto — contraste mais forte no conteúdo principal */
+  /* Texto — contraste funcional para operação */
   --ds-color-text-primary: var(--brand-text-primary);
   --ds-color-text-secondary: var(--brand-text-secondary);
   --ds-color-text-muted: var(--brand-text-muted);
-  --ds-color-text-disabled: #8c857f;
+  --ds-color-text-disabled: #726a63;
   --ds-color-text-inverse: #ffffff;
   --ds-color-text-link: var(--brand-primary);
 
@@ -30,10 +29,10 @@
   --ds-color-text-on-canvas-secondary: var(--ds-color-text-secondary);
   --ds-color-text-on-canvas-muted: var(--ds-color-text-muted);
 
-  /* Sidebar — painel premium mais forte, sem competir com o conteúdo branco */
+  /* Sidebar — cockpit seco, sem estética de dashboard genérico */
   --ds-color-sidebar-bg: var(--brand-sidebar);
-  --ds-color-sidebar-bg-soft: #39332f;
-  --ds-color-sidebar-surface: #433d38;
+  --ds-color-sidebar-bg-soft: #38322e;
+  --ds-color-sidebar-surface: #433c36;
   --ds-color-sidebar-text: var(--brand-sidebar-text);
   --ds-color-sidebar-muted: var(--brand-sidebar-muted);
   --ds-color-sidebar-border: var(--brand-sidebar-border);
@@ -43,124 +42,126 @@
   --ds-color-action-primary-active: var(--brand-primary-active);
   --ds-color-action-primary-foreground: #ffffff;
   --ds-color-primary-subtle: var(--brand-primary-soft);
-  --ds-color-primary-subtle-hover: #e2dcd5;
-  --ds-color-primary-border: #d1c8c0;
+  --ds-color-primary-subtle-hover: #e4ded8;
+  --ds-color-primary-border: #cec5bd;
 
   --ds-color-action-secondary: #ffffff;
-  --ds-color-action-secondary-hover: #f6f3ef;
-  --ds-color-action-secondary-active: #efebe7;
-  --ds-color-action-secondary-foreground: #3b3530;
-  --ds-color-action-secondary-border: #8FA4BF; /* era brand-border-strong #C5D0DD → 2.81:1 ❌ | agora 5.3:1 ✅ WCAG 1.4.11 */
-  --component-button-secondary-border: #a79f97;
-  --component-button-outline-border: #9d948c;
+  --ds-color-action-secondary-hover: #faf8f5;
+  --ds-color-action-secondary-active: #f0eeea;
+  --ds-color-action-secondary-foreground: #25221f;
+  --ds-color-action-secondary-border: #8f8882;
+  --component-button-secondary-border: #8f8882;
+  --component-button-outline-border: #8f8882;
 
   --ds-color-accent: var(--brand-secondary);
-  --ds-color-accent-hover: #55504b;
-  --ds-color-accent-subtle: #f1ece8;
-  --ds-color-accent-border: #d6cfc8;
+  --ds-color-accent-hover: #514b45;
+  --ds-color-accent-subtle: #f0eeea;
+  --ds-color-accent-border: #d5cec7;
 
   --ds-color-success: var(--brand-success);
-  --ds-color-success-hover: #166534;
-  --ds-color-success-subtle: #ecfdf3;
-  --ds-color-success-border: #bbf7d0;
-  --ds-color-success-fg: #166534;
+  --ds-color-success-hover: color-mix(in srgb, var(--brand-success) 88%, black 12%);
+  --ds-color-success-subtle: color-mix(in srgb, var(--brand-success) 11%, white 89%);
+  --ds-color-success-border: color-mix(
+    in srgb,
+    var(--brand-success) 24%,
+    var(--ds-color-border-default) 76%
+  );
+  --ds-color-success-fg: color-mix(in srgb, var(--brand-success) 90%, black 10%);
 
   --ds-color-warning: var(--brand-warning);
-  --ds-color-warning-hover: #92400e;
-  --ds-color-warning-subtle: #fff7ed;
-  --ds-color-warning-border: #fed7aa;
-  --ds-color-warning-fg: #92400e;
+  --ds-color-warning-hover: color-mix(in srgb, var(--brand-warning) 90%, black 10%);
+  --ds-color-warning-subtle: color-mix(in srgb, var(--brand-warning) 12%, white 88%);
+  --ds-color-warning-border: color-mix(
+    in srgb,
+    var(--brand-warning) 28%,
+    var(--ds-color-border-default) 72%
+  );
+  --ds-color-warning-fg: color-mix(in srgb, var(--brand-warning) 90%, black 10%);
 
   --ds-color-danger: var(--brand-danger);
-  --ds-color-danger-hover: #991b1b;
-  --ds-color-danger-subtle: #fef2f2;
-  --ds-color-danger-border: #fecaca;
-  --ds-color-danger-fg: #991b1b;
+  --ds-color-danger-hover: color-mix(in srgb, var(--brand-danger) 88%, black 12%);
+  --ds-color-danger-subtle: color-mix(in srgb, var(--brand-danger) 10%, white 90%);
+  --ds-color-danger-border: color-mix(
+    in srgb,
+    var(--brand-danger) 24%,
+    var(--ds-color-border-default) 76%
+  );
+  --ds-color-danger-fg: color-mix(in srgb, var(--brand-danger) 90%, black 10%);
 
   --ds-color-info: var(--brand-info);
-  --ds-color-info-hover: #5b554f;
-  --ds-color-info-subtle: #f2eeea;
-  --ds-color-info-border: #d7d0c9;
-  --ds-color-info-fg: #5b554f;
+  --ds-color-info-hover: color-mix(in srgb, var(--brand-info) 90%, black 10%);
+  --ds-color-info-subtle: color-mix(in srgb, var(--brand-info) 10%, white 90%);
+  --ds-color-info-border: color-mix(
+    in srgb,
+    var(--brand-info) 18%,
+    var(--ds-color-border-default) 82%
+  );
+  --ds-color-info-fg: color-mix(in srgb, var(--brand-info) 92%, black 8%);
 
   --ds-color-focus: var(--brand-primary);
   --ds-color-focus-ring: color-mix(
     in srgb,
-    var(--brand-focus-ring) 64%,
+    var(--brand-focus-ring) 78%,
     transparent
   );
 
-  /* APR — estados de risco corrigidos para WCAG AA no light mode */
-  --risk-negligible:  #1a7a35;  /* mantém — 5.42:1 ✓ */
-  --risk-acceptable:  #1D6B15;  /* era #2b9920 (3.70:1 ✗) — agora 6.63:1 ✓ */
-  --risk-attention:   #8A6600;  /* era #c89a00 (2.60:1 ✗) — agora 5.27:1 ✓ */
-  --risk-substantial: #9E4B00;  /* era #c85d00 (4.18:1 ✗) — agora 6.07:1 ✓ */
-  --risk-critical:    #c42626;  /* mantém — 5.52:1 ✓ */
+  /* APR — escala operacional com contraste real */
+  --risk-negligible: #1d6b43;
+  --risk-acceptable: #26784b;
+  --risk-attention: #9a5a00;
+  --risk-substantial: #b65e00;
+  --risk-critical: #b3261e;
 
-  --ds-color-overlay: rgba(15, 23, 42, 0.32);
-  --ds-shell-backdrop:
-    radial-gradient(
-      960px circle at top left,
-      color-mix(in srgb, var(--brand-primary-soft) 82%, transparent),
-      transparent 48%
-    ),
-    linear-gradient(180deg, #f5f5f4 0%, #efeeec 100%);
+  --ds-color-overlay: rgba(37, 34, 31, 0.34);
+  --ds-shell-backdrop: var(--ds-color-bg-canvas);
   --ds-color-command-surface: #ffffff;
-  --ds-color-command-border: #ddd6cf;
+  --ds-color-command-border: #d5cec7;
 
-  --ds-gradient-brand: linear-gradient(
-    135deg,
-    var(--brand-primary) 0%,
-    var(--brand-primary-hover) 100%
-  );
-  --ds-gradient-surface: linear-gradient(180deg, #ffffff 0%, #f7f4f1 100%);
+  --ds-gradient-brand: var(--ds-color-action-primary);
+  --ds-gradient-surface: var(--ds-color-surface-elevated);
 
-  --ds-kpi-blue: linear-gradient(
-    135deg,
-    #5b5550 0%,
-    var(--brand-primary-hover) 100%
-  );
-  --ds-kpi-violet: linear-gradient(135deg, #7a726b 0%, var(--brand-info) 100%);
-  --ds-kpi-emerald: linear-gradient(
-    135deg,
-    #16a34a 0%,
-    var(--brand-success) 100%
-  );
-  --ds-kpi-amber: linear-gradient(
-    135deg,
-    #d97706 0%,
-    var(--brand-warning) 100%
-  );
-  --ds-kpi-danger: linear-gradient(
-    135deg,
-    #dc2626 0%,
-    var(--brand-danger) 100%
-  );
+  --ds-kpi-blue: var(--ds-color-action-primary);
+  --ds-kpi-violet: var(--ds-color-accent);
+  --ds-kpi-emerald: var(--ds-color-success);
+  --ds-kpi-amber: var(--ds-color-warning);
+  --ds-kpi-danger: var(--ds-color-danger);
 
-  --ds-kpi-blue-bg: #ece7e2;
-  --ds-kpi-blue-fg: #423c37;
-  --ds-kpi-blue-border: #d0c7bf;
-  --ds-kpi-green-bg: #edf9f1;
-  --ds-kpi-green-fg: #166534;
-  --ds-kpi-green-border: #c9ead2;
-  --ds-kpi-amber-bg: #fff4e6;
-  --ds-kpi-amber-fg: #92400e;
-  --ds-kpi-amber-border: #f4d3a8;
-  --ds-kpi-red-bg: #fef0f2;
-  --ds-kpi-red-fg: #991b1b;
-  --ds-kpi-red-border: #f3c8cd;
-  --ds-kpi-violet-bg: #f2ede9;
-  --ds-kpi-violet-fg: #5b554f;
-  --ds-kpi-violet-border: #d9d1ca;
-  --ds-kpi-teal-bg: #f1eeeb;
-  --ds-kpi-teal-fg: #4f4944;
-  --ds-kpi-teal-border: #d8d0c8;
+  --ds-kpi-blue-bg: #ece8e3;
+  --ds-kpi-blue-fg: #25221f;
+  --ds-kpi-blue-border: #cfc6be;
+  --ds-kpi-green-bg: color-mix(in srgb, var(--brand-success) 10%, white 90%);
+  --ds-kpi-green-fg: #185737;
+  --ds-kpi-green-border: color-mix(
+    in srgb,
+    var(--brand-success) 24%,
+    var(--ds-color-border-default) 76%
+  );
+  --ds-kpi-amber-bg: color-mix(in srgb, var(--brand-warning) 10%, white 90%);
+  --ds-kpi-amber-fg: #7b4800;
+  --ds-kpi-amber-border: color-mix(
+    in srgb,
+    var(--brand-warning) 28%,
+    var(--ds-color-border-default) 72%
+  );
+  --ds-kpi-red-bg: color-mix(in srgb, var(--brand-danger) 9%, white 91%);
+  --ds-kpi-red-fg: #8f241d;
+  --ds-kpi-red-border: color-mix(
+    in srgb,
+    var(--brand-danger) 24%,
+    var(--ds-color-border-default) 76%
+  );
+  --ds-kpi-violet-bg: #f0eeea;
+  --ds-kpi-violet-fg: #57534e;
+  --ds-kpi-violet-border: #d5cec7;
+  --ds-kpi-teal-bg: #ece8e3;
+  --ds-kpi-teal-fg: #5f5852;
+  --ds-kpi-teal-border: #d1c8c0;
 
-  --ds-shadow-xs: 0 1px 2px rgba(11, 19, 36, 0.06);
+  --ds-shadow-xs: 0 1px 2px rgba(37, 34, 31, 0.04);
   --ds-shadow-sm:
-    0 1px 2px rgba(11, 19, 36, 0.06),
-    0 8px 18px rgba(11, 19, 36, 0.08);
-  --ds-shadow-md: 0 16px 32px rgba(11, 19, 36, 0.1);
-  --ds-shadow-lg: 0 22px 46px rgba(11, 19, 36, 0.12);
-  --ds-shadow-xl: 0 28px 60px rgba(11, 19, 36, 0.14);
+    0 1px 2px rgba(37, 34, 31, 0.05),
+    0 6px 14px rgba(37, 34, 31, 0.06);
+  --ds-shadow-md: 0 12px 24px rgba(37, 34, 31, 0.08);
+  --ds-shadow-lg: 0 16px 32px rgba(37, 34, 31, 0.1);
+  --ds-shadow-xl: 0 20px 40px rgba(37, 34, 31, 0.12);
 }
