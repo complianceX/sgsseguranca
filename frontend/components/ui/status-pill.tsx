@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 const statusToneMap = {
   neutral:
-    'border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/32 text-[var(--ds-color-text-secondary)]',
+    'border-[color:var(--component-status-pill-neutral-border,#5A7A9E)] bg-[color:var(--ds-color-surface-muted)]/32 text-[var(--ds-color-text-secondary)]',
   primary:
     'border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]',
   info: 'border-[color:var(--ds-color-info)]/18 bg-[color:var(--ds-color-info-subtle)] text-[var(--ds-color-info)]',

@@ -45,7 +45,7 @@ export const OS_STATUS_LABEL: Record<string, string> = {
 };
 
 export const OS_STATUS_COLORS: Record<string, string> = {
-  ativo: 'bg-blue-100 text-blue-800',
+  ativo: 'bg-stone-100 text-stone-800',
   concluido: 'bg-green-100 text-green-800',
   cancelado: 'bg-gray-100 text-gray-600',
 };

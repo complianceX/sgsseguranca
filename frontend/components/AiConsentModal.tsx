@@ -83,7 +83,12 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
         </button>
 
         {/* Ícone */}
-        <div style={{ marginBottom: '20px', color: '#1E5EFF' }}>
+        <div
+          style={{
+            marginBottom: '20px',
+            color: 'var(--ds-color-action-primary, #4A443F)',
+          }}
+        >
           <Brain size={36} />
         </div>
 
@@ -130,7 +135,13 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
             type="checkbox"
             checked={checked}
             onChange={(e) => setChecked(e.target.checked)}
-            style={{ marginTop: '2px', accentColor: '#1E5EFF', width: '16px', height: '16px', flexShrink: 0 }}
+            style={{
+              marginTop: '2px',
+              accentColor: 'var(--ds-color-action-primary, #4A443F)',
+              width: '16px',
+              height: '16px',
+              flexShrink: 0,
+            }}
           />
           <span>
             Li e compreendi as informações acima. Consinto com o processamento
@@ -163,7 +174,10 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
               padding: '9px 18px',
               borderRadius: '8px',
               border: 'none',
-              background: checked && !saving ? '#1E5EFF' : '#93aeff',
+              background:
+                checked && !saving
+                  ? 'var(--ds-color-action-primary, #4A443F)'
+                  : 'var(--ds-color-action-secondary, #A79F97)',
               color: '#fff',
               cursor: checked && !saving ? 'pointer' : 'not-allowed',
               fontSize: '14px',
@@ -197,7 +211,15 @@ function InfoItem({ icon, title, children }: {
       border: '1px solid var(--ds-color-border, #e5e7eb)',
       fontSize: '13px',
     }}>
-      <span style={{ color: '#1E5EFF', marginTop: '2px', flexShrink: 0 }}>{icon}</span>
+      <span
+        style={{
+          color: 'var(--ds-color-action-primary, #4A443F)',
+          marginTop: '2px',
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </span>
       <div>
         <strong style={{ display: 'block', marginBottom: '2px' }}>{title}</strong>
         <span style={{ color: 'var(--ds-color-text-secondary, #6b7280)', lineHeight: 1.5 }}>

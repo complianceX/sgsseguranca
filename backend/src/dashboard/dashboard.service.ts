@@ -574,7 +574,7 @@ export class DashboardService {
         description: item.titulo,
         date: item.updated_at || item.created_at,
         href: '/dashboard/aprs',
-        color: 'bg-blue-500',
+        color: 'bg-stone-500',
       })),
       ...recentPts.map((item) => ({
         id: `pt-${item.id}`,
@@ -582,7 +582,7 @@ export class DashboardService {
         description: item.titulo,
         date: item.updated_at || item.created_at,
         href: '/dashboard/pts',
-        color: 'bg-indigo-500',
+        color: 'bg-zinc-500',
       })),
       ...recentChecklists.map((item) => ({
         id: `checklist-${item.id}`,
@@ -622,7 +622,7 @@ export class DashboardService {
         description: item.nome,
         date: item.data_conclusao,
         href: '/dashboard/trainings',
-        color: 'bg-purple-500',
+        color: 'bg-neutral-500',
       })),
     ]
       .filter((item) => item.date)

@@ -1,47 +1,47 @@
 ﻿:root {
   /* ═══════════════════════════════════════════════════════════════
-     SGS ENTERPRISE PALETTE — "White Ledger"
+     SGS ENTERPRISE PALETTE — "Graphite Ledger"
      ───────────────────────────────────────────────────────────────
      Direção visual:
-       · Fundo branco predominante
-       · Estrutura em neutros frios e sofisticados
-       · Azul corporativo como linguagem principal de ação
-       · Estados semânticos controlados, sem poluição visual
-       · Leitura limpa, forte e orientada a software enterprise
+       · Fundo claro com base mineral e contraste limpo
+       · Estrutura em grafite, pedra e neutros quentes
+       · Ações principais discretas, sem azul corporativo
+       · Semântica preservada sem poluição visual
+       · Interface objetiva, sóbria e focada em operação
 
-     BACKGROUND #FFFFFF  White Ledger — canvas principal do sistema
-     SIDEBAR    #071A2F  Control Deck  — navegação premium com mais presença
-     PRIMARY    #2563EB  Corporate Blue — CTA e destaque funcional
-     SECONDARY  #526277  Steel Text — apoio, filtros e contexto
+     BACKGROUND #F5F5F4  Graphite Mist   — canvas principal
+     SIDEBAR    #2F2B28  Deep Graphite   — navegação e estrutura
+     PRIMARY    #4A443F  Ledger Graphite — CTA e destaque funcional
+     SECONDARY  #6C6661  Soft Stone      — apoio, filtros e contexto
      ─── Status — semântica funcional, não decorativa ────────────
      SUCCESS    #15803D
      WARNING    #B45309
      DANGER     #B91C1C
-     INFO       #0369A1
+     INFO       #6E6862
   ══════════════════════════════════════════════════════════════ */
-  --brand-background: #ffffff;
-  --brand-sidebar: #071a2f;
-  --brand-sidebar-border: #17324d;
-  --brand-sidebar-text: #d8e4f2;
-  --brand-sidebar-muted: #8fa4bf;
-  --brand-sidebar-hover: #0d2743;
+  --brand-background: #f5f5f4;
+  --brand-sidebar: #2f2b28;
+  --brand-sidebar-border: #47413c;
+  --brand-sidebar-text: #f2efea;
+  --brand-sidebar-muted: #b6aea6;
+  --brand-sidebar-hover: #3a3531;
   --brand-card: #ffffff;
-  --brand-primary: #2563eb;
-  --brand-primary-hover: #1d4ed8;
-  --brand-primary-active: #1e40af;
-  --brand-primary-soft: #eaf2ff;
-  --brand-focus-ring: #93c5fd;
-  --brand-secondary: #526277;
-  --brand-title: #0b1324;
-  --brand-text-primary: #243447;
-  --brand-text-secondary: #526277;
-  --brand-text-muted: #637185;
-  --brand-border-default: #d9e2ec;
-  --brand-border-strong: #c5d0dd;
+  --brand-primary: #4a443f;
+  --brand-primary-hover: #37322e;
+  --brand-primary-active: #262320;
+  --brand-primary-soft: #ece8e3;
+  --brand-focus-ring: #b8aea6;
+  --brand-secondary: #6c6661;
+  --brand-title: #23201d;
+  --brand-text-primary: #2f2b28;
+  --brand-text-secondary: #66615b;
+  --brand-text-muted: #8a847e;
+  --brand-border-default: #d8d2cb;
+  --brand-border-strong: #c2bbb4;
   --brand-success: #15803d;
   --brand-warning: #b45309;
   --brand-danger: #b91c1c;
-  --brand-info: #0369a1;
+  --brand-info: #6e6862;
 
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;

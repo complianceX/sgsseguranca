@@ -10,25 +10,25 @@ export class SystemTheme {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'background_color', default: '#EEF3F8' })
+  @Column({ name: 'background_color', default: '#F5F5F4' })
   backgroundColor: string;
 
-  @Column({ name: 'sidebar_color', default: '#081523' })
+  @Column({ name: 'sidebar_color', default: '#2F2B28' })
   sidebarColor: string;
 
   @Column({ name: 'card_color', default: '#FFFFFF' })
   cardColor: string;
 
-  @Column({ name: 'primary_color', default: '#1E5EFF' })
+  @Column({ name: 'primary_color', default: '#4A443F' })
   primaryColor: string;
 
-  @Column({ name: 'secondary_color', default: '#4D647B' })
+  @Column({ name: 'secondary_color', default: '#6C6661' })
   secondaryColor: string;
 
-  @Column({ name: 'text_primary', default: '#11253B' })
+  @Column({ name: 'text_primary', default: '#2F2B28' })
   textPrimary: string;
 
-  @Column({ name: 'text_secondary', default: '#66788B' })
+  @Column({ name: 'text_secondary', default: '#66615B' })
   textSecondary: string;
 
   @Column({ name: 'success_color', default: '#18895B' })
@@ -40,7 +40,7 @@ export class SystemTheme {
   @Column({ name: 'danger_color', default: '#C84A4A' })
   dangerColor: string;
 
-  @Column({ name: 'info_color', default: '#0F738E' })
+  @Column({ name: 'info_color', default: '#6E6862' })
   infoColor: string;
 
   @UpdateDateColumn({ name: 'updated_at' })

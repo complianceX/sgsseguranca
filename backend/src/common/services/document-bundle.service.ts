@@ -111,7 +111,7 @@ export class DocumentBundleService {
       y: 0,
       width,
       height,
-      color: rgb(0.97, 0.98, 0.99),
+      color: rgb(0.96, 0.95, 0.94),
     });
 
     coverPage.drawText('SGS', {
@@ -127,7 +127,7 @@ export class DocumentBundleService {
       y: height - 112,
       size: 18,
       font: titleFont,
-      color: rgb(0.15, 0.39, 0.92),
+      color: rgb(0.29, 0.27, 0.25),
     });
 
     const metadataLines = [

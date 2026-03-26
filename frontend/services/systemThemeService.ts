@@ -28,32 +28,32 @@ export interface SystemThemePreset {
 
 // Tema padrão (claro): Atlas Command — institucional, premium e estável
 export const DEFAULT_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#EEF3F8',
-  sidebarColor: '#081523',
+  backgroundColor: '#F5F5F4',
+  sidebarColor: '#2F2B28',
   cardColor: '#FFFFFF',
-  primaryColor: '#1E5EFF',
-  secondaryColor: '#4D647B',
-  textPrimary: '#11253B',
-  textSecondary: '#66788B',
+  primaryColor: '#4A443F',
+  secondaryColor: '#6C6661',
+  textPrimary: '#2F2B28',
+  textSecondary: '#66615B',
   successColor: '#18895B',
   warningColor: '#B9771E',
   dangerColor: '#C84A4A',
-  infoColor: '#0F738E',
+  infoColor: '#6E6862',
 };
 
 // Tema escuro: graphite command center com destaque limpo para operação contínua
 export const DARK_THEME: Omit<SystemThemeTokens, 'id' | 'updatedAt'> = {
-  backgroundColor: '#08121B',
-  sidebarColor: '#05101A',
-  cardColor: '#122435',
-  primaryColor: '#5A8BFF',
-  secondaryColor: '#445B72',
-  textPrimary: '#EDF3FA',
-  textSecondary: '#B9C6D8',
+  backgroundColor: '#171412',
+  sidebarColor: '#110F0E',
+  cardColor: '#24211F',
+  primaryColor: '#4A443F',
+  secondaryColor: '#8B847E',
+  textPrimary: '#F4F1ED',
+  textSecondary: '#D6CFC8',
   successColor: '#31A56E',
   warningColor: '#D39B36',
   dangerColor: '#E56C6C',
-  infoColor: '#4AA8C6',
+  infoColor: '#8B847E',
 };
 
 export const ADAPTIVE_THEME_PRESETS = {

@@ -7,14 +7,14 @@ type PdfWithAutoTable = jsPDF & {
 };
 
 export const backendPdfTheme = {
-  navy: [16, 32, 51] as [number, number, number],
-  blue: [31, 78, 121] as [number, number, number],
-  teal: [15, 118, 110] as [number, number, number],
-  border: [203, 213, 225] as [number, number, number],
-  surface: [248, 250, 252] as [number, number, number],
-  text: [15, 23, 42] as [number, number, number],
-  muted: [100, 116, 139] as [number, number, number],
-  softText: [221, 229, 238] as [number, number, number],
+  graphite: [47, 43, 40] as [number, number, number],
+  accent: [92, 85, 79] as [number, number, number],
+  marker: [140, 130, 121] as [number, number, number],
+  border: [216, 210, 203] as [number, number, number],
+  surface: [245, 243, 239] as [number, number, number],
+  text: [35, 32, 29] as [number, number, number],
+  muted: [102, 97, 91] as [number, number, number],
+  softText: [242, 239, 234] as [number, number, number],
 };
 
 type HeaderOptions = {
@@ -28,9 +28,9 @@ export function drawBackendPdfHeader(doc: jsPDF, options: HeaderOptions) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginX = options.marginX ?? 16;
 
-  doc.setFillColor(...backendPdfTheme.navy);
+  doc.setFillColor(...backendPdfTheme.graphite);
   doc.rect(0, 0, pageWidth, 30, 'F');
-  doc.setFillColor(...backendPdfTheme.blue);
+  doc.setFillColor(...backendPdfTheme.accent);
   doc.rect(0, 30, pageWidth, 2.4, 'F');
 
   doc.setFontSize(16);
@@ -65,7 +65,7 @@ export function createBackendPdfTableTheme() {
       textColor: backendPdfTheme.text,
     },
     headStyles: {
-      fillColor: backendPdfTheme.navy,
+      fillColor: backendPdfTheme.graphite,
       textColor: 255,
       fontStyle: 'bold' as const,
     },
@@ -84,7 +84,7 @@ export function drawBackendSectionTitle(
   doc.setFillColor(...backendPdfTheme.surface);
   doc.setDrawColor(...backendPdfTheme.border);
   doc.roundedRect(marginX, y - 5, 178, 10, 2, 2, 'FD');
-  doc.setFillColor(...backendPdfTheme.teal);
+  doc.setFillColor(...backendPdfTheme.marker);
   doc.rect(marginX, y - 5, 2.5, 10, 'F');
   doc.setFontSize(11);
   doc.setTextColor(...backendPdfTheme.text);

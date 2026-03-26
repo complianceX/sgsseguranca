@@ -139,7 +139,7 @@ export const NC_STATUS_LABEL: Record<NcStatus, string> = {
 export const NC_STATUS_COLORS: Record<NcStatus, string> = {
   [NcStatus.ABERTA]: "bg-red-100 text-red-700 border-red-200",
   [NcStatus.EM_ANDAMENTO]: "bg-amber-100 text-amber-700 border-amber-200",
-  [NcStatus.AGUARDANDO_VALIDACAO]: "bg-blue-100 text-blue-700 border-blue-200",
+  [NcStatus.AGUARDANDO_VALIDACAO]: "bg-stone-100 text-stone-700 border-stone-200",
   [NcStatus.ENCERRADA]: "bg-green-100 text-green-700 border-green-200",
 };
 

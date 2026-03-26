@@ -23,7 +23,7 @@ const buttonVariants = cva(
         ghost:
           'bg-transparent text-[var(--component-button-ghost-text)] hover:bg-[color:var(--component-button-ghost-bg-hover)] hover:text-[var(--color-text)]',
         outline:
-          'border border-[var(--color-border-default)] bg-[color:var(--color-surface)] text-[var(--color-text)] hover:bg-[color:var(--color-surface-elevated)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]',
+          'border border-[color:var(--component-button-outline-border,#9CAEC2)] bg-[color:var(--color-surface)] text-[var(--color-text)] hover:bg-[color:var(--color-surface-elevated)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]',
       },
       size: {
         sm: 'h-8 px-2.5 text-[11px]',
