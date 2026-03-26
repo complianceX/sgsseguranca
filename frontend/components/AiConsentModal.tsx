@@ -86,7 +86,7 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
         <div
           style={{
             marginBottom: '20px',
-            color: 'var(--ds-color-action-primary, #4A443F)',
+            color: 'var(--ds-color-action-primary, #11598C)',
           }}
         >
           <Brain size={36} />
@@ -137,7 +137,7 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
             onChange={(e) => setChecked(e.target.checked)}
             style={{
               marginTop: '2px',
-              accentColor: 'var(--ds-color-action-primary, #4A443F)',
+              accentColor: 'var(--ds-color-action-primary, #11598C)',
               width: '16px',
               height: '16px',
               flexShrink: 0,
@@ -176,8 +176,8 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
               border: 'none',
               background:
                 checked && !saving
-                  ? 'var(--ds-color-action-primary, #4A443F)'
-                  : 'var(--ds-color-action-secondary, #A79F97)',
+                  ? 'var(--ds-color-action-primary, #11598C)'
+                  : 'var(--ds-color-action-secondary, #D9E6F2)',
               color: '#fff',
               cursor: checked && !saving ? 'pointer' : 'not-allowed',
               fontSize: '14px',
@@ -213,7 +213,7 @@ function InfoItem({ icon, title, children }: {
     }}>
       <span
         style={{
-          color: 'var(--ds-color-action-primary, #4A443F)',
+          color: 'var(--ds-color-action-primary, #11598C)',
           marginTop: '2px',
           flexShrink: 0,
         }}

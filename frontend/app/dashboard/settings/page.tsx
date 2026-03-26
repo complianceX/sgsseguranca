@@ -15,7 +15,6 @@ import {
   AlertTriangle,
   Wrench,
   Construction,
-  Paintbrush,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -55,7 +54,6 @@ export default function SettingsPage() {
     { label: 'EPIs', href: '/dashboard/epis', icon: ShieldCheck, adminOnly: true },
     { label: 'Ferramentas', href: '/dashboard/tools', icon: Wrench, adminOnly: true },
     { label: 'Máquinas', href: '/dashboard/machines', icon: Construction, adminOnly: true },
-    { label: 'Tema do sistema', href: '/dashboard/system/settings/theme', icon: Paintbrush, adminOnly: true },
   ];
 
   useEffect(() => {

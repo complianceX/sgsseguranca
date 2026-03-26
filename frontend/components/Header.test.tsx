@@ -18,13 +18,6 @@ jest.mock("@/context/AuthContext", () => ({
   }),
 }));
 
-jest.mock("@/components/ThemeProvider", () => ({
-  useTheme: () => ({
-    resolvedTheme: "light",
-    toggleTheme: jest.fn(),
-  }),
-}));
-
 jest.mock("@/services/notificationsService", () => ({
   notificationsService: {
     getUnreadCount: (...args: unknown[]) => getUnreadCount(...args),

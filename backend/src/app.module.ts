@@ -78,7 +78,6 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { DocumentRegistryModule } from './document-registry/document-registry.module';
 import { DisasterRecoveryModule } from './disaster-recovery/disaster-recovery.module';
 import { CalendarModule } from './calendar/calendar.module';
-import { SystemThemeModule } from './system-theme/system-theme.module';
 import { TenantPoliciesModule } from './tenant-policies/tenant-policies.module';
 import { resolveRedisConnection } from './common/redis/redis-connection.util';
 import {
@@ -803,7 +802,6 @@ const validationSchema = Joi.object({
     TenantPoliciesModule,
     DisasterRecoveryModule,
     CalendarModule,
-    SystemThemeModule,
     SecurityAuditModule,
   ],
   controllers: [

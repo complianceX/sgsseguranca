@@ -1,27 +1,27 @@
 :root[data-theme='light'],
 .theme-light {
-  /* Superfícies — base mineral, branca e sem efeitos decorativos */
+  /* Superfícies — base branca com ar mais institucional e técnico */
   --ds-color-bg-canvas: var(--brand-background);
-  --ds-color-bg-subtle: #f0eeea;
+  --ds-color-bg-subtle: #edf4fb;
   --ds-color-surface-base: var(--brand-card);
-  --ds-color-surface-elevated: #faf8f5;
+  --ds-color-surface-elevated: #f8fbff;
   --ds-color-surface-overlay: #ffffff;
-  --ds-color-surface-muted: #ece8e3;
-  --ds-color-surface-sunken: #f0eeea;
-  --ds-color-surface-muted-hover: #e5dfd8;
+  --ds-color-surface-muted: #f2f7fd;
+  --ds-color-surface-sunken: #eaf1f8;
+  --ds-color-surface-muted-hover: #e6f0fa;
 
-  /* Bordas — mais legíveis e estáveis */
-  --ds-color-border-subtle: #d5cec7;
+  /* Bordas — frias, legíveis e compatíveis com a nova marca */
+  --ds-color-border-subtle: #d7e3ef;
   --ds-color-border-default: var(--brand-border-default);
   --ds-color-border-strong: var(--brand-border-strong);
   --ds-color-border-focus: var(--brand-primary);
-  --ds-color-border-input: #8f8882;
+  --ds-color-border-input: #7ea6ca;
 
   /* Texto — contraste funcional para operação */
   --ds-color-text-primary: var(--brand-text-primary);
   --ds-color-text-secondary: var(--brand-text-secondary);
   --ds-color-text-muted: var(--brand-text-muted);
-  --ds-color-text-disabled: #655f59;
+  --ds-color-text-disabled: #7a8fa5;
   --ds-color-text-inverse: #ffffff;
   --ds-color-text-link: var(--brand-primary);
 
@@ -29,10 +29,10 @@
   --ds-color-text-on-canvas-secondary: var(--ds-color-text-secondary);
   --ds-color-text-on-canvas-muted: var(--ds-color-text-muted);
 
-  /* Sidebar — cockpit seco, sem estética de dashboard genérico */
+  /* Sidebar — azul estrutural, sóbrio e técnico */
   --ds-color-sidebar-bg: var(--brand-sidebar);
-  --ds-color-sidebar-bg-soft: #38322e;
-  --ds-color-sidebar-surface: #433c36;
+  --ds-color-sidebar-bg-soft: #145989;
+  --ds-color-sidebar-surface: #1b6294;
   --ds-color-sidebar-text: var(--brand-sidebar-text);
   --ds-color-sidebar-muted: var(--brand-sidebar-muted);
   --ds-color-sidebar-border: var(--brand-sidebar-border);
@@ -42,21 +42,21 @@
   --ds-color-action-primary-active: var(--brand-primary-active);
   --ds-color-action-primary-foreground: #ffffff;
   --ds-color-primary-subtle: var(--brand-primary-soft);
-  --ds-color-primary-subtle-hover: #e4ded8;
-  --ds-color-primary-border: #cec5bd;
+  --ds-color-primary-subtle-hover: #ddeaf8;
+  --ds-color-primary-border: #a9c6e1;
 
   --ds-color-action-secondary: #ffffff;
-  --ds-color-action-secondary-hover: #faf8f5;
-  --ds-color-action-secondary-active: #f0eeea;
-  --ds-color-action-secondary-foreground: #25221f;
-  --ds-color-action-secondary-border: #8f8882;
-  --component-button-secondary-border: #8f8882;
-  --component-button-outline-border: #8f8882;
+  --ds-color-action-secondary-hover: #f3f8fd;
+  --ds-color-action-secondary-active: #e9f1f8;
+  --ds-color-action-secondary-foreground: #12324d;
+  --ds-color-action-secondary-border: #96b0ca;
+  --component-button-secondary-border: #96b0ca;
+  --component-button-outline-border: #96b0ca;
 
   --ds-color-accent: var(--brand-secondary);
-  --ds-color-accent-hover: #514b45;
-  --ds-color-accent-subtle: #f0eeea;
-  --ds-color-accent-border: #d5cec7;
+  --ds-color-accent-hover: #4e6c89;
+  --ds-color-accent-subtle: #eef4fb;
+  --ds-color-accent-border: #d5e3f0;
 
   --ds-color-success: var(--brand-success);
   --ds-color-success-hover: color-mix(in srgb, var(--brand-success) 88%, black 12%);
@@ -112,10 +112,10 @@
   --risk-substantial: #b65e00;
   --risk-critical: #b3261e;
 
-  --ds-color-overlay: rgba(37, 34, 31, 0.34);
+  --ds-color-overlay: rgba(15, 23, 42, 0.18);
   --ds-shell-backdrop: var(--ds-color-bg-canvas);
   --ds-color-command-surface: #ffffff;
-  --ds-color-command-border: #d5cec7;
+  --ds-color-command-border: #d7e3ef;
 
   --ds-gradient-brand: var(--ds-color-action-primary);
   --ds-gradient-surface: var(--ds-color-surface-elevated);
@@ -126,9 +126,9 @@
   --ds-kpi-amber: var(--ds-color-warning);
   --ds-kpi-danger: var(--ds-color-danger);
 
-  --ds-kpi-blue-bg: #ece8e3;
-  --ds-kpi-blue-fg: #25221f;
-  --ds-kpi-blue-border: #cfc6be;
+  --ds-kpi-blue-bg: #eaf3fb;
+  --ds-kpi-blue-fg: #0f4f82;
+  --ds-kpi-blue-border: #b6cde4;
   --ds-kpi-green-bg: color-mix(in srgb, var(--brand-success) 10%, white 90%);
   --ds-kpi-green-fg: #185737;
   --ds-kpi-green-border: color-mix(
@@ -150,18 +150,18 @@
     var(--brand-danger) 24%,
     var(--ds-color-border-default) 76%
   );
-  --ds-kpi-violet-bg: #f0eeea;
-  --ds-kpi-violet-fg: #57534e;
-  --ds-kpi-violet-border: #d5cec7;
-  --ds-kpi-teal-bg: #ece8e3;
-  --ds-kpi-teal-fg: #5f5852;
-  --ds-kpi-teal-border: #d1c8c0;
+  --ds-kpi-violet-bg: #f2f6fb;
+  --ds-kpi-violet-fg: #436b8b;
+  --ds-kpi-violet-border: #d5e3f0;
+  --ds-kpi-teal-bg: #ecf7fa;
+  --ds-kpi-teal-fg: #256e7b;
+  --ds-kpi-teal-border: #b9dbe0;
 
-  --ds-shadow-xs: 0 1px 2px rgba(37, 34, 31, 0.04);
+  --ds-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
   --ds-shadow-sm:
-    0 1px 2px rgba(37, 34, 31, 0.05),
-    0 6px 14px rgba(37, 34, 31, 0.06);
-  --ds-shadow-md: 0 12px 24px rgba(37, 34, 31, 0.08);
-  --ds-shadow-lg: 0 16px 32px rgba(37, 34, 31, 0.1);
-  --ds-shadow-xl: 0 20px 40px rgba(37, 34, 31, 0.12);
+    0 1px 2px rgba(15, 23, 42, 0.05),
+    0 6px 14px rgba(15, 23, 42, 0.06);
+  --ds-shadow-md: 0 12px 24px rgba(15, 23, 42, 0.08);
+  --ds-shadow-lg: 0 16px 32px rgba(15, 23, 42, 0.1);
+  --ds-shadow-xl: 0 20px 40px rgba(15, 23, 42, 0.12);
 }

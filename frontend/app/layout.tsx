@@ -5,8 +5,6 @@ import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from 'sonner';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { PwaBootstrap } from '@/components/PwaBootstrap';
-import { ThemeProvider } from '@/components/ThemeProvider';
-import { SystemThemeLoader } from '@/components/SystemThemeLoader';
 import { SentryUserContext } from '@/components/SentryUserContext';
 import { StaleCacheBanner } from '@/components/StaleCacheBanner';
 
@@ -33,7 +31,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#4A443F",
+  themeColor: "#11598C",
   width: "device-width",
   initialScale: 1,
 };
@@ -49,16 +47,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AppErrorBoundary>
-          <ThemeProvider>
-            <SystemThemeLoader />
-            <AuthProvider>
-              <SentryUserContext />
-              <StaleCacheBanner />
-              <PwaBootstrap />
-              {children}
-              <Toaster position="top-right" richColors />
-            </AuthProvider>
-          </ThemeProvider>
+          <AuthProvider>
+            <SentryUserContext />
+            <StaleCacheBanner />
+            <PwaBootstrap />
+            {children}
+            <Toaster position="top-right" richColors />
+          </AuthProvider>
         </AppErrorBoundary>
       </body>
     </html>

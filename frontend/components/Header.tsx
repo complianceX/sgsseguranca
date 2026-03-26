@@ -5,10 +5,8 @@ import {
   Command,
   Info,
   Menu,
-  Moon,
   RefreshCw,
   Search,
-  Sun,
   User,
   WifiOff,
   X,
@@ -16,7 +14,6 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { useTheme } from "@/components/ThemeProvider";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import {
@@ -32,7 +29,6 @@ const RATE_LIMIT_BACKOFF_MS = 60_000;
 
 export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   const { user } = useAuth();
-  const { resolvedTheme, toggleTheme } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -470,19 +466,6 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
               </div>
             ) : null}
           </div>
-
-          <button
-            type="button"
-            title={resolvedTheme === "dark" ? "Modo claro" : "Modo escuro"}
-            onClick={toggleTheme}
-            className={iconButtonClass}
-          >
-            {resolvedTheme === "dark" ? (
-              <Sun className="h-[18px] w-[18px]" />
-            ) : (
-              <Moon className="h-[18px] w-[18px]" />
-            )}
-          </button>
 
           <button
             type="button"

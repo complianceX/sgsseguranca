@@ -1,47 +1,47 @@
 ﻿:root {
   /* ═══════════════════════════════════════════════════════════════
-     SGS ENTERPRISE PALETTE — "Graphite Ledger"
+     SGS ENTERPRISE PALETTE — "Blue Command"
      ───────────────────────────────────────────────────────────────
      Direção visual:
-       · Fundo claro com base mineral e contraste limpo
-       · Estrutura em grafite, pedra e neutros quentes
-       · Ações principais discretas, sem azul corporativo
+       · Fundo branco com respiro frio e contraste limpo
+       · Estrutura azul institucional, técnica e confiável
+       · Ações principais em azul profundo, sem acento marrom
        · Semântica preservada sem poluição visual
-       · Interface objetiva, sóbria e focada em operação
+       · Interface objetiva, clara e focada em operação
 
-     BACKGROUND #F6F5F3  Mineral Canvas  — canvas principal
-     SIDEBAR    #2C2825  Deep Graphite   — navegação e estrutura
-     PRIMARY    #3E3935  Ledger Graphite — CTA e destaque funcional
-     SECONDARY  #67615B  Soft Stone      — apoio, filtros e contexto
+     BACKGROUND #F7FAFD  Cloud White   — canvas principal
+     SIDEBAR    #0E4E7F  Command Blue  — navegação e estrutura
+     PRIMARY    #11598C  SGS Blue      — CTA e destaque funcional
+     SECONDARY  #5D7B99  Slate Blue    — apoio, filtros e contexto
      ─── Status — semântica funcional, não decorativa ────────────
      SUCCESS    #1D6B43
      WARNING    #9A5A00
      DANGER     #B3261E
-     INFO       #57534E
+     INFO       #416E96
   ══════════════════════════════════════════════════════════════ */
-  --brand-background: #f6f5f3;
-  --brand-sidebar: #2c2825;
-  --brand-sidebar-border: #4a433d;
-  --brand-sidebar-text: #f6f5f3;
-  --brand-sidebar-muted: #d7cdc3;
-  --brand-sidebar-hover: #38322e;
+  --brand-background: #f7fafd;
+  --brand-sidebar: #0e4e7f;
+  --brand-sidebar-border: #2e6d9c;
+  --brand-sidebar-text: #ffffff;
+  --brand-sidebar-muted: #d7e7f6;
+  --brand-sidebar-hover: #165b8f;
   --brand-card: #ffffff;
-  --brand-primary: #3e3935;
-  --brand-primary-hover: #2c2825;
-  --brand-primary-active: #25221f;
-  --brand-primary-soft: #ece8e3;
-  --brand-focus-ring: #67615b;
-  --brand-secondary: #67615b;
-  --brand-title: #25221f;
-  --brand-text-primary: #25221f;
-  --brand-text-secondary: #46413d;
-  --brand-text-muted: #5e5853;
-  --brand-border-default: #b7aea5;
-  --brand-border-strong: #8f8882;
+  --brand-primary: #11598c;
+  --brand-primary-hover: #0d4d79;
+  --brand-primary-active: #0a3d61;
+  --brand-primary-soft: #e8f1fa;
+  --brand-focus-ring: #93c5fd;
+  --brand-secondary: #5d7b99;
+  --brand-title: #0f172a;
+  --brand-text-primary: #0f172a;
+  --brand-text-secondary: #36516b;
+  --brand-text-muted: #617b95;
+  --brand-border-default: #c6d7e8;
+  --brand-border-strong: #96b0ca;
   --brand-success: #1d6b43;
   --brand-warning: #9a5a00;
   --brand-danger: #b3261e;
-  --brand-info: #57534e;
+  --brand-info: #416e96;
 
   --ds-radius-sm: 0.5rem;
   --ds-radius-md: 0.75rem;

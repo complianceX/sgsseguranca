@@ -25,7 +25,6 @@ import {
   Map,
   MapPin,
   MessageSquare,
-  Paintbrush,
   Settings,
   Shield,
   Upload,
@@ -101,7 +100,6 @@ const menuSections: MenuSection[] = [
     defaultOpen: false,
     items: [
       { icon: Settings, label: 'Configurações', href: '/dashboard/settings' },
-      { icon: Paintbrush, label: 'Temas', href: '/dashboard/system/settings/theme', adminOnly: true },
     ],
   },
 ];

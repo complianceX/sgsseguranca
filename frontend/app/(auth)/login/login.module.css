@@ -16,18 +16,18 @@
   --login-input-border: var(--ds-color-border-default);
   --login-input-border-hover: var(--ds-color-border-strong);
   --login-input-focus-bg: var(--ds-color-surface-overlay);
-  --login-logo-filter: grayscale(1) saturate(0) contrast(1.04) brightness(0.62);
+  --login-logo-filter: none;
   min-height: 100vh;
   position: relative;
   overflow: hidden;
   color: var(--login-text);
-  color-scheme: light dark;
+  color-scheme: light;
   background: var(--login-bg-start);
 }
 
 :global(:root[data-theme='dark']) .page,
 :global(.theme-dark) .page {
-  --login-logo-filter: grayscale(1) saturate(0) contrast(1.02) brightness(1.02);
+  --login-logo-filter: none;
 }
 
 .backgroundGlowA,

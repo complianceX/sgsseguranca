@@ -14,27 +14,27 @@ export default {
     extend: {
       colors: {
         app: {
-          bg: "#F6F5F3",
-          subtle: "#F0EEEA",
+          bg: "#F7FAFD",
+          subtle: "#EDF4FB",
           surface: "#FFFFFF",
-          "surface-muted": "#ECE8E3",
-          sidebar: "#2C2825",
+          "surface-muted": "#F2F7FD",
+          sidebar: "#0E4E7F",
         },
         border: {
-          DEFAULT: "#B7AEA5",
-          strong: "#8F8882",
+          DEFAULT: "#C6D7E8",
+          strong: "#96B0CA",
         },
         text: {
-          title: "#25221F",
-          primary: "#25221F",
-          secondary: "#5C5650",
-          muted: "#77706A",
+          title: "#0F172A",
+          primary: "#0F172A",
+          secondary: "#36516B",
+          muted: "#617B95",
         },
         brand: {
-          DEFAULT: "#3E3935",
-          hover: "#2C2825",
-          active: "#25221F",
-          soft: "#ECE8E3",
+          DEFAULT: "#11598C",
+          hover: "#0D4D79",
+          active: "#0A3D61",
+          soft: "#E8F1FA",
         },
         success: {
           DEFAULT: "#1D6B43",
@@ -49,21 +49,21 @@ export default {
           soft: "#F9ECEB",
         },
         info: {
-          DEFAULT: "#57534E",
-          soft: "#F1EEEA",
+          DEFAULT: "#416E96",
+          soft: "#EEF4FB",
         },
         neutral: {
-          badge: "#ECE8E3",
-          disabled: "#E2DBD4",
+          badge: "#F2F7FD",
+          disabled: "#D9E6F2",
         },
         table: {
-          header: "#F0EEEA",
-          hover: "#ECE8E3",
+          header: "#EDF4FB",
+          hover: "#F2F7FD",
         },
-        focus: "#67615B",
+        focus: "#93C5FD",
       },
       boxShadow: {
-        soft: "0 1px 2px rgba(37, 34, 31, 0.05), 0 1px 3px rgba(37, 34, 31, 0.08)",
+        soft: "0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.08)",
       },
       borderRadius: {
         xl2: "1rem",
