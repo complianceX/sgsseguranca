@@ -149,14 +149,14 @@ export default function TstFieldPage() {
           value: dashboard?.summary.pendingPtApprovals ?? 0,
           icon: FileText,
           href: '/dashboard/pts',
-          tone: 'text-amber-300',
+          tone: 'text-[var(--ds-color-warning)]',
         },
         {
           label: 'NCs críticas',
           value: dashboard?.summary.criticalNonConformities ?? 0,
           icon: ShieldAlert,
           href: '/dashboard/nonconformities',
-          tone: 'text-rose-300',
+          tone: 'text-[var(--ds-color-danger)]',
         },
         {
           label: 'Inspeções atrasadas',
@@ -172,7 +172,7 @@ export default function TstFieldPage() {
           href: isTemporarilyVisibleDashboardRoute('/dashboard/trainings')
             ? '/dashboard/trainings'
             : '/dashboard/medical-exams',
-          tone: 'text-orange-300',
+          tone: 'text-[var(--ds-color-warning)]',
         },
       ].filter((card) => !isTemporarilyHiddenDashboardRoute(card.href)),
     [dashboard],
@@ -372,13 +372,13 @@ export default function TstFieldPage() {
                   : 'Conectividade estável. A fila offline será enviada automaticamente quando necessário.'}
               </p>
               {offlineQueueItems.length > 0 ? (
-                <p className="text-xs text-amber-200">
+                <p className="text-xs text-[var(--ds-color-warning)]">
                   Há itens aguardando envio. Priorize sincronização antes de encerrar o turno.
                 </p>
               ) : null}
               {recentOfflineQueueItems.length > 0 ? (
-                <div className="rounded-[var(--ds-radius-lg)] border border-amber-300/20 bg-amber-500/8 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-100">
+                <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-warning)]">
                     Últimos itens na fila
                   </p>
                   <div className="mt-3 space-y-2">
@@ -393,7 +393,7 @@ export default function TstFieldPage() {
                             {item.method.toUpperCase()} {item.url}
                           </p>
                         </div>
-                        <span className="text-[11px] font-medium text-amber-100">
+                        <span className="text-[11px] font-medium text-[var(--ds-color-warning)]">
                           {new Date(item.createdAt).toLocaleTimeString('pt-BR', {
                             hour: '2-digit',
                             minute: '2-digit',
@@ -465,7 +465,7 @@ export default function TstFieldPage() {
             {workerLoading ? <InlineLoadingState label="Buscando dados do trabalhador" /> : null}
 
             {workerError ? (
-              <div className="rounded-[var(--ds-radius-lg)] border border-red-300/35 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]">
                 {workerError}
               </div>
             ) : null}
@@ -493,8 +493,8 @@ export default function TstFieldPage() {
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold ${
                         workerStatus.blocked
-                          ? 'bg-red-500/15 text-red-200'
-                          : 'bg-emerald-500/15 text-emerald-200'
+                          ? 'bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]'
+                          : 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
                       }`}
                     >
                       {workerStatus.operationalStatus}
@@ -519,9 +519,9 @@ export default function TstFieldPage() {
                 </div>
 
                 {workerStatus.reasons.length > 0 ? (
-                  <div className="rounded-[var(--ds-radius-lg)] border border-red-300/35 bg-red-500/10 p-3.5">
-                    <p className="text-sm font-semibold text-red-100">Motivos de bloqueio</p>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-200">
+                  <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] p-3.5">
+                    <p className="text-sm font-semibold text-[var(--ds-color-danger)]">Motivos de bloqueio</p>
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--ds-color-danger)]">
                       {workerStatus.reasons.map((reason) => (
                         <li key={reason}>{reason}</li>
                       ))}
@@ -577,7 +577,7 @@ export default function TstFieldPage() {
                           Criado em {new Date(item.createdAt).toLocaleString('pt-BR')}
                         </p>
                         {item.lastError ? (
-                          <p className="mt-2 text-xs text-amber-200">
+                          <p className="mt-2 text-xs text-[var(--ds-color-warning)]">
                             Último erro: {item.lastError}
                           </p>
                         ) : null}
@@ -704,10 +704,10 @@ function OperationalChip({
 }) {
   const tones = {
     default: 'border-white/10 bg-white/5 text-white',
-    warning: 'border-amber-300/35 bg-amber-500/10 text-amber-100',
-    danger: 'border-red-300/35 bg-red-500/10 text-red-100',
-    success: 'border-emerald-300/35 bg-emerald-500/10 text-emerald-100',
-    info: 'border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success-fg)]',
+    warning: 'border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]',
+    danger: 'border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]',
+    success: 'border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]',
+    info: 'border-[var(--ds-color-info-border)] bg-[var(--ds-color-info-subtle)] text-[var(--ds-color-info)]',
   };
 
   return (
@@ -766,7 +766,7 @@ function OperationalListCard({
                   ) : null}
                 </div>
                 {item.badge ? (
-                  <span className="rounded-full bg-amber-500/12 px-3 py-1 text-xs font-semibold text-amber-100">
+                  <span className="rounded-full bg-[var(--ds-color-warning-subtle)] px-3 py-1 text-xs font-semibold text-[var(--ds-color-warning)]">
                     {item.badge}
                   </span>
                 ) : null}

@@ -477,7 +477,7 @@ export default function CatsPage() {
     return (
       <div className="ds-system-scope">
         <div className="ds-surface-card p-4">
-          <p className="text-sm text-gray-500">Carregando permissoes...</p>
+          <p className="text-sm text-[var(--ds-color-text-muted)]">Carregando permissoes...</p>
         </div>
       </div>
     );
@@ -487,10 +487,10 @@ export default function CatsPage() {
     return (
       <div className="ds-system-scope">
         <div className="ds-surface-card p-4">
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
             CAT - Acidente de Trabalho
           </h1>
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-[var(--ds-color-text-muted)]">
             Voce nao tem permissao para visualizar o fluxo de CAT.
           </p>
         </div>
@@ -501,10 +501,10 @@ export default function CatsPage() {
   return (
     <div className="ds-system-scope space-y-6">
       <div className="ds-surface-card p-4">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
           CAT - Acidente de Trabalho
         </h1>
-        <p className="text-gray-500">
+        <p className="text-[var(--ds-color-text-muted)]">
           Fluxo completo: abertura, investigacao, fechamento e anexos.
         </p>
       </div>
@@ -518,7 +518,7 @@ export default function CatsPage() {
 
       {canManageCats ? (
         <div className="ds-surface-card p-4">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
             {editingCatId ? `Editar CAT ${editingCatNumber || ""}` : "Abrir CAT"}
           </h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
@@ -603,7 +603,7 @@ export default function CatsPage() {
               <button
                 type="button"
                 onClick={resetCatForm}
-                className="rounded-md border px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                className="rounded-md border px-3 py-2 text-sm text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
               >
                 Cancelar edicao
               </button>
@@ -671,7 +671,7 @@ export default function CatsPage() {
               <TableRow>
                 <TableCell
                   colSpan={7}
-                  className="py-8 text-center text-gray-500"
+                  className="py-8 text-center text-[var(--ds-color-text-muted)]"
                 >
                   Carregando CATs...
                 </TableCell>
@@ -680,7 +680,7 @@ export default function CatsPage() {
               <TableRow>
                 <TableCell
                   colSpan={7}
-                  className="py-8 text-center text-gray-500"
+                  className="py-8 text-center text-[var(--ds-color-text-muted)]"
                 >
                   Nenhuma CAT registrada.
                 </TableCell>
@@ -709,14 +709,14 @@ export default function CatsPage() {
                           onClick={() =>
                             void handleOpenAttachment(cat.id, item.id)
                           }
-                          className="rounded border border-blue-200 px-2 py-0.5 text-xs text-[var(--ds-color-text-primary)] hover:bg-blue-50"
+                          className="rounded border border-[var(--ds-color-border-default)] px-2 py-0.5 text-xs text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-primary-subtle)]"
                         >
                           <Eye className="mr-1 inline h-3 w-3" />
                           {item.file_name}
                         </button>
                       ))}
                       {cat.attachments && cat.attachments.length > 2 && (
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-[var(--ds-color-text-muted)]">
                           +{cat.attachments.length - 2}
                         </span>
                       )}
@@ -742,7 +742,7 @@ export default function CatsPage() {
                           />
                           <button
                             type="button"
-                            className="rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                            className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
                             onClick={() => fileInputRefs.current[cat.id]?.click()}
                           >
                             <Upload className="mr-1 inline h-3 w-3" />
@@ -752,7 +752,7 @@ export default function CatsPage() {
                       ) : null}
                       <button
                         type="button"
-                        className="rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                        className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
                         onClick={() => void handleDownloadPdf(cat.id)}
                       >
                         <FileDown className="mr-1 inline h-3 w-3" />
@@ -760,7 +760,7 @@ export default function CatsPage() {
                       </button>
                       <button
                         type="button"
-                        className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-primary)] hover:bg-blue-50"
+                        className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-primary-subtle)]"
                         onClick={() => void handleOpenGovernedPdf(cat)}
                         disabled={!cat.pdf_file_key && !canManageCats}
                         title={
@@ -771,12 +771,12 @@ export default function CatsPage() {
                               : "Sem permissao para emitir PDF final governado"
                         }
                       >
-                        <ShieldCheck className="mr-1 inline h-3 w-3 text-green-700" />
+                        <ShieldCheck className="mr-1 inline h-3 w-3 text-[var(--ds-color-success)]" />
                         {cat.pdf_file_key ? "PDF final" : "Emitir final"}
                       </button>
                       <button
                         type="button"
-                        className="rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                        className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
                         onClick={() => void handlePrepareEmail(cat)}
                       >
                         <Mail className="mr-1 inline h-3 w-3" />
@@ -785,7 +785,7 @@ export default function CatsPage() {
                       {canManageCats && cat.status !== "fechada" ? (
                         <button
                           type="button"
-                          className="rounded border px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                          className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
                           onClick={() => handleEdit(cat)}
                         >
                           <Pencil className="mr-1 inline h-3 w-3" />
@@ -795,7 +795,7 @@ export default function CatsPage() {
                       {canManageCats && cat.status !== "fechada" && (
                         <button
                           type="button"
-                          className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-primary)] hover:bg-blue-50"
+                          className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-primary-subtle)]"
                           onClick={() => void handleStartInvestigation(cat)}
                         >
                           Investigar
@@ -804,7 +804,7 @@ export default function CatsPage() {
                       {canManageCats && cat.status !== "fechada" && (
                         <button
                           type="button"
-                          className="rounded border px-2 py-1 text-xs text-green-700 hover:bg-green-50"
+                          className="rounded border px-2 py-1 text-xs text-[var(--ds-color-success)] hover:bg-[var(--ds-color-success-subtle)]"
                           onClick={() => void handleClose(cat)}
                         >
                           Fechar
@@ -848,10 +848,10 @@ export default function CatsPage() {
 function Kpi({ title, value }: { title: string; value: number }) {
   return (
     <div className="ds-surface-card p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
         {title}
       </p>
-      <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
+      <p className="mt-1 text-2xl font-bold text-[var(--ds-color-text-primary)]">{value}</p>
     </div>
   );
 }

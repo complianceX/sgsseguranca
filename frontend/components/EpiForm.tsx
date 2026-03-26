@@ -123,7 +123,7 @@ export function EpiForm({ id }: EpiFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-800 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
       </div>
     );
   }
@@ -134,13 +134,13 @@ export function EpiForm({ id }: EpiFormProps) {
         <div className="flex items-center space-x-4">
           <Link
             href="/dashboard/epis"
-            className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-full p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]"
             title="Voltar"
             aria-label="Voltar para a lista de EPIs"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
             {id ? 'Editar EPI' : 'Novo EPI'}
           </h1>
         </div>
@@ -148,18 +148,18 @@ export function EpiForm({ id }: EpiFormProps) {
 
       <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6 rounded-xl border bg-white p-6 shadow-sm">
         {submitError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]">
             {submitError}
           </div>
         )}
         <div className="space-y-4">
           <div>
-            <label htmlFor="company_id" className="block text-sm font-medium text-gray-700">Empresa</label>
+            <label htmlFor="company_id" className="block text-sm font-medium text-[var(--ds-color-text-secondary)]">Empresa</label>
             <select
               id="company_id"
               {...register('company_id')}
-              className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+              className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm ${
+                errors.company_id ? 'border-[var(--ds-color-danger)]' : ''
               }`}
               aria-invalid={errors.company_id ? 'true' : undefined}
             >
@@ -168,54 +168,54 @@ export function EpiForm({ id }: EpiFormProps) {
                 <option key={company.id} value={company.id}>{company.razao_social}</option>
               ))}
             </select>
-            {errors.company_id && <p className="mt-1 text-xs text-red-500">{errors.company_id.message}</p>}
+            {errors.company_id && <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.company_id.message}</p>}
           </div>
 
           <div>
-            <label htmlFor="nome" className="block text-sm font-medium text-gray-700">Nome do EPI</label>
+            <label htmlFor="nome" className="block text-sm font-medium text-[var(--ds-color-text-secondary)]">Nome do EPI</label>
             <input
               id="nome"
               type="text"
               {...register('nome')}
-              className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+              className={`mt-1 block w-full rounded-md border px-3 py-2 text-sm ${
+                errors.nome ? 'border-[var(--ds-color-danger)]' : ''
               }`}
               aria-invalid={errors.nome ? 'true' : undefined}
               placeholder="Ex: Capacete de Segurança"
             />
-            {errors.nome && <p className="mt-1 text-xs text-red-500">{errors.nome.message}</p>}
+            {errors.nome && <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.nome.message}</p>}
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label htmlFor="ca" className="block text-sm font-medium text-gray-700">Certificado de Aprovação (C.A.)</label>
+              <label htmlFor="ca" className="block text-sm font-medium text-[var(--ds-color-text-secondary)]">Certificado de Aprovação (C.A.)</label>
               <input
                 id="ca"
                 type="text"
                 {...register('ca')}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="mt-1 block w-full rounded-md border px-3 py-2 text-sm"
                 placeholder="Ex: 12345"
               />
             </div>
 
             <div>
-              <label htmlFor="validade_ca" className="block text-sm font-medium text-gray-700">Validade do C.A.</label>
+              <label htmlFor="validade_ca" className="block text-sm font-medium text-[var(--ds-color-text-secondary)]">Validade do C.A.</label>
               <input
                 id="validade_ca"
                 type="date"
                 {...register('validade_ca')}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="mt-1 block w-full rounded-md border px-3 py-2 text-sm"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="descricao" className="block text-sm font-medium text-gray-700">Descrição</label>
+            <label htmlFor="descricao" className="block text-sm font-medium text-[var(--ds-color-text-secondary)]">Descrição</label>
             <textarea
               id="descricao"
               {...register('descricao')}
               rows={4}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="mt-1 block w-full rounded-md border px-3 py-2 text-sm"
               placeholder="Descreva brevemente o EPI..."
             />
           </div>
@@ -224,14 +224,14 @@ export function EpiForm({ id }: EpiFormProps) {
         <div className="flex justify-end space-x-3 border-t pt-6">
           <Link
             href="/dashboard/epis"
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
           >
             Cancelar
           </Link>
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+            className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
           >
             {loading ? (
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>

@@ -119,7 +119,7 @@ export function ToolForm({ id }: ToolFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-800 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
       </div>
     );
   }
@@ -130,13 +130,13 @@ export function ToolForm({ id }: ToolFormProps) {
         <div className="flex items-center space-x-4">
           <Link
             href="/dashboard/tools"
-            className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-full p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]"
             title="Voltar"
             aria-label="Voltar para a lista de ferramentas"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
             {id ? 'Editar Ferramenta' : 'Nova Ferramenta'}
           </h1>
         </div>
@@ -144,19 +144,19 @@ export function ToolForm({ id }: ToolFormProps) {
 
       <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6 rounded-xl border bg-white p-6 shadow-sm">
         {submitError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]">
             {submitError}
           </div>
         )}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="company_id" className="text-sm font-medium text-gray-700">
+            <label htmlFor="company_id" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Empresa
             </label>
             <select
               id="company_id"
               {...register('company_id')}
-              className={`w-full rounded-md border bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:bg-white focus:outline-none ${errors.company_id ? 'border-red-500 focus:border-red-500' : 'border-gray-400 focus:border-slate-800'
+              className={`w-full rounded-md border bg-[var(--ds-color-surface-muted)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-primary)] placeholder:text-[var(--ds-color-text-secondary)] focus:bg-[var(--ds-color-surface-base)] focus:outline-none ${errors.company_id ? 'border-[var(--ds-color-danger)]' : 'border-[var(--ds-color-border-strong)] focus:border-[var(--ds-color-action-primary)]'
                 }`}
               aria-invalid={errors.company_id ? 'true' : undefined}
             >
@@ -168,50 +168,50 @@ export function ToolForm({ id }: ToolFormProps) {
               ))}
             </select>
             {errors.company_id && (
-              <p className="text-xs text-red-500">{errors.company_id.message}</p>
+              <p className="text-xs text-[var(--ds-color-danger)]">{errors.company_id.message}</p>
             )}
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="nome" className="text-sm font-medium text-gray-700">
+            <label htmlFor="nome" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Nome da Ferramenta
             </label>
             <input
               id="nome"
               type="text"
               {...register('nome')}
-              className={`w-full rounded-md border bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:bg-white focus:outline-none ${errors.nome ? 'border-red-500 focus:border-red-500' : 'border-gray-400 focus:border-slate-800'
+              className={`w-full rounded-md border bg-[var(--ds-color-surface-muted)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-primary)] placeholder:text-[var(--ds-color-text-secondary)] focus:bg-[var(--ds-color-surface-base)] focus:outline-none ${errors.nome ? 'border-[var(--ds-color-danger)]' : 'border-[var(--ds-color-border-strong)] focus:border-[var(--ds-color-action-primary)]'
                 }`}
               aria-invalid={errors.nome ? 'true' : undefined}
               placeholder="Ex: Furadeira Bosch"
             />
             {errors.nome && (
-              <p className="text-xs text-red-500">{errors.nome.message}</p>
+              <p className="text-xs text-[var(--ds-color-danger)]">{errors.nome.message}</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="numero_serie" className="text-sm font-medium text-gray-700">
+            <label htmlFor="numero_serie" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Número de Série
             </label>
             <input
               id="numero_serie"
               type="text"
               {...register('numero_serie')}
-              className="w-full rounded-md border border-gray-400 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:border-slate-800 focus:bg-white focus:outline-none"
+              className="w-full rounded-md border border-[var(--ds-color-border-strong)] bg-[var(--ds-color-surface-muted)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-primary)] placeholder:text-[var(--ds-color-text-secondary)] focus:border-[var(--ds-color-action-primary)] focus:bg-[var(--ds-color-surface-base)] focus:outline-none"
               placeholder="Ex: SN123456"
             />
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="descricao" className="text-sm font-medium text-gray-700">
+            <label htmlFor="descricao" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Descrição
             </label>
             <textarea
               id="descricao"
               rows={3}
               {...register('descricao')}
-              className="w-full rounded-md border border-gray-400 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-900 placeholder:text-gray-600 focus:border-slate-800 focus:bg-white focus:outline-none"
+              className="w-full rounded-md border border-[var(--ds-color-border-strong)] bg-[var(--ds-color-surface-muted)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-primary)] placeholder:text-[var(--ds-color-text-secondary)] focus:border-[var(--ds-color-action-primary)] focus:bg-[var(--ds-color-surface-base)] focus:outline-none"
               placeholder="Opcional"
             />
           </div>
@@ -220,14 +220,14 @@ export function ToolForm({ id }: ToolFormProps) {
         <div className="flex justify-end space-x-4 border-t pt-6">
           <Link
             href="/dashboard/tools"
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-lg border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
           >
             Cancelar
           </Link>
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
+            className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
           >
             {loading ? (
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>

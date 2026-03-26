@@ -33,12 +33,12 @@ export const EVENT_TYPE_LABEL: Record<CalendarEventType, string> = {
 };
 
 export const EVENT_TYPE_COLOR: Record<CalendarEventType, { bg: string; text: string; dot: string }> = {
-  training: { bg: 'bg-stone-100', text: 'text-stone-800', dot: 'bg-stone-500' },
-  medical_exam: { bg: 'bg-zinc-100', text: 'text-zinc-800', dot: 'bg-zinc-500' },
-  dds: { bg: 'bg-slate-100', text: 'text-slate-800', dot: 'bg-slate-500' },
-  rdo: { bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-400' },
-  cat: { bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-500' },
-  service_order: { bg: 'bg-orange-100', text: 'text-orange-800', dot: 'bg-orange-500' },
+  training: { bg: 'bg-[var(--ds-color-surface-muted)]', text: 'text-[var(--ds-color-text-primary)]', dot: 'bg-[var(--ds-color-text-secondary)]' },
+  medical_exam: { bg: 'bg-[var(--ds-color-surface-muted)]', text: 'text-[var(--ds-color-text-secondary)]', dot: 'bg-[var(--ds-color-text-muted)]' },
+  dds: { bg: 'bg-[var(--ds-color-primary-subtle)]', text: 'text-[var(--ds-color-action-primary)]', dot: 'bg-[var(--ds-color-action-primary)]' },
+  rdo: { bg: 'bg-[var(--ds-color-surface-muted)]', text: 'text-[var(--ds-color-text-secondary)]', dot: 'bg-[var(--ds-color-text-muted)]' },
+  cat: { bg: 'bg-[var(--ds-color-danger-subtle)]', text: 'text-[var(--ds-color-danger)]', dot: 'bg-[var(--ds-color-danger)]' },
+  service_order: { bg: 'bg-[var(--ds-color-warning-subtle)]', text: 'text-[var(--ds-color-warning)]', dot: 'bg-[var(--ds-color-warning)]' },
 };
 
 export const EVENT_TYPE_HREF: Record<CalendarEventType, string> = {

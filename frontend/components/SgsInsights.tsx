@@ -22,7 +22,7 @@ interface InsightsData {
   timestamp: string;
 }
 
-export function GandraInsights() {
+export function SgsInsights() {
   const aiEnabled = isAiEnabled();
 
   const [data, setData] = useState<InsightsData | null>(null);
@@ -163,18 +163,18 @@ export function GandraInsights() {
         </div>
       </div>
 
-        <div className="p-5">
+      <div className="p-5">
         <div className="space-y-4">
           {primaryInsight ? (
             <div
               className={cn(
                 'rounded-xl border px-4 py-4',
                 primaryInsight.type === 'warning' &&
-                  'border-[color:var(--ds-color-warning)]/18 bg-[var(--ds-color-warning-subtle)]',
+                'border-[color:var(--ds-color-warning)]/18 bg-[var(--ds-color-warning-subtle)]',
                 primaryInsight.type === 'success' &&
-                  'border-[color:var(--ds-color-success)]/18 bg-[var(--ds-color-success-subtle)]',
+                'border-[color:var(--ds-color-success)]/18 bg-[var(--ds-color-success-subtle)]',
                 primaryInsight.type === 'info' &&
-                  'border-[color:var(--ds-color-info)]/18 bg-[var(--ds-color-info-subtle)]',
+                'border-[color:var(--ds-color-info)]/18 bg-[var(--ds-color-info-subtle)]',
               )}
             >
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">

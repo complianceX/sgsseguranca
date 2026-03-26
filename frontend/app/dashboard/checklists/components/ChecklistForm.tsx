@@ -1296,11 +1296,11 @@ export function ChecklistForm({ id, mode = "checklist" }: ChecklistFormProps) {
 
       {isFieldMode ? (
         <div
-          className={`${panelClassName} mb-6 border-emerald-400/25 bg-emerald-500/8 p-5 print:hidden`}
+          className={`${panelClassName} mb-6 border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-5 print:hidden`}
         >
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-200">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-success)]">
                 Modo campo
               </p>
               <h2 className="mt-2 text-lg font-semibold text-[var(--ds-color-text-primary)]">

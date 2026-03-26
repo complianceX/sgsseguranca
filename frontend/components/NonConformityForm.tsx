@@ -94,26 +94,26 @@ function isImageAttachment(url?: string) {
 function resolveActionPriorityClass(priority?: string) {
   switch (priority) {
     case "critical":
-      return "border-red-300 bg-red-50 text-red-700";
+      return "border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]";
     case "high":
-      return "border-amber-300 bg-amber-50 text-amber-700";
+      return "border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]";
     case "medium":
-      return "border-sky-300 bg-sky-50 text-sky-700";
+      return "border-[var(--ds-color-info-border)] bg-[var(--ds-color-info-subtle)] text-[var(--ds-color-info)]";
     default:
-      return "border-slate-300 bg-slate-50 text-slate-700";
+      return "border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]";
   }
 }
 
 function resolveRiskLevelClass(riskLevel?: string) {
   switch (riskLevel) {
     case "Crítico":
-      return "border-red-300 bg-red-50 text-red-700";
+      return "border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]";
     case "Alto":
-      return "border-amber-300 bg-amber-50 text-amber-700";
+      return "border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]";
     case "Médio":
-      return "border-sky-300 bg-sky-50 text-sky-700";
+      return "border-[var(--ds-color-info-border)] bg-[var(--ds-color-info-subtle)] text-[var(--ds-color-info)]";
     default:
-      return "border-emerald-300 bg-emerald-50 text-emerald-700";
+      return "border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]";
   }
 }
 
@@ -480,12 +480,12 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
       className="ds-form-page space-y-8 pb-12"
     >
       {!canManageNc ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-4 py-3 text-sm text-[var(--ds-color-warning)]">
           Você está em modo somente leitura para não conformidades. Edição e emissão final exigem a permissão <code>can_manage_nc</code>.
         </div>
       ) : null}
       {submitError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]">
           {submitError}
         </div>
       )}
@@ -514,7 +514,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                 </span>
               ) : null}
               {sophiePreview.sourceType ? (
-                <span className="rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
+                <span className="rounded-full border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-3 py-1 text-xs font-semibold text-[var(--ds-color-text-secondary)]">
                   Origem {sophiePreview.sourceType}
                 </span>
               ) : null}
@@ -540,7 +540,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                       >
                         Prioridade {item.priority}
                       </span>
-                      <span className="rounded-full border border-slate-300 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
+                      <span className="rounded-full border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-2.5 py-1 text-[11px] font-semibold text-[var(--ds-color-text-secondary)]">
                         {item.type}
                       </span>
                     </div>
@@ -578,7 +578,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                         className="h-40 w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-40 items-center justify-center bg-slate-100 px-4 text-center text-xs text-slate-500">
+                      <div className="flex h-40 items-center justify-center bg-[var(--ds-color-surface-muted)] px-4 text-center text-xs text-[var(--ds-color-text-muted)]">
                         Evidência disponível para abertura externa
                       </div>
                     )}
@@ -603,14 +603,14 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         </div>
       ) : null}
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           1. Identificação da Não Conformidade
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
             <label
               htmlFor="nc-codigo"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Código da NC
             </label>
@@ -618,12 +618,12 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               id="nc-codigo"
               {...register("codigo_nc")}
               className={`w-full rounded-md border px-3 py-2 text-sm ${
-                errors.codigo_nc ? "border-red-500" : "border-gray-300"
+                errors.codigo_nc ? "border-[var(--ds-color-danger)]" : ""
               }`}
               aria-invalid={errors.codigo_nc ? "true" : undefined}
             />
             {errors.codigo_nc && (
-              <p className="mt-1 text-xs text-red-500">
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                 {errors.codigo_nc.message}
               </p>
             )}
@@ -631,7 +631,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           <div>
             <label
               htmlFor="nc-tipo"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Tipo
             </label>
@@ -640,7 +640,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               {...register("tipo")}
               aria-label="Tipo da não conformidade"
               className={`w-full rounded-md border px-3 py-2 text-sm ${
-                errors.tipo ? "border-red-500" : "border-gray-300"
+                errors.tipo ? "border-[var(--ds-color-danger)]" : ""
               }`}
               aria-invalid={errors.tipo ? "true" : undefined}
             >
@@ -651,13 +651,13 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               ))}
             </select>
             {errors.tipo && (
-              <p className="mt-1 text-xs text-red-500">{errors.tipo.message}</p>
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.tipo.message}</p>
             )}
           </div>
           <div>
             <label
               htmlFor="nc-data-identificacao"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Data da identificação
             </label>
@@ -666,13 +666,13 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               type="date"
               {...register("data_identificacao")}
               aria-label="Data da identificação"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div className="md:col-span-2">
             <label
               htmlFor="nc-site-id"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Site / Unidade
             </label>
@@ -680,7 +680,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               id="nc-site-id"
               {...register("site_id")}
               aria-label="Site ou unidade da não conformidade"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             >
               <option value="">Selecione o site</option>
               {sites.map((site) => (
@@ -693,7 +693,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           <div>
             <label
               htmlFor="nc-local-setor-area"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Local / Setor / Área
             </label>
@@ -701,12 +701,12 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               id="nc-local-setor-area"
               {...register("local_setor_area")}
               className={`w-full rounded-md border px-3 py-2 text-sm ${
-                errors.local_setor_area ? "border-red-500" : "border-gray-300"
+                errors.local_setor_area ? "border-[var(--ds-color-danger)]" : ""
               }`}
               aria-invalid={errors.local_setor_area ? "true" : undefined}
             />
             {errors.local_setor_area && (
-              <p className="mt-1 text-xs text-red-500">
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                 {errors.local_setor_area.message}
               </p>
             )}
@@ -714,7 +714,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           <div className="md:col-span-2">
             <label
               htmlFor="nc-atividade-envolvida"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Atividade envolvida
             </label>
@@ -723,13 +723,13 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               {...register("atividade_envolvida")}
               className={`w-full rounded-md border px-3 py-2 text-sm ${
                 errors.atividade_envolvida
-                  ? "border-red-500"
-                  : "border-gray-300"
+                  ? "border-[var(--ds-color-danger)]"
+                  : ""
               }`}
               aria-invalid={errors.atividade_envolvida ? "true" : undefined}
             />
             {errors.atividade_envolvida && (
-              <p className="mt-1 text-xs text-red-500">
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                 {errors.atividade_envolvida.message}
               </p>
             )}
@@ -737,7 +737,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           <div>
             <label
               htmlFor="nc-responsavel-area"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Responsável pela área
             </label>
@@ -745,12 +745,12 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               id="nc-responsavel-area"
               {...register("responsavel_area")}
               className={`w-full rounded-md border px-3 py-2 text-sm ${
-                errors.responsavel_area ? "border-red-500" : "border-gray-300"
+                errors.responsavel_area ? "border-[var(--ds-color-danger)]" : ""
               }`}
               aria-invalid={errors.responsavel_area ? "true" : undefined}
             />
             {errors.responsavel_area && (
-              <p className="mt-1 text-xs text-red-500">
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                 {errors.responsavel_area.message}
               </p>
             )}
@@ -758,7 +758,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           <div>
             <label
               htmlFor="nc-auditor-responsavel"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Auditor / Técnico / Inspetor
             </label>
@@ -767,13 +767,13 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               {...register("auditor_responsavel")}
               className={`w-full rounded-md border px-3 py-2 text-sm ${
                 errors.auditor_responsavel
-                  ? "border-red-500"
-                  : "border-gray-300"
+                  ? "border-[var(--ds-color-danger)]"
+                  : ""
               }`}
               aria-invalid={errors.auditor_responsavel ? "true" : undefined}
             />
             {errors.auditor_responsavel && (
-              <p className="mt-1 text-xs text-red-500">
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                 {errors.auditor_responsavel.message}
               </p>
             )}
@@ -781,7 +781,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           <div className="md:col-span-3">
             <label
               htmlFor="nc-pdf-file"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Anexar PDF da NC (opcional)
             </label>
@@ -791,14 +791,14 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               accept="application/pdf"
               aria-label="Selecionar PDF da não conformidade"
               onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:font-semibold file:text-slate-700 hover:file:bg-blue-100"
+              className="w-full rounded-md border px-3 py-2 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-[var(--ds-color-surface-muted)] file:px-3 file:py-1.5 file:font-semibold file:text-[var(--ds-color-text-secondary)] hover:file:bg-[var(--ds-color-primary-subtle)]"
             />
           </div>
         </div>
       </div>
 
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           2. Classificação da Não Conformidade
         </h2>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -808,23 +808,23 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                 type="checkbox"
                 value={option}
                 {...register("classificacao")}
-                className="h-4 w-4 rounded border-gray-300 text-[var(--ds-color-text-primary)] focus:ring-blue-500"
+                className="h-4 w-4 rounded border-[var(--ds-color-border-default)] accent-[var(--ds-color-action-primary)]"
               />
-              <span className="text-gray-700">{option}</span>
+              <span className="text-[var(--ds-color-text-secondary)]">{option}</span>
             </label>
           ))}
         </div>
       </div>
 
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           3. Descrição da Não Conformidade
         </h2>
         <div className="space-y-4">
           <div>
             <label
               htmlFor="nc-descricao"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Descrição
             </label>
@@ -833,10 +833,10 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               {...register("descricao")}
               aria-label="Descrição da não conformidade"
               rows={3}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
             {errors.descricao && (
-              <p className="mt-1 text-xs text-red-500">
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                 {errors.descricao.message}
               </p>
             )}
@@ -844,7 +844,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           <div>
             <label
               htmlFor="nc-evidencia-observada"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Evidência observada
             </label>
@@ -853,10 +853,10 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               {...register("evidencia_observada")}
               aria-label="Evidência observada"
               rows={3}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
             {errors.evidencia_observada && (
-              <p className="mt-1 text-xs text-red-500">
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                 {errors.evidencia_observada.message}
               </p>
             )}
@@ -864,7 +864,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           <div>
             <label
               htmlFor="nc-condicao-insegura"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Condição insegura identificada
             </label>
@@ -873,10 +873,10 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               {...register("condicao_insegura")}
               aria-label="Condição insegura identificada"
               rows={2}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
             {errors.condicao_insegura && (
-              <p className="mt-1 text-xs text-red-500">
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                 {errors.condicao_insegura.message}
               </p>
             )}
@@ -884,7 +884,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           <div>
             <label
               htmlFor="nc-ato-inseguro"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Ato inseguro
             </label>
@@ -893,31 +893,31 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               {...register("ato_inseguro")}
               aria-label="Ato inseguro"
               rows={2}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
         </div>
       </div>
 
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           4. Requisito Não Atendido
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <label
               htmlFor="nc-requisito-nr"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Norma Regulamentadora
             </label>
             <input
               id="nc-requisito-nr"
               {...register("requisito_nr")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
             {errors.requisito_nr && (
-              <p className="mt-1 text-xs text-red-500">
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                 {errors.requisito_nr.message}
               </p>
             )}
@@ -925,17 +925,17 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           <div>
             <label
               htmlFor="nc-requisito-item"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Item / Subitem
             </label>
             <input
               id="nc-requisito-item"
               {...register("requisito_item")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
             {errors.requisito_item && (
-              <p className="mt-1 text-xs text-red-500">
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                 {errors.requisito_item.message}
               </p>
             )}
@@ -943,51 +943,51 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           <div>
             <label
               htmlFor="nc-requisito-procedimento"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Procedimento interno
             </label>
             <input
               id="nc-requisito-procedimento"
               {...register("requisito_procedimento")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
             <label
               htmlFor="nc-requisito-politica"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Política de SST
             </label>
             <input
               id="nc-requisito-politica"
               {...register("requisito_politica")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
         </div>
       </div>
 
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           5. Análise de Risco Associada
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <label
               htmlFor="nc-risco-perigo"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Perigo identificado
             </label>
             <input
               id="nc-risco-perigo"
               {...register("risco_perigo")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
             {errors.risco_perigo && (
-              <p className="mt-1 text-xs text-red-500">
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                 {errors.risco_perigo.message}
               </p>
             )}
@@ -995,24 +995,24 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           <div>
             <label
               htmlFor="nc-risco-associado"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Risco associado
             </label>
             <input
               id="nc-risco-associado"
               {...register("risco_associado")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
             {errors.risco_associado && (
-              <p className="mt-1 text-xs text-red-500">
+              <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
                 {errors.risco_associado.message}
               </p>
             )}
           </div>
         </div>
         <div className="mt-4">
-          <label className="mb-2 block text-sm font-bold text-gray-700">
+          <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
             Possíveis consequências
           </label>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -1025,9 +1025,9 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                   type="checkbox"
                   value={option}
                   {...register("risco_consequencias")}
-                  className="h-4 w-4 rounded border-gray-300 text-[var(--ds-color-text-primary)] focus:ring-blue-500"
+                  className="h-4 w-4 rounded border-[var(--ds-color-border-default)] accent-[var(--ds-color-action-primary)]"
                 />
-                <span className="text-gray-700">{option}</span>
+                <span className="text-[var(--ds-color-text-secondary)]">{option}</span>
               </label>
             ))}
           </div>
@@ -1035,14 +1035,14 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         <div className="mt-4">
           <label
             htmlFor="nc-risco-nivel"
-            className="mb-2 block text-sm font-bold text-gray-700"
+            className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
           >
             Nível de risco
           </label>
           <select
             id="nc-risco-nivel"
             {...register("risco_nivel")}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border px-3 py-2 text-sm"
           >
             {niveisRisco.map((nivel) => (
               <option key={nivel} value={nivel}>
@@ -1051,7 +1051,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             ))}
           </select>
           {errors.risco_nivel && (
-            <p className="mt-1 text-xs text-red-500">
+            <p className="mt-1 text-xs text-[var(--ds-color-danger)]">
               {errors.risco_nivel.message}
             </p>
           )}
@@ -1059,7 +1059,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
       </div>
 
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           6. Causa da Não Conformidade
         </h2>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -1069,36 +1069,36 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                 type="checkbox"
                 value={option}
                 {...register("causa")}
-                className="h-4 w-4 rounded border-gray-300 text-[var(--ds-color-text-primary)] focus:ring-blue-500"
+                className="h-4 w-4 rounded border-[var(--ds-color-border-default)] accent-[var(--ds-color-action-primary)]"
               />
-              <span className="text-gray-700">{option}</span>
+              <span className="text-[var(--ds-color-text-secondary)]">{option}</span>
             </label>
           ))}
         </div>
         <div className="mt-4">
           <label
             htmlFor="nc-causa-outro"
-            className="mb-2 block text-sm font-bold text-gray-700"
+            className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
           >
             Outro (descrever)
           </label>
           <input
             id="nc-causa-outro"
             {...register("causa_outro")}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="w-full rounded-md border px-3 py-2 text-sm"
           />
         </div>
       </div>
 
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           7. Ação Corretiva Imediata
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
             <label
               htmlFor="nc-acao-imediata-descricao"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Medida adotada
             </label>
@@ -1106,13 +1106,13 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               id="nc-acao-imediata-descricao"
               {...register("acao_imediata_descricao")}
               rows={2}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
             <label
               htmlFor="nc-acao-imediata-data"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Data da ação
             </label>
@@ -1120,33 +1120,33 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               id="nc-acao-imediata-data"
               type="date"
               {...register("acao_imediata_data")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
             <label
               htmlFor="nc-acao-imediata-responsavel"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Responsável
             </label>
             <input
               id="nc-acao-imediata-responsavel"
               {...register("acao_imediata_responsavel")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
             <label
               htmlFor="nc-acao-imediata-status"
-              className="mb-2 block text-sm font-bold text-gray-700"
+              className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]"
             >
               Status
             </label>
             <select
               id="nc-acao-imediata-status"
               {...register("acao_imediata_status")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             >
               {statusAcao.map((item) => (
                 <option key={item} value={item}>
@@ -1159,127 +1159,127 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
       </div>
 
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           8. Ação Corretiva Definitiva
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Descrição detalhada
             </label>
             <textarea
               {...register("acao_definitiva_descricao")}
               rows={2}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Prazo para implementação
             </label>
             <input
               type="date"
               {...register("acao_definitiva_prazo")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Responsável pela execução
             </label>
             <input
               {...register("acao_definitiva_responsavel")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Recursos necessários
             </label>
             <input
               {...register("acao_definitiva_recursos")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Data prevista de conclusão
             </label>
             <input
               type="date"
               {...register("acao_definitiva_data_prevista")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
         </div>
       </div>
 
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           9. Ação Preventiva
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Medidas para evitar reincidência
             </label>
             <textarea
               {...register("acao_preventiva_medidas")}
               rows={2}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Treinamento necessário
             </label>
             <input
               {...register("acao_preventiva_treinamento")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Revisão de procedimento
             </label>
             <input
               {...register("acao_preventiva_revisao_procedimento")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Melhoria de processo
             </label>
             <input
               {...register("acao_preventiva_melhoria_processo")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Implementação de EPC / EPI
             </label>
             <input
               {...register("acao_preventiva_epc_epi")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
         </div>
       </div>
 
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           10. Verificação de Eficácia
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Ação eliminou ou reduziu o risco?
             </label>
             <select
               {...register("verificacao_resultado")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             >
               {resultadoEficacia.map((item) => (
                 <option key={item} value={item}>
@@ -1289,44 +1289,44 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
             </select>
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Data da verificação
             </label>
             <input
               type="date"
               {...register("verificacao_data")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Evidências
             </label>
             <textarea
               {...register("verificacao_evidencias")}
               rows={2}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Responsável pela validação
             </label>
             <input
               {...register("verificacao_responsavel")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
         </div>
       </div>
 
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           11. Status da Não Conformidade
         </h2>
         <select
           {...register("status")}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="w-full rounded-md border px-3 py-2 text-sm"
         >
           {statusOptions.map((item) => (
             <option key={item} value={item}>
@@ -1335,22 +1335,22 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
           ))}
         </select>
         {errors.status && (
-          <p className="mt-1 text-xs text-red-500">{errors.status.message}</p>
+          <p className="mt-1 text-xs text-[var(--ds-color-danger)]">{errors.status.message}</p>
         )}
       </div>
 
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           12. Observações Gerais
         </h2>
         <textarea
           {...register("observacoes_gerais")}
           rows={3}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="w-full rounded-md border px-3 py-2 text-sm"
         />
         <div className="mt-4">
           <div className="mb-2 flex items-center justify-between">
-            <label className="text-sm font-bold text-gray-700">
+            <label className="text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Fotos / registros anexos
             </label>
             <div className="flex flex-wrap items-center gap-2">
@@ -1382,7 +1382,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                   governedAttachmentInputRef.current?.click();
                 }}
                 disabled={!canManageNc || uploadingGovernedAttachment}
-                className="inline-flex items-center space-x-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-emerald-100 disabled:opacity-60"
+                className="inline-flex items-center space-x-2 rounded-md border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] px-3 py-1.5 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-success-subtle)] disabled:opacity-60"
               >
                 {uploadingGovernedAttachment ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -1398,17 +1398,17 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               type="button"
               onClick={startCamera}
               disabled={!canManageNc}
-              className="inline-flex items-center space-x-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-blue-100"
+              className="inline-flex items-center space-x-2 rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-primary-subtle)] px-3 py-1.5 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-primary-subtle)]"
             >
               <Camera className="h-4 w-4" />
               <span>Capturar foto</span>
             </button>
           </div>
-          <p className="mb-3 text-xs text-gray-500">
+          <p className="mb-3 text-xs text-[var(--ds-color-text-muted)]">
             Para evidência oficial, prefira o upload governado no storage da plataforma. URLs manuais e fotos capturadas aqui permanecem como exceção operacional; o backend aceita anexos inline apenas dentro do limite de 1 MB por anexo.
           </p>
           {!id ? (
-            <p className="mb-3 text-xs text-amber-700">
+            <p className="mb-3 text-xs text-[var(--ds-color-warning)]">
               Salve a não conformidade primeiro para anexar arquivos governados. Antes disso, apenas URL manual ou captura inline ficam disponíveis.
             </p>
           ) : null}
@@ -1442,14 +1442,14 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                           className="h-32 w-full object-cover"
                         />
                       ) : governedAttachment ? (
-                        <div className="flex h-32 flex-col items-center justify-center gap-2 bg-emerald-50 px-4 text-center text-xs text-emerald-800">
-                          <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">
+                        <div className="flex h-32 flex-col items-center justify-center gap-2 bg-[var(--ds-color-success-subtle)] px-4 text-center text-xs text-[var(--ds-color-success)]">
+                          <span className="rounded-full bg-[var(--ds-color-success-subtle)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-success)]">
                             Governado
                           </span>
                           <span className="font-medium">{governedAttachment.originalName}</span>
                         </div>
                       ) : (
-                        <div className="flex h-32 items-center justify-center bg-slate-100 px-4 text-center text-xs text-slate-500">
+                        <div className="flex h-32 items-center justify-center bg-[var(--ds-color-surface-muted)] px-4 text-center text-xs text-[var(--ds-color-text-muted)]">
                           Arquivo anexado
                         </div>
                       )}
@@ -1489,10 +1489,10 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
               return (
                 <div key={field.id} className="flex items-center space-x-2">
                   {governedAttachment ? (
-                    <div className="flex flex-1 items-center justify-between rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+                    <div className="flex flex-1 items-center justify-between rounded-md border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] px-3 py-2 text-sm text-[var(--ds-color-success)]">
                       <div>
                         <p className="font-medium">{governedAttachment.originalName}</p>
-                        <p className="text-xs text-emerald-700">
+                        <p className="text-xs text-[var(--ds-color-success)]">
                           Anexo governado salvo no storage oficial.
                         </p>
                       </div>
@@ -1507,7 +1507,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                   ) : (
                     <input
                       {...register(`anexos.${index}.url` as const)}
-                      className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      className="flex-1 rounded-md border px-3 py-2 text-sm"
                       placeholder="URL ou identificação do anexo"
                     />
                   )}
@@ -1515,7 +1515,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
                     type="button"
                     onClick={() => removeAnexo(index)}
                     disabled={!canManageNc}
-                    className="rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500"
+                    className="rounded-md p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]"
                     title="Remover anexo"
                     aria-label={`Remover anexo ${index + 1}`}
                   >
@@ -1533,13 +1533,13 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-lg rounded-lg bg-white p-4 shadow-xl">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-900">
+              <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                 Capturar foto
               </h3>
               <button
                 type="button"
                 onClick={stopCamera}
-                className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                className="rounded-md p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]"
                 aria-label="Fechar"
               >
                 <X className="h-4 w-4" />
@@ -1569,35 +1569,35 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
       )}
 
       <div className="sst-card p-6">
-        <h2 className="mb-4 text-lg font-bold text-gray-900">
+        <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">
           13. Assinaturas
         </h2>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Responsável pela área
             </label>
             <input
               {...register("assinatura_responsavel_area")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Técnico / Auditor de SST
             </label>
             <input
               {...register("assinatura_tecnico_auditor")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-bold text-gray-700">
+            <label className="mb-2 block text-sm font-bold text-[var(--ds-color-text-secondary)]">
               Gestão / Coordenação
             </label>
             <input
               {...register("assinatura_gestao")}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             />
           </div>
         </div>
@@ -1607,7 +1607,7 @@ export function NonConformityForm({ id }: NonConformityFormProps) {
         <button
           type="button"
           onClick={() => router.push("/dashboard/nonconformities")}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
         >
           Cancelar
         </button>

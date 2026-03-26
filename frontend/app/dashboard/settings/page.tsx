@@ -257,26 +257,26 @@ export default function SettingsPage() {
   return (
     <div className="ds-system-scope space-y-8">
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-white">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--ds-color-action-primary)] text-white">
           <Settings className="h-6 w-6" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
-          <p className="text-sm text-gray-500">Gerencie sua conta e os recursos do sistema.</p>
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Configurações</h1>
+          <p className="text-sm text-[var(--ds-color-text-muted)]">Gerencie sua conta e os recursos do sistema.</p>
         </div>
       </div>
 
       {hasPermission('can_use_ai') ? <SophieStatusCard /> : null}
 
       {hasPermission('can_use_ai') && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">Privacidade — Processamento por IA</h2>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Privacidade — Processamento por IA</h2>
+          <p className="mt-1 text-sm text-[var(--ds-color-text-muted)]">
             O agente SOPHIE envia dados estatísticos do sistema para a OpenAI (EUA) para gerar respostas.
             Nenhum nome, CPF ou dado individual de trabalhadores é transmitido.
           </p>
           <label className="mt-4 flex items-center justify-between gap-4 cursor-pointer">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Permitir processamento por IA (LGPD)
             </span>
             <button
@@ -298,7 +298,7 @@ export default function SettingsPage() {
                 }
               }}
               className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                aiConsent ? 'bg-blue-600' : 'bg-gray-300'
+                aiConsent ? 'bg-[var(--ds-color-action-primary)]' : 'bg-[var(--ds-color-surface-muted)]'
               } ${savingAiConsent ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
             >
               <span
@@ -312,45 +312,45 @@ export default function SettingsPage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">Trocar senha</h2>
-          <p className="text-sm text-gray-500">Mantenha seu acesso seguro atualizando sua senha.</p>
+        <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Trocar senha</h2>
+          <p className="text-sm text-[var(--ds-color-text-muted)]">Mantenha seu acesso seguro atualizando sua senha.</p>
 
           <form onSubmit={handleChangePassword} className="mt-6 space-y-4">
             <div>
-              <label className="text-sm font-medium text-gray-700">Senha atual</label>
+              <label className="text-sm font-medium text-[var(--ds-color-text-secondary)]">Senha atual</label>
               <input
                 type="password"
                 value={currentPassword}
                 onChange={(event) => setCurrentPassword(event.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
                 placeholder="Digite sua senha atual"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700">Nova senha</label>
+              <label className="text-sm font-medium text-[var(--ds-color-text-secondary)]">Nova senha</label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={(event) => setNewPassword(event.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
                 placeholder="Digite a nova senha"
               />
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700">Confirmar nova senha</label>
+              <label className="text-sm font-medium text-[var(--ds-color-text-secondary)]">Confirmar nova senha</label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="mt-1 w-full rounded-md border px-3 py-2 text-sm"
                 placeholder="Confirme a nova senha"
               />
             </div>
             <button
               type="submit"
               disabled={saving}
-              className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-blue-300"
+              className="w-full rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? 'Salvando...' : 'Atualizar senha'}
             </button>
@@ -358,30 +358,30 @@ export default function SettingsPage() {
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Dados da conta</h2>
-            <div className="mt-4 space-y-2 text-sm text-gray-600">
+          <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Dados da conta</h2>
+            <div className="mt-4 space-y-2 text-sm text-[var(--ds-color-text-secondary)]">
               <div className="flex items-center justify-between">
-                <span className="font-medium text-gray-700">Usuário</span>
+                <span className="font-medium text-[var(--ds-color-text-secondary)]">Usuário</span>
                 <span>{user?.nome}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-medium text-gray-700">CPF</span>
+                <span className="font-medium text-[var(--ds-color-text-secondary)]">CPF</span>
                 <span>{user?.cpf}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-medium text-gray-700">Perfil</span>
+                <span className="font-medium text-[var(--ds-color-text-secondary)]">Perfil</span>
                 <span>{user?.profile?.nome}</span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Logo da empresa</h2>
-            <p className="text-sm text-gray-500">Atualize a marca exibida nos relatórios e PDFs.</p>
+          <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Logo da empresa</h2>
+            <p className="text-sm text-[var(--ds-color-text-muted)]">Atualize a marca exibida nos relatórios e PDFs.</p>
             <div className="mt-4 space-y-4">
               <div className="flex items-center gap-4">
-                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]">
                   {logoPreview ? (
                     <Image
                       src={logoPreview}
@@ -392,17 +392,17 @@ export default function SettingsPage() {
                       unoptimized
                     />
                   ) : (
-                    <span className="text-xs text-gray-400">Sem logo</span>
+                    <span className="text-xs text-[var(--ds-color-text-muted)]">Sem logo</span>
                   )}
                 </div>
                 <div className="flex-1 space-y-2">
-                  <p className="text-sm font-medium text-gray-700">{company?.razao_social || 'Empresa'}</p>
+                  <p className="text-sm font-medium text-[var(--ds-color-text-secondary)]">{company?.razao_social || 'Empresa'}</p>
                   <input
                     aria-label="Upload de logo"
                     type="file"
                     accept="image/*"
                     onChange={handleLogoChange}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-blue-100"
+                    className="block w-full text-sm text-[var(--ds-color-text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--ds-color-surface-muted)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--ds-color-text-secondary)] hover:file:bg-[var(--ds-color-primary-subtle)]"
                     disabled={loadingLogo}
                   />
                 </div>
@@ -412,7 +412,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handleSaveLogo}
                   disabled={savingLogo || loadingLogo}
-                  className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-blue-300"
+                  className="rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {savingLogo ? 'Salvando...' : 'Salvar logo'}
                 </button>
@@ -420,7 +420,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={handleRemoveLogo}
                   disabled={savingLogo || loadingLogo}
-                  className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 transition hover:border-gray-300 hover:text-gray-800 disabled:cursor-not-allowed"
+                  className="rounded-lg border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition hover:border-[var(--ds-color-border-strong)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed"
                 >
                   Remover
                 </button>
@@ -428,9 +428,9 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Gestão do sistema</h2>
-            <p className="text-sm text-gray-500">Acesso rápido aos cadastros e módulos administrativos.</p>
+          <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Gestão do sistema</h2>
+            <p className="text-sm text-[var(--ds-color-text-muted)]">Acesso rápido aos cadastros e módulos administrativos.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {managementLinks
                 .filter(
@@ -444,7 +444,7 @@ export default function SettingsPage() {
                     <Link
                       key={link.href}
                       href={link.href}
-                      className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 transition hover:border-slate-800 hover:text-slate-800"
+                      className="flex items-center gap-3 rounded-lg border border-[var(--ds-color-border-default)] px-4 py-3 text-sm font-medium text-[var(--ds-color-text-secondary)] transition hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)]"
                     >
                       <Icon className="h-5 w-5" />
                       {link.label}
@@ -452,7 +452,7 @@ export default function SettingsPage() {
                   );
                 })}
               {!isAdmin && (
-                <div className="rounded-lg border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-500">
+                <div className="rounded-lg border border-dashed border-[var(--ds-color-border-subtle)] px-4 py-3 text-sm text-[var(--ds-color-text-muted)]">
                   Solicite ao administrador para liberar acessos avançados.
                 </div>
               )}
@@ -460,19 +460,19 @@ export default function SettingsPage() {
           </div>
 
           {hasPermission('can_manage_pt') && (
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-900">
+            <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
                 Regras de bloqueio da PT
               </h2>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[var(--ds-color-text-muted)]">
                 Configure quando o sistema deve bloquear a aprovação de permissões de trabalho.
               </p>
               <div className="mt-4 space-y-3">
                 {loadingApprovalRules ? (
-                  <p className="text-sm text-gray-500">Carregando regras...</p>
+                  <p className="text-sm text-[var(--ds-color-text-muted)]">Carregando regras...</p>
                 ) : approvalRules ? (
                   <>
-                    <label className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                    <label className="flex items-center justify-between gap-4 rounded-lg border border-[var(--ds-color-border-default)] px-3 py-2 text-sm">
                       <span>Bloquear risco crítico sem evidência de controle</span>
                       <input
                         type="checkbox"
@@ -485,7 +485,7 @@ export default function SettingsPage() {
                         }
                       />
                     </label>
-                    <label className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                    <label className="flex items-center justify-between gap-4 rounded-lg border border-[var(--ds-color-border-default)] px-3 py-2 text-sm">
                       <span>Bloquear trabalhador sem ASO válido</span>
                       <input
                         type="checkbox"
@@ -498,7 +498,7 @@ export default function SettingsPage() {
                         }
                       />
                     </label>
-                    <label className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                    <label className="flex items-center justify-between gap-4 rounded-lg border border-[var(--ds-color-border-default)] px-3 py-2 text-sm">
                       <span>Bloquear trabalhador com treinamento bloqueante vencido</span>
                       <input
                         type="checkbox"
@@ -511,7 +511,7 @@ export default function SettingsPage() {
                         }
                       />
                     </label>
-                    <label className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                    <label className="flex items-center justify-between gap-4 rounded-lg border border-[var(--ds-color-border-default)] px-3 py-2 text-sm">
                       <span>Exigir ao menos um executante na PT</span>
                       <input
                         type="checkbox"
@@ -528,13 +528,13 @@ export default function SettingsPage() {
                       type="button"
                       onClick={handleSaveApprovalRules}
                       disabled={savingApprovalRules}
-                      className="w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-blue-300"
+                      className="w-full rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {savingApprovalRules ? 'Salvando regras...' : 'Salvar regras de PT'}
                     </button>
                   </>
                 ) : (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-[var(--ds-color-text-muted)]">
                     Não foi possível carregar as regras da empresa atual.
                   </p>
                 )}

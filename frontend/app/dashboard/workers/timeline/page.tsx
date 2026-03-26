@@ -199,8 +199,8 @@ export default function WorkerTimelinePage() {
               <div
                 className={`rounded-[var(--ds-radius-lg)] border px-4 py-3 text-sm ${
                   timeline.status.blocked
-                    ? 'border-red-300/35 bg-red-500/10 text-red-100'
-                    : 'border-emerald-300/35 bg-emerald-500/10 text-emerald-100'
+                    ? 'border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]'
+                    : 'border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
                 }`}
               >
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] opacity-80">Status operacional</p>
@@ -212,9 +212,9 @@ export default function WorkerTimelinePage() {
             </CardHeader>
             {timeline.status.reasons.length > 0 ? (
               <CardContent className="mt-0">
-                <div className="rounded-[var(--ds-radius-lg)] border border-red-300/35 bg-red-500/10 p-4">
-                  <p className="text-sm font-semibold text-red-100">Motivos de bloqueio</p>
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-200">
+                <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] p-4">
+                  <p className="text-sm font-semibold text-[var(--ds-color-danger)]">Motivos de bloqueio</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[var(--ds-color-danger)]">
                     {timeline.status.reasons.map((reason) => (
                       <li key={reason}>{reason}</li>
                     ))}
@@ -370,13 +370,13 @@ function EventIcon({ type }: { type: WorkerTimelineResponse['timeline'][number][
 function eventToneClass(status: WorkerTimelineResponse['timeline'][number]['status']) {
   switch (status) {
     case 'danger':
-      return 'bg-red-500/12 text-red-100';
+      return 'bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]';
     case 'warning':
-      return 'bg-amber-500/12 text-amber-100';
+      return 'bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]';
     case 'success':
-      return 'bg-emerald-500/12 text-emerald-100';
+      return 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]';
     default:
-      return 'bg-sky-500/12 text-sky-100';
+      return 'bg-[var(--ds-color-info-subtle)] text-[var(--ds-color-info)]';
   }
 }
 

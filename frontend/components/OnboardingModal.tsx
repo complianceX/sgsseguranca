@@ -24,7 +24,7 @@ const STORAGE_KEY = 'cx_onboarding_done_v1';
 const STEPS = [
   {
     icon: ShieldCheck,
-    iconColor: 'text-amber-400',
+    iconColor: 'text-[var(--ds-color-action-primary)]',
     iconBg: 'bg-[color:var(--ds-color-action-primary)]/15',
     title: 'Bem-vindo ao SGS',
     description:
@@ -33,8 +33,8 @@ const STEPS = [
   },
   {
     icon: ClipboardList,
-    iconColor: 'text-emerald-400',
-    iconBg: 'bg-emerald-500/15',
+    iconColor: 'text-[var(--ds-color-success)]',
+    iconBg: 'bg-[var(--ds-color-success-subtle)]',
     title: 'Documentos e Registros',
     description:
       'Crie APRs, PTAs, DDS, Checklists, Ordens de Serviço e Relatórios Diários de Obra. Todos com suporte a assinatura digital e exportação em PDF.',
@@ -42,8 +42,8 @@ const STEPS = [
   },
   {
     icon: Bell,
-    iconColor: 'text-amber-400',
-    iconBg: 'bg-amber-500/15',
+    iconColor: 'text-[var(--ds-color-warning)]',
+    iconBg: 'bg-[var(--ds-color-warning-subtle)]',
     title: 'Alertas Automáticos',
     description:
       'O sistema monitora vencimentos de EPIs, treinamentos e exames médicos e envia alertas por e-mail antes que expirem. Configure os destinatários em Configurações.',

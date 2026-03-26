@@ -133,7 +133,7 @@ export function DocumentVideoPanel({
 
         <div className="flex items-center gap-2">
           {locked ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[11px] font-medium text-amber-200">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-1 text-[11px] font-medium text-[var(--ds-color-warning)]">
               <Lock className="h-3.5 w-3.5" />
               Somente leitura
             </span>
@@ -229,7 +229,7 @@ export function DocumentVideoPanel({
                           type="button"
                           variant="outline"
                           className={cn(
-                            "gap-2 border-red-500/30 text-red-300 hover:bg-red-500/10 hover:text-red-200",
+                            "gap-2 border-[var(--ds-color-danger-border)] text-[var(--ds-color-danger)] hover:bg-[var(--ds-color-danger-subtle)] hover:text-[var(--ds-color-danger)]",
                             removingId === attachment.id && "opacity-80",
                           )}
                           onClick={() => void onRemove(attachment)}

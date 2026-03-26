@@ -45,9 +45,9 @@ export const OS_STATUS_LABEL: Record<string, string> = {
 };
 
 export const OS_STATUS_COLORS: Record<string, string> = {
-  ativo: 'bg-stone-100 text-stone-800',
-  concluido: 'bg-green-100 text-green-800',
-  cancelado: 'bg-gray-100 text-gray-600',
+  ativo: 'bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]',
+  concluido: 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]',
+  cancelado: 'bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-muted)]',
 };
 
 export const OS_ALLOWED_TRANSITIONS: Record<string, string[]> = {

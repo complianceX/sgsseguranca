@@ -390,10 +390,10 @@ export default function DocumentImportPage() {
   return (
     <div className="ds-form-page mx-auto max-w-6xl space-y-8 p-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--ds-color-text-primary)]">
           Importação Inteligente de PDF
         </h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-[var(--ds-color-text-muted)]">
           {requestedDocumentLabel
             ? `Fluxo preparado para anexar um PDF de ${requestedDocumentLabel} já emitido, sem refazer o preenchimento no sistema.`
             : 'Faça upload de documentos SST (APR, PT, DDS, Checklist, Relatório Fotográfico, NC, PGR, PCMSO, ASO) para extração automática e validação.'}
@@ -408,8 +408,8 @@ export default function DocumentImportPage() {
             onDrop={handleDrop}
             className={`
               relative flex cursor-pointer flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-6 text-center transition-all duration-200
-              ${isDragging ? 'border-primary bg-primary/5' : 'border-slate-200 bg-slate-50 hover:border-slate-300'}
-              ${file ? 'border-green-500 bg-green-50' : ''}
+              ${isDragging ? 'border-primary bg-primary/5' : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] hover:border-[var(--ds-color-border-strong)]'}
+              ${file ? 'border-[var(--ds-color-success)] bg-[var(--ds-color-success-subtle)]' : ''}
             `}
             onClick={() => {
               if (canImportDocuments && !uploading && !polling) {
@@ -429,16 +429,16 @@ export default function DocumentImportPage() {
             />
 
             <div
-              className={`rounded-full p-3.5 ${file ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-slate-800'}`}
+              className={`rounded-full p-3.5 ${file ? 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]' : 'bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-text-primary)]'}`}
             >
               {file ? <FileCheck size={28} /> : <Upload size={28} />}
             </div>
 
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                 {file ? file.name : 'Clique ou arraste o PDF aqui'}
               </p>
-              <p className="text-[13px] text-slate-500">
+              <p className="text-[13px] text-[var(--ds-color-text-muted)]">
                 Apenas arquivos PDF até 10MB
               </p>
             </div>
@@ -450,14 +450,14 @@ export default function DocumentImportPage() {
                   e.stopPropagation();
                   void handleUpload();
                 }}
-                className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-slate-800"
+                className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--ds-color-action-primary)] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[var(--ds-color-action-primary-hover)]"
               >
                 Enviar para fila <ChevronRight size={18} />
               </button>
             )}
 
             {!canImportDocuments && (
-              <div className="mt-3.5 w-full rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+              <div className="mt-3.5 w-full rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-2 text-[13px] text-[var(--ds-color-warning)]">
                 Você não possui permissão <code>can_import_documents</code> para
                 este fluxo.
               </div>
@@ -465,7 +465,7 @@ export default function DocumentImportPage() {
 
             {(uploading || polling || currentStatus) && (
               <div className="mt-4 w-full space-y-3">
-                <div className="flex justify-between text-sm font-medium text-slate-600">
+                <div className="flex justify-between text-sm font-medium text-[var(--ds-color-text-secondary)]">
                   <span>
                     {currentStatus
                       ? getStatusLabel(currentStatus)
@@ -473,13 +473,13 @@ export default function DocumentImportPage() {
                   </span>
                   <span>{progress}%</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-2 overflow-hidden rounded-full bg-[var(--ds-color-surface-muted)]">
                   <div
-                    className="h-2 rounded-full bg-slate-900 transition-all duration-300"
+                    className="h-2 rounded-full bg-[var(--ds-color-action-primary)] transition-all duration-300"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-                <div className="flex items-center justify-center gap-2 text-sm text-slate-800">
+                <div className="flex items-center justify-center gap-2 text-sm text-[var(--ds-color-text-primary)]">
                   {(uploading || polling) && (
                     <Loader2 size={16} className="animate-spin" />
                   )}
@@ -495,18 +495,18 @@ export default function DocumentImportPage() {
                   e.stopPropagation();
                   reset();
                 }}
-                className="mt-3.5 w-full rounded-lg border border-slate-200 px-4 py-2 text-[13px] font-medium text-slate-600 transition-colors hover:bg-white"
+                className="mt-3.5 w-full rounded-lg border border-[var(--ds-color-border-default)] px-4 py-2 text-[13px] font-medium text-[var(--ds-color-text-secondary)] transition-colors hover:bg-white"
               >
                 Importar outro arquivo
               </button>
             )}
           </div>
 
-          <div className="space-y-3 rounded-xl border border-amber-100 bg-amber-50 p-4">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+          <div className="space-y-3 rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-[var(--ds-color-warning)]">
               <Info size={16} /> Como funciona?
             </h3>
-            <ul className="list-disc space-y-2 pl-4 text-xs text-amber-800">
+            <ul className="list-disc space-y-2 pl-4 text-xs text-[var(--ds-color-warning)]">
               <li>O request apenas recebe e valida o upload inicial.</li>
               <li>
                 O documento segue para fila com retries automáticos e timeout
@@ -527,15 +527,15 @@ export default function DocumentImportPage() {
         <div className="lg:col-span-2">
           {showCompletedResult && analysis && validation ? (
             <div className="animate-in slide-in-from-bottom-4 space-y-6 duration-500 fade-in">
-              <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-center justify-between rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-5 shadow-sm">
                 <div className="flex items-center gap-4">
                   <div
                     className={`rounded-xl p-2.5 ${
                       validation.status === 'VALIDO'
-                        ? 'bg-green-100 text-green-600'
+                        ? 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
                         : validation.status === 'INCOMPLETO'
-                          ? 'bg-amber-100 text-amber-600'
-                          : 'bg-red-100 text-red-600'
+                          ? 'bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]'
+                          : 'bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]'
                     }`}
                   >
                     {validation.status === 'VALIDO' ? (
@@ -545,26 +545,26 @@ export default function DocumentImportPage() {
                     )}
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-slate-900">
+                    <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
                       {statusResponse?.tipoDocumentoDescricao}
                     </h2>
-                    <p className="text-[13px] text-slate-500">
+                    <p className="text-[13px] text-[var(--ds-color-text-muted)]">
                       Status da validação:{' '}
                       <span className="font-semibold">{validation.status}</span>
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="mb-1 text-[13px] text-slate-500">
+                  <div className="mb-1 text-[13px] text-[var(--ds-color-text-muted)]">
                     Score de confiança
                   </div>
                   <div
                     className={`text-[1.5rem] font-black ${
                       validation.scoreConfianca > 0.8
-                        ? 'text-green-600'
+                        ? 'text-[var(--ds-color-success)]'
                         : validation.scoreConfianca > 0.5
-                          ? 'text-slate-800'
-                          : 'text-red-600'
+                          ? 'text-[var(--ds-color-text-primary)]'
+                          : 'text-[var(--ds-color-danger)]'
                     }`}
                   >
                     {(validation.scoreConfianca * 100).toFixed(0)}%
@@ -573,9 +573,9 @@ export default function DocumentImportPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <h3 className="flex items-center gap-2 font-semibold text-slate-900">
-                    <Search size={18} className="text-slate-800" /> Informações
+                <div className="space-y-4 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-5 shadow-sm">
+                  <h3 className="flex items-center gap-2 font-semibold text-[var(--ds-color-text-primary)]">
+                    <Search size={18} className="text-[var(--ds-color-text-primary)]" /> Informações
                     extraídas
                   </h3>
                   <div className="space-y-3">
@@ -596,9 +596,9 @@ export default function DocumentImportPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <h3 className="flex items-center gap-2 font-semibold text-slate-900">
-                    <ShieldCheck size={18} className="text-slate-800" /> Validação
+                <div className="space-y-4 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-5 shadow-sm">
+                  <h3 className="flex items-center gap-2 font-semibold text-[var(--ds-color-text-primary)]">
+                    <ShieldCheck size={18} className="text-[var(--ds-color-text-primary)]" /> Validação
                     técnica
                   </h3>
                   {validation.pendencias.length > 0 ? (
@@ -606,7 +606,7 @@ export default function DocumentImportPage() {
                       {validation.pendencias.map((pendencia, index) => (
                         <div
                           key={index}
-                          className="flex gap-2 rounded-lg bg-amber-50 p-2 text-[13px] text-amber-700"
+                          className="flex gap-2 rounded-lg bg-[var(--ds-color-warning-subtle)] p-2 text-[13px] text-[var(--ds-color-warning)]"
                         >
                           <AlertCircle size={16} className="mt-0.5 shrink-0" />
                           {pendencia}
@@ -615,8 +615,8 @@ export default function DocumentImportPage() {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center py-6 text-center">
-                      <CheckCircle2 size={32} className="mb-2 text-green-500" />
-                      <p className="text-[13px] font-medium text-green-700">
+                      <CheckCircle2 size={32} className="mb-2 text-[var(--ds-color-success)]" />
+                      <p className="text-[13px] font-medium text-[var(--ds-color-success)]">
                         Nenhuma pendência crítica identificada.
                       </p>
                     </div>
@@ -624,10 +624,10 @@ export default function DocumentImportPage() {
                 </div>
               </div>
 
-              <div className="space-y-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="space-y-6 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-5 shadow-sm">
                 <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                   <div>
-                    <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--ds-color-text-muted)]">
                       Riscos identificados
                     </h4>
                     <div className="flex flex-wrap gap-2">
@@ -635,20 +635,20 @@ export default function DocumentImportPage() {
                         analysis.riscos.map((risco, index) => (
                           <span
                             key={index}
-                            className="rounded-md border border-red-100 bg-red-50 px-2 py-1 text-xs font-medium text-red-700"
+                            className="rounded-md border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-2 py-1 text-xs font-medium text-[var(--ds-color-danger)]"
                           >
                             {risco}
                           </span>
                         ))
                       ) : (
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-[var(--ds-color-text-muted)]">
                           Nenhum risco detectado
                         </span>
                       )}
                     </div>
                   </div>
                   <div>
-                    <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--ds-color-text-muted)]">
                       EPIs citados
                     </h4>
                     <div className="flex flex-wrap gap-2">
@@ -656,13 +656,13 @@ export default function DocumentImportPage() {
                         analysis.epis.map((epi, index) => (
                           <span
                             key={index}
-                            className="rounded-md border border-green-100 bg-green-50 px-2 py-1 text-xs font-medium text-green-700"
+                            className="rounded-md border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] px-2 py-1 text-xs font-medium text-[var(--ds-color-success)]"
                           >
                             {epi}
                           </span>
                         ))
                       ) : (
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-[var(--ds-color-text-muted)]">
                           Nenhum EPI detectado
                         </span>
                       )}
@@ -670,8 +670,8 @@ export default function DocumentImportPage() {
                   </div>
                 </div>
 
-                <div className="border-t border-slate-100 pt-4">
-                  <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <div className="border-t border-[var(--ds-color-border-subtle)] pt-4">
+                  <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--ds-color-text-muted)]">
                     Normas Regulamentadoras (NRs)
                   </h4>
                   <div className="flex flex-wrap gap-2">
@@ -679,13 +679,13 @@ export default function DocumentImportPage() {
                       analysis.nrsCitadas.map((nr, index) => (
                         <span
                           key={index}
-                          className="rounded-md border border-amber-100 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700"
+                          className="rounded-md border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-2 py-1 text-xs font-medium text-[var(--ds-color-warning)]"
                         >
                           {nr}
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-[var(--ds-color-text-muted)]">
                         Nenhuma NR identificada
                       </span>
                     )}
@@ -695,18 +695,18 @@ export default function DocumentImportPage() {
             </div>
           ) : enqueueResponse || statusResponse ? (
             <div className="space-y-6">
-              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-5 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
                       <div
                         className={`rounded-xl p-2.5 ${
                           currentStatus === 'COMPLETED'
-                            ? 'bg-green-100 text-green-600'
+                            ? 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
                             : currentStatus === 'FAILED' ||
                                 currentStatus === 'DEAD_LETTER'
-                              ? 'bg-red-100 text-red-600'
-                              : 'bg-blue-100 text-slate-800'
+                              ? 'bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]'
+                              : 'bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-text-primary)]'
                         }`}
                       >
                         {currentStatus === 'FAILED' ||
@@ -719,18 +719,18 @@ export default function DocumentImportPage() {
                         )}
                       </div>
                       <div>
-                        <h2 className="text-lg font-bold text-slate-900">
+                        <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
                           {currentStatus
                             ? getStatusLabel(currentStatus)
                             : 'Documento recebido'}
                         </h2>
-                        <p className="text-[13px] text-slate-500">
+                        <p className="text-[13px] text-[var(--ds-color-text-muted)]">
                           {currentMessage}
                         </p>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 pt-2 text-[13px] text-slate-600 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3 pt-2 text-[13px] text-[var(--ds-color-text-secondary)] md:grid-cols-2">
                       <StatusItem
                         label="ID da importação"
                         value={enqueueResponse?.documentId || statusResponse?.documentId}
@@ -764,11 +764,11 @@ export default function DocumentImportPage() {
                     </div>
                   </div>
 
-                  <div className="min-w-[160px] rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-right">
-                    <div className="text-[12px] uppercase tracking-wider text-slate-400">
+                  <div className="min-w-[160px] rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-4 py-3 text-right">
+                    <div className="text-[12px] uppercase tracking-wider text-[var(--ds-color-text-muted)]">
                       Progresso
                     </div>
-                    <div className="text-2xl font-black text-slate-900">
+                    <div className="text-2xl font-black text-[var(--ds-color-text-primary)]">
                       {progress}%
                     </div>
                   </div>
@@ -776,7 +776,7 @@ export default function DocumentImportPage() {
               </div>
 
               {currentStatus === 'DEAD_LETTER' && (
-                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <div className="rounded-xl border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] p-4 text-sm text-[var(--ds-color-danger)]">
                   A importação esgotou as tentativas automáticas e foi marcada
                   como falha permanente. O documento permanece auditável para
                   investigação e reprocessamento controlado.
@@ -784,7 +784,7 @@ export default function DocumentImportPage() {
               )}
 
               {currentStatus === 'FAILED' && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                <div className="rounded-xl border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] p-4 text-sm text-[var(--ds-color-warning)]">
                   O processamento falhou antes da conclusão. Acompanhe o status
                   novamente pelo endpoint informado ou reenvie o documento após
                   corrigir a causa.
@@ -792,7 +792,7 @@ export default function DocumentImportPage() {
               )}
             </div>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 p-10 text-slate-400">
+            <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] p-10 text-[var(--ds-color-text-muted)]">
               <FileText size={64} className="mb-4 opacity-20" />
               <p className="text-base font-medium">
                 Aguardando envio de arquivo para análise
@@ -818,10 +818,10 @@ function DetailItem({
 }) {
   return (
     <div className="flex flex-col">
-      <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
+      <span className="text-xs font-medium uppercase tracking-wider text-[var(--ds-color-text-muted)]">
         {label}
       </span>
-      <span className="text-sm font-semibold text-slate-700">
+      <span className="text-sm font-semibold text-[var(--ds-color-text-secondary)]">
         {value || '---'}
       </span>
     </div>
@@ -836,11 +836,11 @@ function StatusItem({
   value?: string | null;
 }) {
   return (
-    <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-      <div className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+    <div className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-3 py-2">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--ds-color-text-muted)]">
         {label}
       </div>
-      <div className="truncate text-sm font-semibold text-slate-700">
+      <div className="truncate text-sm font-semibold text-[var(--ds-color-text-secondary)]">
         {value || '---'}
       </div>
     </div>

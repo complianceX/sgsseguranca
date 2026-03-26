@@ -227,7 +227,7 @@ export function UserForm({ id }: UserFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-900 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
       </div>
     );
   }
@@ -238,12 +238,12 @@ export function UserForm({ id }: UserFormProps) {
         <div className="flex items-center space-x-4">
           <Link
             href={backPath}
-            className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-full p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-secondary)]"
             title="Voltar"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
             {id ? `Editar ${isEmployeePath ? 'Funcionário' : 'Usuário'}` : `Novo ${isEmployeePath ? 'Funcionário' : 'Usuário'}`}
           </h1>
         </div>
@@ -252,7 +252,7 @@ export function UserForm({ id }: UserFormProps) {
       <form onSubmit={formSubmit(onSubmit)} className="space-y-6 rounded-xl border bg-white p-6 shadow-sm">
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="nome" className="text-sm font-medium text-gray-700">
+            <label htmlFor="nome" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Nome Completo
             </label>
             <input
@@ -260,17 +260,17 @@ export function UserForm({ id }: UserFormProps) {
               type="text"
               {...register('nome')}
               aria-invalid={errors.nome ? 'true' : undefined}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border px-3 py-2 text-sm"
               placeholder="Nome do usuário"
             />
             {errors.nome && (
-              <p className="text-xs text-red-500">{errors.nome.message}</p>
+              <p className="text-xs text-[var(--ds-color-danger)]">{errors.nome.message}</p>
             )}
           </div>
 
           {!isEmployeePath && (
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
                 E-mail
               </label>
               <input
@@ -278,17 +278,17 @@ export function UserForm({ id }: UserFormProps) {
                 type="email"
                 {...register('email')}
                 aria-invalid={errors.email ? 'true' : undefined}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-md border px-3 py-2 text-sm"
                 placeholder="email@exemplo.com"
               />
               {errors.email && (
-                <p className="text-xs text-red-500">{errors.email.message}</p>
+                <p className="text-xs text-[var(--ds-color-danger)]">{errors.email.message}</p>
               )}
             </div>
           )}
 
           <div className="space-y-2">
-            <label htmlFor="cpf" className="text-sm font-medium text-gray-700">
+            <label htmlFor="cpf" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               CPF
             </label>
             <input
@@ -296,16 +296,16 @@ export function UserForm({ id }: UserFormProps) {
               type="text"
               {...register('cpf')}
               aria-invalid={errors.cpf ? 'true' : undefined}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border px-3 py-2 text-sm"
               placeholder="000.000.000-00"
             />
             {errors.cpf && (
-              <p className="text-xs text-red-500">{errors.cpf.message}</p>
+              <p className="text-xs text-[var(--ds-color-danger)]">{errors.cpf.message}</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="funcao" className="text-sm font-medium text-gray-700">
+            <label htmlFor="funcao" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Função
             </label>
             <input
@@ -313,21 +313,21 @@ export function UserForm({ id }: UserFormProps) {
               type="text"
               {...register('funcao')}
               aria-invalid={errors.funcao ? 'true' : undefined}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border px-3 py-2 text-sm"
               placeholder="Ex: Engenheiro de Segurança"
             />
           </div>
 
           {!isEmployeePath && (
             <div className="space-y-2">
-              <label htmlFor="role" className="text-sm font-medium text-gray-700">
+              <label htmlFor="role" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
                 Regra (Role)
               </label>
               <select
                 id="role"
                 {...register('role')}
                 aria-label="Regra de acesso"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-md border px-3 py-2 text-sm"
               >
                 <option value="">Selecione uma regra</option>
                 <option value="admin">Administrador</option>
@@ -338,7 +338,7 @@ export function UserForm({ id }: UserFormProps) {
           )}
 
           <div className="space-y-2">
-            <label htmlFor="company_id" className="text-sm font-medium text-gray-700">
+            <label htmlFor="company_id" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Empresa
             </label>
             <select
@@ -350,7 +350,7 @@ export function UserForm({ id }: UserFormProps) {
                 },
               })}
               aria-invalid={errors.company_id ? 'true' : undefined}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border px-3 py-2 text-sm"
             >
               <option value="">Selecione uma empresa</option>
               {companies.map((company) => (
@@ -360,19 +360,19 @@ export function UserForm({ id }: UserFormProps) {
               ))}
             </select>
             {errors.company_id && (
-              <p className="text-xs text-red-500">{errors.company_id.message}</p>
+              <p className="text-xs text-[var(--ds-color-danger)]">{errors.company_id.message}</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="site_id" className="text-sm font-medium text-gray-700">
+            <label htmlFor="site_id" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Obra/Setor
             </label>
             <select
               id="site_id"
               {...register('site_id')}
               aria-label="Obra ou setor"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border px-3 py-2 text-sm"
               disabled={!selectedCompanyId}
             >
               <option value="">Selecione uma obra (opcional)</option>
@@ -386,14 +386,14 @@ export function UserForm({ id }: UserFormProps) {
 
           {!isEmployeePath && (
             <div className="space-y-2">
-              <label htmlFor="profile_id" className="text-sm font-medium text-gray-700">
+              <label htmlFor="profile_id" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
                 Perfil de Acesso
               </label>
               <select
                 id="profile_id"
                 {...register('profile_id')}
                 aria-label="Perfil de acesso"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-md border px-3 py-2 text-sm"
               >
                 <option value="">Selecione um perfil</option>
                 {profiles.map((profile) => (
@@ -407,7 +407,7 @@ export function UserForm({ id }: UserFormProps) {
 
           {!isEmployeePath && (
             <div className="space-y-2 md:col-span-2">
-              <label htmlFor="password" className="text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
                 Senha {id && '(deixe em branco para não alterar)'}
               </label>
               <input
@@ -415,11 +415,11 @@ export function UserForm({ id }: UserFormProps) {
                 type="password"
                 {...register('password')}
                 aria-invalid={errors.password ? 'true' : undefined}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-md border px-3 py-2 text-sm"
                 placeholder="******"
               />
               {errors.password && (
-                <p className="text-xs text-red-500">{errors.password.message}</p>
+                <p className="text-xs text-[var(--ds-color-danger)]">{errors.password.message}</p>
               )}
             </div>
           )}

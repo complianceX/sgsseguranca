@@ -137,10 +137,10 @@ export const NC_STATUS_LABEL: Record<NcStatus, string> = {
 };
 
 export const NC_STATUS_COLORS: Record<NcStatus, string> = {
-  [NcStatus.ABERTA]: "bg-red-100 text-red-700 border-red-200",
-  [NcStatus.EM_ANDAMENTO]: "bg-amber-100 text-amber-700 border-amber-200",
-  [NcStatus.AGUARDANDO_VALIDACAO]: "bg-stone-100 text-stone-700 border-stone-200",
-  [NcStatus.ENCERRADA]: "bg-green-100 text-green-700 border-green-200",
+  [NcStatus.ABERTA]: "bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)] border-[var(--ds-color-danger-border)]",
+  [NcStatus.EM_ANDAMENTO]: "bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)] border-[var(--ds-color-warning-border)]",
+  [NcStatus.AGUARDANDO_VALIDACAO]: "bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] border-[var(--ds-color-border-default)]",
+  [NcStatus.ENCERRADA]: "bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)] border-[var(--ds-color-success-border)]",
 };
 
 export const NC_ALLOWED_TRANSITIONS: Record<NcStatus, NcStatus[]> = {

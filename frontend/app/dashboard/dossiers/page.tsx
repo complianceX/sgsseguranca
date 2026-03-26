@@ -358,7 +358,7 @@ export default function DossiersPage() {
     return (
       <div className="ds-system-scope">
         <div className="ds-surface-card p-4">
-          <p className="text-sm text-gray-500">Carregando permissoes...</p>
+          <p className="text-sm text-[var(--ds-color-text-muted)]">Carregando permissoes...</p>
         </div>
       </div>
     );
@@ -368,8 +368,8 @@ export default function DossiersPage() {
     return (
       <div className="ds-system-scope">
         <div className="ds-surface-card p-4">
-          <h1 className="text-2xl font-bold text-gray-900">Dossies de SST</h1>
-          <p className="mt-2 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Dossies de SST</h1>
+          <p className="mt-2 text-sm text-[var(--ds-color-text-muted)]">
             Voce nao tem permissao para visualizar o fluxo de dossie.
           </p>
         </div>
@@ -380,15 +380,15 @@ export default function DossiersPage() {
   return (
     <div className="ds-system-scope space-y-6">
       <div className="rounded-xl border bg-white p-4 shadow-sm">
-        <h1 className="text-2xl font-bold text-gray-900">Dossies de SST</h1>
-        <p className="text-gray-500">
+        <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Dossies de SST</h1>
+        <p className="text-[var(--ds-color-text-muted)]">
           Geração automatica de PDF oficial e pacote ZIP auditável por colaborador e obra/setor.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
             Dossie por colaborador
           </p>
           <input
@@ -425,7 +425,7 @@ export default function DossiersPage() {
             type="button"
             onClick={() => void downloadEmployee()}
             disabled={loading || downloading !== null}
-            className="mt-3 flex w-full items-center justify-center rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+            className="mt-3 flex w-full items-center justify-center rounded-md bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-60"
           >
             <FileDown className="mr-2 h-4 w-4" />
             {downloading === 'employee' ? 'Gerando...' : 'Baixar PDF'}
@@ -434,7 +434,7 @@ export default function DossiersPage() {
             type="button"
             onClick={() => void downloadEmployeeBundle()}
             disabled={loading || downloading !== null}
-            className="mt-3 flex w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            className="mt-3 flex w-full items-center justify-center rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
           >
             <Archive className="mr-2 h-4 w-4" />
             {downloading === 'employee-bundle'
@@ -444,7 +444,7 @@ export default function DossiersPage() {
         </div>
 
         <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
             Dossie por obra/setor
           </p>
           <input
@@ -481,7 +481,7 @@ export default function DossiersPage() {
             type="button"
             onClick={() => void downloadSite()}
             disabled={loading || downloading !== null}
-            className="mt-3 flex w-full items-center justify-center rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+            className="mt-3 flex w-full items-center justify-center rounded-md bg-[var(--ds-color-action-primary)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-60"
           >
             <FileDown className="mr-2 h-4 w-4" />
             {downloading === 'site' ? 'Gerando...' : 'Baixar PDF'}
@@ -490,7 +490,7 @@ export default function DossiersPage() {
             type="button"
             onClick={() => void downloadSiteBundle()}
             disabled={loading || downloading !== null}
-            className="mt-3 flex w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            className="mt-3 flex w-full items-center justify-center rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
           >
             <Archive className="mr-2 h-4 w-4" />
             {downloading === 'site-bundle'
@@ -503,12 +503,12 @@ export default function DossiersPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-xl border bg-white p-4 shadow-sm">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-slate-700" />
-            <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            <ShieldCheck className="h-4 w-4 text-[var(--ds-color-text-secondary)]" />
+            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
               Política de inclusão oficial
             </p>
           </div>
-          <div className="mt-4 space-y-3 text-sm text-slate-600">
+          <div className="mt-4 space-y-3 text-sm text-[var(--ds-color-text-secondary)]">
             <p>
               Documentos oficiais entram no dossiê somente quando já existem no registry governado com PDF final válido.
             </p>
@@ -525,14 +525,14 @@ export default function DossiersPage() {
         </div>
 
         <div className="rounded-xl border bg-white p-4 shadow-sm">
-          <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
             Prévia do recorte atual
           </p>
           {activePreviewLoading ? (
-            <p className="mt-3 text-sm text-gray-500">Atualizando contexto do dossiê...</p>
+            <p className="mt-3 text-sm text-[var(--ds-color-text-muted)]">Atualizando contexto do dossiê...</p>
           ) : activePreviewError ? (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-700">
-              <p className="font-semibold text-red-900">Prévia indisponível</p>
+            <div className="mt-4 rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-3 py-3 text-sm text-[var(--ds-color-danger)]">
+              <p className="font-semibold text-[var(--ds-color-danger)]">Prévia indisponível</p>
               <p className="mt-1">{activePreviewError}</p>
             </div>
           ) : activeContext ? (
@@ -557,7 +557,7 @@ export default function DossiersPage() {
                 />
               </div>
               {activeContext.pendingGovernedDocumentLines.length > 0 ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-800">
+                <div className="rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-3 text-xs text-[var(--ds-color-warning)]">
                   <div className="mb-2 flex items-center gap-2 font-semibold">
                     <TriangleAlert className="h-4 w-4" />
                     Pendências oficiais do recorte
@@ -571,13 +571,13 @@ export default function DossiersPage() {
                   </ul>
                 </div>
               ) : (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs text-emerald-800">
+                <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] px-3 py-3 text-xs text-[var(--ds-color-success)]">
                   Todos os documentos oficiais já resolvidos para o recorte selecionado.
                 </div>
               )}
             </div>
           ) : (
-            <p className="mt-3 text-sm text-gray-500">
+            <p className="mt-3 text-sm text-[var(--ds-color-text-muted)]">
               Selecione um colaborador ou uma obra/setor para pré-visualizar o recorte governado do dossiê.
             </p>
           )}
@@ -604,14 +604,14 @@ function MetricCard({
     <div
       className={`rounded-lg border px-3 py-3 ${
         tone === 'warning'
-          ? 'border-amber-200 bg-amber-50'
-          : 'border-slate-200 bg-slate-50'
+          ? 'border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)]'
+          : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]'
       }`}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
         {label}
       </p>
-      <p className="mt-1 text-sm font-semibold text-slate-900">{value}</p>
+      <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{value}</p>
     </div>
   );
 }

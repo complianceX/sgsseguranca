@@ -121,7 +121,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
   if (fetching) {
     return (
       <div className="flex justify-center py-10">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-800 border-t-transparent"></div>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--ds-color-action-primary)] border-t-transparent"></div>
       </div>
     );
   }
@@ -132,13 +132,13 @@ export function CompanyForm({ id }: CompanyFormProps) {
         <div className="flex items-center space-x-4">
           <Link
             href="/dashboard/companies"
-            className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-full p-2 text-[var(--ds-color-text-muted)] hover:bg-[var(--ds-color-primary-subtle)] hover:text-[var(--ds-color-text-primary)]"
             title="Voltar"
             aria-label="Voltar para a lista de empresas"
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
             {id ? 'Editar Empresa' : 'Nova Empresa'}
           </h1>
         </div>
@@ -146,78 +146,78 @@ export function CompanyForm({ id }: CompanyFormProps) {
 
       <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6 rounded-xl border bg-white p-6 shadow-sm">
         {submitError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-4 py-3 text-sm text-[var(--ds-color-danger)]">
             {submitError}
           </div>
         )}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-2">
-            <label htmlFor="razao_social" className="text-sm font-medium text-gray-700">
+            <label htmlFor="razao_social" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Razão Social
             </label>
             <input
               id="razao_social"
               type="text"
               {...register('razao_social')}
-              className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.razao_social ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+              className={`w-full rounded-md border px-3 py-2 text-sm ${
+                errors.razao_social ? 'border-[var(--ds-color-danger)]' : ''
               }`}
               aria-invalid={errors.razao_social ? 'true' : undefined}
               placeholder="Ex: Empresa de Engenharia LTDA"
             />
             {errors.razao_social && (
-              <p className="text-xs text-red-500">{errors.razao_social.message}</p>
+              <p className="text-xs text-[var(--ds-color-danger)]">{errors.razao_social.message}</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="cnpj" className="text-sm font-medium text-gray-700">
+            <label htmlFor="cnpj" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               CNPJ
             </label>
             <input
               id="cnpj"
               type="text"
               {...register('cnpj')}
-              className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-                errors.cnpj ? 'border-red-500 focus:border-red-500' : 'border-gray-300 focus:border-blue-500'
+              className={`w-full rounded-md border px-3 py-2 text-sm ${
+                errors.cnpj ? 'border-[var(--ds-color-danger)]' : ''
               }`}
               aria-invalid={errors.cnpj ? 'true' : undefined}
               placeholder="00.000.000/0000-00"
             />
             {errors.cnpj && (
-              <p className="text-xs text-red-500">{errors.cnpj.message}</p>
+              <p className="text-xs text-[var(--ds-color-danger)]">{errors.cnpj.message}</p>
             )}
           </div>
 
           <div className="space-y-2 md:col-span-2">
-            <label htmlFor="endereco" className="text-sm font-medium text-gray-700">
+            <label htmlFor="endereco" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Endereço
             </label>
             <input
               id="endereco"
               type="text"
               {...register('endereco')}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border px-3 py-2 text-sm"
               placeholder="Rua, Número, Bairro, Cidade - UF"
             />
             {errors.endereco && (
-              <p className="text-xs text-red-500">{errors.endereco.message}</p>
+              <p className="text-xs text-[var(--ds-color-danger)]">{errors.endereco.message}</p>
             )}
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="responsavel" className="text-sm font-medium text-gray-700">
+            <label htmlFor="responsavel" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Responsável
             </label>
             <input
               id="responsavel"
               type="text"
               {...register('responsavel')}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+              className="w-full rounded-md border px-3 py-2 text-sm"
               placeholder="Nome do responsável"
             />
             {errors.responsavel && (
-              <p className="text-xs text-red-500">{errors.responsavel.message}</p>
+              <p className="text-xs text-[var(--ds-color-danger)]">{errors.responsavel.message}</p>
             )}
           </div>
 
@@ -226,9 +226,9 @@ export function CompanyForm({ id }: CompanyFormProps) {
               id="status"
               type="checkbox"
               {...register('status')}
-              className="h-4 w-4 rounded border-gray-300 text-slate-800 focus:ring-slate-600"
+              className="h-4 w-4 rounded border-[var(--ds-color-border-default)] accent-[var(--ds-color-action-primary)]"
             />
-            <label htmlFor="status" className="text-sm font-medium text-gray-700">
+            <label htmlFor="status" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
               Ativo
             </label>
           </div>
@@ -237,14 +237,14 @@ export function CompanyForm({ id }: CompanyFormProps) {
         <div className="flex justify-end space-x-4 border-t pt-6">
           <Link
             href="/dashboard/companies"
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
           >
             Cancelar
           </Link>
           <button
             type="submit"
             disabled={loading || isSubmitting || !isValid}
-            className="flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:opacity-50"
+            className="flex items-center rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--ds-color-action-primary-hover)] disabled:opacity-50"
           >
             {loading ? (
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>

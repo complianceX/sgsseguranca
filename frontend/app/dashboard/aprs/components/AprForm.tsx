@@ -2067,7 +2067,7 @@ export function AprForm({ id }: AprFormProps) {
           </Link>
           <div>
             {isFieldMode ? (
-              <span className="inline-flex items-center rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-200">
+              <span className="inline-flex items-center rounded-full border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-success)]">
                 modo campo
               </span>
             ) : null}
@@ -2088,10 +2088,10 @@ export function AprForm({ id }: AprFormProps) {
       </div>
 
       {isFieldMode ? (
-        <div className="rounded-[var(--ds-radius-xl)] border border-emerald-400/25 bg-emerald-500/8 p-5">
+        <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-200">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-success)]">
                 APR em campo
               </p>
               <p className="mt-2 text-sm text-[var(--color-text-secondary)]">

@@ -46,9 +46,9 @@ export const RESULTADO_LABEL: Record<string, string> = {
 };
 
 export const RESULTADO_COLORS: Record<string, string> = {
-  apto: 'bg-green-100 text-green-800',
-  inapto: 'bg-red-100 text-red-800',
-  apto_com_restricoes: 'bg-yellow-100 text-yellow-800',
+  apto: 'bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]',
+  inapto: 'bg-[var(--ds-color-danger-subtle)] text-[var(--ds-color-danger)]',
+  apto_com_restricoes: 'bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]',
 };
 
 export const medicalExamsService = {

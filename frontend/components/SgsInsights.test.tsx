@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { GandraInsights } from './GandraInsights';
+import { SgsInsights } from './SgsInsights';
 
 const getInsights = jest.fn();
 
@@ -9,7 +9,7 @@ jest.mock('@/services/aiService', () => ({
   },
 }));
 
-describe('GandraInsights', () => {
+describe('SgsInsights', () => {
   let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
@@ -53,7 +53,7 @@ describe('GandraInsights', () => {
       ],
     });
 
-    render(<GandraInsights />);
+    render(<SgsInsights />);
 
     expect(await screen.findByText('Pendência crítica de PT')).toBeInTheDocument();
     expect(screen.queryByText('Treinamento próximo do vencimento')).not.toBeInTheDocument();
@@ -66,7 +66,7 @@ describe('GandraInsights', () => {
   it('shows the fallback state when insights fail to load', async () => {
     getInsights.mockRejectedValue(new Error('fail'));
 
-    render(<GandraInsights />);
+    render(<SgsInsights />);
 
     expect(await screen.findByText(/sophie indisponível neste carregamento/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /abrir workspace assistido/i })).toBeInTheDocument();

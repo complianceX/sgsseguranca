@@ -255,8 +255,8 @@ export default function EpiFichasPage() {
   return (
     <div className="ds-system-scope space-y-6">
       <div className="ds-surface-card p-4">
-        <h1 className="text-2xl font-bold text-gray-900">Fichas de EPI</h1>
-        <p className="text-gray-500">
+        <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Fichas de EPI</h1>
+        <p className="text-[var(--ds-color-text-muted)]">
           Controle de CA, entrega/devolucao e assinatura eletronica com carimbo de
           tempo.
         </p>
@@ -271,7 +271,7 @@ export default function EpiFichasPage() {
       </div>
 
       <div className="ds-surface-card p-4">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
           Nova ficha de entrega
         </h2>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
@@ -336,7 +336,7 @@ export default function EpiFichasPage() {
           <button
             type="button"
             onClick={() => setSignatureTarget({ mode: 'create' })}
-            className="rounded-md border px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border px-3 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)]"
           >
             {deliverySignature ? 'Assinatura capturada' : 'Assinar entrega'}
           </button>
@@ -382,13 +382,13 @@ export default function EpiFichasPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-gray-500">
+                <TableCell colSpan={7} className="py-8 text-center text-[var(--ds-color-text-muted)]">
                   Carregando fichas...
                 </TableCell>
               </TableRow>
             ) : assignments.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-gray-500">
+                <TableCell colSpan={7} className="py-8 text-center text-[var(--ds-color-text-muted)]">
                   Nenhuma ficha registrada.
                 </TableCell>
               </TableRow>
@@ -416,7 +416,7 @@ export default function EpiFichasPage() {
                       {assignment.status === 'entregue' && (
                         <button
                           type="button"
-                          className="rounded border px-2 py-1 text-xs text-green-700 hover:bg-green-50"
+                          className="rounded border px-2 py-1 text-xs text-[var(--ds-color-success)] hover:bg-[var(--ds-color-success-subtle)]"
                           onClick={() =>
                             setSignatureTarget({
                               mode: 'return',
@@ -430,7 +430,7 @@ export default function EpiFichasPage() {
                       {assignment.status === 'entregue' && (
                         <button
                           type="button"
-                          className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-primary)] hover:bg-blue-50"
+                          className="rounded border px-2 py-1 text-xs text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-primary-subtle)]"
                           onClick={() => void handleReplace(assignment)}
                         >
                           Substituir
@@ -499,10 +499,10 @@ export default function EpiFichasPage() {
 function Kpi({ title, value }: { title: string; value: number }) {
   return (
     <div className="ds-surface-card p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
         {title}
       </p>
-      <p className="mt-1 text-2xl font-bold text-gray-900">{value}</p>
+      <p className="mt-1 text-2xl font-bold text-[var(--ds-color-text-primary)]">{value}</p>
     </div>
   );
 }
