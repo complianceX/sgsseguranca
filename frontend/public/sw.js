@@ -1,6 +1,7 @@
 const SW_URL = new URL(self.location.href);
 const BUILD_ID = SW_URL.searchParams.get('build') || 'local-dev';
-const CACHE_PREFIX = 'gst-shell';
+const CACHE_PREFIX = 'sgs-shell';
+const LEGACY_CACHE_PREFIXES = ['gst-shell', CACHE_PREFIX];
 const CACHE_NAME = `${CACHE_PREFIX}-${BUILD_ID}`;
 const APP_SHELL = [
   '/offline.html',
@@ -60,7 +61,11 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
+          .filter(
+            (key) =>
+              LEGACY_CACHE_PREFIXES.some((prefix) => key.startsWith(prefix)) &&
+              key !== CACHE_NAME,
+          )
           .map((key) => caches.delete(key)),
       ),
     ),

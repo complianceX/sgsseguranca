@@ -36,6 +36,10 @@ function resolveGitBuildId() {
 }
 
 const gitBuildId = resolveGitBuildId();
+const timestampBuildId = `build-${new Date()
+  .toISOString()
+  .replace(/[-:TZ.]/g, '')
+  .slice(0, 14)}`;
 const resolvedBuildId = [
   process.env.NEXT_PUBLIC_BUILD_ID,
   process.env.RAILWAY_GIT_COMMIT_SHA,
@@ -43,6 +47,7 @@ const resolvedBuildId = [
   process.env.GITHUB_SHA,
   process.env.VERCEL_GIT_COMMIT_SHA,
   gitBuildId,
+  timestampBuildId,
   process.env.npm_package_version,
   'local-dev',
 ]
