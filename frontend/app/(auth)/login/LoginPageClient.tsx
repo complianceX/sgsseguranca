@@ -310,8 +310,18 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
       <main className={styles.layout}>
         <section className={`${styles.institutionalPanel} ${styles.fadeInUp}`}>
           <div className={styles.brandRow}>
-            <Image src="/logo-gst-mark.svg" alt="SGS" width={44} height={44} priority className={styles.brandBadge} />
-            <span className={styles.brandName}>SGS — Sistema de Gestão de Segurança</span>
+            <Image
+              src="/logo-sgs.svg"
+              alt="SGS - Sistema de Gestão de Segurança"
+              width={112}
+              height={158}
+              priority
+              className={styles.brandLockup}
+            />
+            <div className={styles.brandMeta}>
+              <span className={styles.brandKicker}>Marca oficial da plataforma</span>
+              <span className={styles.brandName}>Sistema de Gestão de Segurança</span>
+            </div>
           </div>
 
           <span className={styles.heroEyebrow}>
@@ -421,11 +431,15 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
               <span className={styles.portalStatus}>Produção corporativa</span>
             </div>
             <div className={styles.mobileBrand}>
-              <Image src="/logo-gst-mark.svg" alt="SGS" width={56} height={56} priority />
-              <div className={styles.mobileBrandText}>
-                <span className={styles.mobileBrandTitle}>SGS</span>
-                <span className={styles.mobileBrandSub}>SISTEMA DE GESTÃO DE SEGURANÇA</span>
-              </div>
+              <Image
+                src="/logo-sgs.svg"
+                alt="SGS - Sistema de Gestão de Segurança"
+                width={104}
+                height={147}
+                priority
+                className={styles.mobileBrandLogo}
+              />
+              <p className={styles.mobileBrandCaption}>Acesso corporativo ao ambiente SGS</p>
             </div>
 
             <h2 className={styles.loginTitle}>Bem-vindo de volta</h2>

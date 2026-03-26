@@ -9,7 +9,7 @@ const APP_SHELL = [
   '/icon-192.svg',
   '/icon-512.svg',
   '/icon-maskable.svg',
-  '/logo-gst-mark.svg',
+  '/logo-sgs.svg',
 ];
 const SAFE_PUBLIC_ASSETS = new Set(APP_SHELL);
 

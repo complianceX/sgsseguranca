@@ -200,13 +200,20 @@ export function Sidebar({
       >
         {/* Logo */}
         <div className="border-b border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-bg-soft)]/60 px-5 py-4">
-          <div className="flex items-center gap-3 rounded-2xl border border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-bg-soft)] px-3.5 py-3 shadow-[0_10px_24px_rgba(2,8,18,0.18)]">
-            <Image src="/logo-gst-mark.svg" alt="Logo SGS" width={26} height={26} priority />
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-bg-soft)] px-3.5 py-4 text-center shadow-[0_10px_24px_rgba(2,8,18,0.18)]">
+            <Image
+              src="/logo-sgs.svg"
+              alt="Logo SGS"
+              width={78}
+              height={110}
+              priority
+              className="h-auto w-[78px]"
+            />
             <div className="min-w-0">
-              <h1 className="truncate text-[0.95rem] font-semibold tracking-[-0.02em] text-[var(--ds-color-sidebar-text)]">
-                SGS
-              </h1>
-              <p className="truncate text-[0.72rem] text-[var(--ds-color-sidebar-muted)]">
+              <p className="text-[0.66rem] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-sidebar-muted)]">
+                Plataforma enterprise
+              </p>
+              <p className="mt-1 text-[0.76rem] leading-5 text-[var(--ds-color-sidebar-text)]">
                 Sistema de Gestão de Segurança
               </p>
             </div>
