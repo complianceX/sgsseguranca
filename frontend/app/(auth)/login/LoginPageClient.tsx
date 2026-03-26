@@ -39,7 +39,48 @@ type LoginPageClientProps = {
   turnstileSiteKey: string;
 };
 
-function getLoginErrorMessage(error: unknown): string {
+async function isApiHealthy(apiBase?: string): Promise<boolean> {
+  if (typeof window === 'undefined' || !apiBase?.trim()) {
+    return false;
+  }
+
+  const normalizedBase = apiBase.trim().replace(/\/$/, '');
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 4000);
+
+  try {
+    const response = await fetch(
+      `${normalizedBase}/health/public?ts=${Date.now()}`,
+      {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'omit',
+        signal: controller.signal,
+      },
+    );
+
+    if (response.ok) {
+      window.dispatchEvent(
+        new CustomEvent('app:api-online', {
+          detail: { baseURL: normalizedBase },
+        }),
+      );
+      return true;
+    }
+  } catch {
+    window.dispatchEvent(
+      new CustomEvent('app:api-offline', {
+        detail: { baseURL: normalizedBase },
+      }),
+    );
+  } finally {
+    window.clearTimeout(timeout);
+  }
+
+  return false;
+}
+
+async function getLoginErrorMessage(error: unknown): Promise<string> {
   if (!axios.isAxiosError(error)) {
     if (error instanceof Error && error.message.trim()) {
       return error.message;
@@ -52,6 +93,12 @@ function getLoginErrorMessage(error: unknown): string {
 
   if (!error.response) {
     const apiBase = error.config?.baseURL || 'http://localhost:3011';
+    const apiHealthy = await isApiHealthy(apiBase);
+
+    if (apiHealthy) {
+      return `A API está online em ${apiBase}, mas esta aba perdeu a conexão. Recarregue a página e tente novamente.`;
+    }
+
     return `Não foi possível conectar ao servidor (${apiBase}). Verifique se o backend está rodando.`;
   }
 
@@ -228,7 +275,7 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
         sessionStorage.removeItem(REMEMBER_CPF_KEY);
       }
     } catch (err: unknown) {
-      setError(getLoginErrorMessage(err));
+      setError(await getLoginErrorMessage(err));
       if (turnstileEnabled) {
         resetTurnstile();
       }
@@ -300,6 +347,16 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
 
         <section className={styles.loginSection}>
           <div className={`${styles.loginCard} ${styles.fadeInUp} ${shake ? styles.shake : ''}`}>
+            {turnstileEnabled && (
+              <div
+                className={styles.turnstileCornerBadge}
+                title="Protegido por Cloudflare Turnstile"
+                aria-label="Protegido por Cloudflare Turnstile"
+              >
+                <Cloud size={13} />
+                <span>Cloudflare</span>
+              </div>
+            )}
             <div className={styles.mobileBrand}>
               <Image src="/logo-gst-mark.svg" alt="SGS" width={56} height={56} priority />
               <div className={styles.mobileBrandText}>
@@ -397,43 +454,18 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
               )}
 
               {turnstileEnabled && (
-                <div className={styles.turnstileSection}>
-                  <div className={styles.turnstileHeader}>
-                    <div className={styles.turnstileBadge}>
-                      <ShieldCheck size={14} />
-                      Cloudflare ativo
-                    </div>
-                    <span className={styles.turnstileStatus}>
-                      Análise adaptativa contra bots e brute force
-                    </span>
-                  </div>
-                  <div className={styles.turnstileIntro}>
-                    <strong>Camada extra de proteção no acesso</strong>
-                    <p>
-                      O login do SGS valida tráfego suspeito antes da autenticação
-                      e reduz abuso automatizado sem atrapalhar usuários legítimos.
-                    </p>
-                  </div>
+                <>
                   <div
                     ref={turnstileContainerRef}
-                    className={styles.turnstileWidget}
+                    className={styles.turnstileMount}
                   />
-                  <div className={styles.turnstileHighlights}>
-                    <span><Lock size={13} /> Mitigação de credenciais automatizadas</span>
-                    <span><Cloud size={13} /> Verificação contínua da sessão de entrada</span>
-                    <span><ShieldCheck size={13} /> Proteção inteligente em tempo real</span>
-                  </div>
-                  <p className={styles.turnstileHint}>
-                    <Cloud size={14} />
-                    Protegido por Cloudflare Turnstile
-                  </p>
                   {turnstileError && (
-                    <p className={styles.turnstileError}>
+                    <p className={styles.turnstileErrorBanner}>
                       <AlertTriangle size={14} />
                       {turnstileError}
                     </p>
                   )}
-                </div>
+                </>
               )}
 
               <button

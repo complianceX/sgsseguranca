@@ -159,6 +159,7 @@
 }
 
 .loginCard {
+  position: relative;
   width: 100%;
   max-width: 448px;
   border-radius: 20px;
@@ -166,6 +167,25 @@
   background: color-mix(in srgb, var(--ds-color-surface-base) 98%, transparent);
   box-shadow: var(--ds-shadow-sm);
   padding: 30px;
+}
+
+.turnstileCornerBadge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ds-color-action-primary) 18%, transparent);
+  background: color-mix(in srgb, var(--ds-color-action-primary) 10%, transparent);
+  color: var(--ds-color-action-primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 60%, transparent);
 }
 
 .mobileBrand {
@@ -374,101 +394,27 @@
   cursor: not-allowed;
 }
 
-.turnstileSection {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--ds-color-action-primary) 14%, var(--ds-color-border-subtle) 86%);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--ds-color-action-primary) 4%, var(--ds-color-surface-base) 96%) 0%, var(--ds-color-surface-base) 100%);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 60%, transparent);
+.turnstileMount {
+  min-height: 0;
 }
 
-.turnstileHeader {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 12px;
+.turnstileMount iframe,
+.turnstileMount > div {
+  max-width: 100%;
 }
 
-.turnstileBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  width: fit-content;
-  border-radius: 999px;
-  padding: 7px 10px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--ds-color-action-primary);
-  background: color-mix(in srgb, var(--ds-color-action-primary) 9%, transparent);
-  border: 1px solid color-mix(in srgb, var(--ds-color-action-primary) 18%, transparent);
-}
-
-.turnstileStatus {
-  font-size: 0.72rem;
-  line-height: 1.45;
-  color: var(--ds-color-text-secondary);
-}
-
-.turnstileIntro {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.turnstileIntro strong {
-  font-size: 0.94rem;
-  line-height: 1.35;
-  color: var(--ds-color-text-primary);
-}
-
-.turnstileIntro p {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.6;
-  color: var(--ds-color-text-secondary);
-}
-
-.turnstileWidget {
-  min-height: 66px;
-}
-
-.turnstileHighlights {
-  display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.turnstileHighlights span {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  color: var(--ds-color-text-secondary);
-}
-
-.turnstileHint,
-.turnstileError {
+.turnstileErrorBanner {
   margin: 0;
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 6px;
+  border-radius: 12px;
+  padding: 10px 12px;
   font-size: 0.76rem;
-  line-height: 1.5;
-}
-
-.turnstileHint {
-  color: var(--ds-color-text-secondary);
-}
-
-.turnstileError {
+  line-height: 1.55;
   color: var(--ds-color-warning);
+  background: color-mix(in srgb, var(--ds-color-warning-subtle) 88%, transparent);
+  border: 1px solid var(--ds-color-warning-border);
 }
 
 .loadingState {
@@ -642,7 +588,10 @@
     justify-content: space-between;
   }
 
-  .turnstileSection {
-    padding: 12px;
+  .turnstileCornerBadge {
+    top: 10px;
+    right: 10px;
+    padding: 6px 9px;
+    font-size: 0.68rem;
   }
 }
