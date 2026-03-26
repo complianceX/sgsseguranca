@@ -1,211 +1,419 @@
-﻿import type { Metadata } from 'next';
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import {
+  ArrowLeft,
+  BadgeCheck,
+  BriefcaseBusiness,
+  FileLock2,
+  Handshake,
+  Shield,
+  UsersRound,
+} from 'lucide-react';
 import { getPublicLegalConfig } from '@/lib/legal';
+import styles from '../legal-pages.module.css';
 
 export const metadata: Metadata = {
   title: 'Termos de Uso | SGS',
-  description: 'Termos e condições de uso da plataforma SGS — Sistema de Gestão de Segurança.',
+  description:
+    'Termos e condições de uso da plataforma SGS - Sistema de Gestão de Segurança.',
 };
 
 export const dynamic = 'force-dynamic';
 
+const useRestrictions = [
+  'Inserir dados falsos, ilícitos ou sem autorização adequada.',
+  'Tentar acessar dados de outras empresas, quebrar isolamento multiempresa ou contornar permissões.',
+  'Realizar scraping, engenharia reversa, automação abusiva, testes intrusivos ou exploração não autorizada.',
+  'Compartilhar credenciais, usar contas de terceiros ou burlar controles de autenticação e trilha de auditoria.',
+  'Utilizar a plataforma em desacordo com a legislação, políticas internas do Cliente ou finalidades contratuais.',
+];
+
+const customerDuties = [
+  'Definir administradores autorizados, perfis, fluxos de aprovação e usuários habilitados.',
+  'Inserir dados lícitos, corretos, atualizados e compatíveis com a finalidade do tratamento.',
+  'Observar as Normas Regulamentadoras, regras internas e exigências legais aplicáveis à sua operação.',
+  'Revisar documentos, relatórios e saídas operacionais antes de uso oficial, especialmente quando exigirem validação técnica ou assinatura profissional.',
+];
+
 export default function TermosPage() {
-  const lastUpdated = '25 de março de 2026';
+  const lastUpdated = '26 de março de 2026';
   const legal = getPublicLegalConfig();
   const contactChannel =
-    legal.contactEmail || 'canal comercial informado ao administrador da sua organizacao';
+    legal.contactEmail || 'canal comercial informado ao administrador da sua organização';
   const contactHref = legal.contactEmail ? `mailto:${legal.contactEmail}` : null;
   const forumLabel =
     legal.forumCityState || 'foro definido no contrato comercial firmado entre as partes';
+  const companyName =
+    legal.companyName || 'a operadora identificada na documentação contratual';
   const hasMissingLegalInfo = legal.missingRequiredFields.length > 0;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-app)', color: 'var(--text-primary)' }}>
-      <div style={{ maxWidth: 800, margin: '0 auto', padding: '3rem 1.5rem 4rem' }}>
+    <div className={styles.page}>
+      <div className={styles.shell}>
+        <Link href="/login" className={styles.backLink}>
+          <ArrowLeft size={16} />
+          Voltar ao login
+        </Link>
 
-        {/* Header */}
-        <div style={{ marginBottom: '2.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
-          <Link
-            href="/login"
-            style={{ fontSize: '0.85rem', color: 'var(--ds-color-text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: '1.5rem' }}
-          >
-            ← Voltar ao login
-          </Link>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-            Termos de Uso
-          </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--ds-color-text-secondary)' }}>
-            SGS — Sistema de Gestão de Segurança &nbsp;·&nbsp; Última atualização: {lastUpdated}
-          </p>
-        </div>
+        <section className={styles.hero}>
+          <div className={styles.heroMain}>
+            <span className={styles.heroEyebrow}>
+              <Handshake size={14} />
+              Relação contratual e governança operacional
+            </span>
+            <h1 className={styles.heroTitle}>Termos de Uso</h1>
+            <p className={styles.heroDescription}>
+              Estes termos estabelecem as condições padrão para uso corporativo da
+              plataforma SGS. Eles organizam responsabilidades entre a operadora da
+              solução, a empresa contratante e os usuários autorizados, com linguagem
+              mais compatível com uma operação enterprise.
+            </p>
+            <div className={styles.heroMeta}>
+              <span className={styles.metaPill}>
+                <BadgeCheck size={14} />
+                Última atualização: {lastUpdated}
+              </span>
+              <span className={styles.metaPill}>
+                <BriefcaseBusiness size={14} />
+                SaaS corporativo para SST
+              </span>
+              <span className={styles.metaPill}>
+                <FileLock2 size={14} />
+                Complementa contrato comercial e política de privacidade
+              </span>
+            </div>
+          </div>
 
-        {/* Content */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', lineHeight: 1.7 }}>
+          <aside className={styles.heroSide}>
+            <p className={styles.sideLabel}>Visão executiva</p>
+            <h2 className={styles.sideTitle}>Termos pensados para uso empresarial</h2>
+            <p className={styles.sideCopy}>
+              Este documento estrutura papéis, limites e responsabilidades operacionais,
+              sem substituir proposta comercial, pedido, aditivo, DPA ou SLA específico
+              eventualmente firmado entre as partes.
+            </p>
+            <div className={styles.sideList}>
+              <div className={styles.sideItem}>
+                <span className={styles.sideIcon}>
+                  <UsersRound size={18} />
+                </span>
+                <div>
+                  <strong>Cliente</strong>
+                  <p>
+                    Pessoa jurídica que contrata a plataforma, define administradores,
+                    perfis de acesso e finalidades operacionais de uso.
+                  </p>
+                </div>
+              </div>
+              <div className={styles.sideItem}>
+                <span className={styles.sideIcon}>
+                  <Shield size={18} />
+                </span>
+                <div>
+                  <strong>Usuário autorizado</strong>
+                  <p>
+                    Pessoa vinculada ao Cliente que acessa o SGS com credenciais
+                    individuais, respeitando estes termos e as regras internas da
+                    organização.
+                  </p>
+                </div>
+              </div>
+              <div className={styles.sideItem}>
+                <span className={styles.sideIcon}>
+                  <Handshake size={18} />
+                </span>
+                <div>
+                  <strong>Contato contratual</strong>
+                  <p>
+                    {contactHref ? (
+                      <a href={contactHref} className={styles.inlineLink}>
+                        {contactChannel}
+                      </a>
+                    ) : (
+                      contactChannel
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </section>
 
-          {hasMissingLegalInfo ? (
-            <section
-              style={{
-                border: '1px solid #f59e0b',
-                background: '#fff7ed',
-                color: '#9a3412',
-                borderRadius: 12,
-                padding: '1rem 1.25rem',
-              }}
-            >
-              <strong>Revisao juridica pendente.</strong>
-              <p style={{ marginTop: '0.5rem' }}>
-                Esta implantacao ainda usa texto institucional de contingencia. Antes do go-live,
-                configure os dados finais do fornecedor/controlador para publicar termos com
-                identificacao societaria, canais de contato e foro corretos.
-              </p>
-            </section>
-          ) : null}
+        <section className={styles.summaryGrid}>
+          <article className={styles.summaryCard}>
+            <p className={styles.summaryLabel}>Operadora da solução</p>
+            <h2 className={styles.summaryTitle}>{companyName}</h2>
+            <p className={styles.summaryText}>
+              Responsável pela disponibilização, manutenção evolutiva e operação técnica
+              da plataforma SGS, nos limites do contrato aplicável.
+            </p>
+          </article>
+          <article className={styles.summaryCard}>
+            <p className={styles.summaryLabel}>Governança do Cliente</p>
+            <h2 className={styles.summaryTitle}>Administração de usuários e conteúdo</h2>
+            <p className={styles.summaryText}>
+              A empresa contratante responde por acessos, papéis internos, conteúdo
+              inserido, aprovações e aderência das rotinas ao seu contexto regulatório.
+            </p>
+          </article>
+          <article className={styles.summaryCard}>
+            <p className={styles.summaryLabel}>Precedência documental</p>
+            <h2 className={styles.summaryTitle}>Contrato específico prevalece</h2>
+            <p className={styles.summaryText}>
+              Quando houver cláusulas comerciais, SLAs ou anexos específicos assinados,
+              esses instrumentos complementam e prevalecem sobre as regras gerais aqui
+              descritas.
+            </p>
+          </article>
+        </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>1. Aceitação</h2>
+        {hasMissingLegalInfo ? (
+          <section className={styles.warningCard}>
+            <strong>
+              <Shield size={16} />
+              Identificação institucional incompleta
+            </strong>
             <p>
-              Ao acessar ou utilizar a plataforma SGS, você (usuário final) e a organização contratante
-              (doravante &quot;Cliente&quot;) concordam com estes Termos de Uso. O uso continuado da plataforma
-              constitui aceitação de quaisquer atualizações. Caso não concorde com os termos, interrompa
-              o uso imediatamente.
+              Antes de publicação final, revise os dados públicos da operação para garantir
+              consistência entre estes termos, a política de privacidade e o contrato
+              comercial.
+            </p>
+          </section>
+        ) : null}
+
+        <div className={styles.content}>
+          <section className={styles.section}>
+            <h2>1. Objeto e aceitação</h2>
+            <p>
+              Ao acessar ou utilizar a plataforma SGS, a empresa contratante
+              (&quot;Cliente&quot;) e seus usuários autorizados concordam com estes termos.
+              O uso continuado da solução após atualizações relevantes também representa
+              aceitação das condições vigentes.
+            </p>
+            <p>
+              Estes termos disciplinam o uso padrão do serviço e devem ser interpretados
+              em conjunto com a Política de Privacidade, proposta comercial, contratos,
+              anexos de proteção de dados e demais instrumentos formalmente celebrados.
             </p>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>2. Descrição do Serviço</h2>
+          <section className={styles.section}>
+            <h2>2. Descrição da plataforma</h2>
             <p>
-              O SGS é um sistema SaaS (<em>Software as a Service</em>) de gestão de Segurança e Saúde no Trabalho,
-              oferecendo funcionalidades como controle de APRs, PTAs, checklists, DDS, treinamentos,
-              exames médicos, não conformidades, relatórios e gestão documental, em conformidade com
-              as Normas Regulamentadoras do MTE.
+              O SGS é uma plataforma SaaS para gestão corporativa de Segurança e Saúde no
+              Trabalho, com recursos de cadastro, evidências, documentos, treinamentos,
+              alertas, relatórios, auditoria e governança operacional.
             </p>
-            <p style={{ marginTop: '0.75rem' }}>
-              O serviço é oferecido no modelo multi-tenant: cada organização contratante opera em
-              ambiente isolado, com dados segregados por política de Row-Level Security no banco de dados.
-            </p>
+            <div className={styles.featureGrid}>
+              <article className={styles.featureCard}>
+                <h3>Ambiente multiempresa</h3>
+                <p>
+                  Cada Cliente opera em contexto isolado, com políticas de acesso,
+                  segregação lógica e rastreabilidade compatíveis com operação B2B.
+                </p>
+              </article>
+              <article className={styles.featureCard}>
+                <h3>Serviço evolutivo</h3>
+                <p>
+                  A SGS pode atualizar fluxos, componentes e integrações para melhorias de
+                  segurança, desempenho, confiabilidade e experiência de uso.
+                </p>
+              </article>
+            </div>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>3. Cadastro e Contas</h2>
-            <ul style={{ paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <li>O acesso é concedido pela organização contratante, que é responsável por gerenciar perfis e permissões.</li>
-              <li>Você é responsável por manter a confidencialidade das suas credenciais.</li>
-              <li>Atividades suspeitas devem ser reportadas imediatamente ao administrador da sua organização.</li>
-              <li>Contas individuais são intransferíveis.</li>
+          <section className={styles.section}>
+            <h2>3. Elegibilidade, contas e credenciais</h2>
+            <p>
+              O acesso é concedido pelo Cliente aos usuários expressamente autorizados. As
+              credenciais são pessoais, intransferíveis e vinculadas à trilha de auditoria
+              da plataforma.
+            </p>
+            <ul className={styles.bulletList}>
+              <li>Os administradores do Cliente respondem pela criação, revisão e revogação de acessos.</li>
+              <li>O usuário deve manter sigilo sobre senha, tokens, segundo fator e demais meios de autenticação.</li>
+              <li>Qualquer indício de uso indevido, comprometimento de conta ou acesso não autorizado deve ser comunicado imediatamente.</li>
             </ul>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>4. Uso Permitido</h2>
-            <p>Você pode utilizar a plataforma exclusivamente para fins legítimos de gestão de SST. É vedado:</p>
-            <ul style={{ paddingLeft: '1.25rem', marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <li>Inserir dados falsos, fraudulentos ou de terceiros sem autorização.</li>
-              <li>Tentar acessar dados de outras organizações ou contornar controles de acesso.</li>
-              <li>Realizar engenharia reversa, scraping automatizado ou uso da API além do permitido.</li>
-              <li>Utilizar a plataforma para fins ilegais ou em violação a normas trabalhistas.</li>
-              <li>Compartilhar credenciais de acesso com terceiros não autorizados.</li>
+          <section className={styles.section}>
+            <h2>4. Responsabilidades do Cliente</h2>
+            <p>
+              O Cliente é responsável pela finalidade de uso da plataforma e pelo conteúdo
+              operacional por ele inserido, administrado ou exportado.
+            </p>
+            <ul className={styles.bulletList}>
+              {customerDuties.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            <p className={styles.callout}>
+              O SGS é ferramenta de apoio operacional e governança. A validação técnica,
+              jurídica e ocupacional dos atos praticados pelo Cliente permanece sob
+              responsabilidade da organização e de seus profissionais habilitados.
+            </p>
+          </section>
+
+          <section className={styles.section}>
+            <h2>5. Uso permitido e condutas vedadas</h2>
+            <p>
+              A plataforma deve ser utilizada apenas para finalidades legítimas,
+              compatíveis com a contratação e com a legislação aplicável.
+            </p>
+            <ul className={styles.bulletList}>
+              {useRestrictions.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>5. Responsabilidade pelo Conteúdo</h2>
+          <section className={styles.section}>
+            <h2>6. Privacidade, segurança e dados pessoais</h2>
             <p>
-              O Cliente e seus usuários são integralmente responsáveis pela veracidade, precisão e
-              completude dos dados inseridos na plataforma. O SGS não valida a conformidade técnica
-              dos documentos SST com as NRs — esta responsabilidade é do SESMT ou profissional
-              habilitado da organização.
+              O tratamento de dados pessoais no SGS segue a Política de Privacidade e o
+              arranjo contratual aplicável entre as partes. Dependendo da operação, a SGS
+              poderá atuar como controladora ou operadora, conforme a natureza do
+              tratamento realizado.
             </p>
-            <p style={{ marginTop: '0.75rem' }}>
-              Documentos gerados pela plataforma (PDFs, relatórios) devem ser revisados por
-              profissional qualificado antes de uso oficial ou entrega a órgãos fiscalizadores.
-            </p>
-          </section>
-
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>6. Inteligência Artificial (Sophie)</h2>
             <p>
-              A funcionalidade de IA (Sophie) é <strong>opcional</strong> e desativada por padrão.
-              Quando habilitada pela organização contratante:
+              O Cliente permanece responsável por definir base legal, instruções de
+              tratamento, retenção e governança dos dados que insere na plataforma, quando
+              atuar como controlador.
             </p>
-            <ul style={{ paddingLeft: '1.25rem', marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <li>Respostas geradas por IA têm caráter <strong>informativo e auxiliar</strong>, não substituindo parecer técnico especializado.</li>
-              <li>O Cliente assume responsabilidade pelas decisões tomadas com base nas sugestões da IA.</li>
-              <li>Dados de SST podem ser processados pela API da OpenAI; consulte nossa <Link href="/privacidade" style={{ color: 'var(--brand)' }}>Política de Privacidade</Link> para detalhes.</li>
-              <li>A funcionalidade só é ativada após formalização de Data Processing Agreement (DPA) com a OpenAI.</li>
-            </ul>
-          </section>
-
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>7. Disponibilidade e SLA</h2>
-            <p>
-              Empreendemos esforços razoáveis para manter a plataforma disponível 24/7, mas não
-              garantimos disponibilidade ininterrupta. Manutenções programadas serão comunicadas
-              com antecedência mínima de 24 horas. Não nos responsabilizamos por perdas decorrentes
-              de indisponibilidade fora do nosso controle (falhas de provedor, força maior).
+            <p className={styles.callout}>
+              Para mais detalhes, consulte a{' '}
+              <Link href="/privacidade" className={styles.inlineLink}>
+                Política de Privacidade
+              </Link>
+              .
             </p>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>8. Propriedade Intelectual</h2>
+          <section className={styles.section}>
+            <h2>7. Disponibilidade, suporte e evolução do serviço</h2>
             <p>
-              Todo o código-fonte, design, marca SGS e documentação são de propriedade exclusiva
-              do fornecedor. Os dados inseridos pelo Cliente permanecem de propriedade do Cliente.
-              Concedemos ao Cliente licença limitada, não exclusiva e intransferível de uso da
-              plataforma durante a vigência contratual.
+              Empreendemos esforços comercialmente razoáveis para manter a plataforma
+              disponível, segura e com desempenho adequado. Janelas de manutenção,
+              atualizações de segurança e mudanças técnicas podem ocorrer para preservar a
+              continuidade do serviço.
+            </p>
+            <p>
+              Salvo estipulação específica em SLA assinado, não há garantia de
+              disponibilidade absolutamente ininterrupta. Eventos de terceiros, falhas de
+              conectividade, força maior ou dependências externas podem afetar a
+              disponibilidade sem caracterizar inadimplemento automático.
             </p>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>9. Limitação de Responsabilidade</h2>
+          <section className={styles.section}>
+            <h2>8. Funcionalidades opcionais de IA</h2>
             <p>
-              Na máxima extensão permitida pela lei, nossa responsabilidade total por quaisquer
-              danos diretos está limitada ao valor pago pelo Cliente nos últimos 3 meses de serviço.
-              Não nos responsabilizamos por danos indiretos, lucros cessantes, perda de dados por
-              falha do usuário, ou penalidades aplicadas por órgãos fiscalizadores decorrentes
-              de documentação SST incorreta ou incompleta.
+              Recursos de IA, quando disponibilizados e formalmente habilitados para o
+              Cliente, terão caráter auxiliar. Eles não substituem validação técnica,
+              parecer profissional, decisão ocupacional ou responsabilidade regulatória da
+              organização contratante.
+            </p>
+            <p>
+              O Cliente responde pela revisão e pela decisão final sobre qualquer conteúdo
+              gerado, resumido, sugerido ou classificado por ferramentas de IA.
             </p>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>10. Vigência e Rescisão</h2>
+          <section className={styles.section}>
+            <h2>9. Propriedade intelectual e licença de uso</h2>
             <p>
-              Estes termos vigoram enquanto o contrato de prestação de serviços estiver ativo.
-              O fornecedor poderá suspender o acesso imediatamente em caso de violação grave
-              destes termos. Após encerramento, os dados do Cliente serão mantidos por 90 dias
-              para download e então excluídos, salvo obrigação legal de retenção.
+              A plataforma, sua marca, arquitetura, documentação, interfaces e elementos de
+              software são de titularidade da SGS ou de seus licenciantes. O Cliente
+              recebe licença limitada, não exclusiva, revogável e intransferível para uso
+              da solução durante a vigência contratual.
+            </p>
+            <p>
+              Os dados e documentos inseridos pelo Cliente permanecem de sua titularidade
+              ou da titularidade de quem legitimamente os detenha.
             </p>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>11. Lei Aplicável e Foro</h2>
+          <section className={styles.section}>
+            <h2>10. Confidencialidade e integridade operacional</h2>
             <p>
-              Estes termos são regidos pelas leis da República Federativa do Brasil. Fica eleito
-              o foro da Comarca de <strong>{forumLabel}</strong> para dirimir quaisquer
-              controvérsias decorrentes deste instrumento, com renúncia a qualquer outro,
-              por mais privilegiado que seja.
+              Informações técnicas, comerciais, documentos internos, relatórios e dados
+              acessados em razão da relação contratual devem ser tratados com
+              confidencialidade, observado o nível de sigilo aplicável a cada caso.
+            </p>
+            <p>
+              O Cliente e seus usuários concordam em preservar a integridade do ambiente e
+              não praticar atos que comprometam a segurança, estabilidade ou reputação da
+              plataforma.
             </p>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>12. Contato</h2>
+          <section className={styles.section}>
+            <h2>11. Suspensão, encerramento e exportação</h2>
             <p>
-              Dúvidas sobre estes termos:{' '}
+              A SGS poderá suspender ou restringir acessos em caso de descumprimento
+              material destes termos, risco relevante de segurança, uso abusivo ou
+              determinação legal. Sempre que viável, a medida será acompanhada da devida
+              comunicação ao Cliente.
+            </p>
+            <p>
+              No encerramento da relação contratual, a exportação e a retenção dos dados
+              seguirão o instrumento comercial e a Política de Privacidade, observadas as
+              obrigações legais e regulatórias aplicáveis.
+            </p>
+          </section>
+
+          <section className={styles.section}>
+            <h2>12. Limitação de responsabilidade</h2>
+            <p>
+              Na extensão permitida pela legislação aplicável, a SGS não responde por
+              danos decorrentes de uso inadequado da plataforma, inserção de dados
+              incorretos pelo Cliente, decisões operacionais tomadas sem validação
+              técnica, indisponibilidades causadas por terceiros ou eventos fora do
+              controle razoável da operadora.
+            </p>
+            <p>
+              Eventuais limites específicos de responsabilidade, multas, créditos de
+              serviço e SLAs serão aqueles previstos no contrato comercial ou aditivo
+              firmado entre as partes.
+            </p>
+          </section>
+
+          <section className={styles.section}>
+            <h2>13. Lei aplicável e foro</h2>
+            <p>
+              Estes termos são regidos pelas leis da República Federativa do Brasil. Fica
+              eleito o foro da comarca de <strong>{forumLabel}</strong> para dirimir
+              controvérsias oriundas deste instrumento, sem prejuízo de eventual foro
+              diverso expressamente previsto em contrato específico entre as partes.
+            </p>
+          </section>
+
+          <section className={styles.section}>
+            <h2>14. Contato</h2>
+            <p>
+              Dúvidas contratuais, operacionais ou comerciais podem ser encaminhadas para{' '}
               {contactHref ? (
-                <a href={contactHref} style={{ color: 'var(--brand)' }}>{contactChannel}</a>
+                <a href={contactHref} className={styles.inlineLink}>
+                  {contactChannel}
+                </a>
               ) : (
-                <span>{contactChannel}</span>
+                contactChannel
               )}
+              .
             </p>
           </section>
-
         </div>
 
-        {/* Footer nav */}
-        <div style={{ marginTop: '3rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '1.5rem', fontSize: '0.875rem' }}>
-          <Link href="/login" style={{ color: 'var(--ds-color-text-secondary)', textDecoration: 'none' }}>Login</Link>
-          <Link href="/privacidade" style={{ color: 'var(--ds-color-text-secondary)', textDecoration: 'none' }}>Política de Privacidade</Link>
+        <div className={styles.footerNav}>
+          <Link href="/login">Login</Link>
+          <Link href="/privacidade">Política de Privacidade</Link>
         </div>
 
+        <p className={styles.footnote}>
+          Estes termos foram estruturados para dar mais clareza empresarial ao uso do SGS,
+          mas não substituem contratos comerciais, ordens de serviço, anexos de tratamento
+          de dados ou SLAs firmados especificamente entre as partes.
+        </p>
       </div>
     </div>
   );

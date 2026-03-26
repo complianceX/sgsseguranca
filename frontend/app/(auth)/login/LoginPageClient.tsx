@@ -7,15 +7,19 @@ import Image from 'next/image';
 import Script from 'next/script';
 import axios from 'axios';
 import {
+  Activity,
   AlertCircle,
   AlertTriangle,
+  ArrowRight,
   BellRing,
   Blocks,
   Building2,
+  CheckCircle2,
   ClipboardList,
   Cloud,
   Eye,
   EyeOff,
+  Fingerprint,
   KeyRound,
   Lock,
   ShieldCheck,
@@ -310,31 +314,82 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
             <span className={styles.brandName}>SGS — Sistema de Gestão de Segurança</span>
           </div>
 
-          <h1 className={styles.heroTitle}>Sistema de Gestão de Segurança</h1>
+          <span className={styles.heroEyebrow}>
+            <Activity size={14} />
+            Plataforma enterprise para SST e conformidade operacional
+          </span>
+
+          <h1 className={styles.heroTitle}>
+            Governança operacional, evidências e rastreabilidade em um único cockpit.
+          </h1>
           <p className={styles.heroSubtitle}>
-            Controle treinamentos, exames médicos, EPIs, laudos e conformidades em um único sistema.
+            Consolide acessos, documentos, alertas, auditorias e rotinas críticas com
+            visão executiva, segregação multiempresa e trilha contínua de accountability.
           </p>
 
           <div className={styles.statsGrid}>
             <article className={styles.statCard}>
               <ClipboardList size={18} />
               <strong>35+</strong>
-              <span>Normas NR cobertas</span>
+              <span>frentes normativas e rotinas controladas</span>
             </article>
             <article className={styles.statCard}>
               <Blocks size={18} />
               <strong>18+</strong>
-              <span>Módulos ativos</span>
+              <span>módulos prontos para operação corporativa</span>
             </article>
             <article className={styles.statCard}>
               <BellRing size={18} />
               <strong>24/7</strong>
-              <span>Alertas automáticos</span>
+              <span>alertas, vencimentos e sinais operacionais</span>
             </article>
             <article className={styles.statCard}>
               <Building2 size={18} />
               <strong>Multiempresa</strong>
-              <span>Operação corporativa</span>
+              <span>segregação por empresa e contexto operacional</span>
+            </article>
+          </div>
+
+          <div className={styles.executiveBoard}>
+            <div className={styles.executiveBoardHeader}>
+              <span>Painel executivo</span>
+              <strong>Postura enterprise</strong>
+            </div>
+            <div className={styles.executiveList}>
+              <article className={styles.executiveItem}>
+                <Fingerprint size={16} />
+                <div>
+                  <strong>Autenticação individual e rastreável</strong>
+                  <p>Cada acesso fica vinculado à conta, empresa e trilha de auditoria.</p>
+                </div>
+              </article>
+              <article className={styles.executiveItem}>
+                <ShieldCheck size={16} />
+                <div>
+                  <strong>Controles prontos para auditoria</strong>
+                  <p>Permissões, evidências e registros críticos organizados para revisão formal.</p>
+                </div>
+              </article>
+              <article className={styles.executiveItem}>
+                <Activity size={16} />
+                <div>
+                  <strong>Operação monitorada e resiliente</strong>
+                  <p>Logs, observabilidade e continuidade desenhados para uso corporativo.</p>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <div className={styles.heroRunway}>
+            <article className={styles.heroRunwayCard}>
+              <span>Governança</span>
+              <strong>Fluxos, alertas e evidências centralizados</strong>
+              <p>Processos de SST organizados em um ambiente seguro e auditável.</p>
+            </article>
+            <article className={styles.heroRunwayCard}>
+              <span>Segurança</span>
+              <strong>Acesso protegido por sessão, trilha e Cloudflare</strong>
+              <p>Barreiras contra abuso automatizado e controles voltados a produção.</p>
             </article>
           </div>
 
@@ -342,6 +397,7 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
             <span><ShieldCheck size={14} /> SSL/TLS</span>
             <span><Lock size={14} /> Dados criptografados</span>
             <span><Building2 size={14} /> Multi-tenant</span>
+            <span><CheckCircle2 size={14} /> Pronto para auditoria</span>
           </div>
         </section>
 
@@ -357,6 +413,13 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
                 <span>Cloudflare</span>
               </div>
             )}
+            <div className={styles.loginCardTopline}>
+              <span className={styles.portalPill}>
+                <ShieldCheck size={13} />
+                Portal seguro
+              </span>
+              <span className={styles.portalStatus}>Produção corporativa</span>
+            </div>
             <div className={styles.mobileBrand}>
               <Image src="/logo-gst-mark.svg" alt="SGS" width={56} height={56} priority />
               <div className={styles.mobileBrandText}>
@@ -366,7 +429,14 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
             </div>
 
             <h2 className={styles.loginTitle}>Bem-vindo de volta</h2>
-            <p className={styles.loginSubtitle}>Acesso seguro ao SGS</p>
+            <p className={styles.loginSubtitle}>
+              Acesso autenticado a processos, evidências e rotinas críticas da sua operação.
+            </p>
+            <div className={styles.loginHighlights}>
+              <span><CheckCircle2 size={14} /> Credenciais individuais</span>
+              <span><CheckCircle2 size={14} /> Acesso por empresa contratante</span>
+              <span><CheckCircle2 size={14} /> Sessão protegida</span>
+            </div>
 
             {sessionExpired && (
               <div className={styles.warningBanner}>
@@ -444,6 +514,12 @@ function LoginPageContent({ turnstileSiteKey }: LoginPageClientProps) {
                 >
                   Esqueceu a senha?
                 </button>
+              </div>
+
+              <div className={styles.contextBand}>
+                <span><Building2 size={14} /> Ambiente corporativo</span>
+                <span><Activity size={14} /> Monitoramento ativo</span>
+                <span><ArrowRight size={14} /> Fluxo protegido</span>
               </div>
 
               {error && (

@@ -181,11 +181,14 @@ export default withSentryConfig(nextConfig, {
   // Suprime saída do CLI fora de CI para não poluir logs locais.
   silent: !process.env.CI,
 
-  // Não injeta código de telemetria automático de Server Components.
-  disableLogger: true,
-
   // Necessário para App Router com muitos arquivos de página.
   widenClientFileUpload: true,
 
-  automaticVercelMonitors: false,
+  webpack: {
+    // Não injeta logging de debug do SDK no bundle final.
+    treeshake: {
+      removeDebugLogging: true,
+    },
+    automaticVercelMonitors: false,
+  },
 });

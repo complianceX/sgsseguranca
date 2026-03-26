@@ -1,231 +1,471 @@
-﻿import type { Metadata } from 'next';
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Database,
+  LockKeyhole,
+  ShieldCheck,
+  UserRoundCheck,
+} from 'lucide-react';
 import { getPublicLegalConfig } from '@/lib/legal';
+import styles from '../legal-pages.module.css';
 
 export const metadata: Metadata = {
   title: 'Política de Privacidade | SGS',
-  description: 'Política de privacidade e tratamento de dados pessoais do SGS — Sistema de Gestão de Segurança.',
+  description:
+    'Política de privacidade e tratamento de dados pessoais do SGS - Sistema de Gestão de Segurança.',
 };
 
 export const dynamic = 'force-dynamic';
 
+const purposeRows = [
+  [
+    'Autenticação, segurança da conta e prevenção a fraude',
+    'Execução do contrato, legítimo interesse e proteção do crédito/segurança operacional',
+  ],
+  [
+    'Gestão de documentos, treinamentos, evidências e rotinas de SST',
+    'Execução do contrato e cumprimento de obrigações legais/regulatórias do Cliente',
+  ],
+  [
+    'Trilha de auditoria, logs e rastreabilidade',
+    'Legítimo interesse, prevenção a fraudes e suporte a apuração de incidentes',
+  ],
+  [
+    'Atendimento, suporte e continuidade do serviço',
+    'Execução do contrato e legítimo interesse',
+  ],
+  [
+    'Faturamento, relacionamento comercial e comunicações institucionais',
+    'Execução do contrato, cumprimento de obrigação legal e legítimo interesse',
+  ],
+  [
+    'Funcionalidades opcionais de IA, quando habilitadas pelo Cliente',
+    'Execução do contrato, legítimo interesse e, quando aplicável, consentimento/instrumento específico',
+  ],
+];
+
+const dataCategories = [
+  'Dados cadastrais e profissionais, como nome, CPF, e-mail, cargo, matrícula ou identificadores internos.',
+  'Credenciais de acesso, hash de senha, tokens de sessão, dados de MFA/segurança e sinais de dispositivo.',
+  'Registros operacionais e documentos de SST enviados pela organização contratante, como treinamentos, APRs, PTAs, checklists, CATs, evidências fotográficas, exames e laudos.',
+  'Logs de acesso, endereço IP, User-Agent, carimbos de data/hora e eventos de auditoria necessários à segurança e à prestação de contas.',
+  'Dados de suporte, chamados, trocas de e-mail e interações comerciais ligadas ao uso da plataforma.',
+];
+
+const securityMeasures = [
+  'Criptografia em trânsito, controles de sessão, cookies seguros e isolamento multiempresa por políticas de acesso.',
+  'Trilha de auditoria, monitoramento, rate limiting, proteção contra abuso automatizado e controles de autenticação.',
+  'Privilégios mínimos, segregação de ambiente, backups governados e mecanismos de rastreabilidade.',
+  'Processos de análise, contenção e resposta a incidentes com comunicação ao controlador e, quando exigido, à ANPD e aos titulares.',
+];
+
+const rightsList = [
+  'Confirmação da existência de tratamento e acesso aos dados pessoais.',
+  'Correção de dados incompletos, inexatos ou desatualizados.',
+  'Anonimização, bloqueio ou eliminação, quando cabível.',
+  'Portabilidade, observados segredos comercial e industrial e requisitos técnicos aplicáveis.',
+  'Informação sobre compartilhamentos, bases legais e consequências de eventual negativa.',
+  'Revogação do consentimento e oposição, nas hipóteses admitidas pela LGPD.',
+];
+
 export default function PrivacidadePage() {
-  const lastUpdated = '25 de março de 2026';
+  const lastUpdated = '26 de março de 2026';
   const legal = getPublicLegalConfig();
-  const operatorName =
-    legal.companyName || 'a empresa operadora identificada no contrato vigente';
-  const operatorDocument = legal.companyDocument
+  const companyName =
+    legal.companyName || 'a operadora identificada no instrumento contratual aplicável';
+  const companyDocument = legal.companyDocument
     ? `, inscrita no CPF/CNPJ ${legal.companyDocument}`
     : '';
-  const operatorAddress =
-    legal.companyAddress ||
-    'com sede informada no instrumento contratual aplicavel';
+  const companyAddress =
+    legal.companyAddress || 'endereço informado no contrato comercial vigente';
   const privacyChannel =
-    legal.privacyEmail || 'canal de privacidade informado ao administrador da sua organizacao';
+    legal.privacyEmail ||
+    'canal de privacidade informado ao administrador da organização';
   const privacyHref = legal.privacyEmail ? `mailto:${legal.privacyEmail}` : null;
-  const dpoLabel = legal.dpoName || 'canal LGPD do controlador';
+  const dpoLabel = legal.dpoName || 'canal de privacidade e proteção de dados';
   const hasMissingLegalInfo = legal.missingRequiredFields.length > 0;
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-app)', color: 'var(--text-primary)' }}>
-      <div style={{ maxWidth: 800, margin: '0 auto', padding: '3rem 1.5rem 4rem' }}>
+    <div className={styles.page}>
+      <div className={styles.shell}>
+        <Link href="/login" className={styles.backLink}>
+          <ArrowLeft size={16} />
+          Voltar ao login
+        </Link>
 
-        {/* Header */}
-        <div style={{ marginBottom: '2.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1.5rem' }}>
-          <Link
-            href="/login"
-            style={{ fontSize: '0.85rem', color: 'var(--ds-color-text-secondary)', textDecoration: 'none', display: 'inline-block', marginBottom: '1.5rem' }}
-          >
-            ← Voltar ao login
-          </Link>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-            Política de Privacidade
-          </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--ds-color-text-secondary)' }}>
-            SGS — Sistema de Gestão de Segurança &nbsp;·&nbsp; Última atualização: {lastUpdated}
-          </p>
-        </div>
-
-        {/* Content */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', lineHeight: 1.7 }}>
-
-          {hasMissingLegalInfo ? (
-            <section
-              style={{
-                border: '1px solid #f59e0b',
-                background: '#fff7ed',
-                color: '#9a3412',
-                borderRadius: 12,
-                padding: '1rem 1.25rem',
-              }}
-            >
-              <strong>Revisao juridica pendente.</strong>
-              <p style={{ marginTop: '0.5rem' }}>
-                Esta implantacao ainda usa texto institucional de contingencia. Antes do go-live,
-                configure os dados finais do controlador para publicar a politica com razao social,
-                CPF/CNPJ, endereco, canal LGPD e foro contratual corretos.
-              </p>
-            </section>
-          ) : null}
-
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>1. Controlador dos Dados</h2>
-            <p>
-              O SGS (Sistema de Gestao de Seguranca) e operado por <strong>{operatorName}{operatorDocument}</strong>,
-              com sede em <strong>{operatorAddress}</strong>. Para fins da Lei Geral de Protecao de Dados (LGPD
-              — Lei nº 13.709/2018), esta entidade atua como <strong>controladora</strong> dos dados pessoais tratados
-              na plataforma.
+        <section className={styles.hero}>
+          <div className={styles.heroMain}>
+            <span className={styles.heroEyebrow}>
+              <ShieldCheck size={14} />
+              Privacidade e governança de dados
+            </span>
+            <h1 className={styles.heroTitle}>Política de Privacidade</h1>
+            <p className={styles.heroDescription}>
+              Esta política descreve como o SGS trata dados pessoais no contexto da
+              plataforma, com linguagem adequada para operação corporativa, suporte a
+              auditorias e conformidade com a LGPD. Ela deve ser lida em conjunto com
+              os contratos comerciais, eventuais anexos de tratamento de dados e os
+              controles internos da organização contratante.
             </p>
-            <p style={{ marginTop: '0.75rem' }}>
-              Encarregado de protecao de dados (DPO): <strong>{dpoLabel}</strong> —{' '}
-              {privacyHref ? (
-                <a href={privacyHref} style={{ color: 'var(--brand)' }}>{privacyChannel}</a>
-              ) : (
-                <span>{privacyChannel}</span>
-              )}
+            <div className={styles.heroMeta}>
+              <span className={styles.metaPill}>
+                <BadgeCheck size={14} />
+                Última atualização: {lastUpdated}
+              </span>
+              <span className={styles.metaPill}>
+                <Database size={14} />
+                Dados operacionais, cadastrais e de auditoria
+              </span>
+              <span className={styles.metaPill}>
+                <UserRoundCheck size={14} />
+                Alinhado à LGPD e às orientações da ANPD
+              </span>
+            </div>
+          </div>
+
+          <aside className={styles.heroSide}>
+            <p className={styles.sideLabel}>Papel dos agentes</p>
+            <h2 className={styles.sideTitle}>Controladoria e operação tratadas com clareza</h2>
+            <p className={styles.sideCopy}>
+              O papel da SGS muda conforme a atividade de tratamento realizada. Em
+              operações da plataforma, esse enquadramento deve ser lido junto com o
+              contrato firmado com a empresa cliente.
+            </p>
+            <div className={styles.sideList}>
+              <div className={styles.sideItem}>
+                <span className={styles.sideIcon}>
+                  <UserRoundCheck size={18} />
+                </span>
+                <div>
+                  <strong>Quando atuamos como controladores</strong>
+                  <p>
+                    Para dados institucionais, contas sob nossa gestão direta,
+                    relacionamento comercial, faturamento, segurança da plataforma e
+                    obrigações legais próprias.
+                  </p>
+                </div>
+              </div>
+              <div className={styles.sideItem}>
+                <span className={styles.sideIcon}>
+                  <Database size={18} />
+                </span>
+                <div>
+                  <strong>Quando atuamos como operadores</strong>
+                  <p>
+                    Para dados inseridos pelo Cliente em rotinas de SST, executando o
+                    tratamento conforme as instruções e finalidades definidas pela
+                    organização contratante.
+                  </p>
+                </div>
+              </div>
+              <div className={styles.sideItem}>
+                <span className={styles.sideIcon}>
+                  <LockKeyhole size={18} />
+                </span>
+                <div>
+                  <strong>Canal oficial</strong>
+                  <p>
+                    {privacyHref ? (
+                      <a href={privacyHref} className={styles.inlineLink}>
+                        {privacyChannel}
+                      </a>
+                    ) : (
+                      privacyChannel
+                    )}
+                    {' '}· {dpoLabel}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section className={styles.summaryGrid}>
+          <article className={styles.summaryCard}>
+            <p className={styles.summaryLabel}>Operadora da plataforma</p>
+            <h2 className={styles.summaryTitle}>
+              {companyName}
+              {companyDocument}
+            </h2>
+            <p className={styles.summaryText}>
+              Endereço informado para esta operação: {companyAddress}.
+            </p>
+          </article>
+          <article className={styles.summaryCard}>
+            <p className={styles.summaryLabel}>Atendimento ao titular</p>
+            <h2 className={styles.summaryTitle}>Fluxo orientado por papel regulatório</h2>
+            <p className={styles.summaryText}>
+              Quando a SGS atuar como operadora, pedidos do titular devem ser
+              direcionados preferencialmente ao controlador, sem prejuízo do nosso apoio
+              operacional e técnico.
+            </p>
+          </article>
+          <article className={styles.summaryCard}>
+            <p className={styles.summaryLabel}>Postura enterprise</p>
+            <h2 className={styles.summaryTitle}>Segurança, rastreabilidade e retenção</h2>
+            <p className={styles.summaryText}>
+              Mantemos controles de acesso, logs, segregação multiempresa e processos de
+              continuidade compatíveis com uma operação corporativa.
+            </p>
+          </article>
+        </section>
+
+        {hasMissingLegalInfo ? (
+          <section className={styles.warningCard}>
+            <strong>
+              <ShieldCheck size={16} />
+              Dados institucionais ainda incompletos
+            </strong>
+            <p>
+              Esta página já está estruturada em padrão enterprise, mas a publicação
+              definitiva depende do preenchimento completo dos campos públicos
+              obrigatórios da operação.
+            </p>
+          </section>
+        ) : null}
+
+        <div className={styles.content}>
+          <section className={styles.section}>
+            <h2>1. Escopo e agentes de tratamento</h2>
+            <p>
+              O SGS é operado por <strong>{companyName}{companyDocument}</strong>, com
+              sede em <strong>{companyAddress}</strong>. Em conformidade com a LGPD, a
+              qualificação jurídica da SGS depende da atividade de tratamento e do papel
+              concretamente desempenhado em cada operação.
+            </p>
+            <div className={styles.featureGrid}>
+              <article className={styles.featureCard}>
+                <h3>Controlador</h3>
+                <p>
+                  Atuamos como controladores quando definimos finalidade, meios e
+                  decisões sobre tratamento relacionado à nossa operação institucional,
+                  segurança da plataforma, faturamento, marketing B2B, suporte, gestão de
+                  contas e cumprimento de obrigações próprias.
+                </p>
+              </article>
+              <article className={styles.featureCard}>
+                <h3>Operador</h3>
+                <p>
+                  Atuamos predominantemente como operadores quando tratamos dados
+                  inseridos pelo Cliente na plataforma para gerir SST, treinamentos,
+                  evidências, documentos e rotinas ocupacionais de trabalhadores e
+                  terceiros sob responsabilidade da empresa contratante.
+                </p>
+              </article>
+            </div>
+            <p className={styles.callout}>
+              Para esse segundo cenário, a empresa contratante normalmente é a
+              controladora e a SGS presta suporte técnico e operacional conforme contrato
+              e instruções válidas do Cliente.
             </p>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>2. Dados Coletados</h2>
-            <p>Coletamos os dados estritamente necessários para a prestação do serviço:</p>
-            <ul style={{ paddingLeft: '1.25rem', marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <li><strong>Identificação:</strong> nome completo, CPF, e-mail, cargo/função.</li>
-              <li><strong>Autenticação:</strong> hash de senha (argon2id), tokens JWT em cookie HttpOnly.</li>
-              <li><strong>Dados de uso:</strong> logs de acesso, ações realizadas (trilha de auditoria).</li>
-              <li><strong>Dados SST:</strong> documentos de segurança do trabalho inseridos pela sua empresa (APRs, PTAs, checklists, CATs, treinamentos, exames médicos).</li>
-              <li><strong>Dispositivo:</strong> endereço IP, User-Agent (para detecção de sessões suspeitas).</li>
+          <section className={styles.section}>
+            <h2>2. Categorias de dados tratados</h2>
+            <p>
+              Tratamos apenas os dados adequados, pertinentes e necessários para prestar
+              o serviço, manter a segurança do ambiente e cumprir obrigações contratuais,
+              legais e regulatórias.
+            </p>
+            <ul className={styles.bulletList}>
+              {dataCategories.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>3. Finalidades e Base Legal</h2>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+          <section className={styles.section}>
+            <h2>3. Finalidades e bases legais</h2>
+            <p>
+              As bases legais variam conforme o contexto de uso e o papel exercido. A
+              tabela abaixo apresenta as hipóteses predominantes na operação padrão da
+              plataforma.
+            </p>
+            <table className={styles.dataTable}>
               <thead>
-                <tr style={{ background: 'var(--bg-subtle)', textAlign: 'left' }}>
-                  <th style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid var(--border)' }}>Finalidade</th>
-                  <th style={{ padding: '0.5rem 0.75rem', borderBottom: '1px solid var(--border)' }}>Base Legal (LGPD)</th>
+                <tr>
+                  <th>Finalidade</th>
+                  <th>Base legal predominante</th>
                 </tr>
               </thead>
               <tbody>
-                {[
-                  ['Autenticação e controle de acesso', 'Art. 7º, II — execução de contrato'],
-                  ['Gestão de documentos SST', 'Art. 7º, II — execução de contrato'],
-                  ['Cumprimento de obrigações legais NR', 'Art. 7º, II — obrigação legal'],
-                  ['Trilha de auditoria e segurança', 'Art. 7º, IX — legítimo interesse'],
-                  ['Envio de alertas e notificações', 'Art. 7º, II — execução de contrato'],
-                  ['Melhoria do serviço (analytics internos)', 'Art. 7º, IX — legítimo interesse'],
-                ].map(([finalidade, base]) => (
-                  <tr key={finalidade} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '0.5rem 0.75rem' }}>{finalidade}</td>
-                    <td style={{ padding: '0.5rem 0.75rem', color: 'var(--ds-color-text-secondary)' }}>{base}</td>
+                {purposeRows.map(([purpose, basis]) => (
+                  <tr key={purpose}>
+                    <td>{purpose}</td>
+                    <td>{basis}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>4. Compartilhamento de Dados</h2>
-            <p>Seus dados <strong>não são vendidos</strong>. Compartilhamos apenas com:</p>
-            <ul style={{ paddingLeft: '1.25rem', marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <li><strong>Provedores de infraestrutura:</strong> Railway (hospedagem), AWS S3 (armazenamento de arquivos) — localizados fora do Brasil, com cláusulas contratuais adequadas.</li>
-              <li><strong>Serviço de e-mail:</strong> Resend / Brevo — apenas para disparo de notificações operacionais.</li>
-              <li><strong>Autoridades públicas:</strong> quando exigido por lei ou ordem judicial.</li>
+          <section className={styles.section}>
+            <h2>4. Compartilhamento e cadeia de operadores</h2>
+            <p>
+              Não comercializamos dados pessoais. O compartilhamento ocorre apenas quando
+              necessário para a execução do serviço, para atendimento de obrigação legal
+              ou por solicitação do controlador competente.
+            </p>
+            <ul className={styles.bulletList}>
+              <li>
+                <strong>Infraestrutura e armazenamento:</strong> provedores de nuvem,
+                banco de dados, filas e armazenamento de arquivos utilizados para manter
+                a plataforma disponível e resiliente.
+              </li>
+              <li>
+                <strong>Comunicações transacionais:</strong> provedores de e-mail e
+                notificações para alertas operacionais, redefinição de senha e mensagens
+                essenciais ao serviço.
+              </li>
+              <li>
+                <strong>Suporte e segurança:</strong> ferramentas de monitoramento,
+                observabilidade e prevenção a abuso, estritamente vinculadas à operação.
+              </li>
+              <li>
+                <strong>Autoridades públicas e terceiros legitimados:</strong> quando
+                exigido por lei, ordem judicial, investigação ou obrigação regulatória.
+              </li>
             </ul>
-            <p style={{ marginTop: '0.75rem' }}>
-              <strong>Inteligência Artificial (Sophie):</strong> quando habilitada pela sua organização, dados relevantes
-              podem ser processados pela API da OpenAI. Esta funcionalidade requer aceitação de termos específicos e só
-              é ativada após formalização de contrato de processamento de dados (DPA) com a OpenAI.
+            <p className={styles.callout}>
+              Caso a empresa contratante habilite funcionalidades opcionais de IA,
+              eventuais integrações adicionais observarão os parâmetros técnicos e
+              contratuais específicos daquele recurso.
             </p>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>5. Retenção de Dados</h2>
-            <ul style={{ paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <li>Dados de conta ativa: enquanto o contrato estiver vigente.</li>
-              <li>Documentos SST: mínimo de 5 anos (conforme NR-1 e legislação trabalhista).</li>
-              <li>Logs de auditoria (trilha forense): 7 anos.</li>
-              <li>Após encerramento do contrato: exclusão ou anonimização em até 90 dias, salvo obrigação legal.</li>
+          <section className={styles.section}>
+            <h2>5. Transferências internacionais</h2>
+            <p>
+              Alguns provedores tecnológicos utilizados na operação podem tratar dados
+              fora do Brasil. Quando isso ocorrer, adotamos medidas contratuais,
+              organizacionais e técnicas compatíveis com a LGPD e com as orientações da
+              ANPD, buscando garantir um nível adequado de proteção.
+            </p>
+          </section>
+
+          <section className={styles.section}>
+            <h2>6. Retenção, descarte e exportação</h2>
+            <p>
+              Os dados são mantidos pelo tempo necessário para cumprir a finalidade do
+              tratamento, respeitar obrigações legais, preservar evidências de auditoria
+              e garantir a continuidade da operação contratada.
+            </p>
+            <ul className={styles.bulletList}>
+              <li>Dados de conta ativa permanecem enquanto houver vínculo contratual ou necessidade operacional.</li>
+              <li>Documentos e evidências de SST seguem a política de retenção definida pelo Cliente e a legislação aplicável.</li>
+              <li>Logs de auditoria e segurança podem ser mantidos por período superior ao da conta, quando necessários para investigação, defesa ou prestação de contas.</li>
+              <li>Ao término do contrato, os dados podem ser exportados pelo Cliente e depois eliminados, anonimizados ou mantidos pelo prazo legal aplicável.</li>
             </ul>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>6. Seus Direitos (LGPD Art. 18)</h2>
-            <p>Você tem direito a:</p>
-            <ul style={{ paddingLeft: '1.25rem', marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <li><strong>Confirmação e acesso</strong> aos dados que possuímos sobre você.</li>
-              <li><strong>Portabilidade</strong> dos seus dados em formato estruturado (disponível via <em>Configurações → Exportar meus dados</em>).</li>
-              <li><strong>Correção</strong> de dados inexatos ou desatualizados.</li>
-              <li><strong>Eliminação</strong> dos dados tratados com base em consentimento.</li>
-              <li><strong>Revogação do consentimento</strong> para funcionalidades opcionais (ex.: IA).</li>
-              <li><strong>Oposição</strong> ao tratamento baseado em legítimo interesse.</li>
+          <section className={styles.section}>
+            <h2>7. Direitos dos titulares</h2>
+            <p>
+              Os direitos previstos no art. 18 da LGPD podem ser exercidos contra o
+              controlador competente. Quando a SGS atuar como operadora, auxiliaremos o
+              Cliente na execução desses pedidos dentro dos limites do contrato e das
+              instruções recebidas.
+            </p>
+            <ul className={styles.bulletList}>
+              {rightsList.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
             </ul>
-            <p style={{ marginTop: '0.75rem' }}>
-              Para exercer seus direitos, contate:{' '}
+            <p className={styles.callout}>
+              Para dados diretamente controlados por nós, entre em contato por{' '}
               {privacyHref ? (
-                <a href={privacyHref} style={{ color: 'var(--brand)' }}>{privacyChannel}</a>
+                <a href={privacyHref} className={styles.inlineLink}>
+                  {privacyChannel}
+                </a>
               ) : (
-                <span>{privacyChannel}</span>
+                privacyChannel
               )}
-              {' '}— resposta em ate 15 dias corridos.
+              . Para dados sob controle da empresa contratante, o caminho prioritário é o
+              administrador ou encarregado indicado pelo seu empregador/organização.
             </p>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>7. Segurança</h2>
+          <section className={styles.section}>
+            <h2>8. Segurança da informação e resposta a incidentes</h2>
             <p>
-              Adotamos as seguintes medidas técnicas e organizacionais: criptografia em trânsito (TLS 1.2+),
-              hash de senhas com argon2id (fator de custo elevado), autenticação via tokens JWT de curta duração
-              (15 min) em cookies HttpOnly/Secure, Row-Level Security no banco de dados para isolamento
-              multi-tenant, e trilha de auditoria imutável com encadeamento de hashes.
+              Adotamos medidas técnicas e administrativas compatíveis com o risco da
+              operação, observando boas práticas de mercado, monitoramento contínuo e
+              governança de acesso.
+            </p>
+            <ul className={styles.bulletList}>
+              {securityMeasures.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            <p className={styles.callout}>
+              Em caso de incidente com potencial de risco ou dano relevante, aplicaremos
+              medidas de contenção, análise, registro e comunicação ao controlador e às
+              autoridades competentes, nos termos da legislação e da regulamentação
+              aplicável.
             </p>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>8. Cookies</h2>
+          <section className={styles.section}>
+            <h2>9. Cookies e tecnologias estritamente necessárias</h2>
             <p>
-              Utilizamos apenas cookies estritamente necessários para a sessão autenticada
-              (token de acesso e refresh token em cookies HttpOnly). Não utilizamos cookies de rastreamento
-              de terceiros ou publicidade.
+              Utilizamos cookies e mecanismos técnicos necessários para autenticação,
+              segurança, continuidade de sessão e preferências essenciais da plataforma.
+              Não vendemos perfis de navegação nem usamos publicidade comportamental de
+              terceiros na área autenticada.
             </p>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>9. Alterações nesta Política</h2>
+          <section className={styles.section}>
+            <h2>10. Atualizações desta política</h2>
             <p>
-              Reservamo-nos o direito de atualizar esta política periodicamente. Alterações relevantes serão
-              comunicadas via e-mail e/ou notificação na plataforma com antecedência mínima de 30 dias.
-              A data da última atualização está sempre indicada no topo desta página.
+              Esta política pode ser revisada para refletir mudanças legais, operacionais
+              ou tecnológicas. Alterações relevantes serão comunicadas pelos canais
+              adequados, com indicação da nova data de atualização.
             </p>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '0.75rem' }}>10. Contato e ANPD</h2>
+          <section className={styles.section}>
+            <h2>11. Contato e autoridade supervisora</h2>
             <p>
-              Em caso de dúvidas ou para exercer seus direitos:{' '}
+              Dúvidas, solicitações ou comunicações relacionadas a esta política podem ser
+              encaminhadas para{' '}
               {privacyHref ? (
-                <a href={privacyHref} style={{ color: 'var(--brand)' }}>{privacyChannel}</a>
+                <a href={privacyHref} className={styles.inlineLink}>
+                  {privacyChannel}
+                </a>
               ) : (
-                <span>{privacyChannel}</span>
+                privacyChannel
               )}
+              .
             </p>
-            <p style={{ marginTop: '0.5rem' }}>
-              Você também pode peticionar à Autoridade Nacional de Proteção de Dados (ANPD):{' '}
-              <a href="https://www.gov.br/anpd" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)' }}>
+            <p>
+              O titular também pode peticionar perante a Autoridade Nacional de Proteção
+              de Dados (ANPD), conforme os canais oficiais divulgados em{' '}
+              <a
+                href="https://www.gov.br/anpd"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.inlineLink}
+              >
                 www.gov.br/anpd
               </a>
+              .
             </p>
           </section>
-
         </div>
 
-        {/* Footer nav */}
-        <div style={{ marginTop: '3rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '1.5rem', fontSize: '0.875rem' }}>
-          <Link href="/login" style={{ color: 'var(--ds-color-text-secondary)', textDecoration: 'none' }}>Login</Link>
-          <Link href="/termos" style={{ color: 'var(--ds-color-text-secondary)', textDecoration: 'none' }}>Termos de Uso</Link>
+        <div className={styles.footerNav}>
+          <Link href="/login">Login</Link>
+          <Link href="/termos">Termos de Uso</Link>
         </div>
 
+        <p className={styles.footnote}>
+          Esta política foi redigida para a operação padrão do SGS e deve ser interpretada
+          em conjunto com o contrato comercial, eventuais anexos de proteção de dados e
+          instruções formais do Cliente quando houver tratamento em nome de terceiros.
+        </p>
       </div>
     </div>
   );
