@@ -8,6 +8,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        default:
+          'bg-[var(--component-button-primary-bg)] text-[var(--component-button-primary-text)] hover:bg-[var(--component-button-primary-hover-bg)] active:bg-[var(--ds-color-action-primary-active)] disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]',
         primary:
           'bg-[var(--component-button-primary-bg)] text-[var(--component-button-primary-text)] hover:bg-[var(--component-button-primary-hover-bg)] active:bg-[var(--ds-color-action-primary-active)] disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]',
         secondary:
@@ -16,6 +18,12 @@ const buttonVariants = cva(
           'border-[var(--component-button-outline-border)] bg-transparent text-[var(--ds-color-text-primary)] hover:border-[var(--color-border-strong)] hover:bg-[var(--ds-color-surface-muted)] active:bg-[var(--ds-color-bg-subtle)] disabled:border-[var(--disabled-border)] disabled:bg-transparent disabled:text-[var(--disabled-text)]',
         ghost:
           'bg-transparent text-[var(--component-button-ghost-text)] hover:bg-[var(--component-button-ghost-bg-hover)] hover:text-[var(--ds-color-text-primary)] active:bg-[var(--ds-color-primary-subtle-hover)] disabled:bg-transparent disabled:text-[var(--disabled-text)]',
+        success:
+          'bg-[var(--component-button-success-bg)] text-[var(--component-button-success-text)] hover:bg-[var(--ds-color-success-hover)] active:bg-[var(--ds-color-success-hover)] disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]',
+        warning:
+          'bg-[var(--component-button-warning-bg)] text-[var(--component-button-warning-text)] hover:bg-[var(--ds-color-warning-hover)] active:bg-[var(--ds-color-warning-hover)] disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]',
+        info:
+          'bg-[var(--ds-color-info)] text-[var(--ds-color-text-inverse)] hover:bg-[var(--ds-color-info-hover)] active:bg-[var(--ds-color-info-hover)] disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]',
         destructive:
           'bg-[var(--component-button-danger-bg)] text-[var(--component-button-danger-text)] hover:bg-[var(--ds-color-danger-hover)] active:bg-[var(--ds-color-danger-hover)] disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]',
         link:
