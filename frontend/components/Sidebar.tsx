@@ -1,7 +1,6 @@
 ﻿'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
@@ -196,22 +195,14 @@ export function Sidebar({
           isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        {/* Logo */}
+        {/* Brand panel */}
         <div className="border-b border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-bg-soft)]/60 px-5 py-4">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-[color:var(--component-sidebar-panel-border)] bg-[var(--component-sidebar-panel-bg)] px-3.5 py-4 text-center">
-            <Image
-              src="/logo-sgs.svg"
-              alt="Logo SGS"
-              width={78}
-              height={110}
-              priority
-              className="h-auto w-[78px]"
-            />
+          <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-[color:var(--component-sidebar-panel-border)] bg-[var(--component-sidebar-panel-bg)] px-3.5 py-6 text-center">
             <div className="min-w-0">
               <p className="text-[0.66rem] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-sidebar-muted)]">
                 Plataforma enterprise
               </p>
-              <p className="mt-1 text-[0.76rem] leading-5 text-[var(--ds-color-sidebar-text)]">
+              <p className="mt-2 text-[0.8rem] leading-6 text-[var(--ds-color-sidebar-text)]">
                 Sistema de Gestão de Segurança
               </p>
             </div>
