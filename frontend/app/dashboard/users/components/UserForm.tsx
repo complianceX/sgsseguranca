@@ -249,7 +249,7 @@ export function UserForm({ id }: UserFormProps) {
         </div>
       </div>
 
-      <form onSubmit={formSubmit(onSubmit)} className="space-y-6 rounded-xl border bg-white p-6 shadow-sm">
+      <form onSubmit={formSubmit(onSubmit)} className="space-y-6 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
             <label htmlFor="nome" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">

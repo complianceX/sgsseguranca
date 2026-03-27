@@ -160,7 +160,7 @@ export function RiskForm({ id }: RiskFormProps) {
         <div className="flex items-center space-x-4">
           <Link
             href="/dashboard/risks"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm transition hover:bg-[var(--ds-color-surface-muted)]"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)] transition hover:bg-[var(--ds-color-surface-muted)]"
             title="Voltar"
           >
             <ArrowLeft className="h-5 w-5 text-[var(--ds-color-text-secondary)]" />
@@ -171,7 +171,7 @@ export function RiskForm({ id }: RiskFormProps) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 rounded-xl border bg-white p-6 shadow-sm">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
         <div className="space-y-4">
           <div>
             <label htmlFor="company_id" className="block text-sm font-medium text-[var(--ds-color-text-secondary)]">Empresa</label>

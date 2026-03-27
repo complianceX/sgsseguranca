@@ -16,7 +16,7 @@ interface AuditSectionProps<T extends AuditFields & FieldValues> {
 
 export function AuditSection<T extends AuditFields & FieldValues>({ register, auditors, disabled }: AuditSectionProps<T>) {
   return (
-    <div className="ds-form-page rounded-xl border bg-white p-6 shadow-sm">
+    <div className="ds-form-page rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-[var(--ds-shadow-sm)]">
       <h2 className="mb-4 text-lg font-bold text-[var(--ds-color-text-primary)]">Seção de Auditoria</h2>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div>

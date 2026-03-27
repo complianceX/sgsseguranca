@@ -379,7 +379,7 @@ export default function DossiersPage() {
 
   return (
     <div className="ds-system-scope space-y-6">
-      <div className="rounded-xl border bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
         <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Dossies de SST</h1>
         <p className="text-[var(--ds-color-text-muted)]">
           Geração automatica de PDF oficial e pacote ZIP auditável por colaborador e obra/setor.
@@ -387,7 +387,7 @@ export default function DossiersPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
           <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
             Dossie por colaborador
           </p>
@@ -443,7 +443,7 @@ export default function DossiersPage() {
           </button>
         </div>
 
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
           <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
             Dossie por obra/setor
           </p>
@@ -501,7 +501,7 @@ export default function DossiersPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-[var(--ds-color-text-secondary)]" />
             <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
@@ -524,7 +524,7 @@ export default function DossiersPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
           <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
             Prévia do recorte atual
           </p>
