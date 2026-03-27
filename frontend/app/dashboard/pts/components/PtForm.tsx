@@ -1595,7 +1595,7 @@ export function PtForm({ id }: PtFormProps) {
                 <li key={i}>{s}</li>
               ))}
             </ul>
-            <p className="text-[11px] italic text-[var(--ds-color-text-secondary)]">Nível de Risco Identificado: {result.riskLevel}</p>
+            <p className="text-xs italic text-[var(--ds-color-text-secondary)]">Nível de Risco Identificado: {result.riskLevel}</p>
           </div>
         ),
         duration: 8000,
@@ -1680,7 +1680,7 @@ export function PtForm({ id }: PtFormProps) {
         <div className="ds-form-section">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-success)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-success)]">
                 PT em campo
               </p>
               <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
@@ -1689,11 +1689,11 @@ export function PtForm({ id }: PtFormProps) {
             </div>
             <div className="grid grid-cols-2 gap-2 text-center md:w-[260px]">
               <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/28 px-3 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">Rascunho</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">Rascunho</p>
                 <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">Automático</p>
               </div>
               <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/28 px-3 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">Operação</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">Operação</p>
                 <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">Campo / obra</p>
               </div>
             </div>
@@ -1845,7 +1845,7 @@ export function PtForm({ id }: PtFormProps) {
               ) : null}
 
               {draftSavedAt ? (
-                <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                <p className="mt-4 text-xs font-medium uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                   Último rascunho salvo às{' '}
                   {new Date(draftSavedAt).toLocaleTimeString('pt-BR', {
                     hour: '2-digit',
@@ -1904,7 +1904,7 @@ export function PtForm({ id }: PtFormProps) {
                     key={item.label}
                     className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3"
                   >
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                       {item.label}
                     </p>
                     <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{item.value}</p>
@@ -1956,7 +1956,7 @@ export function PtForm({ id }: PtFormProps) {
 
                 {sophieSuggestedRisks.length > 0 ? (
                   <div className="mt-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
                       Riscos sugeridos
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -1977,7 +1977,7 @@ export function PtForm({ id }: PtFormProps) {
 
                 {sophieMandatoryChecklists.length > 0 ? (
                   <div className="mt-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
                       Checklists mandatórios e complementares
                     </p>
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -2294,7 +2294,7 @@ function WizardMetric({
 
   return (
     <div className={`rounded-[var(--ds-radius-lg)] px-3 py-3 ${tones[tone]}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] opacity-80">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">{label}</p>
       <p className="mt-2 text-lg font-semibold">{value}</p>
     </div>
   );

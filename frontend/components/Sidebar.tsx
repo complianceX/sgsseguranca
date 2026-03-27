@@ -195,20 +195,6 @@ export function Sidebar({
           isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        {/* Brand panel */}
-        <div className="border-b border-[color:var(--ds-color-sidebar-border)] bg-[color:var(--ds-color-sidebar-bg-soft)]/60 px-5 py-4">
-          <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-[color:var(--component-sidebar-panel-border)] bg-[var(--component-sidebar-panel-bg)] px-3.5 py-6 text-center">
-            <div className="min-w-0">
-              <p className="text-[0.66rem] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-sidebar-muted)]">
-                Plataforma enterprise
-              </p>
-              <p className="mt-2 text-[0.8rem] leading-6 text-[var(--ds-color-sidebar-text)]">
-                Sistema de Gestão de Segurança
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Nav */}
         <div className="flex-1 overflow-y-auto py-3">
           <nav>

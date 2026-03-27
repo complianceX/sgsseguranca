@@ -388,7 +388,7 @@ export default function DossiersPage() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
+          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-primary)]">
             Dossie por colaborador
           </p>
           <input
@@ -444,7 +444,7 @@ export default function DossiersPage() {
         </div>
 
         <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
+          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-primary)]">
             Dossie por obra/setor
           </p>
           <input
@@ -503,8 +503,8 @@ export default function DossiersPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-[var(--ds-color-text-secondary)]" />
-            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
+            <ShieldCheck className="h-4 w-4 text-[var(--ds-color-text-primary)]" />
+            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-primary)]">
               Política de inclusão oficial
             </p>
           </div>
@@ -525,7 +525,7 @@ export default function DossiersPage() {
         </div>
 
         <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
+          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-primary)]">
             Prévia do recorte atual
           </p>
           {activePreviewLoading ? (
@@ -608,7 +608,7 @@ function MetricCard({
           : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]'
       }`}
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-primary)]">
         {label}
       </p>
       <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{value}</p>

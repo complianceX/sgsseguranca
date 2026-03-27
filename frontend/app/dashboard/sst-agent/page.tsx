@@ -97,14 +97,14 @@ function SuggestedResourceGroup({
 
   return (
     <div className="mt-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
         {title}
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
         {items.slice(0, 5).map((item) => (
           <span
             key={item.id}
-            className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-1 text-[11px] font-medium text-[var(--ds-color-text-primary)]"
+            className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-1 text-xs font-medium text-[var(--ds-color-text-primary)]"
           >
             {item.label}
           </span>
@@ -127,7 +127,7 @@ function SuggestedTextGroup({
 
   return (
     <div className="mt-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
         {title}
       </p>
       <div className="mt-2 space-y-1.5">
@@ -151,7 +151,7 @@ function SuggestedTextGroup({
                 <p className="mt-1 text-[var(--ds-color-text-secondary)]">{reason}</p>
               ) : null}
               {sourceLabel ? (
-                <p className="mt-1 uppercase tracking-[0.08em] text-[11px] text-[var(--ds-color-text-secondary)]">
+                <p className="mt-1 text-xs uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
                   {sourceLabel}
                 </p>
               ) : null}
@@ -701,26 +701,26 @@ export default function SstAgentPage() {
                 O workspace recebeu o contexto da fila central para acelerar a análise e orientar a próxima ação.
               </p>
             </div>
-            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-white/50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-warning)]">
+            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-warning-border)] bg-white/50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-warning)]">
               prioridade {pendingContext.priority || 'operacional'}
             </div>
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Módulo</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Módulo</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.module || 'Não informado'}</p>
             </div>
             <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Status</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Status</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.status || 'Não informado'}</p>
             </div>
             <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Obra/site</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Obra/site</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.siteName || 'Não informado'}</p>
             </div>
             <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Prazo</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Prazo</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                 {pendingContext.dueDate ? new Date(pendingContext.dueDate).toLocaleDateString('pt-BR') : 'Não informado'}
               </p>
@@ -732,7 +732,7 @@ export default function SstAgentPage() {
             <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
               {pendingContext.description || 'Sem descrição complementar.'}
             </p>
-            <p className="mt-2 text-[11px] text-[var(--ds-color-text-secondary)]">
+            <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
               Responsável atual: {pendingContext.responsible || 'Não definido'}
             </p>
           </div>
@@ -761,15 +761,15 @@ export default function SstAgentPage() {
           {pendingContextAnalysis ? (
             <div className="mt-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ds-color-primary-subtle)] px-2.5 py-1 text-[11px] font-semibold text-[var(--ds-color-action-primary)]">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ds-color-primary-subtle)] px-2.5 py-1 text-xs font-semibold text-[var(--ds-color-action-primary)]">
                   <Sparkles className="h-3.5 w-3.5" />
                   análise contextual
                 </span>
-                <span className="text-[11px] text-[var(--ds-color-text-secondary)]">
+                <span className="text-xs text-[var(--ds-color-text-secondary)]">
                   Confiança: {pendingContextAnalysis.confidence}
                 </span>
                 {pendingContextAnalysis.needsHumanReview ? (
-                  <span className="text-[11px] font-semibold text-[var(--ds-color-warning)]">
+                  <span className="text-xs font-semibold text-[var(--ds-color-warning)]">
                     revisão humana recomendada
                   </span>
                 ) : null}
@@ -831,7 +831,7 @@ export default function SstAgentPage() {
                 Use os formulários abaixo para pedir rascunhos, abrir fluxos assistidos e analisar contextos mais complexos com a SOPHIE.
               </p>
             </div>
-            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-primary-subtle)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-action-primary)]">
+            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-primary-subtle)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-action-primary)]">
               <Wand2 className="h-3.5 w-3.5" />
               automação assistida
             </div>
