@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   ChangeEvent,
@@ -2101,7 +2101,7 @@ export function AprForm({ id }: AprFormProps) {
             </div>
             <div className="grid grid-cols-2 gap-2 text-center md:w-[260px]">
               <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">
                   Rascunho
                 </p>
                 <p className="mt-1 text-sm font-semibold text-white">
@@ -2109,7 +2109,7 @@ export function AprForm({ id }: AprFormProps) {
                 </p>
               </div>
               <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">
                   Uso
                 </p>
                 <p className="mt-1 text-sm font-semibold text-white">
@@ -2128,7 +2128,7 @@ export function AprForm({ id }: AprFormProps) {
               <p className="text-sm font-semibold text-[var(--color-text)]">
                 {currentApr.numero} | Versão {currentApr.versao || 1}
               </p>
-              <p className="text-xs text-[var(--color-text-muted)]">
+              <p className="text-xs text-[var(--color-text-secondary)]">
                 Status: {currentApr.status}
                 {currentApr.aprovado_em
                   ? ` | Aprovada em ${new Date(currentApr.aprovado_em).toLocaleString("pt-BR")}`
@@ -2422,7 +2422,7 @@ export function AprForm({ id }: AprFormProps) {
       {isReadOnly && readOnlyReason && (
         <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/22 p-4">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 rounded-[var(--ds-radius-lg)] bg-[color:var(--color-card-muted)]/30 p-2 text-[var(--ds-color-text-muted)]">
+            <div className="mt-0.5 rounded-[var(--ds-radius-lg)] bg-[color:var(--color-card-muted)]/30 p-2 text-[var(--ds-color-text-secondary)]">
               <Lock className="h-4 w-4" />
             </div>
             <div className="min-w-0">
@@ -2447,7 +2447,7 @@ export function AprForm({ id }: AprFormProps) {
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
           <div className="ds-dashboard-panel overflow-hidden">
             <div className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/16 px-5 py-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
                 Wizard operacional
               </p>
               <h2 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
@@ -2489,7 +2489,7 @@ export function AprForm({ id }: AprFormProps) {
                             ? "bg-[var(--ds-color-action-primary)] text-[var(--color-text-inverse)]"
                             : isCompleted
                               ? "bg-[color:var(--ds-color-success-subtle)] text-[var(--color-success)]"
-                              : "bg-[var(--ds-color-surface-muted)]/22 text-[var(--ds-color-text-muted)]"
+                              : "bg-[var(--ds-color-surface-muted)]/22 text-[var(--ds-color-text-secondary)]"
                         }`}
                       >
                         {isCompleted ? (
@@ -2502,7 +2502,7 @@ export function AprForm({ id }: AprFormProps) {
                         <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                           {step.title}
                         </p>
-                        <p className="mt-1 text-sm leading-relaxed text-[var(--ds-color-text-muted)]">
+                        <p className="mt-1 text-sm leading-relaxed text-[var(--ds-color-text-secondary)]">
                           {step.description}
                         </p>
                       </div>
@@ -2517,7 +2517,7 @@ export function AprForm({ id }: AprFormProps) {
             <div className="ds-dashboard-panel px-5 py-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
                     Resumo da APR
                   </p>
                   <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -2615,7 +2615,7 @@ export function AprForm({ id }: AprFormProps) {
             <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                     Ações seguras em somente leitura
                   </p>
                   <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
@@ -2899,7 +2899,7 @@ export function AprForm({ id }: AprFormProps) {
                       <option value="Cancelada">Cancelada</option>
                       <option value="Encerrada">Encerrada</option>
                     </select>
-                    <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                    <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
                       O status da APR é controlado pelos fluxos formais de
                       aprovação, reprovação e encerramento.
                     </p>
@@ -3077,7 +3077,7 @@ export function AprForm({ id }: AprFormProps) {
                     <div className="sticky top-24 z-20 border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/94 px-5 py-4 backdrop-blur">
                       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                         <div className="max-w-3xl">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
                             Grade operacional da APR
                           </p>
                           <h2 className="mt-2 text-2xl font-black text-[var(--ds-color-text-primary)]">
@@ -3161,7 +3161,7 @@ export function AprForm({ id }: AprFormProps) {
                       <div className="mx-5 mt-5 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 p-4 shadow-[var(--ds-shadow-xs)]">
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                           <div>
-                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                               Preview da planilha
                             </p>
                             <h3 className="mt-1 text-sm font-bold text-[var(--ds-color-text-primary)]">
@@ -3203,7 +3203,7 @@ export function AprForm({ id }: AprFormProps) {
                     <div className="mx-5 mt-5 overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]">
                       <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-subtle)] px-4 py-4 md:flex-row md:items-start md:justify-between">
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
                             Cabeçalho compacto
                           </p>
                           <p className="mt-1 text-lg font-extrabold text-[var(--ds-color-text-primary)]">
@@ -3313,7 +3313,7 @@ export function AprForm({ id }: AprFormProps) {
                       getActionCriteriaText={getActionCriteriaText}
                     />
                     <div className="rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                         Feedback visual
                       </p>
                       <h3 className="mt-2 text-lg font-black text-[var(--ds-color-text-primary)]">
@@ -3350,7 +3350,7 @@ export function AprForm({ id }: AprFormProps) {
             {currentStep === 3 && (
               <>
                 <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-5 shadow-[var(--ds-shadow-sm)]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
                     Revisão operacional
                   </p>
                   <h3 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
@@ -3362,7 +3362,7 @@ export function AprForm({ id }: AprFormProps) {
                   </p>
                   <div className="mt-4 grid gap-3 md:grid-cols-3">
                     <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                         Matriz de risco
                       </p>
                       <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -3372,7 +3372,7 @@ export function AprForm({ id }: AprFormProps) {
                       </p>
                     </div>
                     <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                         Participantes
                       </p>
                       <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -3381,7 +3381,7 @@ export function AprForm({ id }: AprFormProps) {
                       </p>
                     </div>
                     <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/18 px-4 py-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                         Evidência documental
                       </p>
                       <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -3587,7 +3587,7 @@ export function AprForm({ id }: AprFormProps) {
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/26 p-2.5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
         {label}
       </p>
       <p className="text-lg font-bold text-[var(--color-text)]">{value}</p>
@@ -3977,7 +3977,7 @@ function SectionGrid({
           );
         })}
         {items.length === 0 && (
-          <div className="col-span-full py-4 text-center text-sm italic text-[var(--color-text-muted)]">
+          <div className="col-span-full py-4 text-center text-sm italic text-[var(--color-text-secondary)]">
             Nenhum item disponível para a empresa selecionada.
           </div>
         )}
@@ -3995,3 +3995,4 @@ function isUuidLike(value?: string | null) {
     String(value || "").trim(),
   );
 }
+

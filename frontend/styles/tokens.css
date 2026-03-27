@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   /* ═══════════════════════════════════════════════════════════════
      SGS ENTERPRISE PALETTE — "Blue Command"
      ───────────────────────────────────────────────────────────────
@@ -34,8 +34,8 @@
   --brand-secondary: #5d7b99;
   --brand-title: #0f172a;
   --brand-text-primary: #0f172a;
-  --brand-text-secondary: #2d4761;
-  --brand-text-muted: #4d6883;
+  --brand-text-secondary: #233f5a;
+  --brand-text-muted: #36526d;
   --brand-border-default: #c6d7e8;
   --brand-border-strong: #96b0ca;
   --brand-success: #1d6b43;
@@ -353,3 +353,4 @@
   --table-hover: var(--component-table-row-hover);
   --focus-ring: var(--brand-focus-ring);
 }
+

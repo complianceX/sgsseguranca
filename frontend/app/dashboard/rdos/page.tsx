@@ -1573,7 +1573,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   <div>
                     <label
                       htmlFor="rdo-responsavel-id"
-                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
                     >
                       Responsável
                     </label>
@@ -1606,7 +1606,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     <div>
                       <label
                         htmlFor="rdo-clima-manha"
-                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
                       >
                         Clima manhã
                       </label>
@@ -1632,7 +1632,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     <div>
                       <label
                         htmlFor="rdo-clima-tarde"
-                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
                       >
                         Clima tarde
                       </label>
@@ -1658,7 +1658,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     <div>
                       <label
                         htmlFor="rdo-temperatura-min"
-                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
                       >
                         Temp. mín (°C)
                       </label>
@@ -1678,7 +1678,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     <div>
                       <label
                         htmlFor="rdo-temperatura-max"
-                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
                       >
                         Temp. máx (°C)
                       </label>
@@ -1699,7 +1699,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   <div>
                     <label
                       htmlFor="rdo-condicao-terreno"
-                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
                     >
                       Condição do terreno
                     </label>
@@ -1729,7 +1729,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
                     >
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                           Função
                         </label>
                         <input
@@ -1743,7 +1743,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                           Qtd
                         </label>
                         <input
@@ -1762,7 +1762,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                           Turno
                         </label>
                         <select
@@ -1782,7 +1782,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       </div>
                       <div className="flex items-end gap-1">
                         <div className="flex-1">
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                             Horas
                           </label>
                           <input
@@ -1831,7 +1831,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
                     >
                       <div className="col-span-2">
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                           Equipamento
                         </label>
                         <input
@@ -1845,7 +1845,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                           Qtd
                         </label>
                         <input
@@ -1865,7 +1865,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       </div>
                       <div className="flex items-end gap-1">
                         <div className="flex-1">
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                             H. trabalhadas
                           </label>
                           <input
@@ -1913,7 +1913,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
                     >
                       <div className="col-span-2">
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                           Descrição
                         </label>
                         <input
@@ -1927,7 +1927,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                           Unidade
                         </label>
                         <input
@@ -1942,7 +1942,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       </div>
                       <div className="flex items-end gap-1">
                         <div className="flex-1">
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                             Quantidade
                           </label>
                           <input
@@ -1990,7 +1990,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       className="grid grid-cols-5 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
                     >
                       <div className="col-span-3">
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                           Descrição do serviço
                         </label>
                         <input
@@ -2004,7 +2004,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                        <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                           % Concluído
                         </label>
                         <input
@@ -2086,7 +2086,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     <div>
                       <label
                         htmlFor="rdo-motivo-paralisacao"
-                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                        className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
                       >
                         Motivo da paralisação
                       </label>
@@ -2105,7 +2105,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     </div>
                   )}
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                       Ocorrências
                     </p>
                     {form.ocorrencias.map((item, i) => (
@@ -2114,7 +2114,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                         className="grid grid-cols-4 items-end gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 p-3"
                       >
                         <div>
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                             Tipo
                           </label>
                           <select
@@ -2133,7 +2133,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                           </select>
                         </div>
                         <div className="col-span-2">
-                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                          <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                             Descrição
                           </label>
                           <input
@@ -2149,7 +2149,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                         </div>
                         <div className="flex items-end gap-1">
                           <div className="flex-1">
-                            <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-muted)]">
+                            <label className="mb-1 block text-xs font-medium text-[var(--ds-color-text-secondary)]">
                               Hora
                             </label>
                             <input
@@ -2184,7 +2184,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   <div>
                     <label
                       htmlFor="rdo-observacoes"
-                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
                     >
                       Observações gerais
                     </label>
@@ -2202,7 +2202,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   <div>
                     <label
                       htmlFor="rdo-programa-amanha"
-                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
                     >
                       Programa para amanhã
                     </label>
@@ -2336,7 +2336,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   type="button"
                   aria-label="Fechar visualização"
                   onClick={() => setViewRdo(null)}
-                  className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-surface-muted)]"
+                  className="rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)]"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -2365,7 +2365,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     key={item.label}
                     className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-3"
                   >
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                       {item.label}
                     </p>
                     <p className="mt-0.5 text-sm font-medium text-[var(--ds-color-text-primary)]">
@@ -2400,13 +2400,13 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 viewRdo.clima_tarde ||
                 viewRdo.temperatura_min != null) && (
                 <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                     <Sun className="h-3.5 w-3.5" /> Condições Climáticas
                   </p>
                   <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                     {viewRdo.clima_manha && (
                       <div className="rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2">
-                        <p className="text-xs text-[var(--ds-color-text-muted)]">
+                        <p className="text-xs text-[var(--ds-color-text-secondary)]">
                           Manhã
                         </p>
                         <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">
@@ -2417,7 +2417,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     )}
                     {viewRdo.clima_tarde && (
                       <div className="rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2">
-                        <p className="text-xs text-[var(--ds-color-text-muted)]">
+                        <p className="text-xs text-[var(--ds-color-text-secondary)]">
                           Tarde
                         </p>
                         <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">
@@ -2429,7 +2429,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     {(viewRdo.temperatura_min != null ||
                       viewRdo.temperatura_max != null) && (
                       <div className="rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2 flex items-center gap-1">
-                        <Thermometer className="h-3.5 w-3.5 text-[var(--ds-color-text-muted)]" />
+                        <Thermometer className="h-3.5 w-3.5 text-[var(--ds-color-text-secondary)]" />
                         <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">
                           {viewRdo.temperatura_min ?? "?"}°C –{" "}
                           {viewRdo.temperatura_max ?? "?"}°C
@@ -2438,7 +2438,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     )}
                     {viewRdo.condicao_terreno && (
                       <div className="rounded-lg border border-[var(--ds-color-border-subtle)] px-3 py-2">
-                        <p className="text-xs text-[var(--ds-color-text-muted)]">
+                        <p className="text-xs text-[var(--ds-color-text-secondary)]">
                           Terreno
                         </p>
                         <p className="text-sm font-medium text-[var(--ds-color-text-primary)]">
@@ -2453,7 +2453,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {/* Mão de obra */}
               {(viewRdo.mao_de_obra ?? []).length > 0 && (
                 <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                     <Users className="h-3.5 w-3.5" /> Mão de Obra (
                     {viewRdo.mao_de_obra!.reduce((s, m) => s + m.quantidade, 0)}{" "}
                     trabalhadores)
@@ -2462,16 +2462,16 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40">
-                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                             Função
                           </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                             Qtd
                           </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                             Turno
                           </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                             Horas
                           </th>
                         </tr>
@@ -2505,23 +2505,23 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {/* Equipamentos */}
               {(viewRdo.equipamentos ?? []).length > 0 && (
                 <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                     <Wrench className="h-3.5 w-3.5" /> Equipamentos
                   </p>
                   <div className="rounded-xl border border-[var(--ds-color-border-subtle)] overflow-hidden">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40">
-                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                             Equipamento
                           </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                             Qtd
                           </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                             H. trabalhadas
                           </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                             H. ociosas
                           </th>
                         </tr>
@@ -2555,20 +2555,20 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {/* Materiais */}
               {(viewRdo.materiais_recebidos ?? []).length > 0 && (
                 <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                     <Package className="h-3.5 w-3.5" /> Materiais Recebidos
                   </p>
                   <div className="rounded-xl border border-[var(--ds-color-border-subtle)] overflow-hidden">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40">
-                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                             Descrição
                           </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                             Qtd
                           </th>
-                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                             Unidade
                           </th>
                         </tr>
@@ -2599,7 +2599,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {/* Serviços */}
               {(viewRdo.servicos_executados ?? []).length > 0 && (
                 <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                     <CheckSquare className="h-3.5 w-3.5" /> Serviços Executados
                   </p>
                   <div className="space-y-2">
@@ -2635,7 +2635,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {/* Ocorrências */}
               {(viewRdo.ocorrencias ?? []).length > 0 && (
                 <div>
-                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                  <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                     <AlertTriangle className="h-3.5 w-3.5" /> Ocorrências
                   </p>
                   <div className="space-y-2">
@@ -2651,7 +2651,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                           {o.descricao}
                         </span>
                         {o.hora && (
-                          <span className="text-xs text-[var(--ds-color-text-muted)]">
+                          <span className="text-xs text-[var(--ds-color-text-secondary)]">
                             {o.hora}
                           </span>
                         )}
@@ -2664,7 +2664,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {/* Observações */}
               {viewRdo.observacoes && (
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                     Observações gerais
                   </p>
                   <p className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-3 text-sm text-[var(--ds-color-text-primary)] whitespace-pre-wrap">
@@ -2676,7 +2676,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               {/* Programa amanhã */}
               {viewRdo.programa_servicos_amanha && (
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                     Programa para amanhã
                   </p>
                   <p className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/30 px-4 py-3 text-sm text-[var(--ds-color-text-primary)] whitespace-pre-wrap">
@@ -2687,7 +2687,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
 
               {/* Assinaturas */}
               <div>
-                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                   <PenLine className="h-3.5 w-3.5" /> Assinaturas
                 </p>
                 <div className="grid grid-cols-2 gap-3">
@@ -2699,7 +2699,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       <div
                         className={`rounded-xl border px-4 py-3 ${sig ? "border-[color:var(--ds-color-success)]/30 bg-[color:var(--ds-color-success)]/8" : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20"}`}
                       >
-                        <p className="text-xs font-semibold text-[var(--ds-color-text-muted)]">
+                        <p className="text-xs font-semibold text-[var(--ds-color-text-secondary)]">
                           Responsável pela Obra
                         </p>
                         {sig ? (
@@ -2722,7 +2722,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                             ) : null}
                           </>
                         ) : (
-                          <p className="mt-1 text-xs text-[var(--ds-color-text-muted)] italic">
+                          <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)] italic">
                             Aguardando assinatura
                           </p>
                         )}
@@ -2737,7 +2737,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                       <div
                         className={`rounded-xl border px-4 py-3 ${sig ? "border-[color:var(--ds-color-success)]/30 bg-[color:var(--ds-color-success)]/8" : "border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20"}`}
                       >
-                        <p className="text-xs font-semibold text-[var(--ds-color-text-muted)]">
+                        <p className="text-xs font-semibold text-[var(--ds-color-text-secondary)]">
                           Engenheiro Responsável
                         </p>
                         {sig ? (
@@ -2760,7 +2760,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                             ) : null}
                           </>
                         ) : (
-                          <p className="mt-1 text-xs text-[var(--ds-color-text-muted)] italic">
+                          <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)] italic">
                             Aguardando assinatura
                           </p>
                         )}
@@ -2883,14 +2883,14 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 type="button"
                 aria-label="Fechar"
                 onClick={() => setSignModal(null)}
-                className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-surface-muted)]"
+                className="rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)]"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="space-y-4 px-5 py-5">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                   Tipo de assinatura
                 </label>
                 <select
@@ -2917,7 +2917,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               <div>
                 <label
                   htmlFor="sign-nome"
-                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
                 >
                   Nome completo
                 </label>
@@ -2935,7 +2935,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               <div>
                 <label
                   htmlFor="sign-cpf"
-                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
                 >
                   CPF
                 </label>
@@ -2986,13 +2986,13 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 type="button"
                 aria-label="Fechar"
                 onClick={() => setEmailModal(null)}
-                className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-surface-muted)]"
+                className="rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)]"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="px-5 py-5">
-              <p className="mb-3 text-xs text-[var(--ds-color-text-muted)]">
+              <p className="mb-3 text-xs text-[var(--ds-color-text-secondary)]">
                 Enviar <strong>{emailModal.numero}</strong> —{" "}
                 {new Date(emailModal.data).toLocaleDateString("pt-BR")}
               </p>
@@ -3003,7 +3003,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
               </div>
               <label
                 htmlFor="email-to"
-                className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
               >
                 Destinatários (separados por vírgula)
               </label>
@@ -3040,3 +3040,4 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
     </div>
   );
 }
+
