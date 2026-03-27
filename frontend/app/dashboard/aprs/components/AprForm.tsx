@@ -151,16 +151,16 @@ const APR_STEPS = [
 ] as const;
 
 const aprBackButtonClass =
-  "group rounded-full p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]";
+  "group rounded-full p-2 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]";
 const aprHeadingClass =
   "text-2xl font-bold text-[var(--ds-color-text-primary)]";
-const aprSubheadingClass = "text-sm text-[var(--ds-color-text-muted)]";
+const aprSubheadingClass = "text-sm text-[var(--ds-color-text-secondary)]";
 const aprSectionTitleClass =
   "mb-3 text-sm font-bold text-[var(--ds-color-text-primary)]";
 const aprLabelClass =
   "mb-1.5 block text-[13px] font-semibold text-[var(--ds-color-text-secondary)]";
 const aprLabelCompactClass =
-  "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]";
+  "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]";
 const aprFieldClass =
   "w-full min-h-[2.875rem] rounded-[var(--ds-radius-md)] border border-[var(--component-field-border)] bg-[color:var(--component-field-bg)] px-4 py-2.5 text-base leading-6 text-[var(--component-field-text)] shadow-[var(--component-field-shadow)] transition-all focus:border-[var(--component-field-border-focus)] focus:outline-none focus:shadow-[var(--component-field-shadow-focus)]";
 const aprFileFieldClass =
@@ -3436,13 +3436,13 @@ export function AprForm({ id }: AprFormProps) {
                 </Link>
               )}
               {isDirty && (
-                <span className="hidden rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-warning)] sm:inline-flex sm:items-center sm:gap-1">
+                <span className="hidden rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-warning)] sm:inline-flex sm:items-center sm:gap-1">
                   <AlertTriangle className="h-3 w-3" />
                   Não salvo
                 </span>
               )}
               {(isApproved || hasFinalPdf) && (
-                <span className="hidden rounded-full border border-[var(--ds-color-border-subtle)] bg-[color:var(--color-card-muted)]/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)] sm:inline-flex sm:items-center sm:gap-1">
+                <span className="hidden rounded-full border border-[var(--ds-color-border-subtle)] bg-[color:var(--color-card-muted)]/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)] sm:inline-flex sm:items-center sm:gap-1">
                   <Lock className="h-3 w-3" />
                   {hasFinalPdf ? "PDF emitido" : "Aprovada"}
                 </span>
@@ -3598,7 +3598,7 @@ function MiniStat({ label, value }: { label: string; value: number }) {
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-sm font-semibold uppercase tracking-[0.11em] text-[var(--ds-color-text-muted)]">
+      <span className="text-sm font-semibold uppercase tracking-[0.11em] text-[var(--ds-color-text-secondary)]">
         {label}
       </span>
       <span className="max-w-[15rem] truncate text-right text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -3612,7 +3612,7 @@ function SummaryMetaCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[calc(var(--ds-radius-lg)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/84 px-3 py-3 shadow-[var(--ds-shadow-xs)]">
       <div className="mb-2 h-1.5 w-12 rounded-full bg-[var(--ds-color-action-primary)]/55" />
-      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
         {label}
       </p>
       <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -3670,7 +3670,7 @@ function AprRiskGridHeader() {
   return (
     <div
       className={cn(
-        "sticky top-0 z-10 hidden border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/96 px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)] backdrop-blur xl:grid",
+        "sticky top-0 z-10 hidden border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/96 px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)] backdrop-blur xl:grid",
         APR_RISK_GRID_LAYOUT_CLASS,
       )}
     >
@@ -3694,7 +3694,7 @@ function AprRiskReferencePanel({
   return (
     <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
       <div className="border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-5 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
           Matriz inteligente
         </p>
         <h3 className="mt-2 text-lg font-black text-[var(--ds-color-text-primary)]">

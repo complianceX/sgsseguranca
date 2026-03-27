@@ -44,7 +44,7 @@ function GridField({
 }) {
   return (
     <div className={cn("min-w-0", className)}>
-      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)] xl:hidden">
+      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)] xl:hidden">
         {label}
       </label>
       {children}
@@ -215,7 +215,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
           <div className="flex h-full min-h-[104px] flex-col justify-between rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/84 px-3 py-3">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
                   Risco
                 </p>
                 <p className="mt-1 text-2xl font-black leading-none text-[var(--ds-color-text-primary)]">
@@ -226,7 +226,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
                 <button
                   type="button"
                   onClick={() => onToggleExpanded(index)}
-                  className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] p-1.5 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
+                  className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] p-1.5 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)]"
                   title={isRowExpanded ? "Recolher detalhes" : "Expandir detalhes"}
                 >
                   {isRowExpanded ? (
@@ -240,28 +240,28 @@ export const AprRiskRow = React.memo(function AprRiskRow({
 
             <div className="mt-3 flex flex-wrap gap-1.5">
               {isCritical && (
-                <span className="inline-flex rounded-full border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--color-danger)]">
+                <span className="inline-flex rounded-full border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-2 py-1 text-[11px] font-semibold text-[var(--color-danger)]">
                   Crítico
                 </span>
               )}
               {isPriorityHigh && !isCritical && (
-                <span className="inline-flex rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--color-warning)]">
+                <span className="inline-flex rounded-full border border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2 py-1 text-[11px] font-semibold text-[var(--color-warning)]">
                   Alta prioridade
                 </span>
               )}
               {isInconsistent && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--color-info)]">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] px-2 py-1 text-[11px] font-semibold text-[var(--color-info)]">
                   <AlertTriangle className="h-3 w-3" />
                   Sem medida
                 </span>
               )}
               {hasStarted && isIncomplete && (
-                <span className="inline-flex rounded-full border border-dashed border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--color-warning)]">
+                <span className="inline-flex rounded-full border border-dashed border-[var(--ds-color-warning-border)] bg-[color:var(--ds-color-warning-subtle)] px-2 py-1 text-[11px] font-semibold text-[var(--color-warning)]">
                   Incompleta
                 </span>
               )}
               {isReady && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-2 py-1 text-[10px] font-semibold text-[var(--color-success)]">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-2 py-1 text-[11px] font-semibold text-[var(--color-success)]">
                   <CheckCircle2 className="h-3 w-3" />
                   Pronta
                 </span>
@@ -360,7 +360,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
             >
               {calc.categoria || "Aguardando P x S"}
             </span>
-            <span className="mt-1 text-[11px] font-medium text-[var(--ds-color-text-muted)]">
+            <span className="mt-1 text-[11px] font-medium text-[var(--ds-color-text-secondary)]">
               Score {calc.score || "-"}
             </span>
           </div>
@@ -376,7 +376,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
             >
               {calc.prioridade || "Sem prioridade"}
             </span>
-            <span className="mt-1 line-clamp-2 text-[11px] text-[var(--ds-color-text-muted)]">
+            <span className="mt-1 line-clamp-2 text-[11px] text-[var(--ds-color-text-secondary)]">
               {calc.actionCriteria || "Selecione probabilidade e severidade para gerar o critério de ação."}
             </span>
           </div>
@@ -398,7 +398,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
               type="button"
               onClick={() => onMove(index, index - 1)}
               disabled={readOnly || index === 0}
-              className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-30"
+              className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] p-2 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-30"
               title="Mover para cima"
             >
               <ChevronUp className="h-4 w-4" />
@@ -407,7 +407,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
               type="button"
               onClick={() => onMove(index, index + 1)}
               disabled={readOnly || index === totalRows - 1}
-              className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] p-2 text-[var(--ds-color-text-muted)] transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-30"
+              className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] p-2 text-[var(--ds-color-text-secondary)] transition-colors hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-30"
               title="Mover para baixo"
             >
               <ChevronDown className="h-4 w-4" />
@@ -437,7 +437,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
           <div className="md:col-span-2 xl:col-[2/-1]">
             <div className="grid gap-3 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/76 px-4 py-3 lg:grid-cols-[minmax(240px,1.1fr)_minmax(220px,0.95fr)_150px_170px]">
               <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22 px-3 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                   Critério de ação
                 </p>
                 <p className="mt-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -446,7 +446,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
               </div>
 
               <div>
-                <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                   Responsável
                 </label>
                 <input
@@ -459,7 +459,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
               </div>
 
               <div>
-                <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                   Prazo
                 </label>
                 <input
@@ -472,7 +472,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
               </div>
 
               <div>
-                <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                   Status da ação
                 </label>
                 <input

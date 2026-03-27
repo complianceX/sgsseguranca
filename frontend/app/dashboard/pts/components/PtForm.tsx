@@ -1595,7 +1595,7 @@ export function PtForm({ id }: PtFormProps) {
                 <li key={i}>{s}</li>
               ))}
             </ul>
-            <p className="text-[10px] italic">Nível de Risco Identificado: {result.riskLevel}</p>
+            <p className="text-[11px] italic text-[var(--ds-color-text-secondary)]">Nível de Risco Identificado: {result.riskLevel}</p>
           </div>
         ),
         duration: 8000,
@@ -1689,11 +1689,11 @@ export function PtForm({ id }: PtFormProps) {
             </div>
             <div className="grid grid-cols-2 gap-2 text-center md:w-[260px]">
               <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/28 px-3 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">Rascunho</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">Rascunho</p>
                 <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">Automático</p>
               </div>
               <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/28 px-3 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">Operação</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">Operação</p>
                 <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">Campo / obra</p>
               </div>
             </div>
@@ -1734,7 +1734,7 @@ export function PtForm({ id }: PtFormProps) {
           <aside className="space-y-3 xl:sticky xl:top-28 xl:self-start">
             <div className="ds-form-section overflow-hidden p-0">
               <div className="border-b border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/16 px-5 py-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
                   fluxo guiado
                 </p>
                 <h2 className="mt-2 text-lg font-bold text-[var(--ds-color-text-primary)]">
@@ -1775,7 +1775,7 @@ export function PtForm({ id }: PtFormProps) {
                               ? 'bg-[var(--ds-color-action-primary)] text-white'
                               : isCompleted
                                 ? 'bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
-                                : 'bg-[var(--ds-color-surface-muted)]/22 text-[var(--ds-color-text-muted)]'
+                            : 'bg-[var(--ds-color-surface-muted)]/22 text-[var(--ds-color-text-secondary)]'
                           }`}
                         >
                           {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
@@ -1784,7 +1784,7 @@ export function PtForm({ id }: PtFormProps) {
                           <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                             {step.title}
                           </p>
-                          <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">{step.description}</p>
+                          <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">{step.description}</p>
                         </div>
                       </div>
                     </button>
@@ -1796,7 +1796,7 @@ export function PtForm({ id }: PtFormProps) {
             <div className="ds-form-section px-5 py-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-secondary)]">
                     {currentStepSidebarTitle}
                   </p>
                   <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
@@ -1845,7 +1845,7 @@ export function PtForm({ id }: PtFormProps) {
               ) : null}
 
               {draftSavedAt ? (
-                <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                   Último rascunho salvo às{' '}
                   {new Date(draftSavedAt).toLocaleTimeString('pt-BR', {
                     hour: '2-digit',
@@ -1878,7 +1878,7 @@ export function PtForm({ id }: PtFormProps) {
             <div className="ds-form-section">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                     Etapa {currentStepConfig.id} de {PT_STEPS.length}
                   </p>
                   <h2 className="mt-2 text-xl font-bold text-[var(--ds-color-text-primary)]">
@@ -1904,7 +1904,7 @@ export function PtForm({ id }: PtFormProps) {
                     key={item.label}
                     className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3"
                   >
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                       {item.label}
                     </p>
                     <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{item.value}</p>
@@ -2128,7 +2128,7 @@ export function PtForm({ id }: PtFormProps) {
                 <div className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/18 px-4 py-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                         Fechamento da liberação
                       </p>
                       <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
@@ -2266,7 +2266,7 @@ export function PtForm({ id }: PtFormProps) {
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+      <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
         {label}
       </span>
       <span className="max-w-[13rem] truncate text-right text-sm font-medium text-[var(--ds-color-text-primary)]">

@@ -1218,7 +1218,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
           </div>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-muted)]" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--ds-color-text-secondary)]" />
               <input
                 type="text"
                 placeholder="Buscar número ou obra..."
@@ -1338,7 +1338,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <span
-                              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${RDO_STATUS_COLORS[rdo.status] ?? "border-[color:var(--ds-color-text-muted)]/30 bg-[color:var(--ds-color-text-muted)]/12 text-[var(--ds-color-text-muted)]"}`}
+                              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${RDO_STATUS_COLORS[rdo.status] ?? "border-[color:var(--ds-color-text-secondary)]/30 bg-[color:var(--ds-color-text-secondary)]/12 text-[var(--ds-color-text-secondary)]"}`}
                             >
                               {RDO_STATUS_LABEL[rdo.status] ?? rdo.status}
                             </span>
@@ -1368,7 +1368,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                               {totalTrabalhadores(rdo)}
                             </span>
                           ) : (
-                            <span className="text-[var(--ds-color-text-muted)]">
+                            <span className="text-[var(--ds-color-text-secondary)]">
                               —
                             </span>
                           )}
@@ -1379,7 +1379,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                               <AlertTriangle className="h-3 w-3" /> Sim
                             </span>
                           ) : (
-                            <span className="text-xs text-[var(--ds-color-text-muted)]">
+                            <span className="text-xs text-[var(--ds-color-text-secondary)]">
                               Não
                             </span>
                           )}
@@ -1388,7 +1388,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                           <div className="flex items-center justify-end gap-1">
                             <button
                               onClick={() => setViewRdo(rdo)}
-                              className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]"
+                              className="rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]"
                               title="Visualizar"
                             >
                               <Eye className="h-4 w-4" />
@@ -1398,7 +1398,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                                 <button
                                   onClick={() => handleOpenEdit(rdo)}
                                   className={cn(
-                                    "rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]",
+                                    "rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-action-primary)]/10 hover:text-[var(--ds-color-action-primary)]",
                                     (rdo.pdf_file_key ||
                                       rdo.status === "cancelado") &&
                                       "opacity-40",
@@ -1427,7 +1427,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                                     handleDelete(rdo.id);
                                   }}
                                   className={cn(
-                                    "rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]",
+                                    "rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-danger)]/10 hover:text-[var(--ds-color-danger)]",
                                     (rdo.status === "aprovado" ||
                                       rdo.status === "cancelado") &&
                                       "opacity-40",
@@ -1483,7 +1483,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                 type="button"
                 aria-label="Fechar modal"
                 onClick={() => setShowModal(false)}
-                className="rounded-lg p-1.5 text-[var(--ds-color-text-muted)] hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
+                className="rounded-lg p-1.5 text-[var(--ds-color-text-secondary)] hover:bg-[color:var(--ds-color-surface-muted)] hover:text-[var(--ds-color-text-primary)]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1502,7 +1502,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                           ? "bg-[var(--ds-color-action-primary)] text-white"
                           : idx < currentStep
                             ? "bg-[color:var(--ds-color-action-primary)]/15 text-[var(--ds-color-action-primary)]"
-                            : "bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-muted)]"
+                            : "bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]"
                       }`}
                       title={step.label}
                     >
@@ -1519,7 +1519,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                     )}
                   </div>
                 ))}
-                <span className="ml-3 text-xs text-[var(--ds-color-text-muted)]">
+                <span className="ml-3 text-xs text-[var(--ds-color-text-secondary)]">
                   {STEPS[currentStep].label}
                 </span>
               </div>
@@ -1533,7 +1533,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   <div>
                     <label
                       htmlFor="rdo-data"
-                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
                     >
                       Data *
                     </label>
@@ -1550,7 +1550,7 @@ ${rdo.programa_servicos_amanha ? `<div class="section">Programa para amanhã</di
                   <div>
                     <label
                       htmlFor="rdo-site-id"
-                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]"
+                      className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]"
                     >
                       Obra/Setor
                     </label>
