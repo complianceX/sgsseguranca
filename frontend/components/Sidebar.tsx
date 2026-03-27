@@ -53,6 +53,7 @@ const menuSections: MenuSection[] = [
     label: 'Estrutura',
     defaultOpen: true,
     items: [
+      { icon: LayoutDashboard, label: 'Painel', href: '/dashboard' },
       { icon: Building2, label: 'Empresas', href: '/dashboard/companies', adminOnly: true },
       { icon: MapPin, label: 'Obras/Setores', href: '/dashboard/sites', adminOnly: true },
       { icon: Users, label: 'Funcionários', href: '/dashboard/employees' },

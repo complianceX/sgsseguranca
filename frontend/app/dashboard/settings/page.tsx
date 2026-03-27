@@ -6,6 +6,9 @@ import Image from 'next/image';
 import { toast } from 'sonner';
 import axios from 'axios';
 import {
+  BellRing,
+  Clock3,
+  FileCheck2,
   Settings,
   ShieldCheck,
   Users,
@@ -55,6 +58,57 @@ export default function SettingsPage() {
     { label: 'Ferramentas', href: '/dashboard/tools', icon: Wrench, adminOnly: true },
     { label: 'Máquinas', href: '/dashboard/machines', icon: Construction, adminOnly: true },
   ];
+  const governanceAreas = [
+    {
+      id: 'access',
+      label: 'Usuários e acessos',
+      description: 'Governança de perfis, escopos e trilha de responsabilidade.',
+      href: '/dashboard/users',
+      icon: Users,
+      status: 'Ativo',
+      visible:
+        isAdmin &&
+        isTemporarilyVisibleDashboardRoute('/dashboard/users'),
+    },
+    {
+      id: 'sla',
+      label: 'Prazos e SLAs',
+      description: 'Acompanhamento de janelas, vencimentos e carga operacional.',
+      href: '/dashboard/calendar',
+      icon: Clock3,
+      status: hasPermission('can_view_dashboard') ? 'Ativo' : 'Sem acesso',
+      visible:
+        isTemporarilyVisibleDashboardRoute('/dashboard/calendar'),
+    },
+    {
+      id: 'dossiers',
+      label: 'Dossiês e evidências',
+      description: 'Pacote oficial de conformidade por colaborador e obra/setor.',
+      href: '/dashboard/dossiers',
+      icon: FileCheck2,
+      status: 'Ativo',
+      visible:
+        isTemporarilyVisibleDashboardRoute('/dashboard/dossiers'),
+    },
+    {
+      id: 'document-pendencies',
+      label: 'Pendências documentais',
+      description: 'Monitoramento centralizado de pendências críticas e riscos de prazo.',
+      href: '/dashboard/document-pendencies',
+      icon: ShieldCheck,
+      status: hasPermission('can_view_dashboard') ? 'Ativo' : 'Sem acesso',
+      visible:
+        isTemporarilyVisibleDashboardRoute('/dashboard/document-pendencies'),
+    },
+    {
+      id: 'notifications',
+      label: 'Notificações corporativas',
+      description: 'Destino de alertas por e-mail, periodicidade e escalonamento.',
+      icon: BellRing,
+      status: 'Em breve',
+      visible: true,
+    },
+  ].filter((area) => area.visible);
 
   useEffect(() => {
     let active = true;
@@ -309,6 +363,73 @@ export default function SettingsPage() {
         </div>
       )}
 
+      <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
+              Centro de governança operacional
+            </h2>
+            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              Controle central de acessos, SLAs, conformidade documental e fluxos críticos.
+            </p>
+          </div>
+          <span className="inline-flex items-center rounded-full border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">
+            Base enterprise
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {governanceAreas.map((area) => {
+            const Icon = area.icon;
+            const isClickable = Boolean(area.href && area.status !== 'Em breve');
+            const statusTone =
+              area.status === 'Ativo'
+                ? 'border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
+                : area.status === 'Sem acesso'
+                  ? 'border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] text-[var(--ds-color-warning)]'
+                  : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]';
+
+            if (!isClickable) {
+              return (
+                <div
+                  key={area.id}
+                  className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/24 px-4 py-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-primary)]">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${statusTone}`}>
+                      {area.status}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm font-semibold text-[var(--ds-color-text-primary)]">{area.label}</p>
+                  <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">{area.description}</p>
+                </div>
+              );
+            }
+
+            return (
+              <Link
+                key={area.id}
+                href={area.href!}
+                className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-4 py-3 transition-colors hover:border-[var(--ds-color-action-primary)]/35 hover:bg-[var(--ds-color-primary-subtle)]/35"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-primary)]">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] ${statusTone}`}>
+                    {area.status}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm font-semibold text-[var(--ds-color-text-primary)]">{area.label}</p>
+                <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">{area.description}</p>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Trocar senha</h2>
@@ -458,7 +579,10 @@ export default function SettingsPage() {
           </div>
 
           {hasPermission('can_manage_pt') && (
-            <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
+            <div
+              id="regras-pt"
+              className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm"
+            >
               <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
                 Regras de bloqueio da PT
               </h2>
@@ -478,19 +602,6 @@ export default function SettingsPage() {
                         onChange={(event) =>
                           handleApprovalRuleChange(
                             'blockCriticalRiskWithoutEvidence',
-                            event.target.checked,
-                          )
-                        }
-                      />
-                    </label>
-                    <label className="flex items-center justify-between gap-4 rounded-lg border border-[var(--ds-color-border-default)] px-3 py-2 text-sm">
-                      <span>Bloquear trabalhador sem ASO válido</span>
-                      <input
-                        type="checkbox"
-                        checked={approvalRules.blockWorkerWithoutValidMedicalExam}
-                        onChange={(event) =>
-                          handleApprovalRuleChange(
-                            'blockWorkerWithoutValidMedicalExam',
                             event.target.checked,
                           )
                         }

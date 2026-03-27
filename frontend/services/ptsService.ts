@@ -229,7 +229,7 @@ export function getPtApprovalBlockedPayload(
       blockCriticalRiskWithoutEvidence:
         payload.rules?.blockCriticalRiskWithoutEvidence ?? true,
       blockWorkerWithoutValidMedicalExam:
-        payload.rules?.blockWorkerWithoutValidMedicalExam ?? true,
+        payload.rules?.blockWorkerWithoutValidMedicalExam ?? false,
       blockWorkerWithExpiredBlockingTraining:
         payload.rules?.blockWorkerWithExpiredBlockingTraining ?? true,
       requireAtLeastOneExecutante:

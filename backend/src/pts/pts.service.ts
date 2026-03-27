@@ -88,7 +88,7 @@ export class PtsService {
   private readonly logger = new Logger(PtsService.name);
   private readonly defaultApprovalRules = {
     blockCriticalRiskWithoutEvidence: true,
-    blockWorkerWithoutValidMedicalExam: true,
+    blockWorkerWithoutValidMedicalExam: false,
     blockWorkerWithExpiredBlockingTraining: true,
     requireAtLeastOneExecutante: false,
   };
@@ -1178,15 +1178,6 @@ export class PtsService {
       const workerReasons: string[] = [];
 
       if (
-        rules.blockWorkerWithoutValidMedicalExam &&
-        status.medicalExam.status !== 'VALIDO'
-      ) {
-        workerReasons.push(
-          `${status.user.nome}: ASO ${status.medicalExam.status.toLowerCase()}.`,
-        );
-      }
-
-      if (
         rules.blockWorkerWithExpiredBlockingTraining &&
         status.trainings.expiredBlocking.length > 0
       ) {
@@ -1219,9 +1210,8 @@ export class PtsService {
       blockCriticalRiskWithoutEvidence:
         rules?.blockCriticalRiskWithoutEvidence ??
         this.defaultApprovalRules.blockCriticalRiskWithoutEvidence,
-      blockWorkerWithoutValidMedicalExam:
-        rules?.blockWorkerWithoutValidMedicalExam ??
-        this.defaultApprovalRules.blockWorkerWithoutValidMedicalExam,
+      // Regra descontinuada por decisão de produto: ASO não bloqueia emissão/aprovação de PT.
+      blockWorkerWithoutValidMedicalExam: false,
       blockWorkerWithExpiredBlockingTraining:
         rules?.blockWorkerWithExpiredBlockingTraining ??
         this.defaultApprovalRules.blockWorkerWithExpiredBlockingTraining,
