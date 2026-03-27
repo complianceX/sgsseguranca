@@ -53,6 +53,19 @@
     var(--ds-color-action-primary) 34%,
     var(--ds-color-border-default) 66%
   );
+  --component-badge-primary-bg: var(--ds-color-primary-subtle);
+  --component-badge-primary-text: color-mix(in srgb, var(--ds-color-action-primary) 38%, white 62%);
+  --component-status-pill-primary-bg: color-mix(
+    in srgb,
+    var(--ds-color-action-primary) 20%,
+    var(--ds-color-surface-base) 80%
+  );
+  --component-status-pill-primary-text: var(--component-badge-primary-text);
+  --component-status-pill-primary-border: color-mix(
+    in srgb,
+    var(--ds-color-action-primary) 56%,
+    var(--ds-color-border-default) 44%
+  );
 
   --ds-color-action-secondary: color-mix(
     in srgb,
@@ -147,6 +160,10 @@
 
   --ds-color-focus: color-mix(in srgb, var(--brand-primary) 74%, white 26%);
   --ds-color-focus-ring: color-mix(in srgb, var(--ds-color-focus) 58%, transparent);
+  --component-button-success-text: var(--ds-color-surface-sunken);
+  --component-button-warning-text: var(--ds-color-surface-sunken);
+  --component-button-danger-text: var(--ds-color-surface-sunken);
+  --component-button-info-text: var(--ds-color-surface-sunken);
 
   --component-status-pill-neutral-border: #8f8882;
 

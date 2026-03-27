@@ -686,7 +686,7 @@ export default function DocumentPendenciesPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-muted)]">
                     Total
                   </p>
-                  <p className="text-2xl font-semibold text-[var(--ds-color-text-title)]">
+                  <p className="text-2xl font-semibold text-[var(--ds-color-text-primary)]">
                     {item.total}
                   </p>
                 </div>

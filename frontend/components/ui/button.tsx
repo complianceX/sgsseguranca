@@ -23,7 +23,7 @@ const buttonVariants = cva(
         warning:
           'bg-[var(--component-button-warning-bg)] text-[var(--component-button-warning-text)] hover:bg-[var(--ds-color-warning-hover)] active:bg-[var(--ds-color-warning-hover)] disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]',
         info:
-          'bg-[var(--ds-color-info)] text-[var(--ds-color-text-inverse)] hover:bg-[var(--ds-color-info-hover)] active:bg-[var(--ds-color-info-hover)] disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]',
+          'bg-[var(--component-button-info-bg,var(--ds-color-info))] text-[var(--component-button-info-text,var(--ds-color-text-inverse))] hover:bg-[var(--component-button-info-hover-bg,var(--ds-color-info-hover))] active:bg-[var(--component-button-info-active-bg,var(--ds-color-info-hover))] disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]',
         destructive:
           'bg-[var(--component-button-danger-bg)] text-[var(--component-button-danger-text)] hover:bg-[var(--ds-color-danger-hover)] active:bg-[var(--ds-color-danger-hover)] disabled:border-[var(--disabled-border)] disabled:bg-[var(--disabled-bg)] disabled:text-[var(--disabled-text)]',
         link:

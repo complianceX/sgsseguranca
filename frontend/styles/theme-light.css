@@ -11,7 +11,7 @@
   --ds-color-surface-muted-hover: #e6f0fa;
 
   /* Bordas — frias, legíveis e compatíveis com a nova marca */
-  --ds-color-border-subtle: #d7e3ef;
+  --ds-color-border-subtle: #cbdbea;
   --ds-color-border-default: var(--brand-border-default);
   --ds-color-border-strong: var(--brand-border-strong);
   --ds-color-border-focus: var(--brand-primary);
@@ -44,14 +44,23 @@
   --ds-color-primary-subtle: var(--brand-primary-soft);
   --ds-color-primary-subtle-hover: #ddeaf8;
   --ds-color-primary-border: #a9c6e1;
+  --component-badge-primary-bg: var(--ds-color-primary-subtle);
+  --component-badge-primary-text: var(--ds-color-action-primary);
+  --component-status-pill-primary-bg: var(--ds-color-primary-subtle);
+  --component-status-pill-primary-text: var(--ds-color-action-primary);
+  --component-status-pill-primary-border: color-mix(
+    in srgb,
+    var(--ds-color-action-primary) 28%,
+    var(--ds-color-border-default) 72%
+  );
 
   --ds-color-action-secondary: #ffffff;
   --ds-color-action-secondary-hover: #f3f8fd;
   --ds-color-action-secondary-active: #e9f1f8;
   --ds-color-action-secondary-foreground: #12324d;
   --ds-color-action-secondary-border: #96b0ca;
-  --component-button-secondary-border: #96b0ca;
-  --component-button-outline-border: #96b0ca;
+  --component-button-secondary-border: #7f9fbc;
+  --component-button-outline-border: #7f9fbc;
 
   --ds-color-accent: var(--brand-secondary);
   --ds-color-accent-hover: #4e6c89;
@@ -115,7 +124,7 @@
   --ds-color-overlay: rgba(15, 23, 42, 0.18);
   --ds-shell-backdrop: var(--ds-color-bg-canvas);
   --ds-color-command-surface: #ffffff;
-  --ds-color-command-border: #d7e3ef;
+  --ds-color-command-border: #cbdbea;
 
   --ds-gradient-brand: var(--ds-color-action-primary);
   --ds-gradient-surface: var(--ds-color-surface-elevated);

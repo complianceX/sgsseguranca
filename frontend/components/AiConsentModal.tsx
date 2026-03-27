@@ -44,7 +44,7 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
         position: 'fixed',
         inset: 0,
         zIndex: 10000,
-        background: 'rgba(0,0,0,0.5)',
+        background: 'var(--component-overlay)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -54,12 +54,12 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
       {/* Card */}
       <div
         style={{
-          background: 'var(--ds-color-surface, #fff)',
+          background: 'var(--ds-color-surface-overlay)',
           borderRadius: '16px',
           padding: '32px',
           maxWidth: '520px',
           width: '100%',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+          boxShadow: 'var(--ds-shadow-xl)',
           position: 'relative',
         }}
       >
@@ -75,7 +75,7 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
             background: 'transparent',
             border: 'none',
             cursor: 'pointer',
-            color: 'var(--ds-color-text-secondary, #6b7280)',
+            color: 'var(--ds-color-text-secondary)',
             padding: '4px',
           }}
         >
@@ -86,7 +86,7 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
         <div
           style={{
             marginBottom: '20px',
-            color: 'var(--ds-color-action-primary, #11598C)',
+            color: 'var(--ds-color-action-primary)',
           }}
         >
           <Brain size={36} />
@@ -95,7 +95,7 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
         <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>
           Consentimento para uso da IA (LGPD)
         </h2>
-        <p style={{ fontSize: '14px', color: 'var(--ds-color-text-secondary, #6b7280)', marginBottom: '20px', lineHeight: 1.6 }}>
+        <p style={{ fontSize: '14px', color: 'var(--ds-color-text-secondary)', marginBottom: '20px', lineHeight: 1.6 }}>
           Para usar o agente SOPHIE, precisamos do seu consentimento explícito para
           processar dados do sistema conforme a Lei Geral de Proteção de Dados (LGPD).
         </p>
@@ -137,7 +137,7 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
             onChange={(e) => setChecked(e.target.checked)}
             style={{
               marginTop: '2px',
-              accentColor: 'var(--ds-color-action-primary, #11598C)',
+              accentColor: 'var(--ds-color-action-primary)',
               width: '16px',
               height: '16px',
               flexShrink: 0,
@@ -157,7 +157,7 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
             style={{
               padding: '9px 18px',
               borderRadius: '8px',
-              border: '1px solid var(--ds-color-border, #e5e7eb)',
+              border: '1px solid var(--ds-color-border-default)',
               background: 'transparent',
               cursor: 'pointer',
               fontSize: '14px',
@@ -176,9 +176,12 @@ export function AiConsentModal({ onAccept, onDismiss }: AiConsentModalProps) {
               border: 'none',
               background:
                 checked && !saving
-                  ? 'var(--ds-color-action-primary, #11598C)'
-                  : 'var(--ds-color-action-secondary, #D9E6F2)',
-              color: '#fff',
+                  ? 'var(--ds-color-action-primary)'
+                  : 'var(--ds-color-action-secondary)',
+              color:
+                checked && !saving
+                  ? 'var(--ds-color-action-primary-foreground)'
+                  : 'var(--ds-color-action-secondary-foreground)',
               cursor: checked && !saving ? 'pointer' : 'not-allowed',
               fontSize: '14px',
               fontWeight: 600,
@@ -207,13 +210,13 @@ function InfoItem({ icon, title, children }: {
       gap: '10px',
       padding: '12px',
       borderRadius: '8px',
-      background: 'var(--ds-color-surface-raised, #f9fafb)',
-      border: '1px solid var(--ds-color-border, #e5e7eb)',
+      background: 'var(--ds-color-surface-muted)',
+      border: '1px solid var(--ds-color-border-default)',
       fontSize: '13px',
     }}>
       <span
         style={{
-          color: 'var(--ds-color-action-primary, #11598C)',
+          color: 'var(--ds-color-action-primary)',
           marginTop: '2px',
           flexShrink: 0,
         }}
@@ -222,7 +225,7 @@ function InfoItem({ icon, title, children }: {
       </span>
       <div>
         <strong style={{ display: 'block', marginBottom: '2px' }}>{title}</strong>
-        <span style={{ color: 'var(--ds-color-text-secondary, #6b7280)', lineHeight: 1.5 }}>
+        <span style={{ color: 'var(--ds-color-text-secondary)', lineHeight: 1.5 }}>
           {children}
         </span>
       </div>

@@ -14,7 +14,8 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-[color:var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]',
+        primary:
+          'bg-[color:var(--component-badge-primary-bg,var(--ds-color-primary-subtle))] text-[var(--component-badge-primary-text,var(--ds-color-action-primary))]',
         accent: 'bg-[color:var(--ds-color-accent-subtle)] text-[var(--ds-color-accent)]',
         success: 'bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success-fg)]',
         warning: 'bg-[color:var(--ds-color-warning-subtle)] text-[var(--ds-color-warning-fg)]',

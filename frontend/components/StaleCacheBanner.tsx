@@ -45,9 +45,9 @@ export function StaleCacheBanner() {
     >
       <div
         style={{
-          background: '#FFFBEB',
-          borderBottom: '1px solid #FDE68A',
-          color: '#92400E',
+          background: 'var(--ds-color-warning-subtle)',
+          borderBottom: '1px solid var(--ds-color-warning-border)',
+          color: 'var(--ds-color-warning-fg)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -74,9 +74,9 @@ export function StaleCacheBanner() {
                 marginLeft: '8px',
                 padding: '2px 10px',
                 borderRadius: '4px',
-                border: '1px solid #F59E0B',
-                background: '#FEF3C7',
-                color: '#92400E',
+                border: '1px solid var(--ds-color-warning-border)',
+                background: 'var(--ds-color-warning-subtle)',
+                color: 'var(--ds-color-warning-fg)',
                 fontSize: '12px',
                 cursor: 'pointer',
                 fontWeight: 600,
@@ -95,7 +95,7 @@ export function StaleCacheBanner() {
                 background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
-                color: '#92400E',
+                color: 'var(--ds-color-warning-fg)',
                 display: 'flex',
                 alignItems: 'center',
               }}

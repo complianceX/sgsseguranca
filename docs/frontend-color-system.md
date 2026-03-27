@@ -1,11 +1,11 @@
 # Frontend Color System
 
 ## Objetivo
-Este documento descreve o sistema de cor do frontend com foco em consistencia de produto, legibilidade e uso enterprise. A base visual do projeto e uma paleta "Graphite Ledger": fundo mineral claro, estrutura grafite, ações discretas e semantica funcional para estados.
+Este documento descreve o sistema de cor do frontend com foco em consistencia de produto, legibilidade e uso enterprise. A base visual do projeto e uma paleta "Blue Command": fundo claro frio, estrutura azul institucional, ações objetivas e semantica funcional para estados.
 
 ## Direcao Visual
 - Base clara, limpa e sem ornamento desnecessario.
-- Grafite e pedra como eixo principal, sem "azul corporativo" dominante.
+- Azul institucional e neutros frios como eixo principal, sem acentos aleatorios.
 - Cor de estado so quando houver semantica real.
 - Contraste suficiente para operacao longa e telas densas.
 - A paleta deve parecer unificada em app, auth, PDF e email, mesmo que cada meio tenha restricoes tecnicas diferentes.
@@ -27,25 +27,25 @@ Valores principais da paleta atual do frontend:
 
 | Papel | Token base | Valor |
 | --- | --- | --- |
-| Canvas | `--brand-background` | `#f6f5f3` |
-| Sidebar | `--brand-sidebar` | `#2c2825` |
-| Sidebar border | `--brand-sidebar-border` | `#4a433d` |
+| Canvas | `--brand-background` | `#f7fafd` |
+| Sidebar | `--brand-sidebar` | `#0e4e7f` |
+| Sidebar border | `--brand-sidebar-border` | `#2e6d9c` |
 | Card | `--brand-card` | `#ffffff` |
-| Primary | `--brand-primary` | `#3e3935` |
-| Primary hover | `--brand-primary-hover` | `#2c2825` |
-| Primary active | `--brand-primary-active` | `#25221f` |
-| Secondary | `--brand-secondary` | `#67615b` |
-| Title/text base | `--brand-title`, `--brand-text-primary` | `#25221f` |
-| Text secondary | `--brand-text-secondary` | `#5c5650` |
-| Text muted | `--brand-text-muted` | `#77706a` |
-| Border default | `--brand-border-default` | `#b7aea5` |
-| Border strong | `--brand-border-strong` | `#8f8882` |
+| Primary | `--brand-primary` | `#11598c` |
+| Primary hover | `--brand-primary-hover` | `#0d4d79` |
+| Primary active | `--brand-primary-active` | `#0a3d61` |
+| Secondary | `--brand-secondary` | `#5d7b99` |
+| Title/text base | `--brand-title`, `--brand-text-primary` | `#0f172a` |
+| Text secondary | `--brand-text-secondary` | `#36516b` |
+| Text muted | `--brand-text-muted` | `#617b95` |
+| Border default | `--brand-border-default` | `#c6d7e8` |
+| Border strong | `--brand-border-strong` | `#96b0ca` |
 | Success | `--brand-success` | `#1d6b43` |
 | Warning | `--brand-warning` | `#9a5a00` |
 | Danger | `--brand-danger` | `#b3261e` |
-| Info | `--brand-info` | `#57534e` |
+| Info | `--brand-info` | `#416e96` |
 
-Observacao: a camada de tema (`theme-light.css` e `theme-dark.css`) traduz esses valores em tokens de uso, e o backend possui registros de `system_theme` alinhados a essa direcao visual. O contrato visual do frontend, porem, deve ser decidido pelos tokens CSS.
+Observacao: a camada de tema (`theme-light.css` e `theme-dark.css`) traduz esses valores em tokens de uso. O contrato visual do frontend deve ser decidido pelos tokens CSS em runtime.
 
 ## Semantica De Cor
 
@@ -196,7 +196,7 @@ Se o elemento comunica acao, use token de acao. Se comunica estado, use token de
 ### Auth
 Auth pede leitura rapida, serenidade e foco total na tarefa.
 - Use canvas claro, card elevado e bordas sutis.
-- Mantenha CTA principal grafite/escuro com alto contraste.
+- Mantenha CTA principal azul institucional com alto contraste.
 - Banners de erro e aviso devem usar `warning` e `danger` com fundos sutis.
 - Campos precisam de foco muito claro, porque login e reset de senha sao fluxos com alta friccao.
 - Ajustes locais em `--login-*` sao aceitaveis apenas quando servem para contraste, foco, densidade ou legibilidade do layout de auth.
@@ -214,7 +214,7 @@ PDF e um canal separado do CSS do browser.
 ### Email
 Email precisa ser robusto em clientes variados.
 - Use HTML inline, estrutura simples e largura contida.
-- O padrao atual de comunicacao grafite deve continuar: barra superior grafite, shell claro, texto escuro e CTA forte.
+- O padrao atual de comunicacao deve seguir o eixo azul institucional: barra superior azul, shell claro, texto escuro e CTA forte.
 - Prefira uma paleta reduzida: fundo claro, grafite, borda suave, texto secundario e `warning` apenas quando o email for sensivel.
 - Nao use CSS externo, gradientes complexos ou componentes dependentes de runtime do navegador.
 - Nao dependa de dark mode do cliente de email.

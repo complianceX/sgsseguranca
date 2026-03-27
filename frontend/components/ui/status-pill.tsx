@@ -6,7 +6,7 @@ const statusToneMap = {
   neutral:
     'border-[color:var(--component-status-pill-neutral-border,var(--ds-color-border-default))] bg-[color:var(--ds-color-surface-muted)]/32 text-[var(--ds-color-text-secondary)]',
   primary:
-    'border-[color:var(--ds-color-action-primary)]/20 bg-[color:var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]',
+    'border-[color:var(--component-status-pill-primary-border,var(--ds-color-primary-border))] bg-[color:var(--component-status-pill-primary-bg,var(--ds-color-primary-subtle))] text-[var(--component-status-pill-primary-text,var(--ds-color-action-primary))]',
   info: 'border-[color:var(--ds-color-info-border)] bg-[color:var(--ds-color-info-subtle)] text-[var(--ds-color-info-fg)]',
   success:
     'border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success-fg)]',
