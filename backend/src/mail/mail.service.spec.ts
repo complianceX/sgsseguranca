@@ -381,6 +381,20 @@ describe('MailService', () => {
       expect(_url).toBe('https://api.brevo.com/v3/smtp/email');
       expect(init?.method).toBe('POST');
       expect(init?.headers?.['api-key']).toBe('brevo-key');
+      const body = JSON.parse(
+        String((init as { body?: string } | undefined)?.body ?? '{}'),
+      ) as {
+        sender?: { name?: string; email?: string };
+        replyTo?: { name?: string; email?: string };
+      };
+      expect(body.sender).toEqual({
+        name: 'SGS',
+        email: 'test@example.com',
+      });
+      expect(body.replyTo).toEqual({
+        name: 'SGS',
+        email: 'test@example.com',
+      });
 
       await module.close();
       (globalThis as unknown as { fetch: unknown }).fetch = originalFetch;

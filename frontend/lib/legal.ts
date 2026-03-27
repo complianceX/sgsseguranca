@@ -8,6 +8,7 @@ export type PublicLegalConfig = {
   companyDocument: string | null;
   companyAddress: string | null;
   privacyEmail: string | null;
+  supportEmail: string | null;
   contactEmail: string | null;
   dpoName: string | null;
   forumCityState: string | null;
@@ -24,8 +25,10 @@ export function getPublicLegalConfig(): PublicLegalConfig {
   const companyDocument = readPublicEnv('NEXT_PUBLIC_LEGAL_COMPANY_DOCUMENT');
   const companyAddress = readPublicEnv('NEXT_PUBLIC_LEGAL_COMPANY_ADDRESS');
   const privacyEmail = readPublicEnv('NEXT_PUBLIC_LEGAL_PRIVACY_EMAIL');
-  const contactEmail =
-    readPublicEnv('NEXT_PUBLIC_LEGAL_CONTACT_EMAIL') || privacyEmail;
+  const explicitSupportEmail = readPublicEnv('NEXT_PUBLIC_LEGAL_SUPPORT_EMAIL');
+  const legacyContactEmail = readPublicEnv('NEXT_PUBLIC_LEGAL_CONTACT_EMAIL');
+  const supportEmail = explicitSupportEmail || legacyContactEmail || privacyEmail;
+  const contactEmail = legacyContactEmail || explicitSupportEmail || privacyEmail;
   const dpoName = readPublicEnv('NEXT_PUBLIC_LEGAL_DPO_NAME');
   const forumCityState = readPublicEnv('NEXT_PUBLIC_LEGAL_FORUM_CITY_STATE');
 
@@ -51,6 +54,11 @@ export function getPublicLegalConfig(): PublicLegalConfig {
       isMissing: !privacyEmail,
     },
     {
+      envName: 'NEXT_PUBLIC_LEGAL_SUPPORT_EMAIL',
+      label: 'canal oficial de suporte',
+      isMissing: !explicitSupportEmail && !legacyContactEmail,
+    },
+    {
       envName: 'NEXT_PUBLIC_LEGAL_FORUM_CITY_STATE',
       label: 'foro contratual',
       isMissing: !forumCityState,
@@ -62,6 +70,7 @@ export function getPublicLegalConfig(): PublicLegalConfig {
     companyDocument,
     companyAddress,
     privacyEmail,
+    supportEmail,
     contactEmail,
     dpoName,
     forumCityState,

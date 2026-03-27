@@ -87,6 +87,11 @@ type SendMailMetadata = {
   filename?: string;
 };
 
+type MailIdentity = {
+  name: string;
+  email: string;
+};
+
 type CompanyAlertSettings = {
   enabled: boolean;
   recipients: string[];
@@ -562,7 +567,7 @@ export class MailService {
       ],
       note:
         'Este envio utilizou um PDF local/degradado e não substitui o documento final governado.',
-      footer: 'SGS — Sistema de Gestão de Segurança · Canal operacional',
+      footer: this.buildOfficialFooter('Canal operacional'),
     });
 
     await this.sendMailSimple(
@@ -776,6 +781,24 @@ export class MailService {
     return { fromName, fromEmail };
   }
 
+  private resolveReplyToAddress(): MailIdentity {
+    const { fromName, fromEmail } = this.resolveFromAddress();
+    const replyToEmail =
+      this.configService.get<string>('MAIL_REPLY_TO_EMAIL')?.trim() ||
+      fromEmail;
+    const replyToName =
+      this.configService.get<string>('MAIL_REPLY_TO_NAME')?.trim() ||
+      fromName;
+
+    return { name: replyToName, email: replyToEmail };
+  }
+
+  private buildOfficialFooter(channelLabel = 'Comunicação oficial'): string {
+    const { fromName } = this.resolveFromAddress();
+    const replyTo = this.resolveReplyToAddress();
+    return `${fromName} · ${channelLabel} · Respostas para ${replyTo.email}`;
+  }
+
   private buildGraphiteEmailHtml(options: {
     eyebrow: string;
     title: string;
@@ -813,10 +836,7 @@ export class MailService {
         }
         <hr style="border:none;border-top:1px solid #d8d2cb;margin:24px 0;" />
         <p style="${footerStyle}">
-          ${
-            options.footer ||
-            'SGS — Sistema de Gestão de Segurança · Comunicação oficial'
-          }
+          ${options.footer || this.buildOfficialFooter()}
         </p>
       </div>
     `;
@@ -877,6 +897,7 @@ export class MailService {
     attachments?: MailAttachment[];
   }): Promise<MailDeliveryResult> {
     const { fromName, fromEmail } = this.resolveFromAddress();
+    const replyTo = this.resolveReplyToAddress();
     const recipients = this.normalizeRecipients(options.to);
     if (!recipients.length) {
       throw new BadRequestException(
@@ -891,6 +912,7 @@ export class MailService {
         async () => {
           const payload = {
             sender: { name: fromName, email: fromEmail },
+            replyTo,
             to: recipients.map((email) => ({ email })),
             subject: options.subject,
             textContent: options.text,
@@ -964,6 +986,7 @@ export class MailService {
         () =>
           this.transporter!.sendMail({
             from: `${fromName} <${fromEmail}>`,
+            replyTo: `${replyTo.name} <${replyTo.email}>`,
             to: recipients.join(','),
             subject: options.subject,
             text: options.text,
@@ -995,6 +1018,7 @@ export class MailService {
           () =>
             this.resend!.emails.send({
               from: `${fromName} <${fromEmail}>`,
+              replyTo: `${replyTo.name} <${replyTo.email}>`,
               to: recipients.length === 1 ? recipients[0] : recipients,
               subject: options.subject,
               text: options.text,

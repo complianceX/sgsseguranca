@@ -68,6 +68,34 @@ export class AuthService {
     return new Resend(key);
   }
 
+  private resolveFromAddress() {
+    const fromName =
+      this.configService.get<string>('MAIL_FROM_NAME')?.trim() ||
+      'SGS - Sistema de Gestão de Segurança';
+    const fromEmail =
+      this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() ||
+      'onboarding@resend.dev';
+    return { fromName, fromEmail };
+  }
+
+  private resolveReplyToAddress() {
+    const { fromName, fromEmail } = this.resolveFromAddress();
+    const replyToEmail =
+      this.configService.get<string>('MAIL_REPLY_TO_EMAIL')?.trim() ||
+      fromEmail;
+    const replyToName =
+      this.configService.get<string>('MAIL_REPLY_TO_NAME')?.trim() ||
+      fromName;
+
+    return { replyToName, replyToEmail };
+  }
+
+  private buildOfficialFooter(channelLabel = 'Comunicação oficial') {
+    const { fromName } = this.resolveFromAddress();
+    const { replyToEmail } = this.resolveReplyToAddress();
+    return `${fromName} · ${channelLabel} · Respostas para ${replyToEmail}`;
+  }
+
   private readonly logger = new Logger(AuthService.name);
 
   async validateUser(cpf: string, pass: string): Promise<Partial<User> | null> {
@@ -288,10 +316,7 @@ export class AuthService {
         }
         <hr style="border:none;border-top:1px solid #d8d2cb;margin:24px 0;" />
         <p style="${footerStyle}">
-          ${
-            options.footer ||
-            'SGS — Sistema de Gestão de Segurança · Comunicação oficial'
-          }
+          ${options.footer || this.buildOfficialFooter()}
         </p>
       </div>
     `;
@@ -620,7 +645,7 @@ export class AuthService {
       },
       note:
         'Este link é válido por 1 hora. Caso não tenha solicitado, ignore este e-mail; sua senha permanece inalterada.',
-      footer: '© 2026 SGS — Sistema de Gestão de Segurança · Todos os direitos reservados',
+      footer: this.buildOfficialFooter('Central de suporte'),
     });
 
     try {
@@ -632,14 +657,11 @@ export class AuthService {
           userId: user.id,
         });
       } else {
-        const fromName =
-          this.configService.get<string>('MAIL_FROM_NAME')?.trim() ||
-          'SGS - Sistema de Gestão de Segurança';
-        const fromEmail =
-          this.configService.get<string>('MAIL_FROM_EMAIL')?.trim() ||
-          'onboarding@resend.dev';
+        const { fromName, fromEmail } = this.resolveFromAddress();
+        const { replyToName, replyToEmail } = this.resolveReplyToAddress();
         await resend.emails.send({
           from: `${fromName} <${fromEmail}>`,
+          replyTo: `${replyToName} <${replyToEmail}>`,
           to: user.email,
           subject: 'Redefinição de senha — SGS',
           text: `Acesse o link para redefinir sua senha: ${resetUrl}`,

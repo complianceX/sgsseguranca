@@ -30,6 +30,22 @@ NEXT_PUBLIC_ELEVENLABS_AGENT_ID=agent_4701kkd45sy6eb7r4rg7rz7bxypk
 
 The agent must be public in ElevenLabs, with auth disabled and the frontend domain added to the widget allowlist.
 
+## Legal pages
+
+To publish the legal pages with official channels, define:
+
+```bash
+NEXT_PUBLIC_LEGAL_COMPANY_NAME=Sua Empresa Ltda
+NEXT_PUBLIC_LEGAL_COMPANY_DOCUMENT=00.000.000/0001-00
+NEXT_PUBLIC_LEGAL_COMPANY_ADDRESS=Rua Exemplo, 123, Centro, Cidade/UF, CEP 00000-000
+NEXT_PUBLIC_LEGAL_PRIVACY_EMAIL=privacidade@seudominio.com
+NEXT_PUBLIC_LEGAL_SUPPORT_EMAIL=suporte@seudominio.com
+NEXT_PUBLIC_LEGAL_DPO_NAME=Nome do DPO
+NEXT_PUBLIC_LEGAL_FORUM_CITY_STATE=Fortaleza/CE
+```
+
+Legacy compatibility: `NEXT_PUBLIC_LEGAL_CONTACT_EMAIL` is still accepted as a fallback for support.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -38,9 +38,9 @@ const customerDuties = [
 export default function TermosPage() {
   const lastUpdated = '26 de março de 2026';
   const legal = getPublicLegalConfig();
-  const contactChannel =
-    legal.contactEmail || 'canal comercial informado ao administrador da sua organização';
-  const contactHref = legal.contactEmail ? `mailto:${legal.contactEmail}` : null;
+  const supportChannel =
+    legal.supportEmail || 'canal oficial de suporte informado ao administrador da sua organização';
+  const supportHref = legal.supportEmail ? `mailto:${legal.supportEmail}` : null;
   const forumLabel =
     legal.forumCityState || 'foro definido no contrato comercial firmado entre as partes';
   const companyName =
@@ -123,14 +123,14 @@ export default function TermosPage() {
                   <Handshake size={18} />
                 </span>
                 <div>
-                  <strong>Contato contratual</strong>
+                  <strong>Canal oficial de suporte</strong>
                   <p>
-                    {contactHref ? (
-                      <a href={contactHref} className={styles.inlineLink}>
-                        {contactChannel}
+                    {supportHref ? (
+                      <a href={supportHref} className={styles.inlineLink}>
+                        {supportChannel}
                       </a>
                     ) : (
-                      contactChannel
+                      supportChannel
                     )}
                   </p>
                 </div>
@@ -175,7 +175,8 @@ export default function TermosPage() {
             </strong>
             <p>
               Antes de publicação final, revise os dados públicos da operação para garantir
-              consistência entre estes termos, a política de privacidade e o contrato
+              consistência entre estes termos, a política de privacidade, o canal de
+              suporte e o contrato
               comercial.
             </p>
           </section>
@@ -389,15 +390,16 @@ export default function TermosPage() {
           </section>
 
           <section className={styles.section}>
-            <h2>14. Contato</h2>
+            <h2>14. Contato e suporte</h2>
             <p>
-              Dúvidas contratuais, operacionais ou comerciais podem ser encaminhadas para{' '}
-              {contactHref ? (
-                <a href={contactHref} className={styles.inlineLink}>
-                  {contactChannel}
+              Dúvidas contratuais, operacionais ou solicitações de suporte podem ser
+              encaminhadas para{' '}
+              {supportHref ? (
+                <a href={supportHref} className={styles.inlineLink}>
+                  {supportChannel}
                 </a>
               ) : (
-                contactChannel
+                supportChannel
               )}
               .
             </p>

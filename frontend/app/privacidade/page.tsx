@@ -84,6 +84,10 @@ export default function PrivacidadePage() {
     legal.privacyEmail ||
     'canal de privacidade informado ao administrador da organização';
   const privacyHref = legal.privacyEmail ? `mailto:${legal.privacyEmail}` : null;
+  const supportChannel = legal.supportEmail;
+  const supportHref = legal.supportEmail ? `mailto:${legal.supportEmail}` : null;
+  const showDedicatedSupportChannel =
+    Boolean(supportChannel) && supportChannel !== legal.privacyEmail;
   const dpoLabel = legal.dpoName || 'canal de privacidade e proteção de dados';
   const hasMissingLegalInfo = legal.missingRequiredFields.length > 0;
 
@@ -440,6 +444,19 @@ export default function PrivacidadePage() {
               )}
               .
             </p>
+            {showDedicatedSupportChannel ? (
+              <p>
+                Para suporte técnico ou operacional da plataforma, utilize{' '}
+                {supportHref ? (
+                  <a href={supportHref} className={styles.inlineLink}>
+                    {supportChannel}
+                  </a>
+                ) : (
+                  supportChannel
+                )}
+                .
+              </p>
+            ) : null}
             <p>
               O titular também pode peticionar perante a Autoridade Nacional de Proteção
               de Dados (ANPD), conforme os canais oficiais divulgados em{' '}

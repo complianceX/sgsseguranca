@@ -293,6 +293,8 @@ const validationSchema = Joi.object({
   MAIL_PASS: Joi.string().optional().allow(''),
   MAIL_FROM_EMAIL: Joi.string().email().optional().allow(''),
   MAIL_FROM_NAME: Joi.string().default('Sistema'),
+  MAIL_REPLY_TO_EMAIL: Joi.string().email().optional().allow(''),
+  MAIL_REPLY_TO_NAME: Joi.string().optional().allow(''),
   MAIL_ALERT_SCHEDULE_MIN_INTERVAL_MS: Joi.number().default(300000),
   MAIL_ALERT_SCHEDULE_LOCK_TTL_MS: Joi.number().default(600000),
   MAIL_ALERT_COMPANY_BATCH_SIZE: Joi.number().default(10),
