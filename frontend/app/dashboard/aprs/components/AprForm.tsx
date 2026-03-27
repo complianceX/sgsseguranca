@@ -2052,8 +2052,12 @@ export function AprForm({ id }: AprFormProps) {
   return (
     <div
       className={cn(
-        "ds-form-page mx-auto max-w-4xl space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500",
-        isFieldMode && "max-w-5xl pb-28",
+        "ds-form-page mx-auto space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500",
+        currentStep === 2
+          ? "w-full max-w-[min(96vw,1880px)]"
+          : "max-w-4xl",
+        isFieldMode && currentStep !== 2 && "max-w-5xl pb-28",
+        isFieldMode && currentStep === 2 && "pb-28",
       )}
     >
       <div className="flex items-center justify-between">
@@ -3065,7 +3069,7 @@ export function AprForm({ id }: AprFormProps) {
                   />
                 </div>
 
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+                <div className="space-y-6">
                   <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+4px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
                     <input
                       ref={excelInputRef}
@@ -3308,7 +3312,7 @@ export function AprForm({ id }: AprFormProps) {
                     </div>
                   </div>
 
-                  <div className="space-y-4 xl:sticky xl:top-24 xl:self-start">
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(340px,0.9fr)]">
                     <AprRiskReferencePanel
                       getActionCriteriaText={getActionCriteriaText}
                     />

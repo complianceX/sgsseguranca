@@ -220,7 +220,7 @@ export function AprExecutiveSummary({
         </div>
       </div>
 
-      <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
+      <div className="grid gap-3 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7">
         <SummaryMetricCard label="Total de riscos" value={riskSummary.total} tone="neutral" />
         <SummaryMetricCard label="Aceitáveis" value={riskSummary.aceitavel} tone="success" />
         <SummaryMetricCard label="Atenção" value={riskSummary.atencao} tone="info" />
@@ -245,7 +245,7 @@ export function AprExecutiveSummary({
       {(riskSummary.critico > 0 ||
         riskSummary.incompletas > 0 ||
         riskSummary.semMedidasPreventivas > 0) && (
-        <div className="grid gap-3 border-t border-[var(--ds-color-border-subtle)] px-4 py-4 lg:grid-cols-3">
+        <div className="grid gap-3 border-t border-[var(--ds-color-border-subtle)] px-4 py-4 md:grid-cols-2 xl:grid-cols-3">
           {riskSummary.critico > 0 && (
             <div className="flex items-start gap-2 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)] px-3 py-3 text-sm font-semibold text-[var(--color-danger)]">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
