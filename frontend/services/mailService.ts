@@ -17,6 +17,13 @@ export type DispatchAlertsResponse = {
   usingTestAccount?: boolean;
   whatsappSent?: boolean;
 };
+export type AlertSettingsResponse = {
+  enabled: boolean;
+  recipients: string[];
+  includeWhatsapp: boolean;
+  fallbackRecipients: string[];
+  providerConfigured: boolean;
+};
 
 type MailDispatchErrorPayload = {
   message?: unknown;
@@ -66,6 +73,20 @@ export const mailService = {
       '/mail/alerts/dispatch',
       payload,
     );
+    return response.data;
+  },
+
+  async getAlertSettings(): Promise<AlertSettingsResponse> {
+    const response = await api.get<AlertSettingsResponse>('/mail/alerts/settings');
+    return response.data;
+  },
+
+  async updateAlertSettings(payload: {
+    enabled?: boolean;
+    recipients?: string[];
+    includeWhatsapp?: boolean;
+  }): Promise<AlertSettingsResponse> {
+    const response = await api.patch<AlertSettingsResponse>('/mail/alerts/settings', payload);
     return response.data;
   },
 };

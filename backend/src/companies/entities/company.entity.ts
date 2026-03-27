@@ -46,6 +46,18 @@ export class Company {
     requireAtLeastOneExecutante: boolean;
   } | null;
 
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    default: () =>
+      `'{"enabled":true,"recipients":[],"includeWhatsapp":false}'::jsonb`,
+  })
+  alert_settings?: {
+    enabled: boolean;
+    recipients: string[];
+    includeWhatsapp: boolean;
+  } | null;
+
   @CreateDateColumn()
   created_at: Date;
 

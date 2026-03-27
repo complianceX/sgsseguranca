@@ -32,6 +32,7 @@ import { isApiCronDisabled } from '../common/utils/scheduler.util';
 import { ReportsService } from '../reports/reports.service';
 import { CompanyResponseDto } from '../companies/dto/company-response.dto';
 import { Checklist } from '../checklists/entities/checklist.entity';
+import { UpdateAlertSettingsDto } from './dto/update-alert-settings.dto';
 import {
   DocumentMailArtifactType,
   DocumentMailDispatchResponseDto,
@@ -84,6 +85,18 @@ type MailFailureDetails = {
 type SendMailMetadata = {
   html?: string;
   filename?: string;
+};
+
+type CompanyAlertSettings = {
+  enabled: boolean;
+  recipients: string[];
+  includeWhatsapp: boolean;
+};
+
+const DEFAULT_COMPANY_ALERT_SETTINGS: CompanyAlertSettings = {
+  enabled: true,
+  recipients: [],
+  includeWhatsapp: false,
 };
 
 const isLooseRecord = (value: unknown): value is LooseRecord =>
@@ -1209,6 +1222,7 @@ export class MailService {
     includeWhatsapp?: boolean;
     companyId?: string;
     userId?: string;
+    respectAutomationEnabled?: boolean;
   }) {
     const resolvedCompanyId = options.companyId;
     if (!resolvedCompanyId) {
@@ -1217,11 +1231,25 @@ export class MailService {
       );
     }
 
-    const recipients = this.normalizeRecipients(
-      options.to || this.configService.get<string>('MAIL_ALERT_TO') || '',
-    );
+    const settings = await this.getCompanyAlertSettings(resolvedCompanyId);
+    if (options.respectAutomationEnabled && !settings.enabled) {
+      return {
+        recipients: [],
+        previewUrl: undefined,
+        usingTestAccount: undefined,
+        whatsappSent: false,
+      };
+    }
 
-    if (!recipients.length) {
+    const fallbackRecipients = this.normalizeRecipients(
+      this.configService.get<string>('MAIL_ALERT_TO') || '',
+    );
+    const recipients = this.normalizeRecipients(
+      options.to || settings.recipients,
+    );
+    const recipientsToUse = recipients.length ? recipients : fallbackRecipients;
+
+    if (!recipientsToUse.length) {
       throw new ServiceUnavailableException(
         'Nenhum destinatário configurado para alertas.',
       );
@@ -1238,19 +1266,21 @@ export class MailService {
     }`;
 
     const mailResult = await this.sendMailSimple(
-      recipients.join(','),
+      recipientsToUse.join(','),
       subject,
       summary,
       { companyId: resolvedCompanyId, userId: options.userId },
     );
 
     const whatsappEnabled =
-      options.includeWhatsapp ||
+      typeof options.includeWhatsapp === 'boolean'
+        ? options.includeWhatsapp
+        : settings.includeWhatsapp ||
       this.configService.get<string>('WHATSAPP_ALERTS_ENABLED') === 'true';
 
     const whatsappResult = whatsappEnabled
       ? await this.sendWhatsappWebhook({
-          to: recipients,
+          to: recipientsToUse,
           companyId: resolvedCompanyId,
           companyName: company?.razao_social,
           message: summary,
@@ -1258,10 +1288,96 @@ export class MailService {
       : { sent: false };
 
     return {
-      recipients,
+      recipients: recipientsToUse,
       previewUrl: mailResult.previewUrl,
       usingTestAccount: mailResult.usingTestAccount,
       whatsappSent: whatsappResult.sent,
+    };
+  }
+
+  async getAlertSettingsSnapshot(companyId?: string) {
+    if (!companyId) {
+      throw new ServiceUnavailableException(
+        'Empresa não encontrada para configurações de alertas.',
+      );
+    }
+
+    const settings = await this.getCompanyAlertSettings(companyId);
+    const fallbackRecipients = this.normalizeRecipients(
+      this.configService.get<string>('MAIL_ALERT_TO') || '',
+    );
+
+    return {
+      ...settings,
+      fallbackRecipients,
+      providerConfigured: this.isMailProviderConfigured(),
+    };
+  }
+
+  async updateAlertSettings(
+    companyId: string | undefined,
+    payload: UpdateAlertSettingsDto,
+  ) {
+    if (!companyId) {
+      throw new ServiceUnavailableException(
+        'Empresa não encontrada para configurações de alertas.',
+      );
+    }
+
+    const current = await this.getCompanyAlertSettings(companyId);
+    const next: CompanyAlertSettings = {
+      enabled:
+        typeof payload.enabled === 'boolean'
+          ? payload.enabled
+          : current.enabled,
+      recipients:
+        payload.recipients?.map((item) => item.trim()).filter(Boolean) ??
+        current.recipients,
+      includeWhatsapp:
+        typeof payload.includeWhatsapp === 'boolean'
+          ? payload.includeWhatsapp
+          : current.includeWhatsapp,
+    };
+
+    await this.companiesService.update(companyId, {
+      alert_settings: next,
+    });
+
+    const fallbackRecipients = this.normalizeRecipients(
+      this.configService.get<string>('MAIL_ALERT_TO') || '',
+    );
+
+    return {
+      ...next,
+      fallbackRecipients,
+      providerConfigured: this.isMailProviderConfigured(),
+    };
+  }
+
+  private isMailProviderConfigured(): boolean {
+    return Boolean(this.brevoApiKey || this.transporter || this.resend);
+  }
+
+  private async getCompanyAlertSettings(
+    companyId: string,
+  ): Promise<CompanyAlertSettings> {
+    const company = await this.companiesService.findOneEntity(companyId);
+    const raw = company.alert_settings;
+
+    const recipients = Array.isArray(raw?.recipients)
+      ? raw.recipients
+      : DEFAULT_COMPANY_ALERT_SETTINGS.recipients;
+
+    return {
+      enabled:
+        typeof raw?.enabled === 'boolean'
+          ? raw.enabled
+          : DEFAULT_COMPANY_ALERT_SETTINGS.enabled,
+      recipients: this.normalizeRecipients(recipients),
+      includeWhatsapp:
+        typeof raw?.includeWhatsapp === 'boolean'
+          ? raw.includeWhatsapp
+          : DEFAULT_COMPANY_ALERT_SETTINGS.includeWhatsapp,
     };
   }
 
@@ -1460,13 +1576,6 @@ export class MailService {
     this.alertsRunning = true;
     try {
       this.lastScheduledAlertsAt = now;
-      const recipients = this.normalizeRecipients(
-        this.configService.get<string>('MAIL_ALERT_TO') || '',
-      );
-      if (!recipients.length) {
-        return;
-      }
-
       const companies = await this.companiesService.findAllActive();
       if (!companies.length) {
         return;
@@ -1484,11 +1593,8 @@ export class MailService {
         const results = await Promise.allSettled(
           chunk.map((company) =>
             this.dispatchAlerts({
-              to: recipients.join(','),
-              includeWhatsapp:
-                this.configService.get<string>('WHATSAPP_ALERTS_ENABLED') ===
-                'true',
               companyId: company.id,
+              respectAutomationEnabled: true,
             }),
           ),
         );

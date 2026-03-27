@@ -49,7 +49,14 @@ export default function SettingsPage() {
   const [loadingApprovalRules, setLoadingApprovalRules] = useState(false);
   const [savingApprovalRules, setSavingApprovalRules] = useState(false);
   const [alertRecipients, setAlertRecipients] = useState('');
+  const [alertAutomationEnabled, setAlertAutomationEnabled] = useState(true);
   const [includeWhatsappAlerts, setIncludeWhatsappAlerts] = useState(false);
+  const [savingAlertSettings, setSavingAlertSettings] = useState(false);
+  const [loadingAlertSettings, setLoadingAlertSettings] = useState(false);
+  const [alertFallbackRecipients, setAlertFallbackRecipients] = useState<
+    string[]
+  >([]);
+  const [mailProviderConfigured, setMailProviderConfigured] = useState(true);
   const [dispatchingAlerts, setDispatchingAlerts] = useState(false);
   const [lastAlertDispatch, setLastAlertDispatch] = useState<{
     recipients: string[];
@@ -165,6 +172,34 @@ export default function SettingsPage() {
     };
 
     void loadApprovalRules();
+    return () => {
+      active = false;
+    };
+  }, [hasPermission]);
+
+  useEffect(() => {
+    if (!hasPermission('can_manage_mail')) return;
+    let active = true;
+
+    const loadAlertSettings = async () => {
+      try {
+        setLoadingAlertSettings(true);
+        const settings = await mailService.getAlertSettings();
+        if (!active) return;
+        setAlertAutomationEnabled(settings.enabled);
+        setAlertRecipients(settings.recipients.join(', '));
+        setIncludeWhatsappAlerts(settings.includeWhatsapp);
+        setAlertFallbackRecipients(settings.fallbackRecipients);
+        setMailProviderConfigured(settings.providerConfigured);
+      } catch (error) {
+        console.error('Erro ao carregar configurações de alertas:', error);
+        toast.error('Não foi possível carregar as configurações de alertas.');
+      } finally {
+        if (active) setLoadingAlertSettings(false);
+      }
+    };
+
+    void loadAlertSettings();
     return () => {
       active = false;
     };
@@ -317,9 +352,45 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveAlertSettings = async () => {
+    if (!hasPermission('can_manage_mail')) {
+      toast.error('Seu perfil não possui permissão para editar alertas.');
+      return;
+    }
+
+    try {
+      setSavingAlertSettings(true);
+      const recipients = alertRecipients
+        .split(/[;,]+/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const updated = await mailService.updateAlertSettings({
+        enabled: alertAutomationEnabled,
+        recipients,
+        includeWhatsapp: includeWhatsappAlerts,
+      });
+      setAlertRecipients(updated.recipients.join(', '));
+      setAlertFallbackRecipients(updated.fallbackRecipients);
+      setMailProviderConfigured(updated.providerConfigured);
+      toast.success('Configurações de alertas atualizadas.');
+    } catch (error) {
+      console.error('Erro ao salvar configurações de alertas:', error);
+      const message = await extractMailDispatchErrorMessage(error);
+      toast.error(message);
+    } finally {
+      setSavingAlertSettings(false);
+    }
+  };
+
   const handleDispatchCorporateAlerts = async () => {
     if (!hasPermission('can_manage_mail')) {
       toast.error('Seu perfil não possui permissão para disparar alertas.');
+      return;
+    }
+    if (!mailProviderConfigured) {
+      toast.error(
+        'Envio de e-mail ainda não configurado no servidor. Configure o provedor para disparar alertas reais.',
+      );
       return;
     }
 
@@ -627,11 +698,30 @@ export default function SettingsPage() {
               Notificações corporativas
             </h2>
             <p className="text-sm text-[var(--ds-color-text-secondary)]">
-              Dispare manualmente o resumo de alertas por e-mail e, opcionalmente, por WhatsApp.
+              Configure destinatários padrão e automação sem depender de novo deploy.
             </p>
 
             {hasPermission('can_manage_mail') ? (
               <div className="mt-4 space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/24 px-3 py-2 text-sm">
+                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ds-color-text-secondary)]">
+                      Entrega de e-mail
+                    </p>
+                    <p className="mt-1 font-semibold text-[var(--ds-color-text-primary)]">
+                      {mailProviderConfigured ? 'Ativa (envio real)' : 'Não configurada'}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/24 px-3 py-2 text-sm">
+                    <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--ds-color-text-secondary)]">
+                      Automação
+                    </p>
+                    <p className="mt-1 font-semibold text-[var(--ds-color-text-primary)]">
+                      {alertAutomationEnabled ? 'Ativada' : 'Desativada'}
+                    </p>
+                  </div>
+                </div>
+
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-[var(--ds-color-text-secondary)]">
                     Destinatários
@@ -644,9 +734,24 @@ export default function SettingsPage() {
                     className="w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
                   />
                   <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
-                    Se vazio, o sistema usa os destinatários padrão definidos no servidor.
+                    Se vazio, o sistema usa o fallback do servidor:{' '}
+                    {alertFallbackRecipients.length
+                      ? alertFallbackRecipients.join(', ')
+                      : 'nenhum fallback cadastrado'}.
                   </p>
                 </div>
+
+                <label className="flex items-center justify-between gap-4 rounded-lg border border-[var(--ds-color-border-default)] px-3 py-2 text-sm">
+                  <span>Ativar disparo automático de alertas</span>
+                  <input
+                    type="checkbox"
+                    checked={alertAutomationEnabled}
+                    onChange={(event) =>
+                      setAlertAutomationEnabled(event.target.checked)
+                    }
+                    disabled={loadingAlertSettings}
+                  />
+                </label>
 
                 <label className="flex items-center justify-between gap-4 rounded-lg border border-[var(--ds-color-border-default)] px-3 py-2 text-sm">
                   <span>Incluir envio por WhatsApp</span>
@@ -654,17 +759,28 @@ export default function SettingsPage() {
                     type="checkbox"
                     checked={includeWhatsappAlerts}
                     onChange={(event) => setIncludeWhatsappAlerts(event.target.checked)}
+                    disabled={loadingAlertSettings}
                   />
                 </label>
 
-                <button
-                  type="button"
-                  onClick={handleDispatchCorporateAlerts}
-                  disabled={dispatchingAlerts}
-                  className="w-full rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {dispatchingAlerts ? 'Disparando alertas...' : 'Disparar resumo agora'}
-                </button>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveAlertSettings}
+                    disabled={savingAlertSettings || loadingAlertSettings}
+                    className="w-full rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {savingAlertSettings ? 'Salvando...' : 'Salvar configurações'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDispatchCorporateAlerts}
+                    disabled={dispatchingAlerts || loadingAlertSettings}
+                    className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-primary)] transition hover:border-[var(--ds-color-action-primary)] hover:text-[var(--ds-color-action-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {dispatchingAlerts ? 'Disparando...' : 'Disparar resumo agora'}
+                  </button>
+                </div>
 
                 {lastAlertDispatch ? (
                   <div className="rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/24 px-3 py-3 text-sm text-[var(--ds-color-text-secondary)]">

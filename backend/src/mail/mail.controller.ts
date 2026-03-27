@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Query,
   UseGuards,
@@ -30,6 +31,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Role } from '../auth/enums/roles.enum';
 import { DispatchAlertsDto } from './dto/dispatch-alerts.dto';
+import { UpdateAlertSettingsDto } from './dto/update-alert-settings.dto';
 import { defaultJobOptions } from '../queue/default-job-options';
 import { validatePdfMagicBytesFromPath } from '../common/interceptors/file-upload.interceptor';
 import { TenantService } from '../common/tenant/tenant.service';
@@ -394,5 +396,22 @@ export class MailController {
       usingTestAccount: result.usingTestAccount,
       whatsappSent: result.whatsappSent,
     };
+  }
+
+  @Get('alerts/settings')
+  @Authorize('can_manage_mail')
+  async getAlertSettings(@Request() req: RequestWithUser) {
+    const companyId = req.user?.companyId || req.user?.company_id;
+    return this.mailService.getAlertSettingsSnapshot(companyId);
+  }
+
+  @Patch('alerts/settings')
+  @Authorize('can_manage_mail')
+  async updateAlertSettings(
+    @Body() body: UpdateAlertSettingsDto,
+    @Request() req: RequestWithUser,
+  ) {
+    const companyId = req.user?.companyId || req.user?.company_id;
+    return this.mailService.updateAlertSettings(companyId, body);
   }
 }
