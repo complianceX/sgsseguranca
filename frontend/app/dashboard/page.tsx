@@ -173,7 +173,7 @@ const SLA_CONFIG = {
   unscheduled: {
     label: 'Sem SLA',
     className:
-      'bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-muted)] border border-[var(--ds-color-border-default)]',
+      'bg-[var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)] border border-[var(--ds-color-border-default)]',
   },
 } as const;
 
@@ -256,7 +256,7 @@ function KpiCard({
         className={cn("absolute inset-x-0 top-0 h-[3px]", t.accent)}
       />
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
           {label}
         </p>
         <span
@@ -289,7 +289,7 @@ function KpiCard({
         )}
       </div>
       {sublabel && (
-        <p className="text-[11px] leading-tight text-[var(--ds-color-text-secondary)]">
+        <p className="text-xs leading-tight text-[var(--ds-color-text-secondary)]">
           {sublabel}
         </p>
       )}
@@ -303,7 +303,7 @@ function resolveScoreClasses(
   score: number | null,
 ): { stroke: string; text: string } {
   if (score == null)
-    return { stroke: "stroke-[var(--ds-color-border-strong)]", text: "text-[var(--ds-color-text-muted)]" };
+    return { stroke: "stroke-[var(--ds-color-border-strong)]", text: "text-[var(--ds-color-text-secondary)]" };
   if (score >= 85)
     return { stroke: "stroke-[var(--ds-color-success)]", text: "text-[var(--ds-color-success)]" };
   if (score >= 70)
@@ -351,7 +351,7 @@ function ScoreRing({ score }: { score: number | null }) {
         <p className={cn("text-[26px] font-bold leading-none", textClass)}>
           {score == null ? "—" : score}
         </p>
-        <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
+        <p className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
           pontos
         </p>
       </div>
@@ -373,7 +373,7 @@ function SectionHeader({
   return (
     <div className="flex items-center justify-between border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
           {overline}
         </p>
         <h2 className="text-[13px] font-semibold text-[var(--title)]">
@@ -562,7 +562,7 @@ export default function DashboardPage() {
           {!loading && (
             <div className="flex items-center gap-1.5 rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-1.5 shadow-[var(--ds-shadow-xs)]">
               <Clock className="h-3.5 w-3.5 text-[var(--ds-color-text-secondary)]" />
-              <span className="text-[11px] font-medium text-[var(--ds-color-text-secondary)]">
+              <span className="text-xs font-medium text-[var(--ds-color-text-secondary)]">
                 {pendingQueue.summary.total} pendências
               </span>
             </div>
@@ -657,7 +657,7 @@ export default function DashboardPage() {
             title="Itens que requerem ação"
             trailing={
               pendingQueue.summary.total > 10 ? (
-                <span className="rounded-md bg-[var(--ds-color-surface-muted)] px-2 py-0.5 text-[10px] font-semibold text-[var(--ds-color-text-muted)]">
+                <span className="rounded-md bg-[var(--ds-color-surface-muted)] px-2 py-0.5 text-[11px] font-semibold text-[var(--ds-color-text-secondary)]">
                   +{pendingQueue.summary.total - 10} na fila
                 </span>
               ) : null
@@ -703,25 +703,25 @@ export default function DashboardPage() {
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span
                             className={cn(
-                              "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                              "inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold",
                               pCfg.badge,
                             )}
                           >
                             {pCfg.label}
                           </span>
-                          <span className="inline-flex items-center rounded bg-[var(--ds-color-surface-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--ds-color-text-muted)]">
+                          <span className="inline-flex items-center rounded bg-[var(--ds-color-surface-muted)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--ds-color-text-secondary)]">
                             {MODULE_LABELS[item.module] ?? item.module}
                           </span>
                           <span
                             className={cn(
-                              "inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                              "inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold",
                               SLA_CONFIG[item.slaStatus].className,
                             )}
                           >
                             {SLA_CONFIG[item.slaStatus].label}
                           </span>
                           {item.site && (
-                            <span className="text-[10px] text-[var(--ds-color-text-secondary)]">
+                            <span className="text-[11px] text-[var(--ds-color-text-secondary)]">
                               {item.site}
                             </span>
                           )}
@@ -737,7 +737,7 @@ export default function DashboardPage() {
                         {due.label !== "—" && (
                           <p
                             className={cn(
-                              "text-[10px] font-semibold",
+                              "text-[11px] font-semibold",
                               due.overdue
                                 ? "text-[var(--ds-color-danger)]"
                                 : "text-[var(--ds-color-text-secondary)]",
@@ -747,17 +747,17 @@ export default function DashboardPage() {
                           </p>
                         )}
                         {item.daysToDue != null && item.slaStatus === "on_track" ? (
-                          <p className="mt-0.5 text-[10px] text-[var(--ds-color-text-secondary)]">
+                          <p className="mt-0.5 text-[11px] text-[var(--ds-color-text-secondary)]">
                             {item.daysToDue}d para o SLA
                           </p>
                         ) : null}
                         {item.overdueByDays != null ? (
-                          <p className="mt-0.5 text-[10px] font-semibold text-[var(--ds-color-danger)]">
+                          <p className="mt-0.5 text-[11px] font-semibold text-[var(--ds-color-danger)]">
                             {item.overdueByDays}d fora do SLA
                           </p>
                         ) : null}
                         {item.responsible && (
-                          <p className="mt-0.5 text-[10px] text-[var(--ds-color-text-secondary)]">
+                          <p className="mt-0.5 text-[11px] text-[var(--ds-color-text-secondary)]">
                             {item.responsible}
                           </p>
                         )}
@@ -776,7 +776,7 @@ export default function DashboardPage() {
           {/* Score de Conformidade */}
           <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]">
             <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                 Score de Conformidade
               </p>
             </div>
@@ -786,7 +786,7 @@ export default function DashboardPage() {
                 <p className="text-sm font-bold text-[var(--ds-color-text-primary)]">
                   {resolveComplianceLabel(complianceScore)}
                 </p>
-                <p className="mt-1 max-w-[220px] text-[11px] leading-relaxed text-[var(--ds-color-text-secondary)]">
+                <p className="mt-1 max-w-[220px] text-xs leading-relaxed text-[var(--ds-color-text-secondary)]">
                   {resolveComplianceMessage(complianceScore)}
                 </p>
               </div>
@@ -796,7 +796,7 @@ export default function DashboardPage() {
           {/* Distribuição de Riscos */}
           <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]">
             <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                 Distribuição de Riscos
               </p>
             </div>
@@ -860,7 +860,7 @@ export default function DashboardPage() {
           {/* Fila por Categoria */}
           <div className="overflow-hidden rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-xs)]">
             <div className="border-b border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-5 py-3.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                 Fila por Categoria
               </p>
             </div>
@@ -911,7 +911,7 @@ export default function DashboardPage() {
 
       {/* ── 5. Acesso Rápido ───────────────────────────────────────── */}
       <section>
-        <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
           Acesso rápido
         </p>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
@@ -948,7 +948,7 @@ export default function DashboardPage() {
                 {label}
               </span>
               {badge > 0 && (
-                <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--ds-color-warning-subtle)] px-1 text-[10px] font-bold text-[var(--ds-color-warning-fg)]">
+                <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--ds-color-warning-subtle)] px-1 text-[11px] font-bold text-[var(--ds-color-warning-fg)]">
                   {badge}
                 </span>
               )}
