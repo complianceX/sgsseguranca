@@ -114,7 +114,7 @@ export default function CalendarPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Calendário SST</h1>
-          <p className="text-sm text-[var(--ds-color-text-muted)]">Treinamentos, exames, DDS, RDOs, CATs e ordens de serviço</p>
+          <p className="text-sm text-[var(--ds-color-text-secondary)]">Treinamentos, exames, DDS, RDOs, CATs e ordens de serviço</p>
         </div>
       </div>
 
@@ -129,7 +129,7 @@ export default function CalendarPage() {
               className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all ${
                 active
                   ? `${color.bg} ${color.text} border-transparent shadow-[var(--ds-shadow-sm)]`
-                  : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-muted)]'
+                  : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] text-[var(--ds-color-text-secondary)]'
               }`}
             >
               <span className={`h-2 w-2 rounded-full ${active ? color.dot : 'bg-[var(--ds-color-border-default)]'}`} />
@@ -156,14 +156,14 @@ export default function CalendarPage() {
           <Card tone="elevated" padding="none" className="overflow-hidden">
             <div className="grid grid-cols-7 border-b border-[var(--ds-color-border-subtle)]">
               {WEEKDAYS.map((weekday) => (
-                <div key={weekday} className="py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+                <div key={weekday} className="py-2 text-center text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
                   {weekday}
                 </div>
               ))}
             </div>
 
             {loading ? (
-              <div className="py-20 text-center text-sm text-[var(--ds-color-text-muted)]">Carregando...</div>
+              <div className="py-20 text-center text-sm text-[var(--ds-color-text-secondary)]">Carregando...</div>
             ) : (
               <div className="grid grid-cols-7">
                 {grid.map((day, index) => {
@@ -201,7 +201,7 @@ export default function CalendarPage() {
                               return (
                                 <div
                                   key={event.id}
-                                  className={`truncate rounded px-1 py-0.5 text-[10px] font-medium ${color.bg} ${color.text}`}
+                                  className={`truncate rounded px-1 py-0.5 text-[11px] font-medium ${color.bg} ${color.text}`}
                                   title={event.title}
                                 >
                                   {event.title}
@@ -209,7 +209,7 @@ export default function CalendarPage() {
                               );
                             })}
                             {dayEvents.length > 3 && (
-                              <div className="pl-1 text-[10px] text-[var(--ds-color-text-muted)]">+{dayEvents.length - 3} mais</div>
+                              <div className="pl-1 text-[11px] text-[var(--ds-color-text-secondary)]">+{dayEvents.length - 3} mais</div>
                             )}
                           </div>
                         </>
@@ -223,7 +223,7 @@ export default function CalendarPage() {
 
           <div className="mt-3 flex flex-wrap gap-3">
             {ALL_TYPES.map((type) => (
-              <div key={type} className="flex items-center gap-1 text-xs text-[var(--ds-color-text-muted)]">
+              <div key={type} className="flex items-center gap-1 text-xs text-[var(--ds-color-text-secondary)]">
                 <span className={`h-2.5 w-2.5 rounded-full ${EVENT_TYPE_COLOR[type].dot}`} />
                 {EVENT_TYPE_LABEL[type]}
               </div>
@@ -239,13 +239,13 @@ export default function CalendarPage() {
                   <p className="font-semibold text-[var(--ds-color-text-primary)]">
                     {selectedDay} de {MONTH_NAMES[month - 1]}
                   </p>
-                  <p className="text-xs text-[var(--ds-color-text-muted)]">
+                  <p className="text-xs text-[var(--ds-color-text-secondary)]">
                     {selectedEvents.length} evento{selectedEvents.length !== 1 ? 's' : ''}
                   </p>
                 </div>
                 <div className="max-h-[520px] divide-y divide-[var(--ds-color-border-subtle)] overflow-y-auto">
                   {selectedEvents.length === 0 ? (
-                    <p className="px-4 py-6 text-center text-sm text-[var(--ds-color-text-muted)]">Nenhum evento neste dia.</p>
+                    <p className="px-4 py-6 text-center text-sm text-[var(--ds-color-text-secondary)]">Nenhum evento neste dia.</p>
                   ) : (
                     selectedEvents.map((event) => {
                       const color = EVENT_TYPE_COLOR[event.type];
@@ -280,7 +280,7 @@ export default function CalendarPage() {
             ) : (
               <div className="px-4 py-8 text-center">
                 <CalendarDays className="mx-auto mb-3 h-10 w-10 text-[var(--ds-color-text-muted)]/35" />
-                <p className="text-sm text-[var(--ds-color-text-muted)]">Clique em um dia para ver os eventos</p>
+                <p className="text-sm text-[var(--ds-color-text-secondary)]">Clique em um dia para ver os eventos</p>
               </div>
             )}
           </Card>

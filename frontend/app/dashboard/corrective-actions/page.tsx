@@ -164,7 +164,7 @@ export default function CorrectiveActionsPage() {
     <div className="space-y-6">
       <Card tone="elevated">
         <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Ações Corretivas (CAPA)</h1>
-        <p className="text-[var(--ds-color-text-muted)]">Planeje, acompanhe e conclua ações corretivas com SLA.</p>
+        <p className="text-[var(--ds-color-text-secondary)]">Planeje, acompanhe e conclua ações corretivas com SLA.</p>
       </Card>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -177,7 +177,7 @@ export default function CorrectiveActionsPage() {
 
       <Card tone="elevated">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
             SLA Operacional
           </h2>
           <Button type="button" onClick={handleRunEscalation} variant="outline" size="sm">
@@ -194,7 +194,7 @@ export default function CorrectiveActionsPage() {
       </Card>
 
       <Card tone="elevated">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">Nova ação</h2>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">Nova ação</h2>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
           <Input
             className="md:col-span-2"
@@ -256,13 +256,13 @@ export default function CorrectiveActionsPage() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-[var(--ds-color-text-muted)]">
+                <TableCell colSpan={6} className="py-10 text-center text-[var(--ds-color-text-secondary)]">
                   Carregando...
                 </TableCell>
               </TableRow>
             ) : actions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-[var(--ds-color-text-muted)]">
+                <TableCell colSpan={6} className="py-10 text-center text-[var(--ds-color-text-secondary)]">
                   Nenhuma ação corretiva cadastrada.
                 </TableCell>
               </TableRow>
@@ -290,7 +290,7 @@ export default function CorrectiveActionsPage() {
                         </option>
                       ))}
                     </select>
-                    <span className="ml-2 text-xs text-[var(--ds-color-text-muted)]">{statusLabel(action.status)}</span>
+                    <span className="ml-2 text-xs text-[var(--ds-color-text-secondary)]">{statusLabel(action.status)}</span>
                   </TableCell>
                 </TableRow>
               ))
@@ -309,11 +309,11 @@ export default function CorrectiveActionsPage() {
       </Card>
 
       <Card tone="elevated">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
           SLA por Obra/Setor
         </h2>
         {slaBySite.length === 0 ? (
-          <p className="text-sm text-[var(--ds-color-text-muted)]">Sem dados de SLA por obra ainda.</p>
+          <p className="text-sm text-[var(--ds-color-text-secondary)]">Sem dados de SLA por obra ainda.</p>
         ) : (
           <div className="space-y-2">
             {slaBySite.map((item) => (
@@ -337,7 +337,7 @@ export default function CorrectiveActionsPage() {
 function KpiCard({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
   return (
     <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-base)]/92 p-3 shadow-[var(--ds-shadow-sm)]">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
         {icon}
         <span>{label}</span>
       </div>

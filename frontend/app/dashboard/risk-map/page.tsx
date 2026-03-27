@@ -116,7 +116,7 @@ export default function RiskMapPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">Mapa de Risco</h1>
-              <p className="text-sm text-[var(--ds-color-text-muted)]">Matriz de probabilidade × severidade por APR</p>
+              <p className="text-sm text-[var(--ds-color-text-secondary)]">Matriz de probabilidade × severidade por APR</p>
             </div>
           </div>
           <select
@@ -166,19 +166,19 @@ export default function RiskMapPage() {
               <div className="mb-1 flex">
                 <div className="w-20" />
                 {[1, 2, 3, 4, 5].map((sev) => (
-                  <div key={sev} className="flex-1 text-center text-xs font-semibold text-[var(--ds-color-text-muted)]">
+                  <div key={sev} className="flex-1 text-center text-xs font-semibold text-[var(--ds-color-text-secondary)]">
                     S{sev}
                   </div>
                 ))}
               </div>
               <div className="mb-3 flex">
-                <div className="w-20 pr-2 text-right text-xs text-[var(--ds-color-text-muted)]">Prob ↓ / Sev →</div>
+                <div className="w-20 pr-2 text-right text-xs text-[var(--ds-color-text-secondary)]">Prob ↓ / Sev →</div>
                 <div className="flex-1" />
               </div>
 
               {[5, 4, 3, 2, 1].map((prob) => (
                 <div key={prob} className="mb-1 flex items-center">
-                  <div className="w-20 pr-3 text-right text-xs font-semibold text-[var(--ds-color-text-muted)]">P{prob}</div>
+                  <div className="w-20 pr-3 text-right text-xs font-semibold text-[var(--ds-color-text-secondary)]">P{prob}</div>
                   {[1, 2, 3, 4, 5].map((sev) => {
                     const score = prob * sev;
                     const cell = cellMap[`${prob}_${sev}`];
@@ -189,7 +189,7 @@ export default function RiskMapPage() {
                         title={cell?.categorias.join(', ') ?? `Score ${score}`}
                       >
                         <span className="text-base leading-none">{cell?.count ?? ''}</span>
-                        <span className="text-[9px] opacity-60">{score}</span>
+                        <span className="text-[10px] opacity-60">{score}</span>
                       </div>
                     );
                   })}
@@ -216,13 +216,13 @@ export default function RiskMapPage() {
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--ds-color-accent)] border-t-transparent" />
             </div>
           ) : chartData.length === 0 ? (
-            <div className="flex h-48 items-center justify-center text-sm text-[var(--ds-color-text-muted)]">Nenhum risco encontrado</div>
+            <div className="flex h-48 items-center justify-center text-sm text-[var(--ds-color-text-secondary)]">Nenhum risco encontrado</div>
           ) : (
             <ResponsiveContainer width="100%" height={248}>
               <BarChart data={chartData} layout="vertical" margin={{ left: 80, right: 20 }}>
                 <CartesianGrid stroke="color-mix(in srgb, var(--ds-color-border-subtle) 82%, transparent)" strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--ds-color-text-muted)' }} axisLine={false} tickLine={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: 'var(--ds-color-text-muted)' }} width={80} axisLine={false} tickLine={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--ds-color-text-secondary)' }} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: 'var(--ds-color-text-secondary)' }} width={80} axisLine={false} tickLine={false} />
                 <Tooltip
                   contentStyle={{
                     borderRadius: 16,

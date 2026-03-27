@@ -123,7 +123,7 @@ export default function ChecklistModelsPage() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Checklists</h1>
-          <p className="text-[var(--ds-color-text-muted)]">Gerencie seus modelos e checklists.</p>
+          <p className="text-[var(--ds-color-text-secondary)]">Gerencie seus modelos e checklists.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -161,7 +161,7 @@ export default function ChecklistModelsPage() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[var(--ds-color-text-muted)]">Filtro</span>
+            <span className="text-xs text-[var(--ds-color-text-secondary)]">Filtro</span>
             <select
               aria-label="Filtro de modelos"
               className="h-11 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] shadow-[var(--ds-shadow-sm)] outline-none transition-all duration-[var(--ds-motion-base)] focus:border-[var(--ds-color-focus)] focus:shadow-[0_0_0_4px_var(--ds-color-focus-ring)]"
@@ -181,9 +181,9 @@ export default function ChecklistModelsPage() {
         <table className="w-full table-fixed">
           <thead>
             <tr className="border-b border-[var(--ds-color-border-subtle)]">
-              <th className="w-1/3 px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-muted)]">Título</th>
-              <th className="w-1/3 px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-muted)]">Equipamento / Máquina</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-muted)]">Ações</th>
+              <th className="w-1/3 px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">Título</th>
+              <th className="w-1/3 px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">Equipamento / Máquina</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--ds-color-border-subtle)]">
@@ -195,7 +195,7 @@ export default function ChecklistModelsPage() {
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={3} className="py-6 text-center text-[var(--ds-color-text-muted)]">
+                <td colSpan={3} className="py-6 text-center text-[var(--ds-color-text-secondary)]">
                   Nenhum modelo encontrado.
                 </td>
               </tr>
@@ -209,7 +209,7 @@ export default function ChecklistModelsPage() {
                         <Badge variant="accent">Modelo</Badge>
                       )}
                     </div>
-                    <div className="text-xs text-[var(--ds-color-text-muted)]">{m.descricao}</div>
+                    <div className="text-xs text-[var(--ds-color-text-secondary)]">{m.descricao}</div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-[var(--ds-color-text-secondary)]">
