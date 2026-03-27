@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Preview Login SGS</title>
+    <style>
+      :root {
+        --bg: #f4f4f2;
+        --bg-soft: #efeeec;
+        --text: #24211f;
+        --text-secondary: #67615b;
+        --text-muted: #908982;
+        --line: #ded9d3;
+        --line-strong: #c9c3bc;
+        --field: #ffffff;
+        --button: #413c38;
+        --button-hover: #302b28;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, "Segoe UI", Arial, sans-serif;
+        background: linear-gradient(180deg, var(--bg) 0%, var(--bg-soft) 100%);
+        color: var(--text);
+      }
+
+      .page {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+      }
+
+      .shell {
+        width: 100%;
+        max-width: 540px;
+      }
+
+      .brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 28px;
+      }
+
+      .brand img {
+        width: 108px;
+        height: auto;
+        filter: grayscale(1) saturate(0) brightness(0.62);
+      }
+
+      .brand p {
+        margin: 0;
+        font-size: 1rem;
+        color: var(--text-secondary);
+      }
+
+      .title {
+        margin: 0;
+        text-align: center;
+        font-size: clamp(2.15rem, 4vw, 2.85rem);
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+      }
+
+      .subtitle {
+        max-width: 450px;
+        margin: 14px auto 30px;
+        text-align: center;
+        font-size: 1rem;
+        line-height: 1.55;
+        color: var(--text-secondary);
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      label {
+        font-size: 0.92rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+
+      input[type="text"],
+      input[type="password"] {
+        width: 100%;
+        border: 1px solid var(--line-strong);
+        border-radius: 16px;
+        background: var(--field);
+        color: var(--text);
+        font-size: 1rem;
+        padding: 14px 16px;
+        outline: none;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      input[type="text"]:focus,
+      input[type="password"]:focus {
+        border-color: #5f5953;
+        box-shadow: 0 0 0 4px rgba(95, 89, 83, 0.14);
+      }
+
+      .password-wrap {
+        position: relative;
+      }
+
+      .password-wrap input {
+        padding-right: 48px;
+      }
+
+      .eye {
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 20px;
+        height: 20px;
+        border-radius: 999px;
+        border: 1.5px solid #9a938c;
+      }
+
+      .eye::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 5px;
+        height: 5px;
+        transform: translate(-50%, -50%);
+        border-radius: 999px;
+        background: #9a938c;
+      }
+
+      .assist {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: -2px;
+      }
+
+      .remember {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+      }
+
+      .remember input {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--button);
+      }
+
+      .forgot {
+        color: var(--button);
+        text-decoration: none;
+        font-size: 0.92rem;
+      }
+
+      .forgot:hover {
+        text-decoration: underline;
+      }
+
+      .submit {
+        margin-top: 10px;
+        width: 100%;
+        border: 0;
+        border-radius: 999px;
+        background: var(--button);
+        color: #fff;
+        font-size: 1.05rem;
+        font-weight: 600;
+        padding: 15px 18px;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease;
+      }
+
+      .submit:hover {
+        background: var(--button-hover);
+        transform: translateY(-1px);
+      }
+
+      footer {
+        margin-top: 34px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        text-align: center;
+      }
+
+      footer p {
+        margin: 0 0 10px;
+        color: var(--text-muted);
+        font-size: 0.86rem;
+      }
+
+      .links {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+
+      .links a {
+        color: var(--text-secondary);
+        font-size: 0.86rem;
+      }
+
+      .links a:hover {
+        color: var(--text);
+      }
+
+      @media (max-width: 640px) {
+        .page {
+          padding: 28px 16px;
+        }
+
+        .brand img {
+          width: 92px;
+        }
+
+        .brand p {
+          font-size: 0.95rem;
+        }
+
+        .title {
+          font-size: 2rem;
+        }
+
+        .assist {
+          flex-wrap: wrap;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="shell">
+        <div class="brand">
+          <img src="./logo-sgs.svg" alt="SGS" />
+          <p>Sistema de Gestão de Segurança</p>
+        </div>
+
+        <h1 class="title">Acesse sua conta</h1>
+        <p class="subtitle">Entre com seu CPF e senha para continuar no ambiente SGS.</p>
+
+        <form>
+          <div class="field">
+            <label for="cpf">CPF</label>
+            <input id="cpf" type="text" placeholder="000.000.000-00" />
+          </div>
+
+          <div class="field">
+            <label for="senha">Senha</label>
+            <div class="password-wrap">
+              <input id="senha" type="password" placeholder="••••••••••" />
+              <span class="eye" aria-hidden="true"></span>
+            </div>
+          </div>
+
+          <div class="assist">
+            <label class="remember">
+              <input type="checkbox" />
+              <span>Lembrar CPF</span>
+            </label>
+            <a class="forgot" href="#">Esqueceu a senha?</a>
+          </div>
+
+          <button class="submit" type="button">Entrar</button>
+        </form>
+
+        <footer>
+          <p>© 2026 SGS — Sistema de Gestão de Segurança</p>
+          <div class="links">
+            <a href="#">Política de Privacidade</a>
+            <a href="#">Termos de Uso</a>
+          </div>
+        </footer>
+      </section>
+    </main>
+  </body>
+</html>
