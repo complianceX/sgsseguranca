@@ -94,7 +94,7 @@ export function SignaturesPanel({ isOpen, onClose, documentId, documentType }: S
                 const proofScope = sig.integrity_payload?.proof_scope || null;
 
                 return (
-                <div key={sig.id} className="flex items-start gap-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-4">
+                <div key={sig.id} className="flex items-start gap-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] p-4">
                   {/* Miniature for image-based signatures */}
                   {isImageType(sig.type) && sig.signature_data && (
                     <div className="relative h-16 w-24 flex-shrink-0 overflow-hidden rounded-lg border border-[var(--ds-color-border-subtle)] bg-white">

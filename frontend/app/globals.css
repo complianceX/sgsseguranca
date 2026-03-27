@@ -943,52 +943,8 @@ html[data-theme="light"] {
     );
   }
 
-  .ds-form-page .bg-sky-500\/10 {
-    background-color: var(--ds-color-info-subtle);
-  }
-
-  .ds-form-page .text-sky-100 {
-    color: var(--ds-color-info);
-  }
-
-  .ds-form-page .bg-violet-600,
-  .ds-form-page .bg-purple-500,
-  .ds-form-page [class*="bg-[#7C3AED]"] {
-    background-color: var(--ds-color-accent);
-  }
-
-  .ds-form-page .hover\:bg-violet-700:hover {
-    background-color: var(--ds-color-accent-hover);
-  }
-
-  .ds-form-page .bg-purple-500\/15,
-  .ds-form-page .bg-violet-50,
-  .ds-form-page [class*="bg-[#1E3A8A]"],
-  .ds-form-page [class*="bg-[#E0E7FF]"],
-  .ds-form-page [class*="bg-[#EDE9FE]"] {
-    background-color: var(--ds-color-accent-subtle);
-  }
-
-  .ds-form-page .text-violet-700,
-  .ds-form-page .text-violet-600,
-  .ds-form-page .text-purple-400,
-  .ds-form-page [class*="text-[#6D28D9]"],
-  .ds-form-page [class*="text-[#3730A3]"] {
-    color: var(--ds-color-accent);
-  }
-
   .ds-form-page [class*="!text-[#111827]"] {
     color: var(--ds-color-text-primary) !important;
-  }
-
-  .ds-form-page [class*="border-[#C7D2FE]"],
-  .ds-form-page .border-violet-200,
-  .ds-form-page [class*="border-[#DDD6FE]"] {
-    border-color: color-mix(
-      in srgb,
-      var(--ds-color-accent) 24%,
-      var(--ds-color-border-default)
-    );
   }
 
   .ds-form-page .bg-slate-100 {
@@ -1315,46 +1271,6 @@ html[data-theme="light"] {
     );
   }
 
-  .ds-system-scope .bg-sky-500\/10,
-  .ds-system-scope .bg-sky-500\/15 {
-    background-color: var(--ds-color-info-subtle);
-  }
-
-  .ds-system-scope .text-sky-300,
-  .ds-system-scope .text-sky-200,
-  .ds-system-scope .text-sky-100 {
-    color: var(--ds-color-info);
-  }
-
-  .ds-system-scope [class*="border-sky-400/25"],
-  .ds-system-scope [class*="border-sky-400/35"],
-  .ds-system-scope [class*="border-sky-300/35"] {
-    border-color: color-mix(
-      in srgb,
-      var(--ds-color-info) 24%,
-      var(--ds-color-border-default)
-    );
-  }
-
-  .ds-system-scope .bg-violet-600,
-  .ds-system-scope .bg-purple-500 {
-    background-color: var(--ds-color-accent);
-  }
-
-  .ds-system-scope .bg-purple-500\/15 {
-    background-color: var(--ds-color-accent-subtle);
-  }
-
-  .ds-system-scope .text-violet-700,
-  .ds-system-scope .text-violet-600,
-  .ds-system-scope .text-purple-400 {
-    color: var(--ds-color-accent);
-  }
-
-  .ds-system-scope .hover\:bg-violet-700:hover {
-    background-color: var(--ds-color-accent-hover);
-  }
-
   /* ── slate-900 = primary action (botões principais fora de ds-form-page) ── */
   .ds-system-scope .bg-slate-900 {
     background-color: var(--ds-color-action-primary);
@@ -1427,25 +1343,6 @@ html[data-theme="light"] {
 
   .ds-system-scope [class*="hover:bg-[#1E40AF]"]:hover {
     background-color: var(--ds-color-action-primary-hover);
-  }
-
-  .ds-system-scope [class*="bg-[#1E3A8A]"],
-  .ds-system-scope [class*="bg-[#7C3AED]"] {
-    background-color: var(--ds-color-accent);
-  }
-
-  .ds-system-scope [class*="text-[#3730A3]"],
-  .ds-system-scope [class*="text-[#6D28D9]"] {
-    color: var(--ds-color-accent);
-  }
-
-  .ds-system-scope [class*="border-[#C7D2FE]"],
-  .ds-system-scope [class*="border-[#DDD6FE]"] {
-    border-color: color-mix(
-      in srgb,
-      var(--ds-color-accent) 24%,
-      var(--ds-color-border-default)
-    );
   }
 
   /* APR/PT print tables — manter fundo branco para impressão */

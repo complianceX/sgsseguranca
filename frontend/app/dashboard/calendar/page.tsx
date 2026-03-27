@@ -187,7 +187,7 @@ export default function CalendarPage() {
                           <div
                             className={`mb-1 flex h-6 w-6 items-center justify-center rounded-full text-sm font-medium ${
                               isToday
-                                ? 'bg-[image:var(--ds-gradient-brand)] text-white'
+                                ? 'bg-[var(--ds-color-action-primary)] text-white'
                                 : isSelected
                                   ? 'bg-[var(--ds-color-primary-subtle)] text-[var(--ds-color-action-primary)]'
                                   : 'text-[var(--ds-color-text-secondary)]'

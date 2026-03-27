@@ -657,9 +657,9 @@ export default function SstAgentPage() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-6 shadow-[var(--ds-shadow-sm)]">
+      <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] p-6 shadow-[var(--ds-shadow-sm)]">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[image:var(--ds-gradient-brand)] text-white shadow-[var(--ds-shadow-sm)]">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--ds-color-action-primary)] text-white shadow-[var(--ds-shadow-sm)]">
             <Bot className="h-5 w-5" />
           </div>
           <div>
@@ -821,7 +821,7 @@ export default function SstAgentPage() {
       ) : null}
 
       {aiEnabled ? (
-        <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-gradient-surface)] p-5 shadow-[var(--ds-shadow-sm)]">
+        <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] p-5 shadow-[var(--ds-shadow-sm)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
                 <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">
