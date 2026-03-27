@@ -1,5 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsEmail, IsOptional } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsEmail,
+  IsInt,
+  IsOptional,
+  Max,
+  Min,
+} from 'class-validator';
 
 export class UpdateAlertSettingsDto {
   @ApiPropertyOptional({
@@ -24,4 +32,15 @@ export class UpdateAlertSettingsDto {
   @IsOptional()
   @IsBoolean()
   includeWhatsapp?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Janela de antecedência dos alertas em dias',
+    minimum: 1,
+    maximum: 120,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(120)
+  lookaheadDays?: number;
 }

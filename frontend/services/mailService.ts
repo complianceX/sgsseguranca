@@ -21,6 +21,7 @@ export type AlertSettingsResponse = {
   enabled: boolean;
   recipients: string[];
   includeWhatsapp: boolean;
+  lookaheadDays: number;
   fallbackRecipients: string[];
   providerConfigured: boolean;
 };
@@ -85,6 +86,7 @@ export const mailService = {
     enabled?: boolean;
     recipients?: string[];
     includeWhatsapp?: boolean;
+    lookaheadDays?: number;
   }): Promise<AlertSettingsResponse> {
     const response = await api.patch<AlertSettingsResponse>('/mail/alerts/settings', payload);
     return response.data;

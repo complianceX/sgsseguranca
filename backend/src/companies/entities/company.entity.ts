@@ -50,12 +50,13 @@ export class Company {
     type: 'jsonb',
     nullable: true,
     default: () =>
-      `'{"enabled":true,"recipients":[],"includeWhatsapp":false}'::jsonb`,
+      `'{"enabled":true,"recipients":[],"includeWhatsapp":false,"lookaheadDays":30}'::jsonb`,
   })
   alert_settings?: {
     enabled: boolean;
     recipients: string[];
     includeWhatsapp: boolean;
+    lookaheadDays: number;
   } | null;
 
   @CreateDateColumn()

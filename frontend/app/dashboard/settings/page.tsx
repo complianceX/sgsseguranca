@@ -51,6 +51,7 @@ export default function SettingsPage() {
   const [alertRecipients, setAlertRecipients] = useState('');
   const [alertAutomationEnabled, setAlertAutomationEnabled] = useState(true);
   const [includeWhatsappAlerts, setIncludeWhatsappAlerts] = useState(false);
+  const [alertLookaheadDays, setAlertLookaheadDays] = useState<number>(30);
   const [savingAlertSettings, setSavingAlertSettings] = useState(false);
   const [loadingAlertSettings, setLoadingAlertSettings] = useState(false);
   const [alertFallbackRecipients, setAlertFallbackRecipients] = useState<
@@ -189,6 +190,7 @@ export default function SettingsPage() {
         setAlertAutomationEnabled(settings.enabled);
         setAlertRecipients(settings.recipients.join(', '));
         setIncludeWhatsappAlerts(settings.includeWhatsapp);
+        setAlertLookaheadDays(settings.lookaheadDays);
         setAlertFallbackRecipients(settings.fallbackRecipients);
         setMailProviderConfigured(settings.providerConfigured);
       } catch (error) {
@@ -368,8 +370,10 @@ export default function SettingsPage() {
         enabled: alertAutomationEnabled,
         recipients,
         includeWhatsapp: includeWhatsappAlerts,
+        lookaheadDays: alertLookaheadDays,
       });
       setAlertRecipients(updated.recipients.join(', '));
+      setAlertLookaheadDays(updated.lookaheadDays);
       setAlertFallbackRecipients(updated.fallbackRecipients);
       setMailProviderConfigured(updated.providerConfigured);
       toast.success('Configurações de alertas atualizadas.');
@@ -738,6 +742,31 @@ export default function SettingsPage() {
                     {alertFallbackRecipients.length
                       ? alertFallbackRecipients.join(', ')
                       : 'nenhum fallback cadastrado'}.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                    Janela de antecedência (dias)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    step={1}
+                    value={alertLookaheadDays}
+                    onChange={(event) =>
+                      setAlertLookaheadDays(
+                        Math.min(
+                          120,
+                          Math.max(1, Number(event.target.value) || 30),
+                        ),
+                      )
+                    }
+                    className="w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                  />
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    Define quantos dias à frente entram no resumo de vencimentos.
                   </p>
                 </div>
 

@@ -91,12 +91,14 @@ type CompanyAlertSettings = {
   enabled: boolean;
   recipients: string[];
   includeWhatsapp: boolean;
+  lookaheadDays: number;
 };
 
 const DEFAULT_COMPANY_ALERT_SETTINGS: CompanyAlertSettings = {
   enabled: true,
   recipients: [],
   includeWhatsapp: false,
+  lookaheadDays: 30,
 };
 
 const isLooseRecord = (value: unknown): value is LooseRecord =>
@@ -1257,7 +1259,7 @@ export class MailService {
 
     const summary = await this.tenantService.run(
       { companyId: resolvedCompanyId, isSuperAdmin: false },
-      () => this.buildAlertSummary(),
+      () => this.buildAlertSummary(settings.lookaheadDays),
     );
 
     const company = await this.findCompany(resolvedCompanyId);
@@ -1337,6 +1339,10 @@ export class MailService {
         typeof payload.includeWhatsapp === 'boolean'
           ? payload.includeWhatsapp
           : current.includeWhatsapp,
+      lookaheadDays:
+        typeof payload.lookaheadDays === 'number'
+          ? payload.lookaheadDays
+          : current.lookaheadDays,
     };
 
     await this.companiesService.update(companyId, {
@@ -1378,6 +1384,11 @@ export class MailService {
         typeof raw?.includeWhatsapp === 'boolean'
           ? raw.includeWhatsapp
           : DEFAULT_COMPANY_ALERT_SETTINGS.includeWhatsapp,
+      lookaheadDays:
+        typeof raw?.lookaheadDays === 'number' &&
+        Number.isFinite(raw.lookaheadDays)
+          ? Math.min(120, Math.max(1, Math.round(raw.lookaheadDays)))
+          : DEFAULT_COMPANY_ALERT_SETTINGS.lookaheadDays,
     };
   }
 
@@ -1405,10 +1416,11 @@ export class MailService {
     }
   }
 
-  private async buildAlertSummary(): Promise<string> {
+  private async buildAlertSummary(lookaheadDays = 30): Promise<string> {
     const now = new Date();
     const limitDate = new Date();
-    limitDate.setDate(now.getDate() + 30);
+    const days = Math.min(120, Math.max(1, Math.round(lookaheadDays)));
+    limitDate.setDate(now.getDate() + days);
     const companyId = this.tenantService.getTenantId() || '';
 
     const [
@@ -1459,9 +1471,9 @@ export class MailService {
     const reminders = [
       `Resumo de alertas (${now.toLocaleDateString('pt-BR')}):`,
       `- EPIs vencidos: ${episExpired}`,
-      `- EPIs vencendo em 30 dias: ${episExpiring}`,
+      `- EPIs vencendo em ${days} dias: ${episExpiring}`,
       `- Treinamentos vencidos: ${trainingsExpired}`,
-      `- Treinamentos vencendo em 30 dias: ${trainingsExpiring}`,
+      `- Treinamentos vencendo em ${days} dias: ${trainingsExpiring}`,
       `- PTs pendentes: ${pendingPts}`,
       `- PTs iniciadas e pendentes: ${urgentPts}`,
       `- APRs pendentes: ${pendingAprs}`,
