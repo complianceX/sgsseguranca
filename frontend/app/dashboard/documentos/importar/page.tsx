@@ -393,7 +393,7 @@ export default function DocumentImportPage() {
         <h1 className="text-2xl font-bold tracking-tight text-[var(--ds-color-text-primary)]">
           Importação Inteligente de PDF
         </h1>
-        <p className="text-sm text-[var(--ds-color-text-muted)]">
+        <p className="text-sm text-[var(--ds-color-text-secondary)]">
           {requestedDocumentLabel
             ? `Fluxo preparado para anexar um PDF de ${requestedDocumentLabel} já emitido, sem refazer o preenchimento no sistema.`
             : 'Faça upload de documentos SST (APR, PT, DDS, Checklist, Relatório Fotográfico, NC, PGR, PCMSO, ASO) para extração automática e validação.'}
@@ -438,7 +438,7 @@ export default function DocumentImportPage() {
               <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                 {file ? file.name : 'Clique ou arraste o PDF aqui'}
               </p>
-              <p className="text-[13px] text-[var(--ds-color-text-muted)]">
+              <p className="text-[13px] text-[var(--ds-color-text-secondary)]">
                 Apenas arquivos PDF até 10MB
               </p>
             </div>
@@ -548,14 +548,14 @@ export default function DocumentImportPage() {
                     <h2 className="text-lg font-bold text-[var(--ds-color-text-primary)]">
                       {statusResponse?.tipoDocumentoDescricao}
                     </h2>
-                    <p className="text-[13px] text-[var(--ds-color-text-muted)]">
+                    <p className="text-[13px] text-[var(--ds-color-text-secondary)]">
                       Status da validação:{' '}
                       <span className="font-semibold">{validation.status}</span>
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="mb-1 text-[13px] text-[var(--ds-color-text-muted)]">
+                  <div className="mb-1 text-[13px] text-[var(--ds-color-text-secondary)]">
                     Score de confiança
                   </div>
                   <div
@@ -627,7 +627,7 @@ export default function DocumentImportPage() {
               <div className="space-y-6 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-5 shadow-sm">
                 <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                   <div>
-                    <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--ds-color-text-muted)]">
+                    <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--ds-color-text-secondary)]">
                       Riscos identificados
                     </h4>
                     <div className="flex flex-wrap gap-2">
@@ -641,14 +641,14 @@ export default function DocumentImportPage() {
                           </span>
                         ))
                       ) : (
-                        <span className="text-xs text-[var(--ds-color-text-muted)]">
+                        <span className="text-xs text-[var(--ds-color-text-secondary)]">
                           Nenhum risco detectado
                         </span>
                       )}
                     </div>
                   </div>
                   <div>
-                    <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--ds-color-text-muted)]">
+                    <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--ds-color-text-secondary)]">
                       EPIs citados
                     </h4>
                     <div className="flex flex-wrap gap-2">
@@ -662,7 +662,7 @@ export default function DocumentImportPage() {
                           </span>
                         ))
                       ) : (
-                        <span className="text-xs text-[var(--ds-color-text-muted)]">
+                        <span className="text-xs text-[var(--ds-color-text-secondary)]">
                           Nenhum EPI detectado
                         </span>
                       )}
@@ -671,7 +671,7 @@ export default function DocumentImportPage() {
                 </div>
 
                 <div className="border-t border-[var(--ds-color-border-subtle)] pt-4">
-                  <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--ds-color-text-muted)]">
+                  <h4 className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--ds-color-text-secondary)]">
                     Normas Regulamentadoras (NRs)
                   </h4>
                   <div className="flex flex-wrap gap-2">
@@ -685,7 +685,7 @@ export default function DocumentImportPage() {
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs text-[var(--ds-color-text-muted)]">
+                      <span className="text-xs text-[var(--ds-color-text-secondary)]">
                         Nenhuma NR identificada
                       </span>
                     )}
@@ -724,7 +724,7 @@ export default function DocumentImportPage() {
                             ? getStatusLabel(currentStatus)
                             : 'Documento recebido'}
                         </h2>
-                        <p className="text-[13px] text-[var(--ds-color-text-muted)]">
+                        <p className="text-[13px] text-[var(--ds-color-text-secondary)]">
                           {currentMessage}
                         </p>
                       </div>
@@ -765,7 +765,7 @@ export default function DocumentImportPage() {
                   </div>
 
                   <div className="min-w-[160px] rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)] px-4 py-3 text-right">
-                    <div className="text-[12px] uppercase tracking-wider text-[var(--ds-color-text-muted)]">
+                    <div className="text-[12px] uppercase tracking-wider text-[var(--ds-color-text-secondary)]">
                       Progresso
                     </div>
                     <div className="text-2xl font-black text-[var(--ds-color-text-primary)]">
@@ -792,7 +792,7 @@ export default function DocumentImportPage() {
               )}
             </div>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] p-10 text-[var(--ds-color-text-muted)]">
+            <div className="flex h-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] p-10 text-[var(--ds-color-text-secondary)]">
               <FileText size={64} className="mb-4 opacity-20" />
               <p className="text-base font-medium">
                 Aguardando envio de arquivo para análise
@@ -818,7 +818,7 @@ function DetailItem({
 }) {
   return (
     <div className="flex flex-col">
-      <span className="text-xs font-medium uppercase tracking-wider text-[var(--ds-color-text-muted)]">
+      <span className="text-xs font-medium uppercase tracking-wider text-[var(--ds-color-text-secondary)]">
         {label}
       </span>
       <span className="text-sm font-semibold text-[var(--ds-color-text-secondary)]">
@@ -837,7 +837,7 @@ function StatusItem({
 }) {
   return (
     <div className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-3 py-2">
-      <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--ds-color-text-muted)]">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--ds-color-text-secondary)]">
         {label}
       </div>
       <div className="truncate text-sm font-semibold text-[var(--ds-color-text-secondary)]">

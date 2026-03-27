@@ -477,7 +477,7 @@ export default function CatsPage() {
     return (
       <div className="ds-system-scope">
         <div className="ds-surface-card p-4">
-          <p className="text-sm text-[var(--ds-color-text-muted)]">Carregando permissoes...</p>
+          <p className="text-sm text-[var(--ds-color-text-secondary)]">Carregando permissoes...</p>
         </div>
       </div>
     );
@@ -490,7 +490,7 @@ export default function CatsPage() {
           <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
             CAT - Acidente de Trabalho
           </h1>
-          <p className="mt-2 text-sm text-[var(--ds-color-text-muted)]">
+          <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
             Voce nao tem permissao para visualizar o fluxo de CAT.
           </p>
         </div>
@@ -504,7 +504,7 @@ export default function CatsPage() {
         <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">
           CAT - Acidente de Trabalho
         </h1>
-        <p className="text-[var(--ds-color-text-muted)]">
+        <p className="text-[var(--ds-color-text-secondary)]">
           Fluxo completo: abertura, investigacao, fechamento e anexos.
         </p>
       </div>
@@ -518,7 +518,7 @@ export default function CatsPage() {
 
       {canManageCats ? (
         <div className="ds-surface-card p-4">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
             {editingCatId ? `Editar CAT ${editingCatNumber || ""}` : "Abrir CAT"}
           </h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
@@ -671,7 +671,7 @@ export default function CatsPage() {
               <TableRow>
                 <TableCell
                   colSpan={7}
-                  className="py-8 text-center text-[var(--ds-color-text-muted)]"
+                  className="py-8 text-center text-[var(--ds-color-text-secondary)]"
                 >
                   Carregando CATs...
                 </TableCell>
@@ -680,7 +680,7 @@ export default function CatsPage() {
               <TableRow>
                 <TableCell
                   colSpan={7}
-                  className="py-8 text-center text-[var(--ds-color-text-muted)]"
+                  className="py-8 text-center text-[var(--ds-color-text-secondary)]"
                 >
                   Nenhuma CAT registrada.
                 </TableCell>
@@ -716,7 +716,7 @@ export default function CatsPage() {
                         </button>
                       ))}
                       {cat.attachments && cat.attachments.length > 2 && (
-                        <span className="text-xs text-[var(--ds-color-text-muted)]">
+                        <span className="text-xs text-[var(--ds-color-text-secondary)]">
                           +{cat.attachments.length - 2}
                         </span>
                       )}
@@ -848,7 +848,7 @@ export default function CatsPage() {
 function Kpi({ title, value }: { title: string; value: number }) {
   return (
     <div className="ds-surface-card p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
         {title}
       </p>
       <p className="mt-1 text-2xl font-bold text-[var(--ds-color-text-primary)]">{value}</p>

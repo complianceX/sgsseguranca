@@ -326,7 +326,7 @@ export default function TstFieldPage() {
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:var(--ds-color-success-subtle)] text-[var(--ds-color-success-fg)]">
                       <item.icon className="h-5 w-5" />
                     </div>
-                    <span className="rounded-full border border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-success-fg)]">
+                    <span className="rounded-full border border-[color:var(--ds-color-success-border)] bg-[color:var(--ds-color-success-subtle)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-success-fg)]">
                       {item.badge}
                     </span>
                   </div>
@@ -366,7 +366,7 @@ export default function TstFieldPage() {
               >
                 {isReconnecting ? 'Reconectando API' : 'Testar conectividade'}
               </Button>
-              <p className="text-xs text-[var(--ds-color-text-muted)]">
+              <p className="text-xs text-[var(--ds-color-text-secondary)]">
                 {isOffline
                   ? `API indisponível${apiBaseUrl ? ` em ${apiBaseUrl}` : ''}. Continue no modo offline e sincronize quando voltar.`
                   : 'Conectividade estável. A fila offline será enviada automaticamente quando necessário.'}
@@ -389,7 +389,7 @@ export default function TstFieldPage() {
                       >
                         <div>
                           <p className="text-sm font-medium text-white">{item.label}</p>
-                          <p className="text-[11px] text-[var(--ds-color-text-muted)]">
+                          <p className="text-[11px] text-[var(--ds-color-text-secondary)]">
                             {item.method.toUpperCase()} {item.url}
                           </p>
                         </div>
@@ -486,7 +486,7 @@ export default function TstFieldPage() {
                       <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                         {workerStatus.user.nome}
                       </p>
-                      <p className="text-xs text-[var(--ds-color-text-muted)]">
+                      <p className="text-xs text-[var(--ds-color-text-secondary)]">
                         {workerStatus.user.funcao || 'Função não informada'}
                       </p>
                     </div>
@@ -508,7 +508,7 @@ export default function TstFieldPage() {
                       key={fact.label}
                       className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3.5"
                     >
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                         {fact.label}
                       </p>
                       <p className="mt-2 text-sm font-medium text-[var(--ds-color-text-primary)]">
@@ -570,7 +570,7 @@ export default function TstFieldPage() {
                         <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                           {item.label}
                         </p>
-                        <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">
+                        <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
                           {item.method.toUpperCase()} {item.url}
                         </p>
                         <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
@@ -760,7 +760,7 @@ function OperationalListCard({
                   <p className={`font-semibold text-[var(--ds-color-text-primary)] ${compact ? 'text-sm' : 'text-base'}`}>
                     {item.title}
                   </p>
-                  <p className="mt-1 text-xs text-[var(--ds-color-text-muted)]">{item.subtitle}</p>
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">{item.subtitle}</p>
                   {item.extra ? (
                     <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">{item.extra}</p>
                   ) : null}

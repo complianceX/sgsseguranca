@@ -260,7 +260,7 @@ export default function SettingsPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Configurações</h1>
-          <p className="text-sm text-[var(--ds-color-text-muted)]">Gerencie sua conta e os recursos do sistema.</p>
+          <p className="text-sm text-[var(--ds-color-text-secondary)]">Gerencie sua conta e os recursos do sistema.</p>
         </div>
       </div>
 
@@ -269,7 +269,7 @@ export default function SettingsPage() {
       {hasPermission('can_use_ai') && (
         <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Privacidade — Processamento por IA</h2>
-          <p className="mt-1 text-sm text-[var(--ds-color-text-muted)]">
+          <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
             O agente SOPHIE envia dados estatísticos do sistema para a OpenAI (EUA) para gerar respostas.
             Nenhum nome, CPF ou dado individual de trabalhadores é transmitido.
           </p>
@@ -312,7 +312,7 @@ export default function SettingsPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Trocar senha</h2>
-          <p className="text-sm text-[var(--ds-color-text-muted)]">Mantenha seu acesso seguro atualizando sua senha.</p>
+          <p className="text-sm text-[var(--ds-color-text-secondary)]">Mantenha seu acesso seguro atualizando sua senha.</p>
 
           <form onSubmit={handleChangePassword} className="mt-6 space-y-4">
             <div>
@@ -376,7 +376,7 @@ export default function SettingsPage() {
 
           <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Logo da empresa</h2>
-            <p className="text-sm text-[var(--ds-color-text-muted)]">Atualize a marca exibida nos relatórios e PDFs.</p>
+            <p className="text-sm text-[var(--ds-color-text-secondary)]">Atualize a marca exibida nos relatórios e PDFs.</p>
             <div className="mt-4 space-y-4">
               <div className="flex items-center gap-4">
                 <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]">
@@ -390,7 +390,7 @@ export default function SettingsPage() {
                       unoptimized
                     />
                   ) : (
-                    <span className="text-xs text-[var(--ds-color-text-muted)]">Sem logo</span>
+                    <span className="text-xs text-[var(--ds-color-text-secondary)]">Sem logo</span>
                   )}
                 </div>
                 <div className="flex-1 space-y-2">
@@ -400,7 +400,7 @@ export default function SettingsPage() {
                     type="file"
                     accept="image/*"
                     onChange={handleLogoChange}
-                    className="block w-full text-sm text-[var(--ds-color-text-muted)] file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--ds-color-surface-muted)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--ds-color-text-secondary)] hover:file:bg-[var(--ds-color-primary-subtle)]"
+                    className="block w-full text-sm text-[var(--ds-color-text-secondary)] file:mr-4 file:rounded-lg file:border-0 file:bg-[var(--ds-color-surface-muted)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--ds-color-text-secondary)] hover:file:bg-[var(--ds-color-primary-subtle)]"
                     disabled={loadingLogo}
                   />
                 </div>
@@ -428,7 +428,7 @@ export default function SettingsPage() {
 
           <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">Gestão do sistema</h2>
-            <p className="text-sm text-[var(--ds-color-text-muted)]">Acesso rápido aos cadastros e módulos administrativos.</p>
+            <p className="text-sm text-[var(--ds-color-text-secondary)]">Acesso rápido aos cadastros e módulos administrativos.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {managementLinks
                 .filter(
@@ -450,7 +450,7 @@ export default function SettingsPage() {
                   );
                 })}
               {!isAdmin && (
-                <div className="rounded-lg border border-dashed border-[var(--ds-color-border-subtle)] px-4 py-3 text-sm text-[var(--ds-color-text-muted)]">
+                <div className="rounded-lg border border-dashed border-[var(--ds-color-border-subtle)] px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
                   Solicite ao administrador para liberar acessos avançados.
                 </div>
               )}
@@ -462,12 +462,12 @@ export default function SettingsPage() {
               <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
                 Regras de bloqueio da PT
               </h2>
-              <p className="text-sm text-[var(--ds-color-text-muted)]">
+              <p className="text-sm text-[var(--ds-color-text-secondary)]">
                 Configure quando o sistema deve bloquear a aprovação de permissões de trabalho.
               </p>
               <div className="mt-4 space-y-3">
                 {loadingApprovalRules ? (
-                  <p className="text-sm text-[var(--ds-color-text-muted)]">Carregando regras...</p>
+                  <p className="text-sm text-[var(--ds-color-text-secondary)]">Carregando regras...</p>
                 ) : approvalRules ? (
                   <>
                     <label className="flex items-center justify-between gap-4 rounded-lg border border-[var(--ds-color-border-default)] px-3 py-2 text-sm">
@@ -532,7 +532,7 @@ export default function SettingsPage() {
                     </button>
                   </>
                 ) : (
-                  <p className="text-sm text-[var(--ds-color-text-muted)]">
+                  <p className="text-sm text-[var(--ds-color-text-secondary)]">
                     Não foi possível carregar as regras da empresa atual.
                   </p>
                 )}
