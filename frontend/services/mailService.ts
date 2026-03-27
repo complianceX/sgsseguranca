@@ -22,8 +22,25 @@ export type AlertSettingsResponse = {
   recipients: string[];
   includeWhatsapp: boolean;
   lookaheadDays: number;
+  includeComplianceSummary: boolean;
+  includeOperationsSummary: boolean;
+  includeOccurrencesSummary: boolean;
+  deliveryHour: number;
+  weekdaysOnly: boolean;
+  cadenceDays: number;
+  skipWhenNoPending: boolean;
+  minimumPendingItems: number;
+  subjectPrefix?: string | null;
+  snoozeUntil?: string | null;
+  lastScheduledDispatchAt?: string | null;
   fallbackRecipients: string[];
   providerConfigured: boolean;
+};
+export type AlertPreviewResponse = {
+  generatedAt: string;
+  lookaheadDays: number;
+  pendingItemsCount: number;
+  summary: string;
 };
 
 type MailDispatchErrorPayload = {
@@ -87,8 +104,23 @@ export const mailService = {
     recipients?: string[];
     includeWhatsapp?: boolean;
     lookaheadDays?: number;
+    includeComplianceSummary?: boolean;
+    includeOperationsSummary?: boolean;
+    includeOccurrencesSummary?: boolean;
+    deliveryHour?: number;
+    weekdaysOnly?: boolean;
+    cadenceDays?: number;
+    skipWhenNoPending?: boolean;
+    subjectPrefix?: string | null;
+    minimumPendingItems?: number;
+    snoozeUntil?: string | null;
   }): Promise<AlertSettingsResponse> {
     const response = await api.patch<AlertSettingsResponse>('/mail/alerts/settings', payload);
+    return response.data;
+  },
+
+  async getAlertPreview(): Promise<AlertPreviewResponse> {
+    const response = await api.get<AlertPreviewResponse>('/mail/alerts/preview');
     return response.data;
   },
 };

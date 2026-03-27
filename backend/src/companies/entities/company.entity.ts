@@ -50,13 +50,24 @@ export class Company {
     type: 'jsonb',
     nullable: true,
     default: () =>
-      `'{"enabled":true,"recipients":[],"includeWhatsapp":false,"lookaheadDays":30}'::jsonb`,
+      `'{"enabled":true,"recipients":[],"includeWhatsapp":false,"lookaheadDays":30,"includeComplianceSummary":true,"includeOperationsSummary":true,"includeOccurrencesSummary":true,"deliveryHour":8,"weekdaysOnly":true,"cadenceDays":1,"skipWhenNoPending":false,"minimumPendingItems":0,"subjectPrefix":null,"snoozeUntil":null,"lastScheduledDispatchAt":null}'::jsonb`,
   })
   alert_settings?: {
     enabled: boolean;
     recipients: string[];
     includeWhatsapp: boolean;
     lookaheadDays: number;
+    includeComplianceSummary: boolean;
+    includeOperationsSummary: boolean;
+    includeOccurrencesSummary: boolean;
+    deliveryHour: number;
+    weekdaysOnly: boolean;
+    cadenceDays: number;
+    skipWhenNoPending: boolean;
+    minimumPendingItems: number;
+    subjectPrefix: string | null;
+    snoozeUntil: string | null;
+    lastScheduledDispatchAt: string | null;
   } | null;
 
   @CreateDateColumn()

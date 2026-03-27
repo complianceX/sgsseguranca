@@ -28,6 +28,32 @@ import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModul
 import { usersService } from '@/services/usersService';
 import { extractMailDispatchErrorMessage, mailService } from '@/services/mailService';
 
+const DEFAULT_ALERT_SETTINGS = {
+  recipients: '',
+  enabled: true,
+  includeWhatsapp: false,
+  lookaheadDays: 30,
+  includeComplianceSummary: true,
+  includeOperationsSummary: true,
+  includeOccurrencesSummary: true,
+  deliveryHour: 8,
+  weekdaysOnly: true,
+  cadenceDays: 1,
+  skipWhenNoPending: false,
+  minimumPendingItems: 0,
+  subjectPrefix: '',
+  snoozeUntil: '',
+};
+
+const toDatetimeLocalValue = (isoValue?: string | null) => {
+  if (!isoValue) return '';
+  const parsed = new Date(isoValue);
+  if (Number.isNaN(parsed.getTime())) return '';
+  const tzOffset = parsed.getTimezoneOffset() * 60_000;
+  const localTime = new Date(parsed.getTime() - tzOffset);
+  return localTime.toISOString().slice(0, 16);
+};
+
 export default function SettingsPage() {
   const { user, hasPermission, isAdminGeral } = useAuth();
   const isAdmin = isAdminGeral;
@@ -52,6 +78,17 @@ export default function SettingsPage() {
   const [alertAutomationEnabled, setAlertAutomationEnabled] = useState(true);
   const [includeWhatsappAlerts, setIncludeWhatsappAlerts] = useState(false);
   const [alertLookaheadDays, setAlertLookaheadDays] = useState<number>(30);
+  const [includeComplianceSummary, setIncludeComplianceSummary] = useState(true);
+  const [includeOperationsSummary, setIncludeOperationsSummary] = useState(true);
+  const [includeOccurrencesSummary, setIncludeOccurrencesSummary] = useState(true);
+  const [alertDeliveryHour, setAlertDeliveryHour] = useState<number>(8);
+  const [alertWeekdaysOnly, setAlertWeekdaysOnly] = useState(true);
+  const [alertCadenceDays, setAlertCadenceDays] = useState<number>(1);
+  const [skipWhenNoPending, setSkipWhenNoPending] = useState(false);
+  const [minimumPendingItems, setMinimumPendingItems] = useState<number>(0);
+  const [alertSubjectPrefix, setAlertSubjectPrefix] = useState('');
+  const [alertSnoozeUntil, setAlertSnoozeUntil] = useState('');
+  const [lastScheduledDispatchAt, setLastScheduledDispatchAt] = useState<string | null>(null);
   const [savingAlertSettings, setSavingAlertSettings] = useState(false);
   const [loadingAlertSettings, setLoadingAlertSettings] = useState(false);
   const [alertFallbackRecipients, setAlertFallbackRecipients] = useState<
@@ -59,6 +96,13 @@ export default function SettingsPage() {
   >([]);
   const [mailProviderConfigured, setMailProviderConfigured] = useState(true);
   const [dispatchingAlerts, setDispatchingAlerts] = useState(false);
+  const [loadingAlertPreview, setLoadingAlertPreview] = useState(false);
+  const [alertPreview, setAlertPreview] = useState<{
+    generatedAt: string;
+    lookaheadDays: number;
+    pendingItemsCount: number;
+    summary: string;
+  } | null>(null);
   const [lastAlertDispatch, setLastAlertDispatch] = useState<{
     recipients: string[];
     previewUrl?: string;
@@ -191,6 +235,17 @@ export default function SettingsPage() {
         setAlertRecipients(settings.recipients.join(', '));
         setIncludeWhatsappAlerts(settings.includeWhatsapp);
         setAlertLookaheadDays(settings.lookaheadDays);
+        setIncludeComplianceSummary(settings.includeComplianceSummary);
+        setIncludeOperationsSummary(settings.includeOperationsSummary);
+        setIncludeOccurrencesSummary(settings.includeOccurrencesSummary);
+        setAlertDeliveryHour(settings.deliveryHour);
+        setAlertWeekdaysOnly(settings.weekdaysOnly);
+        setAlertCadenceDays(settings.cadenceDays);
+        setSkipWhenNoPending(settings.skipWhenNoPending);
+        setMinimumPendingItems(settings.minimumPendingItems);
+        setAlertSubjectPrefix(settings.subjectPrefix ?? '');
+        setAlertSnoozeUntil(toDatetimeLocalValue(settings.snoozeUntil ?? null));
+        setLastScheduledDispatchAt(settings.lastScheduledDispatchAt ?? null);
         setAlertFallbackRecipients(settings.fallbackRecipients);
         setMailProviderConfigured(settings.providerConfigured);
       } catch (error) {
@@ -354,6 +409,24 @@ export default function SettingsPage() {
     }
   };
 
+  const handleResetAlertSettings = () => {
+    setAlertRecipients(DEFAULT_ALERT_SETTINGS.recipients);
+    setAlertAutomationEnabled(DEFAULT_ALERT_SETTINGS.enabled);
+    setIncludeWhatsappAlerts(DEFAULT_ALERT_SETTINGS.includeWhatsapp);
+    setAlertLookaheadDays(DEFAULT_ALERT_SETTINGS.lookaheadDays);
+    setIncludeComplianceSummary(DEFAULT_ALERT_SETTINGS.includeComplianceSummary);
+    setIncludeOperationsSummary(DEFAULT_ALERT_SETTINGS.includeOperationsSummary);
+    setIncludeOccurrencesSummary(DEFAULT_ALERT_SETTINGS.includeOccurrencesSummary);
+    setAlertDeliveryHour(DEFAULT_ALERT_SETTINGS.deliveryHour);
+    setAlertWeekdaysOnly(DEFAULT_ALERT_SETTINGS.weekdaysOnly);
+    setAlertCadenceDays(DEFAULT_ALERT_SETTINGS.cadenceDays);
+    setSkipWhenNoPending(DEFAULT_ALERT_SETTINGS.skipWhenNoPending);
+    setMinimumPendingItems(DEFAULT_ALERT_SETTINGS.minimumPendingItems);
+    setAlertSubjectPrefix(DEFAULT_ALERT_SETTINGS.subjectPrefix);
+    setAlertSnoozeUntil(DEFAULT_ALERT_SETTINGS.snoozeUntil);
+    toast.success('Campos restaurados para o padrão. Clique em salvar para aplicar.');
+  };
+
   const handleSaveAlertSettings = async () => {
     if (!hasPermission('can_manage_mail')) {
       toast.error('Seu perfil não possui permissão para editar alertas.');
@@ -371,9 +444,32 @@ export default function SettingsPage() {
         recipients,
         includeWhatsapp: includeWhatsappAlerts,
         lookaheadDays: alertLookaheadDays,
+        includeComplianceSummary,
+        includeOperationsSummary,
+        includeOccurrencesSummary,
+        deliveryHour: alertDeliveryHour,
+        weekdaysOnly: alertWeekdaysOnly,
+        cadenceDays: alertCadenceDays,
+        skipWhenNoPending,
+        minimumPendingItems,
+        subjectPrefix: alertSubjectPrefix.trim() || null,
+        snoozeUntil: alertSnoozeUntil
+          ? new Date(alertSnoozeUntil).toISOString()
+          : null,
       });
       setAlertRecipients(updated.recipients.join(', '));
       setAlertLookaheadDays(updated.lookaheadDays);
+      setIncludeComplianceSummary(updated.includeComplianceSummary);
+      setIncludeOperationsSummary(updated.includeOperationsSummary);
+      setIncludeOccurrencesSummary(updated.includeOccurrencesSummary);
+      setAlertDeliveryHour(updated.deliveryHour);
+      setAlertWeekdaysOnly(updated.weekdaysOnly);
+      setAlertCadenceDays(updated.cadenceDays);
+      setSkipWhenNoPending(updated.skipWhenNoPending);
+      setMinimumPendingItems(updated.minimumPendingItems);
+      setAlertSubjectPrefix(updated.subjectPrefix ?? '');
+      setAlertSnoozeUntil(toDatetimeLocalValue(updated.snoozeUntil ?? null));
+      setLastScheduledDispatchAt(updated.lastScheduledDispatchAt ?? null);
       setAlertFallbackRecipients(updated.fallbackRecipients);
       setMailProviderConfigured(updated.providerConfigured);
       toast.success('Configurações de alertas atualizadas.');
@@ -419,6 +515,26 @@ export default function SettingsPage() {
       toast.error(message);
     } finally {
       setDispatchingAlerts(false);
+    }
+  };
+
+  const handlePreviewCorporateAlerts = async () => {
+    if (!hasPermission('can_manage_mail')) {
+      toast.error('Seu perfil não possui permissão para visualizar alertas.');
+      return;
+    }
+
+    try {
+      setLoadingAlertPreview(true);
+      const preview = await mailService.getAlertPreview();
+      setAlertPreview(preview);
+      toast.success('Prévia de alertas atualizada.');
+    } catch (error) {
+      console.error('Erro ao gerar prévia de alertas:', error);
+      const message = await extractMailDispatchErrorMessage(error);
+      toast.error(message);
+    } finally {
+      setLoadingAlertPreview(false);
     }
   };
 
@@ -770,6 +886,196 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                    Prefixo do assunto (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={alertSubjectPrefix}
+                    onChange={(event) => setAlertSubjectPrefix(event.target.value)}
+                    placeholder="[SGS] [Cliente]"
+                    maxLength={60}
+                    className="w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                  />
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    Exemplo: [SGS] Alertas de conformidade - Sua Empresa.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                    Pausar automação até
+                  </label>
+                  <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <input
+                      type="datetime-local"
+                      value={alertSnoozeUntil}
+                      onChange={(event) => setAlertSnoozeUntil(event.target.value)}
+                      className="w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAlertSnoozeUntil('')}
+                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-3 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition hover:border-[var(--ds-color-border-strong)] hover:text-[var(--ds-color-text-primary)]"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    Enquanto ativo, o agendamento automático fica pausado. O disparo manual continua disponível.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-[var(--ds-color-border-default)] px-3 py-3">
+                  <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                    Agenda do disparo automático
+                  </p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                        Hora do envio (0-23)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={23}
+                        step={1}
+                        value={alertDeliveryHour}
+                        onChange={(event) =>
+                          setAlertDeliveryHour(
+                            Math.min(
+                              23,
+                              Math.max(0, Number(event.target.value) || 8),
+                            ),
+                          )
+                        }
+                        className="w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                        disabled={loadingAlertSettings}
+                      />
+                    </div>
+                    <label className="flex items-center justify-between gap-4 rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm">
+                      <span>Somente dias úteis</span>
+                      <input
+                        type="checkbox"
+                        checked={alertWeekdaysOnly}
+                        onChange={(event) =>
+                          setAlertWeekdaysOnly(event.target.checked)
+                        }
+                        disabled={loadingAlertSettings}
+                      />
+                    </label>
+                    <div>
+                      <label className="mb-1.5 block text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                        Cadência (dias)
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={30}
+                        step={1}
+                        value={alertCadenceDays}
+                        onChange={(event) =>
+                          setAlertCadenceDays(
+                            Math.min(
+                              30,
+                              Math.max(1, Number(event.target.value) || 1),
+                            ),
+                          )
+                        }
+                        className="w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                        disabled={loadingAlertSettings}
+                      />
+                    </div>
+                  </div>
+                  <label className="mt-3 flex items-center justify-between gap-4 rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm">
+                    <span>Pular envio automático sem pendências</span>
+                    <input
+                      type="checkbox"
+                      checked={skipWhenNoPending}
+                      onChange={(event) =>
+                        setSkipWhenNoPending(event.target.checked)
+                      }
+                      disabled={loadingAlertSettings}
+                    />
+                  </label>
+                  <div className="mt-3">
+                    <label className="mb-1.5 block text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                      Mínimo de pendências para envio automático
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={999}
+                      step={1}
+                      value={minimumPendingItems}
+                      onChange={(event) =>
+                        setMinimumPendingItems(
+                          Math.min(
+                            999,
+                            Math.max(0, Number(event.target.value) || 0),
+                          ),
+                        )
+                      }
+                      className="w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                      disabled={loadingAlertSettings}
+                    />
+                    <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                      Ex.: 5 = só dispara quando houver pelo menos 5 pendências.
+                    </p>
+                  </div>
+                  <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
+                    Último envio automático:{' '}
+                    {lastScheduledDispatchAt
+                      ? new Date(lastScheduledDispatchAt).toLocaleString('pt-BR')
+                      : 'ainda não realizado'}
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-[var(--ds-color-border-default)] px-3 py-3">
+                  <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
+                    Seções do resumo
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    Escolha quais blocos aparecem no e-mail automático.
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    <label className="flex items-center justify-between gap-4 text-sm">
+                      <span>Conformidade (EPIs e treinamentos)</span>
+                      <input
+                        type="checkbox"
+                        checked={includeComplianceSummary}
+                        onChange={(event) =>
+                          setIncludeComplianceSummary(event.target.checked)
+                        }
+                        disabled={loadingAlertSettings}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-4 text-sm">
+                      <span>Operação (PT, APR, checklist e DDS)</span>
+                      <input
+                        type="checkbox"
+                        checked={includeOperationsSummary}
+                        onChange={(event) =>
+                          setIncludeOperationsSummary(event.target.checked)
+                        }
+                        disabled={loadingAlertSettings}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-4 text-sm">
+                      <span>Ocorrências (NCs e ações pendentes)</span>
+                      <input
+                        type="checkbox"
+                        checked={includeOccurrencesSummary}
+                        onChange={(event) =>
+                          setIncludeOccurrencesSummary(event.target.checked)
+                        }
+                        disabled={loadingAlertSettings}
+                      />
+                    </label>
+                  </div>
+                </div>
+
                 <label className="flex items-center justify-between gap-4 rounded-lg border border-[var(--ds-color-border-default)] px-3 py-2 text-sm">
                   <span>Ativar disparo automático de alertas</span>
                   <input
@@ -810,6 +1116,45 @@ export default function SettingsPage() {
                     {dispatchingAlerts ? 'Disparando...' : 'Disparar resumo agora'}
                   </button>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleResetAlertSettings}
+                  disabled={savingAlertSettings || loadingAlertSettings}
+                  className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition hover:border-[var(--ds-color-border-strong)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Restaurar padrão recomendado
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePreviewCorporateAlerts}
+                  disabled={loadingAlertPreview || loadingAlertSettings}
+                  className="w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] px-4 py-2 text-sm font-semibold text-[var(--ds-color-text-secondary)] transition hover:border-[var(--ds-color-border-strong)] hover:text-[var(--ds-color-text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loadingAlertPreview
+                    ? 'Gerando prévia...'
+                    : 'Gerar prévia sem envio'}
+                </button>
+
+                {alertPreview ? (
+                  <div className="rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/24 px-3 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+                    <p className="font-semibold text-[var(--ds-color-text-primary)]">
+                      Prévia atual
+                    </p>
+                    <p className="mt-1">
+                      Pendências consideradas: {alertPreview.pendingItemsCount}
+                    </p>
+                    <p className="mt-1">
+                      Janela: {alertPreview.lookaheadDays} dias
+                    </p>
+                    <p className="mt-1">
+                      Gerado em:{' '}
+                      {new Date(alertPreview.generatedAt).toLocaleString('pt-BR')}
+                    </p>
+                    <pre className="mt-2 whitespace-pre-wrap rounded-md border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-3 text-xs text-[var(--ds-color-text-primary)]">
+                      {alertPreview.summary}
+                    </pre>
+                  </div>
+                ) : null}
 
                 {lastAlertDispatch ? (
                   <div className="rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/24 px-3 py-3 text-sm text-[var(--ds-color-text-secondary)]">

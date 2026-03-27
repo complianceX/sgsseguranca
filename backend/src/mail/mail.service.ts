@@ -92,6 +92,17 @@ type CompanyAlertSettings = {
   recipients: string[];
   includeWhatsapp: boolean;
   lookaheadDays: number;
+  includeComplianceSummary: boolean;
+  includeOperationsSummary: boolean;
+  includeOccurrencesSummary: boolean;
+  deliveryHour: number;
+  weekdaysOnly: boolean;
+  cadenceDays: number;
+  skipWhenNoPending: boolean;
+  minimumPendingItems: number;
+  subjectPrefix: string | null;
+  snoozeUntil: string | null;
+  lastScheduledDispatchAt: string | null;
 };
 
 const DEFAULT_COMPANY_ALERT_SETTINGS: CompanyAlertSettings = {
@@ -99,6 +110,17 @@ const DEFAULT_COMPANY_ALERT_SETTINGS: CompanyAlertSettings = {
   recipients: [],
   includeWhatsapp: false,
   lookaheadDays: 30,
+  includeComplianceSummary: true,
+  includeOperationsSummary: true,
+  includeOccurrencesSummary: true,
+  deliveryHour: 8,
+  weekdaysOnly: true,
+  cadenceDays: 1,
+  skipWhenNoPending: false,
+  minimumPendingItems: 0,
+  subjectPrefix: null,
+  snoozeUntil: null,
+  lastScheduledDispatchAt: null,
 };
 
 const isLooseRecord = (value: unknown): value is LooseRecord =>
@@ -1259,18 +1281,48 @@ export class MailService {
 
     const summary = await this.tenantService.run(
       { companyId: resolvedCompanyId, isSuperAdmin: false },
-      () => this.buildAlertSummary(settings.lookaheadDays),
+      () =>
+        this.buildAlertSummary(settings.lookaheadDays, {
+          includeComplianceSummary: settings.includeComplianceSummary,
+          includeOperationsSummary: settings.includeOperationsSummary,
+          includeOccurrencesSummary: settings.includeOccurrencesSummary,
+        }),
     );
+    if (
+      options.respectAutomationEnabled &&
+      settings.skipWhenNoPending &&
+      summary.pendingItemsCount === 0
+    ) {
+      return {
+        recipients: [],
+        previewUrl: undefined,
+        usingTestAccount: undefined,
+        whatsappSent: false,
+      };
+    }
+    if (
+      options.respectAutomationEnabled &&
+      summary.pendingItemsCount < settings.minimumPendingItems
+    ) {
+      return {
+        recipients: [],
+        previewUrl: undefined,
+        usingTestAccount: undefined,
+        whatsappSent: false,
+      };
+    }
 
     const company = await this.findCompany(resolvedCompanyId);
-    const subject = `Alertas de conformidade${
+    const baseSubject = `Alertas de conformidade${
       company?.razao_social ? ` - ${company.razao_social}` : ''
     }`;
+    const prefix = settings.subjectPrefix?.trim();
+    const subject = prefix ? `${prefix} ${baseSubject}` : baseSubject;
 
     const mailResult = await this.sendMailSimple(
       recipientsToUse.join(','),
       subject,
-      summary,
+      summary.message,
       { companyId: resolvedCompanyId, userId: options.userId },
     );
 
@@ -1285,7 +1337,7 @@ export class MailService {
           to: recipientsToUse,
           companyId: resolvedCompanyId,
           companyName: company?.razao_social,
-          message: summary,
+          message: summary.message,
         })
       : { sent: false };
 
@@ -1343,6 +1395,48 @@ export class MailService {
         typeof payload.lookaheadDays === 'number'
           ? payload.lookaheadDays
           : current.lookaheadDays,
+      includeComplianceSummary:
+        typeof payload.includeComplianceSummary === 'boolean'
+          ? payload.includeComplianceSummary
+          : current.includeComplianceSummary,
+      includeOperationsSummary:
+        typeof payload.includeOperationsSummary === 'boolean'
+          ? payload.includeOperationsSummary
+          : current.includeOperationsSummary,
+      includeOccurrencesSummary:
+        typeof payload.includeOccurrencesSummary === 'boolean'
+          ? payload.includeOccurrencesSummary
+          : current.includeOccurrencesSummary,
+      deliveryHour:
+        typeof payload.deliveryHour === 'number'
+          ? payload.deliveryHour
+          : current.deliveryHour,
+      weekdaysOnly:
+        typeof payload.weekdaysOnly === 'boolean'
+          ? payload.weekdaysOnly
+          : current.weekdaysOnly,
+      cadenceDays:
+        typeof payload.cadenceDays === 'number'
+          ? payload.cadenceDays
+          : current.cadenceDays,
+      skipWhenNoPending:
+        typeof payload.skipWhenNoPending === 'boolean'
+          ? payload.skipWhenNoPending
+          : current.skipWhenNoPending,
+      minimumPendingItems:
+        typeof payload.minimumPendingItems === 'number'
+          ? payload.minimumPendingItems
+          : current.minimumPendingItems,
+      subjectPrefix:
+        typeof payload.subjectPrefix === 'string'
+          ? payload.subjectPrefix.trim() || null
+          : current.subjectPrefix,
+      snoozeUntil:
+        typeof payload.snoozeUntil === 'string' &&
+        payload.snoozeUntil.trim().length > 0
+          ? payload.snoozeUntil
+          : null,
+      lastScheduledDispatchAt: current.lastScheduledDispatchAt,
     };
 
     await this.companiesService.update(companyId, {
@@ -1360,6 +1454,32 @@ export class MailService {
     };
   }
 
+  async getAlertSummaryPreview(companyId?: string) {
+    if (!companyId) {
+      throw new ServiceUnavailableException(
+        'Empresa não encontrada para prévia de alertas.',
+      );
+    }
+
+    const settings = await this.getCompanyAlertSettings(companyId);
+    const summary = await this.tenantService.run(
+      { companyId, isSuperAdmin: false },
+      () =>
+        this.buildAlertSummary(settings.lookaheadDays, {
+          includeComplianceSummary: settings.includeComplianceSummary,
+          includeOperationsSummary: settings.includeOperationsSummary,
+          includeOccurrencesSummary: settings.includeOccurrencesSummary,
+        }),
+    );
+
+    return {
+      generatedAt: new Date().toISOString(),
+      lookaheadDays: settings.lookaheadDays,
+      pendingItemsCount: summary.pendingItemsCount,
+      summary: summary.message,
+    };
+  }
+
   private isMailProviderConfigured(): boolean {
     return Boolean(this.brevoApiKey || this.transporter || this.resend);
   }
@@ -1367,28 +1487,99 @@ export class MailService {
   private async getCompanyAlertSettings(
     companyId: string,
   ): Promise<CompanyAlertSettings> {
-    const company = await this.companiesService.findOneEntity(companyId);
-    const raw = company.alert_settings;
+    const buildFallbackSettings = (): CompanyAlertSettings => ({
+      ...DEFAULT_COMPANY_ALERT_SETTINGS,
+      deliveryHour: new Date().getHours(),
+      weekdaysOnly: false,
+    });
 
-    const recipients = Array.isArray(raw?.recipients)
+    const companiesServiceWithEntityLookup = this.companiesService as unknown as {
+      findOneEntity?: (id: string) => Promise<{ alert_settings?: unknown }>;
+    };
+    if (typeof companiesServiceWithEntityLookup.findOneEntity !== 'function') {
+      return buildFallbackSettings();
+    }
+
+    let company: { alert_settings?: unknown };
+    try {
+      company =
+        (await companiesServiceWithEntityLookup.findOneEntity(companyId)) || {};
+    } catch {
+      return buildFallbackSettings();
+    }
+    const raw = isLooseRecord(company.alert_settings)
+      ? company.alert_settings
+      : {};
+
+    const recipients = Array.isArray(raw.recipients)
       ? raw.recipients
       : DEFAULT_COMPANY_ALERT_SETTINGS.recipients;
 
     return {
       enabled:
-        typeof raw?.enabled === 'boolean'
+        typeof raw.enabled === 'boolean'
           ? raw.enabled
           : DEFAULT_COMPANY_ALERT_SETTINGS.enabled,
       recipients: this.normalizeRecipients(recipients),
       includeWhatsapp:
-        typeof raw?.includeWhatsapp === 'boolean'
+        typeof raw.includeWhatsapp === 'boolean'
           ? raw.includeWhatsapp
           : DEFAULT_COMPANY_ALERT_SETTINGS.includeWhatsapp,
       lookaheadDays:
-        typeof raw?.lookaheadDays === 'number' &&
+        typeof raw.lookaheadDays === 'number' &&
         Number.isFinite(raw.lookaheadDays)
           ? Math.min(120, Math.max(1, Math.round(raw.lookaheadDays)))
           : DEFAULT_COMPANY_ALERT_SETTINGS.lookaheadDays,
+      includeComplianceSummary:
+        typeof raw.includeComplianceSummary === 'boolean'
+          ? raw.includeComplianceSummary
+          : DEFAULT_COMPANY_ALERT_SETTINGS.includeComplianceSummary,
+      includeOperationsSummary:
+        typeof raw.includeOperationsSummary === 'boolean'
+          ? raw.includeOperationsSummary
+          : DEFAULT_COMPANY_ALERT_SETTINGS.includeOperationsSummary,
+      includeOccurrencesSummary:
+        typeof raw.includeOccurrencesSummary === 'boolean'
+          ? raw.includeOccurrencesSummary
+          : DEFAULT_COMPANY_ALERT_SETTINGS.includeOccurrencesSummary,
+      deliveryHour:
+        typeof raw.deliveryHour === 'number' &&
+        Number.isFinite(raw.deliveryHour)
+          ? Math.min(23, Math.max(0, Math.round(raw.deliveryHour)))
+          : DEFAULT_COMPANY_ALERT_SETTINGS.deliveryHour,
+      weekdaysOnly:
+        typeof raw.weekdaysOnly === 'boolean'
+          ? raw.weekdaysOnly
+          : DEFAULT_COMPANY_ALERT_SETTINGS.weekdaysOnly,
+      cadenceDays:
+        typeof raw.cadenceDays === 'number' &&
+        Number.isFinite(raw.cadenceDays)
+          ? Math.min(30, Math.max(1, Math.round(raw.cadenceDays)))
+          : DEFAULT_COMPANY_ALERT_SETTINGS.cadenceDays,
+      skipWhenNoPending:
+        typeof raw.skipWhenNoPending === 'boolean'
+          ? raw.skipWhenNoPending
+          : DEFAULT_COMPANY_ALERT_SETTINGS.skipWhenNoPending,
+      minimumPendingItems:
+        typeof raw.minimumPendingItems === 'number' &&
+        Number.isFinite(raw.minimumPendingItems)
+          ? Math.min(999, Math.max(0, Math.round(raw.minimumPendingItems)))
+          : DEFAULT_COMPANY_ALERT_SETTINGS.minimumPendingItems,
+      subjectPrefix:
+        typeof raw.subjectPrefix === 'string' &&
+        raw.subjectPrefix.trim().length > 0
+          ? raw.subjectPrefix.trim()
+          : null,
+      snoozeUntil:
+        typeof raw.snoozeUntil === 'string' &&
+        !Number.isNaN(new Date(raw.snoozeUntil).getTime())
+          ? raw.snoozeUntil
+          : null,
+      lastScheduledDispatchAt:
+        typeof raw.lastScheduledDispatchAt === 'string' &&
+        raw.lastScheduledDispatchAt.trim().length > 0
+          ? raw.lastScheduledDispatchAt
+          : null,
     };
   }
 
@@ -1416,12 +1607,22 @@ export class MailService {
     }
   }
 
-  private async buildAlertSummary(lookaheadDays = 30): Promise<string> {
+  private async buildAlertSummary(
+    lookaheadDays = 30,
+    options?: {
+      includeComplianceSummary?: boolean;
+      includeOperationsSummary?: boolean;
+      includeOccurrencesSummary?: boolean;
+    },
+  ): Promise<{ message: string; pendingItemsCount: number }> {
     const now = new Date();
     const limitDate = new Date();
     const days = Math.min(120, Math.max(1, Math.round(lookaheadDays)));
     limitDate.setDate(now.getDate() + days);
     const companyId = this.tenantService.getTenantId() || '';
+    const includeCompliance = options?.includeComplianceSummary !== false;
+    const includeOperations = options?.includeOperationsSummary !== false;
+    const includeOccurrences = options?.includeOccurrencesSummary !== false;
 
     const [
       episExpired,
@@ -1468,22 +1669,50 @@ export class MailService {
     const actionItems =
       inspectionActionItems + auditActionItems + nonconformityActionItems;
 
-    const reminders = [
-      `Resumo de alertas (${now.toLocaleDateString('pt-BR')}):`,
-      `- EPIs vencidos: ${episExpired}`,
-      `- EPIs vencendo em ${days} dias: ${episExpiring}`,
-      `- Treinamentos vencidos: ${trainingsExpired}`,
-      `- Treinamentos vencendo em ${days} dias: ${trainingsExpiring}`,
-      `- PTs pendentes: ${pendingPts}`,
-      `- PTs iniciadas e pendentes: ${urgentPts}`,
-      `- APRs pendentes: ${pendingAprs}`,
-      `- Checklists pendentes: ${pendingChecklists}`,
-      `- NCs em aberto: ${openNonconformities}`,
-      `- Ações pendentes (inspeções/auditorias/NCs): ${actionItems}`,
-      `- DDS registrados: ${ddsCount}`,
-    ];
+    const reminders = [`Resumo de alertas (${now.toLocaleDateString('pt-BR')}):`];
 
-    return reminders.join('\n');
+    if (includeCompliance) {
+      reminders.push(`- EPIs vencidos: ${episExpired}`);
+      reminders.push(`- EPIs vencendo em ${days} dias: ${episExpiring}`);
+      reminders.push(`- Treinamentos vencidos: ${trainingsExpired}`);
+      reminders.push(`- Treinamentos vencendo em ${days} dias: ${trainingsExpiring}`);
+    }
+
+    if (includeOperations) {
+      reminders.push(`- PTs pendentes: ${pendingPts}`);
+      reminders.push(`- PTs iniciadas e pendentes: ${urgentPts}`);
+      reminders.push(`- APRs pendentes: ${pendingAprs}`);
+      reminders.push(`- Checklists pendentes: ${pendingChecklists}`);
+      reminders.push(`- DDS registrados: ${ddsCount}`);
+    }
+
+    if (includeOccurrences) {
+      reminders.push(`- NCs em aberto: ${openNonconformities}`);
+      reminders.push(`- Ações pendentes (inspeções/auditorias/NCs): ${actionItems}`);
+    }
+
+    if (reminders.length === 1) {
+      reminders.push(
+        '- Nenhuma seção do resumo está habilitada nas configurações da empresa.',
+      );
+    }
+
+    const compliancePendingCount = includeCompliance
+      ? episExpired + episExpiring + trainingsExpired + trainingsExpiring
+      : 0;
+    const operationsPendingCount = includeOperations
+      ? pendingPts + urgentPts + pendingAprs + pendingChecklists
+      : 0;
+    const occurrencesPendingCount = includeOccurrences
+      ? openNonconformities + actionItems
+      : 0;
+    const pendingItemsCount =
+      compliancePendingCount + operationsPendingCount + occurrencesPendingCount;
+
+    return {
+      message: reminders.join('\n'),
+      pendingItemsCount,
+    };
   }
 
   private async sendWhatsappWebhook(payload: {
@@ -1603,12 +1832,24 @@ export class MailService {
       for (let i = 0; i < companyBatch.length; i += maxParallel) {
         const chunk = companyBatch.slice(i, i + maxParallel);
         const results = await Promise.allSettled(
-          chunk.map((company) =>
-            this.dispatchAlerts({
+          chunk.map(async (company) => {
+            const settings = await this.getCompanyAlertSettings(company.id);
+            const nowDate = new Date();
+            if (!this.shouldDispatchScheduledAlert(settings, nowDate)) {
+              return null;
+            }
+
+            const result = await this.dispatchAlerts({
               companyId: company.id,
               respectAutomationEnabled: true,
-            }),
-          ),
+            });
+
+            if (result.recipients.length) {
+              await this.markScheduledDispatch(company.id, settings, nowDate);
+            }
+
+            return result;
+          }),
         );
 
         results.forEach((result, index) => {
@@ -1902,6 +2143,65 @@ export class MailService {
 
     this.scheduledAlertsCursor = (start + size) % companies.length;
     return selected;
+  }
+
+  private shouldDispatchScheduledAlert(
+    settings: CompanyAlertSettings,
+    now: Date,
+  ): boolean {
+    if (!settings.enabled) {
+      return false;
+    }
+
+    if (settings.snoozeUntil) {
+      const snoozeUntil = new Date(settings.snoozeUntil);
+      if (!Number.isNaN(snoozeUntil.getTime()) && now < snoozeUntil) {
+        return false;
+      }
+    }
+
+    if (settings.weekdaysOnly) {
+      const day = now.getDay();
+      if (day === 0 || day === 6) {
+        return false;
+      }
+    }
+
+    if (now.getHours() !== settings.deliveryHour) {
+      return false;
+    }
+
+    if (!settings.lastScheduledDispatchAt) {
+      return true;
+    }
+
+    const lastSent = new Date(settings.lastScheduledDispatchAt);
+    if (Number.isNaN(lastSent.getTime())) {
+      return true;
+    }
+
+    const nowStart = new Date(now);
+    nowStart.setHours(0, 0, 0, 0);
+    const lastStart = new Date(lastSent);
+    lastStart.setHours(0, 0, 0, 0);
+    const elapsedDays = Math.floor(
+      (nowStart.getTime() - lastStart.getTime()) / (24 * 60 * 60 * 1000),
+    );
+
+    return elapsedDays >= settings.cadenceDays;
+  }
+
+  private async markScheduledDispatch(
+    companyId: string,
+    settings: CompanyAlertSettings,
+    sentAt: Date,
+  ) {
+    await this.companiesService.update(companyId, {
+      alert_settings: {
+        ...settings,
+        lastScheduledDispatchAt: sentAt.toISOString(),
+      },
+    });
   }
 
   private extractErrorMessage(error: unknown): string {

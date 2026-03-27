@@ -414,4 +414,11 @@ export class MailController {
     const companyId = req.user?.companyId || req.user?.company_id;
     return this.mailService.updateAlertSettings(companyId, body);
   }
+
+  @Get('alerts/preview')
+  @Authorize('can_manage_mail')
+  async previewAlertSummary(@Request() req: RequestWithUser) {
+    const companyId = req.user?.companyId || req.user?.company_id;
+    return this.mailService.getAlertSummaryPreview(companyId);
+  }
 }
