@@ -10,6 +10,13 @@ import type {
 export type DocumentMailArtifactType = GeneratedMailArtifactType;
 export type DocumentMailDeliveryMode = GeneratedMailDeliveryMode;
 export type DocumentMailDispatchResponse = GeneratedMailDispatchResponse;
+export type DispatchAlertsResponse = {
+  success: boolean;
+  recipients: string[];
+  previewUrl?: string;
+  usingTestAccount?: boolean;
+  whatsappSent?: boolean;
+};
 
 type MailDispatchErrorPayload = {
   message?: unknown;
@@ -49,6 +56,17 @@ export const mailService = {
 
     const response = await api.post('/mail/send-uploaded-document', formData);
     return response.data as DocumentMailDispatchResponse;
+  },
+
+  async dispatchAlerts(payload: {
+    to?: string;
+    includeWhatsapp?: boolean;
+  }): Promise<DispatchAlertsResponse> {
+    const response = await api.post<DispatchAlertsResponse>(
+      '/mail/alerts/dispatch',
+      payload,
+    );
+    return response.data;
   },
 };
 

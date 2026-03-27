@@ -26,6 +26,7 @@ import { ptsService, PtApprovalRules } from '@/services/ptsService';
 import { SophieStatusCard } from '@/components/SophieStatusCard';
 import { isTemporarilyVisibleDashboardRoute } from '@/lib/temporarilyHiddenModules';
 import { usersService } from '@/services/usersService';
+import { extractMailDispatchErrorMessage, mailService } from '@/services/mailService';
 
 export default function SettingsPage() {
   const { user, hasPermission, isAdminGeral } = useAuth();
@@ -47,6 +48,15 @@ export default function SettingsPage() {
   );
   const [loadingApprovalRules, setLoadingApprovalRules] = useState(false);
   const [savingApprovalRules, setSavingApprovalRules] = useState(false);
+  const [alertRecipients, setAlertRecipients] = useState('');
+  const [includeWhatsappAlerts, setIncludeWhatsappAlerts] = useState(false);
+  const [dispatchingAlerts, setDispatchingAlerts] = useState(false);
+  const [lastAlertDispatch, setLastAlertDispatch] = useState<{
+    recipients: string[];
+    previewUrl?: string;
+    usingTestAccount?: boolean;
+    whatsappSent?: boolean;
+  } | null>(null);
 
   const managementLinks = [
     { label: 'Usuários e Acessos', href: '/dashboard/users', icon: Users, adminOnly: true },
@@ -104,8 +114,9 @@ export default function SettingsPage() {
       id: 'notifications',
       label: 'Notificações corporativas',
       description: 'Destino de alertas por e-mail, periodicidade e escalonamento.',
+      href: '#notificacoes-corporativas',
       icon: BellRing,
-      status: 'Em breve',
+      status: hasPermission('can_manage_mail') ? 'Ativo' : 'Sem acesso',
       visible: true,
     },
   ].filter((area) => area.visible);
@@ -306,6 +317,36 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDispatchCorporateAlerts = async () => {
+    if (!hasPermission('can_manage_mail')) {
+      toast.error('Seu perfil não possui permissão para disparar alertas.');
+      return;
+    }
+
+    try {
+      setDispatchingAlerts(true);
+      const response = await mailService.dispatchAlerts({
+        to: alertRecipients.trim() || undefined,
+        includeWhatsapp: includeWhatsappAlerts,
+      });
+      setLastAlertDispatch({
+        recipients: response.recipients,
+        previewUrl: response.previewUrl,
+        usingTestAccount: response.usingTestAccount,
+        whatsappSent: response.whatsappSent,
+      });
+      toast.success(
+        `Resumo disparado para ${response.recipients.length} destinatário(s).`,
+      );
+    } catch (error) {
+      console.error('Erro ao disparar alertas corporativos:', error);
+      const message = await extractMailDispatchErrorMessage(error);
+      toast.error(message);
+    } finally {
+      setDispatchingAlerts(false);
+    }
+  };
+
   return (
     <div className="ds-system-scope space-y-8">
       <div className="flex items-center gap-3">
@@ -380,7 +421,7 @@ export default function SettingsPage() {
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {governanceAreas.map((area) => {
             const Icon = area.icon;
-            const isClickable = Boolean(area.href && area.status !== 'Em breve');
+            const isClickable = Boolean(area.href && area.status === 'Ativo');
             const statusTone =
               area.status === 'Ativo'
                 ? 'border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] text-[var(--ds-color-success)]'
@@ -576,6 +617,84 @@ export default function SettingsPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          <div
+            id="notificacoes-corporativas"
+            className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-6 shadow-sm"
+          >
+            <h2 className="text-lg font-semibold text-[var(--ds-color-text-primary)]">
+              Notificações corporativas
+            </h2>
+            <p className="text-sm text-[var(--ds-color-text-secondary)]">
+              Dispare manualmente o resumo de alertas por e-mail e, opcionalmente, por WhatsApp.
+            </p>
+
+            {hasPermission('can_manage_mail') ? (
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-[var(--ds-color-text-secondary)]">
+                    Destinatários
+                  </label>
+                  <input
+                    type="text"
+                    value={alertRecipients}
+                    onChange={(event) => setAlertRecipients(event.target.value)}
+                    placeholder="email1@empresa.com, email2@empresa.com"
+                    className="w-full rounded-md border border-[var(--ds-color-border-default)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                  />
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    Se vazio, o sistema usa os destinatários padrão definidos no servidor.
+                  </p>
+                </div>
+
+                <label className="flex items-center justify-between gap-4 rounded-lg border border-[var(--ds-color-border-default)] px-3 py-2 text-sm">
+                  <span>Incluir envio por WhatsApp</span>
+                  <input
+                    type="checkbox"
+                    checked={includeWhatsappAlerts}
+                    onChange={(event) => setIncludeWhatsappAlerts(event.target.checked)}
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handleDispatchCorporateAlerts}
+                  disabled={dispatchingAlerts}
+                  className="w-full rounded-[var(--ds-radius-md)] bg-[var(--ds-color-action-primary)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--ds-color-action-primary-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {dispatchingAlerts ? 'Disparando alertas...' : 'Disparar resumo agora'}
+                </button>
+
+                {lastAlertDispatch ? (
+                  <div className="rounded-lg border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/24 px-3 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+                    <p className="font-semibold text-[var(--ds-color-text-primary)]">
+                      Último disparo concluído
+                    </p>
+                    <p className="mt-1">
+                      Destinatários: {lastAlertDispatch.recipients.join(', ') || 'Não informado'}
+                    </p>
+                    <p className="mt-1">
+                      WhatsApp: {lastAlertDispatch.whatsappSent ? 'enviado' : 'não enviado'}
+                    </p>
+                    {lastAlertDispatch.previewUrl ? (
+                      <a
+                        href={lastAlertDispatch.previewUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex text-sm font-semibold text-[var(--ds-color-action-primary)] hover:underline"
+                      >
+                        Abrir preview do envio
+                      </a>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-3 text-sm text-[var(--ds-color-warning)]">
+                Seu perfil não possui permissão para disparar notificações corporativas.
+              </div>
+            )}
           </div>
 
           {hasPermission('can_manage_pt') && (
