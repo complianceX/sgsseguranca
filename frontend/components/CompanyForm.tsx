@@ -17,6 +17,7 @@ const companySchema = z.object({
   cnpj: z.string().min(14, 'CNPJ inválido'),
   endereco: z.string().min(5, 'O endereço deve ter pelo menos 5 caracteres'),
   responsavel: z.string().min(3, 'O responsável deve ter pelo menos 3 caracteres'),
+  email_contato: z.union([z.string().trim().email('E-mail inválido'), z.literal('')]),
   status: z.boolean(),
 });
 
@@ -47,6 +48,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
       cnpj: '',
       endereco: '',
       responsavel: '',
+      email_contato: '',
       status: true,
     },
   });
@@ -60,6 +62,7 @@ export function CompanyForm({ id }: CompanyFormProps) {
           cnpj: data.cnpj,
           endereco: data.endereco,
           responsavel: data.responsavel,
+          email_contato: data.email_contato || '',
           status: data.status,
         });
       } catch (error) {
@@ -114,6 +117,8 @@ export function CompanyForm({ id }: CompanyFormProps) {
       setFocus('endereco');
     } else if (formErrors.responsavel) {
       setFocus('responsavel');
+    } else if (formErrors.email_contato) {
+      setFocus('email_contato');
     }
     toast.error('Revise os campos obrigatórios antes de salvar.');
   };
@@ -218,6 +223,28 @@ export function CompanyForm({ id }: CompanyFormProps) {
             />
             {errors.responsavel && (
               <p className="text-xs text-[var(--ds-color-danger)]">{errors.responsavel.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="email_contato" className="text-sm font-medium text-[var(--ds-color-text-secondary)]">
+              E-mail institucional
+            </label>
+            <input
+              id="email_contato"
+              type="email"
+              {...register('email_contato')}
+              className={`w-full rounded-md border px-3 py-2 text-sm ${
+                errors.email_contato ? 'border-[var(--ds-color-danger)]' : ''
+              }`}
+              aria-invalid={errors.email_contato ? 'true' : undefined}
+              placeholder="contato@empresa.com.br"
+            />
+            <p className="text-xs text-[var(--ds-color-text-muted)]">
+              Usado como fallback dos alertas automáticos quando a lista de destinatários estiver vazia.
+            </p>
+            {errors.email_contato && (
+              <p className="text-xs text-[var(--ds-color-danger)]">{errors.email_contato.message}</p>
             )}
           </div>
 

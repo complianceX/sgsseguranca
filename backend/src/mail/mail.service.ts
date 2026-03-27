@@ -1289,9 +1289,8 @@ export class MailService {
       };
     }
 
-    const fallbackRecipients = this.normalizeRecipients(
-      this.configService.get<string>('MAIL_ALERT_TO') || '',
-    );
+    const company = await this.findCompany(resolvedCompanyId);
+    const fallbackRecipients = this.resolveAlertFallbackRecipients(company);
     const recipients = this.normalizeRecipients(
       options.to || settings.recipients,
     );
@@ -1336,7 +1335,6 @@ export class MailService {
       };
     }
 
-    const company = await this.findCompany(resolvedCompanyId);
     const baseSubject = `Alertas de conformidade${
       company?.razao_social ? ` - ${company.razao_social}` : ''
     }`;
@@ -1381,9 +1379,8 @@ export class MailService {
     }
 
     const settings = await this.getCompanyAlertSettings(companyId);
-    const fallbackRecipients = this.normalizeRecipients(
-      this.configService.get<string>('MAIL_ALERT_TO') || '',
-    );
+    const company = await this.findCompany(companyId);
+    const fallbackRecipients = this.resolveAlertFallbackRecipients(company);
 
     return {
       ...settings,
@@ -1468,9 +1465,8 @@ export class MailService {
       alert_settings: next,
     });
 
-    const fallbackRecipients = this.normalizeRecipients(
-      this.configService.get<string>('MAIL_ALERT_TO') || '',
-    );
+    const company = await this.findCompany(companyId);
+    const fallbackRecipients = this.resolveAlertFallbackRecipients(company);
 
     return {
       ...next,
@@ -1620,6 +1616,17 @@ export class MailService {
       .split(/[,;]+/)
       .map((item) => item.trim())
       .filter(Boolean);
+  }
+
+  private resolveAlertFallbackRecipients(
+    company?: Pick<CompanyResponseDto, 'email_contato'>,
+  ) {
+    const companyRecipients = this.normalizeRecipients(company?.email_contato || '');
+    const globalRecipients = this.normalizeRecipients(
+      this.configService.get<string>('MAIL_ALERT_TO') || '',
+    );
+
+    return [...new Set([...companyRecipients, ...globalRecipients])];
   }
 
   private async findCompany(

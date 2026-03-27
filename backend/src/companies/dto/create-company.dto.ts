@@ -1,4 +1,10 @@
-import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { Trim } from 'class-sanitizer';
 import { IsCNPJ } from '../../common/validators/cnpj.validator';
@@ -34,6 +40,11 @@ export class CreateCompanyDto {
   )
   @IsNotEmpty({ message: 'Responsável é obrigatório' })
   responsavel: string;
+
+  @IsOptional()
+  @IsEmail({}, { message: 'E-mail de contato inválido' })
+  @Trim()
+  email_contato?: string | null;
 
   @IsString()
   @IsOptional()

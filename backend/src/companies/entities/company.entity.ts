@@ -28,6 +28,9 @@ export class Company {
   responsavel: string;
 
   @Column({ type: 'text', nullable: true })
+  email_contato?: string | null;
+
+  @Column({ type: 'text', nullable: true })
   logo_url?: string;
 
   @Column({ default: true })

@@ -18,6 +18,9 @@ export class CompanyResponseDto {
   responsavel: string;
 
   @Expose()
+  email_contato?: string | null;
+
+  @Expose()
   logo_url?: string;
 
   @Expose()

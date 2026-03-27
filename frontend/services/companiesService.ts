@@ -8,6 +8,7 @@ export interface Company {
   cnpj: string;
   endereco: string;
   responsavel: string;
+  email_contato?: string | null;
   logo_url?: string | null;
   status: boolean;
   created_at: string;
