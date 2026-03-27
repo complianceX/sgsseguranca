@@ -89,6 +89,7 @@ export default function SettingsPage() {
   const [alertSubjectPrefix, setAlertSubjectPrefix] = useState('');
   const [alertSnoozeUntil, setAlertSnoozeUntil] = useState('');
   const [lastScheduledDispatchAt, setLastScheduledDispatchAt] = useState<string | null>(null);
+  const [nextScheduledDispatchAt, setNextScheduledDispatchAt] = useState<string | null>(null);
   const [savingAlertSettings, setSavingAlertSettings] = useState(false);
   const [loadingAlertSettings, setLoadingAlertSettings] = useState(false);
   const [alertFallbackRecipients, setAlertFallbackRecipients] = useState<
@@ -101,6 +102,9 @@ export default function SettingsPage() {
     generatedAt: string;
     lookaheadDays: number;
     pendingItemsCount: number;
+    compliancePendingCount: number;
+    operationsPendingCount: number;
+    occurrencesPendingCount: number;
     summary: string;
   } | null>(null);
   const [lastAlertDispatch, setLastAlertDispatch] = useState<{
@@ -246,6 +250,7 @@ export default function SettingsPage() {
         setAlertSubjectPrefix(settings.subjectPrefix ?? '');
         setAlertSnoozeUntil(toDatetimeLocalValue(settings.snoozeUntil ?? null));
         setLastScheduledDispatchAt(settings.lastScheduledDispatchAt ?? null);
+        setNextScheduledDispatchAt(settings.nextScheduledDispatchAt ?? null);
         setAlertFallbackRecipients(settings.fallbackRecipients);
         setMailProviderConfigured(settings.providerConfigured);
       } catch (error) {
@@ -470,6 +475,7 @@ export default function SettingsPage() {
       setAlertSubjectPrefix(updated.subjectPrefix ?? '');
       setAlertSnoozeUntil(toDatetimeLocalValue(updated.snoozeUntil ?? null));
       setLastScheduledDispatchAt(updated.lastScheduledDispatchAt ?? null);
+      setNextScheduledDispatchAt(updated.nextScheduledDispatchAt ?? null);
       setAlertFallbackRecipients(updated.fallbackRecipients);
       setMailProviderConfigured(updated.providerConfigured);
       toast.success('Configurações de alertas atualizadas.');
@@ -1030,6 +1036,12 @@ export default function SettingsPage() {
                       ? new Date(lastScheduledDispatchAt).toLocaleString('pt-BR')
                       : 'ainda não realizado'}
                   </p>
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    Próximo envio previsto:{' '}
+                    {nextScheduledDispatchAt
+                      ? new Date(nextScheduledDispatchAt).toLocaleString('pt-BR')
+                      : 'aguardando cálculo'}
+                  </p>
                 </div>
 
                 <div className="rounded-lg border border-[var(--ds-color-border-default)] px-3 py-3">
@@ -1145,6 +1157,15 @@ export default function SettingsPage() {
                     </p>
                     <p className="mt-1">
                       Janela: {alertPreview.lookaheadDays} dias
+                    </p>
+                    <p className="mt-1">
+                      Conformidade: {alertPreview.compliancePendingCount} pendência(s)
+                    </p>
+                    <p className="mt-1">
+                      Operação: {alertPreview.operationsPendingCount} pendência(s)
+                    </p>
+                    <p className="mt-1">
+                      Ocorrências: {alertPreview.occurrencesPendingCount} pendência(s)
                     </p>
                     <p className="mt-1">
                       Gerado em:{' '}

@@ -1365,6 +1365,7 @@ export class MailService {
       ...settings,
       fallbackRecipients,
       providerConfigured: this.isMailProviderConfigured(),
+      nextScheduledDispatchAt: this.computeNextScheduledDispatchAt(settings),
     };
   }
 
@@ -1451,6 +1452,7 @@ export class MailService {
       ...next,
       fallbackRecipients,
       providerConfigured: this.isMailProviderConfigured(),
+      nextScheduledDispatchAt: this.computeNextScheduledDispatchAt(next),
     };
   }
 
@@ -1476,6 +1478,9 @@ export class MailService {
       generatedAt: new Date().toISOString(),
       lookaheadDays: settings.lookaheadDays,
       pendingItemsCount: summary.pendingItemsCount,
+      compliancePendingCount: summary.compliancePendingCount,
+      operationsPendingCount: summary.operationsPendingCount,
+      occurrencesPendingCount: summary.occurrencesPendingCount,
       summary: summary.message,
     };
   }
@@ -1614,7 +1619,13 @@ export class MailService {
       includeOperationsSummary?: boolean;
       includeOccurrencesSummary?: boolean;
     },
-  ): Promise<{ message: string; pendingItemsCount: number }> {
+  ): Promise<{
+    message: string;
+    pendingItemsCount: number;
+    compliancePendingCount: number;
+    operationsPendingCount: number;
+    occurrencesPendingCount: number;
+  }> {
     const now = new Date();
     const limitDate = new Date();
     const days = Math.min(120, Math.max(1, Math.round(lookaheadDays)));
@@ -1712,6 +1723,9 @@ export class MailService {
     return {
       message: reminders.join('\n'),
       pendingItemsCount,
+      compliancePendingCount,
+      operationsPendingCount,
+      occurrencesPendingCount,
     };
   }
 
@@ -2143,6 +2157,51 @@ export class MailService {
 
     this.scheduledAlertsCursor = (start + size) % companies.length;
     return selected;
+  }
+
+  private computeNextScheduledDispatchAt(
+    settings: CompanyAlertSettings,
+    baseDate = new Date(),
+  ): string | null {
+    if (!settings.enabled) {
+      return null;
+    }
+
+    let candidate = new Date(baseDate);
+
+    if (settings.snoozeUntil) {
+      const snoozeUntil = new Date(settings.snoozeUntil);
+      if (!Number.isNaN(snoozeUntil.getTime()) && snoozeUntil > candidate) {
+        candidate = snoozeUntil;
+      }
+    }
+
+    candidate.setMinutes(0, 0, 0);
+    if (candidate.getHours() >= settings.deliveryHour) {
+      candidate.setDate(candidate.getDate() + 1);
+    }
+    candidate.setHours(settings.deliveryHour, 0, 0, 0);
+
+    if (settings.lastScheduledDispatchAt) {
+      const lastSent = new Date(settings.lastScheduledDispatchAt);
+      if (!Number.isNaN(lastSent.getTime())) {
+        const minByCadence = new Date(lastSent);
+        minByCadence.setHours(settings.deliveryHour, 0, 0, 0);
+        minByCadence.setDate(minByCadence.getDate() + settings.cadenceDays);
+        if (candidate < minByCadence) {
+          candidate = minByCadence;
+        }
+      }
+    }
+
+    if (settings.weekdaysOnly) {
+      while (candidate.getDay() === 0 || candidate.getDay() === 6) {
+        candidate.setDate(candidate.getDate() + 1);
+        candidate.setHours(settings.deliveryHour, 0, 0, 0);
+      }
+    }
+
+    return candidate.toISOString();
   }
 
   private shouldDispatchScheduledAlert(

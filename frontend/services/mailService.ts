@@ -33,6 +33,7 @@ export type AlertSettingsResponse = {
   subjectPrefix?: string | null;
   snoozeUntil?: string | null;
   lastScheduledDispatchAt?: string | null;
+  nextScheduledDispatchAt?: string | null;
   fallbackRecipients: string[];
   providerConfigured: boolean;
 };
@@ -40,6 +41,9 @@ export type AlertPreviewResponse = {
   generatedAt: string;
   lookaheadDays: number;
   pendingItemsCount: number;
+  compliancePendingCount: number;
+  operationsPendingCount: number;
+  occurrencesPendingCount: number;
   summary: string;
 };
 
