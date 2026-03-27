@@ -151,7 +151,7 @@ function SuggestedTextGroup({
                 <p className="mt-1 text-[var(--ds-color-text-secondary)]">{reason}</p>
               ) : null}
               {sourceLabel ? (
-                <p className="mt-1 uppercase tracking-[0.08em] text-[10px] text-[var(--ds-color-text-secondary)]">
+                <p className="mt-1 uppercase tracking-[0.08em] text-[11px] text-[var(--ds-color-text-secondary)]">
                   {sourceLabel}
                 </p>
               ) : null}
@@ -708,19 +708,19 @@ export default function SstAgentPage() {
 
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">Módulo</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Módulo</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.module || 'Não informado'}</p>
             </div>
             <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">Status</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Status</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.status || 'Não informado'}</p>
             </div>
             <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">Obra/site</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Obra/site</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.siteName || 'Não informado'}</p>
             </div>
             <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">Prazo</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Prazo</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                 {pendingContext.dueDate ? new Date(pendingContext.dueDate).toLocaleDateString('pt-BR') : 'Não informado'}
               </p>
@@ -732,7 +732,7 @@ export default function SstAgentPage() {
             <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
               {pendingContext.description || 'Sem descrição complementar.'}
             </p>
-            <p className="mt-2 text-xs text-[var(--ds-color-text-muted)]">
+            <p className="mt-2 text-[11px] text-[var(--ds-color-text-secondary)]">
               Responsável atual: {pendingContext.responsible || 'Não definido'}
             </p>
           </div>
@@ -765,7 +765,7 @@ export default function SstAgentPage() {
                   <Sparkles className="h-3.5 w-3.5" />
                   análise contextual
                 </span>
-                <span className="text-[11px] text-[var(--ds-color-text-muted)]">
+                <span className="text-[11px] text-[var(--ds-color-text-secondary)]">
                   Confiança: {pendingContextAnalysis.confidence}
                 </span>
                 {pendingContextAnalysis.needsHumanReview ? (

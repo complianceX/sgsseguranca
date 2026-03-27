@@ -358,7 +358,7 @@ export default function DossiersPage() {
     return (
       <div className="ds-system-scope">
         <div className="ds-surface-card p-4">
-          <p className="text-sm text-[var(--ds-color-text-muted)]">Carregando permissoes...</p>
+          <p className="text-sm text-[var(--ds-color-text-secondary)]">Carregando permissoes...</p>
         </div>
       </div>
     );
@@ -369,7 +369,7 @@ export default function DossiersPage() {
       <div className="ds-system-scope">
         <div className="ds-surface-card p-4">
           <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Dossies de SST</h1>
-          <p className="mt-2 text-sm text-[var(--ds-color-text-muted)]">
+          <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
             Voce nao tem permissao para visualizar o fluxo de dossie.
           </p>
         </div>
@@ -381,14 +381,14 @@ export default function DossiersPage() {
     <div className="ds-system-scope space-y-6">
       <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
         <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Dossies de SST</h1>
-        <p className="text-[var(--ds-color-text-muted)]">
+        <p className="text-[var(--ds-color-text-secondary)]">
           Geração automatica de PDF oficial e pacote ZIP auditável por colaborador e obra/setor.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
             Dossie por colaborador
           </p>
           <input
@@ -444,7 +444,7 @@ export default function DossiersPage() {
         </div>
 
         <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
             Dossie por obra/setor
           </p>
           <input
@@ -504,7 +504,7 @@ export default function DossiersPage() {
         <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-[var(--ds-color-text-secondary)]" />
-            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
               Política de inclusão oficial
             </p>
           </div>
@@ -525,11 +525,11 @@ export default function DossiersPage() {
         </div>
 
         <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
-          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+          <p className="text-sm font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
             Prévia do recorte atual
           </p>
           {activePreviewLoading ? (
-            <p className="mt-3 text-sm text-[var(--ds-color-text-muted)]">Atualizando contexto do dossiê...</p>
+            <p className="mt-3 text-sm text-[var(--ds-color-text-secondary)]">Atualizando contexto do dossiê...</p>
           ) : activePreviewError ? (
             <div className="mt-4 rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-3 py-3 text-sm text-[var(--ds-color-danger)]">
               <p className="font-semibold text-[var(--ds-color-danger)]">Prévia indisponível</p>
@@ -557,7 +557,7 @@ export default function DossiersPage() {
                 />
               </div>
               {activeContext.pendingGovernedDocumentLines.length > 0 ? (
-                <div className="rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-3 text-xs text-[var(--ds-color-warning)]">
+                <div className="rounded-lg border border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)] px-3 py-3 text-sm text-[var(--ds-color-warning)]">
                   <div className="mb-2 flex items-center gap-2 font-semibold">
                     <TriangleAlert className="h-4 w-4" />
                     Pendências oficiais do recorte
@@ -571,13 +571,13 @@ export default function DossiersPage() {
                   </ul>
                 </div>
               ) : (
-                <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] px-3 py-3 text-xs text-[var(--ds-color-success)]">
+                <div className="rounded-lg border border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)] px-3 py-3 text-sm text-[var(--ds-color-success)]">
                   Todos os documentos oficiais já resolvidos para o recorte selecionado.
                 </div>
               )}
             </div>
           ) : (
-            <p className="mt-3 text-sm text-[var(--ds-color-text-muted)]">
+            <p className="mt-3 text-sm text-[var(--ds-color-text-secondary)]">
               Selecione um colaborador ou uma obra/setor para pré-visualizar o recorte governado do dossiê.
             </p>
           )}
@@ -608,7 +608,7 @@ function MetricCard({
           : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]'
       }`}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ds-color-text-muted)]">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
         {label}
       </p>
       <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{value}</p>
