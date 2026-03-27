@@ -142,7 +142,7 @@ export function AprExecutiveSummary({
 
   if (variant === "breakdown") {
     return (
-      <div className="mt-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-muted)_42%,transparent),transparent)] px-4 py-4 shadow-[var(--ds-shadow-xs)]">
+      <div className="mt-4 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-4 py-4 shadow-[var(--ds-shadow-xs)]">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
@@ -185,7 +185,7 @@ export function AprExecutiveSummary({
   const isCompact = Boolean(compactMode);
 
   return (
-    <div className="mb-4 overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-muted)_55%,transparent),transparent)] shadow-[var(--ds-shadow-sm)]">
+    <div className="mb-4 overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] shadow-[var(--ds-shadow-sm)]">
       <div className="flex flex-col gap-4 border-b border-[var(--ds-color-border-subtle)] px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">

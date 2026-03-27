@@ -147,19 +147,13 @@ html[data-theme="light"] {
 
   select {
     background-image:
-      linear-gradient(
-        180deg,
-        var(--ds-color-surface-base),
-        var(--ds-color-surface-base)
-      ),
       linear-gradient(45deg, transparent 50%, var(--ds-color-text-muted) 50%),
       linear-gradient(135deg, var(--ds-color-text-muted) 50%, transparent 50%);
+    background-color: var(--ds-color-surface-base);
     background-position:
-      0 0,
       calc(100% - 16px) calc(50% - 2px),
       calc(100% - 11px) calc(50% - 2px);
     background-size:
-      100% 100%,
       5px 5px,
       5px 5px;
     background-repeat: no-repeat;
@@ -494,7 +488,7 @@ html[data-theme="light"] {
   }
 
   .sst-card {
-    background: var(--ds-gradient-surface);
+    background: var(--ds-color-surface-elevated);
     border: 1px solid var(--ds-color-border-subtle);
     border-radius: var(--ds-radius-lg);
     box-shadow: var(--component-card-shadow);

@@ -3200,7 +3200,7 @@ export function AprForm({ id }: AprFormProps) {
                       </div>
                     ) : null}
 
-                    <div className="mx-5 mt-5 overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-muted)_34%,transparent),transparent)]">
+                    <div className="mx-5 mt-5 overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]">
                       <div className="flex flex-col gap-3 border-b border-[var(--ds-color-border-subtle)] px-4 py-4 md:flex-row md:items-start md:justify-between">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ds-color-text-muted)]">
@@ -3264,7 +3264,7 @@ export function AprForm({ id }: AprFormProps) {
                         </div>
                       )}
 
-                      <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-surface-muted)_18%,transparent),transparent)]">
+                      <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]">
                         {riskFields.length === 0 ? (
                           <div className="px-6 py-12 text-center">
                             <p className="text-base font-semibold text-[var(--ds-color-text-primary)]">
@@ -3693,7 +3693,7 @@ function AprRiskReferencePanel({
 }) {
   return (
     <div className="overflow-hidden rounded-[calc(var(--ds-radius-xl)+2px)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] shadow-[var(--ds-shadow-sm)]">
-      <div className="border-b border-[var(--ds-color-border-subtle)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--ds-color-surface-muted)_48%,transparent),transparent)] px-5 py-4">
+      <div className="border-b border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)] px-5 py-4">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
           Matriz inteligente
         </p>

@@ -122,13 +122,13 @@ export const AprRiskRow = React.memo(function AprRiskRow({
   const isRowExpanded = !compactMode || expanded;
 
   const shellClass = isCritical
-    ? "border-[var(--ds-color-danger-border)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-danger-subtle)_55%,transparent),transparent)] shadow-[0_0_0_1px_var(--ds-color-danger-border)]"
+    ? "border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] shadow-[0_0_0_1px_var(--ds-color-danger-border)]"
     : isInconsistent
-      ? "border-[var(--ds-color-warning-border)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-warning-subtle)_42%,transparent),transparent)]"
+      ? "border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)]"
       : isReady
-        ? "border-[var(--ds-color-success-border)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-success-subtle)_42%,transparent),transparent)]"
+        ? "border-[var(--ds-color-success-border)] bg-[var(--ds-color-success-subtle)]"
         : hasStarted && isIncomplete
-          ? "border-dashed border-[var(--ds-color-warning-border)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--ds-color-warning-subtle)_24%,transparent),transparent)]"
+          ? "border-dashed border-[var(--ds-color-warning-border)] bg-[var(--ds-color-warning-subtle)]"
           : "border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]";
 
   const compactFieldClass = cn(

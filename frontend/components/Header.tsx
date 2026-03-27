@@ -394,7 +394,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
                         <p className="text-xs font-semibold text-[var(--ds-color-warning-fg)]">
                           Notificações com degradação parcial
                         </p>
-                        <p className="mt-1 text-xs text-[var(--ds-color-warning-fg)]/90">
+                        <p className="mt-1 text-xs text-[var(--ds-color-warning-fg)]">
                           {notificationsStatusMessage ||
                             "O serviço de notificações está temporariamente instável."}
                         </p>
@@ -436,7 +436,7 @@ export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
                             <p className="mt-1 line-clamp-2 text-xs text-[var(--ds-color-text-muted)]">
                               {notification.message}
                             </p>
-                            <p className="mt-2 text-[10px] uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]/70">
+                            <p className="mt-2 text-[10px] uppercase tracking-[0.12em] text-[var(--ds-color-text-muted)]">
                               {formatDate(notification.createdAt)}
                             </p>
                           </div>

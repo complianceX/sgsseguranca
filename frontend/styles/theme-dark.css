@@ -186,9 +186,6 @@
     var(--ds-color-border-default) 82%
   );
 
-  --ds-gradient-brand: var(--ds-color-action-primary);
-  --ds-gradient-surface: var(--ds-color-surface-elevated);
-
   --ds-kpi-blue: var(--ds-color-action-primary);
   --ds-kpi-violet: var(--ds-color-accent);
   --ds-kpi-emerald: var(--ds-color-success);
