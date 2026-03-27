@@ -659,7 +659,7 @@ export default function ReportsPage() {
 
           <CardContent className="space-y-3">
             {loadingOperations ? (
-              <div className="flex items-center justify-center py-12 text-[var(--color-text-muted)]">
+              <div className="flex items-center justify-center py-12 text-[var(--color-text-secondary)]">
                 <Loader2 className="h-5 w-5 animate-spin" />
               </div>
             ) : jobs.length === 0 ? (
@@ -680,7 +680,7 @@ export default function ReportsPage() {
                         <Badge variant={resolveJobStateVariant(job.state)}>
                           {resolveJobStateLabel(job.state)}
                         </Badge>
-                        <span className="text-[11px] text-[var(--color-text-muted)]">Job {job.id}</span>
+                        <span className="text-[11px] text-[var(--color-text-secondary)]">Job {job.id}</span>
                       </div>
                       <p className="text-sm font-semibold text-[var(--color-text)]">
                         {job.reportType === 'monthly' && job.month && job.year
@@ -792,7 +792,7 @@ export default function ReportsPage() {
                 description="Peça a liberação can_view_mail para acompanhar o histórico de envio dentro desta central."
               />
             ) : loadingOperations ? (
-              <div className="flex items-center justify-center py-12 text-[var(--color-text-muted)]">
+              <div className="flex items-center justify-center py-12 text-[var(--color-text-secondary)]">
                 <Loader2 className="h-5 w-5 animate-spin" />
               </div>
             ) : mailLogs.length === 0 ? (
@@ -803,7 +803,7 @@ export default function ReportsPage() {
               />
             ) : (
               <>
-                <p className="text-xs text-[var(--color-text-muted)]">
+                <p className="text-xs text-[var(--color-text-secondary)]">
                   {mailLogsTotal} registro(s) encontrados. Exibindo os mais recentes desta empresa.
                 </p>
                 {mailLogs.map((item) => (
@@ -875,14 +875,14 @@ export default function ReportsPage() {
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {loading ? (
-          <div className="col-span-full flex justify-center py-10 text-[var(--color-text-muted)]">
+          <div className="col-span-full flex justify-center py-10 text-[var(--color-text-secondary)]">
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : reports.length === 0 ? (
           <Card tone="muted" className="col-span-full border-dashed p-10 text-center">
             <FileText className="mx-auto h-12 w-12 text-[var(--color-text-muted)]/40" />
             <h3 className="mt-4 text-base font-semibold text-[var(--color-text)]">Nenhum relatório gerado</h3>
-            <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+            <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
               Gere o primeiro relatório mensal para consolidar indicadores, PDF e distribuição por e-mail.
             </p>
           </Card>
@@ -893,11 +893,11 @@ export default function ReportsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="primary" className="text-[10px] uppercase tracking-[0.12em]">
+                      <Badge variant="primary" className="text-[11px] uppercase tracking-[0.12em]">
                         <Calendar className="h-3 w-3" />
                         {report.mes}/{report.ano}
                       </Badge>
-                      <span className="text-[10px] text-[var(--color-text-muted)]">
+                      <span className="text-[11px] text-[var(--color-text-secondary)]">
                         {format(new Date(report.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                       </span>
                     </div>
@@ -907,7 +907,7 @@ export default function ReportsPage() {
                   </div>
                   <button
                     onClick={() => void handleDelete(report.id)}
-                    className="rounded-lg border border-transparent p-1.5 text-[var(--color-text-muted)] transition-colors hover:border-[color:var(--color-danger)]/20 hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--color-danger)]"
+                    className="rounded-lg border border-transparent p-1.5 text-[var(--color-text-secondary)] transition-colors hover:border-[color:var(--color-danger)]/20 hover:bg-[color:var(--ds-color-danger-subtle)] hover:text-[var(--color-danger)]"
                     title="Excluir relatório"
                     aria-label="Excluir relatório"
                   >
@@ -927,7 +927,7 @@ export default function ReportsPage() {
                 <div className="rounded-xl border border-[color:var(--color-primary)]/16 bg-[color:var(--ds-color-primary-subtle)] p-3">
                   <div className="mb-2 flex items-center gap-1.5">
                     <BrainCircuit className="h-3.5 w-3.5 text-[var(--color-primary)]" />
-                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--color-primary)]">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-primary)]">
                       Insight SGS
                     </span>
                   </div>
@@ -938,7 +938,7 @@ export default function ReportsPage() {
               </CardContent>
 
               <div className="flex items-center justify-between border-t border-[var(--color-border-subtle)] bg-[color:var(--color-card-muted)]/12 px-3.5 py-3">
-                <span className="text-[10px] text-[var(--color-text-muted)]">Exportar, imprimir ou compartilhar</span>
+                <span className="text-[11px] text-[var(--color-text-secondary)]">Exportar, imprimir ou compartilhar</span>
                 <div className="flex gap-1.5">
                   <ActionIcon onClick={() => void handlePrint(report)} title="Imprimir relatório" icon={<Printer className="h-4 w-4" />} />
                   <ActionIcon onClick={() => void handleSendEmail(report)} title="Enviar relatório" icon={<Mail className="h-4 w-4" />} />
@@ -1007,7 +1007,7 @@ function SummaryCard({
       <CardHeader className="gap-3">
         <div className="flex items-center justify-between gap-3">
           <Badge variant={badgeVariant}>{icon}</Badge>
-          <span className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-muted)]">
+          <span className="text-[11px] uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">
             {title}
           </span>
         </div>
@@ -1021,7 +1021,7 @@ function SummaryCard({
 function MetricCell({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-[var(--color-border-subtle)] bg-[color:var(--color-surface-elevated)]/85 p-2.5">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-muted)]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-secondary)]">
         {label}
       </p>
       <p className="mt-1 break-words text-sm font-semibold text-[var(--color-text)]">{value}</p>
@@ -1042,7 +1042,7 @@ function ActionIcon({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-lg border border-transparent p-1.5 text-[var(--color-text-muted)] transition-colors hover:border-[color:var(--color-primary)]/18 hover:bg-[color:var(--ds-color-primary-subtle)] hover:text-[var(--color-primary)]"
+      className="rounded-lg border border-transparent p-1.5 text-[var(--color-text-secondary)] transition-colors hover:border-[color:var(--color-primary)]/18 hover:bg-[color:var(--ds-color-primary-subtle)] hover:text-[var(--color-primary)]"
       title={title}
       aria-label={title}
     >
@@ -1066,7 +1066,7 @@ function EmptyState({
         {icon}
       </div>
       <h3 className="mt-4 text-sm font-semibold text-[var(--color-text)]">{title}</h3>
-      <p className="mt-2 max-w-md text-sm text-[var(--color-text-muted)]">{description}</p>
+      <p className="mt-2 max-w-md text-sm text-[var(--color-text-secondary)]">{description}</p>
     </div>
   );
 }

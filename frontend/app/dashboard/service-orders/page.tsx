@@ -620,7 +620,7 @@ export default function ServiceOrdersPage() {
               <div>
                 <label className={labelClassName}>
                   Riscos Identificados (JSON)
-                  <span className="ml-2 text-xs font-normal text-[var(--ds-color-text-muted)]">
+                  <span className="ml-2 text-xs font-normal text-[var(--ds-color-text-secondary)]">
                     {'Ex: [{"risco":"Queda","medida_controle":"Cinto"}]'}
                   </span>
                 </label>
@@ -635,7 +635,7 @@ export default function ServiceOrdersPage() {
               <div>
                 <label className={labelClassName}>
                   EPIs Necessarios (JSON)
-                  <span className="ml-2 text-xs font-normal text-[var(--ds-color-text-muted)]">
+                  <span className="ml-2 text-xs font-normal text-[var(--ds-color-text-secondary)]">
                     {'Ex: [{"nome":"Capacete","ca":"12345"}]'}
                   </span>
                 </label>
