@@ -48,11 +48,11 @@ export const RapidRiskAnalysisSection = () => {
         Análise de Risco Rápida
         <span className="h-2 w-2 rounded-full bg-[var(--ds-color-info)]"></span>
       </h2>
-      <p className="mb-4 text-sm text-[var(--ds-color-text-secondary)]">
+      <p className="mb-4 text-sm text-[var(--ds-color-text-primary)]">
         Se respondeu &quot;Não&quot; em alguma verificação básica, o trabalho não deve
         começar sem medidas corretivas implementadas.
       </p>
-      <p className="mb-6 text-sm text-[var(--ds-color-text-secondary)]">
+      <p className="mb-6 text-sm text-[var(--ds-color-text-primary)]">
         Documente e comprove as medidas no campo de observações deste
         formulário (ou formalize por e-mail).
       </p>
@@ -77,7 +77,7 @@ export const RapidRiskAnalysisSection = () => {
 
           return (
             <div key={secao} className="space-y-3">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-[var(--ds-color-text-secondary)]">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-[var(--ds-color-text-primary)]">
                 {tituloSecao}
               </h3>
 
@@ -87,7 +87,7 @@ export const RapidRiskAnalysisSection = () => {
                 return (
                   <div
                     key={item.id}
-                    className="rounded-lg border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/14 p-4"
+                    className="rounded-lg border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/14 p-4"
                   >
                     <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                       {item.pergunta} <span className="text-[var(--ds-color-danger)]">*</span>
@@ -98,7 +98,7 @@ export const RapidRiskAnalysisSection = () => {
                         (option) => (
                           <label
                             key={`${item.id}-${option}`}
-                            className="flex items-center gap-2 text-sm text-[var(--ds-color-text-secondary)]"
+                            className="flex items-center gap-2 text-sm text-[var(--ds-color-text-primary)]"
                           >
                             <input
                               type="radio"
@@ -129,7 +129,7 @@ export const RapidRiskAnalysisSection = () => {
       </div>
 
       <div className="mt-6">
-        <label className="mb-1 block text-sm font-semibold text-[var(--ds-color-text-secondary)]">
+        <label className="mb-1 block text-sm font-semibold text-[var(--ds-color-text-primary)]">
           Observações e evidências
           {hasRapidRiskBasicNo && <span className="text-[var(--ds-color-danger)]"> *</span>}
         </label>
@@ -148,7 +148,7 @@ export const RapidRiskAnalysisSection = () => {
             'block w-full rounded-lg border px-3 py-2 text-sm transition-all focus:ring-2 focus:ring-[var(--ds-color-focus-ring)] focus:outline-none',
             rapidRiskObservacoesErrorMessage
               ? 'border-[var(--ds-color-danger)] bg-[color:var(--ds-color-danger-subtle)]'
-              : 'border-[var(--ds-color-border-subtle)] focus:border-[var(--ds-color-focus)]',
+              : 'border-[var(--ds-color-border-default)] focus:border-[var(--ds-color-focus)]',
           )}
         />
         {rapidRiskObservacoesErrorMessage && (

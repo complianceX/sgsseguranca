@@ -116,7 +116,7 @@ export function PtApprovalReviewPanel({
 
         {review.blockers.length > 0 ? (
           <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
               Corrigir bloqueios na PT
             </p>
             <div className="grid gap-2 md:grid-cols-2">
@@ -124,10 +124,10 @@ export function PtApprovalReviewPanel({
                 <Link
                   key={blocker}
                   href={buildPtEditFocusHref(ptId, blocker)}
-                  className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-3 py-3 text-sm text-[var(--ds-color-text-primary)] transition-all hover:border-[var(--ds-color-action-primary)]/40 hover:bg-[color:var(--ds-color-surface-muted)]/60"
+                  className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/40 px-3 py-3 text-sm text-[var(--ds-color-text-primary)] transition-all hover:border-[var(--ds-color-action-primary)]/40 hover:bg-[color:var(--ds-color-surface-muted)]/60"
                 >
                   <span className="block font-medium">{blocker}</span>
-                  <span className="mt-2 block text-xs uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                  <span className="mt-2 block text-xs uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                     Abrir PT focada neste ponto
                   </span>
                 </Link>
@@ -138,7 +138,7 @@ export function PtApprovalReviewPanel({
 
         {activeRules.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
               Regras ativas nesta empresa
             </p>
             <div className="flex flex-wrap gap-2">
@@ -153,7 +153,7 @@ export function PtApprovalReviewPanel({
 
         {review.workerStatuses.length > 0 ? (
           <div className="space-y-3">
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
               <Users className="h-4 w-4" />
               Prontidão operacional da equipe
             </p>
@@ -161,14 +161,14 @@ export function PtApprovalReviewPanel({
               {review.workerStatuses.map((worker) => (
                 <div
                   key={`${worker.roleLabel}-${worker.userId}`}
-                  className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3"
+                  className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                         {worker.nome}
                       </p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+                      <p className="mt-1 text-xs uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
                         {worker.roleLabel}
                       </p>
                     </div>
@@ -181,13 +181,13 @@ export function PtApprovalReviewPanel({
                     </Badge>
                   </div>
                   {worker.reasons.length > 0 ? (
-                    <ul className="mt-3 space-y-1 text-sm text-[var(--ds-color-text-secondary)]">
+                    <ul className="mt-3 space-y-1 text-sm text-[var(--ds-color-text-primary)]">
                       {worker.reasons.map((reason) => (
                         <li key={reason}>• {reason}</li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="mt-3 text-sm text-[var(--ds-color-text-secondary)]">
+                    <p className="mt-3 text-sm text-[var(--ds-color-text-primary)]">
                       Sem bloqueios operacionais identificados nesta leitura.
                     </p>
                   )}
@@ -205,8 +205,8 @@ export function PtApprovalReviewPanel({
           </div>
         ) : null}
 
-        <div className="space-y-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 p-4">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+        <div className="space-y-3 rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/40 p-4">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
             <ShieldAlert className="h-4 w-4" />
             Checklist final do aprovador
           </p>
@@ -215,7 +215,7 @@ export function PtApprovalReviewPanel({
             {approvalChecklistLabels.map((item) => (
               <label
                 key={item.key}
-                className="flex items-start gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-3 text-sm text-[var(--ds-color-text-primary)]"
+                className="flex items-start gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-3 text-sm text-[var(--ds-color-text-primary)]"
               >
                 <input
                   type="checkbox"
@@ -251,7 +251,7 @@ export function PtApprovalReviewPanel({
             </p>
           ) : null}
           {review.readyForRelease && !checklistComplete ? (
-            <p className="text-sm text-[var(--ds-color-text-secondary)]">
+            <p className="text-sm text-[var(--ds-color-text-primary)]">
               Marque os três itens do checklist final para habilitar a aprovação.
             </p>
           ) : null}

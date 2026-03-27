@@ -112,7 +112,7 @@ const getStatusClass = (status: string) => {
     case 'Expirada':
       return 'bg-[color:var(--ds-color-warning-hover)] text-white';
     default:
-      return 'bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-secondary)]';
+      return 'bg-[color:var(--ds-color-surface-muted)] text-[var(--ds-color-text-primary)]';
   }
 };
 
@@ -185,13 +185,13 @@ export const PtsTableRow = React.memo(
                   <Badge variant="warning">Aprovação bloqueada</Badge>
                 ) : null}
               </div>
-              <div className="text-[var(--ds-color-text-secondary)]">{pt.titulo}</div>
+              <div className="text-[var(--ds-color-text-primary)]">{pt.titulo}</div>
             </div>
           </TableCell>
-          <TableCell className="text-[var(--ds-color-text-secondary)]">
+          <TableCell className="text-[var(--ds-color-text-primary)]">
             {format(new Date(pt.data_hora_inicio), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
           </TableCell>
-          <TableCell className="text-[var(--ds-color-text-secondary)]">
+          <TableCell className="text-[var(--ds-color-text-primary)]">
             {format(new Date(pt.data_hora_fim), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
           </TableCell>
           <TableCell>
@@ -372,7 +372,7 @@ export const PtsTableRow = React.memo(
                     <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                       {approvalIssue.message}
                     </p>
-                    <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                    <p className="text-sm text-[var(--ds-color-text-primary)]">
                       Corrija os itens abaixo antes de tentar liberar a permissão.
                     </p>
                   </div>
@@ -390,7 +390,7 @@ export const PtsTableRow = React.memo(
                   {approvalIssue.reasons.map((reason) => (
                     <div
                       key={reason}
-                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                      className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/40 px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
                     >
                       {reason}
                     </div>

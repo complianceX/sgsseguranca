@@ -97,14 +97,14 @@ function SuggestedResourceGroup({
 
   return (
     <div className="mt-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-primary)]">
         {title}
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
         {items.slice(0, 5).map((item) => (
           <span
             key={item.id}
-            className="rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-1 text-xs font-medium text-[var(--ds-color-text-primary)]"
+            className="rounded-full border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-2.5 py-1 text-xs font-medium text-[var(--ds-color-text-primary)]"
           >
             {item.label}
           </span>
@@ -127,7 +127,7 @@ function SuggestedTextGroup({
 
   return (
     <div className="mt-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ds-color-text-primary)]">
         {title}
       </p>
       <div className="mt-2 space-y-1.5">
@@ -143,15 +143,15 @@ function SuggestedTextGroup({
               className={`rounded-lg border px-3 py-2 text-xs ${
                 tone === 'warning'
                   ? 'border-[var(--ds-color-warning)]/20 bg-[var(--ds-color-warning)]/8'
-                  : 'border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]'
+                  : 'border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)]'
               }`}
             >
               <p className="font-semibold text-[var(--ds-color-text-primary)]">{label}</p>
               {reason ? (
-                <p className="mt-1 text-[var(--ds-color-text-secondary)]">{reason}</p>
+                <p className="mt-1 text-[var(--ds-color-text-primary)]">{reason}</p>
               ) : null}
               {sourceLabel ? (
-                <p className="mt-1 text-xs uppercase tracking-[0.08em] text-[var(--ds-color-text-secondary)]">
+                <p className="mt-1 text-xs uppercase tracking-[0.08em] text-[var(--ds-color-text-primary)]">
                   {sourceLabel}
                 </p>
               ) : null}
@@ -657,14 +657,14 @@ export default function SstAgentPage() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] p-6 shadow-[var(--ds-shadow-sm)]">
+      <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-elevated)] p-6 shadow-[var(--ds-shadow-sm)]">
         <div className="flex items-start gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--ds-color-action-primary)] text-white shadow-[var(--ds-shadow-sm)]">
             <Bot className="h-5 w-5" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-[var(--ds-color-text-primary)]">Workspace assistido da SOPHIE</h1>
-            <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+            <p className="mt-1 text-sm text-[var(--ds-color-text-primary)]">
               Use este workspace quando precisar montar documentos assistidos, revisar contexto operacional e disparar automações com apoio da SOPHIE. Para ajuda rápida e ideias do dia a dia, prefira o chat flutuante.
             </p>
             <div className="ds-inline-link-list mt-4">
@@ -684,7 +684,7 @@ export default function SstAgentPage() {
           <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
             Fluxo iniciado pelo hub documental para {automationPrefillLabel}.
           </p>
-              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              <p className="mt-1 text-sm text-[var(--ds-color-text-primary)]">
                 O contexto foi pré-carregado. Revise os campos abaixo e execute a ação assistida quando estiver pronto.
               </p>
             </section>
@@ -697,7 +697,7 @@ export default function SstAgentPage() {
               <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                 {resolvePendingContextTitle(pendingContext)}
               </p>
-              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              <p className="mt-1 text-sm text-[var(--ds-color-text-primary)]">
                 O workspace recebeu o contexto da fila central para acelerar a análise e orientar a próxima ação.
               </p>
             </div>
@@ -708,19 +708,19 @@ export default function SstAgentPage() {
 
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Módulo</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-primary)]">Módulo</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.module || 'Não informado'}</p>
             </div>
             <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Status</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-primary)]">Status</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.status || 'Não informado'}</p>
             </div>
             <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Obra/site</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-primary)]">Obra/site</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.siteName || 'Não informado'}</p>
             </div>
             <div className="rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-secondary)]">Prazo</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-text-primary)]">Prazo</p>
               <p className="mt-1 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                 {pendingContext.dueDate ? new Date(pendingContext.dueDate).toLocaleDateString('pt-BR') : 'Não informado'}
               </p>
@@ -729,10 +729,10 @@ export default function SstAgentPage() {
 
           <div className="mt-4 rounded-xl border border-[var(--ds-color-warning-border)]/40 bg-white/50 p-4">
             <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">{pendingContext.title || 'Pendência sem título'}</p>
-            <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+            <p className="mt-2 text-sm text-[var(--ds-color-text-primary)]">
               {pendingContext.description || 'Sem descrição complementar.'}
             </p>
-            <p className="mt-2 text-xs text-[var(--ds-color-text-secondary)]">
+            <p className="mt-2 text-xs text-[var(--ds-color-text-primary)]">
               Responsável atual: {pendingContext.responsible || 'Não definido'}
             </p>
           </div>
@@ -750,7 +750,7 @@ export default function SstAgentPage() {
             {pendingContext.href ? (
               <Link
                 href={pendingContext.href}
-                className="inline-flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] bg-white/70 px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-primary)] transition-colors hover:border-[var(--ds-color-action-primary)]/35"
+                className="inline-flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-default)] bg-white/70 px-4 py-2 text-sm font-semibold text-[var(--ds-color-action-primary)] transition-colors hover:border-[var(--ds-color-action-primary)]/35"
               >
                 Abrir item original
                 <ArrowRight className="h-4 w-4" />
@@ -759,13 +759,13 @@ export default function SstAgentPage() {
           </div>
 
           {pendingContextAnalysis ? (
-            <div className="mt-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+            <div className="mt-4 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full bg-[var(--ds-color-primary-subtle)] px-2.5 py-1 text-xs font-semibold text-[var(--ds-color-action-primary)]">
                   <Sparkles className="h-3.5 w-3.5" />
                   análise contextual
                 </span>
-                <span className="text-xs text-[var(--ds-color-text-secondary)]">
+                <span className="text-xs text-[var(--ds-color-text-primary)]">
                   Confiança: {pendingContextAnalysis.confidence}
                 </span>
                 {pendingContextAnalysis.needsHumanReview ? (
@@ -775,7 +775,7 @@ export default function SstAgentPage() {
                 ) : null}
               </div>
 
-              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-[var(--ds-color-text-secondary)]">
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-[var(--ds-color-text-primary)]">
                 {pendingContextAnalysis.answer}
               </p>
 
@@ -784,7 +784,7 @@ export default function SstAgentPage() {
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-warning)]">
                     Pontos de atenção
                   </p>
-                  <ul className="mt-2 space-y-1 text-sm text-[var(--ds-color-text-secondary)]">
+                  <ul className="mt-2 space-y-1 text-sm text-[var(--ds-color-text-primary)]">
                     {pendingContextAnalysis.warnings.map((warning) => (
                       <li key={warning}>• {warning}</li>
                     ))}
@@ -799,7 +799,7 @@ export default function SstAgentPage() {
                       <Link
                         key={`${action.label}-${action.href}`}
                         href={action.href}
-                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-action-primary)] transition-colors hover:border-[var(--ds-color-action-primary)]/35 hover:bg-[var(--ds-color-primary-subtle)]"
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-default)] px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-action-primary)] transition-colors hover:border-[var(--ds-color-action-primary)]/35 hover:bg-[var(--ds-color-primary-subtle)]"
                       >
                         {action.label}
                         <ArrowRight className="h-3.5 w-3.5" />
@@ -807,7 +807,7 @@ export default function SstAgentPage() {
                     ) : (
                       <span
                         key={action.label}
-                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/35 px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-text-secondary)]"
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/35 px-3 py-1.5 text-xs font-semibold text-[var(--ds-color-text-primary)]"
                       >
                         {action.label}
                       </span>
@@ -821,24 +821,24 @@ export default function SstAgentPage() {
       ) : null}
 
       {aiEnabled ? (
-        <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-elevated)] p-5 shadow-[var(--ds-shadow-sm)]">
+        <section className="rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-elevated)] p-5 shadow-[var(--ds-shadow-sm)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
                 <h2 className="text-base font-bold text-[var(--ds-color-text-primary)]">
                   Documentos assistidos e análises
                 </h2>
-              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              <p className="mt-1 text-sm text-[var(--ds-color-text-primary)]">
                 Use os formulários abaixo para pedir rascunhos, abrir fluxos assistidos e analisar contextos mais complexos com a SOPHIE.
               </p>
             </div>
-            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-primary-subtle)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-action-primary)]">
+            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--ds-color-border-default)] bg-[var(--ds-color-primary-subtle)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ds-color-action-primary)]">
               <Wand2 className="h-3.5 w-3.5" />
               automação assistida
             </div>
           </div>
 
           {authLoading ? (
-            <div className="mt-4 rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4 text-sm text-[var(--ds-color-text-secondary)]">
+            <div className="mt-4 rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 text-sm text-[var(--ds-color-text-primary)]">
               Validando permissões e contexto operacional para liberar os fluxos assistidos...
             </div>
           ) : !canUseAi ? (
@@ -846,20 +846,20 @@ export default function SstAgentPage() {
               <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                 Seu perfil ainda não possui a permissão <code>can_use_ai</code>.
               </p>
-              <p className="mt-1 text-sm text-[var(--ds-color-text-secondary)]">
+              <p className="mt-1 text-sm text-[var(--ds-color-text-primary)]">
                 Os fluxos assistidos de documentos e análises mais profundas exigem liberação no backend.
               </p>
             </div>
           ) : (
           <div className="mt-4 grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+            <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4">
               <div className="flex items-center gap-2">
                 <FileText className="h-4.5 w-4.5 text-[var(--ds-color-action-primary)]" />
                 <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                   Gerar APR Assistida
                 </h3>
               </div>
-              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+              <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
                 A SOPHIE monta o rascunho completo da APR e abre o wizard com contexto de empresa, site, elaborador e riscos sugeridos.
               </p>
               <div className="mt-3 space-y-2.5">
@@ -867,46 +867,46 @@ export default function SstAgentPage() {
                   value={aprTitle}
                   onChange={(event) => setAprTitle(event.target.value)}
                   placeholder="Título da APR"
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
                 <textarea
                   value={aprDescription}
                   onChange={(event) => setAprDescription(event.target.value)}
                   placeholder="Escopo, frente de serviço ou cenário operacional"
                   rows={3}
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
                 <div className="grid gap-2.5 sm:grid-cols-2">
                   <input
                     value={aprActivity}
                     onChange={(event) => setAprActivity(event.target.value)}
                     placeholder="Atividade"
-                    className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                    className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                   />
                   <input
                     value={aprProcess}
                     onChange={(event) => setAprProcess(event.target.value)}
                     placeholder="Processo"
-                    className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                    className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                   />
                   <input
                     value={aprEquipment}
                     onChange={(event) => setAprEquipment(event.target.value)}
                     placeholder="Equipamento"
-                    className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                    className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                   />
                   <input
                     value={aprMachine}
                     onChange={(event) => setAprMachine(event.target.value)}
                     placeholder="Máquina"
-                    className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                    className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                   />
                 </div>
                 <select
                   value={aprSiteId}
                   onChange={(event) => setAprSiteId(event.target.value)}
                   disabled={loadingSites || !hasSites}
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 >
                   <option value="">
                     {loadingSites ? 'Carregando sites...' : 'Selecione um site'}
@@ -933,7 +933,7 @@ export default function SstAgentPage() {
                       {createdAprDraft.summary}
                     </p>
                     {createdAprDraft.suggestedActions.length ? (
-                      <ul className="mt-2 space-y-1 text-xs text-[var(--ds-color-text-secondary)]">
+                      <ul className="mt-2 space-y-1 text-xs text-[var(--ds-color-text-primary)]">
                         {createdAprDraft.suggestedActions.slice(0, 3).map((item) => (
                           <li key={item}>• {item}</li>
                         ))}
@@ -969,14 +969,14 @@ export default function SstAgentPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+            <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4">
               <div className="flex items-center gap-2">
                 <ClipboardCheck className="h-4.5 w-4.5 text-[var(--ds-color-accent)]" />
                 <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                   Gerar PT Assistida
                 </h3>
               </div>
-              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+              <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
                 A SOPHIE estrutura a PT, define criticidade inicial, destaca controles e abre o formulário com os campos-chave preenchidos.
               </p>
               <div className="mt-3 space-y-2.5">
@@ -984,20 +984,20 @@ export default function SstAgentPage() {
                   value={ptTitle}
                   onChange={(event) => setPtTitle(event.target.value)}
                   placeholder="Título da PT"
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
                 <textarea
                   value={ptDescription}
                   onChange={(event) => setPtDescription(event.target.value)}
                   placeholder="Escopo, tarefa e condições da liberação"
                   rows={3}
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
                 <select
                   value={ptSiteId}
                   onChange={(event) => setPtSiteId(event.target.value)}
                   disabled={loadingSites || !hasSites}
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 >
                   <option value="">
                     {loadingSites ? 'Carregando sites...' : 'Selecione um site'}
@@ -1008,7 +1008,7 @@ export default function SstAgentPage() {
                     </option>
                   ))}
                 </select>
-                <div className="grid gap-2 sm:grid-cols-2 text-xs text-[var(--ds-color-text-secondary)]">
+                <div className="grid gap-2 sm:grid-cols-2 text-xs text-[var(--ds-color-text-primary)]">
                   {[
                     { label: 'trabalho em altura', value: ptTrabalhoAltura, setter: setPtTrabalhoAltura },
                     { label: 'espaço confinado', value: ptEspacoConfinado, setter: setPtEspacoConfinado },
@@ -1016,12 +1016,12 @@ export default function SstAgentPage() {
                     { label: 'eletricidade', value: ptEletricidade, setter: setPtEletricidade },
                     { label: 'escavação', value: ptEscavacao, setter: setPtEscavacao },
                   ].map((item) => (
-                    <label key={item.label} className="flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-subtle)] px-3 py-2">
+                    <label key={item.label} className="flex items-center gap-2 rounded-xl border border-[var(--ds-color-border-default)] px-3 py-2">
                       <input
                         type="checkbox"
                         checked={item.value}
                         onChange={(event) => item.setter(event.target.checked)}
-                        className="h-4 w-4 rounded border-[var(--ds-color-border-subtle)]"
+                        className="h-4 w-4 rounded border-[var(--ds-color-border-default)]"
                       />
                       <span>{item.label}</span>
                     </label>
@@ -1043,11 +1043,11 @@ export default function SstAgentPage() {
                       <CheckCircle2 className="h-4 w-4 text-[var(--ds-color-success)]" />
                       {createdPtDraft.summary}
                     </p>
-                    <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
                       Nível de risco sugerido: {createdPtDraft.riskLevel}
                     </p>
                     {createdPtDraft.suggestedActions.length ? (
-                      <ul className="mt-2 space-y-1 text-xs text-[var(--ds-color-text-secondary)]">
+                      <ul className="mt-2 space-y-1 text-xs text-[var(--ds-color-text-primary)]">
                         {createdPtDraft.suggestedActions.slice(0, 3).map((item) => (
                           <li key={item}>• {item}</li>
                         ))}
@@ -1079,14 +1079,14 @@ export default function SstAgentPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+            <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4">
               <div className="flex items-center gap-2">
                 <ListChecks className="h-4.5 w-4.5 text-[var(--ds-color-action-primary)]" />
                 <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                   Criar Checklist
                 </h3>
               </div>
-              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+              <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
                 Gere e salve checklist técnico com itens iniciais de inspeção SST.
               </p>
               <div className="mt-3 space-y-2.5">
@@ -1094,32 +1094,32 @@ export default function SstAgentPage() {
                   value={checklistTitle}
                   onChange={(event) => setChecklistTitle(event.target.value)}
                   placeholder="Título opcional"
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
                 <textarea
                   value={checklistDescription}
                   onChange={(event) => setChecklistDescription(event.target.value)}
                   placeholder="Descreva a atividade ou frente de serviço"
                   rows={3}
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
                 <input
                   value={checklistEquipment}
                   onChange={(event) => setChecklistEquipment(event.target.value)}
                   placeholder="Equipamento opcional"
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
                 <input
                   value={checklistMachine}
                   onChange={(event) => setChecklistMachine(event.target.value)}
                   placeholder="Máquina opcional"
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
                 <select
                   value={checklistSiteId}
                   onChange={(event) => setChecklistSiteId(event.target.value)}
                   disabled={loadingSites || !hasSites}
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 >
                   <option value="">
                     {loadingSites ? 'Carregando sites...' : 'Selecione um site'}
@@ -1156,14 +1156,14 @@ export default function SstAgentPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+            <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4">
               <div className="flex items-center gap-2">
                 <MessageSquareText className="h-4.5 w-4.5 text-[var(--ds-color-accent)]" />
                 <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                   Criar DDS
                 </h3>
               </div>
-              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+              <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
                 Gere e salve um DDS prático para condução em campo.
               </p>
               <div className="mt-3 space-y-2.5">
@@ -1171,20 +1171,20 @@ export default function SstAgentPage() {
                   value={ddsTheme}
                   onChange={(event) => setDdsTheme(event.target.value)}
                   placeholder="Tema do DDS"
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
                 <textarea
                   value={ddsContext}
                   onChange={(event) => setDdsContext(event.target.value)}
                   placeholder="Contexto operacional, tarefa ou risco dominante"
                   rows={4}
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
                 <select
                   value={ddsSiteId}
                   onChange={(event) => setDdsSiteId(event.target.value)}
                   disabled={loadingSites || !hasSites}
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 >
                   <option value="">
                     {loadingSites ? 'Carregando sites...' : 'Selecione um site'}
@@ -1222,14 +1222,14 @@ export default function SstAgentPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+            <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-4.5 w-4.5 text-[var(--ds-color-warning)]" />
                 <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                   Criar NC
                 </h3>
               </div>
-              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+              <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
                 Gere uma não conformidade inicial com desvio, risco e ações para revisão humana.
               </p>
               <div className="mt-3 space-y-2.5">
@@ -1240,7 +1240,7 @@ export default function SstAgentPage() {
                       event.target.value as 'manual' | 'image' | 'checklist' | 'inspection',
                     )
                   }
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 >
                   <option value="manual">Origem manual</option>
                   <option value="image">Abrir NC a partir de imagem</option>
@@ -1251,21 +1251,21 @@ export default function SstAgentPage() {
                   value={ncTitle}
                   onChange={(event) => setNcTitle(event.target.value)}
                   placeholder="Título do desvio ou achado"
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
                 <textarea
                   value={ncDescription}
                   onChange={(event) => setNcDescription(event.target.value)}
                   placeholder="Descreva a evidência observada, condição insegura ou desvio identificado"
                   rows={4}
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
                 {ncSourceType === 'image' ? (
                   <input
                     type="file"
                     accept="image/*"
                     onChange={(event) => setNcImageFile(event.target.files?.[0] || null)}
-                    className="block w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--ds-color-primary-subtle)] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[var(--ds-color-action-primary)]"
+                    className="block w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] file:mr-3 file:rounded-lg file:border-0 file:bg-[var(--ds-color-primary-subtle)] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[var(--ds-color-action-primary)]"
                   />
                 ) : null}
                 {(ncSourceType === 'checklist' || ncSourceType === 'inspection') ? (
@@ -1277,7 +1277,7 @@ export default function SstAgentPage() {
                         ? 'ID do checklist de origem'
                         : 'ID da inspeção de origem'
                     }
-                    className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                    className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                   />
                 ) : null}
                 {(ncSourceType === 'image' || ncSourceType === 'checklist' || ncSourceType === 'inspection') ? (
@@ -1286,14 +1286,14 @@ export default function SstAgentPage() {
                     onChange={(event) => setNcSourceContext(event.target.value)}
                     placeholder="Contexto adicional da origem, observações ou vínculo com a operação"
                     rows={2}
-                    className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                    className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                   />
                 ) : null}
                 <select
                   value={ncSiteId}
                   onChange={(event) => setNcSiteId(event.target.value)}
                   disabled={loadingSites || !hasSites}
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 >
                   <option value="">
                     {loadingSites ? 'Carregando sites...' : 'Selecione um site (ou deixe a origem definir)'}
@@ -1320,16 +1320,16 @@ export default function SstAgentPage() {
                       <CheckCircle2 className="h-4 w-4 text-[var(--ds-color-success)]" />
                       {createdNc.nonConformity.codigo_nc || createdNc.generation.title}
                     </p>
-                    <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                    <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
                       Nível de risco sugerido: {createdNc.generation.riskLevel} • origem {createdNc.generation.sourceType}
                     </p>
                     {createdNc.generation.evidenceCount ? (
-                      <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                      <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
                         Evidências importadas automaticamente: {createdNc.generation.evidenceCount}
                       </p>
                     ) : null}
                     {createdNc.generation.actionPlan?.length ? (
-                      <ul className="mt-2 space-y-1 text-xs text-[var(--ds-color-text-secondary)]">
+                      <ul className="mt-2 space-y-1 text-xs text-[var(--ds-color-text-primary)]">
                         {createdNc.generation.actionPlan.slice(0, 3).map((item) => (
                           <li key={`${item.type}-${item.title}`}>
                             • {item.title} ({item.owner} • {item.timeline})
@@ -1348,14 +1348,14 @@ export default function SstAgentPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] p-4">
+            <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4">
               <div className="flex items-center gap-2">
                 <CalendarDays className="h-4.5 w-4.5 text-[var(--ds-color-warning)]" />
                 <h3 className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                   Relatório Mensal
                 </h3>
               </div>
-              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+              <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
                 Enfileire o relatório mensal consolidado do tenant atual pela SOPHIE.
               </p>
               <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
@@ -1363,13 +1363,13 @@ export default function SstAgentPage() {
                   value={reportMonth}
                   onChange={(event) => setReportMonth(event.target.value)}
                   placeholder="Mês"
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
                 <input
                   value={reportYear}
                   onChange={(event) => setReportYear(event.target.value)}
                   placeholder="Ano"
-                  className="w-full rounded-xl border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
+                  className="w-full rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/25 px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none focus:border-[var(--ds-color-action-primary)]"
                 />
               </div>
               <div className="mt-3">
@@ -1390,7 +1390,7 @@ export default function SstAgentPage() {
                     <CheckCircle2 className="h-4 w-4 text-[var(--ds-color-success)]" />
                     Relatório {String(queuedReport.month).padStart(2, '0')}/{queuedReport.year} na fila
                   </p>
-                  <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+                  <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
                     Job ID: {String(queuedReport.jobId || 'n/a')}
                   </p>
                   <Link
@@ -1413,7 +1413,7 @@ export default function SstAgentPage() {
             <Sparkles className="mt-0.5 h-4.5 w-4.5" />
             <div>
               <p className="text-sm font-semibold">SOPHIE está desativada neste ambiente.</p>
-              <p className="mt-1 text-xs text-[var(--ds-color-text-secondary)]">
+              <p className="mt-1 text-xs text-[var(--ds-color-text-primary)]">
                 Defina <code>NEXT_PUBLIC_FEATURE_AI_ENABLED=true</code> no frontend para habilitar a experiência completa.
               </p>
             </div>
@@ -1423,3 +1423,4 @@ export default function SstAgentPage() {
     </div>
   );
 }
+

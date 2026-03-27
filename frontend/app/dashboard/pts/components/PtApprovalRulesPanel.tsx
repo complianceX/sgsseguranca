@@ -69,13 +69,13 @@ export function PtApprovalRulesPanel({
 
       <CardContent className="mt-0 space-y-3">
         {loading ? (
-          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3 text-sm text-[var(--ds-color-text-primary)]">
             Carregando regras de aprovação da empresa...
           </div>
         ) : null}
 
         {!loading && enabledRules.length === 0 ? (
-          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3 text-sm text-[var(--ds-color-text-primary)]">
             Nenhuma regra extra de bloqueio foi identificada para esta empresa no momento.
           </div>
         ) : null}
@@ -94,13 +94,13 @@ export function PtApprovalRulesPanel({
               {enabledRules.map((rule) => (
                 <div
                   key={rule.key}
-                  className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3"
+                  className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3"
                 >
                   <div className="flex items-center gap-2 text-sm font-semibold text-[var(--ds-color-text-primary)]">
                     <ShieldAlert className="h-4 w-4 text-[var(--ds-color-warning)]" />
                     {rule.label}
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-[var(--ds-color-text-secondary)]">
+                  <p className="mt-2 text-sm leading-6 text-[var(--ds-color-text-primary)]">
                     {rule.description}
                   </p>
                 </div>

@@ -73,7 +73,7 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
           {answeredCount}/{totalCount}
         </StatusPill>
       </div>
-      <p className="mb-6 text-sm text-[var(--ds-color-text-secondary)]">{description}</p>
+      <p className="mb-6 text-sm text-[var(--ds-color-text-primary)]">{description}</p>
       <div className="space-y-4">
         {fields.map((item, index) => {
           const questionInfo = questions.find(q => q.id === item.id);
@@ -93,7 +93,7 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
           return (
             <div
               key={item.id}
-              className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/14 p-4"
+              className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/14 p-4"
             >
               <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                 {prompt}
@@ -105,7 +105,7 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
                 {responses.map(responseValue => (
                   <label
                     key={responseValue}
-                    className="flex items-center gap-2 text-sm text-[var(--ds-color-text-secondary)]"
+                    className="flex items-center gap-2 text-sm text-[var(--ds-color-text-primary)]"
                   >
                     <input
                       type="radio"
@@ -134,7 +134,7 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
                       'block w-full rounded-[var(--ds-radius-md)] border bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs text-[var(--ds-color-text-primary)] transition-all focus:border-[var(--ds-color-focus)] focus:outline-none focus:ring-2 focus:ring-[var(--ds-color-focus-ring)]',
                       justificationError
                         ? 'border-[color:var(--ds-color-danger-border)] bg-[color:var(--ds-color-danger-subtle)]/40'
-                        : 'border-[var(--ds-color-border-subtle)]',
+                        : 'border-[var(--ds-color-border-default)]',
                     )}
                     placeholder="Explique o motivo da resposta."
                   />
@@ -166,7 +166,7 @@ const ChecklistSection: React.FC<ChecklistSectionProps> = ({
                           { shouldValidate: true },
                         );
                       }}
-                      className="block w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs text-[var(--ds-color-text-primary)]"
+                      className="block w-full rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-xs text-[var(--ds-color-text-primary)]"
                     />
                     <p className="mt-1 text-[11px] text-[var(--color-text-muted)]">
                       {field.anexo_nome ? `Arquivo selecionado: ${field.anexo_nome}` : 'Nenhum ficheiro selecionado — PDF, JPG ou PNG até 5 MB'}

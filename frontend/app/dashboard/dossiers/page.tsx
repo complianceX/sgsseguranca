@@ -358,7 +358,7 @@ export default function DossiersPage() {
     return (
       <div className="ds-system-scope">
         <div className="ds-surface-card p-4">
-          <p className="text-sm text-[var(--ds-color-text-secondary)]">Carregando permissoes...</p>
+          <p className="text-sm text-[var(--ds-color-text-primary)]">Carregando permissoes...</p>
         </div>
       </div>
     );
@@ -369,7 +369,7 @@ export default function DossiersPage() {
       <div className="ds-system-scope">
         <div className="ds-surface-card p-4">
           <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Dossies de SST</h1>
-          <p className="mt-2 text-sm text-[var(--ds-color-text-secondary)]">
+          <p className="mt-2 text-sm text-[var(--ds-color-text-primary)]">
             Voce nao tem permissao para visualizar o fluxo de dossie.
           </p>
         </div>
@@ -381,7 +381,7 @@ export default function DossiersPage() {
     <div className="ds-system-scope space-y-6">
       <div className="rounded-xl border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] p-4 shadow-[var(--ds-shadow-sm)]">
         <h1 className="text-2xl font-bold text-[var(--ds-color-text-primary)]">Dossies de SST</h1>
-        <p className="text-[var(--ds-color-text-secondary)]">
+        <p className="text-[var(--ds-color-text-primary)]">
           Geração automatica de PDF oficial e pacote ZIP auditável por colaborador e obra/setor.
         </p>
       </div>
@@ -396,7 +396,7 @@ export default function DossiersPage() {
             value={userSearch}
             onChange={(e) => setUserSearch(e.target.value)}
             disabled={loading}
-            className="mt-3 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-3 w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none transition focus:border-[var(--ds-color-action-primary)]"
             placeholder="Buscar colaborador por nome ou CPF"
           />
           <select
@@ -412,7 +412,7 @@ export default function DossiersPage() {
               );
             }}
             disabled={loading}
-            className="mt-3 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-3 w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none transition focus:border-[var(--ds-color-action-primary)]"
           >
             <option value="">Selecione um colaborador</option>
             {availableUsers.map((item) => (
@@ -434,7 +434,7 @@ export default function DossiersPage() {
             type="button"
             onClick={() => void downloadEmployeeBundle()}
             disabled={loading || downloading !== null}
-            className="mt-3 flex w-full items-center justify-center rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
+            className="mt-3 flex w-full items-center justify-center rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
           >
             <Archive className="mr-2 h-4 w-4" />
             {downloading === 'employee-bundle'
@@ -452,7 +452,7 @@ export default function DossiersPage() {
             value={siteSearch}
             onChange={(e) => setSiteSearch(e.target.value)}
             disabled={loading}
-            className="mt-3 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-3 w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none transition focus:border-[var(--ds-color-action-primary)]"
             placeholder="Filtrar obra/setor"
           />
           <select
@@ -468,7 +468,7 @@ export default function DossiersPage() {
               );
             }}
             disabled={loading}
-            className="mt-3 w-full rounded-md border px-3 py-2 text-sm"
+            className="mt-3 w-full rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm text-[var(--ds-color-text-primary)] outline-none transition focus:border-[var(--ds-color-action-primary)]"
           >
             <option value="">Selecione uma obra/setor</option>
             {availableSites.map((item) => (
@@ -490,7 +490,7 @@ export default function DossiersPage() {
             type="button"
             onClick={() => void downloadSiteBundle()}
             disabled={loading || downloading !== null}
-            className="mt-3 flex w-full items-center justify-center rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-medium text-[var(--ds-color-text-secondary)] hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
+            className="mt-3 flex w-full items-center justify-center rounded-md border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)] px-3 py-2 text-sm font-medium text-[var(--ds-color-text-primary)] hover:bg-[var(--ds-color-surface-muted)] disabled:opacity-60"
           >
             <Archive className="mr-2 h-4 w-4" />
             {downloading === 'site-bundle'
@@ -508,7 +508,7 @@ export default function DossiersPage() {
               Política de inclusão oficial
             </p>
           </div>
-          <div className="mt-4 space-y-3 text-sm text-[var(--ds-color-text-secondary)]">
+          <div className="mt-4 space-y-3 text-sm text-[var(--ds-color-text-primary)]">
             <p>
               Documentos oficiais entram no dossiê somente quando já existem no registry governado com PDF final válido.
             </p>
@@ -529,7 +529,7 @@ export default function DossiersPage() {
             Prévia do recorte atual
           </p>
           {activePreviewLoading ? (
-            <p className="mt-3 text-sm text-[var(--ds-color-text-secondary)]">Atualizando contexto do dossiê...</p>
+            <p className="mt-3 text-sm text-[var(--ds-color-text-primary)]">Atualizando contexto do dossiê...</p>
           ) : activePreviewError ? (
             <div className="mt-4 rounded-lg border border-[var(--ds-color-danger-border)] bg-[var(--ds-color-danger-subtle)] px-3 py-3 text-sm text-[var(--ds-color-danger)]">
               <p className="font-semibold text-[var(--ds-color-danger)]">Prévia indisponível</p>
@@ -577,7 +577,7 @@ export default function DossiersPage() {
               )}
             </div>
           ) : (
-            <p className="mt-3 text-sm text-[var(--ds-color-text-secondary)]">
+            <p className="mt-3 text-sm text-[var(--ds-color-text-primary)]">
               Selecione um colaborador ou uma obra/setor para pré-visualizar o recorte governado do dossiê.
             </p>
           )}

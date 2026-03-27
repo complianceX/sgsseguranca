@@ -42,13 +42,13 @@ export function PtPreApprovalHistoryPanel({
 
       <CardContent className="mt-0 space-y-3">
         {loading ? (
-          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3 text-sm text-[var(--ds-color-text-primary)]">
             Carregando histórico de pré-liberação...
           </div>
         ) : null}
 
         {!loading && entries.length === 0 ? (
-          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3 text-sm text-[var(--ds-color-text-secondary)]">
+          <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-3 text-sm text-[var(--ds-color-text-primary)]">
             Nenhuma pré-liberação auditável foi registrada para esta PT ainda.
           </div>
         ) : null}
@@ -62,7 +62,7 @@ export function PtPreApprovalHistoryPanel({
             return (
               <div
                 key={entry.id}
-                className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-4"
+                className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/40 px-4 py-4"
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="space-y-2">
@@ -79,7 +79,7 @@ export function PtPreApprovalHistoryPanel({
                     <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                       {actorName}
                     </p>
-                    <p className="text-sm text-[var(--ds-color-text-secondary)]">
+                    <p className="text-sm text-[var(--ds-color-text-primary)]">
                       {format(new Date(entry.createdAt), "dd/MM/yyyy 'às' HH:mm", {
                         locale: ptBR,
                       })}
@@ -102,7 +102,7 @@ export function PtPreApprovalHistoryPanel({
                     {entry.blockers.map((blocker) => (
                       <div
                         key={blocker}
-                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
+                        className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-2 text-sm text-[var(--ds-color-text-primary)]"
                       >
                         {blocker}
                       </div>
@@ -116,7 +116,7 @@ export function PtPreApprovalHistoryPanel({
 
                 {entry.checklist ? (
                   <div className="mt-4 space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-muted)]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                       Checklist final do aprovador
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -153,8 +153,8 @@ export function PtPreApprovalHistoryPanel({
 
 function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-2 text-[var(--ds-color-text-primary)]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-muted)]">
+    <div className="rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[color:var(--ds-color-surface-muted)]/20 px-3 py-2 text-[var(--ds-color-text-primary)]">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--ds-color-text-secondary)]">
         {label}
       </p>
       <p className="mt-2 text-sm font-semibold">{value}</p>

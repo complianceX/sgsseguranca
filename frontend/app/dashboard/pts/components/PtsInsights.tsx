@@ -29,7 +29,7 @@ export const PtsInsights = React.memo(({ insights }: PtsInsightsProps) => {
     <Card
       tone="muted"
       padding="md"
-      className="border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]"
+      className="border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-base)]"
     >
       <CardHeader className="gap-2">
         <div className="flex items-center gap-2">
@@ -46,7 +46,7 @@ export const PtsInsights = React.memo(({ insights }: PtsInsightsProps) => {
         {insights.map((insight, idx) => (
           <div
             key={idx}
-            className="flex items-start gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/38 p-4"
+            className="flex items-start gap-3 rounded-[var(--ds-radius-md)] border border-[var(--ds-color-border-default)] bg-[var(--ds-color-surface-muted)]/38 p-4"
           >
             <div
               className={cn(
@@ -66,7 +66,7 @@ export const PtsInsights = React.memo(({ insights }: PtsInsightsProps) => {
               <p className="text-sm font-semibold text-[var(--ds-color-text-primary)]">
                 {insight.title}
               </p>
-              <p className="text-xs leading-5 text-[var(--ds-color-text-muted)]">
+              <p className="text-xs leading-5 text-[var(--ds-color-text-primary)]">
                 {insight.message}
               </p>
             </div>
