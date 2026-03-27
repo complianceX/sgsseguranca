@@ -17,9 +17,22 @@ import type { AprFormData, AprRiskRowData } from "./aprForm.schema";
 import { useAprCalculations } from "./useAprCalculations";
 
 export const APR_RISK_GRID_LAYOUT_CLASS =
-  "grid-cols-1 gap-3 md:grid-cols-2 xl:min-w-[1920px] xl:grid-cols-[84px_minmax(220px,1.2fr)_minmax(170px,0.9fr)_minmax(190px,1fr)_minmax(190px,1fr)_minmax(190px,1fr)_118px_118px_148px_176px_minmax(280px,1.2fr)_120px]";
+  "grid-cols-1 gap-3 md:grid-cols-2 xl:min-w-[1520px] xl:gap-2 xl:grid-cols-[72px_minmax(150px,1.1fr)_minmax(138px,0.88fr)_minmax(148px,0.95fr)_minmax(148px,0.95fr)_minmax(148px,0.95fr)_90px_90px_120px_120px_minmax(200px,1fr)_78px]";
 
 type RiskRowCompleteness = "complete" | "partial" | "empty";
+
+function getPriorityShortLabel(priority?: string) {
+  switch (priority) {
+    case "Prioridade básica":
+      return "Basica";
+    case "Prioridade preferencial":
+      return "Preferencial";
+    case "Prioridade máxima":
+      return "Maxima";
+    default:
+      return "Sem prioridade";
+  }
+}
 
 function getRiskRowCompleteness(item: AprRiskRowData | undefined): RiskRowCompleteness {
   if (!item) return "empty";
@@ -351,14 +364,14 @@ export const AprRiskRow = React.memo(function AprRiskRow({
         </GridField>
 
         <GridField label="Categoria">
-          <div className="flex min-h-[42px] flex-col justify-center rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2">
+          <div className="flex min-h-[42px] flex-col justify-center rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-2">
             <span
               className={cn(
-                "inline-flex w-fit rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                "inline-flex max-w-full truncate rounded-full px-2.5 py-1 text-[11px] font-semibold",
                 getCategoriaBadgeClass(calc.categoria),
               )}
             >
-              {calc.categoria || "Aguardando P x S"}
+              {calc.categoria || "Aguardando"}
             </span>
             <span className="mt-1 text-[11px] font-medium text-[var(--ds-color-text-secondary)]">
               Score {calc.score || "-"}
@@ -367,17 +380,17 @@ export const AprRiskRow = React.memo(function AprRiskRow({
         </GridField>
 
         <GridField label="Prioridade">
-          <div className="flex min-h-[42px] flex-col justify-center rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-3 py-2">
+          <div className="flex min-h-[42px] flex-col justify-center rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)] px-2.5 py-2">
             <span
               className={cn(
-                "inline-flex w-fit rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                "inline-flex max-w-full truncate rounded-full px-2.5 py-1 text-[11px] font-semibold",
                 getPrioridadeBadgeClass(calc.prioridade),
               )}
             >
-              {calc.prioridade || "Sem prioridade"}
+              {getPriorityShortLabel(calc.prioridade)}
             </span>
-            <span className="mt-1 line-clamp-2 text-[11px] text-[var(--ds-color-text-secondary)]">
-              {calc.actionCriteria || "Selecione probabilidade e severidade para gerar o critério de ação."}
+            <span className="mt-1 truncate text-[11px] text-[var(--ds-color-text-secondary)]">
+              {calc.score ? `Score ${calc.score}` : "Aguardando P x S"}
             </span>
           </div>
         </GridField>
@@ -435,7 +448,7 @@ export const AprRiskRow = React.memo(function AprRiskRow({
 
         {isRowExpanded && (
           <div className="md:col-span-2 xl:col-[2/-1]">
-            <div className="grid gap-3 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/76 px-4 py-3 lg:grid-cols-[minmax(240px,1.1fr)_minmax(220px,0.95fr)_150px_170px]">
+            <div className="grid gap-3 rounded-[var(--ds-radius-xl)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-base)]/76 px-4 py-3 lg:grid-cols-[minmax(220px,1.05fr)_minmax(200px,0.95fr)_140px_160px]">
               <div className="rounded-[var(--ds-radius-lg)] border border-[var(--ds-color-border-subtle)] bg-[var(--ds-color-surface-muted)]/22 px-3 py-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--ds-color-text-secondary)]">
                   Critério de ação

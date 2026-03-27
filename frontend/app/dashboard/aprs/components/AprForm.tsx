@@ -3926,7 +3926,7 @@ function SectionGrid({
     indigo:
       "bg-[color:var(--ds-color-info-subtle)] text-[var(--color-info)] border-[var(--ds-color-info-border)]",
     violet:
-      "bg-[color:var(--ds-color-accent-subtle)] text-[var(--color-secondary)] border-[var(--ds-color-accent-border)]",
+      "bg-[#f5f1ff] text-[#5a3f92] border-[#cfc2ef]",
   };
 
   const selectedColorClasses: Record<string, string> = {
@@ -3939,7 +3939,7 @@ function SectionGrid({
     indigo:
       "bg-[var(--color-info)] text-[var(--color-text-inverse)] border-transparent",
     violet:
-      "bg-[var(--color-secondary)] text-[var(--color-text-inverse)] border-transparent",
+      "border-[#6d4bb3] bg-[#6d4bb3] text-white shadow-[0_10px_20px_rgba(109,75,179,0.18)]",
   };
 
   return (
@@ -3966,7 +3966,7 @@ function SectionGrid({
               type="button"
               onClick={() => onToggle(item.id)}
               className={cn(
-                "relative flex min-h-[64px] flex-col items-center justify-center rounded-xl border p-3.5 text-center text-sm font-semibold leading-snug transition-all hover:scale-[1.01] active:scale-[0.99]",
+                "relative flex min-h-[64px] flex-col items-center justify-center rounded-xl border p-3.5 text-center text-sm font-semibold leading-snug transition-all hover:scale-[1.01] hover:shadow-sm active:scale-[0.99]",
                 isSelected ? selectedColorClasses[color] : colorClasses[color],
               )}
             >
