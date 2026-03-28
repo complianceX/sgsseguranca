@@ -236,6 +236,22 @@ describe('AprsPdfService', () => {
       expect.stringContaining('class="overview-grid"'),
       expect.any(Object),
     );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('.label-chip--activity'),
+      expect.any(Object),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('.label-chip--control'),
+      expect.any(Object),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('.meta-label--probability'),
+      expect.any(Object),
+    );
+    expect(pdfService.generateFromHtml).toHaveBeenCalledWith(
+      expect.stringContaining('.meta-label--severity'),
+      expect.any(Object),
+    );
     expect(documentStorageService.uploadFile).toHaveBeenCalledWith(
       'documents/company-1/aprs/apr-1/apr-final.pdf',
       expect.any(Buffer),

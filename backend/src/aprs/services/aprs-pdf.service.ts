@@ -508,13 +508,28 @@ export class AprsPdfService {
             <div class="risk-card__header">
               <div class="risk-card__identity">
                 <div class="risk-card__line">Risco ${this.escapeHtml(item.ordem + 1)}</div>
+                <div class="risk-card__label-row">
+                  <span class="label-chip label-chip--activity">Atividade</span>
+                </div>
                 <div class="risk-card__headline">${this.escapeHtml(item.atividade || 'Atividade não informada')}</div>
               </div>
               <div class="risk-card__matrix">
-                <div class="meta-label">Matriz P x S</div>
+                <div class="risk-card__matrix-title">
+                  <span class="label-chip label-chip--matrix">Matriz P x S</span>
+                </div>
                 <div class="risk-score risk-score--${this.escapeHtml(riskTone)}">
                   <strong>${this.escapeHtml(item.score_risco ?? '-')}</strong>
                   <span>P ${this.escapeHtml(item.probabilidade ?? '-')} · S ${this.escapeHtml(item.severidade ?? '-')}</span>
+                </div>
+                <div class="risk-matrix-breakdown">
+                  <div class="risk-mini risk-mini--probability">
+                    <div class="meta-label meta-label--probability">Probabilidade</div>
+                    <strong>${this.escapeHtml(item.probabilidade ?? '-')}</strong>
+                  </div>
+                  <div class="risk-mini risk-mini--severity">
+                    <div class="meta-label meta-label--severity">Severidade</div>
+                    <strong>${this.escapeHtml(item.severidade ?? '-')}</strong>
+                  </div>
                 </div>
               </div>
             </div>
@@ -536,8 +551,8 @@ export class AprsPdfService {
                 <div class="meta-label">Agente ambiental</div>
                 <div class="risk-field__value">${this.escapeHtml(item.agente_ambiental || '-')}</div>
               </div>
-              <div class="risk-field">
-                <div class="meta-label">Condição perigosa</div>
+              <div class="risk-field risk-field--danger">
+                <div class="label-chip label-chip--danger">Perigos</div>
                 <div class="risk-field__value">${this.escapeHtml(item.condicao_perigosa || '-')}</div>
               </div>
               <div class="risk-field">
@@ -551,7 +566,7 @@ export class AprsPdfService {
             </div>
 
             <div class="risk-plan risk-plan--${this.escapeHtml(planTone)}">
-              <div class="meta-label">Plano de ação e medidas de prevenção</div>
+              <div class="label-chip label-chip--control">Medidas de controle</div>
               <div class="risk-plan__content">${this.escapeHtml(item.medidas_prevencao || 'Sem medida preventiva cadastrada.')}</div>
             </div>
 
@@ -604,6 +619,16 @@ export class AprsPdfService {
               --critical-soft: color-mix(in srgb, #b3261e 10%, white 90%);
               --info: #145f9c;
               --info-soft: color-mix(in srgb, #145f9c 10%, white 90%);
+              --activity-accent: var(--info);
+              --activity-accent-soft: color-mix(in srgb, #145f9c 12%, white 88%);
+              --danger-accent: var(--critical);
+              --danger-accent-soft: color-mix(in srgb, #b3261e 10%, white 90%);
+              --probability-accent: var(--warning);
+              --probability-accent-soft: color-mix(in srgb, #9a5a00 12%, white 88%);
+              --severity-accent: var(--alert);
+              --severity-accent-soft: color-mix(in srgb, #b65e00 12%, white 88%);
+              --control-accent: var(--success);
+              --control-accent-soft: color-mix(in srgb, #1d6b43 11%, white 89%);
             }
             * {
               box-sizing: border-box;
@@ -672,6 +697,45 @@ export class AprsPdfService {
               font-weight: 800;
               letter-spacing: 0.1em;
               text-transform: uppercase;
+            }
+            .meta-label--probability {
+              color: var(--probability-accent);
+            }
+            .meta-label--severity {
+              color: var(--severity-accent);
+            }
+            .label-chip {
+              display: inline-flex;
+              align-items: center;
+              padding: 3px 8px;
+              border-radius: 999px;
+              border: 1px solid var(--line);
+              font-size: 8px;
+              font-weight: 900;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              background: var(--surface);
+              color: var(--ink);
+            }
+            .label-chip--activity {
+              background: var(--activity-accent-soft);
+              border-color: rgba(20, 95, 156, 0.2);
+              color: var(--activity-accent);
+            }
+            .label-chip--matrix {
+              background: #f2efe9;
+              border-color: rgba(92, 86, 80, 0.15);
+              color: var(--neutral);
+            }
+            .label-chip--danger {
+              background: var(--danger-accent-soft);
+              border-color: rgba(179, 38, 30, 0.18);
+              color: var(--danger-accent);
+            }
+            .label-chip--control {
+              background: var(--control-accent-soft);
+              border-color: rgba(29, 107, 67, 0.18);
+              color: var(--control-accent);
             }
             .meta-value {
               margin-top: 4px;
@@ -870,6 +934,9 @@ export class AprsPdfService {
               font-weight: 900;
               color: var(--ink);
             }
+            .risk-card__label-row {
+              margin-top: 4px;
+            }
             .risk-card__matrix {
               width: 102px;
               flex-shrink: 0;
@@ -899,6 +966,38 @@ export class AprsPdfService {
               font-weight: 800;
               letter-spacing: 0.06em;
               text-transform: uppercase;
+            }
+            .risk-card__matrix-title {
+              margin-bottom: 2px;
+            }
+            .risk-matrix-breakdown {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 5px;
+              margin-top: 6px;
+            }
+            .risk-mini {
+              border: 1px solid var(--line);
+              border-radius: 8px;
+              padding: 6px 5px;
+              background: var(--surface);
+            }
+            .risk-mini strong {
+              display: block;
+              margin-top: 3px;
+              font-size: 12px;
+              line-height: 1;
+              font-weight: 900;
+            }
+            .risk-mini--probability {
+              background: var(--probability-accent-soft);
+              border-color: rgba(154, 90, 0, 0.16);
+              color: var(--probability-accent);
+            }
+            .risk-mini--severity {
+              background: var(--severity-accent-soft);
+              border-color: rgba(182, 94, 0, 0.16);
+              color: var(--severity-accent);
             }
             .risk-score--success {
               border-color: rgba(29, 107, 67, 0.18);
@@ -948,6 +1047,10 @@ export class AprsPdfService {
               border-radius: 10px;
               padding: 8px 9px;
               background: var(--surface-soft);
+            }
+            .risk-field--danger {
+              background: var(--danger-accent-soft);
+              border-color: rgba(179, 38, 30, 0.18);
             }
             .risk-field__value {
               margin-top: 4px;
