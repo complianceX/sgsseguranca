@@ -3,6 +3,12 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 const MAX_PDF_SIZE = 25 * 1024 * 1024; // 25MB
 const MAX_EMAIL_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB
 const MIN_PDF_SIZE = 100; // 100 bytes
+const DANGEROUS_PDF_ACTION_KEYWORDS = [
+  '/JavaScript',
+  '/JS',
+  '/Launch',
+  '/OpenAction',
+] as const;
 
 @Injectable()
 export class PdfValidatorService {
@@ -55,7 +61,8 @@ export class PdfValidatorService {
     }
 
     // Verificação de segurança: Conteúdo malicioso
-    if (this.hasSuspiciousContent(buffer)) {
+    const suspiciousKeyword = this.findSuspiciousContent(buffer);
+    if (suspiciousKeyword) {
       throw new BadRequestException(
         'PDF rejeitado: Contém scripts ou ações automáticas não permitidas (/JavaScript, /Launch, etc).',
       );
@@ -66,23 +73,19 @@ export class PdfValidatorService {
     );
   }
 
-  private hasSuspiciousContent(buffer: Buffer): boolean {
-    // Keywords que indicam scripts ou ações automáticas que podem ser maliciosas
-    const suspiciousKeywords = [
-      '/JavaScript',
-      '/JS',
-      '/Launch',
-      '/OpenAction',
-      '/AA', // Additional Actions
-    ];
+  private findSuspiciousContent(buffer: Buffer): string | null {
+    const pdfText = buffer.toString('latin1');
 
-    for (const keyword of suspiciousKeywords) {
-      if (buffer.includes(keyword)) {
+    for (const keyword of DANGEROUS_PDF_ACTION_KEYWORDS) {
+      if (pdfText.includes(keyword)) {
         this.logger.warn(`PDF contém conteúdo suspeito: ${keyword}`);
-        return true;
+        return keyword;
       }
     }
-    return false;
+
+    // /AA (Additional Actions) sozinho é amplo demais e gera falso positivo
+    // em PDFs legítimos, inclusive os produzidos pelo Chromium.
+    return null;
   }
 
   validateHtmlContent(html: string): void {
